@@ -1,0 +1,44 @@
+# Scale performance harness: 100k-row budgets for search, migration, paging,
+# and purge. Nightly + manual — seeding 100k rows does not belong in the
+# <10-minute PR loop; serious regressions still fail loudly here.
+name: Performance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 7 * * *" # daily 07:30 UTC
+
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    name: Scale budgets (100k clips)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record toolchain
+        run: |
+          {
+            echo "### Toolchain"
+            sw_vers
+            swift --version
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: Packages/GanchoKit/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift') }}
+
+      - name: Run performance harness
+        run: |
+          make bench 2>&1 | tee bench.log
+          {
+            echo "### Performance trends"
+            echo '```'
+            grep '^perf:' bench.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
