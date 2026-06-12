@@ -17,6 +17,21 @@
     /// from the main actor. Rapid changes coalesce: a newer change cancels the
     /// in-flight read because the pasteboard only ever exposes its latest
     /// content — delivering a stale read would mislabel it.
+    /// What the monitor is doing right now — surfaced so Settings and the
+    /// Privacy Center can tell the user WHY capture is not running.
+    public enum MonitorStatus: Sendable, Equatable {
+        case stopped
+        case running
+        /// Private mode — user-requested pause (`CapturePreferences`).
+        case pausedByUser
+        /// Screen locked; resumes alone on unlock.
+        case pausedByScreenLock
+        /// OS pasteboard permission is Deny: reads return nil, so polling
+        /// would burn CPU for nothing. The user must change the permission
+        /// in System Settings (deep-linked from the Privacy Center).
+        case deniedByPrivacySettings
+    }
+
     @MainActor
     public final class MacPasteboardMonitor: PasteboardObserving {
         /// Private marker type for Gancho's own pasteboard writes.
@@ -28,26 +43,56 @@
         /// Scheduling knobs; replaceable in tests and Settings experiments.
         public var policy: AdaptivePollingPolicy
 
+        /// User capture knobs. Entering private mode pauses; leaving it
+        /// resynchronizes so nothing copied while paused is captured.
+        public var preferences: CapturePreferences {
+            didSet {
+                guard preferences.isPrivateModePaused != oldValue.isPrivateModePaused else {
+                    return
+                }
+                if !preferences.isPrivateModePaused {
+                    discardChangesWhilePaused()
+                }
+            }
+        }
+
+        public private(set) var status: MonitorStatus = .stopped
+
         private let reader: any PasteboardReading
         private let activity: any UserActivitySource
+        private let accessPolicy: any PasteboardAccessPolicy
         private var pollTask: Task<Void, Never>?
         private var pendingRead: Task<Void, Never>?
         private var lastChangeCount: Int
+        /// True while paused (lock or private mode); the first turn after
+        /// resuming discards whatever happened to the pasteboard meanwhile.
+        private var wasPaused = false
 
         public init(
             reader: any PasteboardReading = NSPasteboardReader(),
             activity: any UserActivitySource = SystemUserActivitySource(),
-            policy: AdaptivePollingPolicy = AdaptivePollingPolicy()
+            accessPolicy: any PasteboardAccessPolicy = SystemPasteboardAccessPolicy(),
+            policy: AdaptivePollingPolicy = AdaptivePollingPolicy(),
+            preferences: CapturePreferences = CapturePreferences()
         ) {
             self.reader = reader
             self.activity = activity
+            self.accessPolicy = accessPolicy
             self.policy = policy
+            self.preferences = preferences
             // Start from the current count: history begins at launch, by design.
             lastChangeCount = reader.currentChangeCount()
         }
 
         public func start() {
             guard pollTask == nil else { return }
+            // Privacy-spike decision: under Deny, reads return nil silently —
+            // do not poll, surface the state instead.
+            guard accessPolicy.currentVerdict() != .denied else {
+                status = .deniedByPrivacySettings
+                return
+            }
+            status = .running
             pollTask = Task { [weak self] in
                 while !Task.isCancelled {
                     guard let self else { return }
@@ -62,6 +107,20 @@
             pollTask = nil
             pendingRead?.cancel()
             pendingRead = nil
+            status = .stopped
+        }
+
+        /// Re-evaluates the OS pasteboard permission (e.g. after the user
+        /// visits System Settings from the Privacy Center) and starts or
+        /// stops accordingly.
+        public func recheckAccess() {
+            let verdict = accessPolicy.currentVerdict()
+            if verdict == .denied {
+                stop()
+                status = .deniedByPrivacySettings
+            } else if pollTask == nil {
+                start()
+            }
         }
 
         /// One scheduler turn: resolve the mode, poll unless paused, return
@@ -70,13 +129,30 @@
             let mode = policy.mode(
                 secondsSinceLastUserInput: activity.secondsSinceLastUserInput(),
                 isScreenLocked: activity.isScreenLocked())
-            if mode != .paused {
-                pollOnce()
+
+            if preferences.isPrivateModePaused {
+                status = .pausedByUser
+                wasPaused = true
+                return policy.interval(for: .paused)
             }
+            if mode == .paused {
+                status = .pausedByScreenLock
+                wasPaused = true
+                return policy.interval(for: .paused)
+            }
+
+            if wasPaused {
+                // Privacy rule: whatever landed on the pasteboard while we
+                // were paused is NOT history. Resync without reading.
+                discardChangesWhilePaused()
+            }
+            status = .running
+            pollOnce()
             return policy.interval(for: mode)
         }
 
-        /// Detect → veto → schedule the off-main read. Internal for tests.
+        /// Detect → veto → preference filter → schedule the off-main read.
+        /// Internal for tests.
         func pollOnce() {
             let count = reader.currentChangeCount()
             guard count != lastChangeCount else { return }
@@ -89,10 +165,29 @@
                 !types.contains(Self.selfWriteMarker.rawValue)
             else { return }
 
+            // Preference pre-filter: image-only / file-only changes the user
+            // opted out of are skipped before any content read.
+            let hasText = types.contains("public.utf8-plain-text")
+            let isImageOnly =
+                !hasText && !types.isDisjoint(with: ["public.png", "public.tiff"])
+            let isFileOnly = !hasText && types.contains("public.file-url")
+            if (isImageOnly && !preferences.captureImages)
+                || (isFileOnly && !preferences.captureFileReferences)
+            {
+                return
+            }
+
             scheduleRead(
                 isFromUniversalClipboard: types.contains(
                     SensitivePasteboardTypes.remoteClipboard),
                 sourceAppBundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+        }
+
+        /// Forgets pasteboard changes that happened while capture was paused
+        /// (private mode or screen lock) — metadata-only, nothing is read.
+        private func discardChangesWhilePaused() {
+            lastChangeCount = reader.currentChangeCount()
+            wasPaused = false
         }
 
         /// Replaces any in-flight read: the pasteboard only exposes its latest
@@ -102,14 +197,39 @@
         private func scheduleRead(isFromUniversalClipboard: Bool, sourceAppBundleID: String?) {
             pendingRead?.cancel()
             let reader = self.reader
+            let preferences = self.preferences
             pendingRead = Task { [weak self] in
                 let payload = await Self.readDetached(reader)
-                guard !Task.isCancelled, let payload else { return }
+                guard !Task.isCancelled, let payload,
+                    let filtered = Self.apply(preferences, to: payload)
+                else { return }
                 self?.onCapture?(
                     PasteboardCapture(
-                        payload: payload,
+                        payload: filtered,
                         sourceAppBundleID: sourceAppBundleID,
                         isFromUniversalClipboard: isFromUniversalClipboard))
+            }
+        }
+
+        /// Post-read safety net for mixed-representation items: drops or
+        /// degrades payloads the preferences exclude (rich text falls back
+        /// to its plain companion rather than disappearing).
+        static func apply(
+            _ preferences: CapturePreferences, to payload: PasteboardCapture.Payload
+        ) -> PasteboardCapture.Payload? {
+            switch payload {
+            case .image where !preferences.captureImages:
+                return nil
+            case .fileReferences where !preferences.captureFileReferences:
+                return nil
+            case .richText(_, let plain) where !preferences.captureRichText:
+                guard let plain, !plain.isEmpty else { return nil }
+                return .text(plain)
+            case .html(_, let plain) where !preferences.captureRichText:
+                guard let plain, !plain.isEmpty else { return nil }
+                return .text(plain)
+            default:
+                return payload
             }
         }
 
