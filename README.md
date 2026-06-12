@@ -22,6 +22,7 @@ Prerequisites: macOS 26+, Xcode 26+, [XcodeGen](https://github.com/yonaskolb/Xco
 ```bash
 git clone https://github.com/johnny4young/gancho.git
 cd gancho
+make hooks   # install the pre-commit lint hook
 make test    # package unit tests (Swift Testing)
 make open    # generate Gancho.xcodeproj and open Xcode
 ```
@@ -32,6 +33,7 @@ make open    # generate Gancho.xcodeproj and open Xcode
 | `make build` / `make build-ios` | Build the macOS / iOS app (unsigned Debug) |
 | `make test` | Run package unit tests |
 | `make format` / `make lint` | Format / verify Swift sources |
+| `make hooks` | Install the versioned git hooks (pre-commit lint) |
 | `make clean` | Remove generated project + build artifacts |
 
 ## Layout

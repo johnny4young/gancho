@@ -15,7 +15,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project build build-ios test format lint clean open
+.PHONY: help project build build-ios test format lint hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -39,6 +39,10 @@ format: ## Format Swift sources in place
 
 lint: ## Verify formatting without changing files
 	swift format lint --strict --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests
+
+hooks: ## Install the versioned git hooks (pre-commit lint)
+	git config core.hooksPath scripts/githooks
+	chmod +x scripts/githooks/*
 
 clean: ## Remove generated project and build artifacts
 	rm -rf Gancho.xcodeproj $(PACKAGE)/.build build DerivedData
