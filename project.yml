@@ -70,12 +70,20 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: Apps/GanchoiOS
+    entitlements:
+      path: Apps/GanchoiOS/Gancho.entitlements
+      properties:
+        # Shared with the share extension: capture handoff via SharedInbox.
+        com.apple.security.application-groups:
+          - group.com.johnny4young.gancho
     dependencies:
       - package: GanchoKit
         products:
           - GanchoKit
+          - ClipboardCore
           - GanchoAI
           - GanchoDesign
+      - target: GanchoShare
     info:
       path: Apps/GanchoiOS/Info.plist
       properties:
@@ -85,3 +93,37 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+
+  # Share-sheet capture: the only iOS path that works from inside other
+  # apps, and the loudest proof that capture is intent-only on iOS.
+  GanchoShare:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        # Embedded extensions must extend the PARENT app's bundle id.
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.GanchoiOS.share
+    sources:
+      - path: Apps/GanchoShare
+    entitlements:
+      path: Apps/GanchoShare/GanchoShare.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.johnny4young.gancho
+    dependencies:
+      - package: GanchoKit
+        products:
+          - ClipboardCore
+    info:
+      path: Apps/GanchoShare/Info.plist
+      properties:
+        CFBundleDisplayName: Save to Gancho
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsImageWithMaxCount: 1
