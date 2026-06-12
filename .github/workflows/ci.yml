@@ -6,6 +6,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
   schedule:
     - cron: "0 8 * * 1" # Mondays 08:00 UTC — image-drift canary
 
@@ -15,7 +16,7 @@ concurrency:
 
 jobs:
   test:
-    name: Lint & package tests
+    name: Lint, package tests & coverage
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,8 +39,26 @@ jobs:
       - name: Lint (swift-format)
         run: swift format lint --strict --recursive Apps Packages/GanchoKit/Sources Packages/GanchoKit/Tests
 
-      - name: Unit tests (Swift Testing)
-        run: swift test --package-path Packages/GanchoKit
+      - name: Unit tests (Swift Testing, coverage on)
+        run: swift test --package-path Packages/GanchoKit --enable-code-coverage
+
+      # Coverage gate over the package's Sources (Tests and generated code
+      # excluded). The threshold is a floor, not a target — raise it as the
+      # suite grows, never lower it to make a PR pass.
+      - name: Coverage gate (>70% lines)
+        run: |
+          BIN=$(swift build --package-path Packages/GanchoKit --show-bin-path)
+          PROFDATA="$BIN/codecov/default.profdata"
+          XCTEST=$(find "$BIN" -name '*.xctest' -maxdepth 1 | head -1)
+          BINARY="$XCTEST/Contents/MacOS/$(basename "$XCTEST" .xctest)"
+          TOTAL=$(xcrun llvm-cov export "$BINARY" \
+            -instr-profile "$PROFDATA" \
+            -ignore-filename-regex='(Tests|\.build)' \
+            -summary-only | jq '.data[0].totals.lines.percent')
+          printf '### Coverage\nLine coverage: %.1f%% (gate: 70%%)\n' "$TOTAL" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          awk -v t="$TOTAL" 'BEGIN { exit (t >= 70 ? 0 : 1) }' \
+            || { echo "::error::Line coverage ${TOTAL}% is below the 70% gate"; exit 1; }
 
   build-apps:
     name: Build macOS + iOS apps
@@ -58,9 +77,46 @@ jobs:
       - name: Build macOS app
         run: |
           xcodebuild -project Gancho.xcodeproj -scheme Gancho -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO build
+            -resultBundlePath build/mac.xcresult CODE_SIGNING_ALLOWED=NO build
 
       - name: Build iOS app
         run: |
           xcodebuild -project Gancho.xcodeproj -scheme GanchoiOS -configuration Debug \
-            -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+            -destination 'generic/platform=iOS' \
+            -resultBundlePath build/ios.xcresult CODE_SIGNING_ALLOWED=NO build
+
+      - name: Upload result bundles (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresults-${{ github.run_id }}
+          path: build/*.xcresult
+          retention-days: 7
+
+  # Forward-compat canary: build against the NEXT Xcode/SDK when the runner
+  # image carries a beta. Never blocking, never on PRs (weekly + manual only)
+  # — betas live exclusively on cloud runners, by repo policy.
+  sdk-next-canary:
+    name: Xcode beta canary (non-blocking)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode (betas included)
+        run: |
+          NEWEST=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Selected: $NEWEST" | tee -a "$GITHUB_STEP_SUMMARY"
+          sudo xcode-select -s "$NEWEST"
+          xcodebuild -version | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build everything against the newest SDK
+        run: |
+          xcodegen generate
+          swift test --package-path Packages/GanchoKit
+          xcodebuild -project Gancho.xcodeproj -scheme Gancho -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO build
