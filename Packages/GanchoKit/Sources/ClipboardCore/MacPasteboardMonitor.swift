@@ -40,8 +40,15 @@
 
         public var onCapture: ((PasteboardCapture) -> Void)?
 
+        /// Fires when a pasteboard change is deliberately NOT captured.
+        /// Reason + time only — never content (Privacy Center counters).
+        public var onIgnore: ((CaptureIgnoreReason) -> Void)?
+
         /// Scheduling knobs; replaceable in tests and Settings experiments.
         public var policy: AdaptivePollingPolicy
+
+        /// Source apps whose copies are vetoed before any read.
+        public var denylist = SourceAppDenylist()
 
         /// User capture knobs. Entering private mode pauses; leaving it
         /// resynchronizes so nothing copied while paused is captured.
@@ -61,27 +68,41 @@
         private let reader: any PasteboardReading
         private let activity: any UserActivitySource
         private let accessPolicy: any PasteboardAccessPolicy
+        private let frontmostApp: () -> String?
         private var pollTask: Task<Void, Never>?
         private var pendingRead: Task<Void, Never>?
         private var lastChangeCount: Int
         /// True while paused (lock or private mode); the first turn after
         /// resuming discards whatever happened to the pasteboard meanwhile.
         private var wasPaused = false
+        /// Armed by `ignoreNextCopy()`; consumed by the next change.
+        private var ignoreNextChange = false
 
         public init(
             reader: any PasteboardReading = NSPasteboardReader(),
             activity: any UserActivitySource = SystemUserActivitySource(),
             accessPolicy: any PasteboardAccessPolicy = SystemPasteboardAccessPolicy(),
             policy: AdaptivePollingPolicy = AdaptivePollingPolicy(),
-            preferences: CapturePreferences = CapturePreferences()
+            preferences: CapturePreferences = CapturePreferences(),
+            frontmostApp: @escaping () -> String? = {
+                NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            }
         ) {
             self.reader = reader
             self.activity = activity
             self.accessPolicy = accessPolicy
             self.policy = policy
             self.preferences = preferences
+            self.frontmostApp = frontmostApp
             // Start from the current count: history begins at launch, by design.
             lastChangeCount = reader.currentChangeCount()
+        }
+
+        /// Arms a one-shot skip: the next pasteboard change is discarded
+        /// without reading. Exposed in the menu bar and via shortcut so the
+        /// user can copy something sensitive with capture running.
+        public func ignoreNextCopy() {
+            ignoreNextChange = true
         }
 
         public func start() {
@@ -151,19 +172,35 @@
             return policy.interval(for: mode)
         }
 
-        /// Detect → veto → preference filter → schedule the off-main read.
-        /// Internal for tests.
+        /// Detect → vetoes (all metadata-only, all BEFORE any read) →
+        /// schedule the off-main read. Internal for tests.
         func pollOnce() {
             let count = reader.currentChangeCount()
             guard count != lastChangeCount else { return }
             lastChangeCount = count
 
+            // One-shot user skip ("ignore next copy").
+            if ignoreNextChange {
+                ignoreNextChange = false
+                onIgnore?(.userIgnoredNext)
+                return
+            }
+
             let types = reader.currentTypes()
             // Never store password-manager/transient/auto-generated content,
             // and never re-capture our own writes. Runs BEFORE any read.
-            guard SensitivePasteboardTypes.captureVeto.isDisjoint(with: types),
-                !types.contains(Self.selfWriteMarker.rawValue)
-            else { return }
+            guard !types.contains(Self.selfWriteMarker.rawValue) else { return }
+            guard SensitivePasteboardTypes.captureVeto.isDisjoint(with: types) else {
+                onIgnore?(.sensitiveType)
+                return
+            }
+
+            // Source-app denylist (password managers, banking) — metadata.
+            let sourceAppBundleID = frontmostApp()
+            guard !denylist.contains(sourceAppBundleID) else {
+                onIgnore?(.denylistedApp)
+                return
+            }
 
             // Preference pre-filter: image-only / file-only changes the user
             // opted out of are skipped before any content read.
@@ -174,13 +211,14 @@
             if (isImageOnly && !preferences.captureImages)
                 || (isFileOnly && !preferences.captureFileReferences)
             {
+                onIgnore?(.preferenceFiltered)
                 return
             }
 
             scheduleRead(
                 isFromUniversalClipboard: types.contains(
                     SensitivePasteboardTypes.remoteClipboard),
-                sourceAppBundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+                sourceAppBundleID: sourceAppBundleID)
         }
 
         /// Forgets pasteboard changes that happened while capture was paused
