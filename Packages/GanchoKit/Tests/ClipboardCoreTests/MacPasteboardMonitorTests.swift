@@ -253,7 +253,7 @@
             #expect(captures.map(\.textRepresentation) == ["second"])
         }
 
-        @Test("Paused mode skips polling entirely; unlock resumes it")
+        @Test("Paused mode skips polling entirely; unlock resumes capture")
         func pausedSkipsPolling() async {
             let pasteboard = FakePasteboard()
             let activity = FakeActivity()
@@ -268,10 +268,15 @@
             #expect(captures.isEmpty)
             #expect(pasteboard.readCalls == 0)
 
+            // Locked-screen copies are discarded by privacy policy
+            // (ProductionMonitorTests covers it); a fresh copy after unlock
+            // captures normally.
             activity.set(locked: false)
             _ = monitor.tick()
+            pasteboard.write(.text("after unlock"), types: ["public.utf8-plain-text"])
+            _ = monitor.tick()
             await waitForCaptures(monitor) { captures }
-            #expect(captures.map(\.textRepresentation) == ["while locked"])
+            #expect(captures.map(\.textRepresentation) == ["after unlock"])
         }
 
         @Test("Sustained churn neither drops deliveries nor accumulates state")
