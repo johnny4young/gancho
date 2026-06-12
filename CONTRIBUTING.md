@@ -18,5 +18,5 @@ make lint      # CI runs this with --strict
 
 Conventions live in [AGENTS.md](AGENTS.md). Architecture decisions live in
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Product scope and acceptance
-criteria live in the Notion backlog — every PR should reference a backlog ID
-(e.g. `E1.4`, `E13.2`).
+criteria are tracked in the maintainer's local planning docs (not committed) —
+PRs and commits describe the functionality they deliver.
