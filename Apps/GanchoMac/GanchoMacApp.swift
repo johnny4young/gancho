@@ -4,9 +4,10 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-/// Menu-bar shell (pre-alpha). The real panel (E6.1, Liquid Glass NSPanel with
-/// global hotkey) replaces this once spikes S0.1/S0.3 land; this shell exists
-/// so the target builds, runs, and proves the capture wiring end to end.
+/// Menu-bar shell (pre-alpha). The real panel (a Liquid Glass NSPanel with a
+/// global hotkey) replaces this once the privacy and capture spikes land; this
+/// shell exists so the target builds, runs, and proves the capture wiring end
+/// to end.
 @main
 struct GanchoMacApp: App {
     @State private var model = AppModel()

@@ -1,8 +1,8 @@
 import Foundation
 
-/// The sync boundary (backlog E3.1/E12.3): the core never talks to CloudKit
+/// The sync boundary: the core never talks to CloudKit
 /// directly. Production implementation is CKSyncEngine over the private
-/// database with encrypted fields (E4.1, validated by spike S0.2). Keeping
+/// database with encrypted fields (validated by the sync spike). Keeping
 /// this protocol thin is what makes a future LAN-P2P or self-hosted backend
 /// a new implementation instead of a rewrite.
 public protocol SyncEngine: Sendable {
