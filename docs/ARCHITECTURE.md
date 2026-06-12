@@ -1,8 +1,9 @@
 # Gancho — Architecture
 
 The product source of truth (vision, market, pricing, backlog with acceptance
-criteria) is the Notion page “Gancho — Smart Clipboard”. This document records
-the engineering decisions the code must respect.
+criteria) lives in the maintainer's local planning docs (`.planning/`,
+git-ignored). This document records the engineering decisions the code must
+respect.
 
 ## The two worlds
 
@@ -12,7 +13,8 @@ the engineering decisions the code must respect.
 | Entry | Automatic capture (macOS) / intent-based (iOS) | Promoted from a clip, or authored |
 | Contents | Everything you copy | Snippets, templates, pins |
 
-The bridge: *promote* a clip → snippet in one gesture (backlog E13.2).
+The bridge: *promote* a clip → snippet in one gesture (lands with the
+snippet library in v1.1).
 
 ## Layers
 
@@ -34,7 +36,8 @@ type (e.g. `MacPasteboardMonitor` is `@MainActor` because it touches AppKit).
 2. **GRDB (SQLite) + FTS5 for storage, CKSyncEngine for sync.** SwiftData +
    CloudKit is rejected for v1 (production evidence 2025–2026: schema lock-in,
    silent sync failures). Encrypted fields (`encryptedValues`) for content.
-   Validated by spikes S0.2/S0.3 before any schema is promoted.
+   Validated by dedicated storage and sync spikes before any schema is
+   promoted.
 3. **`SyncEngine` is a hard boundary.** The core never imports CloudKit.
    A future LAN-P2P or self-hosted backend is a new implementation, not a
    rewrite.
@@ -42,7 +45,7 @@ type (e.g. `MacPasteboardMonitor` is `@MainActor` because it touches AppKit).
    (`org.nspasteboard.*`) veto capture before any content is read. On iOS
    there are NO background pasteboard reads — share extension, UIPasteControl,
    and foreground prompts only. `NSPasteboard.accessBehavior` + detect APIs
-   integrate after spike S0.1 documents the macOS privacy-flag matrix.
+   integrate once the privacy spike documents the macOS privacy-flag matrix.
 5. **Tier-0 intelligence is deterministic and universal.** `RuleClassifier`
    runs on every device with zero network. Foundation Models (tier 1) and the
    `LanguageModel` protocol (tier 2: on-device → PCC → external, opt-in per
@@ -62,6 +65,7 @@ a future direct-download channel).
 
 ## Next steps (ordered)
 
-Spikes S0.1–S0.5 (see Notion backlog) → MVP epics E1/E3/E5/E6 (Mac core) →
-E2/E7 (iOS companion) → E4 (sync) → E8/E9/E10/E11 (monetization, privacy
-center, growth). Library (E13) lands in v1.1 on top of the same store/sync.
+Risk spikes (pasteboard privacy, storage, sync, semantic search, iOS capture)
+→ Mac core (capture, persistence + search, intelligence, UI) → iOS companion
+→ sync → monetization, privacy center, and growth. The snippet library lands
+in v1.1 on top of the same store/sync.

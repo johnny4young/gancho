@@ -5,8 +5,7 @@
 > *Gancho* means “hook” in Spanish: it’s where you hang everything you copy.
 > And when something *tiene gancho*, it hooks you.
 
-**Status: pre-alpha scaffold.** Product source of truth (vision, pricing,
-backlog with acceptance criteria) lives in Notion — “Gancho — Smart Clipboard”.
+**Status: pre-alpha scaffold.**
 
 ## The two worlds
 
@@ -53,7 +52,8 @@ docs/ARCHITECTURE.md  Decisions and layering
 - Swift 6 strict concurrency from commit 1; app modules default to `@MainActor`.
 - Minimum macOS 26 / iOS 26; SDK-27 APIs adopted behind `#available`.
 - Storage: GRDB (SQLite) + FTS5; sync: CKSyncEngine with encrypted fields —
-  never raw SwiftData+CloudKit. Arrives with spikes S0.2/S0.3.
+  never raw SwiftData+CloudKit. Validated by dedicated spikes before any
+  schema is promoted.
 - Privacy is a feature: sensitive pasteboard types are never stored; no
   clipboard content ever leaves the device to our servers (we have none).
 
