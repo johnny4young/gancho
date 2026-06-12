@@ -12,7 +12,9 @@ import GRDB
 /// - The store never imports CloudKit: sync goes through the `SyncEngine`
 ///   boundary, fed by the same records.
 public final class GRDBClipboardStore: ClipboardStore {
-    private let writer: any DatabaseWriter
+    /// Internal (not private) so same-module engines (retention, sync feed)
+    /// and the test harness can run statements without widening the API.
+    let writer: any DatabaseWriter
     private let blobs: BlobStore
 
     /// Production store at a directory (database + blobs side by side).
@@ -35,6 +37,50 @@ public final class GRDBClipboardStore: ClipboardStore {
     /// migrates automatically.
     public func migrate() throws {
         try migrator.migrate(writer)
+    }
+
+    /// Partial migration for the perf harness (e.g. populate at v1, then
+    /// measure the FTS index build that v2 performs over existing rows).
+    func migrate(upTo identifier: String) throws {
+        try migrator.migrate(writer, upTo: identifier)
+    }
+
+    /// Bulk insert in ONE transaction — importers and synthetic fixtures.
+    /// Skips dedupe on purpose: imports are presumed pre-deduplicated, and
+    /// per-row lookups would turn 100k inserts into minutes.
+    public func importBatch(_ entries: [(item: ClipItem, content: ClipContent?)]) async throws {
+        var rows: [ClipRow] = []
+        rows.reserveCapacity(entries.count)
+        for entry in entries {
+            var row = ClipRow(item: entry.item)
+            switch entry.content {
+            case .text(let text):
+                row.contentText = text
+            case .binary(let data, let typeIdentifier):
+                row.contentBlobHash = try blobs.write(data)
+                row.contentTypeIdentifier = typeIdentifier
+            case .fileReferences(let paths):
+                row.contentText = paths.joined(separator: "\n")
+                row.contentTypeIdentifier = "public.file-url"
+            case nil:
+                break
+            }
+            rows.append(row)
+        }
+        let finalRows = rows
+        try await writer.write { db in
+            for row in finalRows {
+                try row.insert(db)
+            }
+        }
+    }
+
+    /// Reclaims space after large deletes. Runs on GRDB's writer queue —
+    /// never the main thread; the retention engine calls it after purges.
+    public func vacuum() async throws {
+        try await writer.writeWithoutTransaction { db in
+            try db.execute(sql: "VACUUM")
+        }
     }
 
     private var migrator: DatabaseMigrator {
