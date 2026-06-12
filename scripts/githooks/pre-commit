@@ -1,0 +1,13 @@
+#!/bin/sh
+# Blocks commits that would fail the formatting gate CI enforces anyway.
+# Installed via `make hooks` (sets core.hooksPath to this directory).
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+
+echo "pre-commit: make lint"
+if ! make lint; then
+    echo ""
+    echo "pre-commit: lint failed — run 'make format' and re-stage." >&2
+    exit 1
+fi
