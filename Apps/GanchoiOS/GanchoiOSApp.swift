@@ -90,8 +90,9 @@ final class IOSAppModel {
                 contentHash: ClipItem.hash(of: data, kind: .image),
                 sourceAppBundleID: capture.sourceAppBundleID)
         default:
-            let text = capture.textRepresentation ?? ""
-            let kind = classifier.classify(text)
+            let raw = capture.textRepresentation ?? ""
+            let kind = classifier.classify(raw)
+            let text = ContentNormalizer.canonicalText(raw, kind: kind)
             return ClipItem(
                 kind: kind,
                 preview: String(text.prefix(120)),

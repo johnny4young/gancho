@@ -81,10 +81,25 @@ public final class GRDBClipboardStore: ClipboardStore {
             break
         }
         let finalRow = row
-        try await writer.write { db in
+        let stored = try await writer.write { db -> ClipRow in
+            // Dedupe key: contentHash + sourceDeviceName. The device matters:
+            // the same content synced FROM another device must keep its own
+            // row, or sync would ping-pong "moved to top" updates forever.
+            if var existing =
+                try ClipRow
+                .filter(Column("contentHash") == finalRow.contentHash)
+                .filter(Column("sourceDeviceName") == finalRow.sourceDeviceName)
+                .fetchOne(db)
+            {
+                existing.lastUsedAt = Date()
+                existing.updatedAt = Date()
+                try existing.update(db)
+                return existing
+            }
             try finalRow.insert(db)
+            return finalRow
         }
-        return item
+        return stored.item
     }
 
     public func items(offset: Int, limit: Int) async throws -> [ClipItem] {

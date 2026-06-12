@@ -63,8 +63,11 @@ final class AppModel {
             contentHash = ClipItem.hash(
                 of: urls.map(\.absoluteString).joined(separator: "\n"), kind: kind)
         default:
-            let text = capture.textRepresentation ?? ""
-            kind = classifier.classify(text)
+            let raw = capture.textRepresentation ?? ""
+            kind = classifier.classify(raw)
+            // Canonicalize BEFORE hashing so tracking params and rich-payload
+            // noise never defeat dedupe.
+            let text = ContentNormalizer.canonicalText(raw, kind: kind)
             preview = String(text.prefix(120))
             contentHash = ClipItem.hash(of: text, kind: kind)
         }

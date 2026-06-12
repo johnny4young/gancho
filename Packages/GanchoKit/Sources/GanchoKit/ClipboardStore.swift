@@ -49,7 +49,10 @@ public actor InMemoryClipboardStore: ClipboardStore {
 
     @discardableResult
     public func insert(_ item: ClipItem, content: ClipContent?) async throws -> ClipItem {
-        if let index = storage.firstIndex(where: { $0.contentHash == item.contentHash }) {
+        if let index = storage.firstIndex(where: {
+            $0.contentHash == item.contentHash
+                && $0.sourceDeviceName == item.sourceDeviceName
+        }) {
             var existing = storage.remove(at: index)
             existing.lastUsedAt = .now
             existing.updatedAt = .now
