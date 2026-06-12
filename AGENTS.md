@@ -4,9 +4,12 @@
   (it is generated and git-ignored). After changing `project.yml`, run
   `make project`.
 - **Swift 6 strict concurrency, no exceptions.** App targets default to
-  `@MainActor` (approachable concurrency). Engine-room packages
-  (`GanchoKit`, `ClipboardCore`, `GanchoAI`) are nonisolated + `Sendable`;
-  annotate isolation per type when a type genuinely needs it.
+  `@MainActor` (approachable concurrency). The engine-room modules of the
+  `Packages/GanchoKit` package (`GanchoKit`, `ClipboardCore`, `GanchoAI`,
+  `GanchoDesign`) are nonisolated + `Sendable`; annotate isolation per type
+  when a type genuinely needs it. They are targets of one SwiftPM package —
+  adding a new top-level package under `Packages/` also requires extending the
+  Makefile's `PACKAGE` wiring so the gates cover it.
 - **No deprecated APIs.** Minimum OS is macOS 26 / iOS 26; new SDK-27 APIs go
   behind `#available`. Do not install beta SDKs on work machines.
 - **Run `make format` before committing; `make lint` and `make test` must pass.**
