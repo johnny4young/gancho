@@ -1,7 +1,7 @@
 import Foundation
 import GanchoKit
 
-/// Tier-0 classifier (backlog E5.1): deterministic, <5ms, zero network,
+/// Tier-0 classifier: deterministic, <5ms, zero network,
 /// runs on every device — no Apple Intelligence required. Foundation Models
 /// (tier 1) builds on top of this; it never replaces it.
 public struct RuleClassifier: Sendable {

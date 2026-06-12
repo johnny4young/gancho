@@ -1,8 +1,8 @@
 import Foundation
 
 /// Persistence boundary for clip history. The production implementation is
-/// GRDB/SQLite + FTS5 (backlog E3.1/E3.2, validated by spike S0.2); the
-/// in-memory implementation below backs unit tests and previews.
+/// GRDB/SQLite + FTS5 (validated by the storage spike before any schema is
+/// promoted); the in-memory implementation below backs unit tests and previews.
 public protocol ClipboardStore: Sendable {
     /// Inserts a clip, deduplicating by `contentHash`: re-copying identical
     /// content moves the existing item to the top instead of duplicating it.
@@ -12,7 +12,8 @@ public protocol ClipboardStore: Sendable {
     func delete(id: UUID) async
 }
 
-/// Test/preview store. Newest first; dedupe-by-hash matches E1.3 semantics.
+/// Test/preview store. Newest first; dedupe-by-hash matches the capture
+/// semantics (re-copying identical content moves it to the top).
 public actor InMemoryClipboardStore: ClipboardStore {
     private var storage: [ClipItem] = []
 

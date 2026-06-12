@@ -3,7 +3,8 @@
     import Foundation
     import GanchoKit
 
-    /// macOS capture engine — spike S0.3 starter, hardened by backlog E1.1.
+    /// macOS capture engine — capture-spike starter; the capture-hardening
+    /// pass adds adaptive backoff and the pasteboard-privacy integration.
     ///
     /// Approach (inherited from years of Maccy/community practice, MIT):
     /// poll `NSPasteboard.general.changeCount` (cheap, reads no content); read
@@ -11,7 +12,7 @@
     /// reading anything else; mark our own writes with a private type to avoid
     /// self-capture loops.
     ///
-    /// TODO(S0.1): integrate `NSPasteboard.accessBehavior` checks + detect APIs
+    /// TODO: integrate `NSPasteboard.accessBehavior` checks + detect APIs
     /// before full reads once the privacy-flag matrix is documented.
     @MainActor
     public final class MacPasteboardMonitor: PasteboardObserving {
@@ -21,8 +22,9 @@
 
         public var onCapture: ((PasteboardCapture) -> Void)?
 
-        /// Polling cadence. Adaptive backoff (250ms active / 1–2s idle / paused on
-        /// screen lock) lands with E1.1; the scaffold uses a fixed interval.
+        /// Polling cadence. Adaptive backoff (250ms active / 1–2s idle / paused
+        /// on screen lock) comes with the capture-hardening pass; the scaffold
+        /// uses a fixed interval.
         public var pollInterval: Duration = .milliseconds(250)
 
         private var pollTask: Task<Void, Never>?
@@ -55,7 +57,7 @@
             lastChangeCount = count
 
             let types = Set((pasteboard.types ?? []).map(\.rawValue))
-            // Never store password-manager/transient/auto-generated content (E1.2),
+            // Never store password-manager/transient/auto-generated content,
             // and never re-capture our own writes.
             guard SensitivePasteboardTypes.captureVeto.isDisjoint(with: types),
                 !types.contains(Self.selfWriteMarker.rawValue)
