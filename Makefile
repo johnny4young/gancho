@@ -6,6 +6,15 @@ SCHEME_MAC ?= Gancho
 SCHEME_IOS ?= GanchoiOS
 PACKAGE ?= Packages/GanchoKit
 
+# When xcode-select points at CommandLineTools, `swift test` cannot find the
+# Swift Testing module and `xcodebuild` is unavailable. Prefer the full Xcode
+# toolchain whenever it is installed, without requiring `sudo xcode-select`.
+ifeq ($(shell xcode-select -p),/Library/Developer/CommandLineTools)
+ifneq ($(wildcard /Applications/Xcode.app),)
+export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
+endif
+endif
+
 .PHONY: help project build build-ios test format lint clean open
 
 help: ## List available targets
