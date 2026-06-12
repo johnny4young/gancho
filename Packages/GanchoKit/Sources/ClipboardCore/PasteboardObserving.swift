@@ -2,12 +2,14 @@ import Foundation
 import GanchoKit
 
 /// A captured pasteboard event, before classification/persistence.
-public struct PasteboardCapture: Sendable, Equatable {
+/// Codable so intent-based capture surfaces (the iOS share extension) can
+/// hand captures to the host app through the App Group inbox.
+public struct PasteboardCapture: Sendable, Equatable, Codable {
     /// The richest representation the capture engine could read. One payload
     /// per capture: the engine picks by fidelity (files > image > rich text >
     /// HTML > plain text), keeping a plain-text companion when one exists so
     /// classification and search never depend on the rich format.
-    public enum Payload: Sendable, Equatable {
+    public enum Payload: Sendable, Equatable, Codable {
         case text(String)
         case richText(rtf: Data, plainText: String?)
         case html(source: String, plainText: String?)
