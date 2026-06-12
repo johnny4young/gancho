@@ -14,3 +14,7 @@ Vendor/
 
 # macOS noise
 .DS_Store
+
+# Local planning and agent workflow — maintainer-only, never committed.
+.planning/
+.claude/
