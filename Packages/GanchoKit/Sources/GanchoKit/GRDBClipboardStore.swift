@@ -60,7 +60,93 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.column("contentTypeIdentifier", .text)
             }
         }
+        migrator.registerMigration("v2-fts") { db in
+            // External-content FTS5 over the text columns; GRDB installs the
+            // sync triggers so the index follows every write automatically.
+            try db.create(virtualTable: "clip_fts", using: FTS5()) { t in
+                t.synchronize(withTable: "clip")
+                t.column("title")
+                t.column("preview")
+                t.column("contentText")
+            }
+        }
         return migrator
+    }
+
+    // MARK: - Search (FTS5)
+
+    /// Full-text search. Exact/fuzzy run on FTS5 (sanitized MATCH, ranked by
+    /// BM25); regex scans the text columns with `NSRegularExpression`.
+    /// Filters (kind / source app / date) apply to every mode.
+    public func search(_ query: ClipSearchQuery, limit: Int = 50) async throws -> [ClipItem] {
+        if query.mode == .regex {
+            return try await regexSearch(query, limit: limit)
+        }
+        guard let match = query.ftsMatchExpression() else { return [] }
+
+        return try await writer.read { db in
+            var sql = """
+                SELECT clip.* FROM clip
+                JOIN clip_fts ON clip_fts.rowid = clip.rowid
+                WHERE clip_fts MATCH ?
+                """
+            var arguments: [any DatabaseValueConvertible] = [match]
+            Self.appendFilters(for: query, to: &sql, arguments: &arguments)
+            sql += " ORDER BY bm25(clip_fts) LIMIT ?"
+            arguments.append(limit)
+            return try ClipRow.fetchAll(db, sql: sql, arguments: StatementArguments(arguments))
+                .map(\.item)
+        }
+    }
+
+    private func regexSearch(_ query: ClipSearchQuery, limit: Int) async throws -> [ClipItem] {
+        guard
+            let regex = try? NSRegularExpression(
+                pattern: query.text, options: [.caseInsensitive])
+        else { throw ClipSearchError.invalidRegularExpression }
+
+        return try await writer.read { db in
+            var sql = "SELECT clip.* FROM clip WHERE 1"
+            var arguments: [any DatabaseValueConvertible] = []
+            Self.appendFilters(for: query, to: &sql, arguments: &arguments)
+            sql += " ORDER BY createdAt DESC"
+
+            var results: [ClipItem] = []
+            let cursor = try ClipRow.fetchCursor(
+                db, sql: sql, arguments: StatementArguments(arguments))
+            while let row = try cursor.next(), results.count < limit {
+                let haystacks = [row.title, row.preview, row.contentText ?? ""]
+                let matches = haystacks.contains { text in
+                    regex.firstMatch(
+                        in: text, range: NSRange(text.startIndex..., in: text)) != nil
+                }
+                if matches {
+                    results.append(row.item)
+                }
+            }
+            return results
+        }
+    }
+
+    /// Shared WHERE clauses for kind / source app / date filters.
+    private static func appendFilters(
+        for query: ClipSearchQuery, to sql: inout String,
+        arguments: inout [any DatabaseValueConvertible]
+    ) {
+        if let kinds = query.kinds, !kinds.isEmpty {
+            let placeholders = Array(repeating: "?", count: kinds.count).joined(separator: ",")
+            sql += " AND clip.kind IN (\(placeholders))"
+            arguments.append(contentsOf: kinds.map(\.rawValue).sorted())
+        }
+        if let app = query.sourceAppBundleID {
+            sql += " AND clip.sourceAppBundleID = ?"
+            arguments.append(app)
+        }
+        if let range = query.dateRange {
+            sql += " AND clip.createdAt BETWEEN ? AND ?"
+            arguments.append(range.lowerBound)
+            arguments.append(range.upperBound)
+        }
     }
 
     // MARK: - ClipboardStore
