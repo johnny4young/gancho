@@ -14,6 +14,9 @@ public enum ClipContentKind: String, Codable, Sendable, CaseIterable {
     case creditCard
     case image
     case fileReference
+    case address
+    case date
+    case trackingNumber
     /// Detected secrets (API keys, private keys, probable passwords).
     /// Always masked in previews; short auto-expiry by default.
     case secret
