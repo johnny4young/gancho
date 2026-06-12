@@ -77,8 +77,8 @@ final class IOSAppModel {
 
     private func ingest(_ capture: PasteboardCapture) async {
         let item = makeItem(from: capture)
-        await store.insert(item)
-        captures = await store.items()
+        try? await store.insert(item)
+        captures = (try? await store.items()) ?? []
     }
 
     private func makeItem(from capture: PasteboardCapture) -> ClipItem {
