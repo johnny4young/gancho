@@ -93,11 +93,13 @@ final class IOSAppModel {
             let raw = capture.textRepresentation ?? ""
             let kind = classifier.classify(raw)
             let text = ContentNormalizer.canonicalText(raw, kind: kind)
-            return ClipItem(
+            let item = ClipItem(
                 kind: kind,
                 preview: String(text.prefix(120)),
                 contentHash: ClipItem.hash(of: text, kind: kind),
                 sourceAppBundleID: capture.sourceAppBundleID)
+            return SensitiveIngestionPolicy.decorate(
+                item, finding: SensitiveDataDetector().detect(text), originalText: text)
         }
     }
 }

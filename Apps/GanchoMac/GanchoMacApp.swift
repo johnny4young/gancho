@@ -70,6 +70,15 @@ final class AppModel {
             let text = ContentNormalizer.canonicalText(raw, kind: kind)
             preview = String(text.prefix(120))
             contentHash = ClipItem.hash(of: text, kind: kind)
+            let item = ClipItem(
+                kind: kind,
+                preview: preview,
+                contentHash: contentHash,
+                sourceAppBundleID: capture.sourceAppBundleID
+            )
+            // Accidental secrets get masked + short-lived at ingestion.
+            return SensitiveIngestionPolicy.decorate(
+                item, finding: SensitiveDataDetector().detect(text), originalText: text)
         }
 
         return ClipItem(

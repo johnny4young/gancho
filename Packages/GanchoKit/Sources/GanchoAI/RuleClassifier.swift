@@ -99,16 +99,7 @@ public struct RuleClassifier: Sendable {
         guard (13...19).contains(stripped.count), stripped.allSatisfy(\.isNumber) else {
             return false
         }
-        var sum = 0
-        for (offset, character) in stripped.reversed().enumerated() {
-            var digit = character.wholeNumberValue ?? 0
-            if offset % 2 == 1 {
-                digit *= 2
-                if digit > 9 { digit -= 9 }
-            }
-            sum += digit
-        }
-        return sum % 10 == 0
+        return Luhn.validates(stripped)
     }
 
     /// Conservative carrier formats only — shapes that cannot be phone
