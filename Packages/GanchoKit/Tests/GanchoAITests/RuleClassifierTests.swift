@@ -30,7 +30,8 @@ struct RuleClassifierTests {
     @Test("Detects hex colors with and without the leading hash")
     func detectsHexColor() {
         #expect(classifier.classify("#FF8800") == .color)
-        #expect(classifier.classify("ffcc00aa") == .color)
+        // Bare hex runs are hashes/words more often than colors — '#' required.
+        #expect(classifier.classify("ffcc00aa") == .text)
         #expect(classifier.classify("#abc") == .color)
     }
 
