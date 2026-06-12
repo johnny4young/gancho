@@ -1,0 +1,268 @@
+import Foundation
+import GRDB
+
+/// SQLite-backed source of truth for clip history (GRDB).
+///
+/// Layout decisions (see docs/ARCHITECTURE.md):
+/// - Metadata + full TEXT content live in the `clip` table; binary payloads
+///   live on disk via `BlobStore` (the row keeps a content-hash reference).
+///   List queries page metadata only — blobs never ride along.
+/// - Schema changes go through `DatabaseMigrator`, versioned from v1.
+///   NEVER edit a registered migration; append a new one.
+/// - The store never imports CloudKit: sync goes through the `SyncEngine`
+///   boundary, fed by the same records.
+public final class GRDBClipboardStore: ClipboardStore {
+    private let writer: any DatabaseWriter
+    private let blobs: BlobStore
+
+    /// Production store at a directory (database + blobs side by side).
+    public convenience init(directory: URL) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let pool = try DatabasePool(path: directory.appendingPathComponent("gancho.sqlite").path)
+        self.init(
+            writer: pool,
+            blobs: BlobStore(directory: directory.appendingPathComponent("blobs")))
+        try migrator.migrate(pool)
+    }
+
+    /// Injectable writer for tests (`DatabaseQueue()` in-memory).
+    public init(writer: any DatabaseWriter, blobs: BlobStore) {
+        self.writer = writer
+        self.blobs = blobs
+    }
+
+    /// Tests call this for in-memory databases; the directory initializer
+    /// migrates automatically.
+    public func migrate() throws {
+        try migrator.migrate(writer)
+    }
+
+    private var migrator: DatabaseMigrator {
+        var migrator = DatabaseMigrator()
+        migrator.registerMigration("v1-clips") { db in
+            try db.create(table: "clip") { t in
+                t.primaryKey("id", .text)
+                t.column("createdAt", .datetime).notNull().indexed()
+                t.column("updatedAt", .datetime).notNull()
+                t.column("lastUsedAt", .datetime)
+                t.column("kind", .text).notNull()
+                t.column("title", .text).notNull()
+                t.column("preview", .text).notNull()
+                t.column("contentHash", .text).notNull().indexed()
+                t.column("sourceAppBundleID", .text)
+                t.column("sourceDeviceName", .text)
+                t.column("isPinned", .boolean).notNull().defaults(to: false)
+                t.column("isSensitive", .boolean).notNull().defaults(to: false)
+                t.column("expiresAt", .datetime)
+                t.column("tags", .text).notNull().defaults(to: "[]")
+                t.column("contentText", .text)
+                t.column("contentBlobHash", .text)
+                t.column("contentTypeIdentifier", .text)
+            }
+        }
+        return migrator
+    }
+
+    // MARK: - ClipboardStore
+
+    @discardableResult
+    public func insert(_ item: ClipItem, content: ClipContent?) async throws -> ClipItem {
+        var row = ClipRow(item: item)
+        switch content {
+        case .text(let text):
+            row.contentText = text
+        case .binary(let data, let typeIdentifier):
+            row.contentBlobHash = try blobs.write(data)
+            row.contentTypeIdentifier = typeIdentifier
+        case .fileReferences(let paths):
+            row.contentText = paths.joined(separator: "\n")
+            row.contentTypeIdentifier = "public.file-url"
+        case nil:
+            break
+        }
+        let finalRow = row
+        try await writer.write { db in
+            try finalRow.insert(db)
+        }
+        return item
+    }
+
+    public func items(offset: Int, limit: Int) async throws -> [ClipItem] {
+        try await writer.read { db in
+            try ClipRow
+                .order(
+                    Column("isPinned").desc, Column("lastUsedAt").desc, Column("createdAt").desc
+                )
+                .limit(limit, offset: offset)
+                .fetchAll(db)
+                .map(\.item)
+        }
+    }
+
+    public func count() async throws -> Int {
+        try await writer.read { db in
+            try ClipRow.fetchCount(db)
+        }
+    }
+
+    public func delete(id: UUID) async throws {
+        let blobHash = try await writer.write { db -> String? in
+            let hash = try ClipRow
+                .filter(key: id.uuidString)
+                .fetchOne(db)?.contentBlobHash
+            try ClipRow.deleteOne(db, key: id.uuidString)
+            return hash
+        }
+        if let blobHash {
+            // Content-addressed: only safe to remove when no other row
+            // references the same bytes.
+            let stillReferenced = try await writer.read { db in
+                try ClipRow.filter(Column("contentBlobHash") == blobHash).fetchCount(db) > 0
+            }
+            if !stillReferenced {
+                blobs.delete(hash: blobHash)
+            }
+        }
+    }
+
+    public func content(for id: UUID) async throws -> ClipContent? {
+        let row = try await writer.read { db in
+            try ClipRow.filter(key: id.uuidString).fetchOne(db)
+        }
+        guard let row else { return nil }
+        if let blobHash = row.contentBlobHash {
+            guard let data = try blobs.read(hash: blobHash) else { return nil }
+            return .binary(
+                data: data, typeIdentifier: row.contentTypeIdentifier ?? "public.data")
+        }
+        if row.contentTypeIdentifier == "public.file-url", let text = row.contentText {
+            return .fileReferences(text.split(separator: "\n").map(String.init))
+        }
+        if let text = row.contentText {
+            return .text(text)
+        }
+        return nil
+    }
+
+    /// Lazy list-row thumbnail for binary clips; nil for text clips.
+    public func thumbnailURL(for id: UUID) async throws -> URL? {
+        let blobHash = try await writer.read { db in
+            try ClipRow.filter(key: id.uuidString).fetchOne(db)?.contentBlobHash
+        }
+        guard let blobHash else { return nil }
+        return try blobs.thumbnailURL(for: blobHash)
+    }
+
+    // MARK: - Export (always available, every tier — no data hostage)
+
+    /// Versioned JSON export: full metadata + text content; binary payloads
+    /// referenced by content hash (the blobs directory travels alongside).
+    public func exportJSON() async throws -> Data {
+        let rows = try await writer.read { db in
+            try ClipRow.order(Column("createdAt").asc).fetchAll(db)
+        }
+        let payload = ExportDocument(version: 1, exportedAt: .now, clips: rows)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(payload)
+    }
+
+    /// RFC-4180 CSV: metadata + text content (binaries listed by reference).
+    public func exportCSV() async throws -> Data {
+        let rows = try await writer.read { db in
+            try ClipRow.order(Column("createdAt").asc).fetchAll(db)
+        }
+        let formatter = ISO8601DateFormatter()
+        var csv =
+            "id,createdAt,kind,title,preview,contentHash,sourceApp,isPinned,contentText,contentBlobHash\n"
+        for row in rows {
+            let fields = [
+                row.id, formatter.string(from: row.createdAt), row.kind, row.title,
+                row.preview, row.contentHash, row.sourceAppBundleID ?? "",
+                row.isPinned ? "true" : "false", row.contentText ?? "",
+                row.contentBlobHash ?? "",
+            ]
+            csv += fields.map(Self.csvEscape).joined(separator: ",") + "\n"
+        }
+        return Data(csv.utf8)
+    }
+
+    private static func csvEscape(_ field: String) -> String {
+        guard field.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else {
+            return field
+        }
+        return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    }
+}
+
+/// Database row ↔ domain mapping. Internal: the row schema is a storage
+/// detail; everything outside speaks `ClipItem` + `ClipContent`.
+struct ClipRow: Codable, FetchableRecord, PersistableRecord {
+    static let databaseTableName = "clip"
+
+    var id: String
+    var createdAt: Date
+    var updatedAt: Date
+    var lastUsedAt: Date?
+    var kind: String
+    var title: String
+    var preview: String
+    var contentHash: String
+    var sourceAppBundleID: String?
+    var sourceDeviceName: String?
+    var isPinned: Bool
+    var isSensitive: Bool
+    var expiresAt: Date?
+    var tags: String
+    var contentText: String?
+    var contentBlobHash: String?
+    var contentTypeIdentifier: String?
+
+    init(item: ClipItem) {
+        id = item.id.uuidString
+        createdAt = item.createdAt
+        updatedAt = item.updatedAt
+        lastUsedAt = item.lastUsedAt
+        kind = item.kind.rawValue
+        title = item.title
+        preview = item.preview
+        contentHash = item.contentHash
+        sourceAppBundleID = item.sourceAppBundleID
+        sourceDeviceName = item.sourceDeviceName
+        isPinned = item.isPinned
+        isSensitive = item.isSensitive
+        expiresAt = item.expiresAt
+        tags =
+            (try? String(data: JSONEncoder().encode(item.tags), encoding: .utf8) ?? "[]") ?? "[]"
+        contentText = nil
+        contentBlobHash = nil
+        contentTypeIdentifier = nil
+    }
+
+    var item: ClipItem {
+        ClipItem(
+            id: UUID(uuidString: id) ?? UUID(),
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            lastUsedAt: lastUsedAt,
+            kind: ClipContentKind(rawValue: kind) ?? .text,
+            title: title,
+            preview: preview,
+            contentHash: contentHash,
+            sourceAppBundleID: sourceAppBundleID,
+            sourceDeviceName: sourceDeviceName,
+            isPinned: isPinned,
+            isSensitive: isSensitive,
+            expiresAt: expiresAt,
+            tags: (try? JSONDecoder().decode([String].self, from: Data(tags.utf8))) ?? []
+        )
+    }
+}
+
+/// Export envelope — versioned so future schema changes stay importable.
+private struct ExportDocument: Codable {
+    var version: Int
+    var exportedAt: Date
+    var clips: [ClipRow]
+}

@@ -35,8 +35,8 @@ final class AppModel {
             guard let self else { return }
             let item = Self.makeItem(from: capture, classifier: classifier)
             Task {
-                await self.store.insert(item)
-                self.captures = await self.store.items()
+                try? await self.store.insert(item)
+                self.captures = (try? await self.store.items()) ?? []
             }
         }
         monitor.start()

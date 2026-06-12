@@ -20,8 +20,12 @@ let package = Package(
         .library(name: "GanchoAI", targets: ["GanchoAI"]),
         .library(name: "GanchoDesign", targets: ["GanchoDesign"]),
     ],
+    dependencies: [
+        // Storage engine (SQLite). Decision and rationale: docs/ARCHITECTURE.md.
+        .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0")
+    ],
     targets: [
-        .target(name: "GanchoKit"),
+        .target(name: "GanchoKit", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
         .target(name: "ClipboardCore", dependencies: ["GanchoKit"]),
         .target(name: "GanchoAI", dependencies: ["GanchoKit"]),
         .target(name: "GanchoDesign"),

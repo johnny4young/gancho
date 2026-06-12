@@ -24,28 +24,28 @@ struct ClipItemTests {
 @Suite("InMemoryClipboardStore")
 struct InMemoryClipboardStoreTests {
     @Test("Re-inserting identical content moves it to the top instead of duplicating")
-    func dedupeMovesToTop() async {
+    func dedupeMovesToTop() async throws {
         let store = InMemoryClipboardStore()
         let hashA = ClipItem.hash(of: "alpha", kind: .text)
         let hashB = ClipItem.hash(of: "beta", kind: .text)
 
-        await store.insert(ClipItem(preview: "alpha", contentHash: hashA))
-        await store.insert(ClipItem(preview: "beta", contentHash: hashB))
-        let duplicate = await store.insert(ClipItem(preview: "alpha", contentHash: hashA))
+        try await store.insert(ClipItem(preview: "alpha", contentHash: hashA))
+        try await store.insert(ClipItem(preview: "beta", contentHash: hashB))
+        let duplicate = try await store.insert(ClipItem(preview: "alpha", contentHash: hashA))
 
-        let items = await store.items()
+        let items = try await store.items()
         #expect(items.count == 2)
         #expect(items.first?.contentHash == hashA)
         #expect(duplicate.lastUsedAt != nil)
     }
 
     @Test("Delete removes by id")
-    func deleteRemoves() async {
+    func deleteRemoves() async throws {
         let store = InMemoryClipboardStore()
-        let item = await store.insert(
+        let item = try await store.insert(
             ClipItem(preview: "x", contentHash: ClipItem.hash(of: "x", kind: .text)))
-        await store.delete(id: item.id)
-        let items = await store.items()
+        try await store.delete(id: item.id)
+        let items = try await store.items()
         #expect(items.isEmpty)
     }
 }
