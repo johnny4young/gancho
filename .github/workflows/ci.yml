@@ -1,0 +1,66 @@
+# CI (pattern inherited from vitrine): lint + package tests + app builds.
+# Weekly run catches macOS runner-image drift before it bites a release.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 8 * * 1" # Mondays 08:00 UTC — image-drift canary
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint & package tests
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record toolchain
+        run: |
+          {
+            echo "### Toolchain"
+            sw_vers
+            xcodebuild -version
+            swift --version
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: Packages/GanchoKit/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift') }}
+
+      - name: Lint (swift-format)
+        run: swift format lint --strict --recursive Apps Packages/GanchoKit/Sources Packages/GanchoKit/Tests
+
+      - name: Unit tests (Swift Testing)
+        run: swift test --package-path Packages/GanchoKit
+
+  build-apps:
+    name: Build macOS + iOS apps
+    runs-on: macos-latest
+    # Deployment target is macOS/iOS 26 — requires an Xcode 26+ runner image.
+    # If macos-latest lags behind, pin `runs-on: macos-26`.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Build macOS app
+        run: |
+          xcodebuild -project Gancho.xcodeproj -scheme Gancho -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: Build iOS app
+        run: |
+          xcodebuild -project Gancho.xcodeproj -scheme GanchoiOS -configuration Debug \
+            -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
