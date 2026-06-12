@@ -77,6 +77,20 @@ public struct BlobStore: Sendable {
         return cached
     }
 
+    /// Sweeps every blob whose hash is NOT in `referenced` (and its cached
+    /// thumbnail). Returns how many blobs were removed. Mass purges delete
+    /// rows by SQL, so orphan cleanup happens here.
+    public func removeAll(except referenced: Set<String>) -> Int {
+        let files =
+            (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        var removed = 0
+        for name in files where name != "thumbnails" && !referenced.contains(name) {
+            delete(hash: name)
+            removed += 1
+        }
+        return removed
+    }
+
     private func blobURL(for hash: String) -> URL {
         directory.appendingPathComponent(hash)
     }
