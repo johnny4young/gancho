@@ -17,6 +17,9 @@ public final class GRDBClipboardStore: ClipboardStore {
     let writer: any DatabaseWriter
     private let blobs: BlobStore
 
+    /// Maintenance-only blob access for same-module engines (orphan sweeps).
+    var blobsForMaintenance: BlobStore { blobs }
+
     /// Production store at a directory (database + blobs side by side).
     public convenience init(directory: URL) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -114,6 +117,16 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.column("title")
                 t.column("preview")
                 t.column("contentText")
+            }
+        }
+        migrator.registerMigration("v3-purge-log") { db in
+            // Counters for the Privacy Center: what purges removed (numbers
+            // and reasons only — content is gone and was never logged).
+            try db.create(table: "purge_log") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("runAt", .datetime).notNull().indexed()
+                t.column("totalRowsPurged", .integer).notNull()
+                t.column("summary", .text).notNull()
             }
         }
         return migrator
