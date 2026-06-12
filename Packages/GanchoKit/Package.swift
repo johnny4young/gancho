@@ -26,6 +26,7 @@ let package = Package(
         .target(name: "GanchoAI", dependencies: ["GanchoKit"]),
         .target(name: "GanchoDesign"),
         .testTarget(name: "GanchoKitTests", dependencies: ["GanchoKit"]),
+        .testTarget(name: "ClipboardCoreTests", dependencies: ["ClipboardCore"]),
         .testTarget(name: "GanchoAITests", dependencies: ["GanchoAI"]),
     ]
 )

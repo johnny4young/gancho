@@ -22,7 +22,7 @@ snippet library in v1.1).
 Apps (thin shells, @MainActor by default)
   └── GanchoDesign   tokens → components (no bare numbers in UI code)
   └── GanchoKit      ClipItem, ClipContentKind, ClipboardStore, SyncEngine
-  └── ClipboardCore  MacPasteboardMonitor (poll changeCount) · iOS intent capture
+  └── ClipboardCore  MacPasteboardMonitor (adaptive polling, off-main reads) · iOS intent capture
   └── GanchoAI       RuleClassifier (tier 0) → Foundation Models (tier 1) → LanguageModel protocol (tier 2)
 ```
 
@@ -46,13 +46,20 @@ type (e.g. `MacPasteboardMonitor` is `@MainActor` because it touches AppKit).
    there are NO background pasteboard reads — share extension, UIPasteControl,
    and foreground prompts only. `NSPasteboard.accessBehavior` + detect APIs
    integrate once the privacy spike documents the macOS privacy-flag matrix.
-5. **Tier-0 intelligence is deterministic and universal.** `RuleClassifier`
+5. **Pasteboard metadata is cheap; content reads are hostile.** The capture
+   engine splits the two (`PasteboardReading`): `changeCount`/`types` poll on
+   the main actor; the full read runs detached because the OS "Ask" permission
+   can stall it for seconds. Rapid changes coalesce to the newest content —
+   the pasteboard only ever exposes its latest state, so a stale in-flight
+   read would mislabel data. Polling adapts (`AdaptivePollingPolicy`): 250 ms
+   active, 1.5 s idle, paused while the screen is locked.
+6. **Tier-0 intelligence is deterministic and universal.** `RuleClassifier`
    runs on every device with zero network. Foundation Models (tier 1) and the
    `LanguageModel` protocol (tier 2: on-device → PCC → external, opt-in per
    action) build on top; AI never gates core functionality.
-6. **Dedupe by content hash.** SHA-256(content + kind) — re-copy moves the
+7. **Dedupe by content hash.** SHA-256(content + kind) — re-copy moves the
    item to the top; sync uses the same key to avoid ping-pong duplicates.
-7. **Tokens, not numbers.** UI code consumes `GanchoTokens`; Liquid Glass is
+8. **Tokens, not numbers.** UI code consumes `GanchoTokens`; Liquid Glass is
    the native design language (the opt-out dies with the SDK-27 generation).
 
 ## Inherited from vitrine

@@ -33,19 +33,48 @@ final class AppModel {
     init() {
         monitor.onCapture = { [weak self] capture in
             guard let self else { return }
-            let kind = classifier.classify(capture.text)
-            let item = ClipItem(
-                kind: kind,
-                preview: String(capture.text.prefix(120)),
-                contentHash: ClipItem.hash(of: capture.text, kind: kind),
-                sourceAppBundleID: capture.sourceAppBundleID
-            )
+            let item = Self.makeItem(from: capture, classifier: classifier)
             Task {
                 await self.store.insert(item)
                 self.captures = await self.store.items()
             }
         }
         monitor.start()
+    }
+
+    /// Maps a capture payload to a clip. Text-like payloads go through the
+    /// tier-0 classifier; images and file references map directly — their
+    /// kind is structural, not content-derived.
+    private static func makeItem(
+        from capture: PasteboardCapture, classifier: RuleClassifier
+    ) -> ClipItem {
+        let kind: ClipContentKind
+        let preview: String
+        let contentHash: String
+
+        switch capture.payload {
+        case .image(let data, let typeIdentifier):
+            kind = .image
+            preview = "Image (\(typeIdentifier), \(data.count) bytes)"
+            contentHash = ClipItem.hash(of: data, kind: kind)
+        case .fileReferences(let urls):
+            kind = .fileReference
+            preview = urls.map(\.lastPathComponent).joined(separator: ", ")
+            contentHash = ClipItem.hash(
+                of: urls.map(\.absoluteString).joined(separator: "\n"), kind: kind)
+        default:
+            let text = capture.textRepresentation ?? ""
+            kind = classifier.classify(text)
+            preview = String(text.prefix(120))
+            contentHash = ClipItem.hash(of: text, kind: kind)
+        }
+
+        return ClipItem(
+            kind: kind,
+            preview: preview,
+            contentHash: contentHash,
+            sourceAppBundleID: capture.sourceAppBundleID
+        )
     }
 }
 
