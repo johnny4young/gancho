@@ -1,5 +1,5 @@
 {
-  "originHash" : "75efd59d8294060085d978f7e65157eb6f6cdeed8fbdca36bee49cfe0ccb514a",
+  "originHash" : "ab8535bea906f42a03b97bea234d36c57ba2d28ba310d3bd103fcfaeed3f874d",
   "pins" : [
     {
       "identity" : "grdb.swift",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "9ed8c8457e00ff9c7aedb3bf213f20a2cfdf509e",
         "version" : "7.11.0"
+      }
+    },
+    {
+      "identity" : "sauce",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Clipy/Sauce.git",
+      "state" : {
+        "revision" : "c9ebdcfddb4b94da5b9a6ebd113ab385edda88c1",
+        "version" : "2.5.0"
       }
     }
   ],

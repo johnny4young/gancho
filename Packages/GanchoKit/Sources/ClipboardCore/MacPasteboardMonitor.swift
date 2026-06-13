@@ -35,7 +35,9 @@
     @MainActor
     public final class MacPasteboardMonitor: PasteboardObserving {
         /// Private marker type for Gancho's own pasteboard writes.
-        public static let selfWriteMarker = NSPasteboard.PasteboardType(
+        /// Nonisolated: an immutable constant the (nonisolated) paste-back
+        /// writer also stamps onto every write.
+        public nonisolated static let selfWriteMarker = NSPasteboard.PasteboardType(
             "com.johnny4young.gancho.self-write")
 
         public var onCapture: ((PasteboardCapture) -> Void)?
