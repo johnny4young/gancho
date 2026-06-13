@@ -67,6 +67,8 @@ private struct GeneralSettingsTab: View {
                     }
                 }
 
+            KeyboardShortcuts.Recorder("Cyclic paste shortcut:", name: .cyclicPaste)
+
             Picker("Panel position", selection: positionBinding) {
                 Text("Centered").tag(PanelPosition.centered)
                 Text("At mouse cursor").tag(PanelPosition.atCursor)

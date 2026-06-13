@@ -126,6 +126,13 @@ struct PanelView: View {
         Button("Promote to Library") {
             model.promoteToSnippet(item)
         }
+        Menu("Paste as") {
+            ForEach(PasteTransform.allCases, id: \.self) { transform in
+                Button(LocalizedStringKey(transform.title)) {
+                    model.paste(item, transform: transform)
+                }
+            }
+        }
         Menu("Add to board") {
             ForEach(model.boards) { board in
                 Button(board.name) { model.assign(item, toBoard: board) }
@@ -193,17 +200,46 @@ struct PanelView: View {
 struct PreviewSheet: View {
     let item: ClipItem
     let text: String
+    @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var actionResult: String?
+    @State private var isEditing = false
+    @State private var draft = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-            TypeBadge(kind: item.kind)
-            ScrollView {
-                Text(highlighted)
+            HStack {
+                TypeBadge(kind: item.kind)
+                Spacer()
+                // Editing applies to text clips; binary payloads are immutable.
+                if !text.isEmpty {
+                    Button(isEditing ? "Save" : "Edit") {
+                        if isEditing {
+                            Task {
+                                try? await model.grdbStore?.updateClipText(
+                                    id: item.id, text: draft)
+                                await model.refreshRecents()
+                            }
+                        } else {
+                            draft = text
+                        }
+                        isEditing.toggle()
+                    }
+                    .accessibilityIdentifier("preview-edit")
+                }
+            }
+            if isEditing {
+                TextEditor(text: $draft)
                     .font(item.kind == .code ? .body.monospaced() : .body)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
+                    .frame(minHeight: 160)
+                    .accessibilityIdentifier("preview-editor")
+            } else {
+                ScrollView {
+                    Text(highlighted)
+                        .font(item.kind == .code ? .body.monospaced() : .body)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
             }
 
             let actions = DevActions.actions(for: item.kind)

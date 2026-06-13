@@ -52,6 +52,17 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// Edits ANY text clip's content (Quick Look editing); recomputes the
+    /// preview. The hash is left as-is on purpose: edits are curation, and
+    /// re-copying the original must still dedupe against this row.
+    public func updateClipText(id: UUID, text: String) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET contentText = ?, preview = ?, updatedAt = ? WHERE id = ?",
+                arguments: [text, String(text.prefix(120)), Date(), id.uuidString])
+        }
+    }
+
     /// Edits a snippet's title and full text content (the editor surface).
     public func updateSnippet(id: UUID, title: String, text: String) async throws {
         try await writer.write { db in
