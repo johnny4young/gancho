@@ -2,6 +2,7 @@ import ClipboardCore
 import GanchoAI
 import GanchoDesign
 import GanchoKit
+import GanchoTelemetry
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
@@ -41,6 +42,17 @@ final class IOSAppModel {
     /// Sync boundary: pull-to-refresh forces a cycle. Noop until the
     /// CloudKit adapter lands (device-day) — the UI contract is final.
     private let syncEngine: any SyncEngine = NoopSyncEngine()
+
+    /// Telemetry — opt-out-first, buckets only; no sender when opted out so
+    /// the SDK never initializes. Records the launch on construction.
+    private let telemetry: TelemetryPipeline = {
+        let optedOut = UserDefaults.standard.bool(forKey: "telemetry-opted-out")
+        let sender: (any TelemetrySending)? =
+            optedOut ? nil : TelemetryDeckSender(appID: GanchoTelemetryConfig.appID)
+        let pipeline = TelemetryPipeline(sender: sender, optedOut: optedOut)
+        pipeline.record(.appLaunched)
+        return pipeline
+    }()
 
     func forceSync() async {
         // Start = "run a sync cycle now" on the boundary; the CloudKit

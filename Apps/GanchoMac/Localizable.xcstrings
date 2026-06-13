@@ -181,6 +181,16 @@
         }
       }
     },
+    "Bucketed counts only — never clipboard content. Takes effect on next launch.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo conteos agrupados — nunca contenido del portapapeles. Aplica en el próximo arranque."
+          }
+        }
+      }
+    },
     "Bundle identifier": {
       "localizations": {
         "es": {
@@ -1307,6 +1317,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Configuración…"
+          }
+        }
+      }
+    },
+    "Share anonymous usage analytics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir analíticas de uso anónimas"
           }
         }
       }
