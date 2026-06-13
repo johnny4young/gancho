@@ -1,3 +1,4 @@
+import AppIntents
 import AppKit
 import ClipboardCore
 import GanchoAI
@@ -82,6 +83,8 @@ final class AppModel {
         scheduleRetention()
         scheduleScreenShareWatch()
         panel.attach(model: self)
+        // Intents resolve the SAME model instance the UI uses.
+        AppDependencyManager.shared.add(dependency: self)
         KeyboardShortcuts.onKeyUp(for: .togglePrivateMode) { [weak self] in
             self?.togglePrivateMode()
         }
