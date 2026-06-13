@@ -22,6 +22,9 @@ let package = Package(
         // Telemetry transport, deliberately OUTSIDE the engine room so the
         // core never links a network SDK (threat-model boundary).
         .library(name: "GanchoTelemetry", targets: ["GanchoTelemetry"]),
+        // CloudKit sync adapter — the ONLY target allowed to import
+        // CloudKit; the core stays behind the `SyncEngine` boundary.
+        .library(name: "GanchoSync", targets: ["GanchoSync"]),
     ],
     dependencies: [
         // Storage engine (SQLite). Decision and rationale: docs/ARCHITECTURE.md.
@@ -49,7 +52,9 @@ let package = Package(
                 "GanchoKit",
                 .product(name: "TelemetryDeck", package: "SwiftSDK"),
             ]),
+        .target(name: "GanchoSync", dependencies: ["GanchoKit"]),
         .testTarget(name: "GanchoKitTests", dependencies: ["GanchoKit"]),
+        .testTarget(name: "GanchoSyncTests", dependencies: ["GanchoSync", "GanchoKit"]),
         .testTarget(name: "ClipboardCoreTests", dependencies: ["ClipboardCore"]),
         .testTarget(name: "GanchoAITests", dependencies: ["GanchoAI"]),
         .testTarget(name: "GanchoDesignTests", dependencies: ["GanchoDesign"]),

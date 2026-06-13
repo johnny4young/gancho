@@ -165,6 +165,21 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.column("vector", .blob).notNull()
             }
         }
+        migrator.registerMigration("v8-sync") { db in
+            // CloudKit sync bookkeeping. `syncSystemFields` archives the
+            // CKRecord metadata (change tag etc.) per row; NULL = never
+            // synced (needs initial upload). `needsUpload` flags local edits
+            // that must re-upload. Deletions become tombstones so they
+            // propagate before the row is forgotten.
+            try db.alter(table: "clip") { t in
+                t.add(column: "syncSystemFields", .blob)
+                t.add(column: "needsUpload", .boolean).notNull().defaults(to: false)
+            }
+            try db.create(table: "sync_tombstone") { t in
+                t.primaryKey("recordID", .text)
+                t.column("deletedAt", .datetime).notNull()
+            }
+        }
         return migrator
     }
 
