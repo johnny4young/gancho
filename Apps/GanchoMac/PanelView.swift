@@ -126,6 +126,9 @@ struct PanelView: View {
         Button("Promote to Library") {
             model.promoteToSnippet(item)
         }
+        Button("Add to paste stack") {
+            model.pushToStack(item)
+        }
         Menu("Paste as") {
             ForEach(PasteTransform.allCases, id: \.self) { transform in
                 Button(LocalizedStringKey(transform.title)) {

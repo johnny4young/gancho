@@ -10,6 +10,8 @@ extension KeyboardShortcuts.Name {
     static let togglePrivateMode = Self("toggle-private-mode")
     /// Cyclic quick-paste (each press pastes the next history item).
     static let cyclicPaste = Self("cyclic-paste")
+    /// Pops and pastes the front of the paste stack.
+    static let pasteFromStack = Self("paste-from-stack")
 }
 
 /// Where the panel appears. PasteNow pattern: user-configurable.
