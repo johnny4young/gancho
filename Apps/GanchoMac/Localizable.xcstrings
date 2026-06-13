@@ -1011,6 +1011,16 @@
         }
       }
     },
+    "Save support bundle…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar paquete de soporte…"
+          }
+        }
+      }
+    },
     "Search your clipboard": {
       "localizations": {
         "es": {
@@ -1117,6 +1127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Texto"
+          }
+        }
+      }
+    },
+    "The support bundle contains versions, settings, and counters — never clipboard content.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El paquete de soporte contiene versiones, configuración y contadores — nunca contenido del portapapeles."
           }
         }
       }

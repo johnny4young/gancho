@@ -257,9 +257,39 @@ private struct PrivacySettingsTab: View {
             Button("Open Privacy Center") {
                 model.privacyCenterWindow.show(model: model)
             }
+            Button("Save support bundle…") { saveSupportBundle() }
+            Text(
+                "The support bundle contains versions, settings, and counters — never clipboard content."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)
+    }
+}
+
+extension PrivacySettingsTab {
+    fileprivate func saveSupportBundle() {
+        guard let store = model.grdbStore else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "gancho-support.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task {
+            let stats =
+                (try? await SupportBundle.gatherStatistics(from: store))
+                ?? SupportBundle.Statistics()
+            let bundle = SupportBundle(
+                appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"]
+                    as? String ?? "dev",
+                osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+                settings: (try? model.settingsSnapshot())
+                    ?? SettingsSnapshot(
+                        retention: RetentionPolicy(), capturePreferencesJSON: Data()),
+                statistics: stats,
+                telemetryCounts: [:])
+            try? (try? bundle.encoded())?.write(to: url, options: .atomic)
+        }
     }
 }
 
