@@ -27,13 +27,14 @@ public struct RetentionEngine: Sendable {
             // 1. Per-item explicit expiry.
             try db.execute(
                 sql:
-                    "DELETE FROM clip WHERE isPinned = 0 AND expiresAt IS NOT NULL AND expiresAt <= ?",
+                    "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND expiresAt IS NOT NULL AND expiresAt <= ?",
                 arguments: [now])
             partial.expiredByOwnDate = db.changesCount
 
             // 2. Sensitive lifetime.
             try db.execute(
-                sql: "DELETE FROM clip WHERE isPinned = 0 AND isSensitive = 1 AND createdAt <= ?",
+                sql:
+                    "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND isSensitive = 1 AND createdAt <= ?",
                 arguments: [now.addingTimeInterval(-policy.sensitiveLifetime)])
             partial.sensitiveExpired = db.changesCount
 
@@ -41,7 +42,8 @@ public struct RetentionEngine: Sendable {
             for (kind, window) in policy.perKind.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
                 guard let lifetime = window.lifetime else { continue }
                 try db.execute(
-                    sql: "DELETE FROM clip WHERE isPinned = 0 AND kind = ? AND createdAt <= ?",
+                    sql:
+                        "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND kind = ? AND createdAt <= ?",
                     arguments: [kind.rawValue, now.addingTimeInterval(-lifetime)])
                 partial.byKindWindow += db.changesCount
             }
@@ -49,7 +51,7 @@ public struct RetentionEngine: Sendable {
             // 4. Global window for every kind WITHOUT an override.
             if let lifetime = policy.global.lifetime {
                 let overridden = policy.perKind.keys.map(\.rawValue)
-                var sql = "DELETE FROM clip WHERE isPinned = 0 AND createdAt <= ?"
+                var sql = "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND createdAt <= ?"
                 var arguments: [any DatabaseValueConvertible] = [
                     now.addingTimeInterval(-lifetime)
                 ]

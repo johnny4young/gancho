@@ -50,6 +50,13 @@ struct PanelView: View {
                     model.togglePin(item)
                     return .handled
                 }
+                .onKeyPress(characters: CharacterSet(charactersIn: "s"), phases: .down) { press in
+                    guard press.modifiers.contains(.command), let item = selectedItem else {
+                        return .ignored
+                    }
+                    model.promoteToSnippet(item)
+                    return .handled
+                }
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -115,6 +122,9 @@ struct PanelView: View {
     private func contextMenu(for item: ClipItem) -> some View {
         Button(item.isPinned ? "Unpin" : "Pin") {
             model.togglePin(item)
+        }
+        Button("Promote to Library") {
+            model.promoteToSnippet(item)
         }
         Menu("Add to board") {
             ForEach(model.boards) { board in

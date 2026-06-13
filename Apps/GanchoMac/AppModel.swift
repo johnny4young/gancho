@@ -237,6 +237,21 @@ final class AppModel {
         }
     }
 
+    /// The signature gesture: clip → permanent snippet (⌘S in the panel).
+    func promoteToSnippet(_ item: ClipItem) {
+        guard let grdbStore else { return }
+        Task {
+            let count = (try? await grdbStore.snippetCount()) ?? 0
+            guard SnippetLimits.canPromote(currentSnippetCount: count, isPro: tier == .pro)
+            else {
+                paywallWindow.show(trigger: .freeLimitReached, model: self)
+                return
+            }
+            try? await grdbStore.promoteToSnippet(id: item.id)
+            await refreshRecents()
+        }
+    }
+
     func refreshBoards() async {
         guard let grdbStore else { return }
         boards = (try? await grdbStore.pinboards()) ?? []
