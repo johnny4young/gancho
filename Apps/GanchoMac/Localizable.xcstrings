@@ -651,6 +651,16 @@
         }
       }
     },
+    "In-app purchases are unavailable on this device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las compras dentro de la app no están disponibles en este dispositivo."
+          }
+        }
+      }
+    },
     "Items self-expired": {
       "localizations": {
         "es": {
@@ -1181,6 +1191,16 @@
         }
       }
     },
+    "Restore purchases": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar compras"
+          }
+        }
+      }
+    },
     "Resume capture": {
       "localizations": {
         "es": {
@@ -1477,6 +1497,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mejorar a Pro"
+          }
+        }
+      }
+    },
+    "Upgrade — %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mejorar — %@"
           }
         }
       }

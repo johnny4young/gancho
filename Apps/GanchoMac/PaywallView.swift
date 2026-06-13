@@ -7,11 +7,11 @@ import SwiftUI
 /// (gatekeeper rule), never as a gateway. No dark patterns — "Stay free"
 /// is always visible and free really is forever.
 struct PaywallView: View {
+    @Environment(AppModel.self) private var model
     let trigger: PaywallGatekeeper.Trigger
     @Environment(\.dismiss) private var dismiss
 
     private let copy = PaywallCopy.standard
-    private let purchases: any PurchaseHandling = UnavailablePurchaseHandler()
 
     var body: some View {
         VStack(spacing: GanchoTokens.Spacing.md) {
@@ -24,17 +24,25 @@ struct PaywallView: View {
                 column(title: "Pro", points: copy.proPoints)
             }
 
-            if purchases.isPurchaseAvailable {
-                ActionButton(
-                    "Upgrade to Pro", systemImage: "star.fill", identifier: "upgrade-button"
-                ) {
-                    UserDefaults.standard.set(
-                        UserDefaults.standard.integer(forKey: "upgrade-started") + 1,
-                        forKey: "upgrade-started")
-                    Task { try? await purchases.purchasePro() }
+            if model.purchases.isPurchaseAvailable {
+                // One button per plan; annual first (the visual default).
+                // Live prices come from StoreKit once products resolve.
+                ForEach(ProCatalog.all) { product in
+                    ActionButton(
+                        LocalizedStringKey("Upgrade — \(product.displayName)"),
+                        systemImage: "star.fill",
+                        identifier: "upgrade-\(product.plan.rawValue)"
+                    ) {
+                        model.buyPlan(product.plan)
+                        dismiss()
+                    }
                 }
+                Button("Restore purchases") {
+                    model.restorePurchases()
+                }
+                .accessibilityIdentifier("restore-button")
             } else {
-                Text("Pro purchases arrive with the public launch.")
+                Text("In-app purchases are unavailable on this device.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -79,7 +87,8 @@ final class PaywallWindowController {
                 hasPastedBackOnce: UserDefaults.standard.object(forKey: "first-pasteback-at")
                     != nil)
         else { return }
-        let hosting = NSHostingController(rootView: PaywallView(trigger: trigger))
+        let hosting = NSHostingController(
+            rootView: PaywallView(trigger: trigger).environment(model))
         let created = NSWindow(contentViewController: hosting)
         created.title = String(localized: "Gancho Pro")
         created.styleMask = [.titled, .closable]

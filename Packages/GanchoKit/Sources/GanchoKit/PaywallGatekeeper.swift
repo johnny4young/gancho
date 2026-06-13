@@ -50,15 +50,29 @@ public struct PaywallCopy: Sendable, Equatable, Codable {
         ])
 }
 
-/// Purchase seam: StoreKit/RevenueCat implement this when accounts exist.
+/// Purchase seam. `StoreKitPurchaseHandler` is the native implementation;
+/// a RevenueCat-backed one can slot in later for server-side validation —
+/// both read the same StoreKit transactions, so the rest of the app never
+/// changes.
 public protocol PurchaseHandling: Sendable {
+    /// Whether the device can make payments at all (parental controls, MDM).
     var isPurchaseAvailable: Bool { get }
-    func purchasePro() async throws
+    /// Plans to offer, richest first (annual is the visual default).
+    func availableProducts() async -> [ProProduct]
+    /// Buys a plan; returns whether it left the user entitled to Pro.
+    func purchase(_ plan: ProProduct.Plan) async throws -> Bool
+    /// Restores prior purchases (new device, reinstall); returns Pro state.
+    func restorePurchases() async throws -> Bool
+    /// The tier StoreKit currently entitles — the source of truth.
+    func currentTier() async -> UserTier
 }
 
-/// Honest placeholder until the IAP infrastructure lands.
+/// Honest placeholder used where no real handler is wired (previews, tests).
 public struct UnavailablePurchaseHandler: PurchaseHandling {
     public init() {}
     public var isPurchaseAvailable: Bool { false }
-    public func purchasePro() async throws {}
+    public func availableProducts() async -> [ProProduct] { [] }
+    public func purchase(_ plan: ProProduct.Plan) async throws -> Bool { false }
+    public func restorePurchases() async throws -> Bool { false }
+    public func currentTier() async -> UserTier { .free }
 }

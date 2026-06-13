@@ -28,8 +28,10 @@ final class AppModel {
     let paywallWindow = PaywallWindowController()
     let permissionWindow = PasteboardPermissionWindowController()
     let libraryWindow = LibraryWindowController()
+    let purchases = StoreKitPurchaseHandler()
 
-    /// Entitlement; purchases flip this when IAP lands.
+    /// Entitlement — StoreKit is the source of truth; the persisted value is
+    /// only the cached default used until StoreKit answers on launch.
     var tier: UserTier {
         didSet { tier.save(to: defaults) }
     }
@@ -102,6 +104,16 @@ final class AppModel {
         }
         KeyboardShortcuts.onKeyUp(for: .pasteFromStack) { [weak self] in
             self?.pasteNextFromStack()
+        }
+
+        // StoreKit drives the tier: the listener catches renewals/refunds,
+        // and a launch refresh reconciles against current entitlements.
+        purchases.onTierChange = { [weak self] tier in
+            self?.applyTier(tier)
+        }
+        Task {
+            let entitled = await purchases.currentTier()
+            if entitled != tier { applyTier(entitled) }
         }
         Task { await refreshRecents() }
 
@@ -308,6 +320,34 @@ final class AppModel {
 
     func ignoreNextCopy() {
         monitor.ignoreNextCopy()
+    }
+
+    // MARK: - Purchases
+
+    /// Applies a tier from StoreKit and releases any archived clips when the
+    /// user becomes Pro (free-tier archiving is reversible — no data hostage).
+    private func applyTier(_ newTier: UserTier) {
+        tier = newTier
+        guard let grdbStore else { return }
+        Task {
+            try? await TierEnforcement(store: grdbStore).enforce(tier: newTier)
+            await refreshRecents()
+        }
+    }
+
+    func buyPlan(_ plan: ProProduct.Plan) {
+        defaults.set(defaults.integer(forKey: "upgrade-started") + 1, forKey: "upgrade-started")
+        Task {
+            if (try? await purchases.purchase(plan)) == true {
+                defaults.set(
+                    defaults.integer(forKey: "upgrade-completed") + 1,
+                    forKey: "upgrade-completed")
+            }
+        }
+    }
+
+    func restorePurchases() {
+        Task { _ = try? await purchases.restorePurchases() }
     }
 
     // MARK: - Pins & boards
