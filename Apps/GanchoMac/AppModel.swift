@@ -115,12 +115,39 @@ final class AppModel {
     // MARK: - Capture pipeline
 
     private func ingest(_ capture: PasteboardCapture) {
-        let (item, content) = Self.makeItem(
+        var (item, content) = Self.makeItem(
             from: capture, classifier: classifier, detector: sensitiveDetector,
             sensitiveLifetime: retentionPolicy.sensitiveLifetime)
+        // Universal Clipboard interop: badge persists as a tag so sync can
+        // recognize already-synced arrivals and the UI can show the badge.
+        if capture.isFromUniversalClipboard {
+            item.tags.append("universal-clipboard")
+        }
         Task {
             try? await store.insert(item, content: content)
             await refreshRecents()
+            enrich(item, content: content)
+        }
+    }
+
+    /// Pro-tier async enrichment — never blocks capture: OCR makes image
+    /// clips searchable; the tiered annotator titles text clips.
+    private func enrich(_ item: ClipItem, content: ClipContent?) {
+        guard tier == .pro, let grdbStore, !item.isSensitive else { return }
+        Task(priority: .utility) {
+            switch content {
+            case .binary(let data, _) where item.kind == .image:
+                if let text = try? await ImageTextExtractor().extractText(from: data) {
+                    try? await grdbStore.attachExtractedText(id: item.id, text: text)
+                }
+            case .text(let text) where item.title.isEmpty:
+                if let annotation = try? await TieredClipAnnotator().annotate(text) {
+                    try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
+                    await refreshRecents()
+                }
+            default:
+                break
+            }
         }
     }
 

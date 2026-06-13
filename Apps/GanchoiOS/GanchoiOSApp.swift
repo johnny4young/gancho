@@ -16,8 +16,14 @@ struct GanchoiOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            CaptureView()
-                .environment(model)
+            // iPad gets the sidebar layout; iPhone keeps the stack.
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                IPadSplitView()
+                    .environment(model)
+            } else {
+                CaptureView()
+                    .environment(model)
+            }
         }
     }
 }

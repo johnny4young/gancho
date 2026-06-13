@@ -81,6 +81,12 @@ public struct ClipCard: View {
                     .foregroundStyle(item.title.isEmpty ? .primary : .secondary)
             }
             Spacer(minLength: 0)
+            if item.tags.contains("universal-clipboard") {
+                Image(systemName: "icloud.and.arrow.down")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel(Text("From another device"))
+            }
             if item.isPinned {
                 Image(systemName: "pin.fill")
                     .font(.caption2)
