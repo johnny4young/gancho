@@ -58,6 +58,16 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho
     sources:
       - path: Apps/GanchoMac
+    entitlements:
+      path: Apps/GanchoMac/Gancho.entitlements
+      properties:
+        # Encrypted iCloud history sync (Pro). The container mirrors the
+        # bundle id; CKSyncEngine needs push to learn about remote changes.
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.johnny4young.gancho
+        com.apple.developer.icloud-services:
+          - CloudKit
+        aps-environment: development
     dependencies:
       - package: GanchoKit
         products:
@@ -66,6 +76,7 @@ targets:
           - GanchoAI
           - GanchoDesign
           - GanchoTelemetry
+          - GanchoSync
       - package: KeyboardShortcuts
     info:
       path: Apps/GanchoMac/Info.plist
@@ -91,6 +102,12 @@ targets:
         # Shared with the share extension: capture handoff via SharedInbox.
         com.apple.security.application-groups:
           - group.com.johnny4young.gancho
+        # Encrypted iCloud history sync (Pro) — same container as macOS.
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.johnny4young.gancho
+        com.apple.developer.icloud-services:
+          - CloudKit
+        aps-environment: development
     dependencies:
       - package: GanchoKit
         products:
@@ -99,12 +116,16 @@ targets:
           - GanchoAI
           - GanchoDesign
           - GanchoTelemetry
+          - GanchoSync
       - target: GanchoShare
     info:
       path: Apps/GanchoiOS/Info.plist
       properties:
         CFBundleDisplayName: Gancho
         UILaunchScreen: {}
+        # CKSyncEngine wakes on silent push to pull remote clips.
+        UIBackgroundModes:
+          - remote-notification
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft

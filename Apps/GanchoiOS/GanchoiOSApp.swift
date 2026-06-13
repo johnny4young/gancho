@@ -2,6 +2,7 @@ import ClipboardCore
 import GanchoAI
 import GanchoDesign
 import GanchoKit
+import GanchoSync
 import GanchoTelemetry
 import SwiftUI
 import UIKit
@@ -39,9 +40,46 @@ final class IOSAppModel {
     var query = ""
     var kindFilter: ClipContentKind?
 
-    /// Sync boundary: pull-to-refresh forces a cycle. Noop until the
-    /// CloudKit adapter lands (device-day) — the UI contract is final.
-    private let syncEngine: any SyncEngine = NoopSyncEngine()
+    /// Sync boundary: pull-to-refresh forces a cycle. A `NoopSyncEngine`
+    /// until the user is Pro on an iCloud-signed-in device; the adapter swaps
+    /// in transparently — the pull-to-refresh UI contract is identical.
+    private var syncEngine: any SyncEngine = NoopSyncEngine()
+    private var syncEnabled = false
+    private var tier: UserTier = .free
+    private let purchases = StoreKitPurchaseHandler()
+
+    init() {
+        purchases.onTierChange = { [weak self] tier in
+            guard let self else { return }
+            self.tier = tier
+            self.configureSync()
+        }
+        Task {
+            tier = await purchases.currentTier()
+            configureSync()
+        }
+    }
+
+    /// Arms or disarms iCloud sync to match the current tier + account.
+    /// Universal Purchase entitles the iPhone too, so a Pro Mac purchase
+    /// turns sync on here after the next entitlement refresh.
+    private func configureSync() {
+        guard let grdb = store as? GRDBClipboardStore else { return }
+        let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
+        let enable = SyncEnablement.shouldEnable(tier: tier, iCloudAvailable: iCloudAvailable)
+        guard enable != syncEnabled else { return }
+        syncEnabled = enable
+
+        let previous = syncEngine
+        Task { await previous.stop() }
+        let stateURL = SharedStorageLocation.storeDirectory(appGroupID: SharedInbox.appGroupID)
+            .appendingPathComponent("sync-state.plist")
+        syncEngine = SyncEngineFactory.make(
+            store: grdb, tier: tier, iCloudAvailable: iCloudAvailable,
+            stateStore: .file(at: stateURL))
+        let engine = syncEngine
+        Task { try? await engine.start() }
+    }
 
     /// Telemetry — opt-out-first, buckets only; no sender when opted out so
     /// the SDK never initializes. Records the launch on construction.
@@ -179,6 +217,7 @@ final class IOSAppModel {
         // Dedupe-aware feedback: the store returns the EXISTING item when
         // the content hash matches — warn subtly instead of duplicating.
         let stored = try? await store.insert(item, content: content)
+        if let stored { await syncEngine.enqueue([stored]) }
         flashNote(
             stored?.id == item.id
                 ? String(localized: "Saved") : String(localized: "Already in your history"))

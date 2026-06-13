@@ -3,6 +3,7 @@ import AppKit
 import ClipboardCore
 import GanchoAI
 import GanchoKit
+import GanchoSync
 import GanchoTelemetry
 import KeyboardShortcuts
 import SwiftUI
@@ -31,6 +32,12 @@ final class AppModel {
     let libraryWindow = LibraryWindowController()
     let purchases = StoreKitPurchaseHandler()
     let telemetry: TelemetryPipeline
+
+    /// Encrypted iCloud sync, behind the boundary. A `NoopSyncEngine` until
+    /// the user is Pro on an iCloud-signed-in device; `configureSync()` swaps
+    /// in the real adapter and back as the tier or account changes.
+    private(set) var sync: any SyncEngine = NoopSyncEngine()
+    private var syncEnabled = false
 
     /// Entitlement — StoreKit is the source of truth; the persisted value is
     /// only the cached default used until StoreKit answers on launch.
@@ -134,6 +141,7 @@ final class AppModel {
         Task {
             let entitled = await purchases.currentTier()
             if entitled != tier { applyTier(entitled) }
+            configureSync()
         }
         telemetry.record(.appLaunched)
         Task { await refreshRecents() }
@@ -172,6 +180,7 @@ final class AppModel {
                 lengthBucket: .init(characterCount: length)))
         Task {
             try? await store.insert(item, content: content)
+            await sync.enqueue([item])
             await refreshRecents()
             enrich(item, content: content)
         }
@@ -363,11 +372,36 @@ final class AppModel {
     /// user becomes Pro (free-tier archiving is reversible — no data hostage).
     private func applyTier(_ newTier: UserTier) {
         tier = newTier
+        configureSync()
         guard let grdbStore else { return }
         Task {
             try? await TierEnforcement(store: grdbStore).enforce(tier: newTier)
             await refreshRecents()
         }
+    }
+
+    // MARK: - Sync
+
+    /// Arms or disarms iCloud sync to match the current tier + account. Only
+    /// rebuilds when the enablement decision flips, so it is safe to call on
+    /// launch and on every tier change.
+    private func configureSync() {
+        guard let grdbStore else { return }
+        let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
+        let enable = SyncEnablement.shouldEnable(tier: tier, iCloudAvailable: iCloudAvailable)
+        guard enable != syncEnabled else { return }
+        syncEnabled = enable
+
+        let previous = sync
+        Task { await previous.stop() }
+        let stateURL = URL.applicationSupportDirectory
+            .appendingPathComponent("Gancho", isDirectory: true)
+            .appendingPathComponent("sync-state.plist")
+        sync = SyncEngineFactory.make(
+            store: grdbStore, tier: tier, iCloudAvailable: iCloudAvailable,
+            stateStore: .file(at: stateURL))
+        let engine = sync
+        Task { try? await engine.start() }
     }
 
     func buyPlan(_ plan: ProProduct.Plan) {
