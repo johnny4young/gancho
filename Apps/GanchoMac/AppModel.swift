@@ -26,6 +26,7 @@ final class AppModel {
     let welcomeWindow = WelcomeWindowController()
     let privacyCenterWindow = PrivacyCenterWindowController()
     let paywallWindow = PaywallWindowController()
+    let permissionWindow = PasteboardPermissionWindowController()
 
     /// Entitlement; purchases flip this when IAP lands.
     var tier: UserTier {
@@ -102,6 +103,8 @@ final class AppModel {
             Task { panel.show(model: self) }
         } else if !defaults.bool(forKey: "has-seen-welcome") {
             Task { welcomeWindow.show(model: self) }
+        } else if monitor.status == .deniedByPrivacySettings {
+            Task { permissionWindow.show(model: self) }
         }
     }
 
