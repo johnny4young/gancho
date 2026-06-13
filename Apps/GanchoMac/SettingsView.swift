@@ -68,6 +68,7 @@ private struct GeneralSettingsTab: View {
                 }
 
             KeyboardShortcuts.Recorder("Cyclic paste shortcut:", name: .cyclicPaste)
+            KeyboardShortcuts.Recorder("Paste from stack shortcut:", name: .pasteFromStack)
 
             Picker("Panel position", selection: positionBinding) {
                 Text("Centered").tag(PanelPosition.centered)

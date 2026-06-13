@@ -101,6 +101,16 @@
         }
       }
     },
+    "Add to paste stack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir a la pila de pegado"
+          }
+        }
+      }
+    },
     "All privacy features": {
       "localizations": {
         "es": {
@@ -887,6 +897,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pegar como"
+          }
+        }
+      }
+    },
+    "Paste from stack shortcut:": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajo de pegar desde la pila:"
           }
         }
       }

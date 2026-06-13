@@ -100,6 +100,9 @@ final class AppModel {
         KeyboardShortcuts.onKeyUp(for: .cyclicPaste) { [weak self] in
             self?.cyclicPaste()
         }
+        KeyboardShortcuts.onKeyUp(for: .pasteFromStack) { [weak self] in
+            self?.pasteNextFromStack()
+        }
         Task { await refreshRecents() }
 
         // UI-test hook: deterministic panel access without the global hotkey.
@@ -265,6 +268,27 @@ final class AppModel {
         guard !recentItems.isEmpty else { return }
         let item = recentItems[cycleIndex % recentItems.count]
         cycleIndex += 1
+        paste(item)
+    }
+
+    // MARK: - Paste stack (local; cross-device rides sync)
+
+    /// FIFO queue: load several clips, then paste them in order — each
+    /// stack-paste pops the front. Survives only the session (by design:
+    /// a stack is a working set, not history).
+    private(set) var pasteStack: [ClipItem] = []
+
+    func pushToStack(_ item: ClipItem) {
+        pasteStack.append(item)
+    }
+
+    func clearStack() {
+        pasteStack.removeAll()
+    }
+
+    func pasteNextFromStack() {
+        guard !pasteStack.isEmpty else { return }
+        let item = pasteStack.removeFirst()
         paste(item)
     }
 
