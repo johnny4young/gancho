@@ -1011,6 +1011,16 @@
         }
       }
     },
+    "Promote to Library": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Promover a la Biblioteca"
+          }
+        }
+      }
+    },
     "Quit Gancho": {
       "localizations": {
         "es": {

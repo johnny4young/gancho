@@ -148,6 +148,14 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.add(column: "isArchived", .boolean).notNull().defaults(to: false)
             }
         }
+        migrator.registerMigration("v6-snippets") { db in
+            // The second world: snippets are CURATED and PERMANENT (exempt
+            // from retention and tier archiving). A clip becomes one via
+            // the promote gesture; same table, so search/dedupe stay one.
+            try db.alter(table: "clip") { t in
+                t.add(column: "isSnippet", .boolean).notNull().defaults(to: false)
+            }
+        }
         return migrator
     }
 
@@ -412,6 +420,7 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
     var contentBlobHash: String?
     var contentTypeIdentifier: String?
     var isArchived: Bool = false
+    var isSnippet: Bool = false
 
     init(item: ClipItem) {
         id = item.id.uuidString

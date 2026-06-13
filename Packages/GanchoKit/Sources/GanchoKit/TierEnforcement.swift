@@ -37,7 +37,7 @@ public struct TierEnforcement: Sendable {
                 try db.execute(
                     sql: """
                         UPDATE clip SET isArchived = 1
-                        WHERE isArchived = 0 AND isPinned = 0 AND pinboardID IS NULL
+                        WHERE isArchived = 0 AND isPinned = 0 AND isSnippet = 0 AND pinboardID IS NULL
                           AND createdAt < ?
                         """,
                     arguments: [cutoff])
@@ -48,7 +48,7 @@ public struct TierEnforcement: Sendable {
                         UPDATE clip SET isArchived = 1
                         WHERE id IN (
                             SELECT id FROM clip
-                            WHERE isArchived = 0 AND isPinned = 0 AND pinboardID IS NULL
+                            WHERE isArchived = 0 AND isPinned = 0 AND isSnippet = 0 AND pinboardID IS NULL
                             ORDER BY createdAt DESC
                             LIMIT -1 OFFSET ?
                         )
