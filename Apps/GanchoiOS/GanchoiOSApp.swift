@@ -30,11 +30,18 @@ final class IOSAppModel {
 
     private let source = IntentionalPasteboardSource()
     private let classifier = RuleClassifier()
-    private let store = InMemoryClipboardStore()
+    /// Durable store in the App Group container (shared family location);
+    /// in-memory fallback keeps the app usable if the container is missing.
+    let store: any ClipboardStore = {
+        let directory = SharedStorageLocation.storeDirectory(
+            appGroupID: SharedInbox.appGroupID)
+        return (try? GRDBClipboardStore(directory: directory)) ?? InMemoryClipboardStore()
+    }()
 
     /// Metadata-only refresh — safe on every activation, never alerts.
     func refreshHints() async {
         hints = await source.hints()
+        captures = (try? await store.items(offset: 0, limit: 50)) ?? []
     }
 
     /// The user-initiated read (system paste transparency applies).
