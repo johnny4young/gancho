@@ -43,6 +43,13 @@ struct PanelView: View {
                     model.paste(results[digit - 1])
                     return .handled
                 }
+                .onKeyPress(characters: CharacterSet(charactersIn: "p"), phases: .down) { press in
+                    guard press.modifiers.contains(.command), let item = selectedItem else {
+                        return .ignored
+                    }
+                    model.togglePin(item)
+                    return .handled
+                }
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -51,6 +58,7 @@ struct PanelView: View {
                             row(for: item, index: index)
                                 .id(item.id)
                                 .onTapGesture { model.paste(item) }
+                                .contextMenu { contextMenu(for: item) }
                         }
                         if results.isEmpty {
                             Text("Copy something — it will appear here.")
@@ -95,6 +103,33 @@ struct PanelView: View {
                     .font(.caption2.monospaced())
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
+            }
+        }
+    }
+
+    /// Pin/board assignment — the context-menu path; drag & drop arrives
+    /// with the panel's Quick Look evolution.
+    @ViewBuilder
+    private func contextMenu(for item: ClipItem) -> some View {
+        Button(item.isPinned ? "Unpin" : "Pin") {
+            model.togglePin(item)
+        }
+        Menu("Add to board") {
+            ForEach(model.boards) { board in
+                Button(board.name) { model.assign(item, toBoard: board) }
+            }
+            Divider()
+            Button("New board…") {
+                model.createBoard(named: String(localized: "Board"))
+            }
+            if item.isPinned {
+                Button("Remove from board") { model.assign(item, toBoard: nil) }
+            }
+        }
+        Button("Delete", role: .destructive) {
+            Task {
+                try? await model.store.delete(id: item.id)
+                await model.refreshRecents()
             }
         }
     }

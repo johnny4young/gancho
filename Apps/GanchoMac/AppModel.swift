@@ -182,6 +182,48 @@ final class AppModel {
         monitor.ignoreNextCopy()
     }
 
+    // MARK: - Pins & boards
+
+    private(set) var boards: [Pinboard] = []
+
+    func togglePin(_ item: ClipItem) {
+        guard let grdbStore else { return }
+        Task {
+            // Free-tier ceiling; the paywall UX lands with monetization.
+            if !item.isPinned {
+                let count = (try? await grdbStore.pinnedCount()) ?? 0
+                guard PinLimits.canPin(currentPinCount: count, isPro: false) else { return }
+            }
+            try? await grdbStore.setPinned(id: item.id, !item.isPinned)
+            await refreshRecents()
+        }
+    }
+
+    func refreshBoards() async {
+        guard let grdbStore else { return }
+        boards = (try? await grdbStore.pinboards()) ?? []
+    }
+
+    func assign(_ item: ClipItem, toBoard board: Pinboard?) {
+        guard let grdbStore else { return }
+        Task {
+            try? await grdbStore.assign(clipID: item.id, toBoard: board?.id)
+            await refreshRecents()
+        }
+    }
+
+    func createBoard(named name: String) {
+        guard let grdbStore else { return }
+        Task {
+            let count = (try? await grdbStore.pinboards().count) ?? 0
+            guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: false) else {
+                return
+            }
+            try? await grdbStore.createPinboard(name: name)
+            await refreshBoards()
+        }
+    }
+
     // MARK: - Retention
 
     private func scheduleRetention() {
