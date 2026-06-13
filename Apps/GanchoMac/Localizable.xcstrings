@@ -121,6 +121,26 @@
         }
       }
     },
+    "Back up history…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respaldar historial…"
+          }
+        }
+      }
+    },
+    "Backups are portable archives on YOUR disk — never uploaded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los respaldos son archivos portables en TU disco — nunca se suben."
+          }
+        }
+      }
+    },
     "Base64 decode": {
       "localizations": {
         "es": {
@@ -957,6 +977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quitar del tablero"
+          }
+        }
+      }
+    },
+    "Restore from backup…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar desde respaldo…"
           }
         }
       }

@@ -80,6 +80,13 @@ private struct GeneralSettingsTab: View {
                     Button("Export settings…") { exportSettings() }
                     Button("Import settings…") { importSettings() }
                 }
+                HStack {
+                    Button("Back up history…") { backupHistory() }
+                    Button("Restore from backup…") { restoreHistory() }
+                }
+                Text("Backups are portable archives on YOUR disk — never uploaded.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -99,6 +106,26 @@ private struct GeneralSettingsTab: View {
         panel.nameFieldStringValue = "gancho-settings.json"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         try? data.write(to: url, options: .atomic)
+    }
+
+    private func backupHistory() {
+        guard let store = model.grdbStore else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "gancho-backup.ganchoarchive"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { try? await GanchoArchive.export(from: store, to: url) }
+    }
+
+    private func restoreHistory() {
+        guard let store = model.grdbStore else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task {
+            _ = try? await GanchoArchive.restore(from: url, into: store)
+            await model.refreshRecents()
+        }
     }
 
     private func importSettings() {
