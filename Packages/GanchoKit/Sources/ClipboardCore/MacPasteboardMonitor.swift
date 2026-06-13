@@ -26,6 +26,8 @@
         case pausedByUser
         /// Screen locked; resumes alone on unlock.
         case pausedByScreenLock
+        /// A screen share was detected (auto-pause); resumes when it ends.
+        case pausedByScreenShare
         /// OS pasteboard permission is Deny: reads return nil, so polling
         /// would burn CPU for nothing. The user must change the permission
         /// in System Settings (deep-linked from the Privacy Center).
@@ -66,6 +68,11 @@
         }
 
         public private(set) var status: MonitorStatus = .stopped
+
+        /// Set by the app layer while a screen share is detected. Pauses
+        /// capture exactly like private mode (including the no-backfill
+        /// resync on resume).
+        public var pausedForScreenShare = false
 
         /// When the monitor last read pasteboard CONTENT (the Privacy
         /// Center surfaces this so users can audit read behavior).
@@ -159,6 +166,11 @@
 
             if preferences.isPrivateModePaused {
                 status = .pausedByUser
+                wasPaused = true
+                return policy.interval(for: .paused)
+            }
+            if pausedForScreenShare {
+                status = .pausedByScreenShare
                 wasPaused = true
                 return policy.interval(for: .paused)
             }
