@@ -237,9 +237,17 @@ private struct PrivacySettingsTab: View {
 }
 
 private struct ProSettingsTab: View {
+    @Environment(AppModel.self) private var model
+
     var body: some View {
         Form {
-            LabeledContent("Plan", value: String(localized: "Free"))
+            LabeledContent(
+                "Plan",
+                value: model.tier == .pro
+                    ? String(localized: "Pro") : String(localized: "Free"))
+            Button("See what Pro adds") {
+                model.paywallWindow.show(trigger: .settingsPro, model: model)
+            }
             Text("Pro — iCloud sync, unlimited pins and boards — arrives with launch.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)

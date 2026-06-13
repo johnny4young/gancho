@@ -25,6 +25,12 @@ final class AppModel {
     let panel = PanelController()
     let welcomeWindow = WelcomeWindowController()
     let privacyCenterWindow = PrivacyCenterWindowController()
+    let paywallWindow = PaywallWindowController()
+
+    /// Entitlement; purchases flip this when IAP lands.
+    var tier: UserTier {
+        didSet { tier.save(to: defaults) }
+    }
 
     private let classifier = RuleClassifier()
     private let sensitiveDetector = SensitiveDataDetector()
@@ -70,6 +76,7 @@ final class AppModel {
         showInDock = defaults.bool(forKey: "show-in-dock")
         autoPauseOnScreenShare =
             defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
+        tier = UserTier.load(from: defaults)
 
         monitor = MacPasteboardMonitor(preferences: loadedPreferences)
         monitor.denylist = SourceAppDenylist.load(from: defaults)
@@ -217,7 +224,10 @@ final class AppModel {
             // Free-tier ceiling; the paywall UX lands with monetization.
             if !item.isPinned {
                 let count = (try? await grdbStore.pinnedCount()) ?? 0
-                guard PinLimits.canPin(currentPinCount: count, isPro: false) else { return }
+                guard PinLimits.canPin(currentPinCount: count, isPro: tier == .pro) else {
+                    paywallWindow.show(trigger: .freeLimitReached, model: self)
+                    return
+                }
             }
             try? await grdbStore.setPinned(id: item.id, !item.isPinned)
             await refreshRecents()
@@ -241,7 +251,9 @@ final class AppModel {
         guard let grdbStore else { return }
         Task {
             let count = (try? await grdbStore.pinboards().count) ?? 0
-            guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: false) else {
+            guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro)
+            else {
+                paywallWindow.show(trigger: .freeLimitReached, model: self)
                 return
             }
             try? await grdbStore.createPinboard(name: name)
@@ -324,8 +336,10 @@ final class AppModel {
     private func runRetention() {
         guard let grdbStore else { return }
         let policy = retentionPolicy
+        let tier = tier
         Task {
             try? await RetentionEngine(store: grdbStore).runPurge(policy: policy)
+            try? await TierEnforcement(store: grdbStore).enforce(tier: tier)
             await refreshRecents()
         }
     }
