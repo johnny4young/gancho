@@ -231,6 +231,53 @@ final class AppModel {
         }
     }
 
+    // MARK: - Denylist & settings portability
+
+    var denylistEntries: [String] {
+        let effective = SourceAppDenylist.suggestedBundleIDs
+            .subtracting(monitor.denylist.disabledSuggestions)
+            .union(monitor.denylist.userBundleIDs)
+        return effective.sorted()
+    }
+
+    func addToDenylist(_ bundleID: String) {
+        monitor.denylist.add(bundleID)
+        monitor.denylist.save(to: defaults)
+    }
+
+    func removeFromDenylist(_ bundleID: String) {
+        monitor.denylist.remove(bundleID)
+        monitor.denylist.save(to: defaults)
+    }
+
+    /// Preferences only — never clips (reinstall portability).
+    func settingsSnapshot() throws -> SettingsSnapshot {
+        SettingsSnapshot(
+            retention: retentionPolicy,
+            capturePreferencesJSON: (try? JSONEncoder().encode(preferences)) ?? Data(),
+            appSettings: [
+                "panel-position": panel.position.rawValue,
+                "show-in-dock": showInDock ? "true" : "false",
+            ])
+    }
+
+    func apply(_ snapshot: SettingsSnapshot) {
+        retentionPolicy = snapshot.retention
+        if let prefs = try? JSONDecoder().decode(
+            CapturePreferences.self, from: snapshot.capturePreferencesJSON)
+        {
+            preferences = prefs
+        }
+        if let raw = snapshot.appSettings["panel-position"],
+            let position = PanelPosition(rawValue: raw)
+        {
+            panel.position = position
+        }
+        if let dock = snapshot.appSettings["show-in-dock"] {
+            showInDock = dock == "true"
+        }
+    }
+
     // MARK: - Retention
 
     private func scheduleRetention() {

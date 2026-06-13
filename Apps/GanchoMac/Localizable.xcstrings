@@ -1,12 +1,102 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "10 minutes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 minutos"
+          }
+        }
+      }
+    },
+    "24 hours": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "24 horas"
+          }
+        }
+      }
+    },
+    "30 days": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 días"
+          }
+        }
+      }
+    },
+    "30 minutes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 minutos"
+          }
+        }
+      }
+    },
+    "5 minutes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 minutos"
+          }
+        }
+      }
+    },
+    "7 days": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 días"
+          }
+        }
+      }
+    },
+    "90 days": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 días"
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir"
+          }
+        }
+      }
+    },
     "Add to board": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Añadir a un tablero"
+          }
+        }
+      }
+    },
+    "At mouse cursor": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En el cursor"
           }
         }
       }
@@ -37,6 +127,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tablero"
+          }
+        }
+      }
+    },
+    "Bundle identifier": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Identificador del bundle"
+          }
+        }
+      }
+    },
+    "Capture": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Captura"
+          }
+        }
+      }
+    },
+    "Capture copied files": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturar archivos copiados"
+          }
+        }
+      }
+    },
+    "Capture images": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturar imágenes"
+          }
+        }
+      }
+    },
+    "Centered": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Centrado"
           }
         }
       }
@@ -131,6 +271,36 @@
         }
       }
     },
+    "Export settings…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportar configuración…"
+          }
+        }
+      }
+    },
+    "Forever": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para siempre"
+          }
+        }
+      }
+    },
+    "Free": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratis"
+          }
+        }
+      }
+    },
     "Gancho — pre-alpha": {
       "localizations": {
         "es": {
@@ -181,6 +351,16 @@
         }
       }
     },
+    "General": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
+          }
+        }
+      }
+    },
     "Ignore next copy": {
       "localizations": {
         "es": {
@@ -191,12 +371,82 @@
         }
       }
     },
+    "Images": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imágenes"
+          }
+        }
+      }
+    },
+    "Import settings…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importar configuración…"
+          }
+        }
+      }
+    },
+    "Keep history for": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conservar historial por"
+          }
+        }
+      }
+    },
+    "Keep rich text formatting": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conservar formato de texto enriquecido"
+          }
+        }
+      }
+    },
+    "Last position": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Última posición"
+          }
+        }
+      }
+    },
+    "Launch at login": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir al iniciar sesión"
+          }
+        }
+      }
+    },
     "Minify JSON": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Minificar JSON"
+          }
+        }
+      }
+    },
+    "Never capture from these apps": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nunca capturar de estas apps"
           }
         }
       }
@@ -241,6 +491,16 @@
         }
       }
     },
+    "Panel position": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posición del panel"
+          }
+        }
+      }
+    },
     "Panel shortcut:": {
       "localizations": {
         "es": {
@@ -257,6 +517,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Analizar URL"
+          }
+        }
+      }
+    },
+    "Password managers and banking apps are excluded by default.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los gestores de contraseñas y apps bancarias están excluidos por defecto."
           }
         }
       }
@@ -301,6 +571,26 @@
         }
       }
     },
+    "Pinned clips and boards never expire.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los clips fijados y los tableros nunca expiran."
+          }
+        }
+      }
+    },
+    "Plan": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan"
+          }
+        }
+      }
+    },
     "Press the shortcut, pick a clip with ↑↓, hit Enter — it pastes right where you were typing. That's the whole loop.": {
       "localizations": {
         "es": {
@@ -321,6 +611,16 @@
         }
       }
     },
+    "Privacy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacidad"
+          }
+        }
+      }
+    },
     "Private mode": {
       "localizations": {
         "es": {
@@ -331,12 +631,52 @@
         }
       }
     },
+    "Private mode (pause capture)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modo privado (pausar captura)"
+          }
+        }
+      }
+    },
+    "Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro"
+          }
+        }
+      }
+    },
+    "Pro — iCloud sync, unlimited pins and boards — arrives with launch.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro — sincronización con iCloud, pins y tableros ilimitados — llega con el lanzamiento."
+          }
+        }
+      }
+    },
     "Quit Gancho": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Salir de Gancho"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar"
           }
         }
       }
@@ -361,12 +701,42 @@
         }
       }
     },
+    "Retention": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retención"
+          }
+        }
+      }
+    },
     "Search your clipboard": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Busca en tu portapapeles"
+          }
+        }
+      }
+    },
+    "Secrets and card numbers are always masked in previews; revealing them takes an explicit click.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los secretos y números de tarjeta siempre van enmascarados en las vistas previas; revelarlos requiere un clic explícito."
+          }
+        }
+      }
+    },
+    "Sensitive items expire after": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo sensible expira tras"
           }
         }
       }
@@ -411,6 +781,26 @@
         }
       }
     },
+    "Text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto"
+          }
+        }
+      }
+    },
+    "This shortcut is used by the system (%@).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este atajo lo usa el sistema (%@)."
+          }
+        }
+      }
+    },
     "To paste a clip directly into the app you're using, macOS requires the Accessibility permission. Gancho uses it ONLY to send the paste keystroke — never to read your screen.": {
       "localizations": {
         "es": {
@@ -447,6 +837,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desfijar"
+          }
+        }
+      }
+    },
+    "Use global": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar global"
           }
         }
       }

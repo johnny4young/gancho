@@ -13,6 +13,11 @@ struct GanchoMacApp: App {
     @State private var model = AppModel()
 
     var body: some Scene {
+        Settings {
+            SettingsView()
+                .environment(model)
+        }
+
         MenuBarExtra {
             MenuContent()
                 .environment(model)
