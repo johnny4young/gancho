@@ -136,6 +136,7 @@ targets:
       - package: GanchoKit
         products:
           - ClipboardCore
+          - GanchoAI
     info:
       path: Apps/GanchoShare/Info.plist
       properties:
