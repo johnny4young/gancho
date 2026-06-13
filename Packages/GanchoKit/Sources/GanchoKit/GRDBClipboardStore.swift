@@ -141,6 +141,13 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.add(column: "sortIndex", .integer).notNull().defaults(to: 0)
             }
         }
+        migrator.registerMigration("v5-archive") { db in
+            // Free-tier overflow is ARCHIVED, never deleted — no data
+            // hostage. Pro releases everything back.
+            try db.alter(table: "clip") { t in
+                t.add(column: "isArchived", .boolean).notNull().defaults(to: false)
+            }
+        }
         return migrator
     }
 
@@ -159,7 +166,7 @@ public final class GRDBClipboardStore: ClipboardStore {
             var sql = """
                 SELECT clip.* FROM clip
                 JOIN clip_fts ON clip_fts.rowid = clip.rowid
-                WHERE clip_fts MATCH ?
+                WHERE clip_fts MATCH ? AND clip.isArchived = 0
                 """
             var arguments: [any DatabaseValueConvertible] = [match]
             Self.appendFilters(for: query, to: &sql, arguments: &arguments)
@@ -177,7 +184,7 @@ public final class GRDBClipboardStore: ClipboardStore {
         else { throw ClipSearchError.invalidRegularExpression }
 
         return try await writer.read { db in
-            var sql = "SELECT clip.* FROM clip WHERE 1"
+            var sql = "SELECT clip.* FROM clip WHERE clip.isArchived = 0"
             var arguments: [any DatabaseValueConvertible] = []
             Self.appendFilters(for: query, to: &sql, arguments: &arguments)
             sql += " ORDER BY createdAt DESC"
@@ -262,6 +269,7 @@ public final class GRDBClipboardStore: ClipboardStore {
     public func items(offset: Int, limit: Int) async throws -> [ClipItem] {
         try await writer.read { db in
             try ClipRow
+                .filter(Column("isArchived") == false)
                 .order(
                     Column("isPinned").desc, Column("lastUsedAt").desc, Column("createdAt").desc
                 )
@@ -271,9 +279,10 @@ public final class GRDBClipboardStore: ClipboardStore {
         }
     }
 
+    /// Visible (non-archived) items — matches what lists show.
     public func count() async throws -> Int {
         try await writer.read { db in
-            try ClipRow.fetchCount(db)
+            try ClipRow.filter(Column("isArchived") == false).fetchCount(db)
         }
     }
 
@@ -402,6 +411,7 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
     var contentText: String?
     var contentBlobHash: String?
     var contentTypeIdentifier: String?
+    var isArchived: Bool = false
 
     init(item: ClipItem) {
         id = item.id.uuidString
