@@ -741,6 +741,26 @@
         }
       }
     },
+    "My Clipboard, Wrapped": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mi portapapeles, en resumen"
+          }
+        }
+      }
+    },
+    "My Clipboard, Wrapped…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mi portapapeles, en resumen…"
+          }
+        }
+      }
+    },
     "Network": {
       "localizations": {
         "es": {
@@ -1551,6 +1571,16 @@
         }
       }
     },
+    "clips captured": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "clips capturados"
+          }
+        }
+      }
+    },
     "code": {
       "localizations": {
         "es": {
@@ -1597,6 +1627,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "correo"
+          }
+        }
+      }
+    },
+    "favorite type": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tipo favorito"
           }
         }
       }
@@ -1671,6 +1711,16 @@
         }
       }
     },
+    "pasted back": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pegados de nuevo"
+          }
+        }
+      }
+    },
     "phoneNumber": {
       "localizations": {
         "es": {
@@ -1697,6 +1747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "secreto"
+          }
+        }
+      }
+    },
+    "secrets protected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "secretos protegidos"
           }
         }
       }

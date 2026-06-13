@@ -237,6 +237,8 @@ final class AppModel {
             if defaults.object(forKey: "first-pasteback-at") == nil {
                 defaults.set(Date().timeIntervalSince1970, forKey: "first-pasteback-at")
             }
+            defaults.set(
+                defaults.integer(forKey: "pasteback-count") + 1, forKey: "pasteback-count")
             try? await store.insert(item, content: nil)  // move-to-top
             await refreshRecents()
         }
