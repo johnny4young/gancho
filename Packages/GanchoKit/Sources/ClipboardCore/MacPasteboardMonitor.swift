@@ -67,6 +67,10 @@
 
         public private(set) var status: MonitorStatus = .stopped
 
+        /// When the monitor last read pasteboard CONTENT (the Privacy
+        /// Center surfaces this so users can audit read behavior).
+        public private(set) var lastContentReadAt: Date?
+
         private let reader: any PasteboardReading
         private let activity: any UserActivitySource
         private let accessPolicy: any PasteboardAccessPolicy
@@ -238,6 +242,7 @@
             pendingRead?.cancel()
             let reader = self.reader
             let preferences = self.preferences
+            lastContentReadAt = Date()
             pendingRead = Task { [weak self] in
                 let payload = await Self.readDetached(reader)
                 guard !Task.isCancelled, let payload,

@@ -48,6 +48,14 @@ public final class InMemoryPrivacyEventRecorder: PrivacyEventRecording, @uncheck
         lock.withLock { events.count(where: { $0.occurredAt >= date }) }
     }
 
+    /// Per-reason breakdown for the Privacy Center ("why was it ignored").
+    public func countsByReason(since date: Date) -> [CaptureIgnoreReason: Int] {
+        lock.withLock {
+            events.filter { $0.occurredAt >= date }
+                .reduce(into: [:]) { counts, event in counts[event.reason, default: 0] += 1 }
+        }
+    }
+
     /// Test hook: every recorded event, oldest first.
     public func allEvents() -> [IgnoredCaptureEvent] {
         lock.withLock { events }

@@ -93,6 +93,9 @@ struct MenuContent: View {
         Button("Welcome to Gancho") {
             model.welcomeWindow.show(model: model)
         }
+        Button("Privacy Center") {
+            model.privacyCenterWindow.show(model: model)
+        }
         Toggle(
             "Show in Dock",
             isOn: Binding(get: { model.showInDock }, set: { model.showInDock = $0 }))
