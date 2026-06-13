@@ -85,6 +85,9 @@ struct MenuContent: View {
         SettingsLink {
             Text("Settings…")
         }
+        Button("Welcome to Gancho") {
+            model.welcomeWindow.show(model: model)
+        }
         Toggle(
             "Show in Dock",
             isOn: Binding(get: { model.showInDock }, set: { model.showInDock = $0 }))
