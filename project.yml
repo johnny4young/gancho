@@ -65,6 +65,7 @@ targets:
           - ClipboardCore
           - GanchoAI
           - GanchoDesign
+          - GanchoTelemetry
       - package: KeyboardShortcuts
     info:
       path: Apps/GanchoMac/Info.plist
@@ -97,6 +98,7 @@ targets:
           - ClipboardCore
           - GanchoAI
           - GanchoDesign
+          - GanchoTelemetry
       - target: GanchoShare
     info:
       path: Apps/GanchoiOS/Info.plist

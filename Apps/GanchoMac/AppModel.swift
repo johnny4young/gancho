@@ -3,6 +3,7 @@ import AppKit
 import ClipboardCore
 import GanchoAI
 import GanchoKit
+import GanchoTelemetry
 import KeyboardShortcuts
 import SwiftUI
 
@@ -29,11 +30,22 @@ final class AppModel {
     let permissionWindow = PasteboardPermissionWindowController()
     let libraryWindow = LibraryWindowController()
     let purchases = StoreKitPurchaseHandler()
+    let telemetry: TelemetryPipeline
 
     /// Entitlement — StoreKit is the source of truth; the persisted value is
     /// only the cached default used until StoreKit answers on launch.
     var tier: UserTier {
         didSet { tier.save(to: defaults) }
+    }
+
+    /// Analytics opt-out. Default opted-in (anonymous buckets only, per the
+    /// product plan); the sender is created at launch, so a change applies
+    /// on the next launch.
+    var telemetryOptedOut: Bool {
+        didSet {
+            defaults.set(telemetryOptedOut, forKey: "telemetry-opted-out")
+            telemetry.setOptedOut(telemetryOptedOut)
+        }
     }
 
     private let classifier = RuleClassifier()
@@ -82,6 +94,14 @@ final class AppModel {
             defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
         tier = UserTier.load(from: defaults)
 
+        // Telemetry: no sender is built when opted out, so the SDK never
+        // initializes and nothing leaves the device. Buckets only either way.
+        let optedOut = defaults.bool(forKey: "telemetry-opted-out")
+        telemetryOptedOut = optedOut
+        let sender: (any TelemetrySending)? =
+            optedOut ? nil : TelemetryDeckSender(appID: GanchoTelemetryConfig.appID)
+        telemetry = TelemetryPipeline(sender: sender, optedOut: optedOut)
+
         monitor = MacPasteboardMonitor(preferences: loadedPreferences)
         monitor.denylist = SourceAppDenylist.load(from: defaults)
         monitor.onCapture = { [weak self] capture in
@@ -115,6 +135,7 @@ final class AppModel {
             let entitled = await purchases.currentTier()
             if entitled != tier { applyTier(entitled) }
         }
+        telemetry.record(.appLaunched)
         Task { await refreshRecents() }
 
         // UI-test hook: deterministic panel access without the global hotkey.
@@ -138,6 +159,17 @@ final class AppModel {
         if capture.isFromUniversalClipboard {
             item.tags.append("universal-clipboard")
         }
+        // Bucketized analytics: kind + a length BUCKET, never the content.
+        let length: Int
+        switch content {
+        case .text(let text): length = text.count
+        case .binary(let data, _): length = data.count
+        default: length = item.preview.count
+        }
+        telemetry.record(
+            .itemCaptured(
+                type: item.kind.rawValue,
+                lengthBucket: .init(characterCount: length)))
         Task {
             try? await store.insert(item, content: content)
             await refreshRecents()
@@ -251,6 +283,9 @@ final class AppModel {
             }
             defaults.set(
                 defaults.integer(forKey: "pasteback-count") + 1, forKey: "pasteback-count")
+            telemetry.record(
+                .itemPastedBack(
+                    ageBucket: .init(age: Date().timeIntervalSince(item.createdAt))))
             try? await store.insert(item, content: nil)  // move-to-top
             await refreshRecents()
         }

@@ -19,6 +19,9 @@ let package = Package(
         .library(name: "ClipboardCore", targets: ["ClipboardCore"]),
         .library(name: "GanchoAI", targets: ["GanchoAI"]),
         .library(name: "GanchoDesign", targets: ["GanchoDesign"]),
+        // Telemetry transport, deliberately OUTSIDE the engine room so the
+        // core never links a network SDK (threat-model boundary).
+        .library(name: "GanchoTelemetry", targets: ["GanchoTelemetry"]),
     ],
     dependencies: [
         // Storage engine (SQLite). Decision and rationale: docs/ARCHITECTURE.md.
@@ -26,6 +29,9 @@ let package = Package(
         // Layout-aware keycodes for the synthetic ⌘V (covers Dvorak-QWERTY⌘).
         // Inherited practice from years of Maccy/community plumbing (MIT).
         .package(url: "https://github.com/Clipy/Sauce.git", from: "2.4.0"),
+        // Privacy-first product analytics (bucket-only events). Confined to
+        // the GanchoTelemetry target.
+        .package(url: "https://github.com/TelemetryDeck/SwiftSDK", from: "2.0.0"),
     ],
     targets: [
         .target(name: "GanchoKit", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
@@ -37,6 +43,12 @@ let package = Package(
             ]),
         .target(name: "GanchoAI", dependencies: ["GanchoKit"]),
         .target(name: "GanchoDesign", dependencies: ["GanchoKit"]),
+        .target(
+            name: "GanchoTelemetry",
+            dependencies: [
+                "GanchoKit",
+                .product(name: "TelemetryDeck", package: "SwiftSDK"),
+            ]),
         .testTarget(name: "GanchoKitTests", dependencies: ["GanchoKit"]),
         .testTarget(name: "ClipboardCoreTests", dependencies: ["ClipboardCore"]),
         .testTarget(name: "GanchoAITests", dependencies: ["GanchoAI"]),

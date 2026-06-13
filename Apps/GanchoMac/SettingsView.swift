@@ -266,6 +266,17 @@ private struct PrivacySettingsTab: View {
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
+
+            Toggle(
+                "Share anonymous usage analytics",
+                isOn: Binding(
+                    get: { !model.telemetryOptedOut },
+                    set: { model.telemetryOptedOut = !$0 }))
+            Text(
+                "Bucketed counts only — never clipboard content. Takes effect on next launch."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)
