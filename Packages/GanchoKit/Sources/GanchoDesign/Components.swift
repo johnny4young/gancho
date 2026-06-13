@@ -7,11 +7,14 @@ import SwiftUI
 /// fallback exists for ACCESSIBILITY, not for a legacy look.
 public struct GanchoSurface: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
 
     let shape: RoundedRectangle
 
     public func body(content: Content) -> some View {
-        if reduceTransparency {
+        // Increased contrast ALSO opts out of glass: translucency is the
+        // main legibility cost, regardless of which setting flagged it.
+        if reduceTransparency || contrast == .increased {
             content.background(.background.secondary, in: shape)
         } else {
             content.glassEffect(.regular, in: shape)
