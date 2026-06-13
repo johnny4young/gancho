@@ -41,6 +41,10 @@ settings:
 packages:
   GanchoKit:
     path: Packages/GanchoKit
+  # Global hotkey recording + handling (vitrine-proven, MIT).
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: 2.3.0
 
 targets:
   Gancho:
@@ -56,6 +60,7 @@ targets:
           - ClipboardCore
           - GanchoAI
           - GanchoDesign
+      - package: KeyboardShortcuts
     info:
       path: Apps/GanchoMac/Info.plist
       properties:
@@ -94,6 +99,22 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
 
+  # UI smoke harness (XCTest is allowed ONLY here; unit tests use Swift
+  # Testing in the package).
+  GanchoUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        # XCTestCase overrides nonisolated members — the app-wide MainActor
+        # default does not fit a UI-test bundle.
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+    sources:
+      - path: Tests/GanchoUITests
+    dependencies:
+      - target: Gancho
+
   # Share-sheet capture: the only iOS path that works from inside other
   # apps, and the loudest proof that capture is intent-only on iOS.
   GanchoShare:
@@ -127,3 +148,16 @@ targets:
               NSExtensionActivationSupportsText: true
               NSExtensionActivationSupportsWebURLWithMaxCount: 1
               NSExtensionActivationSupportsImageWithMaxCount: 1
+
+schemes:
+  Gancho:
+    build:
+      targets:
+        Gancho: all
+        GanchoUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - GanchoUITests

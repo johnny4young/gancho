@@ -15,7 +15,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project build build-ios test bench format lint hooks clean open
+.PHONY: help project build build-ios test test-ui bench format lint hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -36,6 +36,10 @@ test: ## Run package unit tests (Swift Testing)
 
 bench: ## Run the scale performance harness (seeds 100k rows; not for the PR loop)
 	env GANCHO_PERF=1 swift test --package-path $(PACKAGE) --filter PerformanceHarnessTests
+
+test-ui: project ## Run the XCUITest smoke suite (drives the real app)
+	xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
+		-only-testing:GanchoUITests CODE_SIGNING_ALLOWED=NO
 
 format: ## Format Swift sources in place
 	swift format --in-place --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests
