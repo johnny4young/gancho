@@ -101,6 +101,12 @@ struct MenuContent: View {
         Button("Privacy Center") {
             model.privacyCenterWindow.show(model: model)
         }
+        Button("My Clipboard, Wrapped…") {
+            Task {
+                let stats = await WrappedStats.gather(model: model)
+                WrappedExporter.savePNG(stats: stats)
+            }
+        }
         if model.monitorStatus == .deniedByPrivacySettings {
             Button("Fix clipboard access…") {
                 model.permissionWindow.show(model: model)
