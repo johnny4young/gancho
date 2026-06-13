@@ -471,6 +471,16 @@
         }
       }
     },
+    "From another device": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De otro dispositivo"
+          }
+        }
+      }
+    },
     "Full search and paste-back": {
       "localizations": {
         "es": {

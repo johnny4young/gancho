@@ -52,6 +52,26 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// Tier-1 enrichment: sets the title without touching content.
+    public func updateTitle(id: UUID, title: String) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET title = ?, updatedAt = ? WHERE id = ?",
+                arguments: [title, Date(), id.uuidString])
+        }
+    }
+
+    /// OCR enrichment for image clips: extracted text lands in contentText
+    /// (FTS-indexed → screenshots become searchable) without altering the
+    /// preview or the blob.
+    public func attachExtractedText(id: UUID, text: String) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET contentText = ?, updatedAt = ? WHERE id = ?",
+                arguments: [text, Date(), id.uuidString])
+        }
+    }
+
     /// Edits ANY text clip's content (Quick Look editing); recomputes the
     /// preview. The hash is left as-is on purpose: edits are curation, and
     /// re-copying the original must still dedupe against this row.
