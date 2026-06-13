@@ -179,11 +179,11 @@ struct CaptureView: View {
 
     private var hintText: String {
         var parts: [String] = []
-        if model.hints.probableWebURL { parts.append("link") }
-        if model.hints.probableWebSearch { parts.append("search text") }
-        if model.hints.number { parts.append("number") }
-        let detail = parts.isEmpty ? "content" : parts.joined(separator: ", ")
-        return "Has \(detail) — not read yet"
+        if model.hints.probableWebURL { parts.append(String(localized: "link")) }
+        if model.hints.probableWebSearch { parts.append(String(localized: "search text")) }
+        if model.hints.number { parts.append(String(localized: "number")) }
+        let detail = parts.isEmpty ? String(localized: "content") : parts.joined(separator: ", ")
+        return String(localized: "Has \(detail) — not read yet")
     }
 }
 

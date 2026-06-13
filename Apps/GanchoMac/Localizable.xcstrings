@@ -1,0 +1,216 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Copy something — it will appear here.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia algo — aparecerá aquí."
+          }
+        }
+      }
+    },
+    "Gancho — pre-alpha": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho — pre-alfa"
+          }
+        }
+      }
+    },
+    "Pinned": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fijado"
+          }
+        }
+      }
+    },
+    "Quit Gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salir de Gancho"
+          }
+        }
+      }
+    },
+    "address": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dirección"
+          }
+        }
+      }
+    },
+    "code": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "código"
+          }
+        }
+      }
+    },
+    "color": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "color"
+          }
+        }
+      }
+    },
+    "creditCard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tarjeta"
+          }
+        }
+      }
+    },
+    "date": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fecha"
+          }
+        }
+      }
+    },
+    "email": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "correo"
+          }
+        }
+      }
+    },
+    "fileReference": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "archivo"
+          }
+        }
+      }
+    },
+    "image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "imagen"
+          }
+        }
+      }
+    },
+    "json": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JSON"
+          }
+        }
+      }
+    },
+    "jwt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JWT"
+          }
+        }
+      }
+    },
+    "phoneNumber": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "teléfono"
+          }
+        }
+      }
+    },
+    "richText": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "texto enriquecido"
+          }
+        }
+      }
+    },
+    "secret": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "secreto"
+          }
+        }
+      }
+    },
+    "text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "texto"
+          }
+        }
+      }
+    },
+    "trackingNumber": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "guía de envío"
+          }
+        }
+      }
+    },
+    "url": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "enlace"
+          }
+        }
+      }
+    },
+    "uuid": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UUID"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
