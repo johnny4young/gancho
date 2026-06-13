@@ -218,6 +218,10 @@ private struct PrivacySettingsTab: View {
         @Bindable var model = model
         Form {
             Toggle("Private mode (pause capture)", isOn: $model.preferences.isPrivateModePaused)
+            KeyboardShortcuts.Recorder("Private mode shortcut:", name: .togglePrivateMode)
+            Toggle(
+                "Pause automatically while sharing the screen",
+                isOn: $model.autoPauseOnScreenShare)
             Text(
                 "Secrets and card numbers are always masked in previews; revealing them takes an explicit click."
             )

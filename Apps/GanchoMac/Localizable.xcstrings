@@ -401,6 +401,16 @@
         }
       }
     },
+    "Gancho: paused while sharing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho: en pausa mientras compartes"
+          }
+        }
+      }
+    },
     "Gancho: private mode": {
       "localizations": {
         "es": {
@@ -671,6 +681,16 @@
         }
       }
     },
+    "Pause automatically while sharing the screen": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausar automáticamente al compartir pantalla"
+          }
+        }
+      }
+    },
     "Pause capture": {
       "localizations": {
         "es": {
@@ -787,6 +807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Modo privado (pausar captura)"
+          }
+        }
+      }
+    },
+    "Private mode shortcut:": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajo de modo privado:"
           }
         }
       }

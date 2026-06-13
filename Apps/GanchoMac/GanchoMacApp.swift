@@ -32,6 +32,7 @@ struct GanchoMacApp: App {
         switch model.monitorStatus {
         case .running: "paperclip"
         case .pausedByUser: "eye.slash"
+        case .pausedByScreenShare: "video.slash"
         case .stopped, .pausedByScreenLock: "pause.circle"
         case .deniedByPrivacySettings: "exclamationmark.triangle"
         }
@@ -41,6 +42,7 @@ struct GanchoMacApp: App {
         switch model.monitorStatus {
         case .running: "Gancho: capturing"
         case .pausedByUser: "Gancho: private mode"
+        case .pausedByScreenShare: "Gancho: paused while sharing"
         case .stopped, .pausedByScreenLock: "Gancho: paused"
         case .deniedByPrivacySettings: "Gancho: pasteboard access denied"
         }

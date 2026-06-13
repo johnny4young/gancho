@@ -2,6 +2,7 @@ import AppKit
 import ClipboardCore
 import GanchoAI
 import GanchoKit
+import KeyboardShortcuts
 import SwiftUI
 
 /// Central app state: wires monitor → classifier → GRDB store, owns the
@@ -28,6 +29,13 @@ final class AppModel {
     private let sensitiveDetector = SensitiveDataDetector()
     private let defaults = UserDefaults.standard
     private var retentionTimer: Timer?
+    private let screenShareDetector = ScreenShareDetector()
+    private var screenShareTimer: Timer?
+
+    /// Opt-out for the share auto-pause (on by default).
+    var autoPauseOnScreenShare: Bool {
+        didSet { defaults.set(autoPauseOnScreenShare, forKey: "auto-pause-screen-share") }
+    }
 
     var preferences: CapturePreferences {
         didSet {
@@ -59,6 +67,8 @@ final class AppModel {
         preferences = loadedPreferences
         retentionPolicy = RetentionPolicy.load(from: defaults)
         showInDock = defaults.bool(forKey: "show-in-dock")
+        autoPauseOnScreenShare =
+            defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
 
         monitor = MacPasteboardMonitor(preferences: loadedPreferences)
         monitor.denylist = SourceAppDenylist.load(from: defaults)
@@ -70,7 +80,11 @@ final class AppModel {
         }
         monitor.start()
         scheduleRetention()
+        scheduleScreenShareWatch()
         panel.attach(model: self)
+        KeyboardShortcuts.onKeyUp(for: .togglePrivateMode) { [weak self] in
+            self?.togglePrivateMode()
+        }
         Task { await refreshRecents() }
 
         // UI-test hook: deterministic panel access without the global hotkey.
@@ -276,6 +290,21 @@ final class AppModel {
         }
         if let dock = snapshot.appSettings["show-in-dock"] {
             showInDock = dock == "true"
+        }
+    }
+
+    private func scheduleScreenShareWatch() {
+        screenShareTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) {
+            [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                let sharing =
+                    self.autoPauseOnScreenShare
+                    && self.screenShareDetector.isScreenSharePresumed()
+                if self.monitor.pausedForScreenShare != sharing {
+                    self.monitor.pausedForScreenShare = sharing
+                }
+            }
         }
     }
 

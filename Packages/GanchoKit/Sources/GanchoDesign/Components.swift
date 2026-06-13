@@ -53,10 +53,14 @@ public struct TypeBadge: View {
 public struct ClipCard: View {
     let item: ClipItem
     let isSelected: Bool
+    /// Private mode: show ONLY the kind — shoulder surfers and screen
+    /// shares see types, never content.
+    let previewsHidden: Bool
 
-    public init(item: ClipItem, isSelected: Bool = false) {
+    public init(item: ClipItem, isSelected: Bool = false, previewsHidden: Bool = false) {
         self.item = item
         self.isSelected = isSelected
+        self.previewsHidden = previewsHidden
     }
 
     public var body: some View {
@@ -66,12 +70,12 @@ public struct ClipCard: View {
                 .frame(width: GanchoTokens.Spacing.lg)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
-                if !item.title.isEmpty {
+                if !item.title.isEmpty, !previewsHidden {
                     Text(item.title)
                         .font(.body.weight(.medium))
                         .lineLimit(1)
                 }
-                Text(item.preview)
+                Text(previewsHidden ? "•••" : item.preview)
                     .font(item.kind == .code ? .body.monospaced() : .body)
                     .lineLimit(2)
                     .foregroundStyle(item.title.isEmpty ? .primary : .secondary)
@@ -97,7 +101,8 @@ public struct ClipCard: View {
 
     /// VoiceOver: kind + preview (masked previews stay masked here too).
     private var accessibilityDescription: Text {
-        Text(LocalizedStringKey(item.kind.rawValue)) + Text(", ") + Text(item.preview)
+        Text(LocalizedStringKey(item.kind.rawValue)) + Text(", ")
+            + Text(previewsHidden ? "•••" : item.preview)
     }
 }
 

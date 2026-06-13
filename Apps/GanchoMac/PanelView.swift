@@ -94,7 +94,9 @@ struct PanelView: View {
     @ViewBuilder
     private func row(for item: ClipItem, index: Int) -> some View {
         HStack(spacing: GanchoTokens.Spacing.xxs) {
-            ClipCard(item: item, isSelected: index == selectedIndex)
+            ClipCard(
+                item: item, isSelected: index == selectedIndex,
+                previewsHidden: model.preferences.isPrivateModePaused)
             if item.kind == .color {
                 ColorSwatch(text: item.preview)
             }
