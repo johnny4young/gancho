@@ -22,11 +22,19 @@ let package = Package(
     ],
     dependencies: [
         // Storage engine (SQLite). Decision and rationale: docs/ARCHITECTURE.md.
-        .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0")
+        .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
+        // Layout-aware keycodes for the synthetic ⌘V (covers Dvorak-QWERTY⌘).
+        // Inherited practice from years of Maccy/community plumbing (MIT).
+        .package(url: "https://github.com/Clipy/Sauce.git", from: "2.4.0"),
     ],
     targets: [
         .target(name: "GanchoKit", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
-        .target(name: "ClipboardCore", dependencies: ["GanchoKit"]),
+        .target(
+            name: "ClipboardCore",
+            dependencies: [
+                "GanchoKit",
+                .product(name: "Sauce", package: "Sauce", condition: .when(platforms: [.macOS])),
+            ]),
         .target(name: "GanchoAI", dependencies: ["GanchoKit"]),
         .target(name: "GanchoDesign"),
         .testTarget(name: "GanchoKitTests", dependencies: ["GanchoKit"]),
