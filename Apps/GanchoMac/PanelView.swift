@@ -1,3 +1,5 @@
+import ClipboardCore
+import GanchoAI
 import GanchoDesign
 import GanchoKit
 import SwiftUI
@@ -138,11 +140,14 @@ struct PanelView: View {
     }
 }
 
-/// Basic Space preview (the full Quick Look experience is a later ticket).
+/// Basic Space preview (the full Quick Look experience is a later ticket)
+/// plus the dev-action strip: the right transforms for the detected kind,
+/// result copyable in one click. All offline.
 struct PreviewSheet: View {
     let item: ClipItem
     let text: String
     @Environment(\.dismiss) private var dismiss
+    @State private var actionResult: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
@@ -153,6 +158,40 @@ struct PreviewSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             }
+
+            let actions = DevActions.actions(for: item.kind)
+            if !actions.isEmpty {
+                HStack(spacing: GanchoTokens.Spacing.xxs) {
+                    ForEach(actions) { action in
+                        ActionButton(
+                            LocalizedStringKey(action.title),
+                            systemImage: "wand.and.sparkles",
+                            identifier: "dev-action-\(action.id.rawValue)"
+                        ) {
+                            actionResult = (try? action.transform(text)) ?? ""
+                            UserDefaults.standard.set(
+                                UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
+                                forKey: "dev-actions-run")
+                        }
+                    }
+                }
+            }
+
+            if let actionResult, !actionResult.isEmpty {
+                ScrollView {
+                    Text(actionResult)
+                        .font(.body.monospaced())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                .frame(maxHeight: 160)
+                ActionButton(
+                    "Copy result", systemImage: "doc.on.doc", identifier: "copy-result"
+                ) {
+                    SystemPasteboardWriter().write(.text(actionResult), asPlainText: true)
+                }
+            }
+
             ActionButton("Close", systemImage: "xmark", identifier: "preview-close") {
                 dismiss()
             }
