@@ -31,7 +31,7 @@ settings:
     SWIFT_VERSION: "6.0"
     SWIFT_APPROACHABLE_CONCURRENCY: YES
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: JGWX5ZT2N2
     CODE_SIGN_STYLE: Automatic
     ENABLE_HARDENED_RUNTIME: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -51,6 +51,11 @@ targets:
     type: application
     platform: macOS
     deploymentTarget: "26.0"
+    settings:
+      base:
+        # Shared 1:1 with the iOS app to enable App Store Universal Purchase
+        # (buy Pro once, entitled on Mac AND iPhone). Same id, distinct platform.
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho
     sources:
       - path: Apps/GanchoMac
     dependencies:
@@ -73,6 +78,10 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "26.0"
+    settings:
+      base:
+        # Same id as the macOS app → Universal Purchase across platforms.
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho
     sources:
       - path: Apps/GanchoiOS
     entitlements:
@@ -123,8 +132,9 @@ targets:
     deploymentTarget: "26.0"
     settings:
       base:
-        # Embedded extensions must extend the PARENT app's bundle id.
-        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.GanchoiOS.share
+        # Embedded extensions must extend the PARENT app's bundle id
+        # (the iOS app is now com.johnny4young.gancho).
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.share
     sources:
       - path: Apps/GanchoShare
     entitlements:
