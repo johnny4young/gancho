@@ -331,6 +331,16 @@
         }
       }
     },
+    "Cyclic paste shortcut:": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajo de pegado cíclico:"
+          }
+        }
+      }
+    },
     "Decode JWT": {
       "localizations": {
         "es": {
@@ -367,6 +377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Acciones de desarrollador ejecutadas"
+          }
+        }
+      }
+    },
+    "Edit": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar"
           }
         }
       }
@@ -681,6 +701,16 @@
         }
       }
     },
+    "Library": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biblioteca"
+          }
+        }
+      }
+    },
     "Minify JSON": {
       "localizations": {
         "es": {
@@ -727,6 +757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nuevo tablero…"
+          }
+        }
+      }
+    },
+    "New snippet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo snippet"
           }
         }
       }
@@ -831,6 +871,16 @@
         }
       }
     },
+    "Paste as": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar como"
+          }
+        }
+      }
+    },
     "Pasteboard access": {
       "localizations": {
         "es": {
@@ -897,6 +947,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Los clips fijados y los tableros nunca expiran."
+          }
+        }
+      }
+    },
+    "Plain text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto plano"
           }
         }
       }
@@ -1041,6 +1101,16 @@
         }
       }
     },
+    "Remove from Library": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar de la Biblioteca"
+          }
+        }
+      }
+    },
     "Remove from board": {
       "localizations": {
         "es": {
@@ -1077,6 +1147,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Retención"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar"
           }
         }
       }
@@ -1131,6 +1211,16 @@
         }
       }
     },
+    "Select a snippet, or create one.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selecciona un snippet o crea uno."
+          }
+        }
+      }
+    },
     "Sensitive items expire after": {
       "localizations": {
         "es": {
@@ -1161,12 +1251,32 @@
         }
       }
     },
+    "Single line": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una sola línea"
+          }
+        }
+      }
+    },
     "Skip": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Omitir"
+          }
+        }
+      }
+    },
+    "Snippet title": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Título del snippet"
           }
         }
       }
@@ -1241,6 +1351,16 @@
         }
       }
     },
+    "Trimmed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin espacios extremos"
+          }
+        }
+      }
+    },
     "Try it now: copy any text — it appears below instantly.": {
       "localizations": {
         "es": {
@@ -1257,6 +1377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tipo desactivado en Configuración"
+          }
+        }
+      }
+    },
+    "UPPERCASE": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MAYÚSCULAS"
           }
         }
       }
@@ -1487,6 +1617,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "JWT"
+          }
+        }
+      }
+    },
+    "lowercase": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "minúsculas"
           }
         }
       }

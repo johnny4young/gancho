@@ -27,6 +27,7 @@ final class AppModel {
     let privacyCenterWindow = PrivacyCenterWindowController()
     let paywallWindow = PaywallWindowController()
     let permissionWindow = PasteboardPermissionWindowController()
+    let libraryWindow = LibraryWindowController()
 
     /// Entitlement; purchases flip this when IAP lands.
     var tier: UserTier {
@@ -95,6 +96,9 @@ final class AppModel {
         AppDependencyManager.shared.add(dependency: self)
         KeyboardShortcuts.onKeyUp(for: .togglePrivateMode) { [weak self] in
             self?.togglePrivateMode()
+        }
+        KeyboardShortcuts.onKeyUp(for: .cyclicPaste) { [weak self] in
+            self?.cyclicPaste()
         }
         Task { await refreshRecents() }
 
@@ -199,6 +203,35 @@ final class AppModel {
             try? await store.insert(item, content: nil)  // move-to-top
             await refreshRecents()
         }
+    }
+
+    /// Paste with a pure transform applied at paste time.
+    func paste(_ item: ClipItem, transform: PasteTransform) {
+        Task {
+            guard case .text(let text)? = try? await store.content(for: item.id) else {
+                paste(item, asPlainText: transform == .plainText)
+                return
+            }
+            panel.hide()
+            try? await Task.sleep(for: .milliseconds(80))
+            pasteBack.paste(.text(transform.apply(to: text)), asPlainText: true)
+            try? await store.insert(item, content: nil)
+            await refreshRecents()
+        }
+    }
+
+    /// Cyclic quick-paste: each invocation pastes the NEXT history item
+    /// (wraps around). Resets to the top after 8s of silence.
+    private var cycleIndex = 0
+    private var lastCycleAt = Date.distantPast
+
+    func cyclicPaste() {
+        if Date().timeIntervalSince(lastCycleAt) > 8 { cycleIndex = 0 }
+        lastCycleAt = Date()
+        guard !recentItems.isEmpty else { return }
+        let item = recentItems[cycleIndex % recentItems.count]
+        cycleIndex += 1
+        paste(item)
     }
 
     func togglePause() {

@@ -70,6 +70,9 @@ struct MenuContent: View {
 
         Divider()
 
+        Button("Library") {
+            model.libraryWindow.show(model: model)
+        }
         Button("Open panel") {
             model.panel.show(model: model)
         }
