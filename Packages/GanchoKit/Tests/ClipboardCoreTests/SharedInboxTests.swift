@@ -56,4 +56,22 @@ struct SharedInboxTests {
         #expect(drained.map(\.textRepresentation) == ["good"])
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty)
     }
+
+    @Test("Prepared envelope round-trips kind; legacy files still drain")
+    func preparedAndLegacy() throws {
+        let (inbox, dir) = makeInbox()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try inbox.deposit(
+            SharedInbox.PreparedCapture(
+                capture: PasteboardCapture(text: "https://example.com"), kind: .url))
+        // Legacy bare-capture file (pre-envelope app versions).
+        try JSONEncoder().encode(PasteboardCapture(text: "legacy"))
+            .write(to: dir.appendingPathComponent("legacy.json"), options: .atomic)
+
+        let drained = try inbox.drainPrepared()
+        #expect(drained.count == 2)
+        #expect(drained.contains { $0.kind == .url })
+        #expect(drained.contains { $0.kind == nil && $0.capture.textRepresentation == "legacy" })
+    }
 }

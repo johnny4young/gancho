@@ -51,10 +51,11 @@ final class IOSAppModel {
     }
 
     /// Captures handed over by the share extension through the App Group.
+    /// The extension already classified (tier 0); reuse its verdict.
     func drainSharedInbox() async {
         guard let inbox = SharedInbox.inAppGroup() else { return }
-        for capture in (try? inbox.drain()) ?? [] {
-            await ingest(capture)
+        for prepared in (try? inbox.drainPrepared()) ?? [] {
+            await ingest(prepared.capture, precomputedKind: prepared.kind)
         }
     }
 
@@ -82,13 +83,26 @@ final class IOSAppModel {
         }
     }
 
-    private func ingest(_ capture: PasteboardCapture) async {
-        let item = makeItem(from: capture)
-        try? await store.insert(item)
+    private func ingest(
+        _ capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil
+    )
+        async
+    {
+        let item = makeItem(from: capture, precomputedKind: precomputedKind)
+        let content: ClipContent? =
+            switch capture.payload {
+            case .image(let data, let typeIdentifier):
+                .binary(data: data, typeIdentifier: typeIdentifier)
+            default:
+                capture.textRepresentation.map { .text($0) }
+            }
+        try? await store.insert(item, content: content)
         captures = (try? await store.items()) ?? []
     }
 
-    private func makeItem(from capture: PasteboardCapture) -> ClipItem {
+    private func makeItem(
+        from capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil
+    ) -> ClipItem {
         switch capture.payload {
         case .image(let data, let typeIdentifier):
             return ClipItem(
@@ -98,7 +112,7 @@ final class IOSAppModel {
                 sourceAppBundleID: capture.sourceAppBundleID)
         default:
             let raw = capture.textRepresentation ?? ""
-            let kind = classifier.classify(raw)
+            let kind = precomputedKind ?? classifier.classify(raw)
             let text = ContentNormalizer.canonicalText(raw, kind: kind)
             let item = ClipItem(
                 kind: kind,

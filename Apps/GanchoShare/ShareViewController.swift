@@ -1,4 +1,6 @@
 import ClipboardCore
+import GanchoAI
+import GanchoKit
 import Social
 import UIKit
 import UniformTypeIdentifiers
@@ -24,9 +26,19 @@ final class ShareViewController: UIViewController {
             .compactMap { $0 as? NSExtensionItem }
             .flatMap { $0.attachments ?? [] }
 
+        // Tier-0 classification runs HERE: deterministic, <5ms, no model
+        // loads — comfortably inside the extension memory ceiling. Large
+        // payloads aren't a problem either: the deposit IS the deferred
+        // import (a file the app processes later).
+        let classifier = RuleClassifier()
         for provider in providers {
             if let capture = await capture(from: provider) {
-                try? inbox.deposit(capture)
+                let kind: ClipContentKind? =
+                    switch capture.payload {
+                    case .image: .image
+                    default: capture.textRepresentation.map(classifier.classify)
+                    }
+                try? inbox.deposit(SharedInbox.PreparedCapture(capture: capture, kind: kind))
             }
         }
     }
