@@ -22,6 +22,7 @@ final class AppModel {
     let privacyEvents = InMemoryPrivacyEventRecorder()
     let panel = PanelController()
     let welcomeWindow = WelcomeWindowController()
+    let privacyCenterWindow = PrivacyCenterWindowController()
 
     private let classifier = RuleClassifier()
     private let sensitiveDetector = SensitiveDataDetector()

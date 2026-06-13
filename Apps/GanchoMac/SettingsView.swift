@@ -223,6 +223,9 @@ private struct PrivacySettingsTab: View {
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
+            Button("Open Privacy Center") {
+                model.privacyCenterWindow.show(model: model)
+            }
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)

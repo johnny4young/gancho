@@ -181,6 +181,16 @@
         }
       }
     },
+    "Clips captured": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clips capturados"
+          }
+        }
+      }
+    },
     "Close": {
       "localizations": {
         "es": {
@@ -217,6 +227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Convertir color"
+          }
+        }
+      }
+    },
+    "Copies ignored": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copias ignoradas"
           }
         }
       }
@@ -261,6 +281,16 @@
         }
       }
     },
+    "Developer actions run": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acciones de desarrollador ejecutadas"
+          }
+        }
+      }
+    },
     "Everything you copy, safe and searchable": {
       "localizations": {
         "es": {
@@ -297,6 +327,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gratis"
+          }
+        }
+      }
+    },
+    "From a password manager": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De un gestor de contraseñas"
+          }
+        }
+      }
+    },
+    "From an excluded app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De una app excluida"
+          }
+        }
+      }
+    },
+    "Gancho sends no clipboard content anywhere. Verify it yourself with Little Snitch or any network monitor — this screen included.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho no envía contenido del portapapeles a ninguna parte. Verifícalo tú mismo con Little Snitch o cualquier monitor de red — esta pantalla incluida."
           }
         }
       }
@@ -391,6 +451,26 @@
         }
       }
     },
+    "Items self-expired": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ítems autoexpirados"
+          }
+        }
+      }
+    },
+    "Items synchronized": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ítems sincronizados"
+          }
+        }
+      }
+    },
     "Keep history for": {
       "localizations": {
         "es": {
@@ -407,6 +487,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Conservar formato de texto enriquecido"
+          }
+        }
+      }
+    },
+    "Last content read": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Última lectura de contenido"
           }
         }
       }
@@ -441,6 +531,26 @@
         }
       }
     },
+    "Network": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Red"
+          }
+        }
+      }
+    },
+    "Never": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nunca"
+          }
+        }
+      }
+    },
     "Never capture from these apps": {
       "localizations": {
         "es": {
@@ -471,6 +581,16 @@
         }
       }
     },
+    "Open Privacy Center": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Centro de Privacidad"
+          }
+        }
+      }
+    },
     "Open System Settings": {
       "localizations": {
         "es": {
@@ -487,6 +607,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Abrir panel"
+          }
+        }
+      }
+    },
+    "Outgoing content requests: 0": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solicitudes salientes con contenido: 0"
           }
         }
       }
@@ -527,6 +657,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Los gestores de contraseñas y apps bancarias están excluidos por defecto."
+          }
+        }
+      }
+    },
+    "Pasteboard access": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso al portapapeles"
           }
         }
       }
@@ -617,6 +757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Privacidad"
+          }
+        }
+      }
+    },
+    "Privacy Center": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Centro de Privacidad"
           }
         }
       }
@@ -731,6 +881,16 @@
         }
       }
     },
+    "Secrets masked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secretos enmascarados"
+          }
+        }
+      }
+    },
     "Sensitive items expire after": {
       "localizations": {
         "es": {
@@ -801,6 +961,16 @@
         }
       }
     },
+    "This week, on this Mac": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta semana, en este Mac"
+          }
+        }
+      }
+    },
     "To paste a clip directly into the app you're using, macOS requires the Accessibility permission. Gancho uses it ONLY to send the paste keystroke — never to read your screen.": {
       "localizations": {
         "es": {
@@ -817,6 +987,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pruébalo ya: copia cualquier texto — aparece abajo al instante."
+          }
+        }
+      }
+    },
+    "Type disabled in Settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipo desactivado en Configuración"
           }
         }
       }
@@ -867,6 +1047,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sin él, Gancho igual funciona: los clips se copian y pegas con ⌘V."
+          }
+        }
+      }
+    },
+    "You said “ignore next”": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pediste “ignorar la próxima”"
           }
         }
       }
