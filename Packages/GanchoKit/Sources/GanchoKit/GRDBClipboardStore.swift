@@ -297,6 +297,18 @@ public final class GRDBClipboardStore: ClipboardStore {
         }
     }
 
+    /// Removes every sensitive clip immediately ("Clear Sensitive" intent
+    /// and panic actions). Returns how many were removed.
+    @discardableResult
+    public func deleteAllSensitive() async throws -> Int {
+        let removed = try await writer.write { db in
+            try db.execute(sql: "DELETE FROM clip WHERE isSensitive = 1")
+            return db.changesCount
+        }
+        _ = try await removeOrphanedBlobs()
+        return removed
+    }
+
     public func content(for id: UUID) async throws -> ClipContent? {
         let row = try await writer.read { db in
             try ClipRow.filter(key: id.uuidString).fetchOne(db)
