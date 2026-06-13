@@ -1,0 +1,296 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Captured": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturado"
+          }
+        }
+      }
+    },
+    "Gancho never reads your pasteboard in the background.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho nunca lee tu portapapeles en segundo plano."
+          }
+        }
+      }
+    },
+    "Has %@ — not read yet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay %@ — sin leer todavía"
+          }
+        }
+      }
+    },
+    "Nothing captured yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay capturas."
+          }
+        }
+      }
+    },
+    "Pasteboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Portapapeles"
+          }
+        }
+      }
+    },
+    "Pasteboard is empty": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El portapapeles está vacío"
+          }
+        }
+      }
+    },
+    "Pinned": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fijado"
+          }
+        }
+      }
+    },
+    "Save clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar portapapeles"
+          }
+        }
+      }
+    },
+    "address": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dirección"
+          }
+        }
+      }
+    },
+    "code": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "código"
+          }
+        }
+      }
+    },
+    "color": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "color"
+          }
+        }
+      }
+    },
+    "content": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "contenido"
+          }
+        }
+      }
+    },
+    "creditCard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tarjeta"
+          }
+        }
+      }
+    },
+    "date": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fecha"
+          }
+        }
+      }
+    },
+    "email": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "correo"
+          }
+        }
+      }
+    },
+    "fileReference": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "archivo"
+          }
+        }
+      }
+    },
+    "image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "imagen"
+          }
+        }
+      }
+    },
+    "json": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JSON"
+          }
+        }
+      }
+    },
+    "jwt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JWT"
+          }
+        }
+      }
+    },
+    "link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un enlace"
+          }
+        }
+      }
+    },
+    "number": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un número"
+          }
+        }
+      }
+    },
+    "phoneNumber": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "teléfono"
+          }
+        }
+      }
+    },
+    "richText": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "texto enriquecido"
+          }
+        }
+      }
+    },
+    "search text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "texto de búsqueda"
+          }
+        }
+      }
+    },
+    "secret": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "secreto"
+          }
+        }
+      }
+    },
+    "text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "texto"
+          }
+        }
+      }
+    },
+    "trackingNumber": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "guía de envío"
+          }
+        }
+      }
+    },
+    "url": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "enlace"
+          }
+        }
+      }
+    },
+    "uuid": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UUID"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
