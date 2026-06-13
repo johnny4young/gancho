@@ -98,6 +98,11 @@ struct MenuContent: View {
         Button("Privacy Center") {
             model.privacyCenterWindow.show(model: model)
         }
+        if model.monitorStatus == .deniedByPrivacySettings {
+            Button("Fix clipboard access…") {
+                model.permissionWindow.show(model: model)
+            }
+        }
         Toggle(
             "Show in Dock",
             isOn: Binding(get: { model.showInDock }, set: { model.showInDock = $0 }))
