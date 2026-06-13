@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Base64 decode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decodificar Base64"
+          }
+        }
+      }
+    },
+    "Base64 encode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codificar Base64"
+          }
+        }
+      }
+    },
     "Close": {
       "localizations": {
         "es": {
@@ -21,12 +41,42 @@
         }
       }
     },
+    "Convert color": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Convertir color"
+          }
+        }
+      }
+    },
+    "Copy result": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar resultado"
+          }
+        }
+      }
+    },
     "Copy something — it will appear here.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Copia algo — aparecerá aquí."
+          }
+        }
+      }
+    },
+    "Decode JWT": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decodificar JWT"
           }
         }
       }
@@ -91,12 +141,32 @@
         }
       }
     },
+    "Minify JSON": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minificar JSON"
+          }
+        }
+      }
+    },
     "Open panel": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Abrir panel"
+          }
+        }
+      }
+    },
+    "Parse URL": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analizar URL"
           }
         }
       }
@@ -117,6 +187,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fijado"
+          }
+        }
+      }
+    },
+    "Pretty-print JSON": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formatear JSON"
           }
         }
       }
@@ -177,6 +257,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostrar en el Dock"
+          }
+        }
+      }
+    },
+    "UUID formats": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formatos de UUID"
           }
         }
       }
