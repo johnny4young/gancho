@@ -1,0 +1,83 @@
+{
+  "identifier": "7EDA6554-5AD0-4163-AF98-9D7BDA8E8225",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "59.99",
+      "familyShareable": true,
+      "internalID": "8AA923DF-3C04-4A83-ACDB-D7F148270128",
+      "localizations": [
+        {
+          "description": "Unlimited history, pins, boards, sync and AI \u2014 forever.",
+          "displayName": "Gancho Pro (Lifetime)",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.johnny4young.gancho.pro.lifetime",
+      "referenceName": "Pro Lifetime",
+      "type": "NonConsumable"
+    }
+  ],
+  "settings": {
+    "_compatibilityTimeRate": {
+      "_majorVersion": 4,
+      "_minorVersion": 0
+    }
+  },
+  "subscriptionGroups": [
+    {
+      "id": "63E446D9-9303-42F7-BC1D-382E87893955",
+      "localizations": [],
+      "name": "Gancho Pro",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "displayPrice": "24.99",
+          "familyShareable": true,
+          "groupNumber": 1,
+          "internalID": "2D922362-9D86-4F81-99EC-92A059873798",
+          "introductoryOffer": {
+            "internalID": "INTRO_ANNUAL",
+            "paymentMode": "free",
+            "subscriptionPeriod": "P1W"
+          },
+          "localizations": [
+            {
+              "description": "Everything in Pro, billed yearly.",
+              "displayName": "Gancho Pro (Annual)",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.johnny4young.gancho.pro.annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Pro Annual",
+          "subscriptionGroupID": "63E446D9-9303-42F7-BC1D-382E87893955",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "displayPrice": "2.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "F7660CBB-7CB1-492E-83E2-D2888210DA91",
+          "localizations": [
+            {
+              "description": "Everything in Pro, billed monthly.",
+              "displayName": "Gancho Pro (Monthly)",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.johnny4young.gancho.pro.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Pro Monthly",
+          "subscriptionGroupID": "63E446D9-9303-42F7-BC1D-382E87893955",
+          "type": "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 4,
+    "minor": 0
+  }
+}

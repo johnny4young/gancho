@@ -158,6 +158,9 @@ schemes:
         GanchoUITests: [test]
     run:
       config: Debug
+      # Local IAP testing without an App Store account (Xcode StoreKit
+      # Testing). Mirror these products in App Store Connect 1:1.
+      storeKitConfiguration: Apps/GanchoMac/Gancho.storekit
     test:
       config: Debug
       targets:
