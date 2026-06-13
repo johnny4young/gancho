@@ -1,12 +1,62 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acciones"
+          }
+        }
+      }
+    },
+    "All types": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos los tipos"
+          }
+        }
+      }
+    },
     "Already in your history": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Ya estaba en tu historial"
+          }
+        }
+      }
+    },
+    "Base64 decode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decodificar Base64"
+          }
+        }
+      }
+    },
+    "Base64 encode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codificar Base64"
+          }
+        }
+      }
+    },
+    "Capture on iPhone": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Captura en iPhone"
           }
         }
       }
@@ -21,12 +71,102 @@
         }
       }
     },
+    "Convert color": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Convertir color"
+          }
+        }
+      }
+    },
+    "Copy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar"
+          }
+        }
+      }
+    },
+    "Copy result": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar resultado"
+          }
+        }
+      }
+    },
+    "Decode JWT": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decodificar JWT"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo"
+          }
+        }
+      }
+    },
+    "Example Shortcuts gallery": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Galería de Atajos de ejemplo"
+          }
+        }
+      }
+    },
+    "Filter by type": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtrar por tipo"
+          }
+        }
+      }
+    },
     "Gancho never reads your pasteboard in the background.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Gancho nunca lee tu portapapeles en segundo plano."
+          }
+        }
+      }
+    },
+    "Gancho never reads your pasteboard in the background. Capture happens only when you act: the save button, the share sheet, or a Shortcut.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho nunca lee tu portapapeles en segundo plano. La captura ocurre solo cuando tú actúas: el botón de guardar, el share sheet o un Atajo."
           }
         }
       }
@@ -41,12 +181,42 @@
         }
       }
     },
+    "History": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historial"
+          }
+        }
+      }
+    },
+    "Minify JSON": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minificar JSON"
+          }
+        }
+      }
+    },
     "Nothing captured yet.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Aún no hay capturas."
+          }
+        }
+      }
+    },
+    "Parse URL": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analizar URL"
           }
         }
       }
@@ -71,12 +241,32 @@
         }
       }
     },
+    "Pin": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fijar"
+          }
+        }
+      }
+    },
     "Pinned": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Fijado"
+          }
+        }
+      }
+    },
+    "Pretty-print JSON": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formatear JSON"
           }
         }
       }
@@ -107,6 +297,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guardado"
+          }
+        }
+      }
+    },
+    "Search your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Busca en tu portapapeles"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configuración"
+          }
+        }
+      }
+    },
+    "Shortcuts": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajos"
+          }
+        }
+      }
+    },
+    "UUID formats": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formatos de UUID"
+          }
+        }
+      }
+    },
+    "Unpin": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desfijar"
           }
         }
       }
@@ -187,6 +427,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "archivo"
+          }
+        }
+      }
+    },
+    "iOS apps can't watch the clipboard in the background — no app can. Capture with the button above, the share sheet from any app, or a Shortcut on your Action Button.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las apps de iOS no pueden vigilar el portapapeles en segundo plano — ninguna puede. Captura con el botón de arriba, el share sheet desde cualquier app o un Atajo en tu Action Button."
           }
         }
       }
