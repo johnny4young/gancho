@@ -33,6 +33,13 @@ public protocol SyncLocalStore: Sendable {
     func applyRemoteDeletion(recordID: String) async throws
     /// Forgets a tombstone once its deletion has propagated.
     func clearTombstone(recordID: String) async throws
+
+    /// Drops every clip's saved CloudKit identity and re-flags all rows for
+    /// upload. Called when the server zone is reset/deleted or the iCloud
+    /// account changes: the old record identities are gone, so the next sync
+    /// must re-upload from scratch. Local clips are kept — only the sync
+    /// linkage is forgotten.
+    func forgetAllSyncFields() async throws
 }
 
 extension GRDBClipboardStore: SyncLocalStore {
@@ -130,6 +137,12 @@ extension GRDBClipboardStore: SyncLocalStore {
         try await writer.write { db in
             try db.execute(
                 sql: "DELETE FROM sync_tombstone WHERE recordID = ?", arguments: [recordID])
+        }
+    }
+
+    public func forgetAllSyncFields() async throws {
+        try await writer.write { db in
+            try db.execute(sql: "UPDATE clip SET syncSystemFields = NULL, needsUpload = 1")
         }
     }
 

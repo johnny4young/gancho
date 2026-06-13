@@ -101,4 +101,24 @@ struct SyncLocalStoreTests {
         try await store.applyRemoteDeletion(recordID: item.id.uuidString)
         #expect(try await store.count() == 0)
     }
+
+    @Test("Forgetting sync fields re-flags every clip for upload, keeps the data")
+    func forgetAllSyncFields() async throws {
+        let store = try makeStore()
+        let a = ClipItem(preview: "a", contentHash: "ha")
+        let b = ClipItem(preview: "b", contentHash: "hb")
+        try await store.insert(a, content: .text("a"))
+        try await store.insert(b, content: .text("b"))
+        try await store.markUploaded(id: a.id, systemFields: Data([1]))
+        try await store.markUploaded(id: b.id, systemFields: Data([2]))
+        #expect(try await store.pendingUploads().isEmpty)
+
+        try await store.forgetAllSyncFields()
+
+        // Data survives; both rows are pending again with their tags dropped.
+        #expect(try await store.count() == 2)
+        #expect(try await store.pendingUploads().count == 2)
+        #expect(try await store.systemFields(for: a.id) == nil)
+        #expect(try await store.systemFields(for: b.id) == nil)
+    }
 }
