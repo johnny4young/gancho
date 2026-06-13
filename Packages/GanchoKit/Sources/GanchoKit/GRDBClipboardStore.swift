@@ -156,6 +156,15 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.add(column: "isSnippet", .boolean).notNull().defaults(to: false)
             }
         }
+        migrator.registerMigration("v7-embeddings") { db in
+            // Sentence vectors for semantic search (Pro). float32 BLOB;
+            // dimension recorded so model upgrades can re-embed selectively.
+            try db.create(table: "clip_embedding") { t in
+                t.primaryKey("clipID", .text)
+                t.column("dimension", .integer).notNull()
+                t.column("vector", .blob).notNull()
+            }
+        }
         return migrator
     }
 

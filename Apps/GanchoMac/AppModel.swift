@@ -145,6 +145,13 @@ final class AppModel {
                     try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
                     await refreshRecents()
                 }
+                // Semantic vector (the embedder caches its model after the
+                // first call — warm-up cost measured in the AI spike).
+                if let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+                    let vector = try? embedder.vector(for: String(text.prefix(1_000)))
+                {
+                    try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
+                }
             default:
                 break
             }
