@@ -21,6 +21,7 @@ final class AppModel {
     let pasteBack = PasteBackService()
     let privacyEvents = InMemoryPrivacyEventRecorder()
     let panel = PanelController()
+    let welcomeWindow = WelcomeWindowController()
 
     private let classifier = RuleClassifier()
     private let sensitiveDetector = SensitiveDataDetector()
@@ -74,6 +75,8 @@ final class AppModel {
         // UI-test hook: deterministic panel access without the global hotkey.
         if CommandLine.arguments.contains("-open-panel-on-launch") {
             Task { panel.show(model: self) }
+        } else if !defaults.bool(forKey: "has-seen-welcome") {
+            Task { welcomeWindow.show(model: self) }
         }
     }
 
@@ -161,6 +164,10 @@ final class AppModel {
             // Give focus one beat to return to the previous app.
             try? await Task.sleep(for: .milliseconds(80))
             pasteBack.paste(content, asPlainText: asPlainText)
+            // Activation metric (local, content-free): first paste-back ever.
+            if defaults.object(forKey: "first-pasteback-at") == nil {
+                defaults.set(Date().timeIntervalSince1970, forKey: "first-pasteback-at")
+            }
             try? await store.insert(item, content: nil)  // move-to-top
             await refreshRecents()
         }

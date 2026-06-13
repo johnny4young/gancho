@@ -61,6 +61,16 @@
         }
       }
     },
+    "Continue": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar"
+          }
+        }
+      }
+    },
     "Convert color": {
       "localizations": {
         "es": {
@@ -107,6 +117,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Eliminar"
+          }
+        }
+      }
+    },
+    "Everything you copy, safe and searchable": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo lo que copias, seguro y buscable"
           }
         }
       }
@@ -191,12 +211,42 @@
         }
       }
     },
+    "One permission for instant pasting": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un permiso para pegar al instante"
+          }
+        }
+      }
+    },
+    "Open System Settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Configuración del Sistema"
+          }
+        }
+      }
+    },
     "Open panel": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Abrir panel"
+          }
+        }
+      }
+    },
+    "Panel shortcut:": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajo del panel:"
           }
         }
       }
@@ -221,6 +271,16 @@
         }
       }
     },
+    "Permission granted": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permiso concedido"
+          }
+        }
+      }
+    },
     "Pin": {
       "localizations": {
         "es": {
@@ -237,6 +297,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fijado"
+          }
+        }
+      }
+    },
+    "Press the shortcut, pick a clip with ↑↓, hit Enter — it pastes right where you were typing. That's the whole loop.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presiona el atajo, elige un clip con ↑↓ y dale Enter — se pega justo donde estabas escribiendo. Ese es todo el ciclo."
           }
         }
       }
@@ -321,6 +391,46 @@
         }
       }
     },
+    "Skip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omitir"
+          }
+        }
+      }
+    },
+    "Start using Gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empezar a usar Gancho"
+          }
+        }
+      }
+    },
+    "To paste a clip directly into the app you're using, macOS requires the Accessibility permission. Gancho uses it ONLY to send the paste keystroke — never to read your screen.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para pegar un clip directamente en la app que estás usando, macOS exige el permiso de Accesibilidad. Gancho lo usa SOLO para enviar la tecla de pegado — nunca para leer tu pantalla."
+          }
+        }
+      }
+    },
+    "Try it now: copy any text — it appears below instantly.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pruébalo ya: copia cualquier texto — aparece abajo al instante."
+          }
+        }
+      }
+    },
     "UUID formats": {
       "localizations": {
         "es": {
@@ -337,6 +447,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desfijar"
+          }
+        }
+      }
+    },
+    "Welcome to Gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bienvenido a Gancho"
+          }
+        }
+      }
+    },
+    "Without it, Gancho still works: clips are copied and you paste with ⌘V.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin él, Gancho igual funciona: los clips se copian y pegas con ⌘V."
+          }
+        }
+      }
+    },
+    "Your clipboard, one shortcut away": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu portapapeles, a un atajo de distancia"
+          }
+        }
+      }
+    },
+    "Your clips never leave this Mac unless YOU turn on iCloud sync.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus clips nunca salen de este Mac a menos que TÚ actives la sincronización con iCloud."
           }
         }
       }
