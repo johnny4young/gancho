@@ -129,6 +129,18 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.column("summary", .text).notNull()
             }
         }
+        migrator.registerMigration("v4-pinboards") { db in
+            try db.create(table: "pinboard") { t in
+                t.primaryKey("id", .text)
+                t.column("name", .text).notNull()
+                t.column("sortIndex", .integer).notNull().defaults(to: 0)
+                t.column("createdAt", .datetime).notNull()
+            }
+            try db.alter(table: "clip") { t in
+                t.add(column: "pinboardID", .text).indexed()
+                t.add(column: "sortIndex", .integer).notNull().defaults(to: 0)
+            }
+        }
         return migrator
     }
 
