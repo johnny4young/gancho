@@ -36,9 +36,10 @@ let package = Package(
                 .product(name: "Sauce", package: "Sauce", condition: .when(platforms: [.macOS])),
             ]),
         .target(name: "GanchoAI", dependencies: ["GanchoKit"]),
-        .target(name: "GanchoDesign"),
+        .target(name: "GanchoDesign", dependencies: ["GanchoKit"]),
         .testTarget(name: "GanchoKitTests", dependencies: ["GanchoKit"]),
         .testTarget(name: "ClipboardCoreTests", dependencies: ["ClipboardCore"]),
         .testTarget(name: "GanchoAITests", dependencies: ["GanchoAI"]),
+        .testTarget(name: "GanchoDesignTests", dependencies: ["GanchoDesign"]),
     ]
 )
