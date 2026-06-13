@@ -428,7 +428,7 @@ struct IOSSettingsView: View {
                     .font(.footnote)
                 }
                 Section("Shortcuts") {
-                    Link(destination: URL(string: "https://getgancho.app/shortcuts")!) {
+                    Link(destination: URL(string: "https://gancho.app/shortcuts")!) {
                         Label("Example Shortcuts gallery", systemImage: "square.stack.3d.up")
                     }
                 }

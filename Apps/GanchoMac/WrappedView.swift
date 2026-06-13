@@ -26,7 +26,7 @@ struct WrappedView: View {
                 statColumn(value: stats.topKind ?? "—", labelKey: "favorite type")
                 statColumn(value: "\(stats.secretsProtected)", labelKey: "secrets protected")
             }
-            Text("getgancho.app")
+            Text(verbatim: "gancho.app")
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
         }
