@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Close": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrar"
+          }
+        }
+      }
+    },
+    "Color swatch": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muestra de color"
+          }
+        }
+      }
+    },
     "Copy something — it will appear here.": {
       "localizations": {
         "es": {
@@ -21,6 +41,76 @@
         }
       }
     },
+    "Gancho: capturing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho: capturando"
+          }
+        }
+      }
+    },
+    "Gancho: pasteboard access denied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho: acceso al portapapeles denegado"
+          }
+        }
+      }
+    },
+    "Gancho: paused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho: en pausa"
+          }
+        }
+      }
+    },
+    "Gancho: private mode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho: modo privado"
+          }
+        }
+      }
+    },
+    "Ignore next copy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignorar la próxima copia"
+          }
+        }
+      }
+    },
+    "Open panel": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir panel"
+          }
+        }
+      }
+    },
+    "Pause capture": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausar captura"
+          }
+        }
+      }
+    },
     "Pinned": {
       "localizations": {
         "es": {
@@ -31,12 +121,62 @@
         }
       }
     },
+    "Private mode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modo privado"
+          }
+        }
+      }
+    },
     "Quit Gancho": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Salir de Gancho"
+          }
+        }
+      }
+    },
+    "Resume capture": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reanudar captura"
+          }
+        }
+      }
+    },
+    "Search your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Busca en tu portapapeles"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configuración…"
+          }
+        }
+      }
+    },
+    "Show in Dock": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar en el Dock"
           }
         }
       }
