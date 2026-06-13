@@ -27,6 +27,8 @@ struct GanchoiOSApp: App {
 final class IOSAppModel {
     var captures: [ClipItem] = []
     var hints = IntentionalPasteboardSource.ContentHints()
+    /// Transient feedback ("Saved" / "Already in your history").
+    var saveNote: String?
 
     private let source = IntentionalPasteboardSource()
     private let classifier = RuleClassifier()
@@ -48,6 +50,14 @@ final class IOSAppModel {
     func saveClipboard() async {
         guard let capture = source.captureNow() else { return }
         await ingest(capture)
+    }
+
+    private func flashNote(_ text: String) {
+        saveNote = text
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            saveNote = nil
+        }
     }
 
     /// Captures handed over by the share extension through the App Group.
@@ -96,7 +106,12 @@ final class IOSAppModel {
             default:
                 capture.textRepresentation.map { .text($0) }
             }
-        try? await store.insert(item, content: content)
+        // Dedupe-aware feedback: the store returns the EXISTING item when
+        // the content hash matches — warn subtly instead of duplicating.
+        let stored = try? await store.insert(item, content: content)
+        flashNote(
+            stored?.id == item.id
+                ? String(localized: "Saved") : String(localized: "Already in your history"))
         captures = (try? await store.items()) ?? []
     }
 
@@ -187,10 +202,25 @@ struct CaptureView: View {
 
     @ViewBuilder
     private var hintsRow: some View {
+        if let note = model.saveNote {
+            Label(note, systemImage: "checkmark.circle")
+                .foregroundStyle(.green)
+                .accessibilityIdentifier("save-note")
+        }
         if model.hints.hasContent {
-            Label(hintText, systemImage: "doc.on.clipboard")
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("pasteboard-hints")
+            // The capture banner: detection happened WITHOUT reading; the
+            // button is the explicit consent that triggers the read.
+            HStack {
+                Label(hintText, systemImage: "doc.on.clipboard")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Save it") {
+                    Task { await model.saveClipboard() }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+            .accessibilityIdentifier("pasteboard-hints")
         } else {
             Label("Pasteboard is empty", systemImage: "doc.on.clipboard")
                 .foregroundStyle(.tertiary)

@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Already in your history": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya estaba en tu historial"
+          }
+        }
+      }
+    },
     "Captured": {
       "localizations": {
         "es": {
@@ -77,6 +87,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guardar portapapeles"
+          }
+        }
+      }
+    },
+    "Save it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guárdalo"
+          }
+        }
+      }
+    },
+    "Saved": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardado"
           }
         }
       }
