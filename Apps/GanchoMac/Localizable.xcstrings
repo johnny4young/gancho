@@ -61,6 +61,16 @@
         }
       }
     },
+    "7-day history, 500 items": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historial de 7 días, 500 ítems"
+          }
+        }
+      }
+    },
     "90 days": {
       "localizations": {
         "es": {
@@ -87,6 +97,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Añadir a un tablero"
+          }
+        }
+      }
+    },
+    "All privacy features": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toda la privacidad"
           }
         }
       }
@@ -281,6 +301,16 @@
         }
       }
     },
+    "Developer actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acciones de desarrollador"
+          }
+        }
+      }
+    },
     "Developer actions run": {
       "localizations": {
         "es": {
@@ -331,6 +361,16 @@
         }
       }
     },
+    "Free forever": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratis para siempre"
+          }
+        }
+      }
+    },
     "From a password manager": {
       "localizations": {
         "es": {
@@ -347,6 +387,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "De una app excluida"
+          }
+        }
+      }
+    },
+    "Full search and paste-back": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Búsqueda completa y paste-back"
+          }
+        }
+      }
+    },
+    "Gancho Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho Pro"
+          }
+        }
+      }
+    },
+    "Gancho is free forever. Pro goes further.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho es gratis para siempre. Pro va más allá."
           }
         }
       }
@@ -577,6 +647,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nuevo tablero…"
+          }
+        }
+      }
+    },
+    "On-device AI titles and search": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Títulos y búsqueda con IA en el dispositivo"
           }
         }
       }
@@ -831,6 +911,16 @@
         }
       }
     },
+    "Pro purchases arrive with the public launch.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las compras Pro llegan con el lanzamiento público."
+          }
+        }
+      }
+    },
     "Pro — iCloud sync, unlimited pins and boards — arrives with launch.": {
       "localizations": {
         "es": {
@@ -921,6 +1011,16 @@
         }
       }
     },
+    "See what Pro adds": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver qué añade Pro"
+          }
+        }
+      }
+    },
     "Sensitive items expire after": {
       "localizations": {
         "es": {
@@ -967,6 +1067,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Empezar a usar Gancho"
+          }
+        }
+      }
+    },
+    "Stay free": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seguir gratis"
           }
         }
       }
@@ -1041,12 +1151,32 @@
         }
       }
     },
+    "Unlimited history and pins": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historial y pins ilimitados"
+          }
+        }
+      }
+    },
     "Unpin": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Desfijar"
+          }
+        }
+      }
+    },
+    "Upgrade to Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mejorar a Pro"
           }
         }
       }
@@ -1177,6 +1307,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "archivo"
+          }
+        }
+      }
+    },
+    "iCloud sync across your devices": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronización iCloud entre tus dispositivos"
           }
         }
       }
