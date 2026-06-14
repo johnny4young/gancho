@@ -161,6 +161,17 @@ public struct SearchField: View {
             TextField(promptKey, text: $text)
                 .textFieldStyle(.plain)
                 .accessibilityIdentifier("search-field")
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Clear search"))
+                .accessibilityIdentifier("search-clear")
+            }
         }
         .padding(GanchoTokens.Spacing.xs)
         .ganchoSurface(radius: GanchoTokens.Radius.md)
