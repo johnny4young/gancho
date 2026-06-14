@@ -1,5 +1,6 @@
 import AppKit
 import ClipboardCore
+import Combine
 import GanchoAI
 import GanchoDesign
 import GanchoKit
@@ -100,7 +101,17 @@ struct PanelView: View {
         .onChange(of: model.recentItems) { _, _ in
             Task { await refresh() }
         }
-        .onAppear { searchFocused = true }
+        .onAppear {
+            // Defer one runloop: on the FIRST open the field editor isn't
+            // ready when onAppear fires, so an immediate focus is dropped
+            // (arrow keys beep). The notification below re-grabs it on every
+            // key transition, which covers first open and reopens alike.
+            DispatchQueue.main.async { searchFocused = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
+            _ in
+            searchFocused = true
+        }
         .sheet(item: $previewItem) { item in
             PreviewSheet(item: item, text: previewText)
         }
