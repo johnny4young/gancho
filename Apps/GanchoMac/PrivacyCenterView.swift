@@ -14,6 +14,7 @@ struct PrivacyCenterView: View {
     @State private var masked = 0
     @State private var expired = 0
     @State private var ignoredByReason: [CaptureIgnoreReason: Int] = [:]
+    @State private var synced = 0
 
     private var weekAgo: Date { Date(timeIntervalSinceNow: -7 * 86_400) }
 
@@ -35,7 +36,23 @@ struct PrivacyCenterView: View {
                     }
                     LabeledContent("Secrets masked", value: "\(masked)")
                     LabeledContent("Items self-expired", value: "\(expired)")
-                    LabeledContent("Items synchronized", value: "0")
+                    LabeledContent("Items synchronized", value: "\(synced)")
+                }
+
+                Section("iCloud sync") {
+                    SyncStatusView(status: model.syncStatus, showsSuggestion: true)
+                    Button("Force sync") { model.forceSync() }
+                        .accessibilityIdentifier("force-sync")
+                    ForEach(
+                        Array(model.privacyEvents.recentSyncEvents(limit: 8).enumerated()),
+                        id: \.offset
+                    ) { _, event in
+                        LabeledContent {
+                            Text(event.occurredAt, style: .time)
+                        } label: {
+                            Label(syncEventTitle(event), systemImage: syncEventSymbol(event.kind))
+                        }
+                    }
                 }
 
                 Section("Pasteboard access") {
@@ -77,10 +94,26 @@ struct PrivacyCenterView: View {
         ignoredByReason = model.privacyEvents.countsByReason(since: weekAgo)
         if let grdb = model.grdbStore {
             expired = (try? await grdb.purgedItemCount(since: weekAgo)) ?? 0
+            synced = (try? await grdb.syncedCount()) ?? 0
             masked =
                 (try? await grdb.search(
                     ClipSearchQuery(text: "●●●●", mode: .exact), limit: 500
                 ).count) ?? 0
+        }
+    }
+
+    private func syncEventTitle(_ event: SyncActivityEvent) -> LocalizedStringKey {
+        switch event.kind {
+        case .synced: "Synced"
+        case .paused, .failed: event.cause.map { SyncStatusView.causeText($0) } ?? "Sync error"
+        }
+    }
+
+    private func syncEventSymbol(_ kind: SyncActivityKind) -> String {
+        switch kind {
+        case .synced: "checkmark.icloud"
+        case .paused: "pause.circle"
+        case .failed: "exclamationmark.icloud"
         }
     }
 

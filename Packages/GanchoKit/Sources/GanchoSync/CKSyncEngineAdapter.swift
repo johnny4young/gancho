@@ -25,6 +25,10 @@ public actor CKSyncEngineAdapter: SyncEngine {
     /// visible-sync-status work surfaces this to the user.
     private var isPaused = false
 
+    /// Status sink for the UI (set by the factory). Receives `SyncStatus`
+    /// values only — state and counts, never clip content.
+    private let onStatus: (@Sendable (SyncStatus) -> Void)?
+
     private let stateEncoder = PropertyListEncoder()
     private let stateDecoder = PropertyListDecoder()
 
@@ -32,12 +36,14 @@ public actor CKSyncEngineAdapter: SyncEngine {
         store: any SyncLocalStore,
         containerIdentifier: String,
         stateStore: SyncStateStore,
-        maxAssetBytes: Int = ClipRecordMapper.defaultMaxAssetBytes
+        maxAssetBytes: Int = ClipRecordMapper.defaultMaxAssetBytes,
+        onStatus: (@Sendable (SyncStatus) -> Void)? = nil
     ) {
         self.store = store
         self.containerIdentifier = containerIdentifier
         self.stateStore = stateStore
         self.maxAssetBytes = maxAssetBytes
+        self.onStatus = onStatus
     }
 
     // MARK: - SyncEngine boundary
@@ -47,8 +53,15 @@ public actor CKSyncEngineAdapter: SyncEngine {
         let engine = ensureEngine()
         engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
         await reenqueuePendingWork(into: engine)
-        try await engine.fetchChanges()
-        try await engine.sendChanges()
+        emit(.syncing)
+        do {
+            try await engine.fetchChanges()
+            try await engine.sendChanges()
+        } catch {
+            emit(.failed(Self.interruption(error)))
+            throw error
+        }
+        await emitCurrentStatus()
     }
 
     public func stop() async {
@@ -99,6 +112,36 @@ public actor CKSyncEngineAdapter: SyncEngine {
 
     private func recordID(for id: UUID) -> CKRecord.ID {
         CKRecord.ID(recordName: id.uuidString, zoneID: zoneID)
+    }
+
+    // MARK: - Status
+
+    private func emit(_ status: SyncStatus) {
+        onStatus?(status)
+    }
+
+    /// Recompute and emit the resting status after a cycle: paused if CloudKit
+    /// reported the account is full, otherwise pending(N) or up-to-date.
+    private func emitCurrentStatus() async {
+        if isPaused {
+            emit(.paused(.iCloudFull))
+            return
+        }
+        let uploads = (try? await store.pendingUploads().count) ?? 0
+        let deletions = (try? await store.pendingDeletionRecordIDs().count) ?? 0
+        let pending = uploads + deletions
+        emit(pending > 0 ? .pending(pending) : .upToDate(at: Date()))
+    }
+
+    /// Maps a CloudKit error to a structured interruption the UI localizes.
+    private static func interruption(_ error: Error) -> SyncInterruption {
+        guard let ckError = error as? CKError else { return .unknown }
+        switch ckError.code {
+        case .notAuthenticated: return .notSignedIn
+        case .networkUnavailable, .networkFailure: return .offline
+        case .quotaExceeded: return .iCloudFull
+        default: return .unknown
+        }
     }
 
     /// Re-registers everything the local store still considers unsynced — used
@@ -162,8 +205,12 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             await handleFetchedRecordZoneChanges(event)
         case .sentRecordZoneChanges(let event):
             await handleSentRecordZoneChanges(event, syncEngine: syncEngine)
+        case .willFetchChanges, .willSendChanges:
+            emit(.syncing)
+        case .didFetchChanges, .didSendChanges:
+            await emitCurrentStatus()
         default:
-            // willFetch/didFetch/willSend/didSend/sentDatabaseChanges: no-op.
+            // sentDatabaseChanges, will/didFetchRecordZoneChanges: no status change.
             break
         }
     }
@@ -173,11 +220,13 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
     ) async {
         switch event.changeType {
         case .signIn:
+            emit(.syncing)
             syncEngine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
             await reenqueuePendingWork(into: syncEngine)
         case .signOut, .switchAccounts:
             // Forget the old account's record identities; keep local history.
             try? await store.forgetAllSyncFields()
+            emit(.idle)
         @unknown default:
             break
         }
@@ -248,6 +297,7 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
         case .quotaExceeded:
             isPaused = true
+            emit(.paused(.iCloudFull))
         default:
             // Transient (network, rate limit, server busy): CKSyncEngine retries
             // on its own — nothing to do.

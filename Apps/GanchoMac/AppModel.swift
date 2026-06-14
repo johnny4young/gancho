@@ -39,6 +39,9 @@ final class AppModel {
     private(set) var sync: any SyncEngine = NoopSyncEngine()
     private var syncEnabled = false
 
+    /// Current sync state for the UI (panel indicator + Privacy Center).
+    private(set) var syncStatus: SyncStatus = .idle
+
     /// Entitlement — StoreKit is the source of truth; the persisted value is
     /// only the cached default used until StoreKit answers on launch.
     var tier: UserTier {
@@ -416,7 +419,38 @@ final class AppModel {
             .appendingPathComponent("sync-state.plist")
         sync = SyncEngineFactory.make(
             store: grdbStore, tier: tier, iCloudAvailable: iCloudAvailable,
-            stateStore: .file(at: stateURL))
+            stateStore: .file(at: stateURL),
+            onStatus: { [weak self] status in
+                Task { @MainActor in self?.applySyncStatus(status) }
+            })
+        if enable {
+            let engine = sync
+            Task { try? await engine.start() }
+        } else {
+            syncStatus = .idle
+        }
+    }
+
+    /// Applies a status from the engine: updates the indicator and logs a
+    /// metadata-only milestone (synced/paused/failed) to the Privacy Center.
+    private func applySyncStatus(_ status: SyncStatus) {
+        syncStatus = status
+        if let event = Self.syncEvent(for: status) {
+            privacyEvents.record(sync: event)
+        }
+    }
+
+    private static func syncEvent(for status: SyncStatus) -> SyncActivityEvent? {
+        switch status {
+        case .idle, .syncing, .pending: nil
+        case .upToDate: SyncActivityEvent(kind: .synced)
+        case .paused(let cause): SyncActivityEvent(kind: .paused, cause: cause)
+        case .failed(let cause): SyncActivityEvent(kind: .failed, cause: cause)
+        }
+    }
+
+    /// User-triggered sync (the Privacy Center "Force sync" button).
+    func forceSync() {
         let engine = sync
         Task { try? await engine.start() }
     }

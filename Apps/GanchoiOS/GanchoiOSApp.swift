@@ -45,6 +45,7 @@ final class IOSAppModel {
     /// in transparently — the pull-to-refresh UI contract is identical.
     private var syncEngine: any SyncEngine = NoopSyncEngine()
     private var syncEnabled = false
+    private(set) var syncStatus: SyncStatus = .idle
     private var tier: UserTier = .free
     private let purchases = StoreKitPurchaseHandler()
 
@@ -79,9 +80,16 @@ final class IOSAppModel {
             .appendingPathComponent("sync-state.plist")
         syncEngine = SyncEngineFactory.make(
             store: grdb, tier: tier, iCloudAvailable: iCloudAvailable,
-            stateStore: .file(at: stateURL))
-        let engine = syncEngine
-        Task { try? await engine.start() }
+            stateStore: .file(at: stateURL),
+            onStatus: { [weak self] status in
+                Task { @MainActor in self?.syncStatus = status }
+            })
+        if enable {
+            let engine = syncEngine
+            Task { try? await engine.start() }
+        } else {
+            syncStatus = .idle
+        }
     }
 
     #if DEBUG
@@ -279,6 +287,7 @@ struct CaptureView: View {
         @Bindable var model = model
         NavigationStack {
             List {
+                syncStatusSection
                 Section("Pasteboard") {
                     hintsRow
                     Button("Save clipboard", systemImage: "square.and.arrow.down") {
@@ -421,6 +430,46 @@ struct CaptureView: View {
             Label("Pasteboard is empty", systemImage: "doc.on.clipboard")
                 .foregroundStyle(.tertiary)
                 .accessibilityIdentifier("pasteboard-hints")
+        }
+    }
+
+    /// Compact iCloud sync indicator (no suggestion line — kept minimal on
+    /// iOS; pull-to-refresh forces a sync). Renders nothing when sync is off.
+    @ViewBuilder
+    private var syncStatusSection: some View {
+        switch model.syncStatus {
+        case .idle:
+            EmptyView()
+        case .syncing:
+            syncRow(Text("Syncing…"), "arrow.triangle.2.circlepath")
+        case .upToDate:
+            syncRow(Text("Synced"), "checkmark.icloud")
+        case .pending(let count):
+            syncRow(Text("Waiting to sync") + Text(verbatim: " · \(count)"), "arrow.up.circle")
+        case .paused(let cause), .failed(let cause):
+            syncRow(Text(causeText(cause)), "exclamationmark.icloud")
+        }
+    }
+
+    private func syncRow(_ text: Text, _ symbol: String) -> some View {
+        Section {
+            Label {
+                text
+            } icon: {
+                Image(systemName: symbol)
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("sync-status")
+        }
+    }
+
+    private func causeText(_ cause: SyncInterruption) -> LocalizedStringKey {
+        switch cause {
+        case .iCloudFull: "iCloud storage is full"
+        case .notSignedIn: "Not signed in to iCloud"
+        case .offline: "No internet connection"
+        case .unknown: "Sync error"
         }
     }
 

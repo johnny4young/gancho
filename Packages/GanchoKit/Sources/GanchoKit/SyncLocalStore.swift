@@ -158,4 +158,13 @@ extension GRDBClipboardStore: SyncLocalStore {
             try db.execute(sql: "DELETE FROM clip WHERE id = ?", arguments: [id.uuidString])
         }
     }
+
+    /// How many clips have been uploaded to iCloud (carry stored system
+    /// fields). Drives the Privacy Center "Items synchronized" count.
+    public func syncedCount() async throws -> Int {
+        try await writer.read { db in
+            try Int.fetchOne(
+                db, sql: "SELECT COUNT(*) FROM clip WHERE syncSystemFields IS NOT NULL") ?? 0
+        }
+    }
 }

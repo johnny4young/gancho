@@ -1,6 +1,76 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "No internet connection": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin conexión a internet"
+          }
+        }
+      }
+    },
+    "Not signed in to iCloud": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin sesión de iCloud iniciada"
+          }
+        }
+      }
+    },
+    "Sync error": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error de sincronización"
+          }
+        }
+      }
+    },
+    "Synced": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronizado"
+          }
+        }
+      }
+    },
+    "Syncing…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronizando…"
+          }
+        }
+      }
+    },
+    "Waiting to sync": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando sincronizar"
+          }
+        }
+      }
+    },
+    "iCloud storage is full": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El almacenamiento de iCloud está lleno"
+          }
+        }
+      }
+    },
     "Actions": {
       "localizations": {
         "es": {
