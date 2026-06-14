@@ -1,3 +1,4 @@
+import AppKit
 import ClipboardCore
 import GanchoAI
 import GanchoDesign
@@ -28,6 +29,13 @@ struct PanelView: View {
                 }
                 .onKeyPress(.escape) {
                     model.panel.hide()
+                    return .handled
+                }
+                .onKeyPress(characters: CharacterSet(charactersIn: "a"), phases: .down) { press in
+                    // ⌘A select-all: a menu-bar agent has no Edit menu to bind it,
+                    // so route selectAll: down the responder chain to the field.
+                    guard press.modifiers.contains(.command) else { return .ignored }
+                    NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
                     return .handled
                 }
                 .onKeyPress(.space) {
