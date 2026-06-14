@@ -79,11 +79,16 @@ final class PanelController {
                 .environment(model))
         let created = KeyPanel(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 480),
-            styleMask: [.nonactivatingPanel, .fullSizeContentView, .titled, .closable],
+            // Chromeless floating panel (Spotlight-style): borderless, no
+            // traffic-light buttons and no title-bar strip. The rounded look
+            // comes from the content's `ganchoSurface`. Dismissed with Escape.
+            styleMask: [.nonactivatingPanel],
             backing: .buffered, defer: false)
-        created.titleVisibility = .hidden
-        created.titlebarAppearsTransparent = true
         created.isMovableByWindowBackground = true
+        // No window shadow: on a translucent borderless panel the shadow hugs
+        // the glass and reads as a dark hairline around the edge. The glass
+        // material carries its own depth.
+        created.hasShadow = false
         created.level = .floating
         // Active-space behavior: the panel follows the user, never drags
         // them to another space.
@@ -123,9 +128,9 @@ final class PanelController {
 final class KeyPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
-    /// The panel is created once and reused (reopening is an `orderFront`),
-    /// so the red close button must hide it — not `close()` it — matching the
-    /// Escape-to-dismiss behavior. Otherwise the button feels dead.
+    /// The panel is created once and reused (reopening is an `orderFront`), so
+    /// any close request (⌘W, a programmatic close) hides it rather than
+    /// destroying the instance.
     override func performClose(_ sender: Any?) {
         orderOut(sender)
     }
