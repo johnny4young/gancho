@@ -16,7 +16,7 @@ struct WrappedView: View {
                 .foregroundStyle(.tint)
             Text("My Clipboard, Wrapped")
                 .font(.title.bold())
-            Text("\(stats.totalCaptured)")
+            Text(verbatim: "\(stats.totalCaptured)")
                 .font(.system(size: 64, weight: .heavy, design: .rounded))
             Text("clips captured")
                 .foregroundStyle(.secondary)
