@@ -141,6 +141,9 @@ final class AppModel {
         Task {
             let entitled = await purchases.currentTier()
             if entitled != tier { applyTier(entitled) }
+            #if DEBUG
+                if DebugFlags.forcePro, tier != .pro { applyTier(.pro) }
+            #endif
             configureSync()
         }
         telemetry.record(.appLaunched)
@@ -348,6 +351,20 @@ final class AppModel {
         guard !pasteStack.isEmpty else { return }
         let item = pasteStack.removeFirst()
         paste(item)
+    }
+
+    /// Sync-aware delete: when iCloud sync is active, leave a tombstone and
+    /// propagate the deletion; otherwise a plain local delete.
+    func delete(_ item: ClipItem) {
+        Task {
+            if syncEnabled, let grdbStore {
+                try? await grdbStore.deleteForSync(id: item.id)
+                await sync.enqueueDeletion(ids: [item.id])
+            } else {
+                try? await store.delete(id: item.id)
+            }
+            await refreshRecents()
+        }
     }
 
     func togglePause() {
