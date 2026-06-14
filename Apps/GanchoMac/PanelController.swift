@@ -122,4 +122,11 @@ final class PanelController {
 /// search field needs it for type-to-search.
 final class KeyPanel: NSPanel {
     override var canBecomeKey: Bool { true }
+
+    /// The panel is created once and reused (reopening is an `orderFront`),
+    /// so the red close button must hide it — not `close()` it — matching the
+    /// Escape-to-dismiss behavior. Otherwise the button feels dead.
+    override func performClose(_ sender: Any?) {
+        orderOut(sender)
+    }
 }
