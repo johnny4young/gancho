@@ -58,8 +58,16 @@ public final class StoreKitPurchaseHandler: PurchaseHandling {
         case .success(let verification):
             guard case .verified(let transaction) = verification else { return false }
             await transaction.finish()
-            await notifyTierChange()
-            return await currentTier() == .pro
+            // The just-verified transaction is itself the proof of purchase.
+            // Derive the tier from it directly rather than re-reading
+            // `currentEntitlements`, which is eventually-consistent and can
+            // momentarily return empty right after a purchase (notably under
+            // Xcode StoreKit testing). Launch and restore still scan all
+            // entitlements via `currentTier()`.
+            let purchasedTier = StoreKitEntitlement.tier(
+                forEntitledProductIDs: [transaction.productID])
+            onTierChange?(purchasedTier)
+            return purchasedTier == .pro
         case .userCancelled, .pending:
             return false
         @unknown default:
