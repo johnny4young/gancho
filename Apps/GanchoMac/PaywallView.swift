@@ -52,6 +52,11 @@ struct PaywallView: View {
         }
         .padding(GanchoTokens.Spacing.xl)
         .frame(width: 480)
+        // Pin the height to the content's ideal. A fixed-width view with a
+        // content-driven height inside a non-resizable NSWindow makes AppKit
+        // loop its layout passes (the ">100 update passes" abort). Every other
+        // hosted window pins both dimensions; this one only pinned width.
+        .fixedSize(horizontal: false, vertical: true)
         .accessibilityIdentifier("paywall")
         .onAppear {
             // Funnel instrumentation, local counters (telemetry buckets
