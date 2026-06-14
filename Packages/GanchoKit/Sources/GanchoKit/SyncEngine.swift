@@ -1,5 +1,26 @@
 import Foundation
 
+/// What sync is doing right now, surfaced to the UI — state and counts only,
+/// never clip content. `idle` means sync is off (free tier or signed out of
+/// iCloud); `paused`/`failed` carry a short, user-readable cause.
+public enum SyncStatus: Sendable, Equatable {
+    case idle
+    case syncing
+    case upToDate(at: Date?)
+    case pending(Int)
+    case paused(SyncInterruption)
+    case failed(SyncInterruption)
+}
+
+/// Why sync paused or failed — structured so the UI localizes the cause and a
+/// suggested action. No content.
+public enum SyncInterruption: String, Sendable, Equatable, Codable, CaseIterable {
+    case iCloudFull
+    case notSignedIn
+    case offline
+    case unknown
+}
+
 /// The sync boundary: the core never talks to CloudKit
 /// directly. Production implementation is CKSyncEngine over the private
 /// database with encrypted fields (validated by the sync spike). Keeping

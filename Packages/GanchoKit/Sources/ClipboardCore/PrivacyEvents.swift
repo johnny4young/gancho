@@ -1,4 +1,5 @@
 import Foundation
+import GanchoKit
 
 /// Why a pasteboard change was NOT captured. Carries no content by
 /// construction — the Privacy Center counts these ("X items ignored this
@@ -25,23 +26,59 @@ public struct IgnoredCaptureEvent: Sendable, Equatable, Codable {
     }
 }
 
+/// A sync milestone for the Privacy Center log — metadata only (what kind of
+/// activity and how many items), never the clip content.
+public enum SyncActivityKind: String, Sendable, Codable, CaseIterable {
+    case synced
+    case paused
+    case failed
+}
+
+/// One sync log entry: kind + an optional readable cause + timestamp. No
+/// clip content, ever — this is what the Privacy Center shows.
+public struct SyncActivityEvent: Sendable, Equatable, Codable {
+    public var kind: SyncActivityKind
+    /// Structured cause for paused/failed (the UI localizes it); nil when clean.
+    public var cause: SyncInterruption?
+    public var occurredAt: Date
+
+    public init(kind: SyncActivityKind, cause: SyncInterruption? = nil, occurredAt: Date = .now) {
+        self.kind = kind
+        self.cause = cause
+        self.occurredAt = occurredAt
+    }
+}
+
 /// Sink for ignored-capture events. The GRDB store provides the durable
 /// implementation once persistence lands; until then the in-memory recorder
 /// keeps the wiring honest and testable.
 public protocol PrivacyEventRecording: Sendable {
     func record(_ event: IgnoredCaptureEvent)
     func eventCount(since date: Date) -> Int
+    /// Records a sync milestone (metadata only) for the Privacy Center log.
+    func record(sync event: SyncActivityEvent)
+    /// Most recent sync milestones, newest first.
+    func recentSyncEvents(limit: Int) -> [SyncActivityEvent]
 }
 
 /// Thread-safe in-memory recorder (also the test double).
 public final class InMemoryPrivacyEventRecorder: PrivacyEventRecording, @unchecked Sendable {
     private let lock = NSLock()
     private var events: [IgnoredCaptureEvent] = []
+    private var syncEvents: [SyncActivityEvent] = []
 
     public init() {}
 
     public func record(_ event: IgnoredCaptureEvent) {
         lock.withLock { events.append(event) }
+    }
+
+    public func record(sync event: SyncActivityEvent) {
+        lock.withLock { syncEvents.append(event) }
+    }
+
+    public func recentSyncEvents(limit: Int) -> [SyncActivityEvent] {
+        lock.withLock { Array(syncEvents.suffix(limit).reversed()) }
     }
 
     public func eventCount(since date: Date) -> Int {

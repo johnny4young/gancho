@@ -28,13 +28,15 @@ public enum SyncEngineFactory {
         tier: UserTier,
         iCloudAvailable: Bool,
         containerIdentifier: String = SyncEnablement.defaultContainerIdentifier,
-        stateStore: SyncStateStore
+        stateStore: SyncStateStore,
+        onStatus: (@Sendable (SyncStatus) -> Void)? = nil
     ) -> any SyncEngine {
         guard SyncEnablement.shouldEnable(tier: tier, iCloudAvailable: iCloudAvailable) else {
             return NoopSyncEngine()
         }
         return CKSyncEngineAdapter(
-            store: store, containerIdentifier: containerIdentifier, stateStore: stateStore)
+            store: store, containerIdentifier: containerIdentifier, stateStore: stateStore,
+            onStatus: onStatus)
     }
 }
 

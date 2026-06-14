@@ -89,6 +89,7 @@ struct PanelView: View {
                     proxy.scrollTo(results[index].id)
                 }
             }
+            SyncStatusView(status: model.syncStatus)
         }
         .padding(GanchoTokens.Spacing.sm)
         .frame(minWidth: 380, minHeight: 420)
