@@ -56,6 +56,9 @@ final class IOSAppModel {
         }
         Task {
             tier = await purchases.currentTier()
+            #if DEBUG
+                if DebugFlags.forcePro { tier = .pro }
+            #endif
             configureSync()
         }
     }
@@ -80,6 +83,19 @@ final class IOSAppModel {
         let engine = syncEngine
         Task { try? await engine.start() }
     }
+
+    #if DEBUG
+        /// QA-only: flip Pro on/off without a purchase (iOS has no purchase UI
+        /// and StoreKit testing doesn't span devices). Persists the flag and
+        /// re-arms sync immediately. Compiled out of release builds.
+        func setDebugForcePro(_ on: Bool) {
+            UserDefaults.standard.set(on, forKey: "gancho-force-pro")
+            Task {
+                tier = on ? .pro : await purchases.currentTier()
+                configureSync()
+            }
+        }
+    #endif
 
     /// Telemetry — opt-out-first, buckets only; no sender when opted out so
     /// the SDK never initializes. Records the launch on construction.
@@ -134,7 +150,12 @@ final class IOSAppModel {
     }
 
     func delete(_ item: ClipItem) async {
-        try? await store.delete(id: item.id)
+        if syncEnabled, let grdb = store as? GRDBClipboardStore {
+            try? await grdb.deleteForSync(id: item.id)
+            await syncEngine.enqueueDeletion(ids: [item.id])
+        } else {
+            try? await store.delete(id: item.id)
+        }
         await search()
     }
 
@@ -468,6 +489,9 @@ struct ClipDetailView: View {
 /// iOS settings: honest capture explainer + the Shortcuts gallery link.
 struct IOSSettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    #if DEBUG
+        @Environment(IOSAppModel.self) private var model
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -483,6 +507,20 @@ struct IOSSettingsView: View {
                         Label("Example Shortcuts gallery", systemImage: "square.stack.3d.up")
                     }
                 }
+                #if DEBUG
+                    Section {
+                        Toggle(
+                            isOn: Binding(
+                                get: { UserDefaults.standard.bool(forKey: "gancho-force-pro") },
+                                set: { model.setDebugForcePro($0) })
+                        ) {
+                            Text(verbatim: "Force Pro (QA)")
+                        }
+                        .accessibilityIdentifier("debug-force-pro")
+                    } header: {
+                        Text(verbatim: "Debug")
+                    }
+                #endif
             }
             .navigationTitle(Text("Settings"))
             .toolbar {

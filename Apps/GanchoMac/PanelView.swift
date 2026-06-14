@@ -149,10 +149,7 @@ struct PanelView: View {
             }
         }
         Button("Delete", role: .destructive) {
-            Task {
-                try? await model.store.delete(id: item.id)
-                await model.refreshRecents()
-            }
+            model.delete(item)
         }
     }
 
