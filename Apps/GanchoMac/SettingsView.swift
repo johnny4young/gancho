@@ -22,6 +22,8 @@ struct SettingsView: View {
                 .tabItem { Label("Retention", systemImage: "clock.arrow.circlepath") }
             PrivacySettingsTab()
                 .tabItem { Label("Privacy", systemImage: "lock.shield") }
+            IntegrationsSettingsTab()
+                .tabItem { Label("Integrations", systemImage: "terminal") }
             ProSettingsTab()
                 .tabItem { Label("Pro", systemImage: "star") }
         }
@@ -304,6 +306,49 @@ extension PrivacySettingsTab {
                 telemetryCounts: [:])
             try? (try? bundle.encoded())?.write(to: url, options: .atomic)
         }
+    }
+}
+
+private struct IntegrationsSettingsTab: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Form {
+            Section("Local MCP server") {
+                Toggle(
+                    "Allow local AI agents (MCP)",
+                    isOn: Binding(
+                        get: { model.mcpConfig.isEnabled },
+                        set: { model.setMCPEnabled($0) }))
+                Picker(
+                    "Access scope",
+                    selection: Binding(
+                        get: { model.mcpConfig.scope },
+                        set: { model.setMCPScope($0) })
+                ) {
+                    Text("Metadata only").tag(MCPAccessScope.metadata)
+                    Text("Marked boards only").tag(MCPAccessScope.boards)
+                    Text("Everything").tag(MCPAccessScope.all)
+                }
+                .disabled(!model.mcpConfig.isEnabled)
+                Text(
+                    "Lets local AI agents (Claude, Cursor) read your clipboard over a local connection — no network. Off by default."
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                Text("Sensitive clips are never shared, whatever the scope.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Text(
+                    "Connect your agent to the “gancho mcp” command. Every access is logged in the Privacy Center."
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .padding(GanchoTokens.Spacing.md)
+        .accessibilityIdentifier("settings-integrations")
     }
 }
 

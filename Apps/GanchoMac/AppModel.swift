@@ -42,6 +42,10 @@ final class AppModel {
     /// Current sync state for the UI (panel indicator + Privacy Center).
     private(set) var syncStatus: SyncStatus = .idle
 
+    /// Local MCP server opt-in + scope, persisted as a file in the store
+    /// directory (the `gancho` CLI reads the same file). OFF by default.
+    private(set) var mcpConfig: MCPServerConfig = .init()
+
     /// Entitlement — StoreKit is the source of truth; the persisted value is
     /// only the cached default used until StoreKit answers on launch.
     var tier: UserTier {
@@ -94,6 +98,7 @@ final class AppModel {
         let grdb = try? GRDBClipboardStore(directory: directory)
         self.grdbStore = grdb
         self.store = grdb ?? InMemoryClipboardStore()
+        self.mcpConfig = MCPServerConfig.load(fromStoreDirectory: directory)
 
         let loadedPreferences = CapturePreferences.load(from: defaults)
         preferences = loadedPreferences
@@ -452,6 +457,31 @@ final class AppModel {
     func forceSync() {
         let engine = sync
         Task { try? await engine.start() }
+    }
+
+    // MARK: - Local MCP server
+
+    /// Turns local agent access on/off. Persisting OFF leaves the `gancho mcp`
+    /// server running for connected clients but serving zero tools.
+    func setMCPEnabled(_ enabled: Bool) {
+        updateMCPConfig { $0.isEnabled = enabled }
+    }
+
+    func setMCPScope(_ scope: MCPAccessScope) {
+        updateMCPConfig { $0.scope = scope }
+    }
+
+    private func updateMCPConfig(_ mutate: (inout MCPServerConfig) -> Void) {
+        var config = mcpConfig
+        mutate(&config)
+        mcpConfig = config
+        try? config.save(toStoreDirectory: SharedStorageLocation.macAppStoreDirectory)
+    }
+
+    /// Recent MCP/CLI accesses for the Privacy Center (metadata only).
+    func recentMCPAccesses(limit: Int = 20) async -> [MCPAccessEvent] {
+        guard let grdbStore else { return [] }
+        return (try? await grdbStore.recentMCPAccesses(limit: limit)) ?? []
     }
 
     func buyPlan(_ plan: ProProduct.Plan) {

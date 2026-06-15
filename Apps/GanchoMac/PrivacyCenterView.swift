@@ -15,6 +15,7 @@ struct PrivacyCenterView: View {
     @State private var expired = 0
     @State private var ignoredByReason: [CaptureIgnoreReason: Int] = [:]
     @State private var synced = 0
+    @State private var mcpAccesses: [MCPAccessEvent] = []
 
     private var weekAgo: Date { Date(timeIntervalSinceNow: -7 * 86_400) }
 
@@ -51,6 +52,33 @@ struct PrivacyCenterView: View {
                             Text(event.occurredAt, style: .time)
                         } label: {
                             Label(syncEventTitle(event), systemImage: syncEventSymbol(event.kind))
+                        }
+                    }
+                }
+
+                Section("Local MCP access") {
+                    if mcpAccesses.isEmpty {
+                        Text("No agent access yet.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(Array(mcpAccesses.enumerated()), id: \.offset) { _, event in
+                            LabeledContent {
+                                HStack {
+                                    if event.wasDenied {
+                                        Text("Denied")
+                                            .font(.caption)
+                                            .foregroundStyle(.orange)
+                                    }
+                                    Text(event.occurredAt, style: .time)
+                                }
+                            } label: {
+                                Label {
+                                    Text(verbatim: event.tool.rawValue).monospaced()
+                                } icon: {
+                                    Image(systemName: mcpToolSymbol(event.tool))
+                                }
+                            }
                         }
                     }
                 }
@@ -99,6 +127,16 @@ struct PrivacyCenterView: View {
                 (try? await grdb.search(
                     ClipSearchQuery(text: "●●●●", mode: .exact), limit: 500
                 ).count) ?? 0
+        }
+        mcpAccesses = await model.recentMCPAccesses(limit: 8)
+    }
+
+    private func mcpToolSymbol(_ tool: MCPToolName) -> String {
+        switch tool {
+        case .searchClips: "magnifyingglass"
+        case .getClip: "doc.text"
+        case .createPin: "pin"
+        case .pasteStack: "square.stack"
         }
     }
 

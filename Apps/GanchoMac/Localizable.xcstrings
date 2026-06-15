@@ -1990,6 +1990,136 @@
           }
         }
       }
+    },
+    "Integrations": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Integraciones"
+          }
+        }
+      }
+    },
+    "Local MCP server": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servidor MCP local"
+          }
+        }
+      }
+    },
+    "Allow local AI agents (MCP)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permitir agentes de IA locales (MCP)"
+          }
+        }
+      }
+    },
+    "Access scope": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alcance de acceso"
+          }
+        }
+      }
+    },
+    "Metadata only": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo metadatos"
+          }
+        }
+      }
+    },
+    "Marked boards only": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo tableros marcados"
+          }
+        }
+      }
+    },
+    "Everything": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo"
+          }
+        }
+      }
+    },
+    "Lets local AI agents (Claude, Cursor) read your clipboard over a local connection — no network. Off by default.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite que agentes de IA locales (Claude, Cursor) lean tu portapapeles por una conexión local, sin red. Apagado por defecto."
+          }
+        }
+      }
+    },
+    "Sensitive clips are never shared, whatever the scope.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los clips sensibles nunca se comparten, sea cual sea el alcance."
+          }
+        }
+      }
+    },
+    "Connect your agent to the “gancho mcp” command. Every access is logged in the Privacy Center.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conecta tu agente al comando “gancho mcp”. Cada acceso queda registrado en el Centro de Privacidad."
+          }
+        }
+      }
+    },
+    "Local MCP access": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso MCP local"
+          }
+        }
+      }
+    },
+    "No agent access yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay accesos de agentes."
+          }
+        }
+      }
+    },
+    "Denied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Denegado"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
