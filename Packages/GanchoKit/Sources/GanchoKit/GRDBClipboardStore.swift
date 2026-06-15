@@ -180,6 +180,20 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.column("deletedAt", .datetime).notNull()
             }
         }
+        migrator.registerMigration("v9-mcp-access-log") { db in
+            // Local MCP/CLI access log for the Privacy Center: which tool ran,
+            // under what scope, how many clips it exposed, and whether the
+            // scope denied it — numbers only. The column set has no room for
+            // content, so a future logging bug cannot leak a clip.
+            try db.create(table: "mcp_access_log") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("occurredAt", .datetime).notNull().indexed()
+                t.column("tool", .text).notNull()
+                t.column("scope", .text).notNull()
+                t.column("resultCount", .integer).notNull()
+                t.column("wasDenied", .boolean).notNull().defaults(to: false)
+            }
+        }
         return migrator
     }
 
