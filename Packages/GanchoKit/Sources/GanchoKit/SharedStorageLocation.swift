@@ -24,4 +24,13 @@ public enum SharedStorageLocation {
         return URL.applicationSupportDirectory.appendingPathComponent(
             "Gancho", isDirectory: true)
     }
+
+    /// The macOS app's store directory. The Mac app is NOT sandboxed, so this
+    /// resolves to the user's real `~/Library/Application Support/Gancho` —
+    /// which a Homebrew-installed `gancho` CLI (also unsandboxed) opens as the
+    /// SAME database. Single source of truth shared by the app and the CLI so
+    /// the two never drift onto different files.
+    public static var macAppStoreDirectory: URL {
+        URL.applicationSupportDirectory.appendingPathComponent("Gancho", isDirectory: true)
+    }
 }

@@ -16,6 +16,16 @@ struct NoContentLoggingTests {
     /// Logging tokens that could carry content into the unified log.
     static let forbidden = ["print(", "NSLog(", "os_log(", "Logger("]
 
+    /// The `gancho` CLI is an executable, not a silent engine LIBRARY: its
+    /// `print` calls are stdout the user explicitly asked for (`gancho search`
+    /// shows your own clips), like the app's audited debug prints. It is held
+    /// to the narrower rule — no UNIFIED-LOG sinks — instead of total silence.
+    static let cliExecutableMarker = "/Sources/gancho/"
+
+    /// The unified-log sinks the CLI must still never touch (stdout `print`
+    /// is fine there; ambient system logging is not).
+    static let forbiddenLogSinks = ["NSLog(", "os_log(", "Logger("]
+
     /// App-side debug lines audited as content-free (path suffix: token).
     static let allowlist: [(file: String, token: String)] = [
         ("Apps/GanchoMac/PanelController.swift", "print(\"panel: open took")
@@ -25,6 +35,9 @@ struct NoContentLoggingTests {
     func engineModulesAreSilent() throws {
         let sources = Self.repoRoot.appendingPathComponent("Packages/GanchoKit/Sources")
         for file in try Self.swiftFiles(under: sources) {
+            // The CLI executable is audited separately (stdout output, not a
+            // silent library).
+            if file.path.contains(Self.cliExecutableMarker) { continue }
             let text = try String(contentsOf: file, encoding: .utf8)
             for token in Self.forbidden {
                 for (number, line) in text.split(separator: "\n", omittingEmptySubsequences: false)
@@ -39,6 +52,28 @@ struct NoContentLoggingTests {
                     else { continue }
                     Issue.record(
                         "\(file.lastPathComponent):\(number + 1) uses \(token) in an engine module — content could leak into logs"
+                    )
+                }
+            }
+        }
+    }
+
+    @Test("CLI executable avoids unified-log sinks")
+    func cliAvoidsLogSinks() throws {
+        let cli = Self.repoRoot.appendingPathComponent("Packages/GanchoKit/Sources/gancho")
+        for file in try Self.swiftFiles(under: cli) {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            for token in Self.forbiddenLogSinks {
+                for (number, line) in text.split(separator: "\n", omittingEmptySubsequences: false)
+                    .enumerated()
+                {
+                    guard line.contains(token) else { continue }
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    guard !trimmed.hasPrefix("//"), !trimmed.hasPrefix("///"),
+                        !Self.insideStringLiteral(line: String(line), token: token)
+                    else { continue }
+                    Issue.record(
+                        "\(file.lastPathComponent):\(number + 1) uses \(token) — the CLI may print to stdout but must not log to the unified log"
                     )
                 }
             }

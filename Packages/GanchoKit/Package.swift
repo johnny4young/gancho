@@ -25,6 +25,12 @@ let package = Package(
         // CloudKit sync adapter — the ONLY target allowed to import
         // CloudKit; the core stays behind the `SyncEngine` boundary.
         .library(name: "GanchoSync", targets: ["GanchoSync"]),
+        // Local MCP server protocol + tools. Pure logic over the store
+        // boundary; the `gancho` executable wires it to stdio. The apps do
+        // NOT link it — they only need the model types in GanchoKit.
+        .library(name: "GanchoMCP", targets: ["GanchoMCP"]),
+        // The `gancho` CLI + stdio MCP server, distributed via Homebrew.
+        .executable(name: "gancho", targets: ["gancho"]),
     ],
     dependencies: [
         // Storage engine (SQLite). Decision and rationale: docs/ARCHITECTURE.md.
@@ -53,7 +59,10 @@ let package = Package(
                 .product(name: "TelemetryDeck", package: "SwiftSDK"),
             ]),
         .target(name: "GanchoSync", dependencies: ["GanchoKit"]),
+        .target(name: "GanchoMCP", dependencies: ["GanchoKit"]),
+        .executableTarget(name: "gancho", dependencies: ["GanchoKit", "GanchoMCP"]),
         .testTarget(name: "GanchoKitTests", dependencies: ["GanchoKit"]),
+        .testTarget(name: "GanchoMCPTests", dependencies: ["GanchoMCP", "GanchoKit"]),
         .testTarget(name: "GanchoSyncTests", dependencies: ["GanchoSync", "GanchoKit"]),
         .testTarget(name: "ClipboardCoreTests", dependencies: ["ClipboardCore"]),
         .testTarget(name: "GanchoAITests", dependencies: ["GanchoAI"]),

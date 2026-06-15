@@ -90,8 +90,7 @@ final class AppModel {
     }
 
     init() {
-        let directory = URL.applicationSupportDirectory
-            .appendingPathComponent("Gancho", isDirectory: true)
+        let directory = SharedStorageLocation.macAppStoreDirectory
         let grdb = try? GRDBClipboardStore(directory: directory)
         self.grdbStore = grdb
         self.store = grdb ?? InMemoryClipboardStore()
