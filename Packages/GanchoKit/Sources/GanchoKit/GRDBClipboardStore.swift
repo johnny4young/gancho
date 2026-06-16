@@ -28,6 +28,7 @@ public final class GRDBClipboardStore: ClipboardStore {
             writer: pool,
             blobs: BlobStore(directory: directory.appendingPathComponent("blobs")))
         try migrator.migrate(pool)
+        try Self.reformatLegacyImagePreviews(in: pool)
     }
 
     /// Injectable writer for tests (`DatabaseQueue()` in-memory).
