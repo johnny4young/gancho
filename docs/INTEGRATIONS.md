@@ -111,4 +111,4 @@ These are distribution actions only the owner can take — the code is ready.
   real `publisher` in `integrations/vscode/package.json`, then
   `npx @vscode/vsce publish`. (Today `publisher` is a placeholder.)
 - **Website.** The download funnel and the formula homepage point at
-  `https://getgancho.app`; registering that domain is its own task.
+  `https://gancho.app`; confirming/registering that domain is its own task.
