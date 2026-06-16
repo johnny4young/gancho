@@ -18,20 +18,11 @@ extension GRDBClipboardStore {
                 sql: "SELECT id, preview FROM clip WHERE kind = ? AND preview LIKE ?",
                 arguments: [ClipContentKind.image.rawValue, "Image (% bytes)"])
             for row in rows {
-                guard let bytes = legacyByteCount(row["preview"]) else { continue }
+                guard let bytes = ByteSize.legacyImageByteCount(row["preview"]) else { continue }
                 try db.execute(
                     sql: "UPDATE clip SET preview = ? WHERE id = ?",
                     arguments: ["Image (\(ByteSize.formatted(bytes)))", row["id"] as String])
             }
         }
-    }
-
-    /// The trailing digit run before `" bytes)"`. Handles both the bare
-    /// "Image (N bytes)" and the older "Image (uti, N bytes)" shapes.
-    static func legacyByteCount(_ preview: String) -> Int? {
-        guard let tail = preview.range(of: " bytes)") else { return nil }
-        let digits = String(
-            preview[..<tail.lowerBound].reversed().prefix { $0.isNumber }.reversed())
-        return Int(digits)
     }
 }

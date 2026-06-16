@@ -75,7 +75,7 @@ public struct ClipCard: View {
                         .font(.body.weight(.medium))
                         .lineLimit(1)
                 }
-                Text(previewsHidden ? "•••" : item.preview)
+                Text(previewsHidden ? "•••" : ByteSize.humanizedPreview(item.preview))
                     .font(item.kind == .code ? .body.monospaced() : .body)
                     .lineLimit(2)
                     .foregroundStyle(item.title.isEmpty ? .primary : .secondary)
@@ -106,9 +106,10 @@ public struct ClipCard: View {
     }
 
     /// VoiceOver: kind + preview (masked previews stay masked here too).
+    /// Single interpolated `Text` — concatenating with `+` is deprecated in 26.
     private var accessibilityDescription: Text {
-        Text(LocalizedStringKey(item.kind.rawValue)) + Text(", ")
-            + Text(previewsHidden ? "•••" : item.preview)
+        let preview = previewsHidden ? "•••" : ByteSize.humanizedPreview(item.preview)
+        return Text("\(Text(LocalizedStringKey(item.kind.rawValue))), \(preview)")
     }
 }
 

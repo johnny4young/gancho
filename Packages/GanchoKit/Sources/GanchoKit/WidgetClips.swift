@@ -45,8 +45,8 @@ public enum WidgetClips {
             }
             let body = item.preview.isEmpty ? item.title : item.preview
             return WidgetClipEntry(
-                id: item.id, title: item.title, displayText: body, kind: item.kind,
-                isSensitive: false)
+                id: item.id, title: item.title, displayText: ByteSize.humanizedPreview(body),
+                kind: item.kind, isSensitive: false)
         }
     }
 
