@@ -155,7 +155,8 @@ public struct MCPToolRunner: Sendable {
         switch try await store.content(for: id) {
         case .text(let text): return text
         case .fileReferences(let paths): return paths.joined(separator: "\n")
-        case .binary(let data, let type): return "[binary content: \(type), \(data.count) bytes]"
+        case .binary(let data, let type):
+            return "[binary content: \(type), \(ByteSize.formatted(data.count))]"
         case nil: return nil
         }
     }
