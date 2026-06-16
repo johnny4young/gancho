@@ -1,16 +1,19 @@
 import GanchoKit
 import SwiftUI
+import UIKit
 
 /// Backs the keyboard UI. Reads the App Group store (only when Full Access is
 /// granted), exposes the pin-first / search list as masked-safe entries, and
-/// inserts a clip's REAL content only when the user taps it. Reverse capture
-/// goes through the shared `SharedCapture` pipeline.
+/// acts on a tap: text clips insert into the field, image clips copy the real
+/// image to the pasteboard (a keyboard can't insert images directly). Reverse
+/// capture goes through the shared `SharedCapture` pipeline.
 @MainActor
 final class KeyboardModel: ObservableObject {
     @Published var entries: [WidgetClipEntry] = []
     @Published var searchText = ""
     @Published var expanded = false
     @Published var note: LocalizedStringKey?
+    @Published private(set) var saving = false
 
     let hasFullAccess: Bool
     let onDelete: () -> Void
@@ -19,6 +22,7 @@ final class KeyboardModel: ObservableObject {
 
     private let onInsert: (String) -> Void
     private let store: GRDBClipboardStore?
+    private var noteTask: Task<Void, Never>?
 
     init(
         hasFullAccess: Bool,
@@ -53,14 +57,22 @@ final class KeyboardModel: ObservableObject {
         entries = WidgetClips.entries(from: hits.filter { !$0.isSensitive }, limit: 30)
     }
 
-    /// Loads the clip's full content and inserts it into the active field.
+    /// Acts on a tapped clip: text/file refs insert into the field; images go
+    /// to the pasteboard as REAL image data so the host app can paste them
+    /// (the keyboard text proxy can't carry an image itself).
     func insert(_ entry: WidgetClipEntry) {
         guard let store else { return }
         Task {
             switch try? await store.content(for: entry.id) {
-            case .text(let text): onInsert(text)
-            case .fileReferences(let paths): onInsert(paths.joined(separator: "\n"))
-            default: break  // images aren't insertable as text
+            case .text(let text):
+                onInsert(text)
+            case .fileReferences(let paths):
+                onInsert(paths.joined(separator: "\n"))
+            case .binary(let data, let type):
+                UIPasteboard.general.setData(data, forPasteboardType: type)
+                flashNote("Image copied — paste it")
+            case nil:
+                break
             }
         }
     }
@@ -68,15 +80,28 @@ final class KeyboardModel: ObservableObject {
     func toggleExpand() {
         expanded.toggle()
         onModeChange?(expanded)
-        if expanded { Task { await load() } }
+        // No reload here: `entries` is already loaded; reloading caused a flash.
     }
 
     func saveClipboard() {
+        guard !saving else { return }
+        saving = true
         Task {
-            note = Self.message(for: await SharedCapture.saveCurrentClipboard())
+            let outcome = await SharedCapture.saveCurrentClipboard()
+            saving = false
+            flashNote(Self.message(for: outcome))
             await load()
+        }
+    }
+
+    /// Shows a transient note and auto-clears it (cancelling any prior timer so
+    /// rapid taps don't leave a stale message).
+    private func flashNote(_ key: LocalizedStringKey) {
+        note = key
+        noteTask?.cancel()
+        noteTask = Task {
             try? await Task.sleep(for: .seconds(2))
-            note = nil
+            if !Task.isCancelled { note = nil }
         }
     }
 

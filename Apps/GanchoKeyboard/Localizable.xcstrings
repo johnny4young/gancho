@@ -31,6 +31,16 @@
         }
       }
     },
+    "Image copied — paste it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagen copiada — pégala"
+          }
+        }
+      }
+    },
     "Next keyboard": {
       "localizations": {
         "es": {

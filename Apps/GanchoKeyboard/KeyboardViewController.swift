@@ -13,6 +13,10 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        // Clip taps live inside scroll views; the default content-touch delay
+        // makes a clipboard keyboard feel sluggish. Register taps immediately.
+        UIScrollView.appearance().delaysContentTouches = false
+
         let model = KeyboardModel(
             hasFullAccess: hasFullAccess,
             onInsert: { [weak self] text in self?.textDocumentProxy.insertText(text) },
