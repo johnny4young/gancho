@@ -96,6 +96,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho
     sources:
       - path: Apps/GanchoiOS
+      # Capture intents shared with the widget extension (App Intents a
+      # widget runs need target membership in both).
+      - path: Apps/GanchoShared
     entitlements:
       path: Apps/GanchoiOS/Gancho.entitlements
       properties:
@@ -118,6 +121,7 @@ targets:
           - GanchoTelemetry
           - GanchoSync
       - target: GanchoShare
+      - target: GanchoWidgets
     info:
       path: Apps/GanchoiOS/Info.plist
       properties:
@@ -182,6 +186,37 @@ targets:
               NSExtensionActivationSupportsText: true
               NSExtensionActivationSupportsWebURLWithMaxCount: 1
               NSExtensionActivationSupportsImageWithMaxCount: 1
+
+  # Home/lock-screen widgets + the Control Center "Save Clipboard" control.
+  # Reads the App Group store read-only; the save button/control reuse the
+  # shared SaveClipboardIntent.
+  GanchoWidgets:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.widgets
+    sources:
+      - path: Apps/GanchoWidgets
+      - path: Apps/GanchoShared
+    entitlements:
+      path: Apps/GanchoWidgets/GanchoWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.johnny4young.gancho
+    dependencies:
+      - package: GanchoKit
+        products:
+          - GanchoKit
+          - ClipboardCore
+          - GanchoAI
+    info:
+      path: Apps/GanchoWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Gancho
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
 schemes:
   Gancho:

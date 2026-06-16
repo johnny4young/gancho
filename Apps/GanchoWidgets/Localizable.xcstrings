@@ -1,0 +1,36 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Nothing yet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada todavía"
+          }
+        }
+      }
+    },
+    "Recent clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clips recientes"
+          }
+        }
+      }
+    },
+    "Save Clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar portapapeles"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -7,6 +7,7 @@ import GanchoTelemetry
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import WidgetKit
 
 /// iOS companion shell (pre-alpha). Proves the honest capture story end to
 /// end: intent-based reads only (capture button, UIPasteControl, share
@@ -18,14 +19,17 @@ struct GanchoiOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // iPad gets the sidebar layout; iPhone keeps the stack.
-            if UIDevice.current.userInterfaceIdiom == .pad {
-                IPadSplitView()
-                    .environment(model)
-            } else {
-                CaptureView()
-                    .environment(model)
+            Group {
+                // iPad gets the sidebar layout; iPhone keeps the stack.
+                if UIDevice.current.userInterfaceIdiom == .pad {
+                    IPadSplitView()
+                } else {
+                    CaptureView()
+                }
             }
+            .environment(model)
+            // Widget deep links (`gancho://clip/<id>`) open the right clip.
+            .onOpenURL { model.handleDeepLink($0) }
         }
     }
 }
@@ -39,6 +43,8 @@ final class IOSAppModel {
     var saveNote: String?
     var query = ""
     var kindFilter: ClipContentKind?
+    /// Set by a widget deep link; `CaptureView` consumes it to push the clip.
+    var deepLinkClipID: UUID?
 
     /// Sync boundary: pull-to-refresh forces a cycle. A `NoopSyncEngine`
     /// until the user is Pro on an iCloud-signed-in device; the adapter swaps
@@ -123,6 +129,26 @@ final class IOSAppModel {
         await refreshHints()
     }
 
+    /// Resolves a `gancho://clip/<id>` widget link: make sure the clip is in
+    /// the list (so the detail destination finds it), then signal the view to
+    /// navigate. A foreign or unknown link is ignored.
+    func handleDeepLink(_ url: URL) {
+        guard let id = WidgetClips.clipID(fromDeepLink: url) else { return }
+        Task {
+            if !captures.contains(where: { $0.id == id }),
+                let item = try? await (store as? GRDBClipboardStore)?.item(id: id)
+            {
+                captures.insert(item, at: 0)
+            }
+            deepLinkClipID = id
+        }
+    }
+
+    /// Refreshes home/lock-screen widgets after the recent list changes.
+    private func reloadWidgets() {
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
     func search() async {
         guard let grdb = store as? GRDBClipboardStore, !query.isEmpty else {
             captures = (try? await store.items(offset: 0, limit: 50)) ?? []
@@ -165,6 +191,7 @@ final class IOSAppModel {
             try? await store.delete(id: item.id)
         }
         await search()
+        reloadWidgets()
     }
 
     private let source = IntentionalPasteboardSource()
@@ -251,6 +278,7 @@ final class IOSAppModel {
             stored?.id == item.id
                 ? String(localized: "Saved") : String(localized: "Already in your history"))
         captures = (try? await store.items()) ?? []
+        reloadWidgets()
     }
 
     private func makeItem(
@@ -282,10 +310,11 @@ struct CaptureView: View {
     @Environment(IOSAppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
+    @State private var path: [UUID] = []
 
     var body: some View {
         @Bindable var model = model
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 syncStatusSection
                 Section("Pasteboard") {
@@ -365,6 +394,11 @@ struct CaptureView: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await activate() }
+        }
+        .onChange(of: model.deepLinkClipID) { _, id in
+            guard let id else { return }
+            path = [id]
+            model.deepLinkClipID = nil
         }
     }
 
