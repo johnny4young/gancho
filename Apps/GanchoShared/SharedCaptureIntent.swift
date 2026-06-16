@@ -1,8 +1,6 @@
 import AppIntents
 import ClipboardCore
-import GanchoAI
 import GanchoKit
-import UIKit
 
 /// Shared between the iOS app and the widget extension (same source compiled
 /// into both targets — App Intents that a Control or interactive widget runs
@@ -26,29 +24,11 @@ struct SaveClipboardIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let pasteboard = UIPasteboard.general
-        let classifier = RuleClassifier()
-        let store = try IntentStore.open()
-
-        if let image = pasteboard.image, let png = image.pngData() {
-            let item = ClipItem(
-                kind: .image, preview: "Image (\(png.count) bytes)",
-                contentHash: ClipItem.hash(of: png, kind: .image))
-            try await store.insert(
-                item, content: .binary(data: png, typeIdentifier: "public.png"))
-            return .result(dialog: "Saved the image to Gancho.")
+        switch await SharedCapture.saveCurrentClipboard() {
+        case .savedImage: return .result(dialog: "Saved the image to Gancho.")
+        case .savedText: return .result(dialog: "Saved to Gancho.")
+        case .empty: return .result(dialog: "The clipboard is empty.")
+        case .storeUnavailable: return .result(dialog: "Couldn't open Gancho.")
         }
-        guard let text = pasteboard.string, !text.isEmpty else {
-            return .result(dialog: "The clipboard is empty.")
-        }
-        let kind = classifier.classify(text)
-        let canonical = ContentNormalizer.canonicalText(text, kind: kind)
-        let item = SensitiveIngestionPolicy.decorate(
-            ClipItem(
-                kind: kind, preview: String(canonical.prefix(120)),
-                contentHash: ClipItem.hash(of: canonical, kind: kind)),
-            finding: SensitiveDataDetector().detect(canonical), originalText: canonical)
-        try await store.insert(item, content: .text(canonical))
-        return .result(dialog: "Saved to Gancho.")
     }
 }
