@@ -9,7 +9,7 @@
 #   brew install gancho
 class Gancho < Formula
   desc "Privacy-first clipboard CLI and local MCP server for Gancho"
-  homepage "https://getgancho.app"
+  homepage "https://gancho.app"
   # TODO(release): point at the tagged source tarball and fill the checksum.
   url "https://github.com/johnny4young/gancho/archive/refs/tags/v0.1.0.tar.gz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"

@@ -3,7 +3,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 
 /// Where to send a developer who doesn't have Gancho yet — the funnel.
-const DOWNLOAD_URL = "https://getgancho.app";
+const DOWNLOAD_URL = "https://gancho.app";
 
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
