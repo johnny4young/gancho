@@ -126,6 +126,12 @@ targets:
       path: Apps/GanchoiOS/Info.plist
       properties:
         CFBundleDisplayName: Gancho
+        # Widget deep links use the gancho:// scheme; custom schemes must be
+        # registered for the OS to route them to the app (onOpenURL).
+        CFBundleURLTypes:
+          - CFBundleURLName: com.johnny4young.gancho
+            CFBundleURLSchemes:
+              - gancho
         UILaunchScreen: {}
         # CKSyncEngine wakes on silent push to pull remote clips.
         UIBackgroundModes:
