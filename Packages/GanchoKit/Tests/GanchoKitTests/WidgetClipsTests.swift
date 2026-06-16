@@ -44,6 +44,25 @@ struct WidgetClipsTests {
         #expect(WidgetClips.clipID(fromDeepLink: url) == id)
     }
 
+    @Test("keyboard list puts pins first and de-dupes them out of recent")
+    func keyboardOrdering() {
+        let pinned = ClipItem(kind: .text, preview: "pinned one", contentHash: "p1", isPinned: true)
+        let alsoRecent = pinned  // the pinned clip is also in the recent feed
+        let fresh = ClipItem(kind: .text, preview: "fresh two", contentHash: "r2")
+
+        let entries = KeyboardClips.ordered(pinned: [pinned], recent: [alsoRecent, fresh])
+        #expect(entries.map(\.id) == [pinned.id, fresh.id])  // pin first, no duplicate
+    }
+
+    @Test("keyboard list excludes sensitive clips entirely")
+    func keyboardExcludesSensitive() {
+        let secret = ClipItem(
+            kind: .secret, preview: "AKIA-secret", contentHash: "s", isSensitive: true)
+        let normal = ClipItem(kind: .text, preview: "ok to paste", contentHash: "n")
+        let entries = KeyboardClips.ordered(pinned: [], recent: [secret, normal])
+        #expect(entries.map(\.id) == [normal.id])  // the secret is not offered
+    }
+
     @Test("foreign or malformed URLs are rejected")
     func rejectsForeignURLs() throws {
         #expect(

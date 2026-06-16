@@ -122,6 +122,7 @@ targets:
           - GanchoSync
       - target: GanchoShare
       - target: GanchoWidgets
+      - target: GanchoKeyboard
     info:
       path: Apps/GanchoiOS/Info.plist
       properties:
@@ -223,6 +224,46 @@ targets:
         CFBundleDisplayName: Gancho
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+  # Custom keyboard: paste any clip or synced pin into any app, with
+  # in-keyboard search and a reverse-capture button. Needs Full Access to
+  # read the App Group store (justified by an in-keyboard privacy screen).
+  GanchoKeyboard:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.keyboard
+    sources:
+      - path: Apps/GanchoKeyboard
+      - path: Apps/GanchoShared
+    entitlements:
+      path: Apps/GanchoKeyboard/GanchoKeyboard.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.johnny4young.gancho
+    dependencies:
+      - package: GanchoKit
+        products:
+          - GanchoKit
+          - ClipboardCore
+          - GanchoAI
+          - GanchoDesign
+    info:
+      path: Apps/GanchoKeyboard/Info.plist
+      properties:
+        CFBundleDisplayName: Gancho
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+          NSExtensionAttributes:
+            IsASCIICapable: false
+            PrefersRightToLeft: false
+            PrimaryLanguage: en-US
+            # Full Access: required to read the shared App Group store. The
+            # in-keyboard privacy screen explains nothing leaves the device.
+            RequestsOpenAccess: true
 
 schemes:
   Gancho:
