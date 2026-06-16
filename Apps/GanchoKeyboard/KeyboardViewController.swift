@@ -23,7 +23,12 @@ final class KeyboardViewController: UIInputViewController {
             onDelete: { [weak self] in self?.textDocumentProxy.deleteBackward() },
             onNextKeyboard: { [weak self] in self?.advanceToNextInputMode() })
         model.onModeChange = { [weak self] expanded in
-            self?.heightConstraint?.constant = expanded ? Self.expandedHeight : Self.compactHeight
+            guard let self else { return }
+            heightConstraint?.constant = expanded ? Self.expandedHeight : Self.compactHeight
+            // Grow/shrink smoothly so the size change reads as intentional.
+            UIView.animate(withDuration: 0.22, delay: 0, options: .curveEaseInOut) {
+                self.view.layoutIfNeeded()
+            }
         }
 
         let host = UIHostingController(rootView: KeyboardView(model: model))

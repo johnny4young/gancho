@@ -39,6 +39,8 @@ struct KeyboardView: View {
         }
         .padding(10)
         .animation(.easeInOut(duration: 0.15), value: model.note != nil)
+        .animation(.snappy(duration: 0.22), value: model.expanded)
+        .animation(.snappy(duration: 0.22), value: model.entries)
     }
 
     // MARK: - Control bar
@@ -84,7 +86,7 @@ struct KeyboardView: View {
             .background(.tint.opacity(0.18), in: .rect(cornerRadius: 10))
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableScale())
         .foregroundStyle(.tint)
         .accessibilityLabel("Save clipboard")
     }
@@ -98,7 +100,7 @@ struct KeyboardView: View {
                 .frame(width: 42, height: 36)
                 .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableScale())
         .foregroundStyle(.primary)
         .accessibilityLabel(label)
     }
@@ -128,7 +130,7 @@ struct KeyboardView: View {
                             .background(.fill.tertiary, in: .capsule)
                             .contentShape(.capsule)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(PressableScale())
                     }
                 }
             }
@@ -162,7 +164,7 @@ struct KeyboardView: View {
                         .background(.fill.quaternary, in: .rect(cornerRadius: 12))
                         .contentShape(.rect)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressableScale())
                 }
             }
             .padding(.horizontal, 2)
@@ -173,6 +175,18 @@ struct KeyboardView: View {
         Text("Nothing here yet")
             .font(.caption)
             .foregroundStyle(.tertiary)
+    }
+}
+
+/// Press feedback for every tappable surface in the keyboard: a quick scale +
+/// dim on touch-down so the intent ("this inserts / this acts") reads
+/// instantly — the affordance a flat keyboard was missing.
+struct PressableScale: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.93 : 1)
+            .opacity(configuration.isPressed ? 0.65 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

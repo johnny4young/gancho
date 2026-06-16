@@ -57,58 +57,86 @@ struct RecentClipsProvider: TimelineProvider {
 struct RecentClipsView: View {
     let entry: RecentClipsEntry
 
+    @Environment(\.widgetFamily) private var family
+
+    /// Small fits two rows comfortably; medium fits three.
+    private var maxRows: Int { family == .systemSmall ? 2 : 3 }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Recent clips")
-                    .font(.caption.bold())
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button(intent: SaveClipboardIntent()) {
-                    Image(systemName: "square.and.arrow.down")
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Save Clipboard")
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            header
             if entry.clips.isEmpty {
-                Spacer()
-                Text("Nothing yet")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                Spacer()
+                emptyState
             } else {
-                ForEach(entry.clips) { clip in
-                    Link(destination: clip.deepLinkURL ?? fallbackURL) {
-                        HStack(spacing: 6) {
-                            Image(systemName: Self.symbol(for: clip.kind))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Text(clip.displayText)
-                                .font(.caption2)
-                                .lineLimit(1)
-                        }
+                VStack(spacing: 5) {
+                    ForEach(entry.clips.prefix(maxRows)) { clip in
+                        clipRow(clip)
                     }
                 }
                 Spacer(minLength: 0)
             }
         }
-        .padding(12)
-        .containerBackground(.fill.tertiary, for: .widget)
+        .padding(14)
+        .containerBackground(for: .widget) {
+            LinearGradient(
+                colors: [Color(.systemBackground), Color.accentColor.opacity(0.12)],
+                startPoint: .top, endPoint: .bottom)
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "paperclip")
+                .font(.caption.bold())
+                .foregroundStyle(.tint)
+            Text("Recent clips")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button(intent: SaveClipboardIntent()) {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.caption.bold())
+                    .foregroundStyle(.tint)
+                    .padding(6)
+                    .background(.tint.opacity(0.16), in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Save Clipboard")
+        }
+    }
+
+    private func clipRow(_ clip: WidgetClipEntry) -> some View {
+        Link(destination: clip.deepLinkURL ?? fallbackURL) {
+            HStack(spacing: 8) {
+                Image(systemName: clip.kind.symbolName)
+                    .font(.caption2)
+                    .foregroundStyle(.tint)
+                    .frame(width: 16)
+                Text(clip.displayText)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(.fill.quaternary, in: .rect(cornerRadius: 8))
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 4) {
+            Spacer()
+            Image(systemName: "doc.on.clipboard")
+                .font(.title3)
+                .foregroundStyle(.tertiary)
+            Text("Nothing yet")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private var fallbackURL: URL { URL(string: "gancho://")! }
-
-    private static func symbol(for kind: ClipContentKind) -> String {
-        switch kind {
-        case .url: "link"
-        case .image: "photo"
-        case .color: "paintpalette"
-        case .code, .json, .jwt: "curlybraces"
-        case .email: "envelope"
-        case .phoneNumber: "phone"
-        case .secret, .creditCard: "lock.fill"
-        case .fileReference: "doc"
-        default: "doc.on.clipboard"
-        }
-    }
 }

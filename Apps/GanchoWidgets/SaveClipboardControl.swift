@@ -10,8 +10,12 @@ struct SaveClipboardControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "SaveClipboard") {
             ControlWidgetButton(action: SaveClipboardIntent()) {
-                Label("Save Clipboard", systemImage: "square.and.arrow.down")
+                // "Drop into the tray" reads as capturing into Gancho better
+                // than a generic save glyph. The tinted symbol gives the tile
+                // a recognizable color in Control Center.
+                Label("Save Clipboard", systemImage: "tray.and.arrow.down.fill")
             }
+            .tint(.accentColor)
         }
         .displayName("Save Clipboard")
     }
