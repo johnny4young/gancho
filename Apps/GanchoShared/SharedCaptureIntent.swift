@@ -1,0 +1,54 @@
+import AppIntents
+import ClipboardCore
+import GanchoAI
+import GanchoKit
+import UIKit
+
+/// Shared between the iOS app and the widget extension (same source compiled
+/// into both targets — App Intents that a Control or interactive widget runs
+/// must have target membership in BOTH). Opens the App Group store and runs
+/// the same classification pipeline the UI uses, so there is one capture path.
+enum IntentStore {
+    nonisolated static func open() throws -> GRDBClipboardStore {
+        try GRDBClipboardStore(
+            directory: SharedStorageLocation.storeDirectory(
+                appGroupID: SharedInbox.appGroupID))
+    }
+}
+
+/// Save whatever is on the pasteboard right now. The flagship capture path for
+/// the Action Button, Back Tap, Shortcuts, the home-screen widget's save
+/// button, and the Control Center "Save Clipboard" control.
+struct SaveClipboardIntent: AppIntent {
+    static let title: LocalizedStringResource = "Save Clipboard"
+    static let description = IntentDescription(
+        "Saves the current clipboard into Gancho. iOS shows its standard paste confirmation.")
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let pasteboard = UIPasteboard.general
+        let classifier = RuleClassifier()
+        let store = try IntentStore.open()
+
+        if let image = pasteboard.image, let png = image.pngData() {
+            let item = ClipItem(
+                kind: .image, preview: "Image (\(png.count) bytes)",
+                contentHash: ClipItem.hash(of: png, kind: .image))
+            try await store.insert(
+                item, content: .binary(data: png, typeIdentifier: "public.png"))
+            return .result(dialog: "Saved the image to Gancho.")
+        }
+        guard let text = pasteboard.string, !text.isEmpty else {
+            return .result(dialog: "The clipboard is empty.")
+        }
+        let kind = classifier.classify(text)
+        let canonical = ContentNormalizer.canonicalText(text, kind: kind)
+        let item = SensitiveIngestionPolicy.decorate(
+            ClipItem(
+                kind: kind, preview: String(canonical.prefix(120)),
+                contentHash: ClipItem.hash(of: canonical, kind: kind)),
+            finding: SensitiveDataDetector().detect(canonical), originalText: canonical)
+        try await store.insert(item, content: .text(canonical))
+        return .result(dialog: "Saved to Gancho.")
+    }
+}
