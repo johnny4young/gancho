@@ -83,6 +83,30 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// Creates a snippet from scratch (the `gancho save` / editor-import path),
+    /// bypassing the capture pipeline. Lands directly in the curated world
+    /// (`isSnippet`), exempt from retention. The source language is recorded
+    /// as a `lang:<id>` tag (no schema/sync change) so the Library can show
+    /// and search by it. No dedupe: an explicit save is always intentional.
+    @discardableResult
+    public func saveSnippet(
+        title: String, text: String, language: String? = nil
+    ) async throws
+        -> ClipItem
+    {
+        let trimmedLanguage = language?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let tags = (trimmedLanguage?.isEmpty == false) ? ["lang:\(trimmedLanguage!)"] : []
+        let item = ClipItem(
+            kind: .code, title: title, preview: String(text.prefix(120)),
+            contentHash: ClipItem.hash(of: text, kind: .code), tags: tags)
+        var row = ClipRow(item: item)
+        row.contentText = text
+        row.isSnippet = true
+        let finalRow = row
+        try await writer.write { db in try finalRow.insert(db) }
+        return item
+    }
+
     /// Edits a snippet's title and full text content (the editor surface).
     public func updateSnippet(id: UUID, title: String, text: String) async throws {
         try await writer.write { db in

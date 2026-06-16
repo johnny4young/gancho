@@ -12,13 +12,14 @@ import GanchoMCP
 ///
 ///   gancho search <query> [--limit N] [--mode exact|fuzzy|regex] [--json]
 ///   gancho copy <clip-id>
+///   gancho save [--title <t>] [--language <id>] [--content-base64 <b64>]
 ///   gancho export [--csv] [--out <path>]
 ///   gancho mcp                      # run the stdio MCP server
 ///   gancho status | enable [--scope metadata|boards|all] | disable
 ///
-/// `search`/`copy`/`export` are the user's own actions and are not logged;
-/// the `mcp` server (which serves automated agents) logs every access to the
-/// Privacy Center.
+/// `search`/`copy`/`save`/`export` are the user's own actions and are not
+/// logged; the `mcp` server (which serves automated agents) logs every access
+/// to the Privacy Center.
 @main
 struct GanchoCLI {
     static func main() async {
@@ -33,6 +34,7 @@ struct GanchoCLI {
             switch command {
             case "search": try await runSearch(args)
             case "copy": try await runCopy(args)
+            case "save": try await runSave(args)
             case "export": try await runExport(args)
             case "mcp": await runMCP()
             case "status": try await runStatus()
@@ -104,6 +106,51 @@ struct GanchoCLI {
             printErr("copy is only supported on macOS.\n")
             exit(1)
         #endif
+    }
+
+    /// Saves a selection straight into the Library as a code snippet — the
+    /// editor/CLI funnel. Content arrives base64-encoded (so any bytes survive
+    /// the argv round-trip) or piped on stdin. Writes directly to the local
+    /// store: offline, no network, app need not be running.
+    private static func runSave(_ args: [String]) async throws {
+        let options = Options(args)
+        let language = options.value("language")
+
+        let text: String
+        if let encoded = options.value("content-base64") {
+            guard let data = Data(base64Encoded: encoded),
+                let decoded = String(data: data, encoding: .utf8)
+            else {
+                printErr("gancho save: --content-base64 is not valid base64 UTF-8.\n")
+                exit(2)
+            }
+            text = decoded
+        } else {
+            // No flag: take raw text from stdin (e.g. `pbpaste | gancho save`).
+            text =
+                String(data: FileHandle.standardInput.readDataToEndOfFile(), encoding: .utf8)
+                ?? ""
+        }
+        guard !text.isEmpty else {
+            printErr(
+                "gancho save: empty content — pass --content-base64 <b64> or pipe text on stdin.\n")
+            exit(2)
+        }
+
+        let title = options.value("title") ?? defaultTitle(from: text)
+        let store = try openStore()
+        let saved = try await store.saveSnippet(title: title, text: text, language: language)
+        print("Saved snippet \(saved.id.uuidString)\(language.map { " [\($0)]" } ?? "").")
+    }
+
+    /// First non-empty line, trimmed and capped — a sensible snippet title
+    /// when the caller doesn't pass `--title`.
+    private static func defaultTitle(from text: String) -> String {
+        let firstLine =
+            text.split(whereSeparator: \.isNewline).first.map(String.init)?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+        let base = firstLine.isEmpty ? "Snippet" : firstLine
+        return base.count > 60 ? String(base.prefix(59)) + "…" : base
     }
 
     private static func runExport(_ args: [String]) async throws {
@@ -214,6 +261,7 @@ struct GanchoCLI {
             USAGE:
               gancho search <query> [--limit N] [--mode exact|fuzzy|regex] [--json]
               gancho copy <clip-id>
+              gancho save [--title <t>] [--language <id>] [--content-base64 <b64>]
               gancho export [--csv] [--out <path>]
               gancho mcp
               gancho status
