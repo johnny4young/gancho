@@ -36,6 +36,31 @@ struct SnippetLibraryTests {
         #expect(try await store.count() == 1, "snippet stays visible")
     }
 
+    @Test("save creates a code snippet with language, searchable, in the Library")
+    func saveSnippetLandsInLibrary() async throws {
+        let store = try makeStore()
+        let saved = try await store.saveSnippet(
+            title: "Greeting", text: "func hello() { print(\"hi\") }", language: "swift")
+
+        let snippet = try await store.snippets().first { $0.id == saved.id }
+        #expect(snippet != nil)
+        #expect(snippet?.kind == .code)
+        #expect(snippet?.tags == ["lang:swift"])
+        #expect(try await store.snippetCount() == 1)
+
+        // Content is FTS-indexed → the snippet is searchable by its body.
+        let hits = try await store.search(ClipSearchQuery(text: "hello", mode: .fuzzy), limit: 10)
+        #expect(hits.contains { $0.id == saved.id })
+    }
+
+    @Test("save without a language records no language tag")
+    func saveSnippetNoLanguage() async throws {
+        let store = try makeStore()
+        let saved = try await store.saveSnippet(title: "Plain", text: "just text", language: nil)
+        let snippet = try await store.snippets().first { $0.id == saved.id }
+        #expect(snippet?.tags.isEmpty == true)
+    }
+
     @Test("Demote returns the clip to retention's reach")
     func demoteReturnsToHistory() async throws {
         let store = try makeStore()
