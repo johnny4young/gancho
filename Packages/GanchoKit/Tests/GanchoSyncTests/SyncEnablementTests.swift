@@ -9,9 +9,15 @@ struct SyncEnablementTests {
     @Test("Sync runs only for Pro on an iCloud-signed-in device")
     func truthTable() {
         #expect(SyncEnablement.shouldEnable(tier: .pro, iCloudAvailable: true))
+        #expect(
+            SyncEnablement.shouldEnable(
+                tier: .pro, iCloudAvailable: true, hasCloudKitEntitlement: true))
         #expect(!SyncEnablement.shouldEnable(tier: .pro, iCloudAvailable: false))
         #expect(!SyncEnablement.shouldEnable(tier: .free, iCloudAvailable: true))
         #expect(!SyncEnablement.shouldEnable(tier: .free, iCloudAvailable: false))
+        #expect(
+            !SyncEnablement.shouldEnable(
+                tier: .pro, iCloudAvailable: true, hasCloudKitEntitlement: false))
     }
 
     @Test("Factory returns Noop unless enabled, the adapter when it is")
@@ -23,9 +29,25 @@ struct SyncEnablementTests {
             store: store, tier: .free, iCloudAvailable: true, stateStore: stateStore)
         #expect(disabled is NoopSyncEngine)
 
+        let unsigned = SyncEngineFactory.make(
+            store: store, tier: .pro, iCloudAvailable: true,
+            hasCloudKitEntitlement: false, stateStore: stateStore)
+        #expect(unsigned is NoopSyncEngine)
+
         let enabled = SyncEngineFactory.make(
             store: store, tier: .pro, iCloudAvailable: true, stateStore: stateStore)
         #expect(enabled is CKSyncEngineAdapter)
+    }
+
+    @Test("Entitlement parser accepts strings and arrays, rejects missing values")
+    func entitlementParser() {
+        #expect(CloudKitEntitlements.contains("CloudKit" as CFString, "CloudKit"))
+        #expect(
+            CloudKitEntitlements.contains(
+                ["iCloud.com.johnny4young.gancho"] as CFArray,
+                "iCloud.com.johnny4young.gancho"))
+        #expect(!CloudKitEntitlements.contains(nil, "CloudKit"))
+        #expect(!CloudKitEntitlements.contains(["CloudDocuments"] as CFArray, "CloudKit"))
     }
 }
 

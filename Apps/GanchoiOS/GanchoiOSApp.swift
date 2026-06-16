@@ -76,7 +76,11 @@ final class IOSAppModel {
     private func configureSync() {
         guard let grdb = store as? GRDBClipboardStore else { return }
         let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
-        let enable = SyncEnablement.shouldEnable(tier: tier, iCloudAvailable: iCloudAvailable)
+        let cloudKitEntitled = CloudKitEntitlements.currentTaskAllowsSync()
+        let enable = SyncEnablement.shouldEnable(
+            tier: tier,
+            iCloudAvailable: iCloudAvailable,
+            hasCloudKitEntitlement: cloudKitEntitled)
         guard enable != syncEnabled else { return }
         syncEnabled = enable
 
@@ -86,6 +90,7 @@ final class IOSAppModel {
             .appendingPathComponent("sync-state.plist")
         syncEngine = SyncEngineFactory.make(
             store: grdb, tier: tier, iCloudAvailable: iCloudAvailable,
+            hasCloudKitEntitlement: cloudKitEntitled,
             stateStore: .file(at: stateURL),
             onStatus: { [weak self] status in
                 Task { @MainActor in self?.syncStatus = status }
