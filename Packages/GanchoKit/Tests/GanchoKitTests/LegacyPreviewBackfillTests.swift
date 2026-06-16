@@ -18,11 +18,11 @@ struct LegacyPreviewBackfillTests {
 
     @Test("parses the byte count from both legacy shapes")
     func parses() {
-        #expect(GRDBClipboardStore.legacyByteCount("Image (734053 bytes)") == 734_053)
+        #expect(ByteSize.legacyImageByteCount("Image (734053 bytes)") == 734_053)
         #expect(
-            GRDBClipboardStore.legacyByteCount("Image (public.png, 12957256 bytes)") == 12_957_256)
-        #expect(GRDBClipboardStore.legacyByteCount("Image (717 KB)") == nil)
-        #expect(GRDBClipboardStore.legacyByteCount("just text") == nil)
+            ByteSize.legacyImageByteCount("Image (public.png, 12957256 bytes)") == 12_957_256)
+        #expect(ByteSize.legacyImageByteCount("Image (717 KB)") == nil)
+        #expect(ByteSize.legacyImageByteCount("just text") == nil)
     }
 
     @Test("rewrites a legacy image preview to a human-readable size")
