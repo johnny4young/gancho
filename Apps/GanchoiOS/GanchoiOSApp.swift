@@ -484,7 +484,8 @@ struct CaptureView: View {
         case .upToDate:
             syncRow(Text("Synced"), "checkmark.icloud")
         case .pending(let count):
-            syncRow(Text("Waiting to sync") + Text(verbatim: " · \(count)"), "arrow.up.circle")
+            syncRow(
+                Text("\(Text("Waiting to sync")) · \(String(count))"), "arrow.up.circle")
         case .paused(let cause), .failed(let cause):
             syncRow(Text(causeText(cause)), "exclamationmark.icloud")
         }

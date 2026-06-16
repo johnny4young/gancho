@@ -141,6 +141,13 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # iPad must support every orientation (or be full-screen) for Split
+        # View multitasking — the iPad layout wants it.
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
 
   # UI smoke harness (XCTest is allowed ONLY here; unit tests use Swift
   # Testing in the package).

@@ -119,7 +119,7 @@ struct LibraryView: View {
             let item = ClipItem(
                 title: text, preview: text,
                 contentHash: ClipItem.hash(of: UUID().uuidString, kind: .text))
-            try? await store.insert(item, content: .text(text))
+            _ = try? await store.insert(item, content: .text(text))
             try? await store.promoteToSnippet(id: item.id, title: text)
             await refresh()
         }
