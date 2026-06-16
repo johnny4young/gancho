@@ -38,7 +38,7 @@ struct SyncStatusView: View {
         case .idle: Text(verbatim: "")
         case .syncing: Text("Syncing…")
         case .upToDate: Text("Synced")
-        case .pending(let count): Text("Waiting to sync") + Text(verbatim: " · \(count)")
+        case .pending(let count): Text("\(Text("Waiting to sync")) · \(String(count))")
         case .paused(let cause), .failed(let cause): Text(Self.causeText(cause))
         }
     }

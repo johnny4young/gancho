@@ -27,7 +27,7 @@ enum SharedCapture {
             let item = ClipItem(
                 kind: .image, preview: "Image (\(ByteSize.formatted(png.count)))",
                 contentHash: ClipItem.hash(of: png, kind: .image))
-            try? await store.insert(
+            _ = try? await store.insert(
                 item, content: .binary(data: png, typeIdentifier: "public.png"))
             return .savedImage
         }
@@ -41,7 +41,7 @@ enum SharedCapture {
                 kind: kind, preview: String(canonical.prefix(120)),
                 contentHash: ClipItem.hash(of: canonical, kind: kind)),
             finding: SensitiveDataDetector().detect(canonical), originalText: canonical)
-        try? await store.insert(item, content: .text(canonical))
+        _ = try? await store.insert(item, content: .text(canonical))
         return .savedText
     }
 }
