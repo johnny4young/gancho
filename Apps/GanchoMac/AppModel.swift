@@ -260,7 +260,7 @@ final class AppModel {
         case .image(let data, let typeIdentifier):
             let item = ClipItem(
                 kind: .image,
-                preview: "Image (\(data.count) bytes)",
+                preview: "Image (\(ByteSize.formatted(data.count)))",
                 contentHash: ClipItem.hash(of: data, kind: .image),
                 sourceAppBundleID: capture.sourceAppBundleID)
             return (item, .binary(data: data, typeIdentifier: typeIdentifier))

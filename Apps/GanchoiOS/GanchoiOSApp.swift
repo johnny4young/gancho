@@ -290,10 +290,10 @@ final class IOSAppModel {
         from capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil
     ) -> ClipItem {
         switch capture.payload {
-        case .image(let data, let typeIdentifier):
+        case .image(let data, _):
             return ClipItem(
                 kind: .image,
-                preview: "Image (\(typeIdentifier), \(data.count) bytes)",
+                preview: "Image (\(ByteSize.formatted(data.count)))",
                 contentHash: ClipItem.hash(of: data, kind: .image),
                 sourceAppBundleID: capture.sourceAppBundleID)
         default:

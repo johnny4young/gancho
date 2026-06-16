@@ -25,7 +25,7 @@ enum SharedCapture {
 
         if let image = pasteboard.image, let png = image.pngData() {
             let item = ClipItem(
-                kind: .image, preview: "Image (\(png.count) bytes)",
+                kind: .image, preview: "Image (\(ByteSize.formatted(png.count)))",
                 contentHash: ClipItem.hash(of: png, kind: .image))
             try? await store.insert(
                 item, content: .binary(data: png, typeIdentifier: "public.png"))

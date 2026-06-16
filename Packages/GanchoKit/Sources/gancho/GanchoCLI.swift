@@ -159,7 +159,7 @@ struct GanchoCLI {
         let data = options.flag("csv") ? try await store.exportCSV() : try await store.exportJSON()
         if let path = options.value("out") {
             try data.write(to: URL(fileURLWithPath: path))
-            print("Exported \(data.count) bytes to \(path).")
+            print("Exported \(ByteSize.formatted(data.count)) to \(path).")
         } else {
             printData(data)
         }
