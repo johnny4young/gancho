@@ -15,7 +15,8 @@ concurrency:
 jobs:
   bench:
     name: Scale budgets (100k clips)
-    runs-on: macos-latest
+    # Needs the Xcode 26 runner (macOS/iOS 26 + Swift 6.2); macos-latest lags.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
