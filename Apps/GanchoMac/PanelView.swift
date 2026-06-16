@@ -94,7 +94,6 @@ struct PanelView: View {
         .padding(GanchoTokens.Spacing.sm)
         .frame(minWidth: 380, minHeight: 420)
         .ganchoSurface(radius: GanchoTokens.Radius.lg)
-        .accessibilityIdentifier("history-panel")
         .task { await refresh() }
         .onChange(of: query) { _, _ in
             Task { await refresh() }
@@ -178,7 +177,10 @@ struct PanelView: View {
     }
 
     private func move(_ delta: Int) -> KeyPress.Result {
-        guard !results.isEmpty else { return .ignored }
+        // Always consume arrows so focus never leaves the search field — with
+        // no results there is simply nothing to move (Spotlight behavior).
+        // Returning .ignored here let the arrow propagate and steal focus.
+        guard !results.isEmpty else { return .handled }
         selectedIndex = (selectedIndex + delta + results.count) % results.count
         return .handled
     }

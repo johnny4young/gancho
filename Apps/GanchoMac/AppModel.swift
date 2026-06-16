@@ -68,6 +68,7 @@ final class AppModel {
     private var retentionTimer: Timer?
     private let screenShareDetector = ScreenShareDetector()
     private var screenShareTimer: Timer?
+    private var uiTestPanelObserver: NSObjectProtocol?
 
     /// Opt-out for the share auto-pause (on by default).
     var autoPauseOnScreenShare: Bool {
@@ -158,7 +159,26 @@ final class AppModel {
 
         // UI-test hook: deterministic panel access without the global hotkey.
         if CommandLine.arguments.contains("-open-panel-on-launch") {
-            Task { panel.show(model: self) }
+            NSApplication.shared.setActivationPolicy(.regular)
+            uiTestPanelObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didFinishLaunchingNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    panel.show(model: self)
+                    _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+                    try? await Task.sleep(for: .milliseconds(250))
+                    panel.show(model: self)
+                    _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+                }
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1))
+                if !panel.isVisible { panel.show(model: self) }
+                _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+            }
         } else if !defaults.bool(forKey: "has-seen-welcome") {
             Task { welcomeWindow.show(model: self) }
         } else if monitor.status == .deniedByPrivacySettings {
@@ -189,7 +209,7 @@ final class AppModel {
                 type: item.kind.rawValue,
                 lengthBucket: .init(characterCount: length)))
         Task {
-            try? await store.insert(item, content: content)
+            _ = try? await store.insert(item, content: content)
             await sync.enqueue([item])
             await refreshRecents()
             enrich(item, content: content)
@@ -204,11 +224,11 @@ final class AppModel {
             switch content {
             case .binary(let data, _) where item.kind == .image:
                 if let text = try? await ImageTextExtractor().extractText(from: data) {
-                    try? await grdbStore.attachExtractedText(id: item.id, text: text)
+                    _ = try? await grdbStore.attachExtractedText(id: item.id, text: text)
                 }
             case .text(let text) where item.title.isEmpty:
                 if let annotation = try? await TieredClipAnnotator().annotate(text) {
-                    try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
+                    _ = try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
                     await refreshRecents()
                 }
                 // Semantic vector (the embedder caches its model after the
@@ -216,7 +236,7 @@ final class AppModel {
                 if let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
                     let vector = try? embedder.vector(for: String(text.prefix(1_000)))
                 {
-                    try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
+                    _ = try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
                 }
             default:
                 break
@@ -305,7 +325,7 @@ final class AppModel {
             telemetry.record(
                 .itemPastedBack(
                     ageBucket: .init(age: Date().timeIntervalSince(item.createdAt))))
-            try? await store.insert(item, content: nil)  // move-to-top
+            _ = try? await store.insert(item, content: nil)  // move-to-top
             await refreshRecents()
         }
     }
@@ -320,7 +340,7 @@ final class AppModel {
             panel.hide()
             try? await Task.sleep(for: .milliseconds(80))
             pasteBack.paste(.text(transform.apply(to: text)), asPlainText: true)
-            try? await store.insert(item, content: nil)
+            _ = try? await store.insert(item, content: nil)
             await refreshRecents()
         }
     }
@@ -365,10 +385,10 @@ final class AppModel {
     func delete(_ item: ClipItem) {
         Task {
             if syncEnabled, let grdbStore {
-                try? await grdbStore.deleteForSync(id: item.id)
+                _ = try? await grdbStore.deleteForSync(id: item.id)
                 await sync.enqueueDeletion(ids: [item.id])
             } else {
-                try? await store.delete(id: item.id)
+                _ = try? await store.delete(id: item.id)
             }
             await refreshRecents()
         }
@@ -399,7 +419,7 @@ final class AppModel {
         configureSync()
         guard let grdbStore else { return }
         Task {
-            try? await TierEnforcement(store: grdbStore).enforce(tier: newTier)
+            _ = try? await TierEnforcement(store: grdbStore).enforce(tier: newTier)
             await refreshRecents()
         }
     }
@@ -412,7 +432,11 @@ final class AppModel {
     private func configureSync() {
         guard let grdbStore else { return }
         let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
-        let enable = SyncEnablement.shouldEnable(tier: tier, iCloudAvailable: iCloudAvailable)
+        let cloudKitEntitled = CloudKitEntitlements.currentTaskAllowsSync()
+        let enable = SyncEnablement.shouldEnable(
+            tier: tier,
+            iCloudAvailable: iCloudAvailable,
+            hasCloudKitEntitlement: cloudKitEntitled)
         guard enable != syncEnabled else { return }
         syncEnabled = enable
 
@@ -423,6 +447,7 @@ final class AppModel {
             .appendingPathComponent("sync-state.plist")
         sync = SyncEngineFactory.make(
             store: grdbStore, tier: tier, iCloudAvailable: iCloudAvailable,
+            hasCloudKitEntitlement: cloudKitEntitled,
             stateStore: .file(at: stateURL),
             onStatus: { [weak self] status in
                 Task { @MainActor in self?.applySyncStatus(status) }
@@ -514,7 +539,7 @@ final class AppModel {
                     return
                 }
             }
-            try? await grdbStore.setPinned(id: item.id, !item.isPinned)
+            _ = try? await grdbStore.setPinned(id: item.id, !item.isPinned)
             await refreshRecents()
         }
     }
@@ -529,7 +554,7 @@ final class AppModel {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
                 return
             }
-            try? await grdbStore.promoteToSnippet(id: item.id)
+            _ = try? await grdbStore.promoteToSnippet(id: item.id)
             await refreshRecents()
         }
     }
@@ -542,7 +567,7 @@ final class AppModel {
     func assign(_ item: ClipItem, toBoard board: Pinboard?) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.assign(clipID: item.id, toBoard: board?.id)
+            _ = try? await grdbStore.assign(clipID: item.id, toBoard: board?.id)
             await refreshRecents()
         }
     }
@@ -556,7 +581,7 @@ final class AppModel {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
                 return
             }
-            try? await grdbStore.createPinboard(name: name)
+            _ = try? await grdbStore.createPinboard(name: name)
             await refreshBoards()
         }
     }
@@ -638,8 +663,8 @@ final class AppModel {
         let policy = retentionPolicy
         let tier = tier
         Task {
-            try? await RetentionEngine(store: grdbStore).runPurge(policy: policy)
-            try? await TierEnforcement(store: grdbStore).enforce(tier: tier)
+            _ = try? await RetentionEngine(store: grdbStore).runPurge(policy: policy)
+            _ = try? await TierEnforcement(store: grdbStore).enforce(tier: tier)
             await refreshRecents()
         }
     }
