@@ -1,3 +1,4 @@
+import AppKit
 import ClipboardCore
 import GanchoDesign
 import GanchoKit
@@ -10,6 +11,9 @@ import SwiftUI
 /// panel opens via its menu item or the global shortcut.
 @main
 struct GanchoMacApp: App {
+    // Menu-bar agent lifecycle (see GanchoAppDelegate): keeps the app resident
+    // when the last auxiliary window closes, instead of quitting.
+    @NSApplicationDelegateAdaptor(GanchoAppDelegate.self) private var appDelegate
     @State private var model = AppModel()
 
     var body: some Scene {
@@ -121,5 +125,24 @@ struct MenuContent: View {
         Button("Quit Gancho") {
             NSApplication.shared.terminate(nil)
         }
+    }
+}
+
+/// A menu-bar agent must outlive its windows. By default AppKit calls
+/// `terminate:` once the last window closes (and an idle, window-less agent is
+/// also eligible for Automatic Termination) — so opening then closing Settings,
+/// onboarding, the Library, or even a transient launch window would quit
+/// Gancho and drop it out of the menu bar. Returning `false` keeps the agent
+/// resident; only the explicit "Quit Gancho" command (or ⌘Q) ends it.
+final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Belt-and-suspenders for the window-less case: a resident agent should
+        // not be reclaimed by Automatic Termination while it sits in the menu bar.
+        ProcessInfo.processInfo.disableAutomaticTermination(
+            "Gancho runs as a resident menu-bar agent")
     }
 }

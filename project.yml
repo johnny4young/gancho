@@ -36,6 +36,14 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEAD_CODE_STRIPPING: YES
+    # Xcode 16+ builds Debug apps as a thin launcher stub + a .debug.dylib
+    # (ENABLE_DEBUG_DYLIB). For a menu-bar agent (LSUIElement) the launcher
+    # hands off to the dylib and exits, so Xcode reports "Finished running"
+    # and detaches the debugger/console while the agent is still alive in the
+    # menu bar — confusing, and it breaks breakpoints for the running app.
+    # Force a single Debug binary so Run stays attached and predictable.
+    # Only affects Debug builds; Release never produces the dylib.
+    ENABLE_DEBUG_DYLIB: NO
 
 # Local Swift packages hold all feature/core code; app targets stay thin.
 packages:
