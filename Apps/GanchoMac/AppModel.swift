@@ -30,6 +30,7 @@ final class AppModel {
     let paywallWindow = PaywallWindowController()
     let permissionWindow = PasteboardPermissionWindowController()
     let libraryWindow = LibraryWindowController()
+    let settingsWindow = SettingsWindowController()
     let purchases = StoreKitPurchaseHandler()
     let telemetry: TelemetryPipeline
 
@@ -90,7 +91,7 @@ final class AppModel {
     var showInDock: Bool {
         didSet {
             defaults.set(showInDock, forKey: "show-in-dock")
-            NSApp.setActivationPolicy(showInDock ? .regular : .accessory)
+            applyActivationPolicy()
         }
     }
 
@@ -104,7 +105,12 @@ final class AppModel {
         let loadedPreferences = CapturePreferences.load(from: defaults)
         preferences = loadedPreferences
         retentionPolicy = RetentionPolicy.load(from: defaults)
-        showInDock = defaults.bool(forKey: "show-in-dock")
+        let hasDockPreference = defaults.object(forKey: "show-in-dock") != nil
+        #if DEBUG
+            showInDock = hasDockPreference ? defaults.bool(forKey: "show-in-dock") : true
+        #else
+            showInDock = defaults.bool(forKey: "show-in-dock")
+        #endif
         autoPauseOnScreenShare =
             defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
         tier = UserTier.load(from: defaults)
@@ -129,6 +135,7 @@ final class AppModel {
         scheduleRetention()
         scheduleScreenShareWatch()
         panel.attach(model: self)
+        applyActivationPolicy()
         // Intents resolve the SAME model instance the UI uses.
         AppDependencyManager.shared.add(dependency: self)
         KeyboardShortcuts.onKeyUp(for: .togglePrivateMode) { [weak self] in
@@ -184,6 +191,10 @@ final class AppModel {
         } else if monitor.status == .deniedByPrivacySettings {
             Task { permissionWindow.show(model: self) }
         }
+    }
+
+    private func applyActivationPolicy() {
+        NSApplication.shared.setActivationPolicy(showInDock ? .regular : .accessory)
     }
 
     // MARK: - Capture pipeline

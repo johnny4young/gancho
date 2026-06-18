@@ -5,125 +5,55 @@ import GanchoKit
 import KeyboardShortcuts
 import SwiftUI
 
-/// Menu-bar agent. The panel (⇧⌘V) is the primary surface; the menu is the
-/// secondary, glanceable one. Known MenuBarExtra limitation, documented:
-/// SwiftUI gives one click behavior — the menu opens on any click, and the
-/// panel opens via its menu item or the global shortcut.
+/// Menu-bar agent. The panel (⇧⌘V) is the primary surface; the status-item
+/// menu is the secondary, glanceable one.
 @main
 struct GanchoMacApp: App {
     // Menu-bar agent lifecycle (see GanchoAppDelegate): keeps the app resident
     // when the last auxiliary window closes, instead of quitting.
     @NSApplicationDelegateAdaptor(GanchoAppDelegate.self) private var appDelegate
-    @State private var model = AppModel()
+    @State private var model: AppModel
+    private let statusItem = StatusItemController()
+
+    init() {
+        GanchoSingleInstance.terminateOlderCopies()
+        let model = AppModel()
+        _model = State(initialValue: model)
+        GanchoDeepLinks.model = model
+        statusItem.attach(model: model)
+    }
 
     var body: some Scene {
         Settings {
             SettingsView()
                 .environment(model)
         }
-
-        MenuBarExtra {
-            MenuContent()
-                .environment(model)
-        } label: {
-            // Glanceable global state: capturing / paused / private mode.
-            Image(systemName: statusSymbol)
-                .accessibilityLabel(Text(statusLabel))
-        }
-    }
-
-    private var statusSymbol: String {
-        switch model.monitorStatus {
-        case .running: "paperclip"
-        case .pausedByUser: "eye.slash"
-        case .pausedByScreenShare: "video.slash"
-        case .stopped, .pausedByScreenLock: "pause.circle"
-        case .deniedByPrivacySettings: "exclamationmark.triangle"
-        }
-    }
-
-    private var statusLabel: LocalizedStringKey {
-        switch model.monitorStatus {
-        case .running: "Gancho: capturing"
-        case .pausedByUser: "Gancho: private mode"
-        case .pausedByScreenShare: "Gancho: paused while sharing"
-        case .stopped, .pausedByScreenLock: "Gancho: paused"
-        case .deniedByPrivacySettings: "Gancho: pasteboard access denied"
-        }
     }
 }
 
-struct MenuContent: View {
-    @Environment(AppModel.self) private var model
+@MainActor
+private enum GanchoSingleInstance {
+    static func terminateOlderCopies() {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return }
 
-    var body: some View {
-        // Last five clips — click pastes into the frontmost app.
-        if model.recentItems.isEmpty {
-            Text("Copy something — it will appear here.")
-        } else {
-            ForEach(model.recentItems.prefix(5)) { item in
-                Button {
-                    model.paste(item)
-                } label: {
-                    Label(
-                        title: { Text(item.preview).lineLimit(1) },
-                        icon: { Image(systemName: item.kind.symbolName) })
-                }
+        let currentProcessID = ProcessInfo.processInfo.processIdentifier
+        for app in NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+        where app.processIdentifier != currentProcessID {
+            if app.terminate() {
+                waitForTermination(of: app, timeout: 1)
+            }
+
+            if !app.isTerminated {
+                app.forceTerminate()
+                waitForTermination(of: app, timeout: 0.5)
             }
         }
+    }
 
-        Divider()
-
-        Button("Library") {
-            model.libraryWindow.show(model: model)
-        }
-        Button("Open panel") {
-            model.panel.show(model: model)
-        }
-        .keyboardShortcut("v", modifiers: [.shift, .command])
-
-        Button(model.monitorStatus == .running ? "Pause capture" : "Resume capture") {
-            model.togglePause()
-        }
-        Toggle(
-            "Private mode",
-            isOn: Binding(
-                get: { model.preferences.isPrivateModePaused },
-                set: { _ in model.togglePrivateMode() }))
-        Button("Ignore next copy") {
-            model.ignoreNextCopy()
-        }
-
-        Divider()
-
-        SettingsLink {
-            Text("Settings…")
-        }
-        Button("Welcome to Gancho") {
-            model.welcomeWindow.show(model: model)
-        }
-        Button("Privacy Center") {
-            model.privacyCenterWindow.show(model: model)
-        }
-        Button("My Clipboard, Wrapped…") {
-            Task {
-                let stats = await WrappedStats.gather(model: model)
-                WrappedExporter.savePNG(stats: stats)
-            }
-        }
-        if model.monitorStatus == .deniedByPrivacySettings {
-            Button("Fix clipboard access…") {
-                model.permissionWindow.show(model: model)
-            }
-        }
-        Toggle(
-            "Show in Dock",
-            isOn: Binding(get: { model.showInDock }, set: { model.showInDock = $0 }))
-
-        Divider()
-
-        Button("Quit Gancho") {
-            NSApplication.shared.terminate(nil)
+    private static func waitForTermination(of app: NSRunningApplication, timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !app.isTerminated && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         }
     }
 }
@@ -134,6 +64,7 @@ struct MenuContent: View {
 /// onboarding, the Library, or even a transient launch window would quit
 /// Gancho and drop it out of the menu bar. Returning `false` keeps the agent
 /// resident; only the explicit "Quit Gancho" command (or ⌘Q) ends it.
+@MainActor
 final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
@@ -144,5 +75,29 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
         // not be reclaimed by Automatic Termination while it sits in the menu bar.
         ProcessInfo.processInfo.disableAutomaticTermination(
             "Gancho runs as a resident menu-bar agent")
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        urls.forEach(GanchoDeepLinks.open)
+    }
+}
+
+@MainActor
+private enum GanchoDeepLinks {
+    static weak var model: AppModel?
+
+    static func open(_ url: URL) {
+        guard url.scheme == "gancho" else { return }
+
+        switch url.host?.lowercased() {
+        case "settings":
+            guard let model else { return }
+            model.settingsWindow.show(model: model)
+        case "panel":
+            guard let model else { return }
+            model.panel.show(model: model)
+        default:
+            return
+        }
     }
 }

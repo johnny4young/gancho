@@ -90,6 +90,12 @@ targets:
       path: Apps/GanchoMac/Info.plist
       properties:
         CFBundleDisplayName: Gancho
+        # Deep links keep Settings/panel reachable if macOS or a menu-bar
+        # manager hides the status item.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.johnny4young.gancho
+            CFBundleURLSchemes:
+              - gancho
         # Menu-bar app: no Dock icon (Settings can offer an override later).
         LSUIElement: true
         NSHumanReadableCopyright: "© 2026 Johnny Young. All rights reserved."
@@ -168,6 +174,10 @@ targets:
         # XCTestCase overrides nonisolated members — the app-wide MainActor
         # default does not fit a UI-test bundle.
         SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        # macOS 26.5 Gatekeeper blocks unsigned XCUITest runners before they
+        # can bootstrap. Generate the bundle plist so Xcode can sign the
+        # runner for `make test-ui`; the app build targets stay unsigned.
+        GENERATE_INFOPLIST_FILE: YES
     sources:
       - path: Tests/GanchoUITests
     dependencies:

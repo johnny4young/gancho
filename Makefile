@@ -5,6 +5,10 @@ XCODEGEN ?= xcodegen
 SCHEME_MAC ?= Gancho
 SCHEME_IOS ?= GanchoiOS
 PACKAGE ?= Packages/GanchoKit
+# macOS 26+ requires the XCUITest runner to be signed. Keep automatic signing
+# explicit by default, and let CI override this when it provides custom signing
+# settings (for example: make test-ui TEST_UI_SIGNING_FLAGS="DEVELOPMENT_TEAM=...").
+TEST_UI_SIGNING_FLAGS ?= CODE_SIGNING_ALLOWED=YES
 
 # When xcode-select points at CommandLineTools, `swift test` cannot find the
 # Swift Testing module and `xcodebuild` is unavailable. Prefer the full Xcode
@@ -37,9 +41,9 @@ test: ## Run package unit tests (Swift Testing)
 bench: ## Run the scale performance harness (seeds 100k rows; not for the PR loop)
 	env GANCHO_PERF=1 swift test --package-path $(PACKAGE) --filter PerformanceHarnessTests
 
-test-ui: project ## Run the XCUITest smoke suite (drives the real app)
+test-ui: project ## Run the XCUITest smoke suite (drives the real app; signed runner)
 	xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
-		-only-testing:GanchoUITests CODE_SIGNING_ALLOWED=NO
+		-only-testing:GanchoUITests $(TEST_UI_SIGNING_FLAGS)
 
 format: ## Format Swift sources in place
 	swift format --in-place --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests
