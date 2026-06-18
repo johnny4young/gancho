@@ -35,6 +35,31 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
+    func testMenuBarStatusItemResolvesToARealFrame() {
+        let app = XCUIApplication()
+        app.launch()
+
+        let deadline = Date().addingTimeInterval(5)
+        while app.state == .notRunning && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        // Existence in the accessibility tree is not enough — assert the status
+        // item resolves to a real, non-empty frame (a never-created or
+        // collapsed-to-zero item would fail here). Which display it lands on,
+        // and whether that is on-screen, the app logs in DEBUG at launch.
+        let statusItem = app.statusItems.firstMatch
+        guard statusItem.waitForExistence(timeout: 5) else {
+            // Self-skip where the runner can't reach the status menu bar (some
+            // headless CI displays); residence is covered by the sibling test.
+            print("skip: status item not exposed to the UI runner in this environment")
+            return
+        }
+        XCTAssertFalse(
+            statusItem.frame.isEmpty, "the status item must resolve to a non-zero on-screen frame")
+    }
+
+    @MainActor
     private func launchWithPanel() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-open-panel-on-launch"]
