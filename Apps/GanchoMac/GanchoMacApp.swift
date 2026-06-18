@@ -20,7 +20,13 @@ struct GanchoMacApp: App {
         let model = AppModel()
         _model = State(initialValue: model)
         GanchoDeepLinks.model = model
-        statusItem.attach(model: model)
+        // Create the status item AFTER launch finishes, not inside App.init:
+        // an NSStatusItem built before the app is fully initialized can
+        // register (and show up in the accessibility tree) without ever being
+        // placed in the menu bar. Hopping to the next main-actor turn runs
+        // attach() once the app is live, so the item joins the bar layout.
+        let statusItem = statusItem
+        Task { @MainActor in statusItem.attach(model: model) }
     }
 
     var body: some Scene {

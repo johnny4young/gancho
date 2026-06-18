@@ -14,13 +14,6 @@ import Observation
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
     private static let autosaveName = "GanchoStatusItem"
-    private static var visibilityAutosaveNames: [String] {
-        [
-            autosaveName,
-            "gancho-status-item",
-            "Item-0",
-        ]
-    }
 
     private weak var model: AppModel?
     private var statusItem: NSStatusItem?
@@ -31,12 +24,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         self.model = model
 
-        repairHiddenStatusItemVisibilityDefaults()
-
-        let item = NSStatusBar.system.statusItem(withLength: 28)
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.autosaveName = Self.autosaveName
         item.behavior = []
         item.menu = menu
+        item.isVisible = true
         statusItem = item
 
         menu.autoenablesItems = false
@@ -44,15 +36,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         updateStatusPresentation()
         observeStatus()
-    }
-
-    private func repairHiddenStatusItemVisibilityDefaults() {
-        let defaults = UserDefaults.standard
-        for autosaveName in Self.visibilityAutosaveNames {
-            defaults.set(true, forKey: "NSStatusItem VisibleCC \(autosaveName)")
-            defaults.set(true, forKey: "NSStatusItem Visible \(autosaveName)")
-        }
-        defaults.synchronize()
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
