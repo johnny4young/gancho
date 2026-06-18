@@ -76,20 +76,41 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         guard let button = statusItem?.button, let model else { return }
 
         let presentation = StatusItemPresentation(status: model.monitorStatus)
-        button.image = nil
-        button.imagePosition = .noImage
-        button.alignment = .center
-        button.attributedTitle = NSAttributedString(
-            string: presentation.menuBarGlyph,
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 17, weight: .semibold),
-                .baselineOffset: -1,
-            ])
-        button.title = presentation.menuBarGlyph
+        // Template SF Symbol — the conventional, reliable way to draw a status
+        // item. A raw emoji set as the button title rendered and placed
+        // unpredictably across displays and was absent from screen captures.
+        let image = NSImage(
+            systemSymbolName: presentation.symbolName,
+            accessibilityDescription: presentation.accessibilityDescription)
+        image?.isTemplate = true
+        button.image = image
+        button.imagePosition = .imageOnly
+        button.title = ""
         button.toolTip = presentation.accessibilityDescription
         button.setAccessibilityLabel(presentation.accessibilityDescription)
         statusItem?.isVisible = true
+
+        #if DEBUG
+            logResolvedPlacement(of: button)
+        #endif
     }
+
+    #if DEBUG
+        /// Logs which screen the status item resolved onto (or warns if it
+        /// landed off-screen) — the signal that makes a hidden or mis-placed
+        /// item obvious at launch instead of only in the accessibility tree.
+        private func logResolvedPlacement(of button: NSStatusBarButton) {
+            guard let frame = button.window?.frame else {
+                print("status-item: no host window yet")
+                return
+            }
+            if let screen = NSScreen.screens.first(where: { $0.frame.intersects(frame) }) {
+                print("status-item: on \(screen.localizedName) at \(NSStringFromRect(frame))")
+            } else {
+                print("status-item: WARNING resolved off-screen at \(NSStringFromRect(frame))")
+            }
+        }
+    #endif
 
     private func rebuildMenu() {
         menu.removeAllItems()
@@ -238,25 +259,25 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 }
 
 private struct StatusItemPresentation {
-    let menuBarGlyph: String
+    let symbolName: String
     let accessibilityDescription: String
 
     init(status: MonitorStatus) {
         switch status {
         case .running:
-            menuBarGlyph = "📎"
+            symbolName = "paperclip"
             accessibilityDescription = String(localized: "Gancho: capturing")
         case .pausedByUser:
-            menuBarGlyph = "○"
+            symbolName = "eye.slash"
             accessibilityDescription = String(localized: "Gancho: private mode")
         case .pausedByScreenShare:
-            menuBarGlyph = "◌"
+            symbolName = "video.slash"
             accessibilityDescription = String(localized: "Gancho: paused while sharing")
         case .stopped, .pausedByScreenLock:
-            menuBarGlyph = "⏸"
+            symbolName = "pause.circle"
             accessibilityDescription = String(localized: "Gancho: paused")
         case .deniedByPrivacySettings:
-            menuBarGlyph = "⚠︎"
+            symbolName = "exclamationmark.triangle"
             accessibilityDescription = String(localized: "Gancho: pasteboard access denied")
         }
     }
