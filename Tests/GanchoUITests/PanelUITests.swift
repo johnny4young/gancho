@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 
 /// Keyboard-first panel smoke (XCTest lives ONLY in this UI target; unit
@@ -5,6 +6,34 @@ import XCTest
 /// deterministic `-open-panel-on-launch` hook — no global-hotkey dependency
 /// on hosted runners.
 final class PanelUITests: XCTestCase {
+    @MainActor
+    func testMenuBarAgentStaysResidentOnPlainLaunch() {
+        let app = XCUIApplication()
+        app.launch()
+
+        let deadline = Date().addingTimeInterval(5)
+        while app.state == .notRunning && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        XCTAssertNotEqual(app.state, .notRunning, "plain Xcode Run launch must keep Gancho resident")
+    }
+
+    @MainActor
+    func testSettingsDeepLinkOpensSettingsWindow() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let deadline = Date().addingTimeInterval(5)
+        while app.state == .notRunning && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        let url = try XCTUnwrap(URL(string: "gancho://settings"))
+        XCTAssertTrue(NSWorkspace.shared.open(url))
+        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 5))
+    }
+
     @MainActor
     private func launchWithPanel() -> XCUIApplication {
         let app = XCUIApplication()

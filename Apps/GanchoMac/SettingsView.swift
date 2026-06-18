@@ -372,3 +372,25 @@ private struct ProSettingsTab: View {
         .padding(GanchoTokens.Spacing.md)
     }
 }
+
+@MainActor
+final class SettingsWindowController {
+    private var window: NSWindow?
+
+    func show(model: AppModel) {
+        if window == nil {
+            let hosting = NSHostingController(rootView: SettingsView().environment(model))
+            let created = NSWindow(contentViewController: hosting)
+            created.title = String(localized: "Settings")
+            created.styleMask = [.titled, .closable]
+            created.isReleasedWhenClosed = false
+            created.collectionBehavior = [.moveToActiveSpace]
+            created.center()
+            window = created
+        }
+
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+        _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+    }
+}
