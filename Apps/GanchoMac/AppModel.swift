@@ -105,12 +105,11 @@ final class AppModel {
         let loadedPreferences = CapturePreferences.load(from: defaults)
         preferences = loadedPreferences
         retentionPolicy = RetentionPolicy.load(from: defaults)
-        let hasDockPreference = defaults.object(forKey: "show-in-dock") != nil
-        #if DEBUG
-            showInDock = hasDockPreference ? defaults.bool(forKey: "show-in-dock") : true
-        #else
-            showInDock = defaults.bool(forKey: "show-in-dock")
-        #endif
+        // Default to a menu-bar agent (.accessory). This app is LSUIElement;
+        // forcing .regular (what the old Debug-only "show in Dock" default did)
+        // leaves the status item registered but never placed in the menu bar —
+        // the icon silently vanishes. Opt into the Dock explicitly instead.
+        showInDock = defaults.bool(forKey: "show-in-dock")
         autoPauseOnScreenShare =
             defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
         tier = UserTier.load(from: defaults)
