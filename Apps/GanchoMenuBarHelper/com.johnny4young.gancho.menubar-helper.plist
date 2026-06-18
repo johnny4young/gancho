@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- LaunchAgent for SMAppService.agent: the sandbox-safe way for the app to
+	     run its menu-bar helper. BundleProgram is the helper executable embedded
+	     in the app bundle; the helper self-exits when the main app is gone
+	     (bundle-id watchdog), so RunAtLoad is harmless when the app is not up. -->
+	<key>Label</key>
+	<string>com.johnny4young.gancho.menubar-helper</string>
+	<key>BundleProgram</key>
+	<string>Contents/MacOS/GanchoMenuBarHelper</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+		<string>com.johnny4young.gancho</string>
+	</array>
+</dict>
+</plist>

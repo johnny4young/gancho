@@ -13,20 +13,13 @@ struct GanchoMacApp: App {
     // when the last auxiliary window closes, instead of quitting.
     @NSApplicationDelegateAdaptor(GanchoAppDelegate.self) private var appDelegate
     @State private var model: AppModel
-    private let statusItem = StatusItemController()
 
     init() {
         GanchoSingleInstance.terminateOlderCopies()
         let model = AppModel()
         _model = State(initialValue: model)
+        GanchoRuntime.model = model
         GanchoDeepLinks.model = model
-        // Create the status item AFTER launch finishes, not inside App.init:
-        // an NSStatusItem built before the app is fully initialized can
-        // register (and show up in the accessibility tree) without ever being
-        // placed in the menu bar. Hopping to the next main-actor turn runs
-        // attach() once the app is live, so the item joins the bar layout.
-        let statusItem = statusItem
-        Task { @MainActor in statusItem.attach(model: model) }
     }
 
     var body: some Scene {
@@ -34,6 +27,32 @@ struct GanchoMacApp: App {
             SettingsView()
                 .environment(model)
         }
+    }
+}
+
+@MainActor
+private enum GanchoRuntime {
+    static var model: AppModel?
+    static let statusItem = StatusItemController()
+    /// Per-launch nonce stamped onto helper command deep links so forged
+    /// `gancho://menu-bar/...` opens from other processes are rejected. A UI
+    /// test can pin it via `-command-nonce <value>` to drive a deterministic
+    /// deep link without reading cross-process state.
+    static let commandNonce: String = {
+        let arguments = CommandLine.arguments
+        if let index = arguments.firstIndex(of: "-command-nonce"), index + 1 < arguments.count {
+            return arguments[index + 1]
+        }
+        return UUID().uuidString
+    }()
+    static let menuBarPublisher = GanchoMenuBarStatusPublisher()
+
+    static var usesInProcessStatusItem: Bool {
+        CommandLine.arguments.contains("-use-in-process-status-item")
+    }
+
+    static var needsRegularActivationForUITests: Bool {
+        CommandLine.arguments.contains("-open-panel-on-launch")
     }
 }
 
@@ -77,10 +96,38 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Re-assert the launch-time policy after SwiftUI finishes scene bring-up.
+        // AppModel also applies this when the user toggles Show in Dock.
+        NSApp.setActivationPolicy(
+            GanchoRuntime.needsRegularActivationForUITests
+                || UserDefaults.standard.bool(forKey: "show-in-dock")
+                ? .regular : .accessory)
+
         // Belt-and-suspenders for the window-less case: a resident agent should
         // not be reclaimed by Automatic Termination while it sits in the menu bar.
         ProcessInfo.processInfo.disableAutomaticTermination(
             "Gancho runs as a resident menu-bar agent")
+
+        // Publish the content-free side channel BEFORE the helper paints: the
+        // command nonce (#5), the localized menu titles (#4), and the current
+        // status presentation (#3). No clipboard data ever crosses it.
+        if let model = GanchoRuntime.model {
+            GanchoMenuBarBridge.writeNonce(GanchoRuntime.commandNonce)
+            GanchoRuntime.menuBarPublisher.start(model: model)
+        }
+
+        let launchedHelper =
+            GanchoRuntime.usesInProcessStatusItem
+            ? false
+            : GanchoMenuBarHelperLauncher.launch()
+
+        if !launchedHelper, let model = GanchoRuntime.model {
+            GanchoRuntime.statusItem.attach(model: model)
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        GanchoMenuBarHelperLauncher.stop()
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -95,6 +142,18 @@ private enum GanchoDeepLinks {
     static func open(_ url: URL) {
         guard url.scheme == "gancho" else { return }
 
+        if let command = GanchoMenuBarCommand(deepLink: url) {
+            // Honor a menu-bar command only when it carries this launch's nonce,
+            // so a forged gancho://menu-bar/... open from another app is ignored.
+            guard let model,
+                let token = GanchoMenuBarCommand.token(in: url),
+                token == GanchoRuntime.commandNonce
+            else { return }
+            command.perform(on: model)
+            GanchoRuntime.menuBarPublisher.publishNow()
+            return
+        }
+
         switch url.host?.lowercased() {
         case "settings":
             guard let model else { return }
@@ -105,5 +164,44 @@ private enum GanchoDeepLinks {
         default:
             return
         }
+    }
+}
+
+/// Publishes the content-free menu-bar state to the App Group bridge so the
+/// external helper renders a localized, status-aware menu without ever touching
+/// clipboard data. `monitor.status` is an engine value (not `@Observable`), so a
+/// light 1s poll keeps the bridge fresh and user-driven changes also publish
+/// immediately. Runs on both launch paths (helper and in-process fallback).
+@MainActor
+final class GanchoMenuBarStatusPublisher {
+    private weak var model: AppModel?
+    private var timer: Timer?
+    private var lastStatus: MonitorStatus?
+
+    func start(model: AppModel) {
+        self.model = model
+        publishTitles()
+        publishNow()
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(
+            timeInterval: 1, target: self, selector: #selector(publishNow), userInfo: nil,
+            repeats: true)
+    }
+
+    private func publishTitles() {
+        var titles: [String: String] = [:]
+        for command in GanchoMenuBarCommand.allCases {
+            titles[command.rawValue] = command.helperTitle
+        }
+        GanchoMenuBarBridge.writeTitles(titles)
+    }
+
+    @objc func publishNow() {
+        guard let model, model.monitorStatus != lastStatus else { return }
+        lastStatus = model.monitorStatus
+        let presentation = StatusItemPresentation(status: model.monitorStatus)
+        GanchoMenuBarBridge.writeStatus(
+            glyph: presentation.menuBarTitle,
+            label: presentation.accessibilityDescription)
     }
 }

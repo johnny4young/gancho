@@ -8,8 +8,13 @@ import XCTest
 final class PanelUITests: XCTestCase {
     @MainActor
     func testMenuBarAgentStaysResidentOnPlainLaunch() {
+        terminateMenuBarHelpers()
         let app = XCUIApplication()
         app.launch()
+        defer {
+            app.terminate()
+            _ = waitForMenuBarHelpersToExit(timeout: 5)
+        }
 
         let deadline = Date().addingTimeInterval(5)
         while app.state == .notRunning && Date() < deadline {
@@ -17,17 +22,15 @@ final class PanelUITests: XCTestCase {
         }
 
         XCTAssertNotEqual(app.state, .notRunning, "plain Xcode Run launch must keep Gancho resident")
+        XCTAssertTrue(
+            waitForMenuBarHelper(timeout: 5),
+            "plain launch must start the visible menu-bar helper")
     }
 
     @MainActor
     func testSettingsDeepLinkOpensSettingsWindow() throws {
-        let app = XCUIApplication()
-        app.launch()
-
-        let deadline = Date().addingTimeInterval(5)
-        while app.state == .notRunning && Date() < deadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
+        let app = launchWithInProcessStatusItem()
+        defer { app.terminate() }
 
         let url = try XCTUnwrap(URL(string: "gancho://settings"))
         XCTAssertTrue(NSWorkspace.shared.open(url))
@@ -35,14 +38,35 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
-    func testMenuBarStatusItemResolvesToARealFrame() {
-        let app = XCUIApplication()
-        app.launch()
+    func testMenuBarCommandDeepLinkOpensSettingsWindow() throws {
+        // Pin the nonce so the deep link is deterministic; the app honors a
+        // gancho://menu-bar/... open only when the token matches this launch.
+        let token = UUID().uuidString
+        let app = launchWithInProcessStatusItem(commandNonce: token)
+        defer { app.terminate() }
 
-        let deadline = Date().addingTimeInterval(5)
-        while app.state == .notRunning && Date() < deadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
+        let url = try XCTUnwrap(URL(string: "gancho://menu-bar/settings?token=\(token)"))
+        XCTAssertTrue(NSWorkspace.shared.open(url))
+
+        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testForgedMenuBarCommandWithoutTokenIsIgnored() throws {
+        let app = launchWithInProcessStatusItem()
+        defer { app.terminate() }
+
+        // A forged gancho://menu-bar/... open from another process carries no
+        // nonce, so the app must ignore it — the Settings window never appears.
+        let url = try XCTUnwrap(URL(string: "gancho://menu-bar/settings"))
+        XCTAssertTrue(NSWorkspace.shared.open(url))
+        XCTAssertFalse(app.windows["Settings"].firstMatch.waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    func testMenuBarStatusItemResolvesToARealFrame() {
+        let app = launchWithInProcessStatusItem()
+        defer { app.terminate() }
 
         // Existence in the accessibility tree is not enough — assert the status
         // item resolves to a real, non-empty frame (a never-created or
@@ -60,11 +84,115 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
+    func testMenuBarStatusItemOpensSettingsWindow() throws {
+        let app = launchWithInProcessStatusItem()
+        defer { app.terminate() }
+
+        let statusItem = app.statusItems.firstMatch
+        guard statusItem.waitForExistence(timeout: 5), !statusItem.frame.isEmpty else {
+            print("skip: status item not exposed to the UI runner in this environment")
+            return
+        }
+
+        try openStatusMenuItem("Settings…", app: app)
+        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testMenuBarStatusItemCanQuitGancho() throws {
+        let app = launchWithInProcessStatusItem()
+
+        let statusItem = app.statusItems.firstMatch
+        guard statusItem.waitForExistence(timeout: 5), !statusItem.frame.isEmpty else {
+            print("skip: status item not exposed to the UI runner in this environment")
+            return
+        }
+
+        try openStatusMenuItem("Quit Gancho", app: app)
+        XCTAssertEqual(app.wait(for: .notRunning, timeout: 5), true)
+    }
+
+    @MainActor
+    private func openStatusMenuItem(
+        _ title: String,
+        app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let statusItem = app.statusItems.firstMatch
+        guard statusItem.isHittable else {
+            throw XCTSkip(
+                "status item resolved but is not hittable on this display/Space; frame coverage still verifies the app-created item")
+        }
+
+        statusItem.click()
+        let menuItem = app.menuItems[title].firstMatch
+        XCTAssertTrue(menuItem.waitForExistence(timeout: 3), file: file, line: line)
+        menuItem.click()
+    }
+
+    @MainActor
+    private func launchWithInProcessStatusItem(commandNonce: String? = nil) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-use-in-process-status-item"]
+        if let commandNonce {
+            app.launchArguments += ["-command-nonce", commandNonce]
+        }
+        app.launch()
+        waitForAppToStart(app)
+        return app
+    }
+
+    @MainActor
     private func launchWithPanel() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-open-panel-on-launch"]
+        app.launchArguments = ["-open-panel-on-launch", "-use-in-process-status-item"]
         app.launch()
         return app
+    }
+
+    @MainActor
+    private func waitForAppToStart(_ app: XCUIApplication) {
+        let deadline = Date().addingTimeInterval(5)
+        while app.state == .notRunning && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+    }
+
+    @MainActor
+    private func waitForMenuBarHelper(timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if !menuBarHelpers().isEmpty { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return !menuBarHelpers().isEmpty
+    }
+
+    @MainActor
+    private func waitForMenuBarHelpersToExit(timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if menuBarHelpers().isEmpty { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return menuBarHelpers().isEmpty
+    }
+
+    @MainActor
+    private func terminateMenuBarHelpers() {
+        for app in menuBarHelpers() {
+            _ = app.terminate()
+        }
+        _ = waitForMenuBarHelpersToExit(timeout: 2)
+    }
+
+    @MainActor
+    private func menuBarHelpers() -> [NSRunningApplication] {
+        NSWorkspace.shared.runningApplications.filter { app in
+            app.localizedName == "GanchoMenuBarHelper"
+                || app.executableURL?.lastPathComponent == "GanchoMenuBarHelper"
+        }
     }
 
     @MainActor
@@ -102,7 +230,7 @@ final class PanelUITests: XCTestCase {
         // the user can keep typing mid-navigation.
         app.typeKey(.downArrow, modifierFlags: [])
         app.typeKey(.upArrow, modifierFlags: [])
-        app.typeText("still typing")
-        XCTAssertEqual(search.value as? String, "still typing")
+        app.typeText("focus works")
+        XCTAssertEqual(search.value as? String, "focus works")
     }
 }
