@@ -76,6 +76,15 @@ targets:
         com.apple.developer.icloud-services:
           - CloudKit
         aps-environment: development
+        # NOTE: the menu-bar helper bridge (status, localized titles, nonce) is
+        # content-free and runs over a shared `UserDefaults(suiteName:)`. In
+        # Debug / Developer ID that resolves to a shared preferences domain (no
+        # entitlement needed). For the sandboxed App Store build, add the
+        # `com.apple.security.application-groups` (group.com.johnny4young.gancho)
+        # + `com.apple.security.app-sandbox` entitlements at archive time so it
+        # resolves to the App Group container — kept out of the baked Debug set
+        # because an unprovisioned app-group entitlement makes the UI-test build
+        # launch without accessibility.
     dependencies:
       - package: GanchoKit
         products:
@@ -86,6 +95,34 @@ targets:
           - GanchoTelemetry
           - GanchoSync
       - package: KeyboardShortcuts
+      # A separate helper process owns the visible menu-bar paperclip. macOS can
+      # keep status items hidden for the main bundle identifier even when they
+      # remain Accessibility-visible; the helper gives the user a fresh,
+      # paintable status-item owner while the main app keeps all private
+      # clipboard state.
+      - target: GanchoMenuBarHelper
+        embed: false
+    postBuildScripts:
+      - name: Embed the menu-bar helper and its LaunchAgent in the app bundle
+        basedOnDependencyAnalysis: true
+        inputFiles:
+          - "$(BUILT_PRODUCTS_DIR)/GanchoMenuBarHelper"
+          - "$(SRCROOT)/Apps/GanchoMenuBarHelper/com.johnny4young.gancho.menubar-helper.plist"
+        outputFiles:
+          - "$(TARGET_BUILD_DIR)/$(EXECUTABLE_FOLDER_PATH)/GanchoMenuBarHelper"
+          - "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchAgents/com.johnny4young.gancho.menubar-helper.plist"
+        script: |
+          set -euo pipefail
+          # Plain cp (not ditto): the sandboxed user script may only write the
+          # declared output paths. Runs before code signing so Xcode seals the
+          # bundle with the helper and its LaunchAgent in place.
+          cp -f "${BUILT_PRODUCTS_DIR}/GanchoMenuBarHelper" \
+            "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/GanchoMenuBarHelper"
+          chmod 755 "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/GanchoMenuBarHelper"
+          launch_agents="${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Library/LaunchAgents"
+          mkdir -p "${launch_agents}"
+          cp -f "${SRCROOT}/Apps/GanchoMenuBarHelper/com.johnny4young.gancho.menubar-helper.plist" \
+            "${launch_agents}/com.johnny4young.gancho.menubar-helper.plist"
     info:
       path: Apps/GanchoMac/Info.plist
       properties:
@@ -99,6 +136,23 @@ targets:
         # Menu-bar app: no Dock icon (Settings can offer an override later).
         LSUIElement: true
         NSHumanReadableCopyright: "© 2026 Johnny Young. All rights reserved."
+
+  GanchoMenuBarHelper:
+    type: tool
+    platform: macOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.menubar-helper
+    # No entitlements in the baked build: the bridge uses a shared preferences
+    # domain in Debug / Developer ID. Add the App Group entitlement to the helper
+    # at App Store archive time (mirrors the app, see the Gancho target note).
+    sources:
+      - path: Apps/GanchoMenuBarHelper
+        excludes:
+          - "com.johnny4young.gancho.menubar-helper.plist"
+      - path: Apps/GanchoMac/GanchoMenuBarCommand.swift
+      - path: Apps/GanchoMac/GanchoMenuBarBridge.swift
 
   GanchoiOS:
     type: application

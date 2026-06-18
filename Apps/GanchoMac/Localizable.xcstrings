@@ -2120,6 +2120,146 @@
           }
         }
       }
+    },
+    "Pause or resume capture": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausar o reanudar la captura"
+          }
+        }
+      }
+    },
+    "Toggle Private Mode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alternar el modo privado"
+          }
+        }
+      }
+    },
+    "Toggle Dock Icon": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alternar el ícono del Dock"
+          }
+        }
+      }
+    },
+    "Open clipboard library": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir la biblioteca del portapapeles"
+          }
+        }
+      }
+    },
+    "Open clipboard panel": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir el panel del portapapeles"
+          }
+        }
+      }
+    },
+    "Pause or resume clipboard capture": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausar o reanudar la captura del portapapeles"
+          }
+        }
+      }
+    },
+    "Toggle private mode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alternar el modo privado"
+          }
+        }
+      }
+    },
+    "Ignore the next clipboard copy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignorar la próxima copia del portapapeles"
+          }
+        }
+      }
+    },
+    "Open settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir los ajustes"
+          }
+        }
+      }
+    },
+    "Open welcome": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir la bienvenida"
+          }
+        }
+      }
+    },
+    "Open privacy center": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir el Centro de privacidad"
+          }
+        }
+      }
+    },
+    "Export clipboard wrapped": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportar el resumen del portapapeles"
+          }
+        }
+      }
+    },
+    "Open clipboard access settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir los ajustes de acceso al portapapeles"
+          }
+        }
+      }
+    },
+    "Toggle Dock icon": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alternar el ícono del Dock"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

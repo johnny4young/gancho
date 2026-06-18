@@ -3,17 +3,32 @@ import ClipboardCore
 import GanchoKit
 import Observation
 
-/// Owns the resident AppKit status item that keeps Gancho visible in the
-/// menu bar.
+/// Owns Gancho's in-process AppKit status-item fallback.
 ///
-/// SwiftUI `MenuBarExtra` is intentionally not used here: on macOS 26 the
-/// Control Center-hosted status-item scene can be invalidated during an Xcode
-/// Run launch, which removes the only scene and makes the LSUIElement agent
-/// exit immediately. A plain `NSStatusItem` uses public AppKit lifecycle
-/// semantics and stays resident across Debug launches.
+/// SwiftUI `MenuBarExtra` is intentionally not used here: on macOS 26 a hidden
+/// Control Center-hosted scene can remain registered while never painting. A
+/// plain `NSStatusItem` gives Gancho an AppKit-owned resident item for local
+/// UI tests and for builds where the external helper cannot launch. Production
+/// launches `GanchoMenuBarHelper` first because macOS can hide the main bundle's
+/// status-item owner while still exposing it to Accessibility. The fallback
+/// intentionally has no autosave name: persisted menu-bar customization state
+/// is exactly what can keep a repaired agent registered in Accessibility while
+/// not painting. Command metadata is shared with the helper through
+/// `GanchoMenuBarCommand`, matching Vitrine's centralized command-surface
+/// pattern while keeping private clipboard previews out of the helper process.
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
-    private static let autosaveName = "GanchoStatusItem"
+    private static let autosaveName = "GanchoPrimaryStatusItem"
+    private static var visibilityAutosaveNames: [String] {
+        [
+            autosaveName,
+            "GanchoStatusItem",
+            "gancho-status-item",
+            "Item-0",
+            "Item-1",
+            "Item-2",
+        ]
+    }
 
     private weak var model: AppModel?
     private var statusItem: NSStatusItem?
@@ -24,9 +39,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         self.model = model
 
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.autosaveName = Self.autosaveName
-        item.behavior = []
+        repairHiddenStatusItemVisibilityDefaults()
+
+        let item = NSStatusBar.system.statusItem(
+            withLength: GanchoMenuBarCommand.statusItemLength)
         item.menu = menu
         item.isVisible = true
         statusItem = item
@@ -36,6 +52,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         updateStatusPresentation()
         observeStatus()
+    }
+
+    private func repairHiddenStatusItemVisibilityDefaults() {
+        let defaults = UserDefaults.standard
+        for autosaveName in Self.visibilityAutosaveNames {
+            defaults.set(true, forKey: "NSStatusItem VisibleCC \(autosaveName)")
+            defaults.set(true, forKey: "NSStatusItem Visible \(autosaveName)")
+        }
+        defaults.synchronize()
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -59,16 +84,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         guard let button = statusItem?.button, let model else { return }
 
         let presentation = StatusItemPresentation(status: model.monitorStatus)
-        // Template SF Symbol — the conventional, reliable way to draw a status
-        // item. A raw emoji set as the button title rendered and placed
-        // unpredictably across displays and was absent from screen captures.
-        let image = NSImage(
-            systemSymbolName: presentation.symbolName,
-            accessibilityDescription: presentation.accessibilityDescription)
-        image?.isTemplate = true
-        button.image = image
-        button.imagePosition = .imageOnly
-        button.title = ""
+        button.image = nil
+        button.imagePosition = .noImage
+        button.title = presentation.menuBarTitle
+        button.font = .systemFont(ofSize: 16, weight: .semibold)
         button.toolTip = presentation.accessibilityDescription
         button.setAccessibilityLabel(presentation.accessibilityDescription)
         statusItem?.isVisible = true
@@ -121,56 +140,46 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
-        addItem(String(localized: "Library"), action: #selector(showLibrary))
-        addItem(
-            String(localized: "Open panel"),
-            action: #selector(openPanel),
-            keyEquivalent: "v",
-            modifiers: [.command, .shift])
-        addItem(
-            model.monitorStatus == .running
-                ? String(localized: "Pause capture")
-                : String(localized: "Resume capture"),
-            action: #selector(togglePause))
-        addToggleItem(
-            String(localized: "Private mode"),
-            isOn: model.preferences.isPrivateModePaused,
-            action: #selector(togglePrivateMode))
-        addItem(String(localized: "Ignore next copy"), action: #selector(ignoreNextCopy))
+        addCommand(.library)
+        addCommand(.openPanel)
+        addCommand(
+            .toggleCapture,
+            title: GanchoMenuBarCommand.toggleCapture.title(
+                captureIsRunning: model.monitorStatus == .running))
+        addCommand(
+            .togglePrivateMode,
+            state: model.preferences.isPrivateModePaused ? .on : .off)
+        addCommand(.ignoreNextCopy)
 
         menu.addItem(.separator())
-        addItem(String(localized: "Settings…"), action: #selector(openSettings))
-        addItem(String(localized: "Welcome to Gancho"), action: #selector(openWelcome))
-        addItem(String(localized: "Privacy Center"), action: #selector(openPrivacyCenter))
-        addItem(String(localized: "My Clipboard, Wrapped…"), action: #selector(exportWrapped))
+        addCommand(.settings)
+        addCommand(.welcome)
+        addCommand(.privacyCenter)
+        addCommand(.wrapped)
         if model.monitorStatus == .deniedByPrivacySettings {
-            addItem(String(localized: "Fix clipboard access…"), action: #selector(openPermissions))
+            addCommand(.fixClipboardAccess)
         }
-        addToggleItem(
-            String(localized: "Show in Dock"),
-            isOn: model.showInDock,
-            action: #selector(toggleDockIcon))
+        addCommand(.showInDock, state: model.showInDock ? .on : .off)
 
         menu.addItem(.separator())
-        addItem(String(localized: "Quit Gancho"), action: #selector(quit))
+        addCommand(.quit)
     }
 
-    private func addItem(
-        _ title: String,
-        action: Selector,
-        keyEquivalent: String = "",
-        modifiers: NSEvent.ModifierFlags = []
+    private func addCommand(
+        _ command: GanchoMenuBarCommand,
+        title: String? = nil,
+        state: NSControl.StateValue = .off
     ) {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        let item = NSMenuItem(
+            title: title ?? command.title,
+            action: #selector(performCommand(_:)),
+            keyEquivalent: command.keyEquivalent)
         item.target = self
-        item.keyEquivalentModifierMask = modifiers
-        menu.addItem(item)
-    }
-
-    private func addToggleItem(_ title: String, isOn: Bool, action: Selector) {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
-        item.target = self
-        item.state = isOn ? .on : .off
+        item.keyEquivalentModifierMask = command.modifiers
+        item.representedObject = command.rawValue
+        item.state = state
+        item.setAccessibilityIdentifier(command.accessibilityIdentifier)
+        item.setAccessibilityLabel(command.accessibilityLabel)
         menu.addItem(item)
     }
 
@@ -179,88 +188,39 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         model?.paste(clip)
     }
 
-    @objc private func showLibrary() {
-        guard let model else { return }
-        model.libraryWindow.show(model: model)
-    }
-
-    @objc private func openPanel() {
-        guard let model else { return }
-        model.panel.show(model: model)
-    }
-
-    @objc private func togglePause() {
-        model?.togglePause()
+    @objc private func performCommand(_ sender: NSMenuItem) {
+        guard
+            let rawValue = sender.representedObject as? String,
+            let command = GanchoMenuBarCommand(rawValue: rawValue),
+            let model
+        else { return }
+        command.perform(on: model)
         updateStatusPresentation()
-    }
-
-    @objc private func togglePrivateMode() {
-        model?.togglePrivateMode()
-        updateStatusPresentation()
-    }
-
-    @objc private func ignoreNextCopy() {
-        model?.ignoreNextCopy()
-    }
-
-    @objc private func openSettings() {
-        guard let model else { return }
-        model.settingsWindow.show(model: model)
-    }
-
-    @objc private func openWelcome() {
-        guard let model else { return }
-        model.welcomeWindow.show(model: model)
-    }
-
-    @objc private func openPrivacyCenter() {
-        guard let model else { return }
-        model.privacyCenterWindow.show(model: model)
-    }
-
-    @objc private func exportWrapped() {
-        guard let model else { return }
-        Task {
-            let stats = await WrappedStats.gather(model: model)
-            WrappedExporter.savePNG(stats: stats)
-        }
-    }
-
-    @objc private func openPermissions() {
-        guard let model else { return }
-        model.permissionWindow.show(model: model)
-    }
-
-    @objc private func toggleDockIcon() {
-        guard let model else { return }
-        model.showInDock.toggle()
-    }
-
-    @objc private func quit() {
-        NSApplication.shared.terminate(nil)
     }
 }
 
-private struct StatusItemPresentation {
-    let symbolName: String
+/// Maps the monitor status to a menu-bar glyph + accessibility label. Shared by
+/// the in-process fallback and the App Group publisher that drives the helper.
+struct StatusItemPresentation {
+    let menuBarTitle: String
     let accessibilityDescription: String
 
     init(status: MonitorStatus) {
         switch status {
         case .running:
-            symbolName = "paperclip"
+            menuBarTitle = GanchoMenuBarCommand.statusGlyph
             accessibilityDescription = String(localized: "Gancho: capturing")
         case .pausedByUser:
-            symbolName = "eye.slash"
+            menuBarTitle = "◌"
             accessibilityDescription = String(localized: "Gancho: private mode")
         case .pausedByScreenShare:
-            symbolName = "video.slash"
+            menuBarTitle = "◌"
             accessibilityDescription = String(localized: "Gancho: paused while sharing")
         case .stopped, .pausedByScreenLock:
-            symbolName = "pause.circle"
+            menuBarTitle = "⏸"
             accessibilityDescription = String(localized: "Gancho: paused")
         case .deniedByPrivacySettings:
-            symbolName = "exclamationmark.triangle"
+            menuBarTitle = "⚠︎"
             accessibilityDescription = String(localized: "Gancho: pasteboard access denied")
         }
     }
