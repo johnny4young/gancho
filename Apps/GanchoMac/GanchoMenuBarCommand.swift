@@ -167,6 +167,24 @@ enum MenuBarStatusIcon: String {
         }
     }
 
+    /// A small filled status dot for the menu header — green when capturing,
+    /// gray when paused, red when access is denied. Intentionally colored (not a
+    /// template): a glanceable state cue beside the localized status text.
+    func statusDot() -> NSImage {
+        let color: NSColor
+        switch self {
+        case .active: color = .systemGreen
+        case .paused, .stopped: color = .systemGray
+        case .denied: color = .systemRed
+        }
+        let side: CGFloat = 10
+        return NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            color.setFill()
+            NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
+            return true
+        }
+    }
+
     private static func symbol(_ name: String) -> NSImage {
         let image = NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
         image.isTemplate = true
