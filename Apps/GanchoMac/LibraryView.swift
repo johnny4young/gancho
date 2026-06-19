@@ -1,62 +1,38 @@
 import AppKit
+import ClipboardCore
 import GanchoAI
 import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-/// The curated world: browse, edit (with the local syntax tint), and author
-/// snippets. All local; the free ceiling gates promotion, not browsing.
+/// The curated world: browse, search, edit (with live syntax highlighting) and
+/// author snippets. Everything is local; the free ceiling gates promotion, not
+/// browsing. The editor is the design's "snippet editor" proposal, kept to a
+/// faithful, native elevation — a real highlighted code editor, a kind pill,
+/// honest metadata, and Save / Copy / Remove — without the tag taxonomy,
+/// usage-count tracking, or `{placeholder}` fill-in flow (separate features).
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
     @State private var snippets: [ClipItem] = []
     @State private var selected: ClipItem?
     @State private var title = ""
     @State private var snippetBody = ""
+    @State private var search = ""
+    @State private var snippetCount = 0
+
+    /// Live, case-insensitive filter over the loaded snippets (title + preview).
+    private var visible: [ClipItem] {
+        guard !search.isEmpty else { return snippets }
+        let needle = search.lowercased()
+        return snippets.filter {
+            $0.title.lowercased().contains(needle) || $0.preview.lowercased().contains(needle)
+        }
+    }
 
     var body: some View {
         HSplitView {
-            List(
-                snippets,
-                selection: Binding(
-                    get: { selected?.id },
-                    set: { id in
-                        selected = snippets.first { $0.id == id }
-                        title = selected?.title ?? ""
-                        Task { await loadBody() }
-                    })
-            ) { snippet in
-                ClipCard(item: snippet).tag(snippet.id)
-            }
-            .frame(minWidth: 200)
-
-            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-                if selected != nil {
-                    TextField("Snippet title", text: $title)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("snippet-title")
-                    TextEditor(text: $snippetBody)
-                        .font(.body.monospaced())
-                        .accessibilityIdentifier("snippet-editor")
-                    HStack {
-                        ActionButton("Save", systemImage: "checkmark", identifier: "snippet-save") {
-                            save()
-                        }
-                        Spacer()
-                        ActionButton(
-                            "Remove from Library", systemImage: "trash",
-                            identifier: "snippet-demote"
-                        ) {
-                            demote()
-                        }
-                    }
-                } else {
-                    Text("Select a snippet, or create one.")
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-            .padding(GanchoTokens.Spacing.sm)
-            .frame(minWidth: 280)
+            sidebar
+            editor
         }
         .toolbar {
             ToolbarItem {
@@ -68,13 +44,131 @@ struct LibraryView: View {
                 .accessibilityIdentifier("snippet-new")
             }
         }
-        .frame(minWidth: 560, minHeight: 360)
+        .frame(minWidth: 620, minHeight: 380)
         .accessibilityIdentifier("library")
         .task { await refresh() }
     }
 
+    // MARK: Sidebar — search, list, free-tier count
+
+    private var sidebar: some View {
+        VStack(spacing: 0) {
+            SearchField("Search snippets", text: $search)
+                .padding(GanchoTokens.Spacing.xs)
+            List(
+                visible,
+                selection: Binding(
+                    get: { selected?.id },
+                    set: { id in
+                        selected = snippets.first { $0.id == id }
+                        title = selected?.title ?? ""
+                        Task { await loadBody() }
+                    })
+            ) { snippet in
+                ClipCard(item: snippet, isSelected: snippet.id == selected?.id).tag(snippet.id)
+            }
+            Divider()
+            HStack(spacing: GanchoTokens.Spacing.xxs) {
+                Text("\(snippetCount) snippets")
+                if model.tier != .pro {
+                    Text("·")
+                    Text("\(max(0, SnippetLimits.freeMaxSnippets - snippetCount)) left on Free")
+                }
+                Spacer(minLength: 0)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, GanchoTokens.Spacing.sm)
+            .padding(.vertical, GanchoTokens.Spacing.xs)
+            .accessibilityIdentifier("snippet-count")
+        }
+        .frame(minWidth: 240)
+    }
+
+    // MARK: Editor
+
+    @ViewBuilder private var editor: some View {
+        if let selected {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
+                TextField("Snippet title", text: $title)
+                    .textFieldStyle(.plain)
+                    .font(.title2.weight(.semibold))
+                    .accessibilityIdentifier("snippet-title")
+
+                HStack {
+                    kindPill(selected.kind)
+                    Spacer(minLength: 0)
+                }
+
+                SyntaxTextView(text: $snippetBody)
+                    .frame(minHeight: 220)
+                    .clipShape(
+                        RoundedRectangle(
+                            cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                            .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline)
+                    )
+
+                footer(for: selected)
+            }
+            .padding(GanchoTokens.Spacing.md)
+            .frame(minWidth: 340)
+        } else {
+            Text("Select a snippet, or create one.")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minWidth: 340)
+        }
+    }
+
+    /// Read-only kind label — uses the classifier's `ClipContentKind`, never a
+    /// fabricated per-language guess.
+    private func kindPill(_ kind: ClipContentKind) -> some View {
+        Label(LocalizedStringKey(kind.rawValue), systemImage: kind.symbolName)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, GanchoTokens.Spacing.xs)
+            .padding(.vertical, GanchoTokens.Spacing.xxs)
+            .background(.quaternary, in: Capsule())
+            .accessibilityIdentifier("snippet-kind")
+    }
+
+    private func footer(for snippet: ClipItem) -> some View {
+        HStack(spacing: GanchoTokens.Spacing.sm) {
+            Group {
+                Label(
+                    "Created \(snippet.createdAt.formatted(date: .abbreviated, time: .omitted))",
+                    systemImage: "clock"
+                )
+                Label("\(snippetBody.count) characters", systemImage: "text.alignleft")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            Spacer(minLength: 0)
+
+            ActionButton(
+                "Remove from Library", systemImage: "trash", identifier: "snippet-demote"
+            ) {
+                demote()
+            }
+            .foregroundStyle(GanchoTokens.Palette.danger)
+            ActionButton("Copy", systemImage: "doc.on.doc", identifier: "snippet-copy") {
+                SystemPasteboardWriter().write(.text(snippetBody), asPlainText: true)
+            }
+            ActionButton("Save", systemImage: "checkmark", identifier: "snippet-save") {
+                save()
+            }
+        }
+    }
+
+    // MARK: Data
+
     private func refresh() async {
         snippets = (try? await model.grdbStore?.snippets()) ?? []
+        snippetCount = (try? await model.grdbStore?.snippetCount()) ?? snippets.count
     }
 
     private func loadBody() async {

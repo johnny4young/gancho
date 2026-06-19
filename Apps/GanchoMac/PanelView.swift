@@ -362,20 +362,18 @@ struct PreviewSheet: View {
         .accessibilityIdentifier("preview-sheet")
     }
 
-    /// Minimal, fully local syntax tint for code clips: keywords only.
+    /// Fully local syntax tint for code clips, shared with the Library editor
+    /// via `GanchoSyntax` (strings, comments, numbers, keywords, `{placeholder}`
+    /// fields). Non-code clips render as plain text.
     private var highlighted: AttributedString {
-        guard item.kind == .code else { return AttributedString(text) }
         var attributed = AttributedString(text)
-        let keywords = [
-            "func", "let", "var", "guard", "return", "import", "def", "const",
-            "SELECT", "FROM", "WHERE", "async", "await", "class", "struct",
-        ]
-        for keyword in keywords {
-            var start = attributed.startIndex
-            while let range = attributed[start...].range(of: keyword) {
-                attributed[range].foregroundColor = .purple
-                start = range.upperBound
-            }
+        guard item.kind == .code else { return attributed }
+        for token in GanchoSyntax.tokens(in: text) {
+            let lower = text.distance(from: text.startIndex, to: token.range.lowerBound)
+            let upper = text.distance(from: text.startIndex, to: token.range.upperBound)
+            let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
+            let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
+            attributed[lo..<hi].foregroundColor = GanchoTokens.Syntax.color(for: token.kind)
         }
         return attributed
     }

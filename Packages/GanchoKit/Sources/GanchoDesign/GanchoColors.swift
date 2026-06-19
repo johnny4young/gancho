@@ -103,6 +103,60 @@ extension GanchoTokens {
     }
 }
 
+extension GanchoTokens {
+    /// Token colors for `GanchoSyntax`. The dark values are the design editor's
+    /// palette (`docs/design/ui_kits/macos/snippet-editor.html`); the light
+    /// values are darker, legible variants of the same hues, so highlighting
+    /// honours the app's Light/Dark choice — the code editor is an elevated
+    /// surface, not a fixed-dark panel.
+    public enum Syntax {
+        /// (light, dark) sRGB byte triples for a token kind.
+        static func triples(
+            for kind: GanchoSyntax.TokenKind
+        ) -> (light: (Int, Int, Int), dark: (Int, Int, Int)) {
+            switch kind {
+            case .keyword: return ((0xA3, 0x3E, 0xA3), (0xC6, 0x78, 0xDD))
+            case .string: return ((0x2E, 0x7D, 0x32), (0x98, 0xC3, 0x79))
+            case .comment: return ((0x8A, 0x8A, 0x8E), (0x5C, 0x66, 0x70))
+            case .number: return ((0xB2, 0x50, 0x00), (0xD1, 0x9A, 0x66))
+            case .placeholder: return ((0xB2, 0x6A, 0x00), (0xE5, 0xC0, 0x7B))
+            }
+        }
+
+        /// SwiftUI color for a token kind (used by the floating-panel preview).
+        public static func color(for kind: GanchoSyntax.TokenKind) -> Color {
+            let t = triples(for: kind)
+            return syntaxDynamicColor(light: t.light, dark: t.dark)
+        }
+
+        #if canImport(AppKit)
+            /// Appearance-dynamic `NSColor` for a token kind (used by the AppKit
+            /// Library editor so the tint updates live on a theme switch).
+            public static func nsColor(for kind: GanchoSyntax.TokenKind) -> NSColor {
+                let t = triples(for: kind)
+                return syntaxDynamicNSColor(light: t.light, dark: t.dark)
+            }
+
+            /// The editor's elevated code surface — near-black on dark (the
+            /// design's `#15191e`), a soft off-white on light.
+            public static var editorSurface: NSColor {
+                syntaxDynamicNSColor(light: (0xF6, 0xF7, 0xF9), dark: (0x15, 0x19, 0x1E))
+            }
+
+            /// The line-number gutter background — a shade deeper than the code
+            /// surface on each appearance.
+            public static var editorGutter: NSColor {
+                syntaxDynamicNSColor(light: (0xEC, 0xEE, 0xF1), dark: (0x10, 0x14, 0x18))
+            }
+
+            /// The gutter's line-number text — muted on both appearances.
+            public static var editorGutterText: NSColor {
+                syntaxDynamicNSColor(light: (0xA0, 0xA4, 0xAA), dark: (0x4B, 0x55, 0x60))
+            }
+        #endif
+    }
+}
+
 extension View {
     /// Apply gancho's resolved accent (`GanchoTokens.Palette.accent`) so active
     /// controls follow the OS Theme color — or the brand green under macOS
@@ -111,3 +165,38 @@ extension View {
         tint(GanchoTokens.Palette.accent)
     }
 }
+
+// MARK: - Dynamic color builders shared by the syntax tokens
+
+/// A light/dark-adaptive `Color` from sRGB byte triples. Mirrors
+/// `GanchoTokens.Palette.dynamic` (which is private to `Palette`).
+private func syntaxDynamicColor(light: (Int, Int, Int), dark: (Int, Int, Int)) -> Color {
+    #if canImport(AppKit)
+        return Color(nsColor: syntaxDynamicNSColor(light: light, dark: dark))
+    #elseif canImport(UIKit)
+        return Color(
+            uiColor: UIColor { traits in
+                let c = traits.userInterfaceStyle == .dark ? dark : light
+                return UIColor(
+                    red: CGFloat(c.0) / 255, green: CGFloat(c.1) / 255,
+                    blue: CGFloat(c.2) / 255, alpha: 1)
+            })
+    #else
+        return Color(
+            red: Double(light.0) / 255, green: Double(light.1) / 255,
+            blue: Double(light.2) / 255)
+    #endif
+}
+
+#if canImport(AppKit)
+    private func syntaxDynamicNSColor(
+        light: (Int, Int, Int), dark: (Int, Int, Int)
+    ) -> NSColor {
+        NSColor(name: nil) { appearance in
+            let c = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            return NSColor(
+                srgbRed: CGFloat(c.0) / 255, green: CGFloat(c.1) / 255,
+                blue: CGFloat(c.2) / 255, alpha: 1)
+        }
+    }
+#endif
