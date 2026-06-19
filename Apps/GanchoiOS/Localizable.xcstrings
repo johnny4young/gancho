@@ -441,6 +441,66 @@
         }
       }
     },
+    "Save Clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar portapapeles"
+          }
+        }
+      }
+    },
+    "Saves the current clipboard into Gancho. iOS shows its standard paste confirmation.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda el portapapeles actual en Gancho. iOS muestra su confirmación de pegado estándar."
+          }
+        }
+      }
+    },
+    "Saved the image to Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guardó la imagen en Gancho."
+          }
+        }
+      }
+    },
+    "Saved to Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guardó en Gancho."
+          }
+        }
+      }
+    },
+    "The clipboard is empty.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El portapapeles está vacío."
+          }
+        }
+      }
+    },
+    "Couldn't open Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir Gancho."
+          }
+        }
+      }
+    },
     "Save it": {
       "localizations": {
         "es": {

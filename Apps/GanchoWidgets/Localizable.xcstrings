@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Couldn't open Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir Gancho."
+          }
+        }
+      }
+    },
     "Nothing yet": {
       "localizations": {
         "es": {
@@ -21,12 +31,72 @@
         }
       }
     },
+    "Recent Clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clips recientes"
+          }
+        }
+      }
+    },
     "Save Clipboard": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Guardar portapapeles"
+          }
+        }
+      }
+    },
+    "Saved the image to Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guardó la imagen en Gancho."
+          }
+        }
+      }
+    },
+    "Saved to Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guardó en Gancho."
+          }
+        }
+      }
+    },
+    "Saves the current clipboard into Gancho. iOS shows its standard paste confirmation.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda el portapapeles actual en Gancho. iOS muestra su confirmación de pegado estándar."
+          }
+        }
+      }
+    },
+    "The clipboard is empty.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El portapapeles está vacío."
+          }
+        }
+      }
+    },
+    "Your latest clips, with a one-tap save.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus clips más recientes, con guardado en un toque."
           }
         }
       }
