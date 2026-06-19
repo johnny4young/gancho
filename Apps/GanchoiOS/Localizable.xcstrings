@@ -1,6 +1,86 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Privacy Center": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Centro de Privacidad"
+          }
+        }
+      }
+    },
+    "Outgoing content requests": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peticiones de contenido salientes"
+          }
+        }
+      }
+    },
+    "Your clipboard never leaves this iPhone.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu portapapeles nunca sale de este iPhone."
+          }
+        }
+      }
+    },
+    "This week": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta semana"
+          }
+        }
+      }
+    },
+    "Clips captured": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clips capturados"
+          }
+        }
+      }
+    },
+    "Secrets masked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secretos enmascarados"
+          }
+        }
+      }
+    },
+    "Items self-expired": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ítems autoexpirados"
+          }
+        }
+      }
+    },
+    "Items synchronized": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ítems sincronizados"
+          }
+        }
+      }
+    },
     "No internet connection": {
       "localizations": {
         "es": {
