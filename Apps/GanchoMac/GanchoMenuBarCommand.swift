@@ -24,7 +24,10 @@ enum GanchoMenuBarCommand: String, CaseIterable {
     case quit
 
     static let appTitle = String(localized: "Gancho")
-    static let statusItemLength: CGFloat = 32
+    /// Let the status item hug its template image (the hook ~18 pt) plus the
+    /// system's standard padding, instead of a fixed slot that left the mark
+    /// floating in too much width. Used by both the in-process item and the helper.
+    static let statusItemLength = NSStatusItem.variableLength
     static let statusAccessibilityLabel = String(localized: "Gancho")
 
     /// Commands the helper can safely show without reading clipboard state.
