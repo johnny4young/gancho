@@ -1,6 +1,66 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%lld characters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld caracteres"
+          }
+        }
+      }
+    },
+    "%lld left on Free": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld disponibles en Free"
+          }
+        }
+      }
+    },
+    "%lld snippets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld snippets"
+          }
+        }
+      }
+    },
+    "Copy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar"
+          }
+        }
+      }
+    },
+    "Created %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creado %@"
+          }
+        }
+      }
+    },
+    "Search snippets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar snippets"
+          }
+        }
+      }
+    },
     "Appearance": {
       "localizations": {
         "es": {
