@@ -5,19 +5,50 @@ import ServiceManagement
 ///
 /// Prefers `SMAppService` — the sandbox-safe, launchd-managed path required for
 /// an App Store build — and falls back to a direct `Process` launch when the
-/// service cannot be registered (e.g. an unsigned Debug build from DerivedData).
-/// Either way the helper self-exits once the main app is gone (its own bundle-id
-/// watchdog), so no path leaves an orphan in the menu bar.
+/// service cannot be registered (e.g. an unsigned Debug build from DerivedData)
+/// or when launchd won't (re)spawn it. Either way the helper self-exits once the
+/// main app is gone (its own bundle-id watchdog), so no path leaves an orphan in
+/// the menu bar.
 @MainActor
 enum GanchoMenuBarHelperLauncher {
     private static let executableName = "GanchoMenuBarHelper"
     private static let agentPlistName = "com.johnny4young.gancho.menubar-helper.plist"
     private static let helperBundleID = "com.johnny4young.gancho.menubar-helper"
 
+    /// What `launch()` should do once SMAppService has been consulted.
+    ///
+    /// `SMAppService.status == .enabled` means the login agent is REGISTERED,
+    /// not RUNNING. launchd runs a `RunAtLoad` agent once when it first loads it
+    /// and never re-spawns it after the helper's watchdog self-exits (the plist
+    /// has no `KeepAlive`). So registration is trustworthy ONLY in the moment it
+    /// first loads the agent; on every later launch the helper is gone and must
+    /// be ensured directly. The decision therefore keys on the process table,
+    /// not on the registration flag — the bug it fixes is a signed build whose
+    /// 2nd launch found the agent `.enabled` but no helper running, and so
+    /// short-circuited without ever showing the menu-bar icon.
+    enum LaunchPlan: Sendable, Equatable {
+        /// A helper is already up (launchd just spawned it, or a leftover).
+        case helperAlreadyRunning
+        /// We just loaded the agent — launchd's `RunAtLoad` will spawn it.
+        case trustLaunchd
+        /// Already-loaded-but-dead, unsigned, or awaiting approval — spawn now.
+        case launchProcess
+    }
+
+    static func launchPlan(justLoadedAgent: Bool, helperAlreadyRunning: Bool) -> LaunchPlan {
+        if helperAlreadyRunning { return .helperAlreadyRunning }
+        return justLoadedAgent ? .trustLaunchd : .launchProcess
+    }
+
     @discardableResult
     static func launch() -> Bool {
-        if registerService() { return true }
-        return launchProcess()
+        let justLoaded = registerLoginItem()
+        switch launchPlan(justLoadedAgent: justLoaded, helperAlreadyRunning: isHelperRunning()) {
+        case .helperAlreadyRunning, .trustLaunchd:
+            return true
+        case .launchProcess:
+            return launchProcess()
+        }
     }
 
     static func stop() {
@@ -25,20 +56,27 @@ enum GanchoMenuBarHelperLauncher {
         terminateRunningHelpers()
     }
 
-    // MARK: - SMAppService (sandbox-safe, preferred)
+    // MARK: - SMAppService (sandbox-safe login persistence)
 
     private static var service: SMAppService {
         SMAppService.agent(plistName: agentPlistName)
     }
 
-    private static func registerService() -> Bool {
+    /// Registers the login agent if it isn't already, returning `true` ONLY when
+    /// this call transitioned it to `.enabled` — i.e. launchd just loaded it and
+    /// its one `RunAtLoad` spawn is imminent. An already-`.enabled` agent returns
+    /// `false`: launchd loaded it earlier, its `RunAtLoad` has already fired, and
+    /// a running helper must be ensured another way. A signed build awaiting the
+    /// user's approval (`.requiresApproval`) also returns `false`.
+    @discardableResult
+    private static func registerLoginItem() -> Bool {
         let service = service
-        if service.status == .enabled { return true }
+        guard service.status != .enabled else { return false }
         do {
             try service.register()
             return service.status == .enabled
         } catch {
-            // Unsigned/Debug builds can't register a LaunchAgent; fall back.
+            // Unsigned/Debug builds can't register a LaunchAgent; spawn directly.
             return false
         }
     }
@@ -48,7 +86,7 @@ enum GanchoMenuBarHelperLauncher {
         service.unregister { _ in }
     }
 
-    // MARK: - Process fallback (Debug / unsigned)
+    // MARK: - Process fallback (Debug / unsigned / re-spawn)
 
     private static func launchProcess() -> Bool {
         guard let executableURL else { return false }
@@ -60,6 +98,8 @@ enum GanchoMenuBarHelperLauncher {
             try process.run()
             return true
         } catch {
+            // App Sandbox denies spawning a child process; the app then falls
+            // back to its in-process status item (see GanchoAppDelegate).
             return false
         }
     }
@@ -70,6 +110,14 @@ enum GanchoMenuBarHelperLauncher {
         }
         let url = directory.appendingPathComponent(executableName, isDirectory: false)
         return FileManager.default.isExecutableFile(atPath: url.path) ? url : nil
+    }
+
+    /// Whether a menu-bar helper other than this process is already running.
+    private static func isHelperRunning() -> Bool {
+        let currentProcessID = ProcessInfo.processInfo.processIdentifier
+        return NSWorkspace.shared.runningApplications.contains {
+            $0.processIdentifier != currentProcessID && isHelper($0)
+        }
     }
 
     private static func terminateRunningHelpers() {
