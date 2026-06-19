@@ -41,10 +41,13 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
     private func rebuildMenu() {
         menu.removeAllItems()
         let titles = GanchoMenuBarBridge.readTitles()
+        let status = GanchoMenuBarBridge.readStatus()
 
-        let header = NSMenuItem(
-            title: GanchoMenuBarCommand.appTitle, action: nil, keyEquivalent: "")
+        // A glanceable state header (content-free: the status label + a colored
+        // dot, both already localized/derived by the app — no clipboard data).
+        let header = NSMenuItem(title: status.label, action: nil, keyEquivalent: "")
         header.isEnabled = false
+        header.image = status.icon.statusDot()
         menu.addItem(header)
 
         for section in GanchoMenuBarCommand.helperMenuSections {

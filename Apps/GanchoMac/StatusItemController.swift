@@ -117,6 +117,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         guard let model else { return }
 
+        // Glanceable state header (matches the design's menu top).
+        let presentation = StatusItemPresentation(status: model.monitorStatus)
+        let header = NSMenuItem(
+            title: presentation.accessibilityDescription, action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        header.image = presentation.icon.statusDot()
+        menu.addItem(header)
+        menu.addItem(.separator())
+
         if model.recentItems.isEmpty {
             let item = NSMenuItem(
                 title: String(localized: "Copy something — it will appear here."),
