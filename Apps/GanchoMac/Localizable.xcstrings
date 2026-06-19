@@ -1,6 +1,56 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Pauses or resumes clipboard capture (private mode).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausa o reanuda la captura del portapapeles (modo privado)."
+          }
+        }
+      }
+    },
+    "Runs a Gancho developer action (decode JWT, pretty-print JSON, parse URL, convert color…) on the given text. Fully offline.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ejecuta una acción de desarrollador de Gancho (decodificar JWT, formatear JSON, analizar URL, convertir color…) sobre el texto dado. Totalmente sin conexión."
+          }
+        }
+      }
+    },
+    "Open Gancho Panel": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir el panel de Gancho"
+          }
+        }
+      }
+    },
+    "Opens the clipboard history panel.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre el panel del historial del portapapeles."
+          }
+        }
+      }
+    },
+    "Transform Text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transformar texto"
+          }
+        }
+      }
+    },
     "%lld characters": {
       "localizations": {
         "es": {
