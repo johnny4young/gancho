@@ -27,7 +27,12 @@ struct SettingsView: View {
             ProSettingsTab()
                 .tabItem { Label("Pro", systemImage: "star") }
         }
-        .frame(width: 520, height: 380)
+        // Bordered buttons read as buttons (a clear bezel) instead of pale
+        // accent-tinted text on the grouped form background; the top inset keeps
+        // the tab strip off the title bar.
+        .buttonStyle(.bordered)
+        .padding(.top, GanchoTokens.Spacing.sm)
+        .frame(width: 520, height: 400)
         .accessibilityIdentifier("settings")
     }
 }
@@ -391,6 +396,9 @@ final class SettingsWindowController {
             let created = NSWindow(contentViewController: hosting)
             created.title = String(localized: "Settings")
             created.styleMask = [.titled, .closable]
+            // The tab strip labels the window; a visible "Settings" title only
+            // crowded it against the title bar.
+            created.titleVisibility = .hidden
             created.isReleasedWhenClosed = false
             created.collectionBehavior = [.moveToActiveSpace]
             created.center()
