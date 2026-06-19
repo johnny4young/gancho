@@ -6,15 +6,15 @@ import Foundation
 /// Backed by an App Group suite, so it resolves to the shared group container
 /// under the App Store sandbox and to a shared preferences domain otherwise —
 /// either way reachable by both processes without bespoke IPC. It carries ONLY
-/// non-clipboard data: the current status presentation (a glyph + an
-/// accessibility label, both already localized by the app), the localized menu
-/// titles, and the per-launch command nonce. Recent clips and previews never
-/// cross it — they stay in the main app process.
+/// non-clipboard data: the current status presentation (a content-free icon
+/// identifier + a localized accessibility label), the localized menu titles,
+/// and the per-launch command nonce. Recent clips and previews never cross it —
+/// they stay in the main app process.
 enum GanchoMenuBarBridge {
     static let appGroupSuite = "group.com.johnny4young.gancho"
 
     private enum Key {
-        static let statusGlyph = "menu-bar.status.glyph"
+        static let statusIcon = "menu-bar.status.icon"
         static let statusLabel = "menu-bar.status.label"
         static let titles = "menu-bar.titles"
         static let nonce = "menu-bar.nonce"
@@ -22,20 +22,22 @@ enum GanchoMenuBarBridge {
 
     private static var defaults: UserDefaults? { UserDefaults(suiteName: appGroupSuite) }
 
-    // MARK: Status presentation — the app writes (localized), the helper paints.
+    // MARK: Status presentation — the app writes, the helper paints.
 
-    static func writeStatus(glyph: String, label: String) {
+    static func writeStatus(icon: MenuBarStatusIcon, label: String) {
         guard let defaults else { return }
-        defaults.set(glyph, forKey: Key.statusGlyph)
+        defaults.set(icon.rawValue, forKey: Key.statusIcon)
         defaults.set(label, forKey: Key.statusLabel)
     }
 
-    static func readStatus() -> (glyph: String, label: String) {
-        (
-            defaults?.string(forKey: Key.statusGlyph) ?? GanchoMenuBarCommand.statusGlyph,
+    static func readStatus() -> (icon: MenuBarStatusIcon, label: String) {
+        let icon =
+            defaults?.string(forKey: Key.statusIcon)
+            .flatMap(MenuBarStatusIcon.init(rawValue:)) ?? .active
+        let label =
             defaults?.string(forKey: Key.statusLabel)
-                ?? GanchoMenuBarCommand.statusAccessibilityLabel
-        )
+            ?? GanchoMenuBarCommand.statusAccessibilityLabel
+        return (icon, label)
     }
 
     // MARK: Localized menu titles — `[command.rawValue: localized title]`.

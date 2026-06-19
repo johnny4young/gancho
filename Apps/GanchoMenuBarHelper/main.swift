@@ -67,10 +67,9 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
     private func applyStatusPresentation() {
         guard let button = statusItem?.button else { return }
         let status = GanchoMenuBarBridge.readStatus()
-        button.image = nil
-        button.imagePosition = .noImage
-        button.title = status.glyph
-        button.font = .systemFont(ofSize: 16, weight: .semibold)
+        button.image = status.icon.templateImage()
+        button.imagePosition = .imageOnly
+        button.title = ""
         button.toolTip = status.label
         button.setAccessibilityLabel(status.label)
     }

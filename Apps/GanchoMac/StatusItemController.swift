@@ -84,10 +84,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         guard let button = statusItem?.button, let model else { return }
 
         let presentation = StatusItemPresentation(status: model.monitorStatus)
-        button.image = nil
-        button.imagePosition = .noImage
-        button.title = presentation.menuBarTitle
-        button.font = .systemFont(ofSize: 16, weight: .semibold)
+        button.image = presentation.icon.templateImage()
+        button.imagePosition = .imageOnly
+        button.title = ""
         button.toolTip = presentation.accessibilityDescription
         button.setAccessibilityLabel(presentation.accessibilityDescription)
         statusItem?.isVisible = true
@@ -202,25 +201,25 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 /// Maps the monitor status to a menu-bar glyph + accessibility label. Shared by
 /// the in-process fallback and the App Group publisher that drives the helper.
 struct StatusItemPresentation {
-    let menuBarTitle: String
+    let icon: MenuBarStatusIcon
     let accessibilityDescription: String
 
     init(status: MonitorStatus) {
         switch status {
         case .running:
-            menuBarTitle = GanchoMenuBarCommand.statusGlyph
+            icon = .active
             accessibilityDescription = String(localized: "Gancho: capturing")
         case .pausedByUser:
-            menuBarTitle = "◌"
+            icon = .paused
             accessibilityDescription = String(localized: "Gancho: private mode")
         case .pausedByScreenShare:
-            menuBarTitle = "◌"
+            icon = .paused
             accessibilityDescription = String(localized: "Gancho: paused while sharing")
         case .stopped, .pausedByScreenLock:
-            menuBarTitle = "⏸"
+            icon = .stopped
             accessibilityDescription = String(localized: "Gancho: paused")
         case .deniedByPrivacySettings:
-            menuBarTitle = "⚠︎"
+            icon = .denied
             accessibilityDescription = String(localized: "Gancho: pasteboard access denied")
         }
     }
