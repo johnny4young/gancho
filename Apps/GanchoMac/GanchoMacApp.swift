@@ -202,7 +202,7 @@ final class GanchoMenuBarStatusPublisher {
         lastStatus = model.monitorStatus
         let presentation = StatusItemPresentation(status: model.monitorStatus)
         GanchoMenuBarBridge.writeStatus(
-            glyph: presentation.menuBarTitle,
+            icon: presentation.icon,
             label: presentation.accessibilityDescription)
     }
 }
