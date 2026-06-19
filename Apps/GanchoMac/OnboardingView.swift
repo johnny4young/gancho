@@ -75,7 +75,9 @@ struct OnboardingView: View {
         VStack(spacing: GanchoTokens.Spacing.md) {
             Image(systemName: accessibilityGranted ? "checkmark.seal.fill" : "hand.raised")
                 .font(.system(size: 44))
-                .foregroundStyle(accessibilityGranted ? .green : .orange)
+                .foregroundStyle(
+                    accessibilityGranted
+                        ? GanchoTokens.Palette.success : GanchoTokens.Palette.warning)
             Text("One permission for instant pasting")
                 .font(.title2.bold())
             Text(
@@ -86,7 +88,7 @@ struct OnboardingView: View {
 
             if accessibilityGranted {
                 Label("Permission granted", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(GanchoTokens.Palette.success)
             } else {
                 ActionButton(
                     "Open System Settings", systemImage: "gear",
@@ -146,7 +148,7 @@ final class WelcomeWindowController {
     func show(model: AppModel) {
         if window == nil {
             let hosting = NSHostingController(
-                rootView: OnboardingView().environment(model))
+                rootView: OnboardingView().environment(model).ganchoTinted())
             let created = NSWindow(contentViewController: hosting)
             created.title = String(localized: "Welcome to Gancho")
             created.styleMask = [.titled, .closable]

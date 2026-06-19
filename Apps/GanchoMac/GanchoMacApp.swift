@@ -26,6 +26,7 @@ struct GanchoMacApp: App {
         Settings {
             SettingsView()
                 .environment(model)
+                .ganchoTinted()
         }
     }
 }

@@ -132,7 +132,8 @@ final class LibraryWindowController {
 
     func show(model: AppModel) {
         if window == nil {
-            let hosting = NSHostingController(rootView: LibraryView().environment(model))
+            let hosting = NSHostingController(
+                rootView: LibraryView().environment(model).ganchoTinted())
             let created = NSWindow(contentViewController: hosting)
             created.title = String(localized: "Library")
             created.styleMask = [.titled, .closable, .resizable]

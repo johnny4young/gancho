@@ -1,4 +1,5 @@
 import AppKit
+import GanchoDesign
 import KeyboardShortcuts
 import SwiftUI
 
@@ -83,7 +84,8 @@ final class PanelController {
         if let panel { return panel }
         let hosting = NSHostingView(
             rootView: PanelView()
-                .environment(model))
+                .environment(model)
+                .ganchoTinted())
         let styleMask: NSWindow.StyleMask =
             Self.isUITestLaunch
             ? [.titled, .closable, .fullSizeContentView]

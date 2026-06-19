@@ -100,7 +100,8 @@ struct PrivacyCenterView: View {
                     Label {
                         Text("Outgoing content requests: 0")
                     } icon: {
-                        Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundStyle(GanchoTokens.Palette.success)
                     }
                     Text(
                         "Gancho sends no clipboard content anywhere. Verify it yourself with Little Snitch or any network monitor — this screen included."
@@ -173,7 +174,7 @@ final class PrivacyCenterWindowController {
     func show(model: AppModel) {
         if window == nil {
             let hosting = NSHostingController(
-                rootView: PrivacyCenterView().environment(model))
+                rootView: PrivacyCenterView().environment(model).ganchoTinted())
             let created = NSWindow(contentViewController: hosting)
             created.title = String(localized: "Privacy Center")
             created.styleMask = [.titled, .closable]

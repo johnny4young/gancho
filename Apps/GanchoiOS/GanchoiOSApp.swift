@@ -448,7 +448,7 @@ struct CaptureView: View {
     private var hintsRow: some View {
         if let note = model.saveNote {
             Label(note, systemImage: "checkmark.circle")
-                .foregroundStyle(.green)
+                .foregroundStyle(GanchoTokens.Palette.success)
                 .accessibilityIdentifier("save-note")
         }
         if model.hints.hasContent {
