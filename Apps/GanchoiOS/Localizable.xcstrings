@@ -1,6 +1,106 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Deletes every clip Gancho marked as sensitive (keys, cards, passwords).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borra todos los clips que Gancho marcó como sensibles (llaves, tarjetas, contraseñas)."
+          }
+        }
+      }
+    },
+    "Puts the most recent URL from your history back on the clipboard.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devuelve la URL más reciente de tu historial al portapapeles."
+          }
+        }
+      }
+    },
+    "Clear Sensitive Clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar clips sensibles"
+          }
+        }
+      }
+    },
+    "Copy Last URL": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar la última URL"
+          }
+        }
+      }
+    },
+    "Finds clips in your Gancho history.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Busca clips en tu historial de Gancho."
+          }
+        }
+      }
+    },
+    "Free plan pin limit reached.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alcanzaste el límite de fijados del plan gratis."
+          }
+        }
+      }
+    },
+    "No URLs in your history yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay URLs en tu historial."
+          }
+        }
+      }
+    },
+    "Pin Clip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fijar clip"
+          }
+        }
+      }
+    },
+    "Pins a clip so it never expires.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fija un clip para que nunca expire."
+          }
+        }
+      }
+    },
+    "Search Clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar clips"
+          }
+        }
+      }
+    },
     "Privacy Center": {
       "localizations": {
         "es": {
