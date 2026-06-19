@@ -27,9 +27,14 @@ enum PanelPosition: String, CaseIterable {
 /// The panel instance is created once and reused — reopening is an
 /// orderFront, which is what keeps open latency far under the 100ms budget.
 @MainActor
-final class PanelController {
+final class PanelController: NSObject, NSWindowDelegate {
     private var panel: KeyPanel?
     private weak var model: AppModel?
+
+    /// The panel auto-hides when it loses key focus (the user clicks another
+    /// app or window), Spotlight-style. Flip this to keep it open on purpose —
+    /// the seam for a future "pin" affordance.
+    var keepsOpenOnFocusLoss = false
 
     var isVisible: Bool {
         panel?.isVisible == true
@@ -80,6 +85,17 @@ final class PanelController {
         panel?.orderOut(nil)
     }
 
+    /// Auto-hide when the panel loses key focus — a click in another app or
+    /// window dismisses it (Spotlight-style). Held open while a preview sheet is
+    /// attached, while pinned, and under UI tests (which drive visibility via
+    /// the launch hook, not focus).
+    func windowDidResignKey(_ notification: Notification) {
+        guard !Self.isUITestLaunch, !keepsOpenOnFocusLoss,
+            let panel, panel.attachedSheet == nil
+        else { return }
+        panel.orderOut(nil)
+    }
+
     private func ensurePanel(model: AppModel) -> KeyPanel {
         if let panel { return panel }
         let hosting = NSHostingView(
@@ -121,6 +137,7 @@ final class PanelController {
         created.contentView = hosting
         created.setFrameAutosaveName("gancho-panel")
         created.isReleasedWhenClosed = false
+        created.delegate = self
         panel = created
         return created
     }
