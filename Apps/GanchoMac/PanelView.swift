@@ -67,26 +67,25 @@ struct PanelView: View {
                     return .handled
                 }
 
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: GanchoTokens.Spacing.xxs) {
-                        ForEach(Array(results.enumerated()), id: \.element.id) { index, item in
-                            row(for: item, index: index)
-                                .id(item.id)
-                                .onTapGesture { model.paste(item) }
-                                .contextMenu { contextMenu(for: item) }
+            if results.isEmpty {
+                emptyState
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: GanchoTokens.Spacing.xxs) {
+                            ForEach(Array(results.enumerated()), id: \.element.id) { index, item in
+                                row(for: item, index: index)
+                                    .id(item.id)
+                                    .onTapGesture { model.paste(item) }
+                                    .contextMenu { contextMenu(for: item) }
+                            }
                         }
-                        if results.isEmpty {
-                            Text("Copy something — it will appear here.")
-                                .foregroundStyle(.secondary)
-                                .padding(GanchoTokens.Spacing.lg)
-                        }
+                        .padding(.horizontal, GanchoTokens.Spacing.xxs)
                     }
-                    .padding(.horizontal, GanchoTokens.Spacing.xxs)
-                }
-                .onChange(of: selectedIndex) { _, index in
-                    guard results.indices.contains(index) else { return }
-                    proxy.scrollTo(results[index].id)
+                    .onChange(of: selectedIndex) { _, index in
+                        guard results.indices.contains(index) else { return }
+                        proxy.scrollTo(results[index].id)
+                    }
                 }
             }
             SyncStatusView(status: model.syncStatus)
@@ -115,6 +114,63 @@ struct PanelView: View {
         .sheet(item: $previewItem) { item in
             PreviewSheet(item: item, text: previewText)
         }
+    }
+
+    /// First-run and no-results states — warm and instructive, never a dead end
+    /// (the design's empty-states spec). Branches on whether a query is active.
+    @ViewBuilder
+    private var emptyState: some View {
+        VStack(spacing: GanchoTokens.Spacing.xs) {
+            if query.isEmpty {
+                Image(systemName: "doc.on.clipboard.fill")
+                    .font(.system(size: 28, weight: .medium))
+                    .foregroundStyle(.white)
+                    .frame(width: 64, height: 64)
+                    .background(
+                        GanchoTokens.Palette.success.gradient,
+                        in: RoundedRectangle(
+                            cornerRadius: GanchoTokens.Radius.xl, style: .continuous)
+                    )
+                    .padding(.bottom, GanchoTokens.Spacing.xs)
+                Text("Your history starts here")
+                    .font(.headline)
+                Text(
+                    "Copy anything — text, a link, an image — and it appears here, ready to paste again."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                Text("⌘C in any app to start")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, GanchoTokens.Spacing.xxs)
+            } else {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 26, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 64, height: 64)
+                    .background(
+                        .quaternary,
+                        in: RoundedRectangle(
+                            cornerRadius: GanchoTokens.Radius.xl, style: .continuous)
+                    )
+                    .padding(.bottom, GanchoTokens.Spacing.xs)
+                Text("No matches")
+                    .font(.headline)
+                Text("No clips for “\(query)”. Try another word or clear the filters.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Text("Press esc to clear the search")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, GanchoTokens.Spacing.xxs)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, GanchoTokens.Spacing.lg)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(query.isEmpty ? "panel-empty-firstrun" : "panel-empty-noresults")
     }
 
     @ViewBuilder

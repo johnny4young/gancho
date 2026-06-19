@@ -41,6 +41,66 @@
         }
       }
     },
+    "Your history starts here": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu historial empieza aquí"
+          }
+        }
+      }
+    },
+    "Copy anything — text, a link, an image — and it appears here, ready to paste again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia cualquier cosa — texto, un enlace, una imagen — y aparece aquí, lista para volver a pegar."
+          }
+        }
+      }
+    },
+    "⌘C in any app to start": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘C en cualquier app para empezar"
+          }
+        }
+      }
+    },
+    "No matches": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin coincidencias"
+          }
+        }
+      }
+    },
+    "No clips for “%@”. Try another word or clear the filters.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay clips para “%@”. Prueba con otra palabra o quita los filtros."
+          }
+        }
+      }
+    },
+    "Press esc to clear the search": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulsa esc para limpiar la búsqueda"
+          }
+        }
+      }
+    },
     "Force sync": {
       "localizations": {
         "es": {
