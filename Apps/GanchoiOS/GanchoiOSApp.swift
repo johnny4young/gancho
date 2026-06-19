@@ -30,6 +30,9 @@ struct GanchoiOSApp: App {
             .environment(model)
             // Widget deep links (`gancho://clip/<id>`) open the right clip.
             .onOpenURL { model.handleDeepLink($0) }
+            // Brand-green accent (iOS has no per-app OS accent picker, so green
+            // is the default); the Synced check and success states use it too.
+            .ganchoTinted()
         }
     }
 }
@@ -482,21 +485,25 @@ struct CaptureView: View {
         case .syncing:
             syncRow(Text("Syncing…"), "arrow.triangle.2.circlepath")
         case .upToDate:
-            syncRow(Text("Synced"), "checkmark.icloud")
+            syncRow(Text("Synced"), "checkmark.icloud", tint: GanchoTokens.Palette.success)
         case .pending(let count):
             syncRow(
                 Text("\(Text("Waiting to sync")) · \(String(count))"), "arrow.up.circle")
-        case .paused(let cause), .failed(let cause):
-            syncRow(Text(causeText(cause)), "exclamationmark.icloud")
+        case .paused(let cause):
+            syncRow(Text(causeText(cause)), "pause.circle", tint: GanchoTokens.Palette.warning)
+        case .failed(let cause):
+            syncRow(
+                Text(causeText(cause)), "exclamationmark.icloud", tint: GanchoTokens.Palette.danger)
         }
     }
 
-    private func syncRow(_ text: Text, _ symbol: String) -> some View {
+    private func syncRow(_ text: Text, _ symbol: String, tint: Color = .secondary) -> some View {
         Section {
             Label {
                 text
             } icon: {
-                Image(systemName: symbol)
+                // "Synced" reads green (a state); paused/failed warn — like macOS.
+                Image(systemName: symbol).foregroundStyle(tint)
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
