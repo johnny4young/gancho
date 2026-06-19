@@ -104,6 +104,13 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
                 || UserDefaults.standard.bool(forKey: "show-in-dock")
                 ? .regular : .accessory)
 
+        // Apply the saved appearance override (Auto = follow the system). AppModel
+        // also re-applies this when the user changes it in Settings.
+        let savedAppearance =
+            AppearancePreference(rawValue: UserDefaults.standard.string(forKey: "appearance") ?? "")
+            ?? .auto
+        NSApp.appearance = savedAppearance.nsAppearance
+
         // Belt-and-suspenders for the window-less case: a resident agent should
         // not be reclaimed by Automatic Termination while it sits in the menu bar.
         ProcessInfo.processInfo.disableAutomaticTermination(

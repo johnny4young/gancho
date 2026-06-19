@@ -8,6 +8,23 @@ import GanchoTelemetry
 import KeyboardShortcuts
 import SwiftUI
 
+/// The app's appearance override — Auto follows the system, Light/Dark force
+/// it. Mirrors the design's Auto/Light/Dark control.
+enum AppearancePreference: String, CaseIterable {
+    case auto
+    case light
+    case dark
+
+    /// The app-wide AppKit appearance to apply (nil = follow the system).
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .auto: nil
+        case .light: NSAppearance(named: .aqua)
+        case .dark: NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
 /// Central app state: wires monitor → classifier → GRDB store, owns the
 /// paste-back service, preferences, retention, and the panel lifecycle.
 @Observable
@@ -95,6 +112,14 @@ final class AppModel {
         }
     }
 
+    /// App appearance: Auto follows the system, Light/Dark force it.
+    var appearance: AppearancePreference {
+        didSet {
+            defaults.set(appearance.rawValue, forKey: "appearance")
+            applyAppearance()
+        }
+    }
+
     init() {
         let directory = SharedStorageLocation.macAppStoreDirectory
         let grdb = try? GRDBClipboardStore(directory: directory)
@@ -110,6 +135,8 @@ final class AppModel {
         // leaves the status item registered but never placed in the menu bar —
         // the icon silently vanishes. Opt into the Dock explicitly instead.
         showInDock = defaults.bool(forKey: "show-in-dock")
+        appearance =
+            AppearancePreference(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .auto
         autoPauseOnScreenShare =
             defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
         tier = UserTier.load(from: defaults)
@@ -194,6 +221,10 @@ final class AppModel {
 
     private func applyActivationPolicy() {
         NSApplication.shared.setActivationPolicy(showInDock ? .regular : .accessory)
+    }
+
+    private func applyAppearance() {
+        NSApplication.shared.appearance = appearance.nsAppearance
     }
 
     // MARK: - Capture pipeline
@@ -623,6 +654,7 @@ final class AppModel {
             appSettings: [
                 "panel-position": panel.position.rawValue,
                 "show-in-dock": showInDock ? "true" : "false",
+                "appearance": appearance.rawValue,
             ])
     }
 
@@ -640,6 +672,11 @@ final class AppModel {
         }
         if let dock = snapshot.appSettings["show-in-dock"] {
             showInDock = dock == "true"
+        }
+        if let raw = snapshot.appSettings["appearance"],
+            let value = AppearancePreference(rawValue: raw)
+        {
+            appearance = value
         }
     }
 

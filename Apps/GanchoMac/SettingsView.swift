@@ -80,6 +80,13 @@ private struct GeneralSettingsTab: View {
 
             Toggle("Show in Dock", isOn: $model.showInDock)
 
+            Picker("Appearance", selection: $model.appearance) {
+                Text("Auto").tag(AppearancePreference.auto)
+                Text("Light").tag(AppearancePreference.light)
+                Text("Dark").tag(AppearancePreference.dark)
+            }
+            .pickerStyle(.segmented)
+
             Section {
                 HStack {
                     Button("Export settings…") { exportSettings() }
