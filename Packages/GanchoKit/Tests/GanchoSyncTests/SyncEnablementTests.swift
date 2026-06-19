@@ -8,10 +8,10 @@ import Testing
 struct SyncEnablementTests {
     @Test("Sync runs only for Pro on an iCloud-signed-in device")
     func truthTable() {
+        // `hasCloudKitEntitlement` defaults to true, so the happy path already
+        // exercises the entitlement-present case; the explicit-false row at the
+        // end proves the entitlement gates enablement.
         #expect(SyncEnablement.shouldEnable(tier: .pro, iCloudAvailable: true))
-        #expect(
-            SyncEnablement.shouldEnable(
-                tier: .pro, iCloudAvailable: true, hasCloudKitEntitlement: true))
         #expect(!SyncEnablement.shouldEnable(tier: .pro, iCloudAvailable: false))
         #expect(!SyncEnablement.shouldEnable(tier: .free, iCloudAvailable: true))
         #expect(!SyncEnablement.shouldEnable(tier: .free, iCloudAvailable: false))
