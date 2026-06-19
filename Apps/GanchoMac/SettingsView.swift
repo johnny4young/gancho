@@ -379,7 +379,8 @@ final class SettingsWindowController {
 
     func show(model: AppModel) {
         if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView().environment(model))
+            let hosting = NSHostingController(
+                rootView: SettingsView().environment(model).ganchoTinted())
             let created = NSWindow(contentViewController: hosting)
             created.title = String(localized: "Settings")
             created.styleMask = [.titled, .closable]

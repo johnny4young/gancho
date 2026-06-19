@@ -56,9 +56,11 @@ struct SyncStatusView: View {
 
     private var tint: Color {
         switch status {
-        case .paused: .orange
-        case .failed: .red
-        default: .secondary
+        // "Synced" is always the brand green — a state, not a theme choice.
+        case .upToDate: GanchoTokens.Palette.success
+        case .paused: GanchoTokens.Palette.warning
+        case .failed: GanchoTokens.Palette.danger
+        default: .secondary  // syncing / pending / idle
         }
     }
 
