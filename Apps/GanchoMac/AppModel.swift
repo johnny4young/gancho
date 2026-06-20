@@ -368,8 +368,11 @@ final class AppModel {
             panel.hide()
             // Give focus one beat to return to the previous app.
             try? await Task.sleep(for: .milliseconds(80))
-            if pasteBack.paste(content, asPlainText: asPlainText) == .copiedOnly {
+            switch pasteBack.paste(content, asPlainText: asPlainText) {
+            case .copiedOnly:
                 showCopyOnlyToast()
+            case .pasted:
+                if asPlainText { toasts.show(GanchoToast(message: "Pasted as plain text")) }
             }
             // Activation metric (local, content-free): first paste-back ever.
             if defaults.object(forKey: "first-pasteback-at") == nil {
@@ -453,6 +456,7 @@ final class AppModel {
 
     func pushToStack(_ item: ClipItem) {
         pasteStack.append(item)
+        toasts.show(GanchoToast(message: "Added to paste stack"))
     }
 
     func clearStack() {
@@ -641,6 +645,7 @@ final class AppModel {
                 return
             }
             _ = try? await grdbStore.promoteToSnippet(id: item.id)
+            toasts.show(GanchoToast(message: "Promoted to Library"))
             await refreshRecents()
         }
     }
@@ -654,6 +659,7 @@ final class AppModel {
         guard let grdbStore else { return }
         Task {
             _ = try? await grdbStore.assign(clipID: item.id, toBoard: board?.id)
+            if board != nil { toasts.show(GanchoToast(message: "Added to board")) }
             await refreshRecents()
         }
     }

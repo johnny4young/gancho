@@ -590,6 +590,7 @@ struct ClipPeek: View {
             .frame(maxHeight: 140)
             ActionButton("Copy result", systemImage: "doc.on.doc", identifier: "copy-result") {
                 SystemPasteboardWriter().write(.text(result), asPlainText: true)
+                model.toasts.show(GanchoToast(message: "Copied"))
             }
         }
     }
