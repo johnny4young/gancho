@@ -107,7 +107,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             ? [.titled, .closable, .fullSizeContentView]
             : [.titled, .nonactivatingPanel, .fullSizeContentView]
         let created = KeyPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 480),
+            // Wide enough for the list + the peek column beside it.
+            contentRect: NSRect(x: 0, y: 0, width: 724, height: 480),
             // Chromeless floating panel (Spotlight-style): titled so AppKit
             // reliably creates and orders it, with the title bar made
             // transparent and controls hidden below. Dismissed with Escape.
