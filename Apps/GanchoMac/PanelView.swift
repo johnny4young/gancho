@@ -173,22 +173,14 @@ struct PanelView: View {
         .accessibilityIdentifier(query.isEmpty ? "panel-empty-firstrun" : "panel-empty-noresults")
     }
 
-    @ViewBuilder
     private func row(for item: ClipItem, index: Int) -> some View {
-        HStack(spacing: GanchoTokens.Spacing.xxs) {
-            ClipCard(
-                item: item, isSelected: index == selectedIndex,
-                previewsHidden: model.preferences.isPrivateModePaused)
-            if item.kind == .color {
-                ColorSwatch(text: item.preview)
-            }
-            if index < 9 {
-                Text(verbatim: "⌘\(index + 1)")
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
-            }
-        }
+        // ClipCard is the design's ClipRow: kind glyph (or colour swatch),
+        // title/preview, pin / Universal-Clipboard markers, and the ⌘N
+        // quick-paste badge for the first nine rows.
+        ClipCard(
+            item: item, isSelected: index == selectedIndex,
+            previewsHidden: model.preferences.isPrivateModePaused,
+            shortcutNumber: index < 9 ? index + 1 : nil)
     }
 
     /// Pin/board assignment — the context-menu path; drag & drop arrives
@@ -376,41 +368,5 @@ struct PreviewSheet: View {
             attributed[lo..<hi].foregroundColor = GanchoTokens.Syntax.color(for: token.kind)
         }
         return attributed
-    }
-}
-
-/// Inline color swatch for color clips — the preview IS the value.
-struct ColorSwatch: View {
-    let text: String
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm)
-            .fill(Color(hexString: text) ?? .clear)
-            .frame(width: 22, height: 22)
-            .overlay(
-                RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm)
-                    .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline)
-            )
-            .accessibilityLabel(Text("Color swatch"))
-    }
-}
-
-extension Color {
-    /// #RGB / #RRGGBB / #RRGGBBAA parser for swatches; nil for non-hex.
-    init?(hexString: String) {
-        var hex = hexString.trimmingCharacters(in: .whitespaces)
-        guard hex.hasPrefix("#") else { return nil }
-        hex.removeFirst()
-        if hex.count == 3 {
-            hex = hex.map { "\($0)\($0)" }.joined()
-        }
-        guard hex.count == 6 || hex.count == 8,
-            let value = UInt64(hex, radix: 16)
-        else { return nil }
-        let shift: UInt64 = hex.count == 8 ? 8 : 0
-        self.init(
-            red: Double((value >> (16 + shift)) & 0xFF) / 255,
-            green: Double((value >> (8 + shift)) & 0xFF) / 255,
-            blue: Double((value >> shift) & 0xFF) / 255)
     }
 }
