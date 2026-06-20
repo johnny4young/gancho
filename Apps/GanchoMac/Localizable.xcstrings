@@ -1,22 +1,92 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Paste" : {
+    "%lld clips" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pegar"
+            "value" : "%lld clips"
           }
         }
       }
     },
-    "Paste plain" : {
+    "All" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pegar sin formato"
+            "value" : "Todo"
+          }
+        }
+      }
+    },
+    "Code" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código"
+          }
+        }
+      }
+    },
+    "Colors" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Colores"
+          }
+        }
+      }
+    },
+    "Links" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enlaces"
+          }
+        }
+      }
+    },
+    "Recent" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reciente"
+          }
+        }
+      }
+    },
+    "Secrets" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secretos"
+          }
+        }
+      }
+    },
+    "navigate" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "navegar"
+          }
+        }
+      }
+    },
+    "paste" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pegar"
           }
         }
       }
@@ -520,6 +590,7 @@
       }
     },
     "Color swatch" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -1691,6 +1762,17 @@
         }
       }
     },
+    "Paste" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pegar"
+          }
+        }
+      }
+    },
     "Paste as" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1709,6 +1791,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Atajo de pegar desde la pila:"
+          }
+        }
+      }
+    },
+    "Paste plain" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pegar sin formato"
           }
         }
       }
