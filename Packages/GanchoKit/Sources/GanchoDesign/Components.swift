@@ -79,15 +79,18 @@ public struct ClipCard: View {
     /// 1–9 renders the ⌘N quick-paste badge; nil hides it (e.g. the Library,
     /// which has no quick-paste).
     let shortcutNumber: Int?
+    /// A pre-loaded thumbnail for image clips; nil falls back to the kind tile.
+    let thumbnail: Image?
 
     public init(
         item: ClipItem, isSelected: Bool = false, previewsHidden: Bool = false,
-        shortcutNumber: Int? = nil
+        shortcutNumber: Int? = nil, thumbnail: Image? = nil
     ) {
         self.item = item
         self.isSelected = isSelected
         self.previewsHidden = previewsHidden
         self.shortcutNumber = shortcutNumber
+        self.thumbnail = thumbnail
     }
 
     public var body: some View {
@@ -159,16 +162,26 @@ public struct ClipCard: View {
     /// for colour clips, otherwise the kind glyph on a tint-washed background.
     @ViewBuilder private var leadingTile: some View {
         let tint = GanchoTokens.Palette.kindTint(for: item.kind)
-        RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-            .fill(tileFill(tint))
-            .frame(width: 30, height: 30)
-            .overlay {
-                if !(item.kind == .color && !previewsHidden) {
-                    Image(systemName: item.kind.symbolName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(tint)
+        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+        if item.kind == .image, !previewsHidden, let thumbnail {
+            thumbnail
+                .resizable()
+                .scaledToFill()
+                .frame(width: 30, height: 30)
+                .clipShape(shape)
+                .overlay(shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
+        } else {
+            shape
+                .fill(tileFill(tint))
+                .frame(width: 30, height: 30)
+                .overlay {
+                    if !(item.kind == .color && !previewsHidden) {
+                        Image(systemName: item.kind.symbolName)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(tint)
+                    }
                 }
-            }
+        }
     }
 
     private func tileFill(_ tint: Color) -> AnyShapeStyle {
