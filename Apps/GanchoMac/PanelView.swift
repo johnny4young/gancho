@@ -79,24 +79,20 @@ struct PanelView: View {
         }
         .padding(GanchoTokens.Spacing.sm)
         .frame(minWidth: selectedItem == nil ? 372 : 724, minHeight: 460)
-        .task {
-            await refresh()
-            await loadSelectedText()
-        }
+        .task { await refresh() }
         .onChange(of: query) { _, _ in
-            Task {
-                await refresh()
-                await loadSelectedText()
-            }
+            Task { await refresh() }
         }
         .onChange(of: model.recentItems) { _, _ in
-            Task {
-                await refresh()
-                await loadSelectedText()
-            }
+            Task { await refresh() }
         }
-        .onChange(of: selectedIndex) { _, _ in
-            Task { await loadSelectedText() }
+        // Load the peek for the selected clip, keyed on its id and debounced:
+        // arrowing fast cancels the in-flight load, so only the clip you land on
+        // is read and rendered — keeps navigation responsive.
+        .task(id: selectedItem?.id) {
+            try? await Task.sleep(for: .milliseconds(60))
+            guard !Task.isCancelled else { return }
+            await loadSelectedText()
         }
         .onAppear {
             // Defer one runloop: on the FIRST open the field editor isn't
@@ -208,7 +204,6 @@ struct PanelView: View {
         return Button {
             kindFilter = filter
             selectedIndex = 0
-            Task { await loadSelectedText() }
         } label: {
             HStack(spacing: 4) {
                 if let kind = filter.tintKind {
@@ -423,8 +418,15 @@ struct ClipPeek: View {
     @Environment(AppModel.self) private var model
     @State private var actionResult: String?
 
-    /// Masked clips show their stored masked preview, not the raw content.
-    private var bodyText: String { item.isSensitive ? item.preview : text }
+    /// Masked clips show their stored masked preview, not the raw content. The
+    /// peek is a preview, so cap very long clips: laying out a huge Text here on
+    /// every selection change is what froze navigation on big clips (e.g. a long
+    /// markdown doc).
+    private var bodyText: String {
+        let raw = item.isSensitive ? item.preview : text
+        let limit = 4000
+        return raw.count > limit ? String(raw.prefix(limit)) + "\n…" : raw
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
