@@ -262,10 +262,17 @@ struct PanelView: View {
         model.paste(item, asPlainText: plain)
     }
 
-    /// Load the selected clip's full text for the peek beside the list.
+    /// Load the selected clip's full text for the peek beside the list. Only
+    /// text-like clips need a content read; reading an image/file blob from
+    /// disk on every selection change would lag navigation, so those fall back
+    /// to the cheap stored preview.
     private func loadSelectedText() async {
         guard let item = selectedItem else {
             previewText = ""
+            return
+        }
+        guard item.kind != .image, item.kind != .fileReference else {
+            previewText = item.preview
             return
         }
         if case .text(let text)? = try? await model.store.content(for: item.id) {
