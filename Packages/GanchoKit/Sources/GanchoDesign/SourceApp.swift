@@ -19,22 +19,34 @@ public enum SourceApp {
     }
 
     #if canImport(AppKit)
-        /// The installed app's Finder display name, falling back to
+        // The NSWorkspace lookups below are synchronous and not free; the peek
+        // resolves them on every selection change, so cache per bundle id to
+        // keep keyboard/hover navigation smooth. Main-actor isolated: the only
+        // callers are SwiftUI views.
+        @MainActor private static var nameCache: [String: String] = [:]
+        @MainActor private static var iconCache: [String: NSImage?] = [:]
+
+        /// The installed app's Finder display name (cached), falling back to
         /// `fallbackName` when the bundle id can't be resolved to an app.
-        public static func displayName(forBundleID bundleID: String) -> String {
+        @MainActor public static func displayName(forBundleID bundleID: String) -> String {
+            if let cached = nameCache[bundleID] { return cached }
+            var resolved = fallbackName(forBundleID: bundleID)
             if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
                 var name = FileManager.default.displayName(atPath: url.path)
                 if name.hasSuffix(".app") { name = String(name.dropLast(4)) }
-                if !name.isEmpty { return name }
+                if !name.isEmpty { resolved = name }
             }
-            return fallbackName(forBundleID: bundleID)
+            nameCache[bundleID] = resolved
+            return resolved
         }
 
-        /// The installed app's icon, if the bundle id resolves to an app.
-        public static func icon(forBundleID bundleID: String) -> NSImage? {
-            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
-            else { return nil }
-            return NSWorkspace.shared.icon(forFile: url.path)
+        /// The installed app's icon (cached), or nil when unresolvable.
+        @MainActor public static func icon(forBundleID bundleID: String) -> NSImage? {
+            if let cached = iconCache[bundleID] { return cached }
+            let icon = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+                .map { NSWorkspace.shared.icon(forFile: $0.path) }
+            iconCache[bundleID] = icon
+            return icon
         }
     #endif
 }
