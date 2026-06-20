@@ -90,6 +90,27 @@ struct StoreDedupeTests {
         #expect(try await store.count() == 2)
     }
 
+    @Test("A freshly captured clip sorts above an older, previously-used clip")
+    func freshClipBeatsUsedClip() async throws {
+        let store = try makeStore()
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        // An older clip that was used once (non-nil lastUsedAt, in the past).
+        let used = ClipItem(
+            createdAt: base, lastUsedAt: base.addingTimeInterval(60),
+            preview: "used", contentHash: "h-used")
+        // A brand-new clip captured later, never re-used (lastUsedAt nil).
+        let fresh = ClipItem(
+            createdAt: base.addingTimeInterval(120), lastUsedAt: nil,
+            preview: "fresh", contentHash: "h-fresh")
+        try await store.insert(used, content: .text("used"))
+        try await store.insert(fresh, content: .text("fresh"))
+
+        // Recency coalesces lastUsedAt with createdAt: the fresh clip's createdAt
+        // beats the used clip's older lastUsedAt, so it sorts first. Ordering by
+        // lastUsedAt alone (NULLs last) would wrongly sink the new clip below it.
+        #expect(try await store.items().map(\.preview) == ["fresh", "used"])
+    }
+
     @Test("Same content from another device stays a separate row (no sync loops)")
     func deviceScopedDedupe() async throws {
         let store = try makeStore()

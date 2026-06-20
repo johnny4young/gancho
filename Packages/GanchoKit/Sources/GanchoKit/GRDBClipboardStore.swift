@@ -317,8 +317,14 @@ public final class GRDBClipboardStore: ClipboardStore {
         try await writer.read { db in
             try ClipRow
                 .filter(Column("isArchived") == false)
+                // Recency = the clip's last activity: lastUsedAt when it has been
+                // re-copied/used, else its createdAt. A freshly captured clip has
+                // a nil lastUsedAt, so ordering by lastUsedAt alone (NULLs last in
+                // SQLite DESC) would sink new clips below any previously-used one
+                // — COALESCE keeps the newest copy on top.
                 .order(
-                    Column("isPinned").desc, Column("lastUsedAt").desc, Column("createdAt").desc
+                    Column("isPinned").desc,
+                    (Column("lastUsedAt") ?? Column("createdAt")).desc
                 )
                 .limit(limit, offset: offset)
                 .fetchAll(db)
