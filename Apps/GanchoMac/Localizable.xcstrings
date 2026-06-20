@@ -1916,6 +1916,36 @@
         }
       }
     },
+    "Copied — enable Accessibility to paste directly" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiado — activa Accesibilidad para pegar directo"
+          }
+        }
+      }
+    },
+    "Enable" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar"
+          }
+        }
+      }
+    },
+    "Unpinned" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desfijado"
+          }
+        }
+      }
+    },
     "Pinned" : {
       "extractionState" : "stale",
       "localizations" : {

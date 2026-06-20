@@ -1,5 +1,6 @@
 import AppIntents
 import AppKit
+import ApplicationServices
 import ClipboardCore
 import GanchoAI
 import GanchoKit
@@ -44,6 +45,8 @@ final class AppModel {
     let pasteBack = PasteBackService()
     let privacyEvents = InMemoryPrivacyEventRecorder()
     let panel = PanelController()
+    /// Transient HUD for action feedback (copy-only paste, pin/unpin).
+    let toasts = ToastPresenter()
     let welcomeWindow = WelcomeWindowController()
     let privacyCenterWindow = PrivacyCenterWindowController()
     let paywallWindow = PaywallWindowController()
@@ -365,7 +368,9 @@ final class AppModel {
             panel.hide()
             // Give focus one beat to return to the previous app.
             try? await Task.sleep(for: .milliseconds(80))
-            pasteBack.paste(content, asPlainText: asPlainText)
+            if pasteBack.paste(content, asPlainText: asPlainText) == .copiedOnly {
+                showCopyOnlyToast()
+            }
             // Activation metric (local, content-free): first paste-back ever.
             if defaults.object(forKey: "first-pasteback-at") == nil {
                 defaults.set(Date().timeIntervalSince1970, forKey: "first-pasteback-at")
@@ -389,9 +394,39 @@ final class AppModel {
             }
             panel.hide()
             try? await Task.sleep(for: .milliseconds(80))
-            pasteBack.paste(.text(transform.apply(to: text)), asPlainText: true)
+            if pasteBack.paste(.text(transform.apply(to: text)), asPlainText: true) == .copiedOnly {
+                showCopyOnlyToast()
+            }
             _ = try? await store.insert(item, content: nil)
             await refreshRecents()
+        }
+    }
+
+    /// Paste-back degraded to copy-only (Accessibility off): tell the user and
+    /// offer a one-tap path to enable it.
+    private func showCopyOnlyToast() {
+        toasts.show(
+            GanchoToast(
+                message: "Copied — enable Accessibility to paste directly",
+                style: .warning,
+                action: ToastAction(title: "Enable") { [weak self] in
+                    self?.requestAccessibilityPrompt()
+                }),
+            duration: .seconds(5))
+    }
+
+    /// Show the system Accessibility prompt (it pre-adds Gancho to the list) and
+    /// open the Accessibility settings pane, so the user can enable paste-back
+    /// without hunting for the app.
+    func requestAccessibilityPrompt() {
+        // `kAXTrustedCheckOptionPrompt` is imported as a global var that Swift 6
+        // flags as not concurrency-safe; its value is this stable API string.
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
+        if let url = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -590,6 +625,7 @@ final class AppModel {
                 }
             }
             _ = try? await grdbStore.setPinned(id: item.id, !item.isPinned)
+            toasts.show(GanchoToast(message: item.isPinned ? "Unpinned" : "Pinned"))
             await refreshRecents()
         }
     }
