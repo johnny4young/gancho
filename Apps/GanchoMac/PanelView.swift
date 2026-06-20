@@ -238,17 +238,34 @@ struct PanelView: View {
         .padding(.horizontal, GanchoTokens.Spacing.xs)
     }
 
-    /// Sync state on the left, keyboard hints on the right (the design footer).
+    /// Sync state on the left, keyboard hints on the right (the design footer):
+    /// keycaps with room to breathe, not a cramped icon+label run.
     private var panelFooter: some View {
-        HStack(spacing: GanchoTokens.Spacing.xs) {
+        HStack(spacing: GanchoTokens.Spacing.md) {
             SyncStatusView(status: model.syncStatus)
             Spacer(minLength: 0)
-            Label("navigate", systemImage: "arrow.up.arrow.down")
-            Label("paste", systemImage: "return")
+            hint("navigate", keys: ["arrow.up", "arrow.down"])
+            hint("paste", keys: ["return"])
         }
         .font(.caption2)
         .foregroundStyle(.tertiary)
-        .labelStyle(.titleAndIcon)
+        .padding(.top, GanchoTokens.Spacing.xxs)
+        .padding(.horizontal, GanchoTokens.Spacing.xxs)
+    }
+
+    /// A keyboard hint: one or more keycaps followed by what they do.
+    private func hint(_ label: LocalizedStringKey, keys: [String]) -> some View {
+        HStack(spacing: GanchoTokens.Spacing.xxs) {
+            ForEach(keys, id: \.self) { key in
+                Image(systemName: key)
+                    .font(.system(size: 9, weight: .semibold))
+                    .frame(width: 17, height: 16)
+                    .background(
+                        .quaternary,
+                        in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            }
+            Text(label)
+        }
     }
 
     /// First-run and no-results states — warm and instructive, never a dead end
