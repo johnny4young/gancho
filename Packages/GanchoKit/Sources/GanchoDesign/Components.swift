@@ -56,17 +56,23 @@ public struct ClipCard: View {
     /// Private mode: show ONLY the kind — shoulder surfers and screen
     /// shares see types, never content.
     let previewsHidden: Bool
+    /// 1–9 renders the ⌘N quick-paste badge; nil hides it (e.g. the Library,
+    /// which has no quick-paste).
+    let shortcutNumber: Int?
 
-    public init(item: ClipItem, isSelected: Bool = false, previewsHidden: Bool = false) {
+    public init(
+        item: ClipItem, isSelected: Bool = false, previewsHidden: Bool = false,
+        shortcutNumber: Int? = nil
+    ) {
         self.item = item
         self.isSelected = isSelected
         self.previewsHidden = previewsHidden
+        self.shortcutNumber = shortcutNumber
     }
 
     public var body: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: item.kind.symbolName)
-                .foregroundStyle(.secondary)
+            leadingGlyph
                 .frame(width: GanchoTokens.Spacing.lg)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
@@ -93,6 +99,19 @@ public struct ClipCard: View {
                     .foregroundStyle(.secondary)
                     .accessibilityLabel(Text("Pinned"))
             }
+            if let shortcutNumber, (1...9).contains(shortcutNumber) {
+                Text(verbatim: "⌘\(shortcutNumber)")
+                    .font(.caption2.weight(.medium).monospaced())
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, GanchoTokens.Spacing.xxs)
+                    .padding(.vertical, 1)
+                    .background(
+                        .quaternary,
+                        in: RoundedRectangle(
+                            cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+                    )
+                    .accessibilityHidden(true)
+            }
         }
         .padding(GanchoTokens.Spacing.xs)
         .background(
@@ -103,6 +122,22 @@ public struct ClipCard: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
         .accessibilityIdentifier("clip-row")
+    }
+
+    /// Colour clips show a real swatch (unless previews are hidden); every other
+    /// kind shows its glyph.
+    @ViewBuilder private var leadingGlyph: some View {
+        if item.kind == .color, !previewsHidden, let color = Color(hexString: item.preview) {
+            RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+                .fill(color)
+                .frame(width: GanchoTokens.Spacing.md, height: GanchoTokens.Spacing.md)
+                .overlay(
+                    RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+                        .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
+        } else {
+            Image(systemName: item.kind.symbolName)
+                .foregroundStyle(.secondary)
+        }
     }
 
     /// VoiceOver: kind + preview (masked previews stay masked here too).
