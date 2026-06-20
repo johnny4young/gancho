@@ -34,8 +34,10 @@ final class ClipThumbnailStore {
         defer { loading.remove(item.id) }
 
         guard let data = await imageData(item.id) else { return }
+        // 480 px keeps the peek crisp (it shows the image up to ~220 pt @2x);
+        // the 30 pt row tile just downsamples further.
         let thumbnail = await Task.detached(priority: .utility) {
-            ClipThumbnailStore.thumbnailData(from: data, maxPixel: 256)
+            ClipThumbnailStore.thumbnailData(from: data, maxPixel: 480)
         }.value
         if let thumbnail, let image = NSImage(data: thumbnail) {
             cache[item.id] = Image(nsImage: image)
