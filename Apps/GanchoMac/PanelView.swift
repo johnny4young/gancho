@@ -112,7 +112,7 @@ struct PanelView: View {
             searchFocused = true
         }
         .sheet(item: $previewItem) { item in
-            PreviewSheet(item: item, text: previewText)
+            ClipPeek(item: item, text: previewText)
         }
     }
 
@@ -264,105 +264,177 @@ struct PanelView: View {
     }
 }
 
-/// Basic Space preview (the full Quick Look experience is a later ticket)
-/// plus the dev-action strip: the right transforms for the detected kind,
-/// result copyable in one click. All offline.
-struct PreviewSheet: View {
+/// ClipPeek — a Quick-Look-style rich preview (the design's component): a
+/// type-aware body, an insight strip (source app · time · expiry), the kind's
+/// offline transforms, and Paste / Paste plain / Pin. Sensitive clips stay
+/// masked here; revealing them takes an explicit transform.
+struct ClipPeek: View {
     let item: ClipItem
     let text: String
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var actionResult: String?
-    @State private var isEditing = false
-    @State private var draft = ""
+
+    /// Masked clips show their stored masked preview, not the raw content.
+    private var bodyText: String { item.isSensitive ? item.preview : text }
 
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-            HStack {
-                TypeBadge(kind: item.kind)
-                Spacer()
-                // Editing applies to text clips; binary payloads are immutable.
-                if !text.isEmpty {
-                    Button(isEditing ? "Save" : "Edit") {
-                        if isEditing {
-                            Task {
-                                try? await model.grdbStore?.updateClipText(
-                                    id: item.id, text: draft)
-                                await model.refreshRecents()
-                            }
-                        } else {
-                            draft = text
-                        }
-                        isEditing.toggle()
-                    }
-                    .accessibilityIdentifier("preview-edit")
-                }
-            }
-            if isEditing {
-                TextEditor(text: $draft)
-                    .font(item.kind == .code ? .body.monospaced() : .body)
-                    .frame(minHeight: 160)
-                    .accessibilityIdentifier("preview-editor")
-            } else {
-                ScrollView {
-                    Text(highlighted)
-                        .font(item.kind == .code ? .body.monospaced() : .body)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-                }
-            }
-
-            let actions = DevActions.actions(for: item.kind)
-            if !actions.isEmpty {
-                HStack(spacing: GanchoTokens.Spacing.xxs) {
-                    ForEach(actions) { action in
-                        ActionButton(
-                            LocalizedStringKey(action.title),
-                            systemImage: "wand.and.sparkles",
-                            identifier: "dev-action-\(action.id.rawValue)"
-                        ) {
-                            actionResult = (try? action.transform(text)) ?? ""
-                            UserDefaults.standard.set(
-                                UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
-                                forKey: "dev-actions-run")
-                        }
-                    }
-                }
-            }
-
+            header
+            peekBody
+            insightStrip
+            transforms
             if let actionResult, !actionResult.isEmpty {
-                ScrollView {
-                    Text(actionResult)
-                        .font(.body.monospaced())
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
+                resultBox(actionResult)
+            }
+            footer
+        }
+        .padding(GanchoTokens.Spacing.md)
+        .frame(minWidth: 380, minHeight: 300)
+        .accessibilityIdentifier("preview-sheet")
+    }
+
+    private var header: some View {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            TypeBadge(kind: item.kind)
+            if !item.title.isEmpty {
+                Text(item.title).font(.headline).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            Button {
+                model.togglePin(item)
+            } label: {
+                Image(systemName: item.isPinned ? "pin.fill" : "pin")
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(Text(item.isPinned ? "Unpin" : "Pin"))
+            .accessibilityIdentifier("preview-pin")
+        }
+    }
+
+    /// Type-aware body: colour clips show a big swatch beside the value;
+    /// everything else shows its (syntax-tinted for code) text.
+    @ViewBuilder private var peekBody: some View {
+        if item.kind == .color, !item.isSensitive, let color = Color(hexString: text) {
+            HStack(spacing: GanchoTokens.Spacing.sm) {
+                RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                    .fill(color)
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                            .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
+                Text(text).font(.body.monospaced()).textSelection(.enabled)
+                Spacer(minLength: 0)
+            }
+        } else {
+            ScrollView {
+                Text(highlighted)
+                    .font(item.kind == .code ? .body.monospaced() : .body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(maxHeight: 200)
+        }
+    }
+
+    /// Source app · relative time · expiry — the design's insight chips.
+    private var insightStrip: some View {
+        HStack(spacing: GanchoTokens.Spacing.md) {
+            if let bundleID = item.sourceAppBundleID {
+                Label {
+                    Text(SourceApp.displayName(forBundleID: bundleID))
+                } icon: {
+                    if let icon = SourceApp.icon(forBundleID: bundleID) {
+                        Image(nsImage: icon).resizable().frame(width: 13, height: 13)
+                    } else {
+                        Image(systemName: "app.dashed")
+                    }
                 }
-                .frame(maxHeight: 160)
-                ActionButton(
-                    "Copy result", systemImage: "doc.on.doc", identifier: "copy-result"
-                ) {
-                    SystemPasteboardWriter().write(.text(actionResult), asPlainText: true)
+                .accessibilityIdentifier("peek-source-app")
+            }
+            Label {
+                Text(item.createdAt, style: .relative)
+            } icon: {
+                Image(systemName: "clock")
+            }
+            if let expiresAt = item.expiresAt {
+                Label {
+                    Text(expiresAt, style: .relative)
+                } icon: {
+                    Image(systemName: "hourglass")
+                }
+                .foregroundStyle(
+                    expiresAt.timeIntervalSinceNow < 600
+                        ? AnyShapeStyle(GanchoTokens.Palette.warning) : AnyShapeStyle(.secondary))
+            }
+            Spacer(minLength: 0)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .labelStyle(.titleAndIcon)
+        .lineLimit(1)
+    }
+
+    @ViewBuilder private var transforms: some View {
+        let actions = DevActions.actions(for: item.kind)
+        if !actions.isEmpty {
+            HStack(spacing: GanchoTokens.Spacing.xxs) {
+                ForEach(actions) { action in
+                    ActionButton(
+                        LocalizedStringKey(action.title), systemImage: "wand.and.sparkles",
+                        identifier: "dev-action-\(action.id.rawValue)"
+                    ) {
+                        actionResult = (try? action.transform(text)) ?? ""
+                        UserDefaults.standard.set(
+                            UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
+                            forKey: "dev-actions-run")
+                    }
                 }
             }
+        }
+    }
 
+    private func resultBox(_ result: String) -> some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
+            ScrollView {
+                Text(result)
+                    .font(.body.monospaced())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(maxHeight: 140)
+            ActionButton("Copy result", systemImage: "doc.on.doc", identifier: "copy-result") {
+                SystemPasteboardWriter().write(.text(result), asPlainText: true)
+            }
+        }
+    }
+
+    private var footer: some View {
+        HStack(spacing: GanchoTokens.Spacing.xxs) {
+            ActionButton("Paste", systemImage: "doc.on.clipboard", identifier: "preview-paste") {
+                model.paste(item)
+            }
+            ActionButton(
+                "Paste plain", systemImage: "doc.plaintext", identifier: "preview-paste-plain"
+            ) {
+                model.paste(item, asPlainText: true)
+            }
+            Spacer(minLength: 0)
             ActionButton("Close", systemImage: "xmark", identifier: "preview-close") {
                 dismiss()
             }
         }
-        .padding(GanchoTokens.Spacing.md)
-        .frame(minWidth: 420, minHeight: 280)
-        .accessibilityIdentifier("preview-sheet")
     }
 
     /// Fully local syntax tint for code clips, shared with the Library editor
     /// via `GanchoSyntax` (strings, comments, numbers, keywords, `{placeholder}`
     /// fields). Non-code clips render as plain text.
     private var highlighted: AttributedString {
-        var attributed = AttributedString(text)
+        var attributed = AttributedString(bodyText)
         guard item.kind == .code else { return attributed }
-        for token in GanchoSyntax.tokens(in: text) {
-            let lower = text.distance(from: text.startIndex, to: token.range.lowerBound)
-            let upper = text.distance(from: text.startIndex, to: token.range.upperBound)
+        for token in GanchoSyntax.tokens(in: bodyText) {
+            let lower = bodyText.distance(from: bodyText.startIndex, to: token.range.lowerBound)
+            let upper = bodyText.distance(from: bodyText.startIndex, to: token.range.upperBound)
             let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
             let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
             attributed[lo..<hi].foregroundColor = GanchoTokens.Syntax.color(for: token.kind)
