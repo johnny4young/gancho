@@ -15,10 +15,58 @@ struct PanelView: View {
     @State private var query = ""
     @State private var results: [ClipItem] = []
     @State private var selectedIndex = 0
-    @State private var previewItem: ClipItem?
     @State private var previewText = ""
 
     var body: some View {
+        HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
+            listColumn
+                .frame(width: 340)
+            // The peek opens BESIDE the list (not a modal) and follows the
+            // hovered / selected clip — Quick-Look-style.
+            if let selected = selectedItem {
+                ClipPeek(item: selected, text: previewText)
+                    .frame(width: 360)
+                    .ganchoSurface(radius: GanchoTokens.Radius.lg)
+                    .transition(.opacity)
+            }
+        }
+        .padding(GanchoTokens.Spacing.sm)
+        .frame(minWidth: selectedItem == nil ? 372 : 724, minHeight: 460)
+        .task {
+            await refresh()
+            await loadSelectedText()
+        }
+        .onChange(of: query) { _, _ in
+            Task {
+                await refresh()
+                await loadSelectedText()
+            }
+        }
+        .onChange(of: model.recentItems) { _, _ in
+            Task {
+                await refresh()
+                await loadSelectedText()
+            }
+        }
+        .onChange(of: selectedIndex) { _, _ in
+            Task { await loadSelectedText() }
+        }
+        .onAppear {
+            // Defer one runloop: on the FIRST open the field editor isn't
+            // ready when onAppear fires, so an immediate focus is dropped
+            // (arrow keys beep). The notification below re-grabs it on every
+            // key transition, which covers first open and reopens alike.
+            DispatchQueue.main.async { searchFocused = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
+            _ in
+            searchFocused = true
+        }
+    }
+
+    /// The history list: search, rows, and the sync footer. The peek lives in a
+    /// sibling column (see `body`).
+    private var listColumn: some View {
         VStack(spacing: GanchoTokens.Spacing.xs) {
             SearchField("Search your clipboard", text: $query)
                 .focused($searchFocused)
@@ -37,11 +85,6 @@ struct PanelView: View {
                     // so route selectAll: down the responder chain to the field.
                     guard press.modifiers.contains(.command) else { return .ignored }
                     NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
-                    return .handled
-                }
-                .onKeyPress(.space) {
-                    guard query.isEmpty, let item = selectedItem else { return .ignored }
-                    openPreview(item)
                     return .handled
                 }
                 .onKeyPress(characters: .decimalDigits, phases: .down) { press in
@@ -76,6 +119,10 @@ struct PanelView: View {
                             ForEach(Array(results.enumerated()), id: \.element.id) { index, item in
                                 row(for: item, index: index)
                                     .id(item.id)
+                                    // Hover opens the peek beside the list, no Space needed.
+                                    .onHover { hovering in
+                                        if hovering { selectedIndex = index }
+                                    }
                                     .onTapGesture { model.paste(item) }
                                     .contextMenu { contextMenu(for: item) }
                             }
@@ -90,30 +137,7 @@ struct PanelView: View {
             }
             SyncStatusView(status: model.syncStatus)
         }
-        .padding(GanchoTokens.Spacing.sm)
-        .frame(minWidth: 380, minHeight: 420)
         .ganchoSurface(radius: GanchoTokens.Radius.lg)
-        .task { await refresh() }
-        .onChange(of: query) { _, _ in
-            Task { await refresh() }
-        }
-        .onChange(of: model.recentItems) { _, _ in
-            Task { await refresh() }
-        }
-        .onAppear {
-            // Defer one runloop: on the FIRST open the field editor isn't
-            // ready when onAppear fires, so an immediate focus is dropped
-            // (arrow keys beep). The notification below re-grabs it on every
-            // key transition, which covers first open and reopens alike.
-            DispatchQueue.main.async { searchFocused = true }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
-            _ in
-            searchFocused = true
-        }
-        .sheet(item: $previewItem) { item in
-            ClipPeek(item: item, text: previewText)
-        }
     }
 
     /// First-run and no-results states — warm and instructive, never a dead end
@@ -238,14 +262,16 @@ struct PanelView: View {
         model.paste(item, asPlainText: plain)
     }
 
-    private func openPreview(_ item: ClipItem) {
-        Task {
-            if case .text(let text)? = try? await model.store.content(for: item.id) {
-                previewText = text
-            } else {
-                previewText = item.preview
-            }
-            previewItem = item
+    /// Load the selected clip's full text for the peek beside the list.
+    private func loadSelectedText() async {
+        guard let item = selectedItem else {
+            previewText = ""
+            return
+        }
+        if case .text(let text)? = try? await model.store.content(for: item.id) {
+            previewText = text
+        } else {
+            previewText = item.preview
         }
     }
 
@@ -272,7 +298,6 @@ struct ClipPeek: View {
     let item: ClipItem
     let text: String
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
     @State private var actionResult: String?
 
     /// Masked clips show their stored masked preview, not the raw content.
@@ -290,8 +315,8 @@ struct ClipPeek: View {
             footer
         }
         .padding(GanchoTokens.Spacing.md)
-        .frame(minWidth: 380, minHeight: 300)
-        .accessibilityIdentifier("preview-sheet")
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityIdentifier("clip-peek")
     }
 
     private var header: some View {
@@ -420,9 +445,6 @@ struct ClipPeek: View {
                 model.paste(item, asPlainText: true)
             }
             Spacer(minLength: 0)
-            ActionButton("Close", systemImage: "xmark", identifier: "preview-close") {
-                dismiss()
-            }
         }
     }
 
