@@ -7,33 +7,92 @@ import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Native Settings scene, five tabs. Every control binds straight into the
-/// model, so changes apply live — no restart, no Apply button.
+/// Settings scene, six tabs in the design's pill tab bar. Every control binds
+/// straight into the model, so changes apply live — no restart, no Apply button.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
 
+    @State private var tab: SettingsTab = .general
+
     var body: some View {
-        TabView {
-            GeneralSettingsTab()
-                .tabItem { Label("General", systemImage: "gearshape") }
-            CaptureSettingsTab()
-                .tabItem { Label("Capture", systemImage: "doc.on.clipboard") }
-            RetentionSettingsTab()
-                .tabItem { Label("Retention", systemImage: "clock.arrow.circlepath") }
-            PrivacySettingsTab()
-                .tabItem { Label("Privacy", systemImage: "lock.shield") }
-            IntegrationsSettingsTab()
-                .tabItem { Label("Integrations", systemImage: "terminal") }
-            ProSettingsTab()
-                .tabItem { Label("Pro", systemImage: "star") }
+        VStack(spacing: 0) {
+            SettingsTabBar(selection: $tab)
+                .padding(.horizontal, GanchoTokens.Spacing.md)
+                .padding(.top, GanchoTokens.Spacing.sm)
+                .padding(.bottom, GanchoTokens.Spacing.xs)
+            Divider()
+            selectedTab
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        // Bordered buttons read as buttons (a clear bezel) instead of pale
-        // accent-tinted text on the grouped form background; the top inset keeps
-        // the tab strip off the title bar.
-        .buttonStyle(.bordered)
-        .padding(.top, GanchoTokens.Spacing.sm)
         .frame(width: 520, height: 400)
         .accessibilityIdentifier("settings")
+    }
+
+    @ViewBuilder private var selectedTab: some View {
+        switch tab {
+        case .general: GeneralSettingsTab()
+        case .capture: CaptureSettingsTab()
+        case .retention: RetentionSettingsTab()
+        case .privacy: PrivacySettingsTab()
+        case .integrations: IntegrationsSettingsTab()
+        case .pro: ProSettingsTab()
+        }
+    }
+}
+
+/// The Settings tabs. Rendered as the design's `TabBar`: plain-text tabs with
+/// thin dividers, the active one a solid accent pill (accent follows the OS
+/// accent — brand green by default), the rest quiet gray.
+private enum SettingsTab: String, CaseIterable, Identifiable {
+    case general, capture, retention, privacy, integrations, pro
+
+    var id: String { rawValue }
+
+    var titleKey: LocalizedStringKey {
+        switch self {
+        case .general: "General"
+        case .capture: "Capture"
+        case .retention: "Retention"
+        case .privacy: "Privacy"
+        case .integrations: "Integrations"
+        case .pro: "Pro"
+        }
+    }
+}
+
+private struct SettingsTabBar: View {
+    @Binding var selection: SettingsTab
+
+    var body: some View {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            ForEach(Array(SettingsTab.allCases.enumerated()), id: \.element.id) { index, tab in
+                if index > 0 {
+                    Divider().frame(height: 14)
+                }
+                tabButton(tab)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func tabButton(_ tab: SettingsTab) -> some View {
+        let isActive = tab == selection
+        return Button {
+            selection = tab
+        } label: {
+            Text(tab.titleKey)
+                .font(.callout.weight(isActive ? .semibold : .regular))
+                .lineLimit(1)
+                .padding(.horizontal, GanchoTokens.Spacing.sm)
+                .padding(.vertical, GanchoTokens.Spacing.xxs)
+                .foregroundStyle(isActive ? Color.white : Color.secondary)
+                .background(
+                    isActive ? GanchoTokens.Palette.accent : Color.clear, in: Capsule()
+                )
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("settings-tab-\(tab.rawValue)")
     }
 }
 
