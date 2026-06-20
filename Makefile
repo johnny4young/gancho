@@ -31,6 +31,10 @@ build: project ## Build the macOS app (Debug, unsigned)
 	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_MAC) -configuration Debug \
 		CODE_SIGNING_ALLOWED=NO build
 
+build-signed: project ## Build the macOS app (Debug, team-signed) — stable identity so the Accessibility grant persists across rebuilds (paste-back testing)
+	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_MAC) -configuration Debug \
+		CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=JGWX5ZT2N2 build
+
 build-ios: project ## Build the iOS app (Debug, generic device, unsigned)
 	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_IOS) -configuration Debug \
 		-destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
