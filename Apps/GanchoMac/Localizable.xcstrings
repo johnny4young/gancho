@@ -1916,6 +1916,56 @@
         }
       }
     },
+    "Added to board" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadido a un tablero"
+          }
+        }
+      }
+    },
+    "Added to paste stack" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadido a la pila de pegado"
+          }
+        }
+      }
+    },
+    "Copied" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiado"
+          }
+        }
+      }
+    },
+    "Pasted as plain text" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pegado como texto plano"
+          }
+        }
+      }
+    },
+    "Promoted to Library" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Promovido a la Biblioteca"
+          }
+        }
+      }
+    },
     "Copied — enable Accessibility to paste directly" : {
       "localizations" : {
         "es" : {
