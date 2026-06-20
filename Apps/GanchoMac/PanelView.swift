@@ -6,6 +6,47 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
+/// The history's type-filter rail (the design's All / Links / Code / Colors /
+/// Images / Secrets pills).
+enum ClipKindFilter: String, CaseIterable, Identifiable {
+    case all, links, code, colors, images, secrets
+    var id: String { rawValue }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .all: "All"
+        case .links: "Links"
+        case .code: "Code"
+        case .colors: "Colors"
+        case .images: "Images"
+        case .secrets: "Secrets"
+        }
+    }
+
+    /// The clip kind whose tint colours the pill's dot (nil for All).
+    var tintKind: ClipContentKind? {
+        switch self {
+        case .all: nil
+        case .links: .url
+        case .code: .code
+        case .colors: .color
+        case .images: .image
+        case .secrets: .secret
+        }
+    }
+
+    func matches(_ kind: ClipContentKind) -> Bool {
+        switch self {
+        case .all: true
+        case .links: kind == .url
+        case .code: kind == .code || kind == .json || kind == .uuid
+        case .colors: kind == .color
+        case .images: kind == .image
+        case .secrets: kind == .secret || kind == .jwt || kind == .creditCard
+        }
+    }
+}
+
 /// The floating history panel: compact, keyboard-first (the explicit design
 /// decision vs Paste's full-width drawer). Every interaction works without
 /// a mouse: type-to-search, ↑↓, Enter, ⌥Enter, ⌘1–9, Space, Esc.
@@ -16,6 +57,12 @@ struct PanelView: View {
     @State private var results: [ClipItem] = []
     @State private var selectedIndex = 0
     @State private var previewText = ""
+    @State private var kindFilter: ClipKindFilter = .all
+
+    /// The rows actually shown: `results` narrowed by the active filter pill.
+    private var filtered: [ClipItem] {
+        kindFilter == .all ? results : results.filter { kindFilter.matches($0.kind) }
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
@@ -90,9 +137,9 @@ struct PanelView: View {
                 .onKeyPress(characters: .decimalDigits, phases: .down) { press in
                     guard press.modifiers.contains(.command),
                         let digit = Int(press.characters), (1...9).contains(digit),
-                        results.indices.contains(digit - 1)
+                        filtered.indices.contains(digit - 1)
                     else { return .ignored }
-                    model.paste(results[digit - 1])
+                    model.paste(filtered[digit - 1])
                     return .handled
                 }
                 .onKeyPress(characters: CharacterSet(charactersIn: "p"), phases: .down) { press in
@@ -110,13 +157,16 @@ struct PanelView: View {
                     return .handled
                 }
 
-            if results.isEmpty {
+            filterRail
+
+            if filtered.isEmpty {
                 emptyState
             } else {
+                recentHeader
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: GanchoTokens.Spacing.xxs) {
-                            ForEach(Array(results.enumerated()), id: \.element.id) { index, item in
+                            ForEach(Array(filtered.enumerated()), id: \.element.id) { index, item in
                                 row(for: item, index: index)
                                     .id(item.id)
                                     // Hover opens the peek beside the list, no Space needed.
@@ -130,14 +180,80 @@ struct PanelView: View {
                         .padding(.horizontal, GanchoTokens.Spacing.xxs)
                     }
                     .onChange(of: selectedIndex) { _, index in
-                        guard results.indices.contains(index) else { return }
-                        proxy.scrollTo(results[index].id)
+                        guard filtered.indices.contains(index) else { return }
+                        proxy.scrollTo(filtered[index].id)
                     }
                 }
             }
-            SyncStatusView(status: model.syncStatus)
+            panelFooter
         }
         .ganchoSurface(radius: GanchoTokens.Radius.lg)
+    }
+
+    /// The design's type-filter rail: All / Links / Code / Colors / Images /
+    /// Secrets, "All" active by default.
+    private var filterRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: GanchoTokens.Spacing.xxs) {
+                ForEach(ClipKindFilter.allCases) { filter in
+                    filterPill(filter)
+                }
+            }
+            .padding(.horizontal, GanchoTokens.Spacing.xxs)
+        }
+    }
+
+    private func filterPill(_ filter: ClipKindFilter) -> some View {
+        let isActive = filter == kindFilter
+        return Button {
+            kindFilter = filter
+            selectedIndex = 0
+            Task { await loadSelectedText() }
+        } label: {
+            HStack(spacing: 4) {
+                if let kind = filter.tintKind {
+                    Circle()
+                        .fill(GanchoTokens.Palette.kindTint(for: kind))
+                        .frame(width: 6, height: 6)
+                }
+                Text(filter.title).font(.caption.weight(.medium))
+            }
+            .padding(.horizontal, GanchoTokens.Spacing.xs)
+            .padding(.vertical, 3)
+            .background(
+                isActive ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
+                in: Capsule()
+            )
+            .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("filter-\(filter.rawValue)")
+    }
+
+    /// "RECENT … N CLIPS" header above the list.
+    private var recentHeader: some View {
+        HStack {
+            Text("Recent")
+            Spacer()
+            Text("\(filtered.count) clips")
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(.tertiary)
+        .textCase(.uppercase)
+        .padding(.horizontal, GanchoTokens.Spacing.xs)
+    }
+
+    /// Sync state on the left, keyboard hints on the right (the design footer).
+    private var panelFooter: some View {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            SyncStatusView(status: model.syncStatus)
+            Spacer(minLength: 0)
+            Label("navigate", systemImage: "arrow.up.arrow.down")
+            Label("paste", systemImage: "return")
+        }
+        .font(.caption2)
+        .foregroundStyle(.tertiary)
+        .labelStyle(.titleAndIcon)
     }
 
     /// First-run and no-results states — warm and instructive, never a dead end
@@ -245,15 +361,15 @@ struct PanelView: View {
     }
 
     private var selectedItem: ClipItem? {
-        results.indices.contains(selectedIndex) ? results[selectedIndex] : nil
+        filtered.indices.contains(selectedIndex) ? filtered[selectedIndex] : nil
     }
 
     private func move(_ delta: Int) -> KeyPress.Result {
         // Always consume arrows so focus never leaves the search field — with
         // no results there is simply nothing to move (Spotlight behavior).
         // Returning .ignored here let the arrow propagate and steal focus.
-        guard !results.isEmpty else { return .handled }
-        selectedIndex = (selectedIndex + delta + results.count) % results.count
+        guard !filtered.isEmpty else { return .handled }
+        selectedIndex = (selectedIndex + delta + filtered.count) % filtered.count
         return .handled
     }
 
