@@ -165,6 +165,11 @@ struct PanelView: View {
                             ForEach(Array(filtered.enumerated()), id: \.element.id) { index, item in
                                 row(for: item, index: index)
                                     .id(item.id)
+                                    // Load this image's thumbnail once it scrolls
+                                    // into view (LazyVStack → visible rows only).
+                                    .task(id: item.id) {
+                                        await model.thumbnails.ensureLoaded(item)
+                                    }
                                     // Hover opens the peek beside the list, no Space needed.
                                     .onHover { hovering in
                                         if hovering { selectedIndex = index }
@@ -332,7 +337,8 @@ struct PanelView: View {
         ClipCard(
             item: item, isSelected: index == selectedIndex,
             previewsHidden: model.preferences.isPrivateModePaused,
-            shortcutNumber: index < 9 ? index + 1 : nil)
+            shortcutNumber: index < 9 ? index + 1 : nil,
+            thumbnail: model.thumbnails.cached(for: item.id))
     }
 
     /// Pin/board assignment — the context-menu path; drag & drop arrives
@@ -461,6 +467,7 @@ struct ClipPeek: View {
         // detail card, not the full height of the list.
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .accessibilityIdentifier("clip-peek")
+        .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
     }
 
     private var header: some View {
@@ -484,7 +491,16 @@ struct ClipPeek: View {
     /// Type-aware body: colour clips show a big swatch beside the value;
     /// everything else shows its (syntax-tinted for code) text.
     @ViewBuilder private var peekBody: some View {
-        if item.kind == .color, !item.isSensitive, let color = Color(hexString: text) {
+        if item.kind == .image, !item.isSensitive,
+            let thumbnail = model.thumbnails.cached(for: item.id)
+        {
+            thumbnail
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: 220, alignment: .topLeading)
+                .clipShape(
+                    RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
+        } else if item.kind == .color, !item.isSensitive, let color = Color(hexString: text) {
             HStack(spacing: GanchoTokens.Spacing.sm) {
                 RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                     .fill(color)

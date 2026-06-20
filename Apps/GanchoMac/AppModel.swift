@@ -37,6 +37,8 @@ final class AppModel {
     /// the disk store cannot open (never block launch on a storage error).
     let store: any ClipboardStore
     let grdbStore: GRDBClipboardStore?
+    /// Cached image thumbnails for the history rows and the peek.
+    let thumbnails: ClipThumbnailStore
 
     let monitor: MacPasteboardMonitor
     let pasteBack = PasteBackService()
@@ -125,6 +127,13 @@ final class AppModel {
         let grdb = try? GRDBClipboardStore(directory: directory)
         self.grdbStore = grdb
         self.store = grdb ?? InMemoryClipboardStore()
+        let resolvedStore = self.store
+        self.thumbnails = ClipThumbnailStore(imageData: { id in
+            if case .binary(let data, _)? = try? await resolvedStore.content(for: id) {
+                return data
+            }
+            return nil
+        })
         self.mcpConfig = MCPServerConfig.load(fromStoreDirectory: directory)
 
         let loadedPreferences = CapturePreferences.load(from: defaults)
