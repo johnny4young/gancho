@@ -315,7 +315,9 @@ struct ClipPeek: View {
             footer
         }
         .padding(GanchoTokens.Spacing.md)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // Sized to its content and pinned to the top — the peek is a shorter
+        // detail card, not the full height of the list.
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .accessibilityIdentifier("clip-peek")
     }
 
@@ -453,7 +455,10 @@ struct ClipPeek: View {
     /// fields). Non-code clips render as plain text.
     private var highlighted: AttributedString {
         var attributed = AttributedString(bodyText)
-        guard item.kind == .code else { return attributed }
+        // The peek re-renders on every selection change; tokenizing a very
+        // large clip there would lag navigation, so highlight only when the
+        // clip is a reasonable size.
+        guard item.kind == .code, bodyText.count <= 20_000 else { return attributed }
         for token in GanchoSyntax.tokens(in: bodyText) {
             let lower = bodyText.distance(from: bodyText.startIndex, to: token.range.lowerBound)
             let upper = bodyText.distance(from: bodyText.startIndex, to: token.range.upperBound)
