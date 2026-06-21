@@ -215,6 +215,22 @@ public final class GRDBClipboardStore: ClipboardStore {
                 sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) "
                     + "SELECT id, pinboardID FROM clip WHERE pinboardID IS NOT NULL")
         }
+        migrator.registerMigration("v11-favorites") { db in
+            // The built-in Favorites board: always present, sorts first, and is
+            // immutable (rename/delete guard on `isSystem`). Its display name is
+            // localized in the UI keyed on `isSystem`, not this seeded value.
+            try db.alter(table: "pinboard") { t in
+                t.add(column: "isSystem", .boolean).notNull().defaults(to: false)
+            }
+            try db.execute(
+                sql: "INSERT OR IGNORE INTO pinboard "
+                    + "(id, name, sfSymbol, sortIndex, createdAt, isSystem) "
+                    + "VALUES (?, ?, ?, ?, ?, 1)",
+                arguments: [
+                    Pinboard.favoritesID.uuidString, "Favorites", "star", -1,
+                    Date(timeIntervalSince1970: 0),
+                ])
+        }
         return migrator
     }
 

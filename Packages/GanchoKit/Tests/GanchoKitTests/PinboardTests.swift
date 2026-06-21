@@ -36,8 +36,12 @@ struct PinboardTests {
         let store = try makeStore()
         let work = try await store.createPinboard(name: "Work", sfSymbol: "briefcase")
         _ = try await store.createPinboard(name: "Colors")
-        #expect(try await store.pinboards().map(\.name) == ["Work", "Colors"])
-        #expect(try await store.pinboards().first?.sfSymbol == "briefcase")
+        // The seeded Favorites board is excluded from the user-board assertions.
+        #expect(
+            try await store.pinboards().filter { !$0.isSystem }.map(\.name) == ["Work", "Colors"])
+        #expect(
+            try await store.pinboards().first(where: { $0.name == "Work" })?.sfSymbol == "briefcase"
+        )
 
         let item = ClipItem(preview: "clip", contentHash: "h")
         try await store.insert(item, content: .text("clip"))
@@ -48,12 +52,31 @@ struct PinboardTests {
         #expect(try await store.pinnedCount() == 0)
 
         try await store.renameBoard(id: work.id, name: "Job")
-        #expect(try await store.pinboards().map(\.name) == ["Job", "Colors"])
+        #expect(
+            try await store.pinboards().filter { !$0.isSystem }.map(\.name) == ["Job", "Colors"])
 
         try await store.deletePinboard(id: work.id)
-        #expect(try await store.pinboards().count == 1)
+        #expect(try await store.pinboards().filter { !$0.isSystem }.count == 1)
         #expect(try await store.count() == 1, "clips must survive board deletion")
         #expect(try await store.items(inBoard: work.id).isEmpty, "membership cascades away")
+    }
+
+    @Test("Favorites is a built-in board: present, first, immutable")
+    func favoritesBoard() async throws {
+        let store = try makeStore()
+        // Seeded by migration — present before any user board exists.
+        #expect(try await store.pinboards().first?.id == Pinboard.favoritesID)
+        #expect(try await store.pinboards().first?.isSystem == true)
+
+        // A user board never displaces Favorites from the top.
+        _ = try await store.createPinboard(name: "Work")
+        #expect(try await store.pinboards().first?.id == Pinboard.favoritesID)
+
+        // Rename and delete are no-ops on it.
+        try await store.renameBoard(id: Pinboard.favoritesID, name: "Hacked")
+        try await store.deletePinboard(id: Pinboard.favoritesID)
+        let favorite = try await store.pinboards().first { $0.id == Pinboard.favoritesID }
+        #expect(favorite?.name == "Favorites")
     }
 
     @Test("A clip can belong to many boards; assign is idempotent, unassign is per-board")
