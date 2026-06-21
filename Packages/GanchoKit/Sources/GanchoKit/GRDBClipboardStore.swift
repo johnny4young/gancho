@@ -242,6 +242,14 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.add(column: "needsUpload", .boolean).notNull().defaults(to: true)
             }
         }
+        migrator.registerMigration("v13-snippet-keyword") { db in
+            // Snippets reuse the clip row (isSnippet); add the keyword they're
+            // invoked by and a usage counter for the Library's stats.
+            try db.alter(table: "clip") { t in
+                t.add(column: "keyword", .text)
+                t.add(column: "uses", .integer).notNull().defaults(to: 0)
+            }
+        }
         return migrator
     }
 
@@ -517,6 +525,8 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
     var contentTypeIdentifier: String?
     var isArchived: Bool = false
     var isSnippet: Bool = false
+    var keyword: String?
+    var uses: Int = 0
 
     init(item: ClipItem) {
         id = item.id.uuidString
@@ -537,6 +547,8 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
         contentText = nil
         contentBlobHash = nil
         contentTypeIdentifier = nil
+        keyword = item.keyword
+        uses = item.uses
     }
 
     var item: ClipItem {
@@ -554,7 +566,9 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
             isPinned: isPinned,
             isSensitive: isSensitive,
             expiresAt: expiresAt,
-            tags: (try? JSONDecoder().decode([String].self, from: Data(tags.utf8))) ?? []
+            tags: (try? JSONDecoder().decode([String].self, from: Data(tags.utf8))) ?? [],
+            keyword: keyword,
+            uses: uses
         )
     }
 }

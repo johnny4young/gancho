@@ -91,6 +91,22 @@ struct SnippetLibraryTests {
         #expect(try await store.search(ClipSearchQuery(text: "Blockers")).count == 1)
     }
 
+    @Test("Keyword: set, match case-insensitively, and count uses")
+    func keywordAndUses() async throws {
+        let store = try makeStore()
+        let snippet = try await store.saveSnippet(title: "Signature", text: "Best,\n{name}")
+        try await store.setKeyword(id: snippet.id, keyword: "  firma  ")  // trimmed
+
+        let matched = try await store.snippet(matchingKeyword: "FIRMA")  // case-insensitive
+        #expect(matched?.id == snippet.id)
+        #expect(matched?.keyword == "firma")
+        #expect(try await store.snippet(matchingKeyword: "nope") == nil)
+
+        try await store.incrementUses(id: snippet.id)
+        try await store.incrementUses(id: snippet.id)
+        #expect(try await store.snippets().first(where: { $0.id == snippet.id })?.uses == 2)
+    }
+
     @Test("Free ceiling: 20 snippets, Pro unlimited")
     func freeCeiling() {
         #expect(SnippetLimits.canPromote(currentSnippetCount: 19, isPro: false))
