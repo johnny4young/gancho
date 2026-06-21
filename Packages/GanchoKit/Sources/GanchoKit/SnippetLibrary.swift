@@ -118,4 +118,34 @@ extension GRDBClipboardStore {
                 arguments: [title, text, String(text.prefix(120)), Date(), id.uuidString])
         }
     }
+
+    /// Sets (or clears, with nil/blank) a snippet's invocation keyword.
+    public func setKeyword(id: UUID, keyword: String?) async throws {
+        let trimmed = keyword?.trimmingCharacters(in: .whitespacesAndNewlines)
+        try await writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET keyword = ?, updatedAt = ? WHERE id = ? AND isSnippet = 1",
+                arguments: [(trimmed?.isEmpty == false) ? trimmed : nil, Date(), id.uuidString])
+        }
+    }
+
+    /// Bumps the usage counter — call when a snippet is inserted.
+    public func incrementUses(id: UUID) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET uses = uses + 1 WHERE id = ?", arguments: [id.uuidString])
+        }
+    }
+
+    /// The snippet invoked by an exact keyword (case-insensitive), if any — the
+    /// in-app keyword expansion path.
+    public func snippet(matchingKeyword keyword: String) async throws -> ClipItem? {
+        let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return try await writer.read { db in
+            try ClipRow.filter(
+                sql: "isSnippet = 1 AND keyword = ? COLLATE NOCASE", arguments: [trimmed]
+            ).fetchOne(db)?.item
+        }
+    }
 }
