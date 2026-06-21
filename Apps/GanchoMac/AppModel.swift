@@ -728,6 +728,23 @@ final class AppModel {
         }
     }
 
+    /// The boards a clip belongs to — drives the peek's board menu checkmarks.
+    func boardMembership(for item: ClipItem) async -> Set<UUID> {
+        guard let grdbStore else { return [] }
+        return (try? await grdbStore.boardIDs(forClip: item.id)) ?? []
+    }
+
+    /// Add or remove a clip from one board (the peek's per-board toggle).
+    func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
+        guard let grdbStore else { return }
+        if member {
+            try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
+        } else {
+            try? await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
+        }
+        await refreshRecents()
+    }
+
     // MARK: - Denylist & settings portability
 
     var denylistEntries: [String] {

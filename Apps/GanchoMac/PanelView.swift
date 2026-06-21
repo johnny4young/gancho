@@ -572,6 +572,7 @@ struct ClipPeek: View {
     let text: String
     @Environment(AppModel.self) private var model
     @State private var actionResult: String?
+    @State private var boardIDs: Set<UUID> = []
 
     /// Masked clips show their stored masked preview, not the raw content. The
     /// peek is a preview, so cap very long clips: laying out a huge Text here on
@@ -600,6 +601,7 @@ struct ClipPeek: View {
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .accessibilityIdentifier("clip-peek")
         .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+        .task(id: item.id) { boardIDs = await model.boardMembership(for: item) }
     }
 
     private var header: some View {
@@ -609,6 +611,7 @@ struct ClipPeek: View {
                 Text(item.title).font(.headline).lineLimit(1)
             }
             Spacer(minLength: 0)
+            boardMenu
             Button {
                 model.togglePin(item)
             } label: {
@@ -618,6 +621,36 @@ struct ClipPeek: View {
             .accessibilityLabel(Text(item.isPinned ? "Unpin" : "Pin"))
             .accessibilityIdentifier("preview-pin")
         }
+    }
+
+    /// Toggle this clip in/out of any board, with a checkmark on the boards it
+    /// already belongs to (a clip can be in several). Favorites is just another
+    /// board here — the protected one.
+    private var boardMenu: some View {
+        Menu {
+            ForEach(model.boards) { board in
+                Button {
+                    Task {
+                        await model.setBoardMembership(
+                            item, board: board, member: !boardIDs.contains(board.id))
+                        boardIDs = await model.boardMembership(for: item)
+                    }
+                } label: {
+                    Label {
+                        board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
+                    } icon: {
+                        Image(
+                            systemName: boardIDs.contains(board.id) ? "checkmark" : board.sfSymbol)
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: boardIDs.isEmpty ? "tray" : "tray.full")
+        }
+        .menuIndicator(.hidden)
+        .buttonStyle(.borderless)
+        .accessibilityLabel(Text("Add to board"))
+        .accessibilityIdentifier("preview-board")
     }
 
     /// Type-aware body: colour clips show a big swatch beside the value;
