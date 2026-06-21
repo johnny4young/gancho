@@ -14,6 +14,11 @@ final class KeyboardModel: ObservableObject {
     @Published var expanded = false
     @Published var note: LocalizedStringKey?
     @Published private(set) var saving = false
+    /// Board filter (a higher axis than search). nil = all clips; otherwise the
+    /// selected board, including the always-present Favorites. Synced boards
+    /// made on other devices appear here too.
+    @Published var boards: [Pinboard] = []
+    @Published var selectedBoardID: UUID?
 
     let hasFullAccess: Bool
     let onDelete: () -> Void
@@ -38,10 +43,18 @@ final class KeyboardModel: ObservableObject {
         store = hasFullAccess ? try? IntentStore.open() : nil
     }
 
-    /// Pin-first history (sensitive excluded by `KeyboardClips`).
+    /// Pin-first history (sensitive excluded by `KeyboardClips`), narrowed to the
+    /// selected board when one is active. Refreshes the board list each load so
+    /// boards synced from other devices show up.
     func load() async {
         guard let store else { return }
-        let all = (try? await store.items(offset: 0, limit: 50)) ?? []
+        boards = (try? await store.pinboards()) ?? []
+        let all: [ClipItem]
+        if let selectedBoardID {
+            all = (try? await store.items(inBoard: selectedBoardID)) ?? []
+        } else {
+            all = (try? await store.items(offset: 0, limit: 50)) ?? []
+        }
         entries = KeyboardClips.ordered(
             pinned: all.filter(\.isPinned), recent: all.filter { !$0.isPinned })
     }
@@ -53,8 +66,23 @@ final class KeyboardModel: ObservableObject {
             await load()
             return
         }
-        let hits = (try? await store.search(ClipSearchQuery(text: trimmed), limit: 30)) ?? []
+        let hits =
+            (try? await store.search(
+                ClipSearchQuery(text: trimmed, boardID: selectedBoardID), limit: 30)) ?? []
         entries = WidgetClips.entries(from: hits.filter { !$0.isSensitive }, limit: 30)
+    }
+
+    /// Switch the active board filter and reload through the current path
+    /// (search results stay scoped if a query is present).
+    func selectBoard(_ id: UUID?) {
+        selectedBoardID = id
+        Task {
+            if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+                await load()
+            } else {
+                await runSearch()
+            }
+        }
     }
 
     /// Acts on a tapped clip: text/file refs insert into the field; images go
