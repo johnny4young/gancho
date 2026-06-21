@@ -8,8 +8,10 @@ import Foundation
 /// either way reachable by both processes without bespoke IPC. It carries ONLY
 /// non-clipboard data: the current status presentation (a content-free icon
 /// identifier + a localized accessibility label), the localized menu titles,
-/// and the per-launch command nonce. Recent clips and previews never cross it —
-/// they stay in the main app process.
+/// the per-launch command nonce, and a single "last copied" preview for the
+/// menu's recent row. That preview is the ONLY clip-derived value that crosses:
+/// it is already masked for sensitive clips, and private mode omits it entirely.
+/// Full clip content and the history never leave the main app process.
 enum GanchoMenuBarBridge {
     static let appGroupSuite = "group.com.johnny4young.gancho"
 
@@ -18,6 +20,9 @@ enum GanchoMenuBarBridge {
         static let statusLabel = "menu-bar.status.label"
         static let titles = "menu-bar.titles"
         static let nonce = "menu-bar.nonce"
+        static let lastCopiedPreview = "menu-bar.last-copied.preview"
+        static let lastCopiedLabel = "menu-bar.last-copied.label"
+        static let lastCopiedAt = "menu-bar.last-copied.at"
     }
 
     private static var defaults: UserDefaults? { UserDefaults(suiteName: appGroupSuite) }
@@ -59,5 +64,35 @@ enum GanchoMenuBarBridge {
 
     static func readNonce() -> String? {
         defaults?.string(forKey: Key.nonce)
+    }
+
+    // MARK: Last-copied preview — the single masked clip-derived value (see the
+    // type doc). The app writes it after each capture, masked for sensitive
+    // clips, and writes `nil` in private mode to clear it; the helper shows it
+    // in the menu's recent row.
+
+    /// - Parameter label: the localized "Last copied" caption word (the helper
+    ///   has no string catalog, so the app resolves it and the helper appends a
+    ///   locale-formatted relative time).
+    static func writeLastCopied(preview: String?, label: String, at date: Date) {
+        guard let defaults else { return }
+        if let preview {
+            defaults.set(preview, forKey: Key.lastCopiedPreview)
+            defaults.set(label, forKey: Key.lastCopiedLabel)
+            defaults.set(date.timeIntervalSince1970, forKey: Key.lastCopiedAt)
+        } else {
+            defaults.removeObject(forKey: Key.lastCopiedPreview)
+            defaults.removeObject(forKey: Key.lastCopiedLabel)
+            defaults.removeObject(forKey: Key.lastCopiedAt)
+        }
+    }
+
+    static func readLastCopied() -> (preview: String, label: String, at: Date)? {
+        guard let defaults, let preview = defaults.string(forKey: Key.lastCopiedPreview)
+        else { return nil }
+        let label = defaults.string(forKey: Key.lastCopiedLabel) ?? "Last copied"
+        return (
+            preview, label, Date(timeIntervalSince1970: defaults.double(forKey: Key.lastCopiedAt))
+        )
     }
 }
