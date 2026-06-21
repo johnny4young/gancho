@@ -46,6 +46,10 @@ final class IOSAppModel {
     var saveNote: String?
     var query = ""
     var kindFilter: ClipContentKind?
+    /// nil = "All clips"; otherwise the selected board (a higher axis than the
+    /// kind filter). Boards are device-local collections of clips.
+    var selectedBoardID: UUID?
+    var boards: [Pinboard] = []
     /// Set by a widget deep link; `CaptureView` consumes it to push the clip.
     var deepLinkClipID: UUID?
 
@@ -157,9 +161,19 @@ final class IOSAppModel {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    func refreshBoards() async {
+        guard let grdb = store as? GRDBClipboardStore else { return }
+        boards = (try? await grdb.pinboards()) ?? []
+    }
+
     func search() async {
-        guard let grdb = store as? GRDBClipboardStore, !query.isEmpty else {
-            captures = (try? await store.items(offset: 0, limit: 50)) ?? []
+        let grdb = store as? GRDBClipboardStore
+        guard let grdb, !query.isEmpty else {
+            if let board = selectedBoardID, let grdb {
+                captures = (try? await grdb.items(inBoard: board)) ?? []
+            } else {
+                captures = (try? await store.items(offset: 0, limit: 50)) ?? []
+            }
             if let kindFilter {
                 captures = captures.filter { $0.kind == kindFilter }
             }
@@ -168,7 +182,8 @@ final class IOSAppModel {
         let kinds: Set<ClipContentKind>? = kindFilter.map { [$0] }
         captures =
             (try? await grdb.search(
-                ClipSearchQuery(text: query, kinds: kinds), limit: 50)) ?? []
+                ClipSearchQuery(text: query, kinds: kinds, boardID: selectedBoardID), limit: 50))
+            ?? []
     }
 
     /// 1-tap copy with haptic confirmation.
@@ -383,6 +398,9 @@ struct CaptureView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    boardFilterMenu
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     kindFilterMenu
                 }
                 ToolbarItem(placement: .topBarLeading) {
@@ -408,6 +426,29 @@ struct CaptureView: View {
             path = [id]
             model.deepLinkClipID = nil
         }
+    }
+
+    /// Board picker (a higher axis than the type filter): All clips · Favorites
+    /// · user boards. Pinned clips still float to the top within each.
+    private var boardFilterMenu: some View {
+        @Bindable var model = self.model
+        return Menu {
+            Picker("Board", selection: $model.selectedBoardID) {
+                Label("All clips", systemImage: "tray.full").tag(UUID?.none)
+                ForEach(model.boards) { board in
+                    Label {
+                        board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
+                    } icon: {
+                        Image(systemName: board.sfSymbol)
+                    }
+                    .tag(UUID?.some(board.id))
+                }
+            }
+        } label: {
+            Image(systemName: model.selectedBoardID == nil ? "square.stack" : "square.stack.fill")
+        }
+        .onChange(of: model.selectedBoardID) { _, _ in Task { await model.search() } }
+        .accessibilityLabel(Text("Board"))
     }
 
     private var kindFilterMenu: some View {
@@ -444,6 +485,7 @@ struct CaptureView: View {
     private func activate() async {
         await model.refreshHints()
         await model.drainSharedInbox()
+        await model.refreshBoards()
         await model.search()
     }
 
