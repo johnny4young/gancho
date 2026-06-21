@@ -100,6 +100,29 @@ struct PinboardTests {
         #expect(try await store.boardIDs(forClip: item.id).isEmpty)
     }
 
+    @Test("Changing membership re-queues the clip for sync (membership rides the record)")
+    func membershipReuploadsClip() async throws {
+        let store = try makeStore()
+        let board = try await store.createPinboard(name: "Sync me")
+        let item = ClipItem(preview: "x", contentHash: "h")
+        try await store.insert(item, content: .text("x"))
+        // Settle the clip as already uploaded, so the upload FLAG — not the
+        // NULL system fields of a never-synced row — is what we observe.
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))
+        #expect(try await store.pendingUploads().isEmpty)
+
+        try await store.assign(clipID: item.id, toBoard: board.id)
+        #expect(
+            try await store.pendingUploads().contains { $0.item.id == item.id },
+            "assigning to a board re-queues the clip")
+
+        try await store.markUploaded(id: item.id, systemFields: Data([2]))
+        try await store.removeFromAllBoards(clipID: item.id)
+        #expect(
+            try await store.pendingUploads().contains { $0.item.id == item.id },
+            "removing from boards re-queues the clip too")
+    }
+
     @Test("Board members survive retention even though they are not pinned")
     func boardMembersExemptFromRetention() async throws {
         let store = try makeStore()

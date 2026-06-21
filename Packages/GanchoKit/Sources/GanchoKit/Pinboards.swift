@@ -118,12 +118,16 @@ extension GRDBClipboardStore {
     }
 
     /// Add a clip to a board (idempotent). Orthogonal to pinning: board
-    /// membership does not touch `isPinned`.
+    /// membership does not touch `isPinned`. Membership rides the clip's sync
+    /// record, so the change marks the clip for re-upload — the next sync cycle
+    /// carries its fresh board set to the other devices.
     public func assign(clipID: UUID, toBoard boardID: UUID) async throws {
         try await writer.write { db in
             try db.execute(
                 sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) VALUES (?, ?)",
                 arguments: [clipID.uuidString, boardID.uuidString])
+            try db.execute(
+                sql: "UPDATE clip SET needsUpload = 1 WHERE id = ?", arguments: [clipID.uuidString])
         }
     }
 
@@ -132,6 +136,8 @@ extension GRDBClipboardStore {
             try db.execute(
                 sql: "DELETE FROM clip_board WHERE clipID = ? AND boardID = ?",
                 arguments: [clipID.uuidString, boardID.uuidString])
+            try db.execute(
+                sql: "UPDATE clip SET needsUpload = 1 WHERE id = ?", arguments: [clipID.uuidString])
         }
     }
 
@@ -139,6 +145,8 @@ extension GRDBClipboardStore {
         try await writer.write { db in
             try db.execute(
                 sql: "DELETE FROM clip_board WHERE clipID = ?", arguments: [clipID.uuidString])
+            try db.execute(
+                sql: "UPDATE clip SET needsUpload = 1 WHERE id = ?", arguments: [clipID.uuidString])
         }
     }
 
