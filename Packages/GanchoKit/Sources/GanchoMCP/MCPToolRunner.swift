@@ -112,7 +112,10 @@ public struct MCPToolRunner: Sendable {
             !requested.isEmpty
         {
             let board = try await board(named: requested)
-            try await store.assign(clipID: id, toBoard: board.id)  // also pins
+            try await store.assign(clipID: id, toBoard: board.id)
+            // Board membership and pinning are orthogonal now; this tool's
+            // intent is "pin", so pin explicitly in addition to the board.
+            try await store.setPinned(id: id, true)
             boardName = board.name
         } else {
             try await store.setPinned(id: id, true)
@@ -168,7 +171,7 @@ public struct MCPToolRunner: Sendable {
         }) {
             return existing
         }
-        return try await store.createPinboard(name: name)
+        return try await store.createPinboard(name: name, sfSymbol: "square.stack")
     }
 
     private func record(_ tool: MCPToolName, count: Int = 0, denied: Bool = false) async {

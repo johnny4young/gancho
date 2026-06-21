@@ -98,6 +98,6 @@ public protocol MCPClipStore: Sendable {
     func setPinned(id: UUID, _ pinned: Bool) async throws
     func pinboards() async throws -> [Pinboard]
     @discardableResult
-    func createPinboard(name: String) async throws -> Pinboard
-    func assign(clipID: UUID, toBoard boardID: UUID?) async throws
+    func createPinboard(name: String, sfSymbol: String) async throws -> Pinboard
+    func assign(clipID: UUID, toBoard boardID: UUID) async throws
 }

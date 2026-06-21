@@ -195,6 +195,26 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.column("wasDenied", .boolean).notNull().defaults(to: false)
             }
         }
+        migrator.registerMigration("v10-boards") { db in
+            // Boards become a first-class axis, independent of pinning: a clip
+            // can belong to MANY boards, tracked in a junction. The legacy
+            // single `pinboardID` column is migrated in and then left unused.
+            // Boards stay device-local (only `isPinned` syncs) — no sync schema
+            // change. Cascades clean the junction when a clip or board is gone.
+            try db.alter(table: "pinboard") { t in
+                t.add(column: "sfSymbol", .text).notNull().defaults(to: "square.stack")
+            }
+            try db.create(table: "clip_board") { t in
+                t.column("clipID", .text).notNull().indexed()
+                    .references("clip", onDelete: .cascade)
+                t.column("boardID", .text).notNull().indexed()
+                    .references("pinboard", onDelete: .cascade)
+                t.primaryKey(["clipID", "boardID"])
+            }
+            try db.execute(
+                sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) "
+                    + "SELECT id, pinboardID FROM clip WHERE pinboardID IS NOT NULL")
+        }
         return migrator
     }
 
@@ -271,6 +291,10 @@ public final class GRDBClipboardStore: ClipboardStore {
             sql += " AND clip.createdAt BETWEEN ? AND ?"
             arguments.append(range.lowerBound)
             arguments.append(range.upperBound)
+        }
+        if let boardID = query.boardID {
+            sql += " AND clip.id IN (SELECT clipID FROM clip_board WHERE boardID = ?)"
+            arguments.append(boardID.uuidString)
         }
     }
 

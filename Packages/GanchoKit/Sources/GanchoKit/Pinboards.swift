@@ -1,16 +1,26 @@
 import Foundation
 import GRDB
 
-/// A named collection of pinned clips that survives history retention.
+/// A user-made collection ("board") for grouping clips. A distinct axis from
+/// the type filters and from the Library: a clip can belong to many boards
+/// (the `clip_board` junction), and membership — unlike pinning — does not sync
+/// (it stays device-local). Board members survive history retention.
 public struct Pinboard: Identifiable, Sendable, Equatable, Codable {
     public var id: UUID
     public var name: String
+    /// Neutral SF Symbol shown in the board rail (the active board takes the
+    /// system accent, not the glyph).
+    public var sfSymbol: String
     public var sortIndex: Int
     public var createdAt: Date
 
-    public init(id: UUID = UUID(), name: String, sortIndex: Int = 0, createdAt: Date = .now) {
+    public init(
+        id: UUID = UUID(), name: String, sfSymbol: String = "square.stack",
+        sortIndex: Int = 0, createdAt: Date = .now
+    ) {
         self.id = id
         self.name = name
+        self.sfSymbol = sfSymbol
         self.sortIndex = sortIndex
         self.createdAt = createdAt
     }
@@ -59,8 +69,12 @@ extension GRDBClipboardStore {
     }
 
     @discardableResult
-    public func createPinboard(name: String) async throws -> Pinboard {
-        let board = Pinboard(name: name)
+    public func createPinboard(
+        name: String, sfSymbol: String = "square.stack"
+    ) async throws
+        -> Pinboard
+    {
+        let board = Pinboard(name: name, sfSymbol: sfSymbol)
         try await writer.write { db in
             let nextIndex =
                 (try Int.fetchOne(db, sql: "SELECT MAX(sortIndex) FROM pinboard") ?? -1) + 1
@@ -71,31 +85,74 @@ extension GRDBClipboardStore {
         return board
     }
 
-    /// Deleting a board never deletes its clips — they return to history.
-    public func deletePinboard(id: UUID) async throws {
+    public func renameBoard(id: UUID, name: String) async throws {
         try await writer.write { db in
             try db.execute(
-                sql: "UPDATE clip SET pinboardID = NULL WHERE pinboardID = ?",
-                arguments: [id.uuidString])
+                sql: "UPDATE pinboard SET name = ? WHERE id = ?",
+                arguments: [name, id.uuidString])
+        }
+    }
+
+    /// Deleting a board never deletes its clips — the `clip_board` rows cascade
+    /// away and the clips return to plain history.
+    public func deletePinboard(id: UUID) async throws {
+        try await writer.write { db in
             try db.execute(sql: "DELETE FROM pinboard WHERE id = ?", arguments: [id.uuidString])
         }
     }
 
-    /// nil board = back to plain history. Assigning also pins (a board
-    /// member is by definition retained).
-    public func assign(clipID: UUID, toBoard boardID: UUID?) async throws {
+    /// Add a clip to a board (idempotent). Orthogonal to pinning: board
+    /// membership does not touch `isPinned`.
+    public func assign(clipID: UUID, toBoard boardID: UUID) async throws {
         try await writer.write { db in
             try db.execute(
-                sql: "UPDATE clip SET pinboardID = ?, isPinned = ?, updatedAt = ? WHERE id = ?",
-                arguments: [boardID?.uuidString, boardID != nil, Date(), clipID.uuidString])
+                sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) VALUES (?, ?)",
+                arguments: [clipID.uuidString, boardID.uuidString])
+        }
+    }
+
+    public func unassign(clipID: UUID, fromBoard boardID: UUID) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: "DELETE FROM clip_board WHERE clipID = ? AND boardID = ?",
+                arguments: [clipID.uuidString, boardID.uuidString])
+        }
+    }
+
+    public func removeFromAllBoards(clipID: UUID) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: "DELETE FROM clip_board WHERE clipID = ?", arguments: [clipID.uuidString])
+        }
+    }
+
+    /// The boards a clip belongs to — drives the context menu's checkmarks.
+    public func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> {
+        try await writer.read { db in
+            let ids = try String.fetchAll(
+                db, sql: "SELECT boardID FROM clip_board WHERE clipID = ?",
+                arguments: [clipID.uuidString])
+            return Set(ids.compactMap { UUID(uuidString: $0) })
         }
     }
 
     public func items(inBoard boardID: UUID) async throws -> [ClipItem] {
         try await writer.read { db in
-            try ClipRow.filter(Column("pinboardID") == boardID.uuidString)
-                .order(Column("sortIndex").asc, Column("updatedAt").desc)
+            try ClipRow
+                .filter(
+                    sql: "id IN (SELECT clipID FROM clip_board WHERE boardID = ?)",
+                    arguments: [boardID.uuidString]
+                )
+                .order(Column("isPinned").desc, Column("updatedAt").desc)
                 .fetchAll(db).map(\.item)
+        }
+    }
+
+    public func count(inBoard boardID: UUID) async throws -> Int {
+        try await writer.read { db in
+            try Int.fetchOne(
+                db, sql: "SELECT COUNT(*) FROM clip_board WHERE boardID = ?",
+                arguments: [boardID.uuidString]) ?? 0
         }
     }
 
@@ -115,19 +172,21 @@ struct PinboardRow: Codable, FetchableRecord, PersistableRecord {
 
     var id: String
     var name: String
+    var sfSymbol: String
     var sortIndex: Int
     var createdAt: Date
 
     init(board: Pinboard) {
         id = board.id.uuidString
         name = board.name
+        sfSymbol = board.sfSymbol
         sortIndex = board.sortIndex
         createdAt = board.createdAt
     }
 
     var board: Pinboard {
         Pinboard(
-            id: UUID(uuidString: id) ?? UUID(), name: name, sortIndex: sortIndex,
-            createdAt: createdAt)
+            id: UUID(uuidString: id) ?? UUID(), name: name, sfSymbol: sfSymbol,
+            sortIndex: sortIndex, createdAt: createdAt)
     }
 }
