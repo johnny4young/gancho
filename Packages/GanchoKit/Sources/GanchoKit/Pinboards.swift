@@ -101,7 +101,7 @@ extension GRDBClipboardStore {
     public func renameBoard(id: UUID, name: String) async throws {
         try await writer.write { db in
             try db.execute(
-                sql: "UPDATE pinboard SET name = ? WHERE id = ? AND isSystem = 0",
+                sql: "UPDATE pinboard SET name = ?, needsUpload = 1 WHERE id = ? AND isSystem = 0",
                 arguments: [name, id.uuidString])
         }
     }
@@ -180,10 +180,12 @@ extension GRDBClipboardStore {
     public func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws {
         try await writer.write { db in
             for boardID in boardIDs {
+                // needsUpload = 0: a placeholder is a stub for a board owned by
+                // another device — its real record syncs in, we don't push it.
                 try db.execute(
                     sql: "INSERT OR IGNORE INTO pinboard "
-                        + "(id, name, sfSymbol, sortIndex, createdAt, isSystem) "
-                        + "VALUES (?, '', 'square.stack', 0, ?, 0)",
+                        + "(id, name, sfSymbol, sortIndex, createdAt, isSystem, needsUpload) "
+                        + "VALUES (?, '', 'square.stack', 0, ?, 0, 0)",
                     arguments: [boardID.uuidString, Date()])
             }
             try db.execute(

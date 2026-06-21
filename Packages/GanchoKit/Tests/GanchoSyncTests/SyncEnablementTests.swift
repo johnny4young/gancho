@@ -69,4 +69,10 @@ private struct StubSyncLocalStore: SyncLocalStore {
     func forgetAllSyncFields() async throws {}
     func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> { [] }
     func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws {}
+    func pendingBoardUploads() async throws -> [Pinboard] { [] }
+    func markBoardNeedsUpload(id: UUID) async throws {}
+    func markBoardUploaded(id: UUID, systemFields: Data) async throws {}
+    func boardSystemFields(for id: UUID) async throws -> Data? { nil }
+    func applyRemoteBoardUpsert(_ board: Pinboard, systemFields: Data) async throws {}
+    func forgetAllBoardSyncFields() async throws {}
 }

@@ -18,6 +18,10 @@ public actor CKSyncEngineAdapter: SyncEngine {
     private let maxAssetBytes: Int
     private let zoneID = CKRecordZone.ID(
         zoneName: ClipRecordMapper.zoneName, ownerName: CKCurrentUserDefaultName)
+    /// Boards live in their own zone — cleaner separation, and the unit a
+    /// future `CKShare` would share.
+    private let boardZoneID = CKRecordZone.ID(
+        zoneName: BoardRecordMapper.zoneName, ownerName: CKCurrentUserDefaultName)
 
     private var engine: CKSyncEngine?
     /// Set when CloudKit reports the account is out of storage; cleared on the
@@ -51,7 +55,10 @@ public actor CKSyncEngineAdapter: SyncEngine {
     public func start() async throws {
         isPaused = false
         let engine = ensureEngine()
-        engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
+        engine.state.add(pendingDatabaseChanges: [
+            .saveZone(CKRecordZone(zoneID: zoneID)),
+            .saveZone(CKRecordZone(zoneID: boardZoneID)),
+        ])
         await reenqueuePendingWork(into: engine)
         emit(.syncing)
         do {
@@ -91,6 +98,18 @@ public actor CKSyncEngineAdapter: SyncEngine {
             pendingRecordZoneChanges: ids.map { .deleteRecord(recordID(for: $0)) })
     }
 
+    public func enqueue(boards: [Pinboard]) async {
+        guard !isPaused else { return }
+        let engine = ensureEngine()
+        engine.state.add(
+            pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: boardZoneID))])
+        for board in boards {
+            try? await store.markBoardNeedsUpload(id: board.id)
+        }
+        engine.state.add(
+            pendingRecordZoneChanges: boards.map { .saveRecord(boardRecordID(for: $0.id)) })
+    }
+
     // MARK: - Engine lifecycle
 
     private func ensureEngine() -> CKSyncEngine {
@@ -112,6 +131,10 @@ public actor CKSyncEngineAdapter: SyncEngine {
 
     private func recordID(for id: UUID) -> CKRecord.ID {
         CKRecord.ID(recordName: id.uuidString, zoneID: zoneID)
+    }
+
+    private func boardRecordID(for id: UUID) -> CKRecord.ID {
+        CKRecord.ID(recordName: id.uuidString, zoneID: boardZoneID)
     }
 
     // MARK: - Status
@@ -157,6 +180,12 @@ public actor CKSyncEngineAdapter: SyncEngine {
                     UUID(uuidString: name).map { .deleteRecord(recordID(for: $0)) }
                 })
         }
+        if let pendingBoards = try? await store.pendingBoardUploads() {
+            engine.state.add(
+                pendingRecordZoneChanges: pendingBoards.map {
+                    .saveRecord(boardRecordID(for: $0.id))
+                })
+        }
     }
 }
 
@@ -183,6 +212,16 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                     zoneID: zoneID, maxAssetBytes: maxAssetBytes, boardIDs: Array(boardIDs))
                 {
                     built[recordID(for: entry.item.id)] = record
+                }
+            }
+        }
+        if let pendingBoards = try? await store.pendingBoardUploads() {
+            for board in pendingBoards {
+                let systemFields = (try? await store.boardSystemFields(for: board.id)) ?? nil
+                if let record = BoardRecordMapper.record(
+                    for: board, systemFields: systemFields, zoneID: boardZoneID)
+                {
+                    built[boardRecordID(for: board.id)] = record
                 }
             }
         }
@@ -222,11 +261,15 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         switch event.changeType {
         case .signIn:
             emit(.syncing)
-            syncEngine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
+            syncEngine.state.add(pendingDatabaseChanges: [
+                .saveZone(CKRecordZone(zoneID: zoneID)),
+                .saveZone(CKRecordZone(zoneID: boardZoneID)),
+            ])
             await reenqueuePendingWork(into: syncEngine)
         case .signOut, .switchAccounts:
             // Forget the old account's record identities; keep local history.
             try? await store.forgetAllSyncFields()
+            try? await store.forgetAllBoardSyncFields()
             emit(.idle)
         @unknown default:
             break
@@ -236,12 +279,17 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
     private func handleFetchedDatabaseChanges(
         _ event: CKSyncEngine.Event.FetchedDatabaseChanges, syncEngine: CKSyncEngine
     ) async {
-        let zoneWasReset = event.deletions.contains { $0.zoneID.zoneName == zoneID.zoneName }
-        guard zoneWasReset else { return }
-        // Our zone was reset/deleted server-side: drop stale identities and
-        // re-upload everything into a freshly recreated zone.
-        try? await store.forgetAllSyncFields()
-        syncEngine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
+        let clipZoneReset = event.deletions.contains { $0.zoneID.zoneName == zoneID.zoneName }
+        let boardZoneReset = event.deletions.contains { $0.zoneID.zoneName == boardZoneID.zoneName }
+        guard clipZoneReset || boardZoneReset else { return }
+        // A zone was reset/deleted server-side: drop the stale identities for
+        // that zone and re-upload into a freshly recreated one.
+        if clipZoneReset { try? await store.forgetAllSyncFields() }
+        if boardZoneReset { try? await store.forgetAllBoardSyncFields() }
+        syncEngine.state.add(pendingDatabaseChanges: [
+            .saveZone(CKRecordZone(zoneID: zoneID)),
+            .saveZone(CKRecordZone(zoneID: boardZoneID)),
+        ])
         await reenqueuePendingWork(into: syncEngine)
     }
 
@@ -250,6 +298,13 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
     ) async {
         for modification in event.modifications {
             let record = modification.record
+            if record.recordType == BoardRecordMapper.recordType {
+                if let board = BoardRecordMapper.decode(record) {
+                    try? await store.applyRemoteBoardUpsert(
+                        board, systemFields: BoardRecordMapper.encodeSystemFields(record))
+                }
+                continue
+            }
             guard let decoded = ClipRecordMapper.decode(record) else { continue }
             try? await store.applyRemoteUpsert(
                 decoded.item, content: decoded.content,
@@ -267,8 +322,13 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
     ) async {
         for record in event.savedRecords {
             guard let id = UUID(uuidString: record.recordID.recordName) else { continue }
-            try? await store.markUploaded(
-                id: id, systemFields: ClipRecordMapper.encodeSystemFields(record))
+            if record.recordType == BoardRecordMapper.recordType {
+                try? await store.markBoardUploaded(
+                    id: id, systemFields: BoardRecordMapper.encodeSystemFields(record))
+            } else {
+                try? await store.markUploaded(
+                    id: id, systemFields: ClipRecordMapper.encodeSystemFields(record))
+            }
         }
         for recordID in event.deletedRecordIDs {
             try? await store.clearTombstone(recordID: recordID.recordName)
@@ -285,11 +345,15 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         let recordID = failure.record.recordID
         switch failure.error.code {
         case .serverRecordChanged:
-            // Conflict — last-writer-wins: take the server copy. applyRemoteUpsert
-            // keeps whichever updatedAt is newer and records the server's tag.
-            if let serverRecord = failure.error.serverRecord,
-                let decoded = ClipRecordMapper.decode(serverRecord)
-            {
+            // Conflict — last-writer-wins: take the server copy. The upserts
+            // keep whichever updatedAt is newer and record the server's tag.
+            guard let serverRecord = failure.error.serverRecord else { break }
+            if serverRecord.recordType == BoardRecordMapper.recordType {
+                if let board = BoardRecordMapper.decode(serverRecord) {
+                    try? await store.applyRemoteBoardUpsert(
+                        board, systemFields: BoardRecordMapper.encodeSystemFields(serverRecord))
+                }
+            } else if let decoded = ClipRecordMapper.decode(serverRecord) {
                 try? await store.applyRemoteUpsert(
                     decoded.item, content: decoded.content,
                     systemFields: ClipRecordMapper.encodeSystemFields(serverRecord))
@@ -298,8 +362,9 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                     boardIDs: Set(ClipRecordMapper.boardIDs(from: serverRecord)))
             }
         case .zoneNotFound, .userDeletedZone:
-            // Recreate the zone, then retry the record.
-            syncEngine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
+            // Recreate the failed record's own zone, then retry it.
+            syncEngine.state.add(
+                pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: recordID.zoneID))])
             syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
         case .quotaExceeded:
             isPaused = true

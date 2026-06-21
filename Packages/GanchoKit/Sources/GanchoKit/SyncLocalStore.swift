@@ -47,6 +47,15 @@ public protocol SyncLocalStore: Sendable {
     /// Rebuilds a clip's board membership from a synced record, seeding a
     /// placeholder board for any id whose metadata hasn't synced yet.
     func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws
+
+    // Board metadata sync — the board table's mirror of the clip methods above,
+    // so a board's name/glyph propagate. Membership rides the clip record.
+    func pendingBoardUploads() async throws -> [Pinboard]
+    func markBoardNeedsUpload(id: UUID) async throws
+    func markBoardUploaded(id: UUID, systemFields: Data) async throws
+    func boardSystemFields(for id: UUID) async throws -> Data?
+    func applyRemoteBoardUpsert(_ board: Pinboard, systemFields: Data) async throws
+    func forgetAllBoardSyncFields() async throws
 }
 
 extension GRDBClipboardStore: SyncLocalStore {
@@ -150,6 +159,65 @@ extension GRDBClipboardStore: SyncLocalStore {
     public func forgetAllSyncFields() async throws {
         try await writer.write { db in
             try db.execute(sql: "UPDATE clip SET syncSystemFields = NULL, needsUpload = 1")
+        }
+    }
+
+    // MARK: Board metadata sync
+
+    public func pendingBoardUploads() async throws -> [Pinboard] {
+        try await writer.read { db in
+            try PinboardRow.filter(sql: "needsUpload = 1").fetchAll(db).map(\.board)
+        }
+    }
+
+    public func markBoardNeedsUpload(id: UUID) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: "UPDATE pinboard SET needsUpload = 1 WHERE id = ?", arguments: [id.uuidString])
+        }
+    }
+
+    public func markBoardUploaded(id: UUID, systemFields: Data) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: "UPDATE pinboard SET syncSystemFields = ?, needsUpload = 0 WHERE id = ?",
+                arguments: [systemFields, id.uuidString])
+        }
+    }
+
+    public func boardSystemFields(for id: UUID) async throws -> Data? {
+        try await writer.read { db in
+            try Data.fetchOne(
+                db, sql: "SELECT syncSystemFields FROM pinboard WHERE id = ?",
+                arguments: [id.uuidString])
+        }
+    }
+
+    public func applyRemoteBoardUpsert(_ board: Pinboard, systemFields: Data) async throws {
+        try await writer.write { db in
+            // Upsert metadata WITHOUT flipping needsUpload (remote-driven). isSystem
+            // is left untouched so a device's local Favorites stays a system board.
+            try db.execute(
+                sql: """
+                    INSERT INTO pinboard
+                        (id, name, sfSymbol, sortIndex, createdAt, isSystem, syncSystemFields, \
+                    needsUpload)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+                    ON CONFLICT(id) DO UPDATE SET
+                        name = excluded.name, sfSymbol = excluded.sfSymbol,
+                        sortIndex = excluded.sortIndex,
+                        syncSystemFields = excluded.syncSystemFields, needsUpload = 0
+                    """,
+                arguments: [
+                    board.id.uuidString, board.name, board.sfSymbol, board.sortIndex,
+                    board.createdAt, board.isSystem, systemFields,
+                ])
+        }
+    }
+
+    public func forgetAllBoardSyncFields() async throws {
+        try await writer.write { db in
+            try db.execute(sql: "UPDATE pinboard SET syncSystemFields = NULL, needsUpload = 1")
         }
     }
 
