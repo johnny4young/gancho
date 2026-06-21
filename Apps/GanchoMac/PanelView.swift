@@ -76,6 +76,11 @@ struct PanelView: View {
     @State private var selectedBoardID: UUID?
     @State private var boardSheet: BoardSheet?
     @State private var boardNameField = ""
+    /// The snippet whose keyword the query matches exactly — typing it surfaces
+    /// a one-keystroke insert banner above the list (the in-app expansion path).
+    @State private var snippetMatch: ClipItem?
+    /// Set when invoking a template snippet ({fields}) — drives the fill sheet.
+    @State private var fillRequest: SnippetFillRequest?
 
     /// The rows actually shown: `results` narrowed by the active filter pill.
     private var filtered: [ClipItem] {
@@ -113,6 +118,14 @@ struct PanelView: View {
             Button("Cancel", role: .cancel) {}
             Button(boardSheetConfirm) { commitBoardSheet() }
         }
+        .sheet(item: $fillRequest) { request in
+            SnippetFillSheet(request: request) { values in
+                model.pasteSnippet(request.snippet, values: values)
+                fillRequest = nil
+            } onCancel: {
+                fillRequest = nil
+            }
+        }
         // Load the peek for the selected clip, keyed on its id and debounced:
         // arrowing fast cancels the in-flight load, so only the clip you land on
         // is read and rendered — keeps navigation responsive.
@@ -143,7 +156,13 @@ struct PanelView: View {
                 .onKeyPress(.downArrow) { move(1) }
                 .onKeyPress(.upArrow) { move(-1) }
                 .onKeyPress(.return, phases: .down) { press in
-                    pasteSelected(plain: press.modifiers.contains(.option))
+                    // An exact keyword match takes Enter (you typed the snippet's
+                    // shortcut on purpose); otherwise Enter pastes the selection.
+                    if let match = snippetMatch {
+                        invokeSnippet(match)
+                    } else {
+                        pasteSelected(plain: press.modifiers.contains(.option))
+                    }
                     return .handled
                 }
                 .onKeyPress(.escape) {
@@ -183,6 +202,10 @@ struct PanelView: View {
             boardRail
 
             filterRail
+
+            if let snippetMatch {
+                snippetBanner(snippetMatch)
+            }
 
             if filtered.isEmpty {
                 emptyState
@@ -559,7 +582,55 @@ struct PanelView: View {
             let all = (try? await model.store.items(offset: 0, limit: 200)) ?? []
             results = all.filter { $0.preview.localizedCaseInsensitiveContains(query) }
         }
+        // A query that exactly matches a snippet's keyword offers a one-keystroke
+        // insert (filling {fields} first if it's a template).
+        snippetMatch = query.isEmpty ? nil : await model.snippet(matchingKeyword: query)
         selectedIndex = 0
+    }
+
+    /// The keyword-match banner above the list: ⏎ inserts the snippet (a
+    /// template opens the fill sheet first). Tinted with the accent to read as
+    /// the primary action when present.
+    private func snippetBanner(_ snippet: ClipItem) -> some View {
+        Button {
+            invokeSnippet(snippet)
+        } label: {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                Image(systemName: "bolt.fill").font(.caption)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Insert snippet").font(.caption2).foregroundStyle(.secondary)
+                    Text(snippet.title.isEmpty ? snippet.preview : snippet.title)
+                        .font(.callout.weight(.semibold)).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "return").font(.caption2).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, GanchoTokens.Spacing.sm)
+            .padding(.vertical, GanchoTokens.Spacing.xs)
+            .background(
+                GanchoTokens.Palette.accent.opacity(0.14),
+                in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, GanchoTokens.Spacing.xxs)
+        .accessibilityIdentifier("snippet-insert-banner")
+    }
+
+    /// Invoke a snippet: fill its {fields} via a sheet if it's a template,
+    /// otherwise paste straight away (incrementing its usage count).
+    private func invokeSnippet(_ snippet: ClipItem) {
+        Task {
+            var body = ""
+            if case .text(let text)? = try? await model.store.content(for: snippet.id) {
+                body = text
+            }
+            let fields = SnippetTemplate.fields(in: body)
+            if fields.isEmpty {
+                model.pasteSnippet(snippet, values: [:])
+            } else {
+                fillRequest = SnippetFillRequest(snippet: snippet, body: body, fields: fields)
+            }
+        }
     }
 }
 
@@ -791,5 +862,94 @@ struct ClipPeek: View {
             attributed[lo..<hi].foregroundColor = GanchoTokens.Syntax.color(for: token.kind)
         }
         return attributed
+    }
+}
+
+/// A pending template insertion: the snippet, its resolved body, and the
+/// {fields} to fill before paste.
+struct SnippetFillRequest: Identifiable {
+    let snippet: ClipItem
+    let body: String
+    let fields: [SnippetTemplate.Field]
+    var id: UUID { snippet.id }
+}
+
+/// Collects values for a template snippet's {fields} before paste. Defaults
+/// (`{name:World}`) pre-fill the editors; a live preview shows the filled
+/// result. Keyboard-first: the first field focuses on appear, ⏎ inserts and
+/// Esc cancels.
+struct SnippetFillSheet: View {
+    let request: SnippetFillRequest
+    let onInsert: ([String: String]) -> Void
+    let onCancel: () -> Void
+    @State private var values: [String: String] = [:]
+    @FocusState private var focusedField: String?
+
+    private var filled: String {
+        SnippetTemplate.fill(request.body, values: values)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Insert snippet").font(.caption).foregroundStyle(.secondary)
+                Text(
+                    verbatim: request.snippet.title.isEmpty
+                        ? request.snippet.preview : request.snippet.title
+                )
+                .font(.headline).lineLimit(1)
+            }
+
+            ForEach(request.fields) { field in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: field.name)
+                        .font(.caption.monospaced()).foregroundStyle(.secondary)
+                    TextField(field.defaultValue ?? field.name, text: binding(for: field))
+                        .textFieldStyle(.roundedBorder)
+                        .focused($focusedField, equals: field.name)
+                        .accessibilityIdentifier("fill-field-\(field.name)")
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Preview").font(.caption2).foregroundStyle(.secondary)
+                ScrollView {
+                    Text(filled)
+                        .font(.body.monospaced())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                .frame(maxHeight: 120)
+                .padding(GanchoTokens.Spacing.xs)
+                .background(
+                    .quaternary,
+                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous))
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { onCancel() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Insert") { onInsert(values) }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("fill-insert")
+            }
+        }
+        .padding(GanchoTokens.Spacing.lg)
+        .frame(width: 380)
+        .accessibilityIdentifier("snippet-fill-sheet")
+        .onAppear {
+            for field in request.fields where field.defaultValue != nil {
+                values[field.name] = field.defaultValue
+            }
+            focusedField = request.fields.first?.name
+        }
+    }
+
+    private func binding(for field: SnippetTemplate.Field) -> Binding<String> {
+        Binding(
+            get: { values[field.name] ?? "" },
+            set: { values[field.name] = $0 })
     }
 }
