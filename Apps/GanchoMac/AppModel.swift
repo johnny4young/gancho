@@ -704,7 +704,9 @@ final class AppModel {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
                 return
             }
-            _ = try? await grdbStore.createPinboard(name: name)
+            if let board = try? await grdbStore.createPinboard(name: name) {
+                await sync.enqueue(boards: [board])
+            }
             await refreshBoards()
         }
     }
@@ -715,6 +717,9 @@ final class AppModel {
         guard let grdbStore else { return }
         Task {
             try? await grdbStore.renameBoard(id: board.id, name: name)
+            var renamed = board
+            renamed.name = name
+            await sync.enqueue(boards: [renamed])
             await refreshBoards()
         }
     }

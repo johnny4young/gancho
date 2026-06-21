@@ -136,6 +136,24 @@ struct PinboardTests {
         #expect(try await store.boardIDs(forClip: item.id) == Set([known.id]))
     }
 
+    @Test("Board metadata uploads once; an incoming record clears the flag")
+    func boardMetadataSync() async throws {
+        let store = try makeStore()
+        let board = try await store.createPinboard(name: "Work", sfSymbol: "briefcase")
+        // A freshly created board is pending upload.
+        #expect(try await store.pendingBoardUploads().contains { $0.id == board.id })
+
+        try await store.markBoardUploaded(id: board.id, systemFields: Data([1, 2, 3]))
+        #expect(!(try await store.pendingBoardUploads().contains { $0.id == board.id }))
+        #expect(try await store.boardSystemFields(for: board.id) == Data([1, 2, 3]))
+
+        // An incoming board record upserts metadata without re-flagging upload.
+        let incoming = Pinboard(name: "From another device", sfSymbol: "star")
+        try await store.applyRemoteBoardUpsert(incoming, systemFields: Data([9]))
+        #expect(try await store.pinboards().map(\.name).contains("From another device"))
+        #expect(!(try await store.pendingBoardUploads().contains { $0.id == incoming.id }))
+    }
+
     @Test("Free limits: 10 pins, 1 board; Pro unlimited")
     func freeLimits() {
         #expect(PinLimits.canPin(currentPinCount: 9, isPro: false))

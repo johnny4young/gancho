@@ -231,6 +231,17 @@ public final class GRDBClipboardStore: ClipboardStore {
                     Date(timeIntervalSince1970: 0),
                 ])
         }
+        migrator.registerMigration("v12-board-sync") { db in
+            // Board metadata syncs (owner design): mirror the clip's sync columns
+            // on the board table so a board's name/glyph propagate between devices.
+            // `needsUpload` defaults to 1 so boards predating sync upload on the
+            // first synced run. The seeded Favorites is also marked — harmless,
+            // it just re-asserts its (identical) metadata.
+            try db.alter(table: "pinboard") { t in
+                t.add(column: "syncSystemFields", .blob)
+                t.add(column: "needsUpload", .boolean).notNull().defaults(to: true)
+            }
+        }
         return migrator
     }
 
