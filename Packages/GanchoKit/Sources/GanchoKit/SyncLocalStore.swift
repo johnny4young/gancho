@@ -40,6 +40,13 @@ public protocol SyncLocalStore: Sendable {
     /// must re-upload from scratch. Local clips are kept — only the sync
     /// linkage is forgotten.
     func forgetAllSyncFields() async throws
+
+    /// The board ids a clip belongs to — read when building the clip's sync
+    /// record so membership rides the clip (the boards extension implements it).
+    func boardIDs(forClip clipID: UUID) async throws -> Set<UUID>
+    /// Rebuilds a clip's board membership from a synced record, seeding a
+    /// placeholder board for any id whose metadata hasn't synced yet.
+    func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws
 }
 
 extension GRDBClipboardStore: SyncLocalStore {

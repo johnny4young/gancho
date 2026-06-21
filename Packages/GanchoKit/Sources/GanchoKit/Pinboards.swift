@@ -172,6 +172,30 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// Replace a clip's board membership from a synced set (the sync layer's
+    /// receive path). Any id without a local board gets an unnamed placeholder
+    /// so membership is never lost; its name/glyph arrive with the board's own
+    /// synced record. `INSERT OR IGNORE` leaves an existing board (e.g. the
+    /// seeded Favorites) untouched.
+    public func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws {
+        try await writer.write { db in
+            for boardID in boardIDs {
+                try db.execute(
+                    sql: "INSERT OR IGNORE INTO pinboard "
+                        + "(id, name, sfSymbol, sortIndex, createdAt, isSystem) "
+                        + "VALUES (?, '', 'square.stack', 0, ?, 0)",
+                    arguments: [boardID.uuidString, Date()])
+            }
+            try db.execute(
+                sql: "DELETE FROM clip_board WHERE clipID = ?", arguments: [clipID.uuidString])
+            for boardID in boardIDs {
+                try db.execute(
+                    sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) VALUES (?, ?)",
+                    arguments: [clipID.uuidString, boardID.uuidString])
+            }
+        }
+    }
+
     /// Manual reorder (the SDK-27 Reorderable Containers API replaces the
     /// call sites when it ships; the column stays either way).
     public func setSortIndex(clipID: UUID, _ index: Int) async throws {

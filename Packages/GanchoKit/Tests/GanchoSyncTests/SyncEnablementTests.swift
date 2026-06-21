@@ -67,4 +67,6 @@ private struct StubSyncLocalStore: SyncLocalStore {
     func applyRemoteDeletion(recordID: String) async throws {}
     func clearTombstone(recordID: String) async throws {}
     func forgetAllSyncFields() async throws {}
+    func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> { [] }
+    func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws {}
 }

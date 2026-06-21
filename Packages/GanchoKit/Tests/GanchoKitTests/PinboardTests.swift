@@ -117,6 +117,25 @@ struct PinboardTests {
         #expect(try await store.count(inBoard: board.id) == 1, "board members never expire")
     }
 
+    @Test("Synced membership rebuilds boards and seeds a placeholder for unknown ids")
+    func setBoardMembershipRebuilds() async throws {
+        let store = try makeStore()
+        let known = try await store.createPinboard(name: "Known")
+        let item = ClipItem(preview: "clip", contentHash: "h")
+        try await store.insert(item, content: .text("clip"))
+
+        // A synced clip references a known board + an id whose metadata hasn't
+        // arrived: membership is kept and the unknown board gets a placeholder.
+        let unknown = UUID()
+        try await store.setBoardMembership(clipID: item.id, boardIDs: [known.id, unknown])
+        #expect(try await store.boardIDs(forClip: item.id) == Set([known.id, unknown]))
+        #expect(try await store.pinboards().contains { $0.id == unknown })
+
+        // Re-applying replaces (it doesn't accumulate).
+        try await store.setBoardMembership(clipID: item.id, boardIDs: [known.id])
+        #expect(try await store.boardIDs(forClip: item.id) == Set([known.id]))
+    }
+
     @Test("Free limits: 10 pins, 1 board; Pro unlimited")
     func freeLimits() {
         #expect(PinLimits.canPin(currentPinCount: 9, isPro: false))
