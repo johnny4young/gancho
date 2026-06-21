@@ -697,7 +697,8 @@ final class AppModel {
     func createBoard(named name: String) {
         guard let grdbStore else { return }
         Task {
-            let count = (try? await grdbStore.pinboards().count) ?? 0
+            // The built-in Favorites board never counts against the free limit.
+            let count = (try? await grdbStore.pinboards().filter { !$0.isSystem }.count) ?? 0
             guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro)
             else {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)

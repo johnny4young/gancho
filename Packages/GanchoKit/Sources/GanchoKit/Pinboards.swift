@@ -13,17 +13,26 @@ public struct Pinboard: Identifiable, Sendable, Equatable, Codable {
     public var sfSymbol: String
     public var sortIndex: Int
     public var createdAt: Date
+    /// Built-in boards (Favorites) can't be renamed or deleted and always sort
+    /// first; user boards are fully editable.
+    public var isSystem: Bool
 
     public init(
         id: UUID = UUID(), name: String, sfSymbol: String = "square.stack",
-        sortIndex: Int = 0, createdAt: Date = .now
+        sortIndex: Int = 0, createdAt: Date = .now, isSystem: Bool = false
     ) {
         self.id = id
         self.name = name
         self.sfSymbol = sfSymbol
         self.sortIndex = sortIndex
         self.createdAt = createdAt
+        self.isSystem = isSystem
     }
+
+    /// The always-present, non-deletable Favorites board (seeded by migration).
+    /// Display its name via a localized label keyed on `isSystem`, not this raw
+    /// value, so it reads "Favoritos" in Spanish.
+    public static let favoritesID = UUID(uuidString: "FA000000-0000-4000-A000-000000000001")!
 }
 
 /// Free-tier ceilings (PasteBar pattern — the cleanest conversion gate on
@@ -63,8 +72,10 @@ extension GRDBClipboardStore {
 
     public func pinboards() async throws -> [Pinboard] {
         try await writer.read { db in
-            try PinboardRow.order(Column("sortIndex").asc, Column("createdAt").asc)
-                .fetchAll(db).map(\.board)
+            try PinboardRow.order(
+                Column("isSystem").desc, Column("sortIndex").asc, Column("createdAt").asc
+            )
+            .fetchAll(db).map(\.board)
         }
     }
 
@@ -85,19 +96,24 @@ extension GRDBClipboardStore {
         return board
     }
 
+    /// System boards (Favorites) are immutable — the `isSystem = 0` guard makes
+    /// rename a no-op on them even if the UI ever offered it.
     public func renameBoard(id: UUID, name: String) async throws {
         try await writer.write { db in
             try db.execute(
-                sql: "UPDATE pinboard SET name = ? WHERE id = ?",
+                sql: "UPDATE pinboard SET name = ? WHERE id = ? AND isSystem = 0",
                 arguments: [name, id.uuidString])
         }
     }
 
     /// Deleting a board never deletes its clips — the `clip_board` rows cascade
-    /// away and the clips return to plain history.
+    /// away and the clips return to plain history. System boards can't be
+    /// deleted (the `isSystem = 0` guard).
     public func deletePinboard(id: UUID) async throws {
         try await writer.write { db in
-            try db.execute(sql: "DELETE FROM pinboard WHERE id = ?", arguments: [id.uuidString])
+            try db.execute(
+                sql: "DELETE FROM pinboard WHERE id = ? AND isSystem = 0",
+                arguments: [id.uuidString])
         }
     }
 
@@ -175,6 +191,7 @@ struct PinboardRow: Codable, FetchableRecord, PersistableRecord {
     var sfSymbol: String
     var sortIndex: Int
     var createdAt: Date
+    var isSystem: Bool
 
     init(board: Pinboard) {
         id = board.id.uuidString
@@ -182,11 +199,12 @@ struct PinboardRow: Codable, FetchableRecord, PersistableRecord {
         sfSymbol = board.sfSymbol
         sortIndex = board.sortIndex
         createdAt = board.createdAt
+        isSystem = board.isSystem
     }
 
     var board: Pinboard {
         Pinboard(
             id: UUID(uuidString: id) ?? UUID(), name: name, sfSymbol: sfSymbol,
-            sortIndex: sortIndex, createdAt: createdAt)
+            sortIndex: sortIndex, createdAt: createdAt, isSystem: isSystem)
     }
 }
