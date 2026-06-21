@@ -33,6 +33,7 @@ struct KeyboardView: View {
                     .transition(.opacity)
             }
             if model.expanded {
+                if !model.boards.isEmpty { boardRow }
                 expandedList
             } else {
                 compactRow
@@ -42,6 +43,49 @@ struct KeyboardView: View {
         .animation(.easeInOut(duration: 0.15), value: model.note != nil)
         .animation(.snappy(duration: 0.22), value: model.expanded)
         .animation(.snappy(duration: 0.22), value: model.entries)
+    }
+
+    // MARK: - Board filter (expanded mode)
+
+    /// A tap-friendly board strip — All · Favorites · synced boards — shown only
+    /// in the roomier expanded layout so the compact one-row strip stays minimal.
+    private var boardRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                boardChip(label: Text("All"), isActive: model.selectedBoardID == nil) {
+                    model.selectBoard(nil)
+                }
+                ForEach(model.boards) { board in
+                    boardChip(
+                        label: board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                        systemImage: board.sfSymbol,
+                        isActive: model.selectedBoardID == board.id
+                    ) {
+                        model.selectBoard(board.id)
+                    }
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+    }
+
+    private func boardChip(
+        label: Text, systemImage: String? = nil, isActive: Bool, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let systemImage { Image(systemName: systemImage).font(.caption2) }
+                label.font(.caption.weight(.medium))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                isActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary), in: .capsule
+            )
+            .foregroundStyle(isActive ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .contentShape(.capsule)
+        }
+        .buttonStyle(PressableScale())
     }
 
     // MARK: - Control bar
