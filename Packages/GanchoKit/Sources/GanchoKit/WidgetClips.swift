@@ -12,15 +12,24 @@ public struct WidgetClipEntry: Identifiable, Sendable, Equatable, Codable {
     public let displayText: String
     public let kind: ClipContentKind
     public let isSensitive: Bool
+    /// Source app bundle id and capture time for the row's metadata line; nil
+    /// when unknown. These are metadata, not content — shown even for masked
+    /// clips (the secret itself stays masked in `displayText`). Optional so
+    /// older cached timelines still decode.
+    public let sourceAppBundleID: String?
+    public let createdAt: Date?
 
     public init(
-        id: UUID, title: String, displayText: String, kind: ClipContentKind, isSensitive: Bool
+        id: UUID, title: String, displayText: String, kind: ClipContentKind, isSensitive: Bool,
+        sourceAppBundleID: String? = nil, createdAt: Date? = nil
     ) {
         self.id = id
         self.title = title
         self.displayText = displayText
         self.kind = kind
         self.isSensitive = isSensitive
+        self.sourceAppBundleID = sourceAppBundleID
+        self.createdAt = createdAt
     }
 
     /// Deep-link URL that opens this clip in the app (`gancho://clip/<id>`).
@@ -41,12 +50,14 @@ public enum WidgetClips {
             if item.isSensitive {
                 return WidgetClipEntry(
                     id: item.id, title: "", displayText: masked, kind: item.kind,
-                    isSensitive: true)
+                    isSensitive: true, sourceAppBundleID: item.sourceAppBundleID,
+                    createdAt: item.createdAt)
             }
             let body = item.preview.isEmpty ? item.title : item.preview
             return WidgetClipEntry(
                 id: item.id, title: item.title, displayText: ByteSize.humanizedPreview(body),
-                kind: item.kind, isSensitive: false)
+                kind: item.kind, isSensitive: false, sourceAppBundleID: item.sourceAppBundleID,
+                createdAt: item.createdAt)
         }
     }
 

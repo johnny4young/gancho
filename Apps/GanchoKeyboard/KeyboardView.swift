@@ -1,3 +1,4 @@
+import GanchoDesign
 import GanchoKit
 import SwiftUI
 
@@ -120,7 +121,7 @@ struct KeyboardView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: entry.kind.symbolName)
                                     .font(.caption2)
-                                    .foregroundStyle(.tint)
+                                    .foregroundStyle(GanchoTokens.Palette.kindTint(for: entry.kind))
                                 Text(entry.displayText)
                                     .lineLimit(1)
                                     .font(.callout)
@@ -149,18 +150,18 @@ struct KeyboardView: View {
                         model.insert(entry)
                     } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: entry.kind.symbolName)
-                                .font(.footnote)
-                                .foregroundStyle(.tint)
-                                .frame(width: 22)
-                            Text(entry.displayText)
-                                .lineLimit(2)
-                                .font(.callout)
-                                .foregroundStyle(.primary)
+                            keyboardTile(for: entry.kind)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(entry.displayText)
+                                    .lineLimit(2)
+                                    .font(.callout)
+                                    .foregroundStyle(.primary)
+                                metadataLine(for: entry)
+                            }
                             Spacer(minLength: 0)
                         }
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 11)
+                        .padding(.vertical, 10)
                         .background(.fill.quaternary, in: .rect(cornerRadius: 12))
                         .contentShape(.rect)
                     }
@@ -175,6 +176,40 @@ struct KeyboardView: View {
         Text("Nothing here yet")
             .font(.caption)
             .foregroundStyle(.tertiary)
+    }
+
+    /// Kind-tinted leading tile (matches the macOS history row): the kind glyph
+    /// on a tint-washed rounded square.
+    private func keyboardTile(for kind: ClipContentKind) -> some View {
+        let tint = GanchoTokens.Palette.kindTint(for: kind)
+        return RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(tint.opacity(0.18))
+            .frame(width: 30, height: 30)
+            .overlay {
+                Image(systemName: kind.symbolName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(tint)
+            }
+    }
+
+    /// "Safari · 2 min" — source app (cheap fallback name) and capture time,
+    /// shown when the entry carries them.
+    @ViewBuilder private func metadataLine(for entry: WidgetClipEntry) -> some View {
+        let bundleID = entry.sourceAppBundleID
+        if bundleID?.isEmpty == false || entry.createdAt != nil {
+            HStack(spacing: 3) {
+                if let bundleID, !bundleID.isEmpty {
+                    Text(SourceApp.fallbackName(forBundleID: bundleID))
+                    if entry.createdAt != nil { Text(verbatim: "·") }
+                }
+                if let createdAt = entry.createdAt {
+                    Text(createdAt, style: .relative)
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+        }
     }
 }
 
