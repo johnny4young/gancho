@@ -1345,6 +1345,16 @@
         }
       }
     },
+    "Last copied" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Último copiado"
+          }
+        }
+      }
+    },
     "Library" : {
       "extractionState" : "stale",
       "localizations" : {

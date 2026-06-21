@@ -70,6 +70,24 @@ enum GanchoMenuBarCommand: String, CaseIterable {
         }
     }
 
+    /// Leading SF Symbol for the row, matching the design's menu icons.
+    var iconSymbol: String {
+        switch self {
+        case .library: "books.vertical"
+        case .openPanel: "macwindow"
+        case .toggleCapture: "pause"
+        case .togglePrivateMode: "eye.slash"
+        case .ignoreNextCopy: "minus.circle"
+        case .settings: "gearshape"
+        case .welcome: "hand.wave"
+        case .privacyCenter: "lock.shield"
+        case .wrapped: "gift"
+        case .fixClipboardAccess: "exclamationmark.triangle"
+        case .showInDock: "dock.rectangle"
+        case .quit: "power"
+        }
+    }
+
     var accessibilityIdentifier: String { "menu-bar-command-\(rawValue)" }
 
     var accessibilityLabel: String {

@@ -50,6 +50,12 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
         header.image = status.icon.statusDot()
         menu.addItem(header)
 
+        // The most recent clip (masked by the app; absent in private mode and
+        // when no app-group bridge is present). Clicking it opens the panel.
+        if let recent = GanchoMenuBarBridge.readLastCopied() {
+            menu.addItem(lastCopiedItem(recent))
+        }
+
         for section in GanchoMenuBarCommand.helperMenuSections {
             menu.addItem(.separator())
             for command in section {
@@ -60,11 +66,46 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
                 item.target = self
                 item.keyEquivalentModifierMask = command.modifiers
                 item.representedObject = command.rawValue
+                item.image = NSImage(
+                    systemSymbolName: command.iconSymbol, accessibilityDescription: nil)
                 item.setAccessibilityIdentifier(command.accessibilityIdentifier)
                 item.setAccessibilityLabel(command.accessibilityLabel)
                 menu.addItem(item)
             }
         }
+    }
+
+    /// A two-line recent row: the masked preview over a "<label> · <when>"
+    /// caption with a link glyph. Opens the panel on click.
+    private func lastCopiedItem(_ recent: (preview: String, label: String, at: Date)) -> NSMenuItem
+    {
+        let item = NSMenuItem(
+            title: "", action: #selector(performCommand(_:)), keyEquivalent: "")
+        item.target = self
+        item.representedObject = GanchoMenuBarCommand.openPanel.rawValue
+        item.image = NSImage(systemSymbolName: "link", accessibilityDescription: nil)
+
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        let when = formatter.localizedString(for: recent.at, relativeTo: Date())
+
+        let title = NSMutableAttributedString(
+            string: recent.preview + "\n",
+            attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.labelColor])
+        title.append(
+            NSAttributedString(
+                string: "\(recent.label) · \(when)",
+                attributes: [
+                    .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                ]))
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byTruncatingTail
+        title.addAttribute(
+            .paragraphStyle, value: paragraph, range: NSRange(location: 0, length: title.length))
+        item.attributedTitle = title
+        item.setAccessibilityLabel("\(recent.label): \(recent.preview)")
+        return item
     }
 
     private func applyStatusPresentation() {
