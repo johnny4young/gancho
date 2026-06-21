@@ -709,6 +709,25 @@ final class AppModel {
         }
     }
 
+    /// Rename / delete are no-ops on the built-in Favorites board (the store
+    /// guards on isSystem), so the UI only needs to hide the affordances.
+    func renameBoard(_ board: Pinboard, name: String) {
+        guard let grdbStore else { return }
+        Task {
+            try? await grdbStore.renameBoard(id: board.id, name: name)
+            await refreshBoards()
+        }
+    }
+
+    func deleteBoard(_ board: Pinboard) {
+        guard let grdbStore else { return }
+        Task {
+            try? await grdbStore.deletePinboard(id: board.id)
+            await refreshBoards()
+            await refreshRecents()
+        }
+    }
+
     // MARK: - Denylist & settings portability
 
     var denylistEntries: [String] {

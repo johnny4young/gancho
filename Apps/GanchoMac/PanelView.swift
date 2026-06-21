@@ -47,6 +47,19 @@ enum ClipKindFilter: String, CaseIterable, Identifiable {
     }
 }
 
+/// Drives the new-board / rename-board name prompt.
+private enum BoardSheet: Identifiable {
+    case new
+    case rename(Pinboard)
+
+    var id: String {
+        switch self {
+        case .new: "new"
+        case .rename(let board): board.id.uuidString
+        }
+    }
+}
+
 /// The floating history panel: compact, keyboard-first (the explicit design
 /// decision vs Paste's full-width drawer). Every interaction works without
 /// a mouse: type-to-search, ↑↓, Enter, ⌥Enter, ⌘1–9, Space, Esc.
@@ -58,6 +71,11 @@ struct PanelView: View {
     @State private var selectedIndex = 0
     @State private var previewText = ""
     @State private var kindFilter: ClipKindFilter = .all
+    /// nil = "All clips"; otherwise the selected board's id. Boards are a
+    /// higher axis than the kind filter and sit above it in the rail.
+    @State private var selectedBoardID: UUID?
+    @State private var boardSheet: BoardSheet?
+    @State private var boardNameField = ""
 
     /// The rows actually shown: `results` narrowed by the active filter pill.
     private var filtered: [ClipItem] {
@@ -80,11 +98,20 @@ struct PanelView: View {
         .padding(GanchoTokens.Spacing.sm)
         .frame(minWidth: selectedItem == nil ? 372 : 724, minHeight: 460)
         .task { await refresh() }
+        .task { await model.refreshBoards() }
         .onChange(of: query) { _, _ in
             Task { await refresh() }
         }
         .onChange(of: model.recentItems) { _, _ in
             Task { await refresh() }
+        }
+        .onChange(of: selectedBoardID) { _, _ in
+            Task { await refresh() }
+        }
+        .alert(boardSheetTitle, isPresented: boardSheetPresented) {
+            TextField("Board name", text: $boardNameField)
+            Button("Cancel", role: .cancel) {}
+            Button(boardSheetConfirm) { commitBoardSheet() }
         }
         // Load the peek for the selected clip, keyed on its id and debounced:
         // arrowing fast cancels the in-flight load, so only the clip you land on
@@ -152,6 +179,8 @@ struct PanelView: View {
                     model.promoteToSnippet(item)
                     return .handled
                 }
+
+            boardRail
 
             filterRail
 
@@ -228,6 +257,104 @@ struct PanelView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("filter-\(filter.rawValue)")
+    }
+
+    /// The board rail above the type filters: All clips · Favorites · user
+    /// boards · + New board. The active board takes the system accent; the
+    /// built-in Favorites board can't be renamed or deleted.
+    private var boardRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: GanchoTokens.Spacing.xxs) {
+                boardChip(
+                    label: Text("All clips"), systemImage: "tray.full",
+                    isActive: selectedBoardID == nil, identifier: "board-all"
+                ) {
+                    selectedBoardID = nil
+                }
+                ForEach(model.boards) { board in
+                    boardChip(
+                        label: board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                        systemImage: board.sfSymbol,
+                        isActive: selectedBoardID == board.id,
+                        identifier: "board-\(board.id.uuidString)"
+                    ) {
+                        selectedBoardID = board.id
+                    }
+                    .contextMenu {
+                        if !board.isSystem {
+                            Button("Rename board…") {
+                                boardNameField = board.name
+                                boardSheet = .rename(board)
+                            }
+                            Button("Delete board", role: .destructive) {
+                                if selectedBoardID == board.id { selectedBoardID = nil }
+                                model.deleteBoard(board)
+                            }
+                        }
+                    }
+                }
+                Button {
+                    boardNameField = ""
+                    boardSheet = .new
+                } label: {
+                    Label("New board…", systemImage: "plus")
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, GanchoTokens.Spacing.xs)
+                        .padding(.vertical, 3)
+                        .background(.quaternary, in: Capsule())
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("board-new")
+            }
+            .padding(.horizontal, GanchoTokens.Spacing.xxs)
+        }
+    }
+
+    private func boardChip(
+        label: Text, systemImage: String, isActive: Bool, identifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: systemImage).font(.caption2)
+                label.font(.caption.weight(.medium))
+            }
+            .padding(.horizontal, GanchoTokens.Spacing.xs)
+            .padding(.vertical, 3)
+            .background(
+                isActive ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
+                in: Capsule()
+            )
+            .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
+    }
+
+    private var boardSheetPresented: Binding<Bool> {
+        Binding(get: { boardSheet != nil }, set: { if !$0 { boardSheet = nil } })
+    }
+
+    private var boardSheetTitle: LocalizedStringKey {
+        if case .rename = boardSheet { return "Rename board" }
+        return "New board"
+    }
+
+    private var boardSheetConfirm: LocalizedStringKey {
+        if case .rename = boardSheet { return "Rename" }
+        return "Create"
+    }
+
+    private func commitBoardSheet() {
+        let name = boardNameField.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        switch boardSheet {
+        case .new: model.createBoard(named: name)
+        case .rename(let board): model.renameBoard(board, name: name)
+        case nil: break
+        }
+        boardSheet = nil
     }
 
     /// "RECENT … N CLIPS" header above the list.
@@ -417,10 +544,17 @@ struct PanelView: View {
     /// Type-to-search: first keystroke already narrows; empty query shows
     /// recents (pins first, store order).
     private func refresh() async {
+        let board = selectedBoardID
         if query.isEmpty {
-            results = (try? await model.store.items(offset: 0, limit: 50)) ?? []
+            if let board, let grdb = model.grdbStore {
+                results = (try? await grdb.items(inBoard: board)) ?? []
+            } else {
+                results = (try? await model.store.items(offset: 0, limit: 50)) ?? []
+            }
         } else if let grdb = model.grdbStore {
-            results = (try? await grdb.search(ClipSearchQuery(text: query), limit: 50)) ?? []
+            results =
+                (try? await grdb.search(ClipSearchQuery(text: query, boardID: board), limit: 50))
+                ?? []
         } else {
             let all = (try? await model.store.items(offset: 0, limit: 200)) ?? []
             results = all.filter { $0.preview.localizedCaseInsensitiveContains(query) }
