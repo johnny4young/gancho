@@ -110,6 +110,13 @@ public actor CKSyncEngineAdapter: SyncEngine {
             pendingRecordZoneChanges: boards.map { .saveRecord(boardRecordID(for: $0.id)) })
     }
 
+    public func enqueueBoardDeletion(ids: [UUID]) async {
+        guard !isPaused else { return }
+        let engine = ensureEngine()
+        engine.state.add(
+            pendingRecordZoneChanges: ids.map { .deleteRecord(boardRecordID(for: $0)) })
+    }
+
     // MARK: - Engine lifecycle
 
     private func ensureEngine() -> CKSyncEngine {
@@ -152,7 +159,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
         }
         let uploads = (try? await store.pendingUploads().count) ?? 0
         let deletions = (try? await store.pendingDeletionRecordIDs().count) ?? 0
-        let pending = uploads + deletions
+        let boardUploads = (try? await store.pendingBoardUploads().count) ?? 0
+        let boardDeletions = (try? await store.pendingBoardDeletionRecordIDs().count) ?? 0
+        let pending = uploads + deletions + boardUploads + boardDeletions
         emit(pending > 0 ? .pending(pending) : .upToDate(at: Date()))
     }
 
@@ -184,6 +193,12 @@ public actor CKSyncEngineAdapter: SyncEngine {
             engine.state.add(
                 pendingRecordZoneChanges: pendingBoards.map {
                     .saveRecord(boardRecordID(for: $0.id))
+                })
+        }
+        if let boardDeletions = try? await store.pendingBoardDeletionRecordIDs() {
+            engine.state.add(
+                pendingRecordZoneChanges: boardDeletions.compactMap { name in
+                    UUID(uuidString: name).map { .deleteRecord(boardRecordID(for: $0)) }
                 })
         }
     }
@@ -313,7 +328,11 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                 clipID: decoded.item.id, boardIDs: Set(ClipRecordMapper.boardIDs(from: record)))
         }
         for deletion in event.deletions {
-            try? await store.applyRemoteDeletion(recordID: deletion.recordID.recordName)
+            if deletion.recordID.zoneID.zoneName == boardZoneID.zoneName {
+                try? await store.applyRemoteBoardDeletion(recordID: deletion.recordID.recordName)
+            } else {
+                try? await store.applyRemoteDeletion(recordID: deletion.recordID.recordName)
+            }
         }
     }
 
@@ -331,7 +350,11 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             }
         }
         for recordID in event.deletedRecordIDs {
-            try? await store.clearTombstone(recordID: recordID.recordName)
+            if recordID.zoneID.zoneName == boardZoneID.zoneName {
+                try? await store.clearBoardTombstone(recordID: recordID.recordName)
+            } else {
+                try? await store.clearTombstone(recordID: recordID.recordName)
+            }
         }
         for failure in event.failedRecordSaves {
             await handleFailedSave(failure, syncEngine: syncEngine)

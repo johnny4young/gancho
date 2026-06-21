@@ -206,6 +206,65 @@ extension GRDBClipboardStore {
         }
     }
 
+    // MARK: - Board deletion sync
+
+    /// Record IDs of board deletions waiting to propagate (board-zone tombstones).
+    public func pendingBoardDeletionRecordIDs() async throws -> [String] {
+        try await writer.read { db in
+            try String.fetchAll(db, sql: "SELECT recordID FROM board_tombstone")
+        }
+    }
+
+    /// Deletes a board AND records a tombstone so the deletion reaches the user's
+    /// other devices — call this instead of `deletePinboard` when sync is active.
+    /// The member clips are re-queued for upload so their sync records drop the
+    /// dead board id; otherwise a stale id would resurrect the board as a
+    /// placeholder elsewhere. A no-op on the protected Favorites board.
+    public func deletePinboardForSync(id: UUID, now: Date = .now) async throws {
+        try await writer.write { db in
+            let isSystem =
+                try Bool.fetchOne(
+                    db, sql: "SELECT isSystem FROM pinboard WHERE id = ?",
+                    arguments: [id.uuidString]) ?? true
+            guard !isSystem else { return }
+            try db.execute(
+                sql: "INSERT OR REPLACE INTO board_tombstone (recordID, deletedAt) VALUES (?, ?)",
+                arguments: [id.uuidString, now])
+            try db.execute(
+                sql: "UPDATE clip SET needsUpload = 1 "
+                    + "WHERE id IN (SELECT clipID FROM clip_board WHERE boardID = ?)",
+                arguments: [id.uuidString])
+            try db.execute(
+                sql: "DELETE FROM clip_board WHERE boardID = ?", arguments: [id.uuidString])
+            try db.execute(sql: "DELETE FROM pinboard WHERE id = ?", arguments: [id.uuidString])
+        }
+    }
+
+    /// Applies a board deletion that arrived from another device: removes the
+    /// board and cascades its memberships. Never removes the protected Favorites
+    /// board, and does NOT re-flag the affected clips (that would echo the change
+    /// back). Unknown ids are a harmless no-op.
+    public func applyRemoteBoardDeletion(recordID: String) async throws {
+        try await writer.write { db in
+            let isSystem =
+                try Bool.fetchOne(
+                    db, sql: "SELECT isSystem FROM pinboard WHERE id = ?", arguments: [recordID])
+                ?? false
+            guard !isSystem else { return }
+            try db.execute(
+                sql: "DELETE FROM clip_board WHERE boardID = ?", arguments: [recordID])
+            try db.execute(sql: "DELETE FROM pinboard WHERE id = ?", arguments: [recordID])
+        }
+    }
+
+    /// Forgets a board tombstone once its deletion has propagated.
+    public func clearBoardTombstone(recordID: String) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: "DELETE FROM board_tombstone WHERE recordID = ?", arguments: [recordID])
+        }
+    }
+
     /// Manual reorder (the SDK-27 Reorderable Containers API replaces the
     /// call sites when it ships; the column stays either way).
     public func setSortIndex(clipID: UUID, _ index: Int) async throws {

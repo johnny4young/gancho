@@ -56,6 +56,12 @@ public protocol SyncLocalStore: Sendable {
     func boardSystemFields(for id: UUID) async throws -> Data?
     func applyRemoteBoardUpsert(_ board: Pinboard, systemFields: Data) async throws
     func forgetAllBoardSyncFields() async throws
+
+    // Board deletion sync — the board zone's tombstones, mirroring the clip
+    // deletion methods so a deleted board disappears on the user's other devices.
+    func pendingBoardDeletionRecordIDs() async throws -> [String]
+    func applyRemoteBoardDeletion(recordID: String) async throws
+    func clearBoardTombstone(recordID: String) async throws
 }
 
 extension GRDBClipboardStore: SyncLocalStore {

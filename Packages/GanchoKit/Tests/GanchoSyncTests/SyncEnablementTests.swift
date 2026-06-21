@@ -75,4 +75,7 @@ private struct StubSyncLocalStore: SyncLocalStore {
     func boardSystemFields(for id: UUID) async throws -> Data? { nil }
     func applyRemoteBoardUpsert(_ board: Pinboard, systemFields: Data) async throws {}
     func forgetAllBoardSyncFields() async throws {}
+    func pendingBoardDeletionRecordIDs() async throws -> [String] { [] }
+    func applyRemoteBoardDeletion(recordID: String) async throws {}
+    func clearBoardTombstone(recordID: String) async throws {}
 }
