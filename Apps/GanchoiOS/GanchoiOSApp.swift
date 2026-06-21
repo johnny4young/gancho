@@ -166,6 +166,43 @@ final class IOSAppModel {
         boards = (try? await grdb.pinboards()) ?? []
     }
 
+    /// Creates a board and queues its metadata for sync, so it shows up on the
+    /// user's other devices. The built-in Favorites board never counts against
+    /// the free limit.
+    func createBoard(named name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let grdb = store as? GRDBClipboardStore else { return }
+        Task {
+            let count = (try? await grdb.pinboards().filter { !$0.isSystem }.count) ?? 0
+            guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro) else {
+                flashNote(String(localized: "Upgrade to Pro for more boards"))
+                return
+            }
+            if let board = try? await grdb.createPinboard(name: trimmed) {
+                await syncEngine.enqueue(boards: [board])
+            }
+            await refreshBoards()
+        }
+    }
+
+    /// The boards a clip belongs to — drives the detail screen's checkmarks.
+    func boardMembership(for item: ClipItem) async -> Set<UUID> {
+        guard let grdb = store as? GRDBClipboardStore else { return [] }
+        return (try? await grdb.boardIDs(forClip: item.id)) ?? []
+    }
+
+    /// Add or remove a clip from one board. Membership rides the clip's sync
+    /// record, so the change propagates to other devices on the next cycle.
+    func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
+        guard let grdb = store as? GRDBClipboardStore else { return }
+        if member {
+            try? await grdb.assign(clipID: item.id, toBoard: board.id)
+        } else {
+            try? await grdb.unassign(clipID: item.id, fromBoard: board.id)
+        }
+        await search()
+    }
+
     func search() async {
         let grdb = store as? GRDBClipboardStore
         guard let grdb, !query.isEmpty else {
@@ -333,6 +370,8 @@ struct CaptureView: View {
     @Environment(IOSAppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
+    @State private var showNewBoard = false
+    @State private var newBoardName = ""
     @State private var path: [UUID] = []
 
     var body: some View {
@@ -413,6 +452,11 @@ struct CaptureView: View {
                 }
             }
             .sheet(isPresented: $showSettings) { IOSSettingsView() }
+            .alert("New board", isPresented: $showNewBoard) {
+                TextField("Board name", text: $newBoardName)
+                Button("Cancel", role: .cancel) {}
+                Button("Create") { model.createBoard(named: newBoardName) }
+            }
             .refreshable { await model.forceSync() }
             .accessibilityIdentifier("capture-screen")
         }
@@ -444,6 +488,14 @@ struct CaptureView: View {
                     .tag(UUID?.some(board.id))
                 }
             }
+            Divider()
+            Button {
+                newBoardName = ""
+                showNewBoard = true
+            } label: {
+                Label("New board…", systemImage: "plus")
+            }
+            .accessibilityIdentifier("board-new")
         } label: {
             Image(systemName: model.selectedBoardID == nil ? "square.stack" : "square.stack.fill")
         }
@@ -578,6 +630,7 @@ struct ClipDetailView: View {
     let item: ClipItem
     @State private var fullText = ""
     @State private var actionResult: String?
+    @State private var boardIDs: Set<UUID> = []
 
     var body: some View {
         List {
@@ -608,6 +661,35 @@ struct ClipDetailView: View {
                 }
             }
 
+            if !model.boards.isEmpty {
+                Section("Boards") {
+                    ForEach(model.boards) { board in
+                        Button {
+                            Task {
+                                await model.setBoardMembership(
+                                    item, board: board, member: !boardIDs.contains(board.id))
+                                boardIDs = await model.boardMembership(for: item)
+                            }
+                        } label: {
+                            HStack {
+                                Label {
+                                    board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
+                                } icon: {
+                                    Image(systemName: board.sfSymbol)
+                                }
+                                Spacer()
+                                if boardIDs.contains(board.id) {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(GanchoTokens.Palette.accent)
+                                }
+                            }
+                        }
+                        .tint(.primary)
+                        .accessibilityIdentifier("detail-board-\(board.id.uuidString)")
+                    }
+                }
+            }
+
             Section {
                 Button("Copy", systemImage: "doc.on.doc") {
                     Task { await model.copyToPasteboard(item) }
@@ -620,6 +702,10 @@ struct ClipDetailView: View {
             if case .text(let text)? = try? await model.store.content(for: item.id) {
                 fullText = text
             }
+        }
+        .task {
+            await model.refreshBoards()
+            boardIDs = await model.boardMembership(for: item)
         }
     }
 }
