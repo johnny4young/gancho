@@ -4,7 +4,7 @@ import Testing
 
 @testable import GanchoKit
 
-@Suite("Pins & pinboards")
+@Suite("Boards & pins")
 struct PinboardTests {
     private func makeStore() throws -> GRDBClipboardStore {
         let store = GRDBClipboardStore(
@@ -31,40 +31,67 @@ struct PinboardTests {
         #expect(try await store.pinnedCount() == 1)
     }
 
-    @Test("Board CRUD: create, list ordered, delete returns clips to history")
+    @Test("Board CRUD: create with glyph, list, rename, delete returns clips to history")
     func boardCRUD() async throws {
         let store = try makeStore()
-        let work = try await store.createPinboard(name: "Work")
+        let work = try await store.createPinboard(name: "Work", sfSymbol: "briefcase")
         _ = try await store.createPinboard(name: "Colors")
         #expect(try await store.pinboards().map(\.name) == ["Work", "Colors"])
+        #expect(try await store.pinboards().first?.sfSymbol == "briefcase")
 
         let item = ClipItem(preview: "clip", contentHash: "h")
         try await store.insert(item, content: .text("clip"))
         try await store.assign(clipID: item.id, toBoard: work.id)
         #expect(try await store.items(inBoard: work.id).map(\.preview) == ["clip"])
-        // Assignment implies pinned (board members survive retention).
-        #expect(try await store.pinnedCount() == 1)
+        #expect(try await store.count(inBoard: work.id) == 1)
+        // Board membership is orthogonal to pinning — assigning does NOT pin.
+        #expect(try await store.pinnedCount() == 0)
+
+        try await store.renameBoard(id: work.id, name: "Job")
+        #expect(try await store.pinboards().map(\.name) == ["Job", "Colors"])
 
         try await store.deletePinboard(id: work.id)
         #expect(try await store.pinboards().count == 1)
         #expect(try await store.count() == 1, "clips must survive board deletion")
+        #expect(try await store.items(inBoard: work.id).isEmpty, "membership cascades away")
     }
 
-    @Test("Manual reorder drives board ordering")
-    func manualReorder() async throws {
+    @Test("A clip can belong to many boards; assign is idempotent, unassign is per-board")
+    func multiMembership() async throws {
         let store = try makeStore()
-        let board = try await store.createPinboard(name: "Ordered")
-        let first = ClipItem(preview: "first", contentHash: "h1")
-        let second = ClipItem(preview: "second", contentHash: "h2")
-        try await store.insert(first, content: .text("first"))
-        try await store.insert(second, content: .text("second"))
-        try await store.assign(clipID: first.id, toBoard: board.id)
-        try await store.assign(clipID: second.id, toBoard: board.id)
+        let a = try await store.createPinboard(name: "A")
+        let b = try await store.createPinboard(name: "B")
+        let item = ClipItem(preview: "shared", contentHash: "h")
+        try await store.insert(item, content: .text("shared"))
 
-        try await store.setSortIndex(clipID: second.id, 0)
-        try await store.setSortIndex(clipID: first.id, 1)
-        #expect(
-            try await store.items(inBoard: board.id).map(\.preview) == ["second", "first"])
+        try await store.assign(clipID: item.id, toBoard: a.id)
+        try await store.assign(clipID: item.id, toBoard: a.id)  // idempotent
+        try await store.assign(clipID: item.id, toBoard: b.id)
+        #expect(try await store.boardIDs(forClip: item.id) == Set([a.id, b.id]))
+        #expect(try await store.count(inBoard: a.id) == 1)
+
+        try await store.unassign(clipID: item.id, fromBoard: a.id)
+        #expect(try await store.boardIDs(forClip: item.id) == Set([b.id]))
+
+        try await store.removeFromAllBoards(clipID: item.id)
+        #expect(try await store.boardIDs(forClip: item.id).isEmpty)
+    }
+
+    @Test("Board members survive retention even though they are not pinned")
+    func boardMembersExemptFromRetention() async throws {
+        let store = try makeStore()
+        let board = try await store.createPinboard(name: "Keep")
+        let now = Date(timeIntervalSince1970: 10_000_000)
+        let stale = ClipItem(
+            createdAt: now.addingTimeInterval(-2 * 86_400),
+            lastUsedAt: now.addingTimeInterval(-2 * 86_400),
+            preview: "stale", contentHash: "h")
+        try await store.insert(stale, content: .text("stale"))
+        try await store.assign(clipID: stale.id, toBoard: board.id)
+
+        try await RetentionEngine(store: store)
+            .runPurge(policy: RetentionPolicy(global: .day), now: now)
+        #expect(try await store.count(inBoard: board.id) == 1, "board members never expire")
     }
 
     @Test("Free limits: 10 pins, 1 board; Pro unlimited")

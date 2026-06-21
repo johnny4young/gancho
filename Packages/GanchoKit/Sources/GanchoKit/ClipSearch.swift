@@ -21,19 +21,23 @@ public struct ClipSearchQuery: Sendable, Equatable {
     public var sourceAppBundleID: String?
     /// Restrict by creation date.
     public var dateRange: ClosedRange<Date>?
+    /// Restrict to clips that belong to this board (nil = any board).
+    public var boardID: UUID?
 
     public init(
         text: String,
         mode: Mode = .fuzzy,
         kinds: Set<ClipContentKind>? = nil,
         sourceAppBundleID: String? = nil,
-        dateRange: ClosedRange<Date>? = nil
+        dateRange: ClosedRange<Date>? = nil,
+        boardID: UUID? = nil
     ) {
         self.text = text
         self.mode = mode
         self.kinds = kinds
         self.sourceAppBundleID = sourceAppBundleID
         self.dateRange = dateRange
+        self.boardID = boardID
     }
 
     /// Builds the FTS5 MATCH expression. Every token is double-quoted (with

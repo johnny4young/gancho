@@ -669,11 +669,27 @@ final class AppModel {
         boards = (try? await grdbStore.pinboards()) ?? []
     }
 
-    func assign(_ item: ClipItem, toBoard board: Pinboard?) {
+    func assign(_ item: ClipItem, toBoard board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            _ = try? await grdbStore.assign(clipID: item.id, toBoard: board?.id)
-            if board != nil { toasts.show(GanchoToast(message: "Added to board")) }
+            try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
+            toasts.show(GanchoToast(message: "Added to board"))
+            await refreshRecents()
+        }
+    }
+
+    func unassign(_ item: ClipItem, fromBoard board: Pinboard) {
+        guard let grdbStore else { return }
+        Task {
+            try? await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
+            await refreshRecents()
+        }
+    }
+
+    func removeFromAllBoards(_ item: ClipItem) {
+        guard let grdbStore else { return }
+        Task {
+            try? await grdbStore.removeFromAllBoards(clipID: item.id)
             await refreshRecents()
         }
     }

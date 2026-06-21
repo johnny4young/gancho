@@ -369,9 +369,7 @@ struct PanelView: View {
             Button("New board…") {
                 model.createBoard(named: String(localized: "Board"))
             }
-            if item.isPinned {
-                Button("Remove from board") { model.assign(item, toBoard: nil) }
-            }
+            Button("Remove from board") { model.removeFromAllBoards(item) }
         }
         Button("Delete", role: .destructive) {
             model.delete(item)
