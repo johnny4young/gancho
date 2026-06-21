@@ -177,9 +177,10 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         if let pending = try? await store.pendingUploads() {
             for entry in pending {
                 let systemFields = (try? await store.systemFields(for: entry.item.id)) ?? nil
+                let boardIDs = (try? await store.boardIDs(forClip: entry.item.id)) ?? []
                 if let record = ClipRecordMapper.record(
                     for: entry.item, content: entry.content, systemFields: systemFields,
-                    zoneID: zoneID, maxAssetBytes: maxAssetBytes)
+                    zoneID: zoneID, maxAssetBytes: maxAssetBytes, boardIDs: Array(boardIDs))
                 {
                     built[recordID(for: entry.item.id)] = record
                 }
@@ -253,6 +254,8 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             try? await store.applyRemoteUpsert(
                 decoded.item, content: decoded.content,
                 systemFields: ClipRecordMapper.encodeSystemFields(record))
+            try? await store.setBoardMembership(
+                clipID: decoded.item.id, boardIDs: Set(ClipRecordMapper.boardIDs(from: record)))
         }
         for deletion in event.deletions {
             try? await store.applyRemoteDeletion(recordID: deletion.recordID.recordName)
@@ -290,6 +293,9 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                 try? await store.applyRemoteUpsert(
                     decoded.item, content: decoded.content,
                     systemFields: ClipRecordMapper.encodeSystemFields(serverRecord))
+                try? await store.setBoardMembership(
+                    clipID: decoded.item.id,
+                    boardIDs: Set(ClipRecordMapper.boardIDs(from: serverRecord)))
             }
         case .zoneNotFound, .userDeletedZone:
             // Recreate the zone, then retry the record.
