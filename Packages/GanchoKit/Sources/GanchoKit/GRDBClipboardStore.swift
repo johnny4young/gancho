@@ -250,6 +250,15 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.add(column: "uses", .integer).notNull().defaults(to: 0)
             }
         }
+        migrator.registerMigration("v14-board-tombstone") { db in
+            // Board deletions need a tombstone so they propagate to other devices
+            // (mirrors the clip `sync_tombstone`). Lives in the board zone, so it
+            // is tracked separately from the clip tombstones.
+            try db.create(table: "board_tombstone") { t in
+                t.column("recordID", .text).primaryKey()
+                t.column("deletedAt", .datetime).notNull()
+            }
+        }
         return migrator
     }
 

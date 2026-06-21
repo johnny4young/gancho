@@ -177,6 +177,38 @@ struct PinboardTests {
         #expect(!(try await store.pendingBoardUploads().contains { $0.id == incoming.id }))
     }
 
+    @Test("Board deletion tombstones for sync, re-queues members, and spares Favorites")
+    func boardDeletionSync() async throws {
+        let store = try makeStore()
+        let board = try await store.createPinboard(name: "Temp")
+        let item = ClipItem(preview: "x", contentHash: "h")
+        try await store.insert(item, content: .text("x"))
+        try await store.assign(clipID: item.id, toBoard: board.id)
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))  // settle uploads
+        #expect(try await store.pendingUploads().isEmpty)
+
+        try await store.deletePinboardForSync(id: board.id)
+        #expect(try await store.pinboards().contains { $0.id == board.id } == false)
+        #expect(try await store.pendingBoardDeletionRecordIDs() == [board.id.uuidString])
+        // The clip that was in it re-uploads, so its sync record drops the board.
+        #expect(try await store.pendingUploads().contains { $0.item.id == item.id })
+
+        // Favorites can never be tombstoned or deleted.
+        try await store.deletePinboardForSync(id: Pinboard.favoritesID)
+        #expect(try await store.pinboards().contains { $0.id == Pinboard.favoritesID })
+        #expect(try await store.pendingBoardDeletionRecordIDs() == [board.id.uuidString])
+
+        // A deletion arriving from another device drops a user board, spares Favorites.
+        let remote = try await store.createPinboard(name: "Remote")
+        try await store.applyRemoteBoardDeletion(recordID: remote.id.uuidString)
+        #expect(try await store.pinboards().contains { $0.id == remote.id } == false)
+        try await store.applyRemoteBoardDeletion(recordID: Pinboard.favoritesID.uuidString)
+        #expect(try await store.pinboards().contains { $0.id == Pinboard.favoritesID })
+
+        try await store.clearBoardTombstone(recordID: board.id.uuidString)
+        #expect(try await store.pendingBoardDeletionRecordIDs().isEmpty)
+    }
+
     @Test("Free limits: 10 pins, 1 board; Pro unlimited")
     func freeLimits() {
         #expect(PinLimits.canPin(currentPinCount: 9, isPro: false))

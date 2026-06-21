@@ -750,7 +750,14 @@ final class AppModel {
     func deleteBoard(_ board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.deletePinboard(id: board.id)
+            // When sync is on, tombstone the deletion so it reaches the other
+            // devices; otherwise a plain local delete is enough.
+            if syncEnabled {
+                try? await grdbStore.deletePinboardForSync(id: board.id)
+                await sync.enqueueBoardDeletion(ids: [board.id])
+            } else {
+                try? await grdbStore.deletePinboard(id: board.id)
+            }
             await refreshBoards()
             await refreshRecents()
         }
