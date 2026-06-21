@@ -1,12 +1,13 @@
 # Scale performance harness: 100k-row budgets for search, migration, paging,
-# and purge. Nightly + manual — seeding 100k rows does not belong in the
-# <10-minute PR loop; serious regressions still fail loudly here.
+# and purge. Weekly + manual — seeding 100k rows does not belong in the
+# <10-minute PR loop; perf drift is slow, so weekly catches regressions while
+# keeping the macOS (x10) spend down. Run on demand with workflow_dispatch.
 name: Performance
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 7 * * *" # daily 07:30 UTC
+    - cron: "30 7 * * 1" # weekly, Monday 07:30 UTC
 
 concurrency:
   group: perf-${{ github.ref }}
