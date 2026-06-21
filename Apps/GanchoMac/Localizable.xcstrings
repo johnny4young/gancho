@@ -1355,6 +1355,36 @@
         }
       }
     },
+    "Fields" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Campos"
+          }
+        }
+      }
+    },
+    "Keyword" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Palabra clave"
+          }
+        }
+      }
+    },
+    "%lld uses" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld usos"
+          }
+        }
+      }
+    },
     "Library" : {
       "extractionState" : "stale",
       "localizations" : {

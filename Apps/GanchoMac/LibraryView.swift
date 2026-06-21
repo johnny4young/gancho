@@ -17,6 +17,7 @@ struct LibraryView: View {
     @State private var selected: ClipItem?
     @State private var title = ""
     @State private var snippetBody = ""
+    @State private var keyword = ""
     @State private var search = ""
     @State private var snippetCount = 0
 
@@ -62,6 +63,7 @@ struct LibraryView: View {
                     set: { id in
                         selected = snippets.first { $0.id == id }
                         title = selected?.title ?? ""
+                        keyword = selected?.keyword ?? ""
                         Task { await loadBody() }
                     })
             ) { snippet in
@@ -95,8 +97,9 @@ struct LibraryView: View {
                     .font(.title2.weight(.semibold))
                     .accessibilityIdentifier("snippet-title")
 
-                HStack {
+                HStack(spacing: GanchoTokens.Spacing.xs) {
                     kindPill(selected.kind)
+                    keywordField
                     Spacer(minLength: 0)
                 }
 
@@ -110,6 +113,11 @@ struct LibraryView: View {
                         RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                             .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline)
                     )
+
+                let fields = SnippetTemplate.fields(in: snippetBody)
+                if !fields.isEmpty {
+                    fieldStrip(fields)
+                }
 
                 footer(for: selected)
             }
@@ -135,6 +143,44 @@ struct LibraryView: View {
             .accessibilityIdentifier("snippet-kind")
     }
 
+    /// The snippet's invocation keyword: typing it in the panel surfaces this
+    /// snippet, and a template ({fields}) is filled before paste.
+    private var keywordField: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "bolt.fill")
+                .font(.caption2)
+                .foregroundStyle(GanchoTokens.Palette.accent)
+            TextField("Keyword", text: $keyword)
+                .textFieldStyle(.plain)
+                .font(.callout.monospaced())
+                .frame(maxWidth: 160)
+                .accessibilityIdentifier("snippet-keyword")
+        }
+        .padding(.horizontal, GanchoTokens.Spacing.xs)
+        .padding(.vertical, GanchoTokens.Spacing.xxs)
+        .background(.quaternary, in: Capsule())
+    }
+
+    /// The {placeholders} detected in the template — filled when the snippet is
+    /// inserted by keyword.
+    private func fieldStrip(_ fields: [SnippetTemplate.Field]) -> some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
+            Text("Fields").font(.caption2).foregroundStyle(.secondary)
+            HStack(spacing: GanchoTokens.Spacing.xxs) {
+                ForEach(fields) { field in
+                    Text(verbatim: "{\(field.name)}")
+                        .font(.caption.monospaced())
+                        .padding(.horizontal, GanchoTokens.Spacing.xs)
+                        .padding(.vertical, 2)
+                        .background(
+                            GanchoTokens.Palette.kindTint(for: .code).opacity(0.15), in: Capsule()
+                        )
+                        .foregroundStyle(GanchoTokens.Palette.kindTint(for: .code))
+                }
+            }
+        }
+    }
+
     private func footer(for snippet: ClipItem) -> some View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             Group {
@@ -143,6 +189,9 @@ struct LibraryView: View {
                     systemImage: "clock"
                 )
                 Label("\(snippetBody.count) characters", systemImage: "text.alignleft")
+                if snippet.uses > 0 {
+                    Label("\(snippet.uses) uses", systemImage: "arrow.up.right")
+                }
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -186,6 +235,7 @@ struct LibraryView: View {
         Task {
             try? await model.grdbStore?.updateSnippet(
                 id: selected.id, title: title, text: snippetBody)
+            try? await model.grdbStore?.setKeyword(id: selected.id, keyword: keyword)
             await refresh()
         }
     }
