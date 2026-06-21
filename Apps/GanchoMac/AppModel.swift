@@ -447,6 +447,29 @@ final class AppModel {
         }
     }
 
+    /// Insert a snippet by keyword: fill its {fields} with the given values,
+    /// paste the result, and bump the usage count. Empty values means a
+    /// non-template snippet (or fields left blank → their defaults apply).
+    func pasteSnippet(_ snippet: ClipItem, values: [String: String]) {
+        guard let grdbStore else { return }
+        Task {
+            guard case .text(let body)? = try? await store.content(for: snippet.id) else { return }
+            let filled = SnippetTemplate.fill(body, values: values)
+            panel.hide()
+            try? await Task.sleep(for: .milliseconds(80))
+            if pasteBack.paste(.text(filled), asPlainText: false) == .copiedOnly {
+                showCopyOnlyToast()
+            }
+            try? await grdbStore.incrementUses(id: snippet.id)
+            await refreshRecents()
+        }
+    }
+
+    /// The snippet invoked by an exact keyword, if any (the panel's expansion).
+    func snippet(matchingKeyword keyword: String) async -> ClipItem? {
+        (try? await grdbStore?.snippet(matchingKeyword: keyword)) ?? nil
+    }
+
     /// Cyclic quick-paste: each invocation pastes the NEXT history item
     /// (wraps around). Resets to the top after 8s of silence.
     private var cycleIndex = 0
