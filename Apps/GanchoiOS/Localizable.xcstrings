@@ -481,6 +481,106 @@
         }
       }
     },
+    "Copy result": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar resultado"
+          }
+        }
+      }
+    },
+    "Couldn’t run that — try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo ejecutar — intenta de nuevo."
+          }
+        }
+      }
+    },
+    "Fix grammar": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corregir gramática"
+          }
+        }
+      }
+    },
+    "Key points": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puntos clave"
+          }
+        }
+      }
+    },
+    "Make formal": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hacer formal"
+          }
+        }
+      }
+    },
+    "Make friendly": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hacer amigable"
+          }
+        }
+      }
+    },
+    "Smart paste": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegado inteligente"
+          }
+        }
+      }
+    },
+    "Summarize": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resumir"
+          }
+        }
+      }
+    },
+    "Thinking…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pensando…"
+          }
+        }
+      }
+    },
+    "Translate to": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducir a"
+          }
+        }
+      }
+    },
     "Copy": {
       "localizations": {
         "es": {
