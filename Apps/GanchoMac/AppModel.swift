@@ -589,9 +589,18 @@ final class AppModel {
     /// Applies a status from the engine: updates the indicator and logs a
     /// metadata-only milestone (synced/paused/failed) to the Privacy Center.
     private func applySyncStatus(_ status: SyncStatus) {
+        let wasSyncing = syncStatus == .syncing
         syncStatus = status
         if let event = Self.syncEvent(for: status) {
             privacyEvents.record(sync: event)
+        }
+        // A finished fetch may have pulled new clips/boards from iCloud — refresh
+        // so the panel and Library reflect them without a manual reopen.
+        if wasSyncing, status != .syncing {
+            Task {
+                await refreshRecents()
+                await refreshBoards()
+            }
         }
     }
 

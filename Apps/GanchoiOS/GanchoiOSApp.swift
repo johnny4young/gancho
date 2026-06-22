@@ -100,7 +100,18 @@ final class IOSAppModel {
             hasCloudKitEntitlement: cloudKitEntitled,
             stateStore: .file(at: stateURL),
             onStatus: { [weak self] status in
-                Task { @MainActor in self?.syncStatus = status }
+                Task { @MainActor in
+                    guard let self else { return }
+                    let wasSyncing = self.syncStatus == .syncing
+                    self.syncStatus = status
+                    // A finished cycle may have pulled new boards/clips from
+                    // iCloud. Refresh the lists so they appear without having to
+                    // background and reopen the app.
+                    if wasSyncing, status != .syncing {
+                        await self.refreshBoards()
+                        await self.search()
+                    }
+                }
             })
         if enable {
             let engine = syncEngine
