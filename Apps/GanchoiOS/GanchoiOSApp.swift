@@ -679,7 +679,11 @@ struct ClipDetailView: View {
                             RoundedRectangle(
                                 cornerRadius: GanchoTokens.Radius.md, style: .continuous))
                 } else {
-                    Text(fullText.isEmpty ? item.preview : fullText)
+                    // A very long Text inside a List row fails to lay out on iOS
+                    // (the detail came up blank). Cap what we render; the whole
+                    // clip is still available via Copy.
+                    let body = fullText.isEmpty ? item.preview : fullText
+                    Text(body.count > 8000 ? String(body.prefix(8000)) + "\n…" : body)
                         .font(item.kind == .code ? .body.monospaced() : .body)
                         .textSelection(.enabled)
                 }
