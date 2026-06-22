@@ -21,7 +21,8 @@ final class PanelUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
 
-        XCTAssertNotEqual(app.state, .notRunning, "plain Xcode Run launch must keep Gancho resident")
+        XCTAssertNotEqual(
+            app.state, .notRunning, "plain Xcode Run launch must keep Gancho resident")
         XCTAssertTrue(
             waitForMenuBarHelper(timeout: 5),
             "plain launch must start the visible menu-bar helper")
@@ -101,6 +102,9 @@ final class PanelUITests: XCTestCase {
     @MainActor
     func testMenuBarStatusItemCanQuitGancho() throws {
         let app = launchWithInProcessStatusItem()
+        defer {
+            if app.state != .notRunning { app.terminate() }
+        }
 
         let statusItem = app.statusItems.firstMatch
         guard statusItem.waitForExistence(timeout: 5), !statusItem.frame.isEmpty else {
@@ -122,7 +126,8 @@ final class PanelUITests: XCTestCase {
         let statusItem = app.statusItems.firstMatch
         guard statusItem.isHittable else {
             throw XCTSkip(
-                "status item resolved but is not hittable on this display/Space; frame coverage still verifies the app-created item")
+                "status item resolved but is not hittable on this display/Space; frame coverage still verifies the app-created item"
+            )
         }
 
         statusItem.click()
@@ -148,6 +153,8 @@ final class PanelUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-open-panel-on-launch", "-use-in-process-status-item"]
         app.launch()
+        waitForAppToStart(app)
+        _ = app.wait(for: .runningForeground, timeout: 5)
         return app
     }
 
@@ -198,8 +205,10 @@ final class PanelUITests: XCTestCase {
     @MainActor
     func testPanelOpensAndSearchFieldHasFocus() {
         let app = launchWithPanel()
+        defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 5), "panel search field must open on launch hook")
+        XCTAssertTrue(
+            search.waitForExistence(timeout: 5), "panel search field must open on launch hook")
 
         // Type-to-search goes straight to the field — no click required.
         app.typeText("zzz-no-results-zzz")
@@ -209,6 +218,7 @@ final class PanelUITests: XCTestCase {
     @MainActor
     func testEscapeClosesPanel() {
         let app = launchWithPanel()
+        defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5))
 
@@ -223,6 +233,7 @@ final class PanelUITests: XCTestCase {
     @MainActor
     func testArrowNavigationDoesNotStealFocusFromSearch() {
         let app = launchWithPanel()
+        defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5))
 

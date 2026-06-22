@@ -50,10 +50,10 @@ test-ui: project ## Run the XCUITest smoke suite (drives the real app; signed ru
 		-only-testing:GanchoUITests $(TEST_UI_SIGNING_FLAGS)
 
 format: ## Format Swift sources in place
-	swift format --in-place --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests
+	swift format --in-place --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests
 
 lint: ## Verify formatting without changing files
-	swift format lint --strict --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests
+	swift format lint --strict --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests
 
 hooks: ## Install the versioned git hooks (pre-commit lint)
 	git config core.hooksPath scripts/githooks
