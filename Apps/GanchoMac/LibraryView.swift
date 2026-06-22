@@ -20,6 +20,11 @@ struct LibraryView: View {
     @State private var keyword = ""
     @State private var search = ""
     @State private var snippetCount = 0
+    @FocusState private var focusedField: EditorField?
+
+    /// The metadata fields that persist on commit (Return) or when focus leaves
+    /// them, so a rename sticks without hunting for the Save button.
+    private enum EditorField { case title, keyword }
 
     /// Live, case-insensitive filter over the loaded snippets (title + preview).
     private var visible: [ClipItem] {
@@ -61,6 +66,9 @@ struct LibraryView: View {
                 selection: Binding(
                     get: { selected?.id },
                     set: { id in
+                        // Commit the snippet we're leaving before swapping in the
+                        // next, so an un-Saved rename/edit isn't dropped.
+                        if id != selected?.id { save() }
                         selected = snippets.first { $0.id == id }
                         title = selected?.title ?? ""
                         keyword = selected?.keyword ?? ""
@@ -95,6 +103,8 @@ struct LibraryView: View {
                 TextField("Snippet title", text: $title)
                     .textFieldStyle(.plain)
                     .font(.title2.weight(.semibold))
+                    .focused($focusedField, equals: .title)
+                    .onSubmit { save() }
                     .accessibilityIdentifier("snippet-title")
 
                 HStack(spacing: GanchoTokens.Spacing.xs) {
@@ -123,6 +133,11 @@ struct LibraryView: View {
             }
             .padding(GanchoTokens.Spacing.md)
             .frame(minWidth: 340)
+            .onChange(of: focusedField) { previous, _ in
+                // Commit a rename or keyword edit the moment focus leaves the
+                // field — no need to hunt for Save for those quick edits.
+                if previous == .title || previous == .keyword { save() }
+            }
         } else {
             Text("Select a snippet, or create one.")
                 .foregroundStyle(.secondary)
@@ -154,6 +169,8 @@ struct LibraryView: View {
                 .textFieldStyle(.plain)
                 .font(.callout.monospaced())
                 .frame(maxWidth: 160)
+                .focused($focusedField, equals: .keyword)
+                .onSubmit { save() }
                 .accessibilityIdentifier("snippet-keyword")
         }
         .padding(.horizontal, GanchoTokens.Spacing.xs)
@@ -238,10 +255,16 @@ struct LibraryView: View {
 
     private func save() {
         guard let selected else { return }
+        // Capture the target + field values NOW (synchronously). The async write
+        // must not read @State later — by then a different snippet may be
+        // selected, and we'd save this snippet's text onto that one.
+        persist(id: selected.id, title: title, body: snippetBody, keyword: keyword)
+    }
+
+    private func persist(id: UUID, title: String, body: String, keyword: String) {
         Task {
-            try? await model.grdbStore?.updateSnippet(
-                id: selected.id, title: title, text: snippetBody)
-            try? await model.grdbStore?.setKeyword(id: selected.id, keyword: keyword)
+            try? await model.grdbStore?.updateSnippet(id: id, title: title, text: body)
+            try? await model.grdbStore?.setKeyword(id: id, keyword: keyword)
             await refresh()
         }
     }
