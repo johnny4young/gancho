@@ -64,7 +64,16 @@ final class IOSAppModel {
     private var tier: UserTier = .free
     private let purchases = StoreKitPurchaseHandler()
 
+    /// Per-device on-device intelligence toggles (the iOS Intelligence screen).
+    /// Device-local by design — they gate what runs HERE and never sync; the
+    /// enriched results that ride the clip record (title/OCR/sensitive) do.
+    var intelligence: IntelligencePreferences {
+        didSet { intelligence.save(to: defaults) }
+    }
+    private let defaults = UserDefaults.standard
+
     init() {
+        intelligence = IntelligencePreferences.load(from: defaults)
         thumbnails = ClipThumbnailStore(store: store)
         purchases.onTierChange = { [weak self] tier in
             guard let self else { return }
@@ -299,9 +308,9 @@ final class IOSAppModel {
 
     private let smartPasteService = SmartPasteService()
 
-    /// Available when Apple Intelligence is on for this device (no per-device
-    /// toggle on iOS yet — the Intelligence screen is macOS-only for now).
-    var smartPasteAvailable: Bool { SmartPasteService.isAvailable }
+    /// Available when the Smart Paste toggle is on AND Apple Intelligence is on
+    /// for this device. The Intelligence screen owns the per-device toggle.
+    var smartPasteAvailable: Bool { intelligence.smartPaste && SmartPasteService.isAvailable }
 
     func smartPaste(_ text: String, action: SmartPasteAction) async -> String? {
         try? await smartPasteService.transform(text, action: action)
@@ -408,13 +417,48 @@ final class IOSAppModel {
         // the content hash matches — warn subtly instead of duplicating.
         let stored = try? await store.insert(item, content: content)
         if let stored { await syncEngine.enqueue([stored]) }
+        let isNew = stored?.id == item.id
         flashNote(
-            stored?.id == item.id
-                ? String(localized: "Saved") : String(localized: "Already in your history"))
+            isNew ? String(localized: "Saved") : String(localized: "Already in your history"))
         // Bounded like every other load — fetching the whole backlog here is what
         // made a large history lag after a capture.
         captures = (try? await store.items(offset: 0, limit: 50)) ?? []
         reloadWidgets()
+        // Enrich only a genuinely new clip — a re-copy already carries its
+        // title/OCR/embedding from the first capture.
+        if isNew { enrich(item, content: content) }
+    }
+
+    /// On-device enrichment of a clip captured ON this iPhone — Apple
+    /// Intelligence titles, OCR, and semantic embeddings — so an iOS capture is
+    /// as rich as one synced from the Mac. Never blocks capture (utility
+    /// priority); the shared `EnrichmentPlan` gates it (Pro + non-sensitive +
+    /// per-stage toggles). Enriched fields that ride the clip record sync; the
+    /// embedding stays device-local.
+    private func enrich(_ item: ClipItem, content: ClipContent?) {
+        let plan = EnrichmentPlan(
+            content: content, kind: item.kind, isSensitive: item.isSensitive,
+            hasTitle: !item.title.isEmpty, isPro: tier == .pro, preferences: intelligence)
+        guard !plan.isEmpty, let grdb = store as? GRDBClipboardStore else { return }
+        Task(priority: .utility) {
+            if plan.runs(.ocr), case .binary(let data, _)? = content,
+                let text = try? await ImageTextExtractor().extractText(from: data)
+            {
+                _ = try? await grdb.attachExtractedText(id: item.id, text: text)
+            }
+            if plan.runs(.title), case .text(let text)? = content,
+                let annotation = try? await TieredClipAnnotator().annotate(text)
+            {
+                _ = try? await grdb.updateTitle(id: item.id, title: annotation.title)
+                await search()  // surface the new title without a manual refresh
+            }
+            if plan.runs(.embedding), case .text(let text)? = content,
+                let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+                let vector = try? embedder.vector(for: String(text.prefix(1_000)))
+            {
+                _ = try? await grdb.saveEmbedding(clipID: item.id, vector: vector)
+            }
+        }
     }
 
     private func makeItem(
@@ -436,6 +480,10 @@ final class IOSAppModel {
                 preview: String(text.prefix(120)),
                 contentHash: ClipItem.hash(of: text, kind: kind),
                 sourceAppBundleID: capture.sourceAppBundleID)
+            // Intelligence toggle off ⇒ skip secret detection/masking. The
+            // password-manager veto (Concealed/Transient) is separate, pre-read,
+            // and always on.
+            guard intelligence.detectSecrets else { return item }
             return SensitiveIngestionPolicy.decorate(
                 item, finding: SensitiveDataDetector().detect(text), originalText: text)
         }
@@ -953,6 +1001,12 @@ struct IOSSettingsView: View {
         NavigationStack {
             List {
                 Section {
+                    NavigationLink {
+                        IOSIntelligenceView()
+                    } label: {
+                        Label("Intelligence", systemImage: "sparkles")
+                    }
+                    .accessibilityIdentifier("open-intelligence")
                     NavigationLink {
                         IOSPrivacyCenterView()
                     } label: {

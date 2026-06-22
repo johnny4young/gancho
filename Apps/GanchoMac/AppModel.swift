@@ -282,34 +282,34 @@ final class AppModel {
     /// Pro-tier async enrichment — never blocks capture: OCR makes image
     /// clips searchable; the tiered annotator titles text clips.
     private func enrich(_ item: ClipItem, content: ClipContent?) {
-        guard tier == .pro, let grdbStore, !item.isSensitive else { return }
+        // The Pro + non-sensitive + per-toggle gating is the shared policy both
+        // platforms drive their enrichment IO from (see `EnrichmentPlan`); only
+        // the store writes and the list refresh differ per platform.
+        let plan = EnrichmentPlan(
+            content: content, kind: item.kind, isSensitive: item.isSensitive,
+            hasTitle: !item.title.isEmpty, isPro: tier == .pro, preferences: intelligence)
+        guard !plan.isEmpty, let grdbStore else { return }
         Task(priority: .utility) {
-            switch content {
-            case .binary(let data, _) where item.kind == .image:
-                // Searchable screenshots (OCR) — gated by the Intelligence toggle.
-                if intelligence.searchableScreenshots,
-                    let text = try? await ImageTextExtractor().extractText(from: data)
-                {
-                    _ = try? await grdbStore.attachExtractedText(id: item.id, text: text)
-                }
-            case .text(let text) where item.title.isEmpty:
-                // Tier 1 — Apple Intelligence titles, gated by the toggle.
-                if intelligence.intelligentTitles,
-                    let annotation = try? await TieredClipAnnotator().annotate(text)
-                {
-                    _ = try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
-                    await refreshRecents()
-                }
-                // Semantic vector (the embedder caches its model after the
-                // first call — warm-up cost measured in the AI spike).
-                if intelligence.semanticSearch,
-                    let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
-                    let vector = try? embedder.vector(for: String(text.prefix(1_000)))
-                {
-                    _ = try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
-                }
-            default:
-                break
+            // Searchable screenshots (OCR).
+            if plan.runs(.ocr), case .binary(let data, _)? = content,
+                let text = try? await ImageTextExtractor().extractText(from: data)
+            {
+                _ = try? await grdbStore.attachExtractedText(id: item.id, text: text)
+            }
+            // Tier 1 — Apple Intelligence titles.
+            if plan.runs(.title), case .text(let text)? = content,
+                let annotation = try? await TieredClipAnnotator().annotate(text)
+            {
+                _ = try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
+                await refreshRecents()
+            }
+            // Semantic vector (the embedder caches its model after the first
+            // call — warm-up cost measured in the AI spike).
+            if plan.runs(.embedding), case .text(let text)? = content,
+                let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+                let vector = try? embedder.vector(for: String(text.prefix(1_000)))
+            {
+                _ = try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
             }
         }
     }
