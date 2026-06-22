@@ -47,6 +47,11 @@ struct LibraryView: View {
         .accessibilityIdentifier("library")
         .task { await refreshAll() }
         .onChange(of: selection) { _, _ in Task { await loadScope() } }
+        .onChange(of: model.syncStatus) { _, status in
+            // A finished sync may have pulled new boards/clips — refresh so they
+            // appear here without reopening the window.
+            if status != .syncing { Task { await refreshAll() } }
+        }
         .alert(boardSheetTitle, isPresented: boardSheetPresented) {
             TextField("Board name", text: $boardNameField)
             Button("Cancel", role: .cancel) {}
