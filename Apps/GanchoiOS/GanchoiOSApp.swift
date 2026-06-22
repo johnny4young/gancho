@@ -52,6 +52,8 @@ final class IOSAppModel {
     var boards: [Pinboard] = []
     /// Set by a widget deep link; `CaptureView` consumes it to push the clip.
     var deepLinkClipID: UUID?
+    /// Cached, downsampled thumbnails for image clips (history rows + detail).
+    let thumbnails: ClipThumbnailStore
 
     /// Sync boundary: pull-to-refresh forces a cycle. A `NoopSyncEngine`
     /// until the user is Pro on an iCloud-signed-in device; the adapter swaps
@@ -63,6 +65,7 @@ final class IOSAppModel {
     private let purchases = StoreKitPurchaseHandler()
 
     init() {
+        thumbnails = ClipThumbnailStore(store: store)
         purchases.onTierChange = { [weak self] tier in
             guard let self else { return }
             self.tier = tier
@@ -424,8 +427,11 @@ struct CaptureView: View {
                     } else {
                         ForEach(model.captures) { item in
                             NavigationLink(value: item.id) {
-                                ClipCard(item: item)
+                                ClipCard(
+                                    item: item,
+                                    thumbnail: model.thumbnails.cached(for: item.id))
                             }
+                            .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     Task { await model.delete(item) }
@@ -662,9 +668,21 @@ struct ClipDetailView: View {
         List {
             Section {
                 TypeBadge(kind: item.kind)
-                Text(fullText.isEmpty ? item.preview : fullText)
-                    .font(item.kind == .code ? .body.monospaced() : .body)
-                    .textSelection(.enabled)
+                if item.kind == .image, !item.isSensitive,
+                    let thumbnail = model.thumbnails.cached(for: item.id)
+                {
+                    thumbnail
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: 340, alignment: .center)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: GanchoTokens.Radius.md, style: .continuous))
+                } else {
+                    Text(fullText.isEmpty ? item.preview : fullText)
+                        .font(item.kind == .code ? .body.monospaced() : .body)
+                        .textSelection(.enabled)
+                }
             }
 
             let actions = DevActions.actions(for: item.kind)
@@ -729,6 +747,7 @@ struct ClipDetailView: View {
                 fullText = text
             }
         }
+        .task { await model.thumbnails.ensureLoaded(item) }
         .task {
             await model.refreshBoards()
             boardIDs = await model.boardMembership(for: item)
