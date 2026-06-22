@@ -492,6 +492,34 @@ final class AppModel {
         (try? await grdbStore?.snippet(matchingKeyword: keyword)) ?? nil
     }
 
+    // MARK: - Smart paste (on-device Apple Intelligence)
+
+    private let smartPasteService = SmartPasteService()
+
+    /// Smart Paste can run only when the user kept it on AND Apple Intelligence
+    /// is available on this device — the peek hides the menu otherwise.
+    var smartPasteAvailable: Bool {
+        intelligence.smartPaste && SmartPasteService.isAvailable
+    }
+
+    /// Transforms a clip's text on-device; nil if unavailable or the model
+    /// declined. Pure enrichment — never fails the caller.
+    func smartPaste(_ text: String, action: SmartPasteAction) async -> String? {
+        try? await smartPasteService.transform(text, action: action)
+    }
+
+    /// Pastes arbitrary text (a Smart Paste or filled-snippet result) into the
+    /// frontmost app via the same paste-back path as a normal paste.
+    func pasteText(_ text: String) {
+        Task {
+            panel.hide()
+            try? await Task.sleep(for: .milliseconds(80))
+            if pasteBack.paste(.text(text), asPlainText: false) == .copiedOnly {
+                showCopyOnlyToast()
+            }
+        }
+    }
+
     /// Cyclic quick-paste: each invocation pastes the NEXT history item
     /// (wraps around). Resets to the top after 8s of silence.
     private var cycleIndex = 0

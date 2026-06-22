@@ -78,6 +78,10 @@ struct IntelligenceView: View {
                         "Searchable screenshots",
                         "On-device OCR reads text out of image clips and adds it to the full-text index, so a screenshot is findable by the words inside it.",
                         isOn: $model.intelligence.searchableScreenshots)
+                    toggleRow(
+                        "sparkles", GanchoTokens.Palette.accent, "Smart paste",
+                        "Rewrite a clip before pasting — summarize, fix grammar, change tone, or pull key points. Apple Intelligence runs on-device; secrets are never sent to the model.",
+                        isOn: $model.intelligence.smartPaste)
                 } header: {
                     Text("Intelligence features")
                 }
