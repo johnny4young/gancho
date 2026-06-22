@@ -8,6 +8,7 @@ build/
 dist/
 xcuserdata/
 *.xcresult
+*.profraw
 
 # Vendored frameworks (fetched by scripts, never committed)
 Vendor/
