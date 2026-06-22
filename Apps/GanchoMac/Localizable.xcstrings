@@ -1835,6 +1835,16 @@
         }
       }
     },
+    "Translate to" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Traducir a"
+          }
+        }
+      }
+    },
     "Smart classification" : {
       "localizations" : {
         "es" : {

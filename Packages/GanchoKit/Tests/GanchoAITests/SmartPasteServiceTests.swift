@@ -33,4 +33,12 @@ struct SmartPasteServiceTests {
             #expect(action.instructions.localizedCaseInsensitiveContains("output only"))
         }
     }
+
+    @Test("Translate instructions name the target language and stay secret-safe")
+    func translateInstructions() {
+        let instructions = SmartPasteService.translateInstructions(to: "French")
+        #expect(instructions.contains("French"))
+        #expect(instructions.localizedCaseInsensitiveContains("secret"))
+        #expect(instructions.localizedCaseInsensitiveContains("output only"))
+    }
 }
