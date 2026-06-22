@@ -132,6 +132,19 @@ final class IOSAppModel {
                 configureSync()
             }
         }
+
+        /// QA-only: drop the saved CKSyncEngine state so the next cycle re-fetches
+        /// every zone from scratch. Fixes a device whose token drifted ahead of
+        /// what it actually stored (older records never re-arrive on an
+        /// incremental fetch). Local rows are kept; remote records re-upsert.
+        func resetSyncAndRepull() {
+            let stateURL = SharedStorageLocation.storeDirectory(
+                appGroupID: SharedInbox.appGroupID
+            ).appendingPathComponent("sync-state.plist")
+            try? FileManager.default.removeItem(at: stateURL)
+            syncEnabled = false
+            configureSync()
+        }
     #endif
 
     /// Telemetry — opt-out-first, buckets only; no sender when opted out so
@@ -348,7 +361,9 @@ final class IOSAppModel {
         flashNote(
             stored?.id == item.id
                 ? String(localized: "Saved") : String(localized: "Already in your history"))
-        captures = (try? await store.items()) ?? []
+        // Bounded like every other load — fetching the whole backlog here is what
+        // made a large history lag after a capture.
+        captures = (try? await store.items(offset: 0, limit: 50)) ?? []
         reloadWidgets()
     }
 
@@ -760,6 +775,12 @@ struct IOSSettingsView: View {
                             Text(verbatim: "Force Pro (QA)")
                         }
                         .accessibilityIdentifier("debug-force-pro")
+                        Button {
+                            model.resetSyncAndRepull()
+                        } label: {
+                            Text(verbatim: "Reset & re-pull sync")
+                        }
+                        .accessibilityIdentifier("debug-reset-sync")
                     } header: {
                         Text(verbatim: "Debug")
                     }
