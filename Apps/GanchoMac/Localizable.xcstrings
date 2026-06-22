@@ -1705,6 +1705,346 @@
         }
       }
     },
+    "Intelligence" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inteligencia"
+          }
+        }
+      }
+    },
+    "On-device" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En el dispositivo"
+          }
+        }
+      }
+    },
+    "Intelligence features" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funciones de inteligencia"
+          }
+        }
+      }
+    },
+    "Sensitive data" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datos sensibles"
+          }
+        }
+      }
+    },
+    "Smart classification" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clasificación inteligente"
+          }
+        }
+      }
+    },
+    "Always on" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siempre activa"
+          }
+        }
+      }
+    },
+    "Smarter titles" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Títulos más inteligentes"
+          }
+        }
+      }
+    },
+    "Semantic search" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Búsqueda semántica"
+          }
+        }
+      }
+    },
+    "Searchable screenshots" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capturas buscables"
+          }
+        }
+      }
+    },
+    "Detect & mask secrets" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detectar y enmascarar secretos"
+          }
+        }
+      }
+    },
+    "Tier 0 · Rules" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nivel 0 · Reglas"
+          }
+        }
+      }
+    },
+    "Tier 1 · Apple Intelligence" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nivel 1 · Apple Intelligence"
+          }
+        }
+      }
+    },
+    "Sensitive check" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chequeo de sensibles"
+          }
+        }
+      }
+    },
+    "Indexed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indexado"
+          }
+        }
+      }
+    },
+    "Clip enters" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entra el clip"
+          }
+        }
+      }
+    },
+    "<5 ms · always on" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "<5 ms · siempre activo"
+          }
+        }
+      }
+    },
+    "Titles · fallback-safe" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Títulos · con respaldo"
+          }
+        }
+      }
+    },
+    "Mask + expire" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enmascara + expira"
+          }
+        }
+      }
+    },
+    "FTS + embeddings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FTS + embeddings"
+          }
+        }
+      }
+    },
+    "AWS keys" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llaves AWS"
+          }
+        }
+      }
+    },
+    "Stripe keys" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llaves Stripe"
+          }
+        }
+      }
+    },
+    "GitHub tokens" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens de GitHub"
+          }
+        }
+      }
+    },
+    "Slack tokens" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens de Slack"
+          }
+        }
+      }
+    },
+    "PEM private keys" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llaves privadas PEM"
+          }
+        }
+      }
+    },
+    "Credit cards" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarjetas de crédito"
+          }
+        }
+      }
+    },
+    "High-entropy passwords" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contraseñas de alta entropía"
+          }
+        }
+      }
+    },
+    "Open Intelligence…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Inteligencia…"
+          }
+        }
+      }
+    },
+    "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, Smart Actions, and masking." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un clasificador determinista etiqueta cada clip en menos de 5 ms — JWT, JSON, color, tarjeta, URL… — sin red. Alimenta los previews, las Smart Actions y el enmascarado."
+          }
+        }
+      }
+    },
+    "Apple Intelligence writes a short, specific title on-device, falling back to heuristics on any failure — and never puts a secret in a title." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence escribe un título corto y específico en el dispositivo, con respaldo en heurísticas ante cualquier fallo — y nunca pone un secreto en un título."
+          }
+        }
+      }
+    },
+    "Find a clip by meaning, not just exact words. A 512-dim embedding indexes history on-device; the model assets stay local." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encuentra un clip por significado, no solo por palabras exactas. Un embedding de 512 dimensiones indexa el historial en el dispositivo; los assets del modelo quedan locales."
+          }
+        }
+      }
+    },
+    "On-device OCR reads text out of image clips and adds it to the full-text index, so a screenshot is findable by the words inside it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El OCR en el dispositivo lee el texto de los clips de imagen y lo agrega al índice de texto completo, así una captura se encuentra por las palabras que tiene dentro."
+          }
+        }
+      }
+    },
+    "If you copy a key by accident, gancho masks the preview (●●●● + last 4) and auto-expires it after 10 minutes. Deterministic, on-device." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si copias una llave por accidente, gancho enmascara el preview (●●●● + últimos 4) y la expira sola a los 10 minutos. Determinista, en el dispositivo."
+          }
+        }
+      }
+    },
+    "Every tier runs on this Mac. No clip text is ever sent to a server — gancho has none." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cada nivel corre en este Mac. Ningún texto de clip se envía a un servidor — gancho no tiene."
+          }
+        }
+      }
+    },
+    "On-device titles, semantic search, screenshot OCR, and secret detection — each a toggle, all local." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Títulos en el dispositivo, búsqueda semántica, OCR de capturas y detección de secretos — cada uno un toggle, todo local."
+          }
+        }
+      }
+    },
     "Library" : {
       "extractionState" : "stale",
       "localizations" : {

@@ -227,6 +227,16 @@ private struct CaptureSettingsTab: View {
             Toggle("Capture copied files", isOn: $model.preferences.captureFileReferences)
             Toggle("Keep rich text formatting", isOn: $model.preferences.captureRichText)
 
+            Section("Intelligence") {
+                Button("Open Intelligence…") { model.intelligenceWindow.show(model: model) }
+                    .accessibilityIdentifier("open-intelligence")
+                Text(
+                    "On-device titles, semantic search, screenshot OCR, and secret detection — each a toggle, all local."
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
+
             Section("Never capture from these apps") {
                 ForEach(model.denylistEntries, id: \.self) { bundleID in
                     HStack {

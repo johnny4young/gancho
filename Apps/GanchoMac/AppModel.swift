@@ -54,6 +54,7 @@ final class AppModel {
     let libraryWindow = LibraryWindowController()
     let settingsWindow = SettingsWindowController()
     let mcpAccessWindow = MCPAccessWindowController()
+    let intelligenceWindow = IntelligenceWindowController()
     let purchases = StoreKitPurchaseHandler()
     let telemetry: TelemetryPipeline
 
@@ -106,6 +107,12 @@ final class AppModel {
         }
     }
 
+    /// On-device intelligence toggles (the Intelligence screen). Each gates a
+    /// real enrichment stage in `enrich`/`makeItem`.
+    var intelligence: IntelligencePreferences {
+        didSet { intelligence.save(to: defaults) }
+    }
+
     var retentionPolicy: RetentionPolicy {
         didSet { retentionPolicy.save(to: defaults) }
     }
@@ -142,6 +149,7 @@ final class AppModel {
 
         let loadedPreferences = CapturePreferences.load(from: defaults)
         preferences = loadedPreferences
+        intelligence = IntelligencePreferences.load(from: defaults)
         retentionPolicy = RetentionPolicy.load(from: defaults)
         // Default to a menu-bar agent (.accessory). This app is LSUIElement;
         // forcing .regular (what the old Debug-only "show in Dock" default did)
@@ -245,7 +253,8 @@ final class AppModel {
     private func ingest(_ capture: PasteboardCapture) {
         var (item, content) = Self.makeItem(
             from: capture, classifier: classifier, detector: sensitiveDetector,
-            sensitiveLifetime: retentionPolicy.sensitiveLifetime)
+            sensitiveLifetime: retentionPolicy.sensitiveLifetime,
+            detectSecrets: intelligence.detectSecrets)
         // Universal Clipboard interop: badge persists as a tag so sync can
         // recognize already-synced arrivals and the UI can show the badge.
         if capture.isFromUniversalClipboard {
@@ -277,17 +286,24 @@ final class AppModel {
         Task(priority: .utility) {
             switch content {
             case .binary(let data, _) where item.kind == .image:
-                if let text = try? await ImageTextExtractor().extractText(from: data) {
+                // Searchable screenshots (OCR) — gated by the Intelligence toggle.
+                if intelligence.searchableScreenshots,
+                    let text = try? await ImageTextExtractor().extractText(from: data)
+                {
                     _ = try? await grdbStore.attachExtractedText(id: item.id, text: text)
                 }
             case .text(let text) where item.title.isEmpty:
-                if let annotation = try? await TieredClipAnnotator().annotate(text) {
+                // Tier 1 — Apple Intelligence titles, gated by the toggle.
+                if intelligence.intelligentTitles,
+                    let annotation = try? await TieredClipAnnotator().annotate(text)
+                {
                     _ = try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
                     await refreshRecents()
                 }
                 // Semantic vector (the embedder caches its model after the
                 // first call — warm-up cost measured in the AI spike).
-                if let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+                if intelligence.semanticSearch,
+                    let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
                     let vector = try? embedder.vector(for: String(text.prefix(1_000)))
                 {
                     _ = try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
@@ -322,7 +338,8 @@ final class AppModel {
         from capture: PasteboardCapture,
         classifier: RuleClassifier,
         detector: SensitiveDataDetector,
-        sensitiveLifetime: TimeInterval
+        sensitiveLifetime: TimeInterval,
+        detectSecrets: Bool = true
     ) -> (ClipItem, ClipContent?) {
         switch capture.payload {
         case .image(let data, let typeIdentifier):
@@ -344,7 +361,7 @@ final class AppModel {
             let text = plain ?? ""
             let item = decoratedTextItem(
                 text: text, capture: capture, classifier: classifier, detector: detector,
-                sensitiveLifetime: sensitiveLifetime)
+                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets)
             return (
                 item,
                 item.isSensitive ? .text(text) : .binary(data: rtf, typeIdentifier: "public.rtf")
@@ -353,14 +370,15 @@ final class AppModel {
             let text = capture.textRepresentation ?? ""
             let item = decoratedTextItem(
                 text: text, capture: capture, classifier: classifier, detector: detector,
-                sensitiveLifetime: sensitiveLifetime)
+                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets)
             return (item, .text(ContentNormalizer.canonicalText(text, kind: item.kind)))
         }
     }
 
     private static func decoratedTextItem(
         text: String, capture: PasteboardCapture, classifier: RuleClassifier,
-        detector: SensitiveDataDetector, sensitiveLifetime: TimeInterval
+        detector: SensitiveDataDetector, sensitiveLifetime: TimeInterval,
+        detectSecrets: Bool = true
     ) -> ClipItem {
         let kind = classifier.classify(text)
         let canonical = ContentNormalizer.canonicalText(text, kind: kind)
@@ -369,6 +387,9 @@ final class AppModel {
             preview: String(canonical.prefix(120)),
             contentHash: ClipItem.hash(of: canonical, kind: kind),
             sourceAppBundleID: capture.sourceAppBundleID)
+        // Intelligence toggle off ⇒ skip secret detection/masking. The
+        // password-manager veto (ConcealedType, pre-read) is separate and stays.
+        guard detectSecrets else { return item }
         return SensitiveIngestionPolicy.decorate(
             item, finding: detector.detect(canonical), originalText: canonical,
             sensitiveLifetime: sensitiveLifetime)
