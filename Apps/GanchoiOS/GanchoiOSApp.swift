@@ -295,6 +295,22 @@ final class IOSAppModel {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
+    // MARK: - Smart paste (on-device Apple Intelligence)
+
+    private let smartPasteService = SmartPasteService()
+
+    /// Available when Apple Intelligence is on for this device (no per-device
+    /// toggle on iOS yet — the Intelligence screen is macOS-only for now).
+    var smartPasteAvailable: Bool { SmartPasteService.isAvailable }
+
+    func smartPaste(_ text: String, action: SmartPasteAction) async -> String? {
+        try? await smartPasteService.transform(text, action: action)
+    }
+
+    func smartTranslate(_ text: String, to language: String) async -> String? {
+        try? await smartPasteService.translate(text, to: language)
+    }
+
     func togglePin(_ item: ClipItem) async {
         guard let grdb = store as? GRDBClipboardStore else { return }
         try? await grdb.setPinned(id: item.id, !item.isPinned)
@@ -752,6 +768,15 @@ struct ClipDetailView: View {
     @State private var fullText = ""
     @State private var actionResult: String?
     @State private var boardIDs: Set<UUID> = []
+    @State private var smartResult: String?
+    @State private var isThinking = false
+
+    /// Smart Paste fits text clips only, never a masked secret, and only when
+    /// Apple Intelligence is available.
+    private var canSmartPaste: Bool {
+        model.smartPasteAvailable && !item.isSensitive
+            && item.kind != .image && item.kind != .fileReference && item.kind != .color
+    }
 
     var body: some View {
         List {
@@ -792,6 +817,45 @@ struct ClipDetailView: View {
                             .textSelection(.enabled)
                         Button("Copy result", systemImage: "doc.on.doc") {
                             UIPasteboard.general.string = actionResult
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        }
+                    }
+                }
+            }
+
+            if canSmartPaste {
+                Section("Smart paste") {
+                    Menu {
+                        ForEach(SmartPasteAction.allCases) { action in
+                            Button {
+                                runSmartPaste(action)
+                            } label: {
+                                Label(
+                                    LocalizedStringKey(action.titleKey),
+                                    systemImage: action.symbolName)
+                            }
+                        }
+                        Menu {
+                            ForEach(Self.translateLanguageCodes, id: \.self) { code in
+                                Button(Self.localizedLanguageName(code)) {
+                                    runTranslate(to: Self.englishLanguageName(code))
+                                }
+                            }
+                        } label: {
+                            Label("Translate to", systemImage: "globe")
+                        }
+                    } label: {
+                        Label("Smart paste", systemImage: "sparkles")
+                    }
+                    .disabled(isThinking)
+                    .accessibilityIdentifier("smart-paste-menu")
+
+                    if isThinking {
+                        Label("Thinking…", systemImage: "sparkles").foregroundStyle(.secondary)
+                    } else if let smartResult, !smartResult.isEmpty {
+                        Text(smartResult).font(.body).textSelection(.enabled)
+                        Button("Copy result", systemImage: "doc.on.doc") {
+                            UIPasteboard.general.string = smartResult
                             UINotificationFeedbackGenerator().notificationOccurred(.success)
                         }
                     }
@@ -844,6 +908,36 @@ struct ClipDetailView: View {
         .task {
             await model.refreshBoards()
             boardIDs = await model.boardMembership(for: item)
+        }
+    }
+
+    private static let translateLanguageCodes = [
+        "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh",
+    ]
+    private static func localizedLanguageName(_ code: String) -> String {
+        Locale.current.localizedString(forLanguageCode: code) ?? code
+    }
+    private static func englishLanguageName(_ code: String) -> String {
+        Locale(identifier: "en").localizedString(forLanguageCode: code) ?? code
+    }
+
+    private func runSmartPaste(_ action: SmartPasteAction) {
+        smartResult = nil
+        isThinking = true
+        Task {
+            let result = await model.smartPaste(fullText, action: action)
+            isThinking = false
+            smartResult = result ?? String(localized: "Couldn’t run that — try again.")
+        }
+    }
+
+    private func runTranslate(to language: String) {
+        smartResult = nil
+        isThinking = true
+        Task {
+            let result = await model.smartTranslate(fullText, to: language)
+            isThinking = false
+            smartResult = result ?? String(localized: "Couldn’t run that — try again.")
         }
     }
 }
