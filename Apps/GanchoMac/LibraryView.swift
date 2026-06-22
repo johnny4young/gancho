@@ -45,7 +45,7 @@ struct LibraryView: View {
                 .accessibilityIdentifier("snippet-new")
             }
         }
-        .frame(minWidth: 620, minHeight: 380)
+        .frame(minWidth: 680, minHeight: 460)
         .accessibilityIdentifier("library")
         .task { await refresh() }
     }
@@ -181,9 +181,12 @@ struct LibraryView: View {
         }
     }
 
+    /// Two rows so the controls never fight for width in a narrow window: the
+    /// honest metadata on top, the Remove / Copy / Save actions below (Remove
+    /// kept apart on the left, the primary Save anchored right).
     private func footer(for snippet: ClipItem) -> some View {
-        HStack(spacing: GanchoTokens.Spacing.sm) {
-            Group {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
+            HStack(spacing: GanchoTokens.Spacing.md) {
                 Label(
                     "Created \(snippet.createdAt.formatted(date: .abbreviated, time: .omitted))",
                     systemImage: "clock"
@@ -192,23 +195,26 @@ struct LibraryView: View {
                 if snippet.uses > 0 {
                     Label("\(snippet.uses) uses", systemImage: "arrow.up.right")
                 }
+                Spacer(minLength: 0)
             }
             .font(.caption)
             .foregroundStyle(.secondary)
+            .lineLimit(1)
 
-            Spacer(minLength: 0)
-
-            ActionButton(
-                "Remove from Library", systemImage: "trash", identifier: "snippet-demote"
-            ) {
-                demote()
-            }
-            .foregroundStyle(GanchoTokens.Palette.danger)
-            ActionButton("Copy", systemImage: "doc.on.doc", identifier: "snippet-copy") {
-                SystemPasteboardWriter().write(.text(snippetBody), asPlainText: true)
-            }
-            ActionButton("Save", systemImage: "checkmark", identifier: "snippet-save") {
-                save()
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                ActionButton(
+                    "Remove from Library", systemImage: "trash", identifier: "snippet-demote"
+                ) {
+                    demote()
+                }
+                .foregroundStyle(GanchoTokens.Palette.danger)
+                Spacer(minLength: 0)
+                ActionButton("Copy", systemImage: "doc.on.doc", identifier: "snippet-copy") {
+                    SystemPasteboardWriter().write(.text(snippetBody), asPlainText: true)
+                }
+                ActionButton("Save", systemImage: "checkmark", identifier: "snippet-save") {
+                    save()
+                }
             }
         }
     }
@@ -282,6 +288,10 @@ final class LibraryWindowController {
             created.title = String(localized: "Library")
             created.styleMask = [.titled, .closable, .resizable]
             created.isReleasedWhenClosed = false
+            // Open roomy and never let it shrink below the editor's needs, so
+            // the title, keyword field, and footer actions are always visible.
+            created.setContentSize(NSSize(width: 820, height: 600))
+            created.contentMinSize = NSSize(width: 680, height: 460)
             created.center()
             window = created
         }
