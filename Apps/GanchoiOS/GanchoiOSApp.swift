@@ -230,6 +230,37 @@ final class IOSAppModel {
         await search()
     }
 
+    /// Rename a user board and propagate the new name (no-op on Favorites — the
+    /// store guards `isSystem`).
+    func renameBoard(_ board: Pinboard, name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let grdb = store as? GRDBClipboardStore else { return }
+        Task {
+            try? await grdb.renameBoard(id: board.id, name: trimmed)
+            var renamed = board
+            renamed.name = trimmed
+            await syncEngine.enqueue(boards: [renamed])
+            await refreshBoards()
+        }
+    }
+
+    /// Delete a user board. When sync is on, tombstone it so the removal reaches
+    /// the other devices; otherwise a plain local delete. Favorites is protected.
+    func deleteBoard(_ board: Pinboard) {
+        guard !board.isSystem, let grdb = store as? GRDBClipboardStore else { return }
+        Task {
+            if syncEnabled {
+                try? await grdb.deletePinboardForSync(id: board.id)
+                await syncEngine.enqueueBoardDeletion(ids: [board.id])
+            } else {
+                try? await grdb.deletePinboard(id: board.id)
+            }
+            if selectedBoardID == board.id { selectedBoardID = nil }
+            await refreshBoards()
+            await search()
+        }
+    }
+
     func search() async {
         let grdb = store as? GRDBClipboardStore
         guard let grdb, !query.isEmpty else {
@@ -401,96 +432,105 @@ struct CaptureView: View {
     @State private var showSettings = false
     @State private var showNewBoard = false
     @State private var newBoardName = ""
+    @State private var renameTarget: Pinboard?
+    @State private var renameField = ""
     @State private var path: [UUID] = []
 
     var body: some View {
         @Bindable var model = model
         NavigationStack(path: $path) {
-            List {
-                syncStatusSection
-                Section("Pasteboard") {
-                    hintsRow
-                    Button("Save clipboard", systemImage: "square.and.arrow.down") {
-                        Task { await model.saveClipboard() }
+            VStack(spacing: 0) {
+                boardRail
+                List {
+                    syncStatusSection
+                    Section("Pasteboard") {
+                        hintsRow
+                        Button("Save clipboard", systemImage: "square.and.arrow.down") {
+                            Task { await model.saveClipboard() }
+                        }
+                        .accessibilityIdentifier("capture-button")
+                        PasteControlView { providers in
+                            model.ingest(providers: providers)
+                        }
+                        .frame(height: 36)
+                        .accessibilityIdentifier("paste-control")
                     }
-                    .accessibilityIdentifier("capture-button")
-                    PasteControlView { providers in
-                        model.ingest(providers: providers)
-                    }
-                    .frame(height: 36)
-                    .accessibilityIdentifier("paste-control")
-                }
 
-                Section("History") {
-                    if model.captures.isEmpty {
-                        emptyState
-                    } else {
-                        ForEach(model.captures) { item in
-                            NavigationLink(value: item.id) {
-                                ClipCard(
-                                    item: item,
-                                    thumbnail: model.thumbnails.cached(for: item.id))
-                            }
-                            .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    Task { await model.delete(item) }
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
+                    Section("History") {
+                        if model.captures.isEmpty {
+                            emptyState
+                        } else {
+                            ForEach(model.captures) { item in
+                                NavigationLink(value: item.id) {
+                                    ClipCard(
+                                        item: item,
+                                        thumbnail: model.thumbnails.cached(for: item.id))
                                 }
-                                Button {
-                                    Task { await model.togglePin(item) }
-                                } label: {
-                                    Label(
-                                        item.isPinned ? "Unpin" : "Pin",
-                                        systemImage: item.isPinned ? "pin.slash" : "pin")
+                                .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) {
+                                        Task { await model.delete(item) }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                    Button {
+                                        Task { await model.togglePin(item) }
+                                    } label: {
+                                        Label(
+                                            item.isPinned ? "Unpin" : "Pin",
+                                            systemImage: item.isPinned ? "pin.slash" : "pin")
+                                    }
+                                    .tint(.orange)
                                 }
-                                .tint(.orange)
-                            }
-                            .swipeActions(edge: .leading) {
-                                Button {
-                                    Task { await model.copyToPasteboard(item) }
-                                } label: {
-                                    Label("Copy", systemImage: "doc.on.doc")
+                                .swipeActions(edge: .leading) {
+                                    Button {
+                                        Task { await model.copyToPasteboard(item) }
+                                    } label: {
+                                        Label("Copy", systemImage: "doc.on.doc")
+                                    }
+                                    .tint(.blue)
                                 }
-                                .tint(.blue)
                             }
                         }
                     }
                 }
-            }
-            .searchable(text: $model.query, prompt: Text("Search your clipboard"))
-            .onChange(of: model.query) { _, _ in Task { await model.search() } }
-            .navigationTitle("Gancho")
-            .navigationDestination(for: UUID.self) { id in
-                if let item = model.captures.first(where: { $0.id == id }) {
-                    ClipDetailView(item: item)
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    boardFilterMenu
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    kindFilterMenu
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
+                .searchable(text: $model.query, prompt: Text("Search your clipboard"))
+                .onChange(of: model.query) { _, _ in Task { await model.search() } }
+                .navigationTitle("Gancho")
+                .navigationDestination(for: UUID.self) { id in
+                    if let item = model.captures.first(where: { $0.id == id }) {
+                        ClipDetailView(item: item)
                     }
-                    .accessibilityLabel(Text("Settings"))
                 }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        kindFilterMenu
+                    }
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Image(systemName: "gearshape")
+                        }
+                        .accessibilityLabel(Text("Settings"))
+                    }
+                }
+                .sheet(isPresented: $showSettings) { IOSSettingsView() }
+                .alert("New board", isPresented: $showNewBoard) {
+                    TextField("Board name", text: $newBoardName)
+                    Button("Cancel", role: .cancel) {}
+                    Button("Create") { model.createBoard(named: newBoardName) }
+                }
+                .alert("Rename board", isPresented: renamePresented) {
+                    TextField("Board name", text: $renameField)
+                    Button("Cancel", role: .cancel) {}
+                    Button("Rename") {
+                        if let renameTarget { model.renameBoard(renameTarget, name: renameField) }
+                    }
+                }
+                .refreshable { await model.forceSync() }
+                .accessibilityIdentifier("capture-screen")
             }
-            .sheet(isPresented: $showSettings) { IOSSettingsView() }
-            .alert("New board", isPresented: $showNewBoard) {
-                TextField("Board name", text: $newBoardName)
-                Button("Cancel", role: .cancel) {}
-                Button("Create") { model.createBoard(named: newBoardName) }
-            }
-            .refreshable { await model.forceSync() }
-            .accessibilityIdentifier("capture-screen")
         }
         .task { await activate() }
         .onChange(of: scenePhase) { _, phase in
@@ -504,35 +544,84 @@ struct CaptureView: View {
         }
     }
 
-    /// Board picker (a higher axis than the type filter): All clips · Favorites
-    /// · user boards. Pinned clips still float to the top within each.
-    private var boardFilterMenu: some View {
-        @Bindable var model = self.model
-        return Menu {
-            Picker("Board", selection: $model.selectedBoardID) {
-                Label("All clips", systemImage: "tray.full").tag(UUID?.none)
-                ForEach(model.boards) { board in
-                    Label {
-                        board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
-                    } icon: {
-                        Image(systemName: board.sfSymbol)
-                    }
-                    .tag(UUID?.some(board.id))
+    /// Boards axis (above the type filter), as a horizontal rail of chips: All
+    /// clips · Favorites · user boards · New board. The active chip takes the
+    /// system accent; long-press a user board to rename or delete it.
+    private var boardRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                railChip(
+                    Text("All clips"), systemImage: "tray.full",
+                    isActive: model.selectedBoardID == nil
+                ) {
+                    select(board: nil)
                 }
+                ForEach(model.boards) { board in
+                    railChip(
+                        board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                        systemImage: board.sfSymbol,
+                        isActive: model.selectedBoardID == board.id
+                    ) {
+                        select(board: board.id)
+                    }
+                    .contextMenu {
+                        if !board.isSystem {
+                            Button("Rename board…") {
+                                renameField = board.name
+                                renameTarget = board
+                            }
+                            Button("Delete board", role: .destructive) {
+                                model.deleteBoard(board)
+                            }
+                        }
+                    }
+                }
+                Button {
+                    newBoardName = ""
+                    showNewBoard = true
+                } label: {
+                    Label("New board…", systemImage: "plus")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, GanchoTokens.Spacing.sm)
+                        .padding(.vertical, GanchoTokens.Spacing.xs)
+                        .background(.quaternary, in: Capsule())
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("board-new")
             }
-            Divider()
-            Button {
-                newBoardName = ""
-                showNewBoard = true
-            } label: {
-                Label("New board…", systemImage: "plus")
-            }
-            .accessibilityIdentifier("board-new")
-        } label: {
-            Image(systemName: model.selectedBoardID == nil ? "square.stack" : "square.stack.fill")
+            .padding(.horizontal, GanchoTokens.Spacing.md)
+            .padding(.vertical, GanchoTokens.Spacing.xs)
         }
-        .onChange(of: model.selectedBoardID) { _, _ in Task { await model.search() } }
-        .accessibilityLabel(Text("Board"))
+        .accessibilityIdentifier("board-rail")
+    }
+
+    private func railChip(
+        _ label: Text, systemImage: String, isActive: Bool, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: systemImage).font(.caption)
+                label.font(.subheadline.weight(.medium)).lineLimit(1)
+            }
+            .padding(.horizontal, GanchoTokens.Spacing.sm)
+            .padding(.vertical, GanchoTokens.Spacing.xs)
+            .background(
+                isActive ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
+                in: Capsule()
+            )
+            .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func select(board id: UUID?) {
+        model.selectedBoardID = id
+        Task { await model.search() }
+    }
+
+    private var renamePresented: Binding<Bool> {
+        Binding(get: { renameTarget != nil }, set: { if !$0 { renameTarget = nil } })
     }
 
     private var kindFilterMenu: some View {

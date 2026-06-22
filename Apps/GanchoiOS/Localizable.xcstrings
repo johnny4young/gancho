@@ -61,12 +61,52 @@
         }
       }
     },
+    "Delete board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar tablero"
+          }
+        }
+      }
+    },
     "New board": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Nuevo tablero"
+          }
+        }
+      }
+    },
+    "Rename": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renombrar"
+          }
+        }
+      }
+    },
+    "Rename board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renombrar tablero"
+          }
+        }
+      }
+    },
+    "Rename board…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renombrar tablero…"
           }
         }
       }
