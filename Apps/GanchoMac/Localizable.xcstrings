@@ -1415,6 +1415,76 @@
         }
       }
     },
+    "Add clips to this board from the history panel, or right-click a clip here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agrega clips a este tablero desde el panel de historial, o haz clic derecho en un clip aquí."
+          }
+        }
+      }
+    },
+    "Boards" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tableros"
+          }
+        }
+      }
+    },
+    "Library · Snippets" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biblioteca · Snippets"
+          }
+        }
+      }
+    },
+    "No snippets yet" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay snippets"
+          }
+        }
+      }
+    },
+    "Nothing here yet" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aquí no hay nada todavía"
+          }
+        }
+      }
+    },
+    "Unlimited boards & snippets" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tableros y snippets ilimitados"
+          }
+        }
+      }
+    },
+    "Untitled" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin título"
+          }
+        }
+      }
+    },
     "Library" : {
       "extractionState" : "stale",
       "localizations" : {
