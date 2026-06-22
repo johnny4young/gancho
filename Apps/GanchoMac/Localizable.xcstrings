@@ -1485,6 +1485,165 @@
         }
       }
     },
+    "%lld clips exposed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld clips expuestos" }
+        }
+      }
+    },
+    "A narrower scope reveals less clip data — never fewer verbs." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un alcance más estrecho revela menos datos del clip, nunca menos acciones."
+          }
+        }
+      }
+    },
+    "Access log" : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Registro de acceso" } }
+      }
+    },
+    "Fetch one clip by id." : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Obtiene un clip por id." } }
+      }
+    },
+    "Find clips by text query." : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Busca clips por texto." } }
+      }
+    },
+    "Full content of every non-sensitive clip. Sensitive clips remain vetoed, even here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contenido completo de cada clip no sensible. Los clips sensibles quedan vetados, incluso aquí."
+          }
+        }
+      }
+    },
+    "Full content, but only for clips you have deliberately marked — pinned or on a board. Raw history stays invisible." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contenido completo, pero solo de los clips que marcaste a propósito — fijados o en un tablero. El historial crudo queda invisible."
+          }
+        }
+      }
+    },
+    "Lets local agents — Claude, Cursor, the gancho CLI — reach your clipboard over a loopback connection. No network, no cloud. Off by default." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permite que agentes locales — Claude, Cursor, el CLI de gancho — accedan a tu portapapeles por una conexión loopback. Sin red, sin nube. Apagado por defecto."
+          }
+        }
+      }
+    },
+    "Listening" : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Escuchando" } }
+      }
+    },
+    "MCP Access" : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Acceso MCP" } }
+      }
+    },
+    "Metadata only — never clip content" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated", "value" : "Solo metadata, nunca contenido del clip"
+          }
+        }
+      }
+    },
+    "Off" : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Apagado" } }
+      }
+    },
+    "Open MCP Access…" : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Abrir Acceso MCP…" } }
+      }
+    },
+    "Pin a clip or add it to a board." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated", "value" : "Fija un clip o lo agrega a un tablero."
+          }
+        }
+      }
+    },
+    "Queue clips into the paste stack." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated", "value" : "Encola clips en el paste stack."
+          }
+        }
+      }
+    },
+    "Reads content" : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Lee contenido" } }
+      }
+    },
+    "Sensitive clips are vetoed in every scope, including Everything — an agent never sees a secret the detector flagged." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los clips sensibles se vetan en todos los alcances, incluido Todo — un agente nunca ve un secreto que el detector marcó."
+          }
+        }
+      }
+    },
+    "The exposed tools, the metadata-only access log, and the sensitive-veto guarantee live in MCP Access." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las herramientas expuestas, el registro de acceso solo-metadata y la garantía de veto de secretos viven en Acceso MCP."
+          }
+        }
+      }
+    },
+    "Titles and sanitized previews only — never a content body. An agent can find clips and pin them, but cannot read what they hold." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo títulos y previews saneados — nunca el cuerpo del contenido. Un agente puede encontrar y fijar clips, pero no leer lo que contienen."
+          }
+        }
+      }
+    },
+    "Tools exposed" : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Herramientas expuestas" } }
+      }
+    },
+    "Write" : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Escribe" } }
+      }
+    },
+    "denied" : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "denegado" } }
+      }
+    },
     "Library" : {
       "extractionState" : "stale",
       "localizations" : {

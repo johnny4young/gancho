@@ -53,6 +53,7 @@ final class AppModel {
     let permissionWindow = PasteboardPermissionWindowController()
     let libraryWindow = LibraryWindowController()
     let settingsWindow = SettingsWindowController()
+    let mcpAccessWindow = MCPAccessWindowController()
     let purchases = StoreKitPurchaseHandler()
     let telemetry: TelemetryPipeline
 

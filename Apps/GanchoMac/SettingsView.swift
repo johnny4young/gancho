@@ -407,11 +407,10 @@ private struct IntegrationsSettingsTab: View {
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                Text("Sensitive clips are never shared, whatever the scope.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Button("Open MCP Access…") { model.mcpAccessWindow.show(model: model) }
+                    .accessibilityIdentifier("open-mcp-access")
                 Text(
-                    "Connect your agent to the “gancho mcp” command. Every access is logged in the Privacy Center."
+                    "The exposed tools, the metadata-only access log, and the sensitive-veto guarantee live in MCP Access."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
