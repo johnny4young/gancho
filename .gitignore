@@ -8,6 +8,7 @@ build/
 dist/
 xcuserdata/
 *.xcresult
+*.profraw
 
 # Vendored frameworks (fetched by scripts, never committed)
 Vendor/
@@ -18,3 +19,6 @@ Vendor/
 # Local planning and agent workflow — maintainer-only, never committed.
 .planning/
 .claude/
+
+# Pulled design system from Claude Design (reference only, never committed).
+docs/design/

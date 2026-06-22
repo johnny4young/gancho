@@ -8,10 +8,16 @@ import Testing
 struct SyncEnablementTests {
     @Test("Sync runs only for Pro on an iCloud-signed-in device")
     func truthTable() {
+        // `hasCloudKitEntitlement` defaults to true, so the happy path already
+        // exercises the entitlement-present case; the explicit-false row at the
+        // end proves the entitlement gates enablement.
         #expect(SyncEnablement.shouldEnable(tier: .pro, iCloudAvailable: true))
         #expect(!SyncEnablement.shouldEnable(tier: .pro, iCloudAvailable: false))
         #expect(!SyncEnablement.shouldEnable(tier: .free, iCloudAvailable: true))
         #expect(!SyncEnablement.shouldEnable(tier: .free, iCloudAvailable: false))
+        #expect(
+            !SyncEnablement.shouldEnable(
+                tier: .pro, iCloudAvailable: true, hasCloudKitEntitlement: false))
     }
 
     @Test("Factory returns Noop unless enabled, the adapter when it is")
@@ -23,9 +29,25 @@ struct SyncEnablementTests {
             store: store, tier: .free, iCloudAvailable: true, stateStore: stateStore)
         #expect(disabled is NoopSyncEngine)
 
+        let unsigned = SyncEngineFactory.make(
+            store: store, tier: .pro, iCloudAvailable: true,
+            hasCloudKitEntitlement: false, stateStore: stateStore)
+        #expect(unsigned is NoopSyncEngine)
+
         let enabled = SyncEngineFactory.make(
             store: store, tier: .pro, iCloudAvailable: true, stateStore: stateStore)
         #expect(enabled is CKSyncEngineAdapter)
+    }
+
+    @Test("Entitlement parser accepts strings and arrays, rejects missing values")
+    func entitlementParser() {
+        #expect(CloudKitEntitlements.contains("CloudKit" as CFString, "CloudKit"))
+        #expect(
+            CloudKitEntitlements.contains(
+                ["iCloud.com.johnny4young.gancho"] as CFArray,
+                "iCloud.com.johnny4young.gancho"))
+        #expect(!CloudKitEntitlements.contains(nil, "CloudKit"))
+        #expect(!CloudKitEntitlements.contains(["CloudDocuments"] as CFArray, "CloudKit"))
     }
 }
 
@@ -45,4 +67,15 @@ private struct StubSyncLocalStore: SyncLocalStore {
     func applyRemoteDeletion(recordID: String) async throws {}
     func clearTombstone(recordID: String) async throws {}
     func forgetAllSyncFields() async throws {}
+    func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> { [] }
+    func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws {}
+    func pendingBoardUploads() async throws -> [Pinboard] { [] }
+    func markBoardNeedsUpload(id: UUID) async throws {}
+    func markBoardUploaded(id: UUID, systemFields: Data) async throws {}
+    func boardSystemFields(for id: UUID) async throws -> Data? { nil }
+    func applyRemoteBoardUpsert(_ board: Pinboard, systemFields: Data) async throws {}
+    func forgetAllBoardSyncFields() async throws {}
+    func pendingBoardDeletionRecordIDs() async throws -> [String] { [] }
+    func applyRemoteBoardDeletion(recordID: String) async throws {}
+    func clearBoardTombstone(recordID: String) async throws {}
 }

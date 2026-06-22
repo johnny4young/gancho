@@ -93,7 +93,7 @@ final class PaywallWindowController {
                     != nil)
         else { return }
         let hosting = NSHostingController(
-            rootView: PaywallView(trigger: trigger).environment(model))
+            rootView: PaywallView(trigger: trigger).environment(model).ganchoTinted())
         let created = NSWindow(contentViewController: hosting)
         created.title = String(localized: "Gancho Pro")
         created.styleMask = [.titled, .closable]

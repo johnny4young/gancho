@@ -1,78 +1,188 @@
 # Gancho — Architecture
 
-The product source of truth (vision, market, pricing, backlog with acceptance
-criteria) lives in the maintainer's local planning docs (`.planning/`,
-git-ignored). This document records the engineering decisions the code must
-respect.
+This document records the engineering decisions the code must respect. Product
+planning, pricing, and acceptance criteria live in the maintainer's git-ignored
+local planning docs.
+
+## Engineering goal
+
+Gancho is a private, local-first system for capture → recall → reuse:
+
+1. capture clipboard material safely,
+2. persist and search it locally at interactive speed,
+3. sync it across trusted devices without Gancho-operated servers by default,
+4. promote valuable items into a curated snippet library, and
+5. keep enough platform boundaries that Android, Windows, and Linux clients can
+   be added later without replacing the Apple implementation.
+
+The core product bet is not “AI clipboard.” It is trustworthy reuse: the user
+can find, understand, transform, and paste the thing they already copied faster
+than recreating it.
 
 ## The two worlds
 
 | | History | Library |
 | --- | --- | --- |
-| Lifetime | Ephemeral (retention/expiry rules) | Permanent (never expires) |
-| Entry | Automatic capture (macOS) / intent-based (iOS) | Promoted from a clip, or authored |
-| Contents | Everything you copy | Snippets, templates, pins |
+| Lifetime | Ephemeral, governed by retention and expiry rules | Permanent until the user deletes it |
+| Entry | Automatic capture on macOS; intentional capture elsewhere | Promoted from a clip or authored directly |
+| Contents | Recently copied material | Snippets, templates, pins, reusable references |
+| Default privacy posture | Can expire, mask, or be skipped | User-curated, syncable, exportable |
 
-The bridge: *promote* a clip → snippet in one gesture (lands with the
-snippet library in v1.1).
+The bridge is the signature gesture: promote a useful clip into the Library in
+one action.
 
-## Layers
+## Layering
 
+```text
+Apps and extensions (@MainActor by default)
+  ├─ macOS menu-bar / panel / paste-back UI
+  ├─ iOS + iPadOS app, Share Extension, keyboard, widgets, App Intents
+  └─ future visionOS/watchOS/non-Apple shells
+
+Platform adapters
+  ├─ ClipboardCore: macOS polling, iOS intentional capture contracts
+  ├─ paste-back and permission/onboarding adapters
+  └─ extension-safe entry points
+
+Shared engine-room targets (nonisolated + Sendable)
+  ├─ GanchoKit: ClipItem, stores, retention, snippets, sync boundary
+  ├─ GanchoAI: deterministic classifiers, annotation, embeddings, model seams
+  └─ GanchoDesign: tokens and shared component primitives
+
+Persistence and sync implementations
+  ├─ GRDB / SQLite / FTS5 local store
+  ├─ encrypted content envelope and metadata indexes
+  ├─ CKSyncEngine over the user's private iCloud database
+  └─ future LAN / self-hosted / non-Apple transports behind SyncEngine
 ```
-Apps (thin shells, @MainActor by default)
-  └── GanchoDesign   tokens → components (no bare numbers in UI code)
-  └── GanchoKit      ClipItem, ClipContentKind, ClipboardStore, SyncEngine
-  └── ClipboardCore  MacPasteboardMonitor (adaptive polling, off-main reads) · iOS intent capture
-  └── GanchoAI       RuleClassifier (tier 0) → Foundation Models (tier 1) → LanguageModel protocol (tier 2)
-```
 
-Engine-room packages are nonisolated + `Sendable`; isolation is opt-in per
-type (e.g. `MacPasteboardMonitor` is `@MainActor` because it touches AppKit).
+App targets stay thin. If feature logic cannot be tested from a SwiftPM target,
+it probably lives in the wrong layer.
 
-## Decisions (with rationale)
+## Platform contracts
 
-1. **Minimum macOS 26 / iOS 26.** No beta SDKs on work machines; SDK-27 APIs
-   go behind `#available`. Betas run only on cloud CI, never locally.
-2. **GRDB (SQLite) + FTS5 for storage, CKSyncEngine for sync.** SwiftData +
-   CloudKit is rejected for v1 (production evidence 2025–2026: schema lock-in,
-   silent sync failures). Encrypted fields (`encryptedValues`) for content.
-   Validated by dedicated storage and sync spikes before any schema is
-   promoted.
-3. **`SyncEngine` is a hard boundary.** The core never imports CloudKit.
-   A future LAN-P2P or self-hosted backend is a new implementation, not a
-   rewrite.
-4. **Capture is privacy-first, before features.** Sensitive pasteboard types
-   (`org.nspasteboard.*`) veto capture before any content is read. On iOS
-   there are NO background pasteboard reads — share extension, UIPasteControl,
-   and foreground prompts only. `NSPasteboard.accessBehavior` + detect APIs
-   integrate once the privacy spike documents the macOS privacy-flag matrix.
-5. **Pasteboard metadata is cheap; content reads are hostile.** The capture
-   engine splits the two (`PasteboardReading`): `changeCount`/`types` poll on
-   the main actor; the full read runs detached because the OS "Ask" permission
-   can stall it for seconds. Rapid changes coalesce to the newest content —
-   the pasteboard only ever exposes its latest state, so a stale in-flight
-   read would mislabel data. Polling adapts (`AdaptivePollingPolicy`): 250 ms
-   active, 1.5 s idle, paused while the screen is locked.
-6. **Tier-0 intelligence is deterministic and universal.** `RuleClassifier`
-   runs on every device with zero network. Foundation Models (tier 1) and the
-   `LanguageModel` protocol (tier 2: on-device → PCC → external, opt-in per
-   action) build on top; AI never gates core functionality.
-7. **Dedupe by content hash.** SHA-256(content + kind) — re-copy moves the
-   item to the top; sync uses the same key to avoid ping-pong duplicates.
-8. **Tokens, not numbers.** UI code consumes `GanchoTokens`; Liquid Glass is
-   the native design language (the opt-out dies with the SDK-27 generation).
+| Platform family | What is allowed | What is forbidden |
+| --- | --- | --- |
+| macOS | Automatic monitoring via cheap metadata polling, then off-main content reads | Reading content before the sensitive-type veto; blocking the main actor on pasteboard permission prompts |
+| iOS / iPadOS | Share Extension, `UIPasteControl`, foreground capture, App Intents, keyboard extension with explicit user action | Background pasteboard polling or marketing that implies silent iPhone capture |
+| visionOS | iPad-compatible app first; Universal Clipboard and sync viewer workflows | Native spatial UI before usage data justifies the extra surface |
+| watchOS | Viewer, pins, complications/widgets, handoff to iPhone | Capture or pasteboard writes that watchOS APIs do not support |
+| Android / Windows / Linux | Analysis only for now: capability matrix, data envelope, and stack options | Implementation commitments, capture adapters, or backend work before an explicit post-PMF decision |
 
-## Inherited from vitrine
+## Privacy invariants
 
-`project.yml` (XcodeGen + approachable concurrency), `Makefile`, `.swift-format`,
-CI shape (toolchain recording, SPM cache, weekly drift canary), release
-discipline to adopt later (version guard tag ↔ MARKETING_VERSION ↔ release
-notes, notarized DMG + Sparkle + Homebrew cask behind a compile-time flag for
-a future direct-download channel).
+1. **Veto before read.** `ConcealedType`, `TransientType`, and
+   `AutoGeneratedType` veto capture before any content read.
+2. **Metadata is not content.** Polling `changeCount` and type lists is the only
+   always-on macOS loop. Full content reads are isolated, cancelable, and never
+   run on the main actor.
+3. **No clipboard content in observability.** Logs, telemetry, crash reports,
+   analytics, and support bundles may contain metadata buckets only.
+4. **No silent iOS capture.** iOS, iPadOS, and visionOS capture is user-initiated
+   by design and by App Review reality.
+5. **Sync through encrypted envelopes.** The local store may index safe metadata,
+   but full content must be encrypted before it is synced.
+6. **External processing is opt-in.** Any Private Cloud Compute or third-party
+   model action is explicit per action and displays the outbound payload.
 
-## Next steps (ordered)
+## Storage and search
 
-Risk spikes (pasteboard privacy, storage, sync, semantic search, iOS capture)
-→ Mac core (capture, persistence + search, intelligence, UI) → iOS companion
-→ sync → monetization, privacy center, and growth. The snippet library lands
-in v1.1 on top of the same store/sync.
+Production storage is GRDB over SQLite with FTS5. SwiftData is not the v1 store:
+Gancho needs explicit schema control, fast search, portable export/backup, and a
+sync layer whose failure modes are visible.
+
+Planned store shape:
+
+- `clips` metadata table: id, kind, timestamps, source app/device, sensitivity,
+  retention, pin state, content hash, and sync state.
+- encrypted content blobs: payload bytes and rich representations encrypted
+  before sync.
+- FTS5 tables for searchable text, titles, tags, and snippet bodies.
+- embedding tables once the on-device embedding spike proves latency and memory.
+- tombstones for sync-compatible deletion.
+- an open export archive so users can leave without data lock-in.
+
+Performance budgets:
+
+- idle macOS capture loop: <0.5% average CPU and no linear memory growth,
+- exact search: <50 ms at 100k items on a current Mac,
+- semantic search: <100 ms at 10k vectors before it can be user-facing,
+- capture pipeline rules/classification before persistence: <10 ms excluding OS
+  pasteboard permission stalls,
+- UI list interactions: no main-thread content decryption for off-screen rows.
+
+## Sync boundary
+
+`SyncEngine` is a hard boundary. The shared core never imports CloudKit.
+
+The first production implementation is CKSyncEngine over the user's private
+iCloud database. It must persist engine state, system fields, tombstones, quota
+errors, offline recovery, and reset handling explicitly. The same boundary is
+what later permits LAN peer-to-peer, a self-hosted transport, or non-Apple
+clients without rewriting capture, search, or the snippet model.
+
+## Intelligence tiers
+
+1. **Tier 0 — deterministic and universal.** `RuleClassifier`, data detectors,
+   local formatters, secret detection, and masking. Runs on every supported
+   device with zero network.
+2. **Tier 1 — Apple on-device models.** Structured annotations, titles,
+   summaries, OCR, and embeddings when Apple Intelligence/Foundation Models are
+   available. Failures never block capture or paste-back.
+3. **Tier 2 — opt-in external or private-cloud actions.** Used only for explicit
+   transformations where the user approves the outbound content.
+
+Model seams live in `GanchoAI`; UI and storage should not depend on any concrete
+AI provider.
+
+## Extension-safe storage
+
+Share extensions, widgets, keyboard extensions, App Intents, and future desktop
+extensions must not each invent their own persistence path. They should use a
+shared app-group container with a narrow write/read API, short transactions, and
+clear conflict behavior. SQLite WAL mode and extension memory limits are design
+constraints, not afterthoughts.
+
+## Portability strategy
+
+Non-Apple clients are a future business decision, but the code should not make
+them impossible:
+
+- define a versioned content envelope before syncing rich content,
+- keep privacy policy and retention rules in shared engine modules,
+- keep platform capture adapters replaceable,
+- expose a CLI/MCP surface that exercises the same store and sync contracts,
+- prove export/import early, and
+- document a capability matrix before committing to Android, Windows, or Linux.
+
+For now, non-Apple work stops at analysis: capability matrix, portable envelope,
+and stack options. A read/search/paste companion or native capture adapter only
+becomes backlog after an explicit post-PMF decision.
+
+## Build and quality gates
+
+- `project.yml` is the source of truth for the generated Xcode project.
+- `make format`, `make lint`, and `make test` are required before commits.
+- `make build` must pass for macOS; `make build-ios` must pass when shared or
+  iOS code changes.
+- Swift Testing is the unit-test framework. XCTest is reserved for UI tests.
+- Public symbols in engine-room targets require documentation comments that
+  explain constraints and rationale.
+- User-facing strings go through a String Catalog with English and Spanish from
+  the first real UI string.
+
+## Decisions
+
+1. **Minimum macOS 26 / iOS 26.** SDK-27 APIs are adopted only behind
+   `#available`; beta SDKs are not installed on work machines.
+2. **XcodeGen project.** `Gancho.xcodeproj` is generated; edit `project.yml` and
+   run `make project`.
+3. **Swift 6 strict concurrency.** App modules default to `@MainActor`; shared
+   engine-room targets are nonisolated + `Sendable` unless a type has a real
+   isolation requirement.
+4. **GRDB + FTS5 + CKSyncEngine.** Explicit local storage and explicit sync beat
+   hidden persistence magic for this product.
+5. **Native Apple UI first.** Liquid Glass, keyboard access, accessibility, and
+   platform idioms are not polish; they are part of the product surface.
+6. **No backend by default.** A future backend must be a sync implementation,
+   not a prerequisite for the product to function.

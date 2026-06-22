@@ -38,7 +38,7 @@ struct SyncStatusView: View {
         case .idle: Text(verbatim: "")
         case .syncing: Text("Syncing…")
         case .upToDate: Text("Synced")
-        case .pending(let count): Text("Waiting to sync") + Text(verbatim: " · \(count)")
+        case .pending(let count): Text("\(Text("Waiting to sync")) · \(String(count))")
         case .paused(let cause), .failed(let cause): Text(Self.causeText(cause))
         }
     }
@@ -56,9 +56,11 @@ struct SyncStatusView: View {
 
     private var tint: Color {
         switch status {
-        case .paused: .orange
-        case .failed: .red
-        default: .secondary
+        // "Synced" is always the brand green — a state, not a theme choice.
+        case .upToDate: GanchoTokens.Palette.success
+        case .paused: GanchoTokens.Palette.warning
+        case .failed: GanchoTokens.Palette.danger
+        default: .secondary  // syncing / pending / idle
         }
     }
 

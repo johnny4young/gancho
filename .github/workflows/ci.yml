@@ -17,7 +17,9 @@ concurrency:
 jobs:
   test:
     name: Lint, package tests & coverage
-    runs-on: macos-latest
+    # macOS/iOS 26 deployment target + Swift 6.2 need an Xcode 26 runner;
+    # macos-latest still carries Xcode 16 (macOS 15 SDK) and cannot build it.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
@@ -62,9 +64,9 @@ jobs:
 
   build-apps:
     name: Build macOS + iOS apps
-    runs-on: macos-latest
-    # Deployment target is macOS/iOS 26 — requires an Xcode 26+ runner image.
-    # If macos-latest lags behind, pin `runs-on: macos-26`.
+    # Deployment target is macOS/iOS 26 — needs an Xcode 26 runner image.
+    # macos-latest still lags on Xcode 16 (macOS 15 SDK), so pin macos-26.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 

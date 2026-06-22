@@ -28,6 +28,7 @@ public final class GRDBClipboardStore: ClipboardStore {
             writer: pool,
             blobs: BlobStore(directory: directory.appendingPathComponent("blobs")))
         try migrator.migrate(pool)
+        try Self.reformatLegacyImagePreviews(in: pool)
     }
 
     /// Injectable writer for tests (`DatabaseQueue()` in-memory).
@@ -194,6 +195,80 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.column("wasDenied", .boolean).notNull().defaults(to: false)
             }
         }
+        migrator.registerMigration("v10-boards") { db in
+            // Boards become a first-class axis, independent of pinning: a clip
+            // can belong to MANY boards, tracked in a junction. The legacy
+            // single `pinboardID` column is migrated in and then left unused.
+            // Boards stay device-local (only `isPinned` syncs) — no sync schema
+            // change. Cascades clean the junction when a clip or board is gone.
+            try db.alter(table: "pinboard") { t in
+                t.add(column: "sfSymbol", .text).notNull().defaults(to: "square.stack")
+            }
+            try db.create(table: "clip_board") { t in
+                t.column("clipID", .text).notNull().indexed()
+                    .references("clip", onDelete: .cascade)
+                t.column("boardID", .text).notNull().indexed()
+                    .references("pinboard", onDelete: .cascade)
+                t.primaryKey(["clipID", "boardID"])
+            }
+            try db.execute(
+                sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) "
+                    + "SELECT id, pinboardID FROM clip WHERE pinboardID IS NOT NULL")
+        }
+        migrator.registerMigration("v11-favorites") { db in
+            // The built-in Favorites board: always present, sorts first, and is
+            // immutable (rename/delete guard on `isSystem`). Its display name is
+            // localized in the UI keyed on `isSystem`, not this seeded value.
+            try db.alter(table: "pinboard") { t in
+                t.add(column: "isSystem", .boolean).notNull().defaults(to: false)
+            }
+            try db.execute(
+                sql: "INSERT OR IGNORE INTO pinboard "
+                    + "(id, name, sfSymbol, sortIndex, createdAt, isSystem) "
+                    + "VALUES (?, ?, ?, ?, ?, 1)",
+                arguments: [
+                    Pinboard.favoritesID.uuidString, "Favorites", "star", -1,
+                    Date(timeIntervalSince1970: 0),
+                ])
+        }
+        migrator.registerMigration("v12-board-sync") { db in
+            // Board metadata syncs (owner design): mirror the clip's sync columns
+            // on the board table so a board's name/glyph propagate between devices.
+            // `needsUpload` defaults to 1 so boards predating sync upload on the
+            // first synced run. The seeded Favorites is also marked — harmless,
+            // it just re-asserts its (identical) metadata.
+            try db.alter(table: "pinboard") { t in
+                t.add(column: "syncSystemFields", .blob)
+                t.add(column: "needsUpload", .boolean).notNull().defaults(to: true)
+            }
+        }
+        migrator.registerMigration("v13-snippet-keyword") { db in
+            // Snippets reuse the clip row (isSnippet); add the keyword they're
+            // invoked by and a usage counter for the Library's stats.
+            try db.alter(table: "clip") { t in
+                t.add(column: "keyword", .text)
+                t.add(column: "uses", .integer).notNull().defaults(to: 0)
+            }
+        }
+        migrator.registerMigration("v14-board-tombstone") { db in
+            // Board deletions need a tombstone so they propagate to other devices
+            // (mirrors the clip `sync_tombstone`). Lives in the board zone, so it
+            // is tracked separately from the clip tombstones.
+            try db.create(table: "board_tombstone") { t in
+                t.column("recordID", .text).primaryKey()
+                t.column("deletedAt", .datetime).notNull()
+            }
+        }
+        migrator.registerMigration("v15-reupload-board-members") { db in
+            // Board membership rides the clip's sync record, but clips assigned
+            // before that wiring landed have a stale (empty) board set in the
+            // cloud. Re-flag every current member for upload so its record
+            // carries the right boardIDs and the membership reaches other
+            // devices. One-time; harmless when sync is off.
+            try db.execute(
+                sql: "UPDATE clip SET needsUpload = 1 "
+                    + "WHERE id IN (SELECT DISTINCT clipID FROM clip_board)")
+        }
         return migrator
     }
 
@@ -271,6 +346,10 @@ public final class GRDBClipboardStore: ClipboardStore {
             arguments.append(range.lowerBound)
             arguments.append(range.upperBound)
         }
+        if let boardID = query.boardID {
+            sql += " AND clip.id IN (SELECT clipID FROM clip_board WHERE boardID = ?)"
+            arguments.append(boardID.uuidString)
+        }
     }
 
     // MARK: - ClipboardStore
@@ -316,8 +395,14 @@ public final class GRDBClipboardStore: ClipboardStore {
         try await writer.read { db in
             try ClipRow
                 .filter(Column("isArchived") == false)
+                // Recency = the clip's last activity: lastUsedAt when it has been
+                // re-copied/used, else its createdAt. A freshly captured clip has
+                // a nil lastUsedAt, so ordering by lastUsedAt alone (NULLs last in
+                // SQLite DESC) would sink new clips below any previously-used one
+                // — COALESCE keeps the newest copy on top.
                 .order(
-                    Column("isPinned").desc, Column("lastUsedAt").desc, Column("createdAt").desc
+                    Column("isPinned").desc,
+                    (Column("lastUsedAt") ?? Column("createdAt")).desc
                 )
                 .limit(limit, offset: offset)
                 .fetchAll(db)
@@ -459,6 +544,8 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
     var contentTypeIdentifier: String?
     var isArchived: Bool = false
     var isSnippet: Bool = false
+    var keyword: String?
+    var uses: Int = 0
 
     init(item: ClipItem) {
         id = item.id.uuidString
@@ -479,6 +566,8 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
         contentText = nil
         contentBlobHash = nil
         contentTypeIdentifier = nil
+        keyword = item.keyword
+        uses = item.uses
     }
 
     var item: ClipItem {
@@ -496,7 +585,9 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
             isPinned: isPinned,
             isSensitive: isSensitive,
             expiresAt: expiresAt,
-            tags: (try? JSONDecoder().decode([String].self, from: Data(tags.utf8))) ?? []
+            tags: (try? JSONDecoder().decode([String].self, from: Data(tags.utf8))) ?? [],
+            keyword: keyword,
+            uses: uses
         )
     }
 }

@@ -26,7 +26,8 @@ public enum ClipRecordMapper {
         content: ClipContent?,
         systemFields: Data?,
         zoneID: CKRecordZone.ID,
-        maxAssetBytes: Int = defaultMaxAssetBytes
+        maxAssetBytes: Int = defaultMaxAssetBytes,
+        boardIDs: [UUID] = []
     ) -> CKRecord? {
         let record: CKRecord
         if let systemFields {
@@ -51,6 +52,9 @@ public enum ClipRecordMapper {
         record["tags"] =
             (try? String(data: JSONEncoder().encode(item.tags), encoding: .utf8))
             ?? "[]"
+        // Board membership is structural (which collections a clip is in), not
+        // content — so it rides a plain field. Board names sync separately.
+        record["boardIDs"] = boardIDs.map(\.uuidString)
 
         // Content + anything derived from it → encrypted.
         record.encryptedValues["title"] = item.title
@@ -112,6 +116,14 @@ public enum ClipRecordMapper {
             content = nil
         }
         return (item, content)
+    }
+
+    /// The board ids a synced clip belongs to. Membership rides the clip
+    /// record; board metadata (name, glyph) syncs separately as a `Board`
+    /// record, so an unknown id here resolves to a placeholder until that
+    /// arrives.
+    public static func boardIDs(from record: CKRecord) -> [UUID] {
+        (record["boardIDs"] as? [String])?.compactMap { UUID(uuidString: $0) } ?? []
     }
 
     /// Last-writer-wins by `updatedAt`: apply the remote only if it is at

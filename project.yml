@@ -36,6 +36,14 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEAD_CODE_STRIPPING: YES
+    # Xcode 16+ builds Debug apps as a thin launcher stub + a .debug.dylib
+    # (ENABLE_DEBUG_DYLIB). For a menu-bar agent (LSUIElement) the launcher
+    # hands off to the dylib and exits, so Xcode reports "Finished running"
+    # and detaches the debugger/console while the agent is still alive in the
+    # menu bar — confusing, and it breaks breakpoints for the running app.
+    # Force a single Debug binary so Run stays attached and predictable.
+    # Only affects Debug builds; Release never produces the dylib.
+    ENABLE_DEBUG_DYLIB: NO
 
 # Local Swift packages hold all feature/core code; app targets stay thin.
 packages:
@@ -68,6 +76,15 @@ targets:
         com.apple.developer.icloud-services:
           - CloudKit
         aps-environment: development
+        # NOTE: the menu-bar helper bridge (status, localized titles, nonce) is
+        # content-free and runs over a shared `UserDefaults(suiteName:)`. In
+        # Debug / Developer ID that resolves to a shared preferences domain (no
+        # entitlement needed). For the sandboxed App Store build, add the
+        # `com.apple.security.application-groups` (group.com.johnny4young.gancho)
+        # + `com.apple.security.app-sandbox` entitlements at archive time so it
+        # resolves to the App Group container — kept out of the baked Debug set
+        # because an unprovisioned app-group entitlement makes the UI-test build
+        # launch without accessibility.
     dependencies:
       - package: GanchoKit
         products:
@@ -78,13 +95,64 @@ targets:
           - GanchoTelemetry
           - GanchoSync
       - package: KeyboardShortcuts
+      # A separate helper process owns the visible menu-bar paperclip. macOS can
+      # keep status items hidden for the main bundle identifier even when they
+      # remain Accessibility-visible; the helper gives the user a fresh,
+      # paintable status-item owner while the main app keeps all private
+      # clipboard state.
+      - target: GanchoMenuBarHelper
+        embed: false
+    postBuildScripts:
+      - name: Embed the menu-bar helper and its LaunchAgent in the app bundle
+        basedOnDependencyAnalysis: true
+        inputFiles:
+          - "$(BUILT_PRODUCTS_DIR)/GanchoMenuBarHelper"
+          - "$(SRCROOT)/Apps/GanchoMenuBarHelper/com.johnny4young.gancho.menubar-helper.plist"
+        outputFiles:
+          - "$(TARGET_BUILD_DIR)/$(EXECUTABLE_FOLDER_PATH)/GanchoMenuBarHelper"
+          - "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchAgents/com.johnny4young.gancho.menubar-helper.plist"
+        script: |
+          set -euo pipefail
+          # Plain cp (not ditto): the sandboxed user script may only write the
+          # declared output paths. Runs before code signing so Xcode seals the
+          # bundle with the helper and its LaunchAgent in place.
+          cp -f "${BUILT_PRODUCTS_DIR}/GanchoMenuBarHelper" \
+            "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/GanchoMenuBarHelper"
+          chmod 755 "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/GanchoMenuBarHelper"
+          launch_agents="${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Library/LaunchAgents"
+          mkdir -p "${launch_agents}"
+          cp -f "${SRCROOT}/Apps/GanchoMenuBarHelper/com.johnny4young.gancho.menubar-helper.plist" \
+            "${launch_agents}/com.johnny4young.gancho.menubar-helper.plist"
     info:
       path: Apps/GanchoMac/Info.plist
       properties:
         CFBundleDisplayName: Gancho
+        # Deep links keep Settings/panel reachable if macOS or a menu-bar
+        # manager hides the status item.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.johnny4young.gancho
+            CFBundleURLSchemes:
+              - gancho
         # Menu-bar app: no Dock icon (Settings can offer an override later).
         LSUIElement: true
         NSHumanReadableCopyright: "© 2026 Johnny Young. All rights reserved."
+
+  GanchoMenuBarHelper:
+    type: tool
+    platform: macOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.menubar-helper
+    # No entitlements in the baked build: the bridge uses a shared preferences
+    # domain in Debug / Developer ID. Add the App Group entitlement to the helper
+    # at App Store archive time (mirrors the app, see the Gancho target note).
+    sources:
+      - path: Apps/GanchoMenuBarHelper
+        excludes:
+          - "com.johnny4young.gancho.menubar-helper.plist"
+      - path: Apps/GanchoMac/GanchoMenuBarCommand.swift
+      - path: Apps/GanchoMac/GanchoMenuBarBridge.swift
 
   GanchoiOS:
     type: application
@@ -96,6 +164,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho
     sources:
       - path: Apps/GanchoiOS
+      # Capture intents shared with the widget extension (App Intents a
+      # widget runs need target membership in both).
+      - path: Apps/GanchoShared
     entitlements:
       path: Apps/GanchoiOS/Gancho.entitlements
       properties:
@@ -118,16 +189,31 @@ targets:
           - GanchoTelemetry
           - GanchoSync
       - target: GanchoShare
+      - target: GanchoWidgets
+      - target: GanchoKeyboard
     info:
       path: Apps/GanchoiOS/Info.plist
       properties:
         CFBundleDisplayName: Gancho
+        # Widget deep links use the gancho:// scheme; custom schemes must be
+        # registered for the OS to route them to the app (onOpenURL).
+        CFBundleURLTypes:
+          - CFBundleURLName: com.johnny4young.gancho
+            CFBundleURLSchemes:
+              - gancho
         UILaunchScreen: {}
         # CKSyncEngine wakes on silent push to pull remote clips.
         UIBackgroundModes:
           - remote-notification
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # iPad must support every orientation (or be full-screen) for Split
+        # View multitasking — the iPad layout wants it.
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
 
@@ -142,6 +228,10 @@ targets:
         # XCTestCase overrides nonisolated members — the app-wide MainActor
         # default does not fit a UI-test bundle.
         SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        # macOS 26.5 Gatekeeper blocks unsigned XCUITest runners before they
+        # can bootstrap. Generate the bundle plist so Xcode can sign the
+        # runner for `make test-ui`; the app build targets stay unsigned.
+        GENERATE_INFOPLIST_FILE: YES
     sources:
       - path: Tests/GanchoUITests
     dependencies:
@@ -182,6 +272,77 @@ targets:
               NSExtensionActivationSupportsText: true
               NSExtensionActivationSupportsWebURLWithMaxCount: 1
               NSExtensionActivationSupportsImageWithMaxCount: 1
+
+  # Home/lock-screen widgets + the Control Center "Save Clipboard" control.
+  # Reads the App Group store read-only; the save button/control reuse the
+  # shared SaveClipboardIntent.
+  GanchoWidgets:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.widgets
+    sources:
+      - path: Apps/GanchoWidgets
+      - path: Apps/GanchoShared
+    entitlements:
+      path: Apps/GanchoWidgets/GanchoWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.johnny4young.gancho
+    dependencies:
+      - package: GanchoKit
+        products:
+          - GanchoKit
+          - ClipboardCore
+          - GanchoAI
+    info:
+      path: Apps/GanchoWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Gancho
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+  # Custom keyboard: paste any clip or synced pin into any app, with
+  # in-keyboard search and a reverse-capture button. Needs Full Access to
+  # read the App Group store (justified by an in-keyboard privacy screen).
+  GanchoKeyboard:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.keyboard
+    sources:
+      - path: Apps/GanchoKeyboard
+      - path: Apps/GanchoShared
+    entitlements:
+      path: Apps/GanchoKeyboard/GanchoKeyboard.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.johnny4young.gancho
+    dependencies:
+      - package: GanchoKit
+        products:
+          - GanchoKit
+          - ClipboardCore
+          - GanchoAI
+          - GanchoDesign
+    info:
+      path: Apps/GanchoKeyboard/Info.plist
+      properties:
+        CFBundleDisplayName: Gancho
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+          NSExtensionAttributes:
+            IsASCIICapable: false
+            PrefersRightToLeft: false
+            PrimaryLanguage: en-US
+            # Full Access: required to read the shared App Group store. The
+            # in-keyboard privacy screen explains nothing leaves the device.
+            RequestsOpenAccess: true
 
 schemes:
   Gancho:

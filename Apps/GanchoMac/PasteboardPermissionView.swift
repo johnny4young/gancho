@@ -22,7 +22,7 @@ struct PasteboardPermissionView: View {
             switch verdict {
             case .allowed:
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 44)).foregroundStyle(.green)
+                    .font(.system(size: 44)).foregroundStyle(GanchoTokens.Palette.success)
                 Text("Clipboard access is active")
                     .font(.title2.bold())
                 Text(
@@ -31,7 +31,7 @@ struct PasteboardPermissionView: View {
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
             case .ask:
                 Image(systemName: "questionmark.circle")
-                    .font(.system(size: 44)).foregroundStyle(.orange)
+                    .font(.system(size: 44)).foregroundStyle(GanchoTokens.Palette.warning)
                 Text("macOS will ask before Gancho reads")
                     .font(.title2.bold())
                 Text(
@@ -41,7 +41,7 @@ struct PasteboardPermissionView: View {
                 settingsButton
             case .denied:
                 Image(systemName: "hand.raised.fill")
-                    .font(.system(size: 44)).foregroundStyle(.red)
+                    .font(.system(size: 44)).foregroundStyle(GanchoTokens.Palette.danger)
                 Text("Clipboard access is off")
                     .font(.title2.bold())
                 Text(
@@ -93,7 +93,7 @@ final class PasteboardPermissionWindowController {
     func show(model: AppModel) {
         if window == nil {
             let hosting = NSHostingController(
-                rootView: PasteboardPermissionView().environment(model))
+                rootView: PasteboardPermissionView().environment(model).ganchoTinted())
             let created = NSWindow(contentViewController: hosting)
             created.title = String(localized: "Clipboard Access")
             created.styleMask = [.titled, .closable]

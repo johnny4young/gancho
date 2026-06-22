@@ -7,49 +7,9 @@ import UIKit
 /// The intents ARE the public API: they open the same App Group store and
 /// run the same classification pipeline the UI uses — no logic forks.
 /// Reachable from Shortcuts, the Action Button, Back Tap, and Spotlight.
-enum IntentStore {
-    nonisolated static func open() throws -> GRDBClipboardStore {
-        try GRDBClipboardStore(
-            directory: SharedStorageLocation.storeDirectory(
-                appGroupID: SharedInbox.appGroupID))
-    }
-}
-
-/// Save whatever is on the pasteboard right now (Action Button / Back Tap
-/// flagship: capture without opening anything).
-struct SaveClipboardIntent: AppIntent {
-    static let title: LocalizedStringResource = "Save Clipboard"
-    static let description = IntentDescription(
-        "Saves the current clipboard into Gancho. iOS shows its standard paste confirmation.")
-
-    @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
-        let pasteboard = UIPasteboard.general
-        let classifier = RuleClassifier()
-        let store = try IntentStore.open()
-
-        if let image = pasteboard.image, let png = image.pngData() {
-            let item = ClipItem(
-                kind: .image, preview: "Image (\(png.count) bytes)",
-                contentHash: ClipItem.hash(of: png, kind: .image))
-            try await store.insert(
-                item, content: .binary(data: png, typeIdentifier: "public.png"))
-            return .result(dialog: "Saved the image to Gancho.")
-        }
-        guard let text = pasteboard.string, !text.isEmpty else {
-            return .result(dialog: "The clipboard is empty.")
-        }
-        let kind = classifier.classify(text)
-        let canonical = ContentNormalizer.canonicalText(text, kind: kind)
-        let item = SensitiveIngestionPolicy.decorate(
-            ClipItem(
-                kind: kind, preview: String(canonical.prefix(120)),
-                contentHash: ClipItem.hash(of: canonical, kind: kind)),
-            finding: SensitiveDataDetector().detect(canonical), originalText: canonical)
-        try await store.insert(item, content: .text(canonical))
-        return .result(dialog: "Saved to Gancho.")
-    }
-}
+/// `IntentStore` + `SaveClipboardIntent` live in `Apps/GanchoShared` so the
+/// widget extension can reuse them (App Intents in a widget need target
+/// membership in both the app and the extension).
 
 /// Full-text search over history, returning entities Shortcuts can chain.
 struct SearchClipIntent: AppIntent {

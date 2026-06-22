@@ -7,6 +7,7 @@ import GanchoTelemetry
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import WidgetKit
 
 /// iOS companion shell (pre-alpha). Proves the honest capture story end to
 /// end: intent-based reads only (capture button, UIPasteControl, share
@@ -18,14 +19,20 @@ struct GanchoiOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // iPad gets the sidebar layout; iPhone keeps the stack.
-            if UIDevice.current.userInterfaceIdiom == .pad {
-                IPadSplitView()
-                    .environment(model)
-            } else {
-                CaptureView()
-                    .environment(model)
+            Group {
+                // iPad gets the sidebar layout; iPhone keeps the stack.
+                if UIDevice.current.userInterfaceIdiom == .pad {
+                    IPadSplitView()
+                } else {
+                    CaptureView()
+                }
             }
+            .environment(model)
+            // Widget deep links (`gancho://clip/<id>`) open the right clip.
+            .onOpenURL { model.handleDeepLink($0) }
+            // Brand-green accent (iOS has no per-app OS accent picker, so green
+            // is the default); the Synced check and success states use it too.
+            .ganchoTinted()
         }
     }
 }
@@ -39,6 +46,14 @@ final class IOSAppModel {
     var saveNote: String?
     var query = ""
     var kindFilter: ClipContentKind?
+    /// nil = "All clips"; otherwise the selected board (a higher axis than the
+    /// kind filter). Boards are device-local collections of clips.
+    var selectedBoardID: UUID?
+    var boards: [Pinboard] = []
+    /// Set by a widget deep link; `CaptureView` consumes it to push the clip.
+    var deepLinkClipID: UUID?
+    /// Cached, downsampled thumbnails for image clips (history rows + detail).
+    let thumbnails: ClipThumbnailStore
 
     /// Sync boundary: pull-to-refresh forces a cycle. A `NoopSyncEngine`
     /// until the user is Pro on an iCloud-signed-in device; the adapter swaps
@@ -50,6 +65,7 @@ final class IOSAppModel {
     private let purchases = StoreKitPurchaseHandler()
 
     init() {
+        thumbnails = ClipThumbnailStore(store: store)
         purchases.onTierChange = { [weak self] tier in
             guard let self else { return }
             self.tier = tier
@@ -70,7 +86,11 @@ final class IOSAppModel {
     private func configureSync() {
         guard let grdb = store as? GRDBClipboardStore else { return }
         let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
-        let enable = SyncEnablement.shouldEnable(tier: tier, iCloudAvailable: iCloudAvailable)
+        let cloudKitEntitled = CloudKitEntitlements.currentTaskAllowsSync()
+        let enable = SyncEnablement.shouldEnable(
+            tier: tier,
+            iCloudAvailable: iCloudAvailable,
+            hasCloudKitEntitlement: cloudKitEntitled)
         guard enable != syncEnabled else { return }
         syncEnabled = enable
 
@@ -80,9 +100,21 @@ final class IOSAppModel {
             .appendingPathComponent("sync-state.plist")
         syncEngine = SyncEngineFactory.make(
             store: grdb, tier: tier, iCloudAvailable: iCloudAvailable,
+            hasCloudKitEntitlement: cloudKitEntitled,
             stateStore: .file(at: stateURL),
             onStatus: { [weak self] status in
-                Task { @MainActor in self?.syncStatus = status }
+                Task { @MainActor in
+                    guard let self else { return }
+                    let wasSyncing = self.syncStatus == .syncing
+                    self.syncStatus = status
+                    // A finished cycle may have pulled new boards/clips from
+                    // iCloud. Refresh the lists so they appear without having to
+                    // background and reopen the app.
+                    if wasSyncing, status != .syncing {
+                        await self.refreshBoards()
+                        await self.search()
+                    }
+                }
             })
         if enable {
             let engine = syncEngine
@@ -102,6 +134,19 @@ final class IOSAppModel {
                 tier = on ? .pro : await purchases.currentTier()
                 configureSync()
             }
+        }
+
+        /// QA-only: drop the saved CKSyncEngine state so the next cycle re-fetches
+        /// every zone from scratch. Fixes a device whose token drifted ahead of
+        /// what it actually stored (older records never re-arrive on an
+        /// incremental fetch). Local rows are kept; remote records re-upsert.
+        func resetSyncAndRepull() {
+            let stateURL = SharedStorageLocation.storeDirectory(
+                appGroupID: SharedInbox.appGroupID
+            ).appendingPathComponent("sync-state.plist")
+            try? FileManager.default.removeItem(at: stateURL)
+            syncEnabled = false
+            configureSync()
         }
     #endif
 
@@ -123,9 +168,107 @@ final class IOSAppModel {
         await refreshHints()
     }
 
+    /// Resolves a `gancho://clip/<id>` widget link: make sure the clip is in
+    /// the list (so the detail destination finds it), then signal the view to
+    /// navigate. A foreign or unknown link is ignored.
+    func handleDeepLink(_ url: URL) {
+        guard let id = WidgetClips.clipID(fromDeepLink: url) else { return }
+        Task {
+            if !captures.contains(where: { $0.id == id }),
+                let item = try? await (store as? GRDBClipboardStore)?.item(id: id)
+            {
+                captures.insert(item, at: 0)
+            }
+            deepLinkClipID = id
+        }
+    }
+
+    /// Refreshes home/lock-screen widgets after the recent list changes.
+    private func reloadWidgets() {
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    func refreshBoards() async {
+        guard let grdb = store as? GRDBClipboardStore else { return }
+        boards = (try? await grdb.pinboards()) ?? []
+    }
+
+    /// Creates a board and queues its metadata for sync, so it shows up on the
+    /// user's other devices. The built-in Favorites board never counts against
+    /// the free limit.
+    func createBoard(named name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let grdb = store as? GRDBClipboardStore else { return }
+        Task {
+            let count = (try? await grdb.pinboards().filter { !$0.isSystem }.count) ?? 0
+            guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro) else {
+                flashNote(String(localized: "Upgrade to Pro for more boards"))
+                return
+            }
+            if let board = try? await grdb.createPinboard(name: trimmed) {
+                await syncEngine.enqueue(boards: [board])
+            }
+            await refreshBoards()
+        }
+    }
+
+    /// The boards a clip belongs to — drives the detail screen's checkmarks.
+    func boardMembership(for item: ClipItem) async -> Set<UUID> {
+        guard let grdb = store as? GRDBClipboardStore else { return [] }
+        return (try? await grdb.boardIDs(forClip: item.id)) ?? []
+    }
+
+    /// Add or remove a clip from one board. Membership rides the clip's sync
+    /// record, so the change propagates to other devices on the next cycle.
+    func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
+        guard let grdb = store as? GRDBClipboardStore else { return }
+        if member {
+            try? await grdb.assign(clipID: item.id, toBoard: board.id)
+        } else {
+            try? await grdb.unassign(clipID: item.id, fromBoard: board.id)
+        }
+        await search()
+    }
+
+    /// Rename a user board and propagate the new name (no-op on Favorites — the
+    /// store guards `isSystem`).
+    func renameBoard(_ board: Pinboard, name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let grdb = store as? GRDBClipboardStore else { return }
+        Task {
+            try? await grdb.renameBoard(id: board.id, name: trimmed)
+            var renamed = board
+            renamed.name = trimmed
+            await syncEngine.enqueue(boards: [renamed])
+            await refreshBoards()
+        }
+    }
+
+    /// Delete a user board. When sync is on, tombstone it so the removal reaches
+    /// the other devices; otherwise a plain local delete. Favorites is protected.
+    func deleteBoard(_ board: Pinboard) {
+        guard !board.isSystem, let grdb = store as? GRDBClipboardStore else { return }
+        Task {
+            if syncEnabled {
+                try? await grdb.deletePinboardForSync(id: board.id)
+                await syncEngine.enqueueBoardDeletion(ids: [board.id])
+            } else {
+                try? await grdb.deletePinboard(id: board.id)
+            }
+            if selectedBoardID == board.id { selectedBoardID = nil }
+            await refreshBoards()
+            await search()
+        }
+    }
+
     func search() async {
-        guard let grdb = store as? GRDBClipboardStore, !query.isEmpty else {
-            captures = (try? await store.items(offset: 0, limit: 50)) ?? []
+        let grdb = store as? GRDBClipboardStore
+        guard let grdb, !query.isEmpty else {
+            if let board = selectedBoardID, let grdb {
+                captures = (try? await grdb.items(inBoard: board)) ?? []
+            } else {
+                captures = (try? await store.items(offset: 0, limit: 50)) ?? []
+            }
             if let kindFilter {
                 captures = captures.filter { $0.kind == kindFilter }
             }
@@ -134,7 +277,8 @@ final class IOSAppModel {
         let kinds: Set<ClipContentKind>? = kindFilter.map { [$0] }
         captures =
             (try? await grdb.search(
-                ClipSearchQuery(text: query, kinds: kinds), limit: 50)) ?? []
+                ClipSearchQuery(text: query, kinds: kinds, boardID: selectedBoardID), limit: 50))
+            ?? []
     }
 
     /// 1-tap copy with haptic confirmation.
@@ -151,6 +295,22 @@ final class IOSAppModel {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
+    // MARK: - Smart paste (on-device Apple Intelligence)
+
+    private let smartPasteService = SmartPasteService()
+
+    /// Available when Apple Intelligence is on for this device (no per-device
+    /// toggle on iOS yet — the Intelligence screen is macOS-only for now).
+    var smartPasteAvailable: Bool { SmartPasteService.isAvailable }
+
+    func smartPaste(_ text: String, action: SmartPasteAction) async -> String? {
+        try? await smartPasteService.transform(text, action: action)
+    }
+
+    func smartTranslate(_ text: String, to language: String) async -> String? {
+        try? await smartPasteService.translate(text, to: language)
+    }
+
     func togglePin(_ item: ClipItem) async {
         guard let grdb = store as? GRDBClipboardStore else { return }
         try? await grdb.setPinned(id: item.id, !item.isPinned)
@@ -165,6 +325,7 @@ final class IOSAppModel {
             try? await store.delete(id: item.id)
         }
         await search()
+        reloadWidgets()
     }
 
     private let source = IntentionalPasteboardSource()
@@ -250,17 +411,20 @@ final class IOSAppModel {
         flashNote(
             stored?.id == item.id
                 ? String(localized: "Saved") : String(localized: "Already in your history"))
-        captures = (try? await store.items()) ?? []
+        // Bounded like every other load — fetching the whole backlog here is what
+        // made a large history lag after a capture.
+        captures = (try? await store.items(offset: 0, limit: 50)) ?? []
+        reloadWidgets()
     }
 
     private func makeItem(
         from capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil
     ) -> ClipItem {
         switch capture.payload {
-        case .image(let data, let typeIdentifier):
+        case .image(let data, _):
             return ClipItem(
                 kind: .image,
-                preview: "Image (\(typeIdentifier), \(data.count) bytes)",
+                preview: "Image (\(ByteSize.formatted(data.count)))",
                 contentHash: ClipItem.hash(of: data, kind: .image),
                 sourceAppBundleID: capture.sourceAppBundleID)
         default:
@@ -282,90 +446,198 @@ struct CaptureView: View {
     @Environment(IOSAppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
+    @State private var showNewBoard = false
+    @State private var newBoardName = ""
+    @State private var renameTarget: Pinboard?
+    @State private var renameField = ""
+    @State private var path: [UUID] = []
 
     var body: some View {
         @Bindable var model = model
-        NavigationStack {
-            List {
-                syncStatusSection
-                Section("Pasteboard") {
-                    hintsRow
-                    Button("Save clipboard", systemImage: "square.and.arrow.down") {
-                        Task { await model.saveClipboard() }
+        NavigationStack(path: $path) {
+            VStack(spacing: 0) {
+                boardRail
+                List {
+                    syncStatusSection
+                    Section("Pasteboard") {
+                        hintsRow
+                        Button("Save clipboard", systemImage: "square.and.arrow.down") {
+                            Task { await model.saveClipboard() }
+                        }
+                        .accessibilityIdentifier("capture-button")
+                        PasteControlView { providers in
+                            model.ingest(providers: providers)
+                        }
+                        .frame(height: 36)
+                        .accessibilityIdentifier("paste-control")
                     }
-                    .accessibilityIdentifier("capture-button")
-                    PasteControlView { providers in
-                        model.ingest(providers: providers)
-                    }
-                    .frame(height: 36)
-                    .accessibilityIdentifier("paste-control")
-                }
 
-                Section("History") {
-                    if model.captures.isEmpty {
-                        emptyState
-                    } else {
-                        ForEach(model.captures) { item in
-                            NavigationLink(value: item.id) {
-                                ClipCard(item: item)
-                            }
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    Task { await model.delete(item) }
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
+                    Section("History") {
+                        if model.captures.isEmpty {
+                            emptyState
+                        } else {
+                            ForEach(model.captures) { item in
+                                NavigationLink(value: item.id) {
+                                    ClipCard(
+                                        item: item,
+                                        thumbnail: model.thumbnails.cached(for: item.id))
                                 }
-                                Button {
-                                    Task { await model.togglePin(item) }
-                                } label: {
-                                    Label(
-                                        item.isPinned ? "Unpin" : "Pin",
-                                        systemImage: item.isPinned ? "pin.slash" : "pin")
+                                .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) {
+                                        Task { await model.delete(item) }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                    Button {
+                                        Task { await model.togglePin(item) }
+                                    } label: {
+                                        Label(
+                                            item.isPinned ? "Unpin" : "Pin",
+                                            systemImage: item.isPinned ? "pin.slash" : "pin")
+                                    }
+                                    .tint(.orange)
                                 }
-                                .tint(.orange)
-                            }
-                            .swipeActions(edge: .leading) {
-                                Button {
-                                    Task { await model.copyToPasteboard(item) }
-                                } label: {
-                                    Label("Copy", systemImage: "doc.on.doc")
+                                .swipeActions(edge: .leading) {
+                                    Button {
+                                        Task { await model.copyToPasteboard(item) }
+                                    } label: {
+                                        Label("Copy", systemImage: "doc.on.doc")
+                                    }
+                                    .tint(.blue)
                                 }
-                                .tint(.blue)
                             }
                         }
                     }
                 }
-            }
-            .searchable(text: $model.query, prompt: Text("Search your clipboard"))
-            .onChange(of: model.query) { _, _ in Task { await model.search() } }
-            .navigationTitle("Gancho")
-            .navigationDestination(for: UUID.self) { id in
-                if let item = model.captures.first(where: { $0.id == id }) {
-                    ClipDetailView(item: item)
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    kindFilterMenu
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
+                .searchable(text: $model.query, prompt: Text("Search your clipboard"))
+                .onChange(of: model.query) { _, _ in Task { await model.search() } }
+                .navigationTitle("Gancho")
+                .navigationDestination(for: UUID.self) { id in
+                    if let item = model.captures.first(where: { $0.id == id }) {
+                        ClipDetailView(item: item)
                     }
-                    .accessibilityLabel(Text("Settings"))
                 }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        kindFilterMenu
+                    }
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Image(systemName: "gearshape")
+                        }
+                        .accessibilityLabel(Text("Settings"))
+                    }
+                }
+                .sheet(isPresented: $showSettings) { IOSSettingsView() }
+                .alert("New board", isPresented: $showNewBoard) {
+                    TextField("Board name", text: $newBoardName)
+                    Button("Cancel", role: .cancel) {}
+                    Button("Create") { model.createBoard(named: newBoardName) }
+                }
+                .alert("Rename board", isPresented: renamePresented) {
+                    TextField("Board name", text: $renameField)
+                    Button("Cancel", role: .cancel) {}
+                    Button("Rename") {
+                        if let renameTarget { model.renameBoard(renameTarget, name: renameField) }
+                    }
+                }
+                .refreshable { await model.forceSync() }
+                .accessibilityIdentifier("capture-screen")
             }
-            .sheet(isPresented: $showSettings) { IOSSettingsView() }
-            .refreshable { await model.forceSync() }
-            .accessibilityIdentifier("capture-screen")
         }
         .task { await activate() }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await activate() }
         }
+        .onChange(of: model.deepLinkClipID) { _, id in
+            guard let id else { return }
+            path = [id]
+            model.deepLinkClipID = nil
+        }
+    }
+
+    /// Boards axis (above the type filter), as a horizontal rail of chips: All
+    /// clips · Favorites · user boards · New board. The active chip takes the
+    /// system accent; long-press a user board to rename or delete it.
+    private var boardRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                railChip(
+                    Text("All clips"), systemImage: "tray.full",
+                    isActive: model.selectedBoardID == nil
+                ) {
+                    select(board: nil)
+                }
+                ForEach(model.boards) { board in
+                    railChip(
+                        board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                        systemImage: board.sfSymbol,
+                        isActive: model.selectedBoardID == board.id
+                    ) {
+                        select(board: board.id)
+                    }
+                    .contextMenu {
+                        if !board.isSystem {
+                            Button("Rename board…") {
+                                renameField = board.name
+                                renameTarget = board
+                            }
+                            Button("Delete board", role: .destructive) {
+                                model.deleteBoard(board)
+                            }
+                        }
+                    }
+                }
+                Button {
+                    newBoardName = ""
+                    showNewBoard = true
+                } label: {
+                    Label("New board…", systemImage: "plus")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, GanchoTokens.Spacing.sm)
+                        .padding(.vertical, GanchoTokens.Spacing.xs)
+                        .background(.quaternary, in: Capsule())
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("board-new")
+            }
+            .padding(.horizontal, GanchoTokens.Spacing.md)
+            .padding(.vertical, GanchoTokens.Spacing.xs)
+        }
+        .accessibilityIdentifier("board-rail")
+    }
+
+    private func railChip(
+        _ label: Text, systemImage: String, isActive: Bool, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: systemImage).font(.caption)
+                label.font(.subheadline.weight(.medium)).lineLimit(1)
+            }
+            .padding(.horizontal, GanchoTokens.Spacing.sm)
+            .padding(.vertical, GanchoTokens.Spacing.xs)
+            .background(
+                isActive ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
+                in: Capsule()
+            )
+            .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func select(board id: UUID?) {
+        model.selectedBoardID = id
+        Task { await model.search() }
+    }
+
+    private var renamePresented: Binding<Bool> {
+        Binding(get: { renameTarget != nil }, set: { if !$0 { renameTarget = nil } })
     }
 
     private var kindFilterMenu: some View {
@@ -402,6 +674,7 @@ struct CaptureView: View {
     private func activate() async {
         await model.refreshHints()
         await model.drainSharedInbox()
+        await model.refreshBoards()
         await model.search()
     }
 
@@ -409,7 +682,7 @@ struct CaptureView: View {
     private var hintsRow: some View {
         if let note = model.saveNote {
             Label(note, systemImage: "checkmark.circle")
-                .foregroundStyle(.green)
+                .foregroundStyle(GanchoTokens.Palette.success)
                 .accessibilityIdentifier("save-note")
         }
         if model.hints.hasContent {
@@ -443,20 +716,25 @@ struct CaptureView: View {
         case .syncing:
             syncRow(Text("Syncing…"), "arrow.triangle.2.circlepath")
         case .upToDate:
-            syncRow(Text("Synced"), "checkmark.icloud")
+            syncRow(Text("Synced"), "checkmark.icloud", tint: GanchoTokens.Palette.success)
         case .pending(let count):
-            syncRow(Text("Waiting to sync") + Text(verbatim: " · \(count)"), "arrow.up.circle")
-        case .paused(let cause), .failed(let cause):
-            syncRow(Text(causeText(cause)), "exclamationmark.icloud")
+            syncRow(
+                Text("\(Text("Waiting to sync")) · \(String(count))"), "arrow.up.circle")
+        case .paused(let cause):
+            syncRow(Text(causeText(cause)), "pause.circle", tint: GanchoTokens.Palette.warning)
+        case .failed(let cause):
+            syncRow(
+                Text(causeText(cause)), "exclamationmark.icloud", tint: GanchoTokens.Palette.danger)
         }
     }
 
-    private func syncRow(_ text: Text, _ symbol: String) -> some View {
+    private func syncRow(_ text: Text, _ symbol: String, tint: Color = .secondary) -> some View {
         Section {
             Label {
                 text
             } icon: {
-                Image(systemName: symbol)
+                // "Synced" reads green (a state); paused/failed warn — like macOS.
+                Image(systemName: symbol).foregroundStyle(tint)
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -489,14 +767,40 @@ struct ClipDetailView: View {
     let item: ClipItem
     @State private var fullText = ""
     @State private var actionResult: String?
+    @State private var boardIDs: Set<UUID> = []
+    @State private var smartResult: String?
+    @State private var isThinking = false
+
+    /// Smart Paste fits text clips only, never a masked secret, and only when
+    /// Apple Intelligence is available.
+    private var canSmartPaste: Bool {
+        model.smartPasteAvailable && !item.isSensitive
+            && item.kind != .image && item.kind != .fileReference && item.kind != .color
+    }
 
     var body: some View {
         List {
             Section {
                 TypeBadge(kind: item.kind)
-                Text(fullText.isEmpty ? item.preview : fullText)
-                    .font(item.kind == .code ? .body.monospaced() : .body)
-                    .textSelection(.enabled)
+                if item.kind == .image, !item.isSensitive,
+                    let thumbnail = model.thumbnails.cached(for: item.id)
+                {
+                    thumbnail
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: 340, alignment: .center)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: GanchoTokens.Radius.md, style: .continuous))
+                } else {
+                    // A very long Text inside a List row fails to lay out on iOS
+                    // (the detail came up blank). Cap what we render; the whole
+                    // clip is still available via Copy.
+                    let body = fullText.isEmpty ? item.preview : fullText
+                    Text(body.count > 8000 ? String(body.prefix(8000)) + "\n…" : body)
+                        .font(item.kind == .code ? .body.monospaced() : .body)
+                        .textSelection(.enabled)
+                }
             }
 
             let actions = DevActions.actions(for: item.kind)
@@ -519,6 +823,74 @@ struct ClipDetailView: View {
                 }
             }
 
+            if canSmartPaste {
+                Section("Smart paste") {
+                    Menu {
+                        ForEach(SmartPasteAction.allCases) { action in
+                            Button {
+                                runSmartPaste(action)
+                            } label: {
+                                Label(
+                                    LocalizedStringKey(action.titleKey),
+                                    systemImage: action.symbolName)
+                            }
+                        }
+                        Menu {
+                            ForEach(Self.translateLanguageCodes, id: \.self) { code in
+                                Button(Self.localizedLanguageName(code)) {
+                                    runTranslate(to: Self.englishLanguageName(code))
+                                }
+                            }
+                        } label: {
+                            Label("Translate to", systemImage: "globe")
+                        }
+                    } label: {
+                        Label("Smart paste", systemImage: "sparkles")
+                    }
+                    .disabled(isThinking)
+                    .accessibilityIdentifier("smart-paste-menu")
+
+                    if isThinking {
+                        Label("Thinking…", systemImage: "sparkles").foregroundStyle(.secondary)
+                    } else if let smartResult, !smartResult.isEmpty {
+                        Text(smartResult).font(.body).textSelection(.enabled)
+                        Button("Copy result", systemImage: "doc.on.doc") {
+                            UIPasteboard.general.string = smartResult
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        }
+                    }
+                }
+            }
+
+            if !model.boards.isEmpty {
+                Section("Boards") {
+                    ForEach(model.boards) { board in
+                        Button {
+                            Task {
+                                await model.setBoardMembership(
+                                    item, board: board, member: !boardIDs.contains(board.id))
+                                boardIDs = await model.boardMembership(for: item)
+                            }
+                        } label: {
+                            HStack {
+                                Label {
+                                    board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
+                                } icon: {
+                                    Image(systemName: board.sfSymbol)
+                                }
+                                Spacer()
+                                if boardIDs.contains(board.id) {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(GanchoTokens.Palette.accent)
+                                }
+                            }
+                        }
+                        .tint(.primary)
+                        .accessibilityIdentifier("detail-board-\(board.id.uuidString)")
+                    }
+                }
+            }
+
             Section {
                 Button("Copy", systemImage: "doc.on.doc") {
                     Task { await model.copyToPasteboard(item) }
@@ -531,6 +903,41 @@ struct ClipDetailView: View {
             if case .text(let text)? = try? await model.store.content(for: item.id) {
                 fullText = text
             }
+        }
+        .task { await model.thumbnails.ensureLoaded(item) }
+        .task {
+            await model.refreshBoards()
+            boardIDs = await model.boardMembership(for: item)
+        }
+    }
+
+    private static let translateLanguageCodes = [
+        "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh",
+    ]
+    private static func localizedLanguageName(_ code: String) -> String {
+        Locale.current.localizedString(forLanguageCode: code) ?? code
+    }
+    private static func englishLanguageName(_ code: String) -> String {
+        Locale(identifier: "en").localizedString(forLanguageCode: code) ?? code
+    }
+
+    private func runSmartPaste(_ action: SmartPasteAction) {
+        smartResult = nil
+        isThinking = true
+        Task {
+            let result = await model.smartPaste(fullText, action: action)
+            isThinking = false
+            smartResult = result ?? String(localized: "Couldn’t run that — try again.")
+        }
+    }
+
+    private func runTranslate(to language: String) {
+        smartResult = nil
+        isThinking = true
+        Task {
+            let result = await model.smartTranslate(fullText, to: language)
+            isThinking = false
+            smartResult = result ?? String(localized: "Couldn’t run that — try again.")
         }
     }
 }
@@ -545,6 +952,14 @@ struct IOSSettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        IOSPrivacyCenterView()
+                    } label: {
+                        Label("Privacy Center", systemImage: "lock.shield")
+                    }
+                    .accessibilityIdentifier("open-privacy-center")
+                }
                 Section("Capture on iPhone") {
                     Text(
                         "Gancho never reads your pasteboard in the background. Capture happens only when you act: the save button, the share sheet, or a Shortcut."
@@ -566,6 +981,12 @@ struct IOSSettingsView: View {
                             Text(verbatim: "Force Pro (QA)")
                         }
                         .accessibilityIdentifier("debug-force-pro")
+                        Button {
+                            model.resetSyncAndRepull()
+                        } label: {
+                            Text(verbatim: "Reset & re-pull sync")
+                        }
+                        .accessibilityIdentifier("debug-reset-sync")
                     } header: {
                         Text(verbatim: "Debug")
                     }
@@ -578,6 +999,75 @@ struct IOSSettingsView: View {
                 }
             }
         }
+    }
+}
+
+/// The trust dashboard on iPhone: the 0-outgoing-requests claim, local counters
+/// from the on-device store, and an honest note on how capture works on iOS.
+/// Every number is computed locally — this screen makes no network requests.
+/// (macOS's Privacy Center has an "ignored" ledger and MCP log; iOS captures
+/// only on explicit intent, so those don't apply here.)
+struct IOSPrivacyCenterView: View {
+    @Environment(IOSAppModel.self) private var model
+    @State private var captured = 0
+    @State private var masked = 0
+    @State private var expired = 0
+    @State private var synced = 0
+
+    private var weekAgo: Date { Date(timeIntervalSinceNow: -7 * 86_400) }
+
+    var body: some View {
+        Form {
+            Section {
+                VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Image(systemName: "lock.shield.fill").font(.title2)
+                        Spacer()
+                        Text(verbatim: "0")
+                            .font(.system(size: 44, weight: .bold))
+                            .monospacedDigit()
+                    }
+                    Text("Outgoing content requests")
+                        .font(.headline)
+                    Text("Your clipboard never leaves this iPhone.")
+                        .font(.footnote)
+                        .opacity(0.9)
+                }
+                .foregroundStyle(.white)
+                .padding(.vertical, GanchoTokens.Spacing.xs)
+                .listRowBackground(Rectangle().fill(GanchoTokens.Palette.success.gradient))
+            }
+
+            Section("This week") {
+                LabeledContent("Clips captured", value: "\(captured)")
+                LabeledContent("Secrets masked", value: "\(masked)")
+                LabeledContent("Items self-expired", value: "\(expired)")
+                LabeledContent("Items synchronized", value: "\(synced)")
+            }
+
+            Section("Capture on iPhone") {
+                Text(
+                    "Gancho never reads your pasteboard in the background. Capture happens only when you act: the save button, the share sheet, or a Shortcut."
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Privacy Center")
+        .accessibilityIdentifier("ios-privacy-center")
+        .task { await refresh() }
+    }
+
+    /// Every counter is a local query against the on-device store. No network.
+    private func refresh() async {
+        captured = (try? await model.store.count()) ?? 0
+        guard let grdb = model.store as? GRDBClipboardStore else { return }
+        synced = (try? await grdb.syncedCount()) ?? 0
+        expired = (try? await grdb.purgedItemCount(since: weekAgo)) ?? 0
+        masked =
+            (try? await grdb.search(
+                ClipSearchQuery(text: "●●●●", mode: .exact), limit: 500
+            ).count) ?? 0
     }
 }
 

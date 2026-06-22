@@ -28,7 +28,10 @@ struct NoContentLoggingTests {
 
     /// App-side debug lines audited as content-free (path suffix: token).
     static let allowlist: [(file: String, token: String)] = [
-        ("Apps/GanchoMac/PanelController.swift", "print(\"panel: open took")
+        ("Apps/GanchoMac/PanelController.swift", "print(\"panel: open took"),
+        // Status-item placement diagnostics (DEBUG only): screen name + frame
+        // geometry, never clipboard content.
+        ("Apps/GanchoMac/StatusItemController.swift", "print(\"status-item:"),
     ]
 
     @Test("Engine modules contain no logging calls")

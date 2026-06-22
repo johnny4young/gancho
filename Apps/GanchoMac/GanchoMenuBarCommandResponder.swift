@@ -1,0 +1,42 @@
+import AppKit
+
+/// Performs menu-bar commands against the main app model.
+///
+/// The external helper routes commands here through `gancho://menu-bar/...`
+/// deep links, keeping clipboard state and private previews inside the main app
+/// process. The in-process status-item fallback calls the same responder
+/// directly, so both menu-bar implementations stay behaviorally aligned.
+@MainActor
+extension GanchoMenuBarCommand {
+    func perform(on model: AppModel) {
+        switch self {
+        case .library:
+            model.libraryWindow.show(model: model)
+        case .openPanel:
+            model.panel.show(model: model)
+        case .toggleCapture:
+            model.togglePause()
+        case .togglePrivateMode:
+            model.togglePrivateMode()
+        case .ignoreNextCopy:
+            model.ignoreNextCopy()
+        case .settings:
+            model.settingsWindow.show(model: model)
+        case .welcome:
+            model.welcomeWindow.show(model: model)
+        case .privacyCenter:
+            model.privacyCenterWindow.show(model: model)
+        case .wrapped:
+            Task {
+                let stats = await WrappedStats.gather(model: model)
+                WrappedExporter.savePNG(stats: stats)
+            }
+        case .fixClipboardAccess:
+            model.permissionWindow.show(model: model)
+        case .showInDock:
+            model.showInDock.toggle()
+        case .quit:
+            NSApplication.shared.terminate(nil)
+        }
+    }
+}
