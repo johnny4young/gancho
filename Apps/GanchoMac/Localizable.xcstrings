@@ -1644,6 +1644,67 @@
         "es" : { "stringUnit" : { "state" : "translated", "value" : "denegado" } }
       }
     },
+    "Agent calls this week" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated", "value" : "Llamadas de agentes esta semana"
+          }
+        }
+      }
+    },
+    "Content bodies exposed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Cuerpos de contenido expuestos" }
+        }
+      }
+    },
+    "Denied by scope or veto" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Denegadas por alcance o veto" }
+        }
+      }
+    },
+    "Local AI agent access (MCP)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated", "value" : "Acceso de agentes locales (MCP)"
+          }
+        }
+      }
+    },
+    "On" : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Encendido" } }
+      }
+    },
+    "Status" : {
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Estado" } }
+      }
+    },
+    "Your clipboard never leaves this Mac — verify with Little Snitch." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu portapapeles nunca sale de este Mac — verifícalo con Little Snitch."
+          }
+        }
+      }
+    },
+    "outgoing content requests" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated", "value" : "solicitudes de contenido salientes"
+          }
+        }
+      }
+    },
     "Library" : {
       "extractionState" : "stale",
       "localizations" : {

@@ -16,6 +16,9 @@ struct PrivacyCenterView: View {
     @State private var ignoredByReason: [CaptureIgnoreReason: Int] = [:]
     @State private var synced = 0
     @State private var mcpAccesses: [MCPAccessEvent] = []
+    @State private var mcpCalls = 0
+    @State private var mcpBodiesExposed = 0
+    @State private var mcpDenied = 0
 
     private var weekAgo: Date { Date(timeIntervalSinceNow: -7 * 86_400) }
 
@@ -23,6 +26,8 @@ struct PrivacyCenterView: View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
             Label("Privacy Center", systemImage: "lock.shield")
                 .font(.title2.bold())
+
+            heroClaim
 
             Form {
                 Section("This week, on this Mac") {
@@ -56,19 +61,36 @@ struct PrivacyCenterView: View {
                     }
                 }
 
-                Section("Local MCP access") {
+                Section("Local AI agent access (MCP)") {
+                    LabeledContent("Status") {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(
+                                    model.mcpConfig.isEnabled
+                                        ? GanchoTokens.Palette.success : Color.secondary
+                                )
+                                .frame(width: 7, height: 7)
+                            Text(model.mcpConfig.isEnabled ? "On" : "Off")
+                        }
+                    }
+                    LabeledContent("Agent calls this week", value: "\(mcpCalls)")
+                    LabeledContent("Content bodies exposed", value: "\(mcpBodiesExposed)")
+                    LabeledContent("Denied by scope or veto", value: "\(mcpDenied)")
+                    Button("Open MCP Access…") { model.mcpAccessWindow.show(model: model) }
+                        .accessibilityIdentifier("open-mcp-access")
                     if mcpAccesses.isEmpty {
                         Text("No agent access yet.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(mcpAccesses.enumerated()), id: \.offset) { _, event in
+                        ForEach(Array(mcpAccesses.prefix(5).enumerated()), id: \.offset) {
+                            _, event in
                             LabeledContent {
                                 HStack {
                                     if event.wasDenied {
                                         Text("Denied")
                                             .font(.caption)
-                                            .foregroundStyle(.orange)
+                                            .foregroundStyle(GanchoTokens.Palette.warning)
                                     }
                                     Text(event.occurredAt, style: .time)
                                 }
@@ -97,12 +119,6 @@ struct PrivacyCenterView: View {
                 }
 
                 Section("Network") {
-                    Label {
-                        Text("Outgoing content requests: 0")
-                    } icon: {
-                        Image(systemName: "checkmark.seal.fill")
-                            .foregroundStyle(GanchoTokens.Palette.success)
-                    }
                     Text(
                         "Gancho sends no clipboard content anywhere. Verify it yourself with Little Snitch or any network monitor — this screen included."
                     )
@@ -113,7 +129,7 @@ struct PrivacyCenterView: View {
             .formStyle(.grouped)
         }
         .padding(GanchoTokens.Spacing.md)
-        .frame(width: 460, height: 480)
+        .frame(width: 480, height: 560)
         .accessibilityIdentifier("privacy-center")
         .task { await refresh() }
     }
@@ -129,7 +145,35 @@ struct PrivacyCenterView: View {
                     ClipSearchQuery(text: "●●●●", mode: .exact), limit: 500
                 ).count) ?? 0
         }
-        mcpAccesses = await model.recentMCPAccesses(limit: 8)
+        let recent = await model.recentMCPAccesses(limit: 50)
+        mcpAccesses = recent
+        let thisWeek = recent.filter { $0.occurredAt >= weekAgo }
+        mcpCalls = thisWeek.count
+        mcpBodiesExposed = thisWeek.reduce(0) { $0 + $1.resultCount }
+        mcpDenied = thisWeek.filter(\.wasDenied).count
+    }
+
+    /// The trust headline (the design's green hero): the 0-outgoing-requests
+    /// claim, verifiable with an external network monitor.
+    private var heroClaim: some View {
+        HStack(spacing: GanchoTokens.Spacing.md) {
+            Image(systemName: "lock.shield.fill")
+                .font(.largeTitle)
+                .foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: "0").font(.system(size: 30, weight: .bold))
+                Text("outgoing content requests").font(.headline)
+                Text("Your clipboard never leaves this Mac — verify with Little Snitch.")
+                    .font(.caption)
+                    .opacity(0.9)
+            }
+            .foregroundStyle(.white)
+            Spacer(minLength: 0)
+        }
+        .padding(GanchoTokens.Spacing.md)
+        .background(
+            GanchoTokens.Palette.success.gradient,
+            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
     }
 
     private func mcpToolSymbol(_ tool: MCPToolName) -> String {
