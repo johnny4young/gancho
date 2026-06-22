@@ -11,7 +11,9 @@ import UIKit
 final class KeyboardModel: ObservableObject {
     @Published var entries: [WidgetClipEntry] = []
     @Published var searchText = ""
-    @Published var expanded = false
+    /// Open expanded by default: the searchable card list (with the board strip)
+    /// is the useful view; the user can collapse to the one-row strip.
+    @Published var expanded = true
     @Published var note: LocalizedStringKey?
     @Published private(set) var saving = false
     /// Board filter (a higher axis than search). nil = all clips; otherwise the

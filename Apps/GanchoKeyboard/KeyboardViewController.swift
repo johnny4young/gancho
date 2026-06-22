@@ -45,9 +45,9 @@ final class KeyboardViewController: UIInputViewController {
         host.didMove(toParent: self)
 
         // Height constraint < required so it never fights the system's own
-        // keyboard layout constraints (which would log conflicts).
-        let height = view.heightAnchor.constraint(
-            equalToConstant: model.hasFullAccess ? Self.compactHeight : Self.expandedHeight)
+        // keyboard layout constraints (which would log conflicts). Open at the
+        // expanded height to match the model's default expanded state.
+        let height = view.heightAnchor.constraint(equalToConstant: Self.expandedHeight)
         height.priority = .defaultHigh
         height.isActive = true
         heightConstraint = height
