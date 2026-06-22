@@ -237,6 +237,7 @@ public struct ActionButton: View {
         Button(action: action) {
             Label(titleKey, systemImage: systemImage)
                 .font(.body.weight(.medium))
+                .lineLimit(1)
                 .padding(.horizontal, GanchoTokens.Spacing.sm)
                 .padding(.vertical, GanchoTokens.Spacing.xxs)
         }
