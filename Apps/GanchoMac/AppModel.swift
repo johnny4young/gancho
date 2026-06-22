@@ -508,6 +508,11 @@ final class AppModel {
         try? await smartPasteService.transform(text, action: action)
     }
 
+    /// On-device translation to an English-named target language; nil on failure.
+    func smartTranslate(_ text: String, to language: String) async -> String? {
+        try? await smartPasteService.translate(text, to: language)
+    }
+
     /// Pastes arbitrary text (a Smart Paste or filled-snippet result) into the
     /// frontmost app via the same paste-back path as a normal paste.
     func pasteText(_ text: String) {

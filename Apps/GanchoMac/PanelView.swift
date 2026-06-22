@@ -844,6 +844,16 @@ struct ClipPeek: View {
                     Label(LocalizedStringKey(action.titleKey), systemImage: action.symbolName)
                 }
             }
+            Divider()
+            Menu {
+                ForEach(Self.translateLanguageCodes, id: \.self) { code in
+                    Button(Self.localizedLanguageName(code)) {
+                        runTranslate(to: Self.englishLanguageName(code))
+                    }
+                }
+            } label: {
+                Label("Translate to", systemImage: "globe")
+            }
         } label: {
             Label("Smart paste", systemImage: "sparkles")
                 .font(.body.weight(.medium))
@@ -862,6 +872,28 @@ struct ClipPeek: View {
         isThinking = true
         Task {
             let result = await model.smartPaste(text, action: action)
+            isThinking = false
+            actionResult = result ?? String(localized: "Couldn’t run that — try again.")
+        }
+    }
+
+    /// Common targets for Smart Paste translation. Names render in the user's
+    /// language (via `Locale`); the prompt gets the English name for clarity.
+    private static let translateLanguageCodes = [
+        "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh",
+    ]
+    private static func localizedLanguageName(_ code: String) -> String {
+        Locale.current.localizedString(forLanguageCode: code) ?? code
+    }
+    private static func englishLanguageName(_ code: String) -> String {
+        Locale(identifier: "en").localizedString(forLanguageCode: code) ?? code
+    }
+
+    private func runTranslate(to language: String) {
+        actionResult = nil
+        isThinking = true
+        Task {
+            let result = await model.smartTranslate(text, to: language)
             isThinking = false
             actionResult = result ?? String(localized: "Couldn’t run that — try again.")
         }

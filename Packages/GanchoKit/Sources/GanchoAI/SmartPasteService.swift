@@ -86,6 +86,23 @@ public struct SmartPasteService: Sendable {
         self.maxPromptCharacters = maxPromptCharacters
     }
 
+    /// Translation instructions for a target language (pure → unit-tested).
+    /// `language` is an English language name (e.g. "Spanish") so the on-device
+    /// model has an unambiguous target.
+    public static func translateInstructions(to language: String) -> String {
+        "Translate the user's text into \(language). Preserve its meaning, tone, and line breaks. Output only the translation, nothing else. Never include passwords, card numbers, API keys, or other secret material."
+    }
+
+    /// On-device translation (via the same system model). Kept separate from
+    /// `SmartPasteAction` because it carries a target language.
+    public func translate(_ text: String, to language: String) async throws -> String {
+        guard Self.isAvailable else { throw AnnotationError.backendUnavailable }
+        let clipped = String(text.prefix(maxPromptCharacters))
+        let session = LanguageModelSession(instructions: Self.translateInstructions(to: language))
+        let response = try await session.respond(to: clipped)
+        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Runs the action on a FRESH session (no transcript carryover) and returns
     /// the transformed text. Throws `AnnotationError.backendUnavailable` when
     /// Apple Intelligence is off — enrichment, never a hard failure for callers.
