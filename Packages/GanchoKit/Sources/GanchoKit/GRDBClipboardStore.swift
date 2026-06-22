@@ -259,6 +259,16 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.column("deletedAt", .datetime).notNull()
             }
         }
+        migrator.registerMigration("v15-reupload-board-members") { db in
+            // Board membership rides the clip's sync record, but clips assigned
+            // before that wiring landed have a stale (empty) board set in the
+            // cloud. Re-flag every current member for upload so its record
+            // carries the right boardIDs and the membership reaches other
+            // devices. One-time; harmless when sync is off.
+            try db.execute(
+                sql: "UPDATE clip SET needsUpload = 1 "
+                    + "WHERE id IN (SELECT DISTINCT clipID FROM clip_board)")
+        }
         return migrator
     }
 
