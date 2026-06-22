@@ -81,6 +81,10 @@ struct PanelView: View {
     @State private var snippetMatch: ClipItem?
     /// Set when invoking a template snippet ({fields}) — drives the fill sheet.
     @State private var fillRequest: SnippetFillRequest?
+    /// "Ask your clipboard": the grounded answer + its source clips, and whether
+    /// the on-device model is currently answering.
+    @State private var answer: AppModel.ClipboardAnswer?
+    @State private var isAsking = false
 
     /// The rows actually shown: `results` narrowed by the active filter pill.
     private var filtered: [ClipItem] {
@@ -105,6 +109,8 @@ struct PanelView: View {
         .task { await refresh() }
         .task { await model.refreshBoards() }
         .onChange(of: query) { _, _ in
+            // A new query invalidates a previous answer.
+            answer = nil
             Task { await refresh() }
         }
         .onChange(of: model.recentItems) { _, _ in
@@ -205,6 +211,10 @@ struct PanelView: View {
 
             if let snippetMatch {
                 snippetBanner(snippetMatch)
+            }
+
+            if model.askAvailable, !query.isEmpty {
+                askRow
             }
 
             if filtered.isEmpty {
@@ -381,6 +391,93 @@ struct PanelView: View {
     }
 
     /// "RECENT … N CLIPS" header above the list.
+    /// "Ask your clipboard": a one-tap button to answer the typed query from
+    /// history, the spinner while it runs, and the grounded answer card.
+    @ViewBuilder private var askRow: some View {
+        if isAsking {
+            Label("Thinking…", systemImage: "sparkles")
+                .font(.caption).foregroundStyle(.secondary)
+                .symbolEffect(.pulse, options: .repeating)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, GanchoTokens.Spacing.xs)
+        } else if let answer {
+            answerCard(answer)
+        } else {
+            Button {
+                runAsk()
+            } label: {
+                Label("Ask gancho", systemImage: "sparkles")
+                    .font(.caption.weight(.medium))
+                    .padding(.horizontal, GanchoTokens.Spacing.sm)
+                    .padding(.vertical, 5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        GanchoTokens.Palette.accent.opacity(0.12),
+                        in: RoundedRectangle(
+                            cornerRadius: GanchoTokens.Radius.md, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, GanchoTokens.Spacing.xxs)
+            .accessibilityIdentifier("ask-clipboard")
+        }
+    }
+
+    private func answerCard(_ answer: AppModel.ClipboardAnswer) -> some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
+            HStack {
+                Label("Answer", systemImage: "sparkles").font(.caption.weight(.semibold))
+                Spacer()
+                Button {
+                    self.answer = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain).foregroundStyle(.tertiary)
+                .accessibilityLabel(Text("Dismiss"))
+            }
+            ScrollView {
+                Text(answer.answer)
+                    .font(.callout)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(maxHeight: 120)
+            if !answer.sources.isEmpty {
+                Text("Sources").font(.caption2).foregroundStyle(.secondary)
+                ForEach(answer.sources.prefix(4)) { clip in
+                    Button {
+                        model.paste(clip)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: clip.kind.symbolName)
+                                .font(.caption2)
+                                .foregroundStyle(GanchoTokens.Palette.kindTint(for: clip.kind))
+                            Text(clip.preview).font(.caption).lineLimit(1)
+                        }
+                    }
+                    .buttonStyle(.plain).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(GanchoTokens.Spacing.sm)
+        .background(
+            GanchoTokens.Palette.accent.opacity(0.1),
+            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+        )
+        .padding(.horizontal, GanchoTokens.Spacing.xxs)
+    }
+
+    private func runAsk() {
+        let question = query
+        answer = nil
+        isAsking = true
+        Task {
+            let result = await model.askClipboard(question)
+            isAsking = false
+            answer = result
+        }
+    }
+
     private var recentHeader: some View {
         HStack {
             Text("Recent")

@@ -513,6 +513,57 @@ final class AppModel {
         try? await smartPasteService.translate(text, to: language)
     }
 
+    // MARK: - Ask your clipboard (grounded on-device QA)
+
+    /// A grounded answer plus the clips it was drawn from (for citing/pasting).
+    struct ClipboardAnswer: Identifiable, Sendable {
+        let id = UUID()
+        let answer: String
+        let sources: [ClipItem]
+    }
+
+    private let qaService = ClipboardQAService()
+    var askAvailable: Bool { ClipboardQAService.isAvailable }
+
+    /// Retrieve the most relevant clips (semantic when the embeddings are ready,
+    /// else full-text) and have the on-device model answer grounded ONLY in
+    /// them. Sensitive clips are filtered out before anything reaches the model.
+    func askClipboard(_ question: String) async -> ClipboardAnswer? {
+        let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let grdbStore, ClipboardQAService.isAvailable, !trimmed.isEmpty else { return nil }
+
+        var clips: [ClipItem] = []
+        if intelligence.semanticSearch, let embedder = ContextualSentenceEmbedder(),
+            embedder.hasAvailableAssets,
+            let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
+        {
+            clips = (try? await grdbStore.semanticSearch(queryVector: vector, topK: 6)) ?? []
+        }
+        if clips.isEmpty {
+            clips = (try? await grdbStore.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? []
+        }
+        let safe = clips.filter { !$0.isSensitive }
+        guard !safe.isEmpty else {
+            return ClipboardAnswer(
+                answer: String(localized: "Nothing in your clipboard matches that."), sources: [])
+        }
+
+        var sources: [String] = []
+        for clip in safe {
+            let body: String
+            if case .text(let text)? = try? await store.content(for: clip.id) {
+                body = text
+            } else {
+                body = clip.preview
+            }
+            sources.append(clip.title.isEmpty ? body : "\(clip.title): \(body)")
+        }
+        let answer = try? await qaService.answer(question: trimmed, sources: sources)
+        return ClipboardAnswer(
+            answer: answer ?? String(localized: "Couldn’t answer that — try again."),
+            sources: safe)
+    }
+
     /// Pastes arbitrary text (a Smart Paste or filled-snippet result) into the
     /// frontmost app via the same paste-back path as a normal paste.
     func pasteText(_ text: String) {
