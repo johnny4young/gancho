@@ -7,28 +7,92 @@ import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Native Settings scene, five tabs. Every control binds straight into the
-/// model, so changes apply live — no restart, no Apply button.
+/// Settings scene, six tabs in the design's pill tab bar. Every control binds
+/// straight into the model, so changes apply live — no restart, no Apply button.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
 
+    @State private var tab: SettingsTab = .general
+
     var body: some View {
-        TabView {
-            GeneralSettingsTab()
-                .tabItem { Label("General", systemImage: "gearshape") }
-            CaptureSettingsTab()
-                .tabItem { Label("Capture", systemImage: "doc.on.clipboard") }
-            RetentionSettingsTab()
-                .tabItem { Label("Retention", systemImage: "clock.arrow.circlepath") }
-            PrivacySettingsTab()
-                .tabItem { Label("Privacy", systemImage: "lock.shield") }
-            IntegrationsSettingsTab()
-                .tabItem { Label("Integrations", systemImage: "terminal") }
-            ProSettingsTab()
-                .tabItem { Label("Pro", systemImage: "star") }
+        VStack(spacing: 0) {
+            SettingsTabBar(selection: $tab)
+                .padding(.horizontal, GanchoTokens.Spacing.md)
+                .padding(.top, GanchoTokens.Spacing.sm)
+                .padding(.bottom, GanchoTokens.Spacing.xs)
+            Divider()
+            selectedTab
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 520, height: 380)
+        .frame(width: 520, height: 400)
         .accessibilityIdentifier("settings")
+    }
+
+    @ViewBuilder private var selectedTab: some View {
+        switch tab {
+        case .general: GeneralSettingsTab()
+        case .capture: CaptureSettingsTab()
+        case .retention: RetentionSettingsTab()
+        case .privacy: PrivacySettingsTab()
+        case .integrations: IntegrationsSettingsTab()
+        case .pro: ProSettingsTab()
+        }
+    }
+}
+
+/// The Settings tabs. Rendered as the design's `TabBar`: plain-text tabs with
+/// thin dividers, the active one a solid accent pill (accent follows the OS
+/// accent — brand green by default), the rest quiet gray.
+private enum SettingsTab: String, CaseIterable, Identifiable {
+    case general, capture, retention, privacy, integrations, pro
+
+    var id: String { rawValue }
+
+    var titleKey: LocalizedStringKey {
+        switch self {
+        case .general: "General"
+        case .capture: "Capture"
+        case .retention: "Retention"
+        case .privacy: "Privacy"
+        case .integrations: "Integrations"
+        case .pro: "Pro"
+        }
+    }
+}
+
+private struct SettingsTabBar: View {
+    @Binding var selection: SettingsTab
+
+    var body: some View {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            ForEach(Array(SettingsTab.allCases.enumerated()), id: \.element.id) { index, tab in
+                if index > 0 {
+                    Divider().frame(height: 14)
+                }
+                tabButton(tab)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func tabButton(_ tab: SettingsTab) -> some View {
+        let isActive = tab == selection
+        return Button {
+            selection = tab
+        } label: {
+            Text(tab.titleKey)
+                .font(.callout.weight(isActive ? .semibold : .regular))
+                .lineLimit(1)
+                .padding(.horizontal, GanchoTokens.Spacing.sm)
+                .padding(.vertical, GanchoTokens.Spacing.xxs)
+                .foregroundStyle(isActive ? Color.white : Color.secondary)
+                .background(
+                    isActive ? GanchoTokens.Palette.accent : Color.clear, in: Capsule()
+                )
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("settings-tab-\(tab.rawValue)")
     }
 }
 
@@ -79,6 +143,13 @@ private struct GeneralSettingsTab: View {
             }
 
             Toggle("Show in Dock", isOn: $model.showInDock)
+
+            Picker("Appearance", selection: $model.appearance) {
+                Text("Auto").tag(AppearancePreference.auto)
+                Text("Light").tag(AppearancePreference.light)
+                Text("Dark").tag(AppearancePreference.dark)
+            }
+            .pickerStyle(.segmented)
 
             Section {
                 HStack {
@@ -155,6 +226,16 @@ private struct CaptureSettingsTab: View {
             Toggle("Capture images", isOn: $model.preferences.captureImages)
             Toggle("Capture copied files", isOn: $model.preferences.captureFileReferences)
             Toggle("Keep rich text formatting", isOn: $model.preferences.captureRichText)
+
+            Section("Intelligence") {
+                Button("Open Intelligence…") { model.intelligenceWindow.show(model: model) }
+                    .accessibilityIdentifier("open-intelligence")
+                Text(
+                    "On-device titles, semantic search, screenshot OCR, and secret detection — each a toggle, all local."
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
 
             Section("Never capture from these apps") {
                 ForEach(model.denylistEntries, id: \.self) { bundleID in
@@ -336,11 +417,10 @@ private struct IntegrationsSettingsTab: View {
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                Text("Sensitive clips are never shared, whatever the scope.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Button("Open MCP Access…") { model.mcpAccessWindow.show(model: model) }
+                    .accessibilityIdentifier("open-mcp-access")
                 Text(
-                    "Connect your agent to the “gancho mcp” command. Every access is logged in the Privacy Center."
+                    "The exposed tools, the metadata-only access log, and the sensitive-veto guarantee live in MCP Access."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -370,5 +450,31 @@ private struct ProSettingsTab: View {
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)
+    }
+}
+
+@MainActor
+final class SettingsWindowController {
+    private var window: NSWindow?
+
+    func show(model: AppModel) {
+        if window == nil {
+            let hosting = NSHostingController(
+                rootView: SettingsView().environment(model).ganchoTinted())
+            let created = NSWindow(contentViewController: hosting)
+            created.title = String(localized: "Settings")
+            created.styleMask = [.titled, .closable]
+            // The tab strip labels the window; a visible "Settings" title only
+            // crowded it against the title bar.
+            created.titleVisibility = .hidden
+            created.isReleasedWhenClosed = false
+            created.collectionBehavior = [.moveToActiveSpace]
+            created.center()
+            window = created
+        }
+
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+        _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
     }
 }

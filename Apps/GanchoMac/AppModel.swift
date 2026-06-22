@@ -1,5 +1,6 @@
 import AppIntents
 import AppKit
+import ApplicationServices
 import ClipboardCore
 import GanchoAI
 import GanchoKit
@@ -7,6 +8,23 @@ import GanchoSync
 import GanchoTelemetry
 import KeyboardShortcuts
 import SwiftUI
+
+/// The app's appearance override — Auto follows the system, Light/Dark force
+/// it. Mirrors the design's Auto/Light/Dark control.
+enum AppearancePreference: String, CaseIterable {
+    case auto
+    case light
+    case dark
+
+    /// The app-wide AppKit appearance to apply (nil = follow the system).
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .auto: nil
+        case .light: NSAppearance(named: .aqua)
+        case .dark: NSAppearance(named: .darkAqua)
+        }
+    }
+}
 
 /// Central app state: wires monitor → classifier → GRDB store, owns the
 /// paste-back service, preferences, retention, and the panel lifecycle.
@@ -20,16 +38,23 @@ final class AppModel {
     /// the disk store cannot open (never block launch on a storage error).
     let store: any ClipboardStore
     let grdbStore: GRDBClipboardStore?
+    /// Cached image thumbnails for the history rows and the peek.
+    let thumbnails: ClipThumbnailStore
 
     let monitor: MacPasteboardMonitor
     let pasteBack = PasteBackService()
     let privacyEvents = InMemoryPrivacyEventRecorder()
     let panel = PanelController()
+    /// Transient HUD for action feedback (copy-only paste, pin/unpin).
+    let toasts = ToastPresenter()
     let welcomeWindow = WelcomeWindowController()
     let privacyCenterWindow = PrivacyCenterWindowController()
     let paywallWindow = PaywallWindowController()
     let permissionWindow = PasteboardPermissionWindowController()
     let libraryWindow = LibraryWindowController()
+    let settingsWindow = SettingsWindowController()
+    let mcpAccessWindow = MCPAccessWindowController()
+    let intelligenceWindow = IntelligenceWindowController()
     let purchases = StoreKitPurchaseHandler()
     let telemetry: TelemetryPipeline
 
@@ -68,6 +93,7 @@ final class AppModel {
     private var retentionTimer: Timer?
     private let screenShareDetector = ScreenShareDetector()
     private var screenShareTimer: Timer?
+    private var uiTestPanelObserver: NSObjectProtocol?
 
     /// Opt-out for the share auto-pause (on by default).
     var autoPauseOnScreenShare: Bool {
@@ -81,6 +107,12 @@ final class AppModel {
         }
     }
 
+    /// On-device intelligence toggles (the Intelligence screen). Each gates a
+    /// real enrichment stage in `enrich`/`makeItem`.
+    var intelligence: IntelligencePreferences {
+        didSet { intelligence.save(to: defaults) }
+    }
+
     var retentionPolicy: RetentionPolicy {
         didSet { retentionPolicy.save(to: defaults) }
     }
@@ -89,7 +121,15 @@ final class AppModel {
     var showInDock: Bool {
         didSet {
             defaults.set(showInDock, forKey: "show-in-dock")
-            NSApp.setActivationPolicy(showInDock ? .regular : .accessory)
+            applyActivationPolicy()
+        }
+    }
+
+    /// App appearance: Auto follows the system, Light/Dark force it.
+    var appearance: AppearancePreference {
+        didSet {
+            defaults.set(appearance.rawValue, forKey: "appearance")
+            applyAppearance()
         }
     }
 
@@ -98,12 +138,26 @@ final class AppModel {
         let grdb = try? GRDBClipboardStore(directory: directory)
         self.grdbStore = grdb
         self.store = grdb ?? InMemoryClipboardStore()
+        let resolvedStore = self.store
+        self.thumbnails = ClipThumbnailStore(imageData: { id in
+            if case .binary(let data, _)? = try? await resolvedStore.content(for: id) {
+                return data
+            }
+            return nil
+        })
         self.mcpConfig = MCPServerConfig.load(fromStoreDirectory: directory)
 
         let loadedPreferences = CapturePreferences.load(from: defaults)
         preferences = loadedPreferences
+        intelligence = IntelligencePreferences.load(from: defaults)
         retentionPolicy = RetentionPolicy.load(from: defaults)
+        // Default to a menu-bar agent (.accessory). This app is LSUIElement;
+        // forcing .regular (what the old Debug-only "show in Dock" default did)
+        // leaves the status item registered but never placed in the menu bar —
+        // the icon silently vanishes. Opt into the Dock explicitly instead.
         showInDock = defaults.bool(forKey: "show-in-dock")
+        appearance =
+            AppearancePreference(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .auto
         autoPauseOnScreenShare =
             defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
         tier = UserTier.load(from: defaults)
@@ -128,6 +182,7 @@ final class AppModel {
         scheduleRetention()
         scheduleScreenShareWatch()
         panel.attach(model: self)
+        applyActivationPolicy()
         // Intents resolve the SAME model instance the UI uses.
         AppDependencyManager.shared.add(dependency: self)
         KeyboardShortcuts.onKeyUp(for: .togglePrivateMode) { [weak self] in
@@ -158,7 +213,26 @@ final class AppModel {
 
         // UI-test hook: deterministic panel access without the global hotkey.
         if CommandLine.arguments.contains("-open-panel-on-launch") {
-            Task { panel.show(model: self) }
+            NSApplication.shared.setActivationPolicy(.regular)
+            uiTestPanelObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didFinishLaunchingNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    panel.show(model: self)
+                    _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+                    try? await Task.sleep(for: .milliseconds(250))
+                    panel.show(model: self)
+                    _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+                }
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1))
+                if !panel.isVisible { panel.show(model: self) }
+                _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+            }
         } else if !defaults.bool(forKey: "has-seen-welcome") {
             Task { welcomeWindow.show(model: self) }
         } else if monitor.status == .deniedByPrivacySettings {
@@ -166,12 +240,21 @@ final class AppModel {
         }
     }
 
+    private func applyActivationPolicy() {
+        NSApplication.shared.setActivationPolicy(showInDock ? .regular : .accessory)
+    }
+
+    private func applyAppearance() {
+        NSApplication.shared.appearance = appearance.nsAppearance
+    }
+
     // MARK: - Capture pipeline
 
     private func ingest(_ capture: PasteboardCapture) {
         var (item, content) = Self.makeItem(
             from: capture, classifier: classifier, detector: sensitiveDetector,
-            sensitiveLifetime: retentionPolicy.sensitiveLifetime)
+            sensitiveLifetime: retentionPolicy.sensitiveLifetime,
+            detectSecrets: intelligence.detectSecrets)
         // Universal Clipboard interop: badge persists as a tag so sync can
         // recognize already-synced arrivals and the UI can show the badge.
         if capture.isFromUniversalClipboard {
@@ -189,7 +272,7 @@ final class AppModel {
                 type: item.kind.rawValue,
                 lengthBucket: .init(characterCount: length)))
         Task {
-            try? await store.insert(item, content: content)
+            _ = try? await store.insert(item, content: content)
             await sync.enqueue([item])
             await refreshRecents()
             enrich(item, content: content)
@@ -203,20 +286,27 @@ final class AppModel {
         Task(priority: .utility) {
             switch content {
             case .binary(let data, _) where item.kind == .image:
-                if let text = try? await ImageTextExtractor().extractText(from: data) {
-                    try? await grdbStore.attachExtractedText(id: item.id, text: text)
+                // Searchable screenshots (OCR) — gated by the Intelligence toggle.
+                if intelligence.searchableScreenshots,
+                    let text = try? await ImageTextExtractor().extractText(from: data)
+                {
+                    _ = try? await grdbStore.attachExtractedText(id: item.id, text: text)
                 }
             case .text(let text) where item.title.isEmpty:
-                if let annotation = try? await TieredClipAnnotator().annotate(text) {
-                    try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
+                // Tier 1 — Apple Intelligence titles, gated by the toggle.
+                if intelligence.intelligentTitles,
+                    let annotation = try? await TieredClipAnnotator().annotate(text)
+                {
+                    _ = try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
                     await refreshRecents()
                 }
                 // Semantic vector (the embedder caches its model after the
                 // first call — warm-up cost measured in the AI spike).
-                if let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+                if intelligence.semanticSearch,
+                    let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
                     let vector = try? embedder.vector(for: String(text.prefix(1_000)))
                 {
-                    try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
+                    _ = try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
                 }
             default:
                 break
@@ -226,6 +316,20 @@ final class AppModel {
 
     func refreshRecents() async {
         recentItems = (try? await store.items(offset: 0, limit: 50)) ?? []
+        publishLastCopied()
+    }
+
+    /// Publish the most recent clip's preview to the menu-bar helper's recent
+    /// row. Private mode clears it; sensitive clips send only a mask — full
+    /// content never crosses to the helper.
+    private func publishLastCopied() {
+        guard !preferences.isPrivateModePaused, let top = recentItems.first else {
+            GanchoMenuBarBridge.writeLastCopied(preview: nil, label: "", at: Date())
+            return
+        }
+        GanchoMenuBarBridge.writeLastCopied(
+            preview: top.isSensitive ? "•••" : top.preview,
+            label: String(localized: "Last copied"), at: top.createdAt)
     }
 
     /// Capture payload → classified, normalized, sensitivity-decorated clip
@@ -234,13 +338,14 @@ final class AppModel {
         from capture: PasteboardCapture,
         classifier: RuleClassifier,
         detector: SensitiveDataDetector,
-        sensitiveLifetime: TimeInterval
+        sensitiveLifetime: TimeInterval,
+        detectSecrets: Bool = true
     ) -> (ClipItem, ClipContent?) {
         switch capture.payload {
         case .image(let data, let typeIdentifier):
             let item = ClipItem(
                 kind: .image,
-                preview: "Image (\(data.count) bytes)",
+                preview: "Image (\(ByteSize.formatted(data.count)))",
                 contentHash: ClipItem.hash(of: data, kind: .image),
                 sourceAppBundleID: capture.sourceAppBundleID)
             return (item, .binary(data: data, typeIdentifier: typeIdentifier))
@@ -256,7 +361,7 @@ final class AppModel {
             let text = plain ?? ""
             let item = decoratedTextItem(
                 text: text, capture: capture, classifier: classifier, detector: detector,
-                sensitiveLifetime: sensitiveLifetime)
+                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets)
             return (
                 item,
                 item.isSensitive ? .text(text) : .binary(data: rtf, typeIdentifier: "public.rtf")
@@ -265,14 +370,15 @@ final class AppModel {
             let text = capture.textRepresentation ?? ""
             let item = decoratedTextItem(
                 text: text, capture: capture, classifier: classifier, detector: detector,
-                sensitiveLifetime: sensitiveLifetime)
+                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets)
             return (item, .text(ContentNormalizer.canonicalText(text, kind: item.kind)))
         }
     }
 
     private static func decoratedTextItem(
         text: String, capture: PasteboardCapture, classifier: RuleClassifier,
-        detector: SensitiveDataDetector, sensitiveLifetime: TimeInterval
+        detector: SensitiveDataDetector, sensitiveLifetime: TimeInterval,
+        detectSecrets: Bool = true
     ) -> ClipItem {
         let kind = classifier.classify(text)
         let canonical = ContentNormalizer.canonicalText(text, kind: kind)
@@ -281,6 +387,9 @@ final class AppModel {
             preview: String(canonical.prefix(120)),
             contentHash: ClipItem.hash(of: canonical, kind: kind),
             sourceAppBundleID: capture.sourceAppBundleID)
+        // Intelligence toggle off ⇒ skip secret detection/masking. The
+        // password-manager veto (ConcealedType, pre-read) is separate and stays.
+        guard detectSecrets else { return item }
         return SensitiveIngestionPolicy.decorate(
             item, finding: detector.detect(canonical), originalText: canonical,
             sensitiveLifetime: sensitiveLifetime)
@@ -295,7 +404,12 @@ final class AppModel {
             panel.hide()
             // Give focus one beat to return to the previous app.
             try? await Task.sleep(for: .milliseconds(80))
-            pasteBack.paste(content, asPlainText: asPlainText)
+            switch pasteBack.paste(content, asPlainText: asPlainText) {
+            case .copiedOnly:
+                showCopyOnlyToast()
+            case .pasted:
+                if asPlainText { toasts.show(GanchoToast(message: "Pasted as plain text")) }
+            }
             // Activation metric (local, content-free): first paste-back ever.
             if defaults.object(forKey: "first-pasteback-at") == nil {
                 defaults.set(Date().timeIntervalSince1970, forKey: "first-pasteback-at")
@@ -305,7 +419,7 @@ final class AppModel {
             telemetry.record(
                 .itemPastedBack(
                     ageBucket: .init(age: Date().timeIntervalSince(item.createdAt))))
-            try? await store.insert(item, content: nil)  // move-to-top
+            _ = try? await store.insert(item, content: nil)  // move-to-top
             await refreshRecents()
         }
     }
@@ -319,9 +433,146 @@ final class AppModel {
             }
             panel.hide()
             try? await Task.sleep(for: .milliseconds(80))
-            pasteBack.paste(.text(transform.apply(to: text)), asPlainText: true)
-            try? await store.insert(item, content: nil)
+            if pasteBack.paste(.text(transform.apply(to: text)), asPlainText: true) == .copiedOnly {
+                showCopyOnlyToast()
+            }
+            _ = try? await store.insert(item, content: nil)
             await refreshRecents()
+        }
+    }
+
+    /// Paste-back degraded to copy-only (Accessibility off): tell the user and
+    /// offer a one-tap path to enable it.
+    private func showCopyOnlyToast() {
+        toasts.show(
+            GanchoToast(
+                message: "Copied — enable Accessibility to paste directly",
+                style: .warning,
+                action: ToastAction(title: "Enable") { [weak self] in
+                    self?.requestAccessibilityPrompt()
+                }),
+            duration: .seconds(5))
+    }
+
+    /// Show the system Accessibility prompt (it pre-adds Gancho to the list) and
+    /// open the Accessibility settings pane, so the user can enable paste-back
+    /// without hunting for the app.
+    func requestAccessibilityPrompt() {
+        // `kAXTrustedCheckOptionPrompt` is imported as a global var that Swift 6
+        // flags as not concurrency-safe; its value is this stable API string.
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
+        if let url = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    /// Insert a snippet by keyword: fill its {fields} with the given values,
+    /// paste the result, and bump the usage count. Empty values means a
+    /// non-template snippet (or fields left blank → their defaults apply).
+    func pasteSnippet(_ snippet: ClipItem, values: [String: String]) {
+        guard let grdbStore else { return }
+        Task {
+            guard case .text(let body)? = try? await store.content(for: snippet.id) else { return }
+            let filled = SnippetTemplate.fill(body, values: values)
+            panel.hide()
+            try? await Task.sleep(for: .milliseconds(80))
+            if pasteBack.paste(.text(filled), asPlainText: false) == .copiedOnly {
+                showCopyOnlyToast()
+            }
+            try? await grdbStore.incrementUses(id: snippet.id)
+            await refreshRecents()
+        }
+    }
+
+    /// The snippet invoked by an exact keyword, if any (the panel's expansion).
+    func snippet(matchingKeyword keyword: String) async -> ClipItem? {
+        (try? await grdbStore?.snippet(matchingKeyword: keyword)) ?? nil
+    }
+
+    // MARK: - Smart paste (on-device Apple Intelligence)
+
+    private let smartPasteService = SmartPasteService()
+
+    /// Smart Paste can run only when the user kept it on AND Apple Intelligence
+    /// is available on this device — the peek hides the menu otherwise.
+    var smartPasteAvailable: Bool {
+        intelligence.smartPaste && SmartPasteService.isAvailable
+    }
+
+    /// Transforms a clip's text on-device; nil if unavailable or the model
+    /// declined. Pure enrichment — never fails the caller.
+    func smartPaste(_ text: String, action: SmartPasteAction) async -> String? {
+        try? await smartPasteService.transform(text, action: action)
+    }
+
+    /// On-device translation to an English-named target language; nil on failure.
+    func smartTranslate(_ text: String, to language: String) async -> String? {
+        try? await smartPasteService.translate(text, to: language)
+    }
+
+    // MARK: - Ask your clipboard (grounded on-device QA)
+
+    /// A grounded answer plus the clips it was drawn from (for citing/pasting).
+    struct ClipboardAnswer: Identifiable, Sendable {
+        let id = UUID()
+        let answer: String
+        let sources: [ClipItem]
+    }
+
+    private let qaService = ClipboardQAService()
+    var askAvailable: Bool { ClipboardQAService.isAvailable }
+
+    /// Retrieve the most relevant clips (semantic when the embeddings are ready,
+    /// else full-text) and have the on-device model answer grounded ONLY in
+    /// them. Sensitive clips are filtered out before anything reaches the model.
+    func askClipboard(_ question: String) async -> ClipboardAnswer? {
+        let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let grdbStore, ClipboardQAService.isAvailable, !trimmed.isEmpty else { return nil }
+
+        var clips: [ClipItem] = []
+        if intelligence.semanticSearch, let embedder = ContextualSentenceEmbedder(),
+            embedder.hasAvailableAssets,
+            let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
+        {
+            clips = (try? await grdbStore.semanticSearch(queryVector: vector, topK: 6)) ?? []
+        }
+        if clips.isEmpty {
+            clips = (try? await grdbStore.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? []
+        }
+        let safe = clips.filter { !$0.isSensitive }
+        guard !safe.isEmpty else {
+            return ClipboardAnswer(
+                answer: String(localized: "Nothing in your clipboard matches that."), sources: [])
+        }
+
+        var sources: [String] = []
+        for clip in safe {
+            let body: String
+            if case .text(let text)? = try? await store.content(for: clip.id) {
+                body = text
+            } else {
+                body = clip.preview
+            }
+            sources.append(clip.title.isEmpty ? body : "\(clip.title): \(body)")
+        }
+        let answer = try? await qaService.answer(question: trimmed, sources: sources)
+        return ClipboardAnswer(
+            answer: answer ?? String(localized: "Couldn’t answer that — try again."),
+            sources: safe)
+    }
+
+    /// Pastes arbitrary text (a Smart Paste or filled-snippet result) into the
+    /// frontmost app via the same paste-back path as a normal paste.
+    func pasteText(_ text: String) {
+        Task {
+            panel.hide()
+            try? await Task.sleep(for: .milliseconds(80))
+            if pasteBack.paste(.text(text), asPlainText: false) == .copiedOnly {
+                showCopyOnlyToast()
+            }
         }
     }
 
@@ -348,6 +599,7 @@ final class AppModel {
 
     func pushToStack(_ item: ClipItem) {
         pasteStack.append(item)
+        toasts.show(GanchoToast(message: "Added to paste stack"))
     }
 
     func clearStack() {
@@ -365,10 +617,10 @@ final class AppModel {
     func delete(_ item: ClipItem) {
         Task {
             if syncEnabled, let grdbStore {
-                try? await grdbStore.deleteForSync(id: item.id)
+                _ = try? await grdbStore.deleteForSync(id: item.id)
                 await sync.enqueueDeletion(ids: [item.id])
             } else {
-                try? await store.delete(id: item.id)
+                _ = try? await store.delete(id: item.id)
             }
             await refreshRecents()
         }
@@ -399,7 +651,7 @@ final class AppModel {
         configureSync()
         guard let grdbStore else { return }
         Task {
-            try? await TierEnforcement(store: grdbStore).enforce(tier: newTier)
+            _ = try? await TierEnforcement(store: grdbStore).enforce(tier: newTier)
             await refreshRecents()
         }
     }
@@ -412,7 +664,11 @@ final class AppModel {
     private func configureSync() {
         guard let grdbStore else { return }
         let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
-        let enable = SyncEnablement.shouldEnable(tier: tier, iCloudAvailable: iCloudAvailable)
+        let cloudKitEntitled = CloudKitEntitlements.currentTaskAllowsSync()
+        let enable = SyncEnablement.shouldEnable(
+            tier: tier,
+            iCloudAvailable: iCloudAvailable,
+            hasCloudKitEntitlement: cloudKitEntitled)
         guard enable != syncEnabled else { return }
         syncEnabled = enable
 
@@ -423,6 +679,7 @@ final class AppModel {
             .appendingPathComponent("sync-state.plist")
         sync = SyncEngineFactory.make(
             store: grdbStore, tier: tier, iCloudAvailable: iCloudAvailable,
+            hasCloudKitEntitlement: cloudKitEntitled,
             stateStore: .file(at: stateURL),
             onStatus: { [weak self] status in
                 Task { @MainActor in self?.applySyncStatus(status) }
@@ -438,9 +695,18 @@ final class AppModel {
     /// Applies a status from the engine: updates the indicator and logs a
     /// metadata-only milestone (synced/paused/failed) to the Privacy Center.
     private func applySyncStatus(_ status: SyncStatus) {
+        let wasSyncing = syncStatus == .syncing
         syncStatus = status
         if let event = Self.syncEvent(for: status) {
             privacyEvents.record(sync: event)
+        }
+        // A finished fetch may have pulled new clips/boards from iCloud — refresh
+        // so the panel and Library reflect them without a manual reopen.
+        if wasSyncing, status != .syncing {
+            Task {
+                await refreshRecents()
+                await refreshBoards()
+            }
         }
     }
 
@@ -514,7 +780,8 @@ final class AppModel {
                     return
                 }
             }
-            try? await grdbStore.setPinned(id: item.id, !item.isPinned)
+            _ = try? await grdbStore.setPinned(id: item.id, !item.isPinned)
+            toasts.show(GanchoToast(message: item.isPinned ? "Unpinned" : "Pinned"))
             await refreshRecents()
         }
     }
@@ -529,7 +796,8 @@ final class AppModel {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
                 return
             }
-            try? await grdbStore.promoteToSnippet(id: item.id)
+            _ = try? await grdbStore.promoteToSnippet(id: item.id)
+            toasts.show(GanchoToast(message: "Promoted to Library"))
             await refreshRecents()
         }
     }
@@ -539,10 +807,27 @@ final class AppModel {
         boards = (try? await grdbStore.pinboards()) ?? []
     }
 
-    func assign(_ item: ClipItem, toBoard board: Pinboard?) {
+    func assign(_ item: ClipItem, toBoard board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.assign(clipID: item.id, toBoard: board?.id)
+            try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
+            toasts.show(GanchoToast(message: "Added to board"))
+            await refreshRecents()
+        }
+    }
+
+    func unassign(_ item: ClipItem, fromBoard board: Pinboard) {
+        guard let grdbStore else { return }
+        Task {
+            try? await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
+            await refreshRecents()
+        }
+    }
+
+    func removeFromAllBoards(_ item: ClipItem) {
+        guard let grdbStore else { return }
+        Task {
+            try? await grdbStore.removeFromAllBoards(clipID: item.id)
             await refreshRecents()
         }
     }
@@ -550,15 +835,64 @@ final class AppModel {
     func createBoard(named name: String) {
         guard let grdbStore else { return }
         Task {
-            let count = (try? await grdbStore.pinboards().count) ?? 0
+            // The built-in Favorites board never counts against the free limit.
+            let count = (try? await grdbStore.pinboards().filter { !$0.isSystem }.count) ?? 0
             guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro)
             else {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
                 return
             }
-            try? await grdbStore.createPinboard(name: name)
+            if let board = try? await grdbStore.createPinboard(name: name) {
+                await sync.enqueue(boards: [board])
+            }
             await refreshBoards()
         }
+    }
+
+    /// Rename / delete are no-ops on the built-in Favorites board (the store
+    /// guards on isSystem), so the UI only needs to hide the affordances.
+    func renameBoard(_ board: Pinboard, name: String) {
+        guard let grdbStore else { return }
+        Task {
+            try? await grdbStore.renameBoard(id: board.id, name: name)
+            var renamed = board
+            renamed.name = name
+            await sync.enqueue(boards: [renamed])
+            await refreshBoards()
+        }
+    }
+
+    func deleteBoard(_ board: Pinboard) {
+        guard let grdbStore else { return }
+        Task {
+            // When sync is on, tombstone the deletion so it reaches the other
+            // devices; otherwise a plain local delete is enough.
+            if syncEnabled {
+                try? await grdbStore.deletePinboardForSync(id: board.id)
+                await sync.enqueueBoardDeletion(ids: [board.id])
+            } else {
+                try? await grdbStore.deletePinboard(id: board.id)
+            }
+            await refreshBoards()
+            await refreshRecents()
+        }
+    }
+
+    /// The boards a clip belongs to — drives the peek's board menu checkmarks.
+    func boardMembership(for item: ClipItem) async -> Set<UUID> {
+        guard let grdbStore else { return [] }
+        return (try? await grdbStore.boardIDs(forClip: item.id)) ?? []
+    }
+
+    /// Add or remove a clip from one board (the peek's per-board toggle).
+    func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
+        guard let grdbStore else { return }
+        if member {
+            try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
+        } else {
+            try? await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
+        }
+        await refreshRecents()
     }
 
     // MARK: - Denylist & settings portability
@@ -588,6 +922,7 @@ final class AppModel {
             appSettings: [
                 "panel-position": panel.position.rawValue,
                 "show-in-dock": showInDock ? "true" : "false",
+                "appearance": appearance.rawValue,
             ])
     }
 
@@ -605,6 +940,11 @@ final class AppModel {
         }
         if let dock = snapshot.appSettings["show-in-dock"] {
             showInDock = dock == "true"
+        }
+        if let raw = snapshot.appSettings["appearance"],
+            let value = AppearancePreference(rawValue: raw)
+        {
+            appearance = value
         }
     }
 
@@ -638,8 +978,8 @@ final class AppModel {
         let policy = retentionPolicy
         let tier = tier
         Task {
-            try? await RetentionEngine(store: grdbStore).runPurge(policy: policy)
-            try? await TierEnforcement(store: grdbStore).enforce(tier: tier)
+            _ = try? await RetentionEngine(store: grdbStore).runPurge(policy: policy)
+            _ = try? await TierEnforcement(store: grdbStore).enforce(tier: tier)
             await refreshRecents()
         }
     }

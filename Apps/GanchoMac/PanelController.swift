@@ -1,4 +1,5 @@
 import AppKit
+import GanchoDesign
 import KeyboardShortcuts
 import SwiftUI
 
@@ -26,9 +27,18 @@ enum PanelPosition: String, CaseIterable {
 /// The panel instance is created once and reused — reopening is an
 /// orderFront, which is what keeps open latency far under the 100ms budget.
 @MainActor
-final class PanelController {
+final class PanelController: NSObject, NSWindowDelegate {
     private var panel: KeyPanel?
     private weak var model: AppModel?
+
+    /// The panel auto-hides when it loses key focus (the user clicks another
+    /// app or window), Spotlight-style. Flip this to keep it open on purpose —
+    /// the seam for a future "pin" affordance.
+    var keepsOpenOnFocusLoss = false
+
+    var isVisible: Bool {
+        panel?.isVisible == true
+    }
 
     var position: PanelPosition {
         get {
@@ -61,6 +71,9 @@ final class PanelController {
         let panel = ensurePanel(model: model)
         place(panel)
         panel.makeKeyAndOrderFront(nil)
+        if Self.isUITestLaunch {
+            panel.orderFrontRegardless()
+        }
         Task { await model.refreshRecents() }
         // Latency telemetry for the <100ms budget (debug builds only).
         #if DEBUG
@@ -72,19 +85,46 @@ final class PanelController {
         panel?.orderOut(nil)
     }
 
+    /// Auto-hide when the panel loses key focus — a click in another app or
+    /// window dismisses it (Spotlight-style). Held open while a preview sheet is
+    /// attached, while pinned, and under UI tests (which drive visibility via
+    /// the launch hook, not focus).
+    func windowDidResignKey(_ notification: Notification) {
+        guard !Self.isUITestLaunch, !keepsOpenOnFocusLoss,
+            let panel, panel.attachedSheet == nil
+        else { return }
+        panel.orderOut(nil)
+    }
+
     private func ensurePanel(model: AppModel) -> KeyPanel {
         if let panel { return panel }
         let hosting = NSHostingView(
             rootView: PanelView()
-                .environment(model))
+                .environment(model)
+                .ganchoTinted())
+        let styleMask: NSWindow.StyleMask =
+            Self.isUITestLaunch
+            ? [.titled, .closable, .fullSizeContentView]
+            : [.titled, .nonactivatingPanel, .fullSizeContentView]
         let created = KeyPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 480),
-            // Chromeless floating panel (Spotlight-style): borderless, no
-            // traffic-light buttons and no title-bar strip. The rounded look
-            // comes from the content's `ganchoSurface`. Dismissed with Escape.
-            styleMask: [.nonactivatingPanel],
+            // Wide enough for the list + the peek column beside it.
+            contentRect: NSRect(x: 0, y: 0, width: 724, height: 480),
+            // Chromeless floating panel (Spotlight-style): titled so AppKit
+            // reliably creates and orders it, with the title bar made
+            // transparent and controls hidden below. Dismissed with Escape.
+            styleMask: styleMask,
             backing: .buffered, defer: false)
+        created.title = "Gancho"
+        created.setAccessibilityIdentifier("history-panel")
+        created.titleVisibility = .hidden
+        created.titlebarAppearsTransparent = true
         created.isMovableByWindowBackground = true
+        // Nonactivating panels must survive app deactivation: the user's
+        // editor/browser remains the focused app while Gancho floats above it.
+        created.hidesOnDeactivate = false
+        created.standardWindowButton(.closeButton)?.isHidden = true
+        created.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        created.standardWindowButton(.zoomButton)?.isHidden = true
         // No window shadow: on a translucent borderless panel the shadow hugs
         // the glass and reads as a dark hairline around the edge. The glass
         // material carries its own depth.
@@ -98,28 +138,55 @@ final class PanelController {
         created.contentView = hosting
         created.setFrameAutosaveName("gancho-panel")
         created.isReleasedWhenClosed = false
+        created.delegate = self
         panel = created
         return created
+    }
+
+    private static var isUITestLaunch: Bool {
+        CommandLine.arguments.contains("-open-panel-on-launch")
     }
 
     private func place(_ panel: NSPanel) {
         switch position {
         case .lastPosition:
-            // Frame autosave already restored it.
-            break
-        case .centered:
-            if let screen = NSScreen.main {
-                let frame = screen.visibleFrame
-                panel.setFrameOrigin(
-                    NSPoint(
-                        x: frame.midX - panel.frame.width / 2,
-                        y: frame.midY - panel.frame.height / 2))
+            // Frame autosave already restored it. If the saved display is no
+            // longer reachable, fall back to the current pointer screen.
+            guard !panel.frame.intersectsAnyScreen else {
+                break
             }
+            center(panel)
+        case .centered:
+            center(panel)
         case .atCursor:
             let mouse = NSEvent.mouseLocation
             panel.setFrameOrigin(
                 NSPoint(x: mouse.x - panel.frame.width / 2, y: mouse.y - panel.frame.height))
         }
+    }
+
+    private func center(_ panel: NSPanel) {
+        guard let screen = Self.targetScreen else { return }
+        let frame = screen.visibleFrame
+        panel.setFrameOrigin(
+            NSPoint(
+                x: frame.midX - panel.frame.width / 2,
+                y: frame.midY - panel.frame.height / 2))
+    }
+
+    private static var targetScreen: NSScreen? {
+        let mouse = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(mouse) }
+            ?? NSApp.keyWindow?.screen
+            ?? NSApp.mainWindow?.screen
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
+    }
+}
+
+extension NSRect {
+    fileprivate var intersectsAnyScreen: Bool {
+        NSScreen.screens.contains { intersects($0.visibleFrame) }
     }
 }
 

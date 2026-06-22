@@ -1,6 +1,7 @@
 #if os(macOS)
     import AppKit
     import Foundation
+    import UniformTypeIdentifiers
 
     /// `PasteboardReading` over `NSPasteboard.general`.
     ///
@@ -31,6 +32,13 @@
                 return URL(string: raw)
             }
             if !fileURLs.isEmpty {
+                // A single image file under the ceiling is inlined as bytes so
+                // it syncs and pastes as the real image cross-device; a path
+                // reference is meaningless on another Mac/phone. Multiple files
+                // or large/non-image files keep the reference.
+                if fileURLs.count == 1, let inlined = Self.inlinedImage(from: fileURLs[0]) {
+                    return inlined
+                }
                 return .fileReferences(fileURLs)
             }
 
@@ -52,6 +60,32 @@
                 return .text(plain)
             }
             return nil
+        }
+
+        /// Bytes ceiling for inlining a copied image file: big enough for
+        /// screenshots and photos, small enough to keep iCloud sync cheap.
+        /// Larger files fall back to a path reference.
+        static let maxInlineFileBytes = 20 * 1024 * 1024
+
+        /// An image file under the ceiling, read as bytes so it travels and
+        /// pastes as the real image. Returns `nil` for non-images, oversize
+        /// files, or unreadable paths — the caller then keeps the reference.
+        static func inlinedImage(
+            from url: URL, maxBytes: Int = maxInlineFileBytes
+        ) -> PasteboardCapture.Payload? {
+            guard url.isFileURL,
+                let type = UTType(filenameExtension: url.pathExtension),
+                type.conforms(to: .image)
+            else { return nil }
+            if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                size > maxBytes
+            {
+                return nil
+            }
+            guard let data = try? Data(contentsOf: url), data.count <= maxBytes else {
+                return nil
+            }
+            return .image(data: data, typeIdentifier: type.identifier)
         }
     }
 #endif

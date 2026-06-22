@@ -217,7 +217,10 @@
         @Test("A slow (Ask-stalled) read does not block the main actor")
         func slowReadKeepsMainResponsive() async {
             let pasteboard = FakePasteboard()
-            pasteboard.readDelay = 1.0
+            // A long read so a real "blocked" main actor (~3s) is unmistakably
+            // distinct from the actor merely being slow to resume the hop below
+            // under a contended CI runner — the threshold sits well between them.
+            pasteboard.readDelay = 3.0
             let monitor = makeMonitor(pasteboard: pasteboard)
             var captures: [PasteboardCapture] = []
             monitor.onCapture = { captures.append($0) }
@@ -225,12 +228,14 @@
             pasteboard.write(.text("slow"), types: ["public.utf8-plain-text"])
             let before = ContinuousClock.now
             monitor.pollOnce()
-            // If the read ran on the main actor, this hop would wait ~1s.
+            // If the read ran on the main actor, this hop would wait ~3s. The
+            // generous ceiling absorbs scheduler jitter on loaded CI VMs while
+            // staying far below the 3s a genuine block would cost.
             await Task.yield()
             let elapsed = ContinuousClock.now - before
-            #expect(elapsed < .milliseconds(500))
+            #expect(elapsed < .milliseconds(1500))
 
-            await waitForCaptures(monitor) { captures }
+            await waitForCaptures(monitor, into: { captures }, attempts: 500)
             #expect(captures.count == 1)
         }
 

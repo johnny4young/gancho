@@ -15,6 +15,10 @@ struct LocalizationTests {
     static let catalogPaths = [
         "Apps/GanchoMac/Localizable.xcstrings",
         "Apps/GanchoiOS/Localizable.xcstrings",
+        // The widget extension is its own bundle with its own catalog.
+        "Apps/GanchoWidgets/Localizable.xcstrings",
+        // The keyboard extension, likewise.
+        "Apps/GanchoKeyboard/Localizable.xcstrings",
     ]
 
     struct Catalog {
@@ -66,33 +70,91 @@ struct LocalizationTests {
         }
     }
 
-    /// Sweep: every user-facing prose literal in app views must be a catalog
-    /// key. Heuristic: `Text("…")`, `Label("…"`, and `String(localized:`
-    /// literals containing a space (identifiers/symbols have none).
+    /// Sweep: every user-facing prose literal in app code must be a catalog key
+    /// — and not merely *somewhere*, but in the catalog of EACH bundle that
+    /// ships the file. Beyond SwiftUI `Text` / `Label`, it covers the
+    /// declaration forms that also reach users: App Intents (`title`,
+    /// `IntentDescription`, `IntentDialog`, a `dialog:` result) and WidgetKit
+    /// gallery metadata (`configurationDisplayName`, `description`). Each bundle
+    /// resolves a `LocalizedStringResource` from its OWN catalog, so a shared
+    /// string shown in N bundles must be translated in all N.
+    ///
+    /// Enforcement is PER-BUNDLE, not "present in some catalog": that loophole
+    /// is exactly what let the Save Clipboard intent ship English on iOS while
+    /// it was localized for the widget. `Apps/GanchoShared` compiles into the
+    /// iOS app, the widget AND the keyboard, but only the app + widget vend its
+    /// App Intents to users, so those are the catalogs required (the keyboard
+    /// extension does not surface them). Directories without their own catalog
+    /// (`GanchoShare`, `GanchoMenuBarHelper`) fall back to "present in any".
+    ///
+    /// Heuristic unchanged: prose contains a space (identifiers/symbols do not),
+    /// and literals with interpolation resolve at runtime.
     @Test("No hardcoded user-facing prose outside the catalogs")
     func hardcodedSweep() throws {
         let catalogs = try Self.loadCatalogs()
-        let knownKeys = Set(catalogs.flatMap(\.strings.keys))
+        let keysByCatalog = Dictionary(
+            uniqueKeysWithValues: catalogs.map { ($0.path, Set($0.strings.keys)) })
+        let anyCatalogKeys = Set(catalogs.flatMap(\.strings.keys))
+
+        func requiredCatalogs(for file: String) -> [String] {
+            if file.hasPrefix("GanchoMac/") { return ["Apps/GanchoMac/Localizable.xcstrings"] }
+            if file.hasPrefix("GanchoiOS/") { return ["Apps/GanchoiOS/Localizable.xcstrings"] }
+            if file.hasPrefix("GanchoWidgets/") {
+                return ["Apps/GanchoWidgets/Localizable.xcstrings"]
+            }
+            if file.hasPrefix("GanchoKeyboard/") {
+                return ["Apps/GanchoKeyboard/Localizable.xcstrings"]
+            }
+            if file.hasPrefix("GanchoShared/") {
+                return [
+                    "Apps/GanchoiOS/Localizable.xcstrings",
+                    "Apps/GanchoWidgets/Localizable.xcstrings",
+                ]
+            }
+            return []  // No dedicated catalog → fall back to "any catalog".
+        }
+
+        // Each pattern's first capture group is a user-facing prose literal.
+        let regexes = try [
+            #"(?:Text|Label)\(\s*"([^"\\]+)""#,
+            #"LocalizedStringResource\(\s*"([^"\\]+)""#,
+            #"LocalizedStringResource\s*=\s*"([^"\\]+)""#,
+            #"IntentDescription\(\s*"([^"\\]+)""#,
+            #"IntentDialog\(\s*"([^"\\]+)""#,
+            #"\bdialog:\s*"([^"\\]+)""#,
+            #"\.configurationDisplayName\(\s*"([^"\\]+)""#,
+            #"\.description\(\s*"([^"\\]+)""#,
+        ].map { try NSRegularExpression(pattern: $0) }
+
         let appsDir = Self.repoRoot.appendingPathComponent("Apps")
         let files = try FileManager.default.subpathsOfDirectory(atPath: appsDir.path)
             .filter { $0.hasSuffix(".swift") }
 
-        let pattern = #"(?:Text|Label)\(\s*"([^"\\]+)""#
-        let regex = try NSRegularExpression(pattern: pattern)
-
         for file in files {
             let source = try String(
                 contentsOf: appsDir.appendingPathComponent(file), encoding: .utf8)
-            let matches = regex.matches(
-                in: source, range: NSRange(source.startIndex..., in: source))
-            for match in matches {
-                guard let range = Range(match.range(at: 1), in: source) else { continue }
-                let literal = String(source[range])
-                // Prose = contains a space; interpolations resolve at runtime.
-                guard literal.contains(" "), !literal.contains("\\(") else { continue }
-                #expect(
-                    knownKeys.contains(literal),
-                    "Apps/\(file): hardcoded prose '\(literal)' is not in any String Catalog")
+            let required = requiredCatalogs(for: file)
+            for regex in regexes {
+                let matches = regex.matches(
+                    in: source, range: NSRange(source.startIndex..., in: source))
+                for match in matches {
+                    guard let range = Range(match.range(at: 1), in: source) else { continue }
+                    let literal = String(source[range])
+                    // Prose = contains a space; interpolations resolve at runtime.
+                    guard literal.contains(" "), !literal.contains("\\(") else { continue }
+                    if required.isEmpty {
+                        #expect(
+                            anyCatalogKeys.contains(literal),
+                            "Apps/\(file): hardcoded prose '\(literal)' is not in any String Catalog"
+                        )
+                    } else {
+                        for catalog in required {
+                            #expect(
+                                keysByCatalog[catalog]?.contains(literal) == true,
+                                "Apps/\(file): '\(literal)' is missing from \(catalog)")
+                        }
+                    }
+                }
             }
         }
     }

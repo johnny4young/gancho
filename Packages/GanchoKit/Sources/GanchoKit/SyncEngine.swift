@@ -33,6 +33,11 @@ public protocol SyncEngine: Sendable {
     func enqueue(_ items: [ClipItem]) async
     /// Tombstones for deletions (CloudKit-compatible delete semantics).
     func enqueueDeletion(ids: [UUID]) async
+    /// Board metadata to propagate (name/glyph). Membership rides the clips.
+    func enqueue(boards: [Pinboard]) async
+    /// Board deletions to propagate, so a board removed on one device disappears
+    /// on the others.
+    func enqueueBoardDeletion(ids: [UUID]) async
 }
 
 /// Free tier / tests: sync disabled.
@@ -42,4 +47,6 @@ public struct NoopSyncEngine: SyncEngine {
     public func stop() async {}
     public func enqueue(_ items: [ClipItem]) async {}
     public func enqueueDeletion(ids: [UUID]) async {}
+    public func enqueue(boards: [Pinboard]) async {}
+    public func enqueueBoardDeletion(ids: [UUID]) async {}
 }

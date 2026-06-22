@@ -27,6 +27,11 @@ public struct ClipItem: Identifiable, Codable, Equatable, Sendable {
     public var isSensitive: Bool
     public var expiresAt: Date?
     public var tags: [String]
+    /// Snippet invocation keyword (e.g. "firma"); nil for ordinary clips and
+    /// keyword-less snippets.
+    public var keyword: String?
+    /// How many times a snippet has been inserted (usage stat); 0 otherwise.
+    public var uses: Int
 
     public init(
         id: UUID = UUID(),
@@ -42,7 +47,9 @@ public struct ClipItem: Identifiable, Codable, Equatable, Sendable {
         isPinned: Bool = false,
         isSensitive: Bool = false,
         expiresAt: Date? = nil,
-        tags: [String] = []
+        tags: [String] = [],
+        keyword: String? = nil,
+        uses: Int = 0
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -58,6 +65,8 @@ public struct ClipItem: Identifiable, Codable, Equatable, Sendable {
         self.isSensitive = isSensitive
         self.expiresAt = expiresAt
         self.tags = tags
+        self.keyword = keyword
+        self.uses = uses
     }
 
     /// Dedupe key for a piece of content. Stable across devices so sync

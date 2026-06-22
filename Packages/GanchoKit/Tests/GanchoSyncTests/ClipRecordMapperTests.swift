@@ -36,6 +36,39 @@ struct ClipRecordMapperTests {
         #expect(record.recordID.recordName == item.id.uuidString)
     }
 
+    @Test("A clip's board membership rides its record")
+    func clipBoardMembershipRoundTrips() throws {
+        let item = ClipItem(preview: "in two boards", contentHash: "h")
+        let a = UUID()
+        let b = UUID()
+        let record = try #require(
+            ClipRecordMapper.record(
+                for: item, content: .text("x"), systemFields: nil, zoneID: zoneID,
+                boardIDs: [a, b]))
+        #expect(Set(ClipRecordMapper.boardIDs(from: record)) == Set([a, b]))
+        // Absent field decodes to an empty set, not a crash.
+        let bare = try #require(
+            ClipRecordMapper.record(
+                for: item, content: .text("x"), systemFields: nil, zoneID: zoneID))
+        #expect(ClipRecordMapper.boardIDs(from: bare).isEmpty)
+    }
+
+    @Test("A board round-trips through its record")
+    func boardRoundTrips() throws {
+        let boardsZone = CKRecordZone.ID(
+            zoneName: BoardRecordMapper.zoneName, ownerName: CKCurrentUserDefaultName)
+        let board = Pinboard(name: "Work", sfSymbol: "briefcase", sortIndex: 3)
+        let record = try #require(
+            BoardRecordMapper.record(for: board, systemFields: nil, zoneID: boardsZone))
+        let decoded = try #require(BoardRecordMapper.decode(record))
+        #expect(decoded.id == board.id)
+        #expect(decoded.name == "Work")
+        #expect(decoded.sfSymbol == "briefcase")
+        #expect(decoded.sortIndex == 3)
+        #expect(decoded.isSystem == false)
+        #expect(record.recordType == BoardRecordMapper.recordType)
+    }
+
     @Test("Content and preview live in encryptedValues, never plain fields")
     func contentIsEncrypted() throws {
         let item = ClipItem(preview: "secret preview", contentHash: "h")
