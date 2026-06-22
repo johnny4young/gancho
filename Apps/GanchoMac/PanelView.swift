@@ -644,6 +644,8 @@ struct ClipPeek: View {
     @Environment(AppModel.self) private var model
     @State private var actionResult: String?
     @State private var boardIDs: Set<UUID> = []
+    /// Smart Paste runs the on-device model — show a spinner while it thinks.
+    @State private var isThinking = false
 
     /// Masked clips show their stored masked preview, not the raw content. The
     /// peek is a preview, so cap very long clips: laying out a huge Text here on
@@ -661,7 +663,15 @@ struct ClipPeek: View {
             peekBody
             insightStrip
             transforms
-            if let actionResult, !actionResult.isEmpty {
+            if canSmartPaste {
+                smartPasteMenu
+            }
+            if isThinking {
+                Label("Thinking…", systemImage: "sparkles")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .symbolEffect(.pulse, options: .repeating)
+            } else if let actionResult, !actionResult.isEmpty {
                 resultBox(actionResult)
             }
             footer
@@ -815,6 +825,48 @@ struct ClipPeek: View {
         }
     }
 
+    /// Smart Paste fits text clips only, never a masked secret, and only when
+    /// Apple Intelligence is available + the user kept the toggle on.
+    private var canSmartPaste: Bool {
+        model.smartPasteAvailable && !item.isSensitive
+            && item.kind != .image && item.kind != .fileReference && item.kind != .color
+    }
+
+    /// On-device rewrite menu (the design's "Smart paste"): summarize, fix
+    /// grammar, change tone, pull key points — the result lands in the box below
+    /// for review before pasting.
+    private var smartPasteMenu: some View {
+        Menu {
+            ForEach(SmartPasteAction.allCases) { action in
+                Button {
+                    runSmartPaste(action)
+                } label: {
+                    Label(LocalizedStringKey(action.titleKey), systemImage: action.symbolName)
+                }
+            }
+        } label: {
+            Label("Smart paste", systemImage: "sparkles")
+                .font(.body.weight(.medium))
+                .padding(.horizontal, GanchoTokens.Spacing.sm)
+                .padding(.vertical, GanchoTokens.Spacing.xxs)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .ganchoSurface(radius: GanchoTokens.Radius.md)
+        .disabled(isThinking)
+        .accessibilityIdentifier("smart-paste-menu")
+    }
+
+    private func runSmartPaste(_ action: SmartPasteAction) {
+        actionResult = nil
+        isThinking = true
+        Task {
+            let result = await model.smartPaste(text, action: action)
+            isThinking = false
+            actionResult = result ?? String(localized: "Couldn’t run that — try again.")
+        }
+    }
+
     private func resultBox(_ result: String) -> some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
             ScrollView {
@@ -824,9 +876,14 @@ struct ClipPeek: View {
                     .textSelection(.enabled)
             }
             .frame(maxHeight: 140)
-            ActionButton("Copy result", systemImage: "doc.on.doc", identifier: "copy-result") {
-                SystemPasteboardWriter().write(.text(result), asPlainText: true)
-                model.toasts.show(GanchoToast(message: "Copied"))
+            HStack(spacing: GanchoTokens.Spacing.xxs) {
+                ActionButton("Paste", systemImage: "doc.on.clipboard", identifier: "paste-result") {
+                    model.pasteText(result)
+                }
+                ActionButton("Copy result", systemImage: "doc.on.doc", identifier: "copy-result") {
+                    SystemPasteboardWriter().write(.text(result), asPlainText: true)
+                    model.toasts.show(GanchoToast(message: "Copied"))
+                }
             }
         }
     }

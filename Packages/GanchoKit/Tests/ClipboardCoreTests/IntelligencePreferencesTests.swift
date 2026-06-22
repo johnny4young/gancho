@@ -12,6 +12,7 @@ struct IntelligencePreferencesTests {
         #expect(prefs.semanticSearch)
         #expect(prefs.searchableScreenshots)
         #expect(prefs.detectSecrets)
+        #expect(prefs.smartPaste)
     }
 
     @Test("Round-trips through UserDefaults, preserving each toggle")
@@ -38,6 +39,7 @@ struct IntelligencePreferencesTests {
         #expect(prefs.intelligentTitles)  // missing → default on
         #expect(prefs.searchableScreenshots)
         #expect(prefs.detectSecrets)
+        #expect(prefs.smartPaste)  // newest key, absent in the old blob → default on
     }
 
     @Test("Missing or corrupt blob loads as the all-on default")

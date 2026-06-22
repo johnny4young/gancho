@@ -17,17 +17,22 @@ public struct IntelligencePreferences: Sendable, Equatable, Codable {
     /// Detect copied secrets and mask + auto-expire them (the deterministic
     /// detector; the password-manager veto is separate and always on).
     public var detectSecrets: Bool
+    /// Tier 1 — Apple Intelligence rewrites a clip on demand (summarize, fix
+    /// grammar, change tone, key points) before pasting. On-device only.
+    public var smartPaste: Bool
 
     public init(
         intelligentTitles: Bool = true,
         semanticSearch: Bool = true,
         searchableScreenshots: Bool = true,
-        detectSecrets: Bool = true
+        detectSecrets: Bool = true,
+        smartPaste: Bool = true
     ) {
         self.intelligentTitles = intelligentTitles
         self.semanticSearch = semanticSearch
         self.searchableScreenshots = searchableScreenshots
         self.detectSecrets = detectSecrets
+        self.smartPaste = smartPaste
     }
 
     /// Missing keys default ON — adding a toggle later must not silently flip
@@ -40,6 +45,7 @@ public struct IntelligencePreferences: Sendable, Equatable, Codable {
         searchableScreenshots =
             try container.decodeIfPresent(Bool.self, forKey: .searchableScreenshots) ?? true
         detectSecrets = try container.decodeIfPresent(Bool.self, forKey: .detectSecrets) ?? true
+        smartPaste = try container.decodeIfPresent(Bool.self, forKey: .smartPaste) ?? true
     }
 
     private static let defaultsKey = "intelligence-preferences"

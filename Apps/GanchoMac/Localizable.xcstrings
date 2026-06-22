@@ -1745,6 +1745,96 @@
         }
       }
     },
+    "Couldn’t run that — try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo ejecutar — intenta de nuevo."
+          }
+        }
+      }
+    },
+    "Fix grammar" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Corregir gramática"
+          }
+        }
+      }
+    },
+    "Key points" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puntos clave"
+          }
+        }
+      }
+    },
+    "Make formal" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacer formal"
+          }
+        }
+      }
+    },
+    "Make friendly" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacer amigable"
+          }
+        }
+      }
+    },
+    "Rewrite a clip before pasting — summarize, fix grammar, change tone, or pull key points. Apple Intelligence runs on-device; secrets are never sent to the model." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reescribe un clip antes de pegarlo — resume, corrige gramática, cambia el tono o saca los puntos clave. Apple Intelligence corre en el dispositivo; los secretos nunca se envían al modelo."
+          }
+        }
+      }
+    },
+    "Smart paste" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pegado inteligente"
+          }
+        }
+      }
+    },
+    "Summarize" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resumir"
+          }
+        }
+      }
+    },
+    "Thinking…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pensando…"
+          }
+        }
+      }
+    },
     "Smart classification" : {
       "localizations" : {
         "es" : {
