@@ -21,15 +21,98 @@ public final class GRDBClipboardStore: ClipboardStore {
     var blobsForMaintenance: BlobStore { blobs }
 
     /// Production store at a directory (database + blobs side by side).
-    public convenience init(directory: URL) throws {
+    ///
+    /// - Parameter passphrase: when non-nil and the build links SQLCipher, the
+    ///   whole database — including the FTS5 index — is encrypted at rest with
+    ///   this key (see ``KeychainPassphraseStore``). A pre-encryption plaintext
+    ///   database is transparently re-encrypted in place before the pool opens.
+    ///   When nil (or on a non-SQLCipher build) the store is plaintext — the
+    ///   path used by tests and the perf harness.
+    public convenience init(directory: URL, passphrase: String? = nil) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let pool = try DatabasePool(path: directory.appendingPathComponent("gancho.sqlite").path)
+        let dbPath = directory.appendingPathComponent("gancho.sqlite").path
+
+        var configuration = Configuration()
+        #if SQLITE_HAS_CODEC
+            if let passphrase {
+                try Self.encryptPlaintextStoreIfNeeded(at: dbPath, passphrase: passphrase)
+                configuration.prepareDatabase { db in
+                    try db.usePassphrase(passphrase)
+                }
+            }
+        #endif
+
+        let pool = try DatabasePool(path: dbPath, configuration: configuration)
         self.init(
             writer: pool,
             blobs: BlobStore(directory: directory.appendingPathComponent("blobs")))
         try migrator.migrate(pool)
         try Self.reformatLegacyImagePreviews(in: pool)
     }
+
+    /// Opens the production store encrypted with the Keychain-managed key.
+    ///
+    /// The path the apps and the CLI use: it loads (or, on first launch,
+    /// generates) the random 256-bit key from ``KeychainPassphraseStore`` and
+    /// hands it to ``init(directory:passphrase:)``, which encrypts the database
+    /// and migrates any pre-encryption plaintext store. Distinct from the
+    /// plaintext `init`s that tests and the perf harness use.
+    ///
+    /// - Parameter keychainAccessGroup: shared keychain group for iOS
+    ///   database-reading extensions; `nil` for the macOS app, the CLI, and the
+    ///   iOS main app (which use their default keychain).
+    public static func encrypted(
+        directory: URL,
+        keychainAccessGroup: String? = nil
+    ) throws -> GRDBClipboardStore {
+        let key = try KeychainPassphraseStore(accessGroup: keychainAccessGroup).loadOrCreateKey()
+        return try GRDBClipboardStore(directory: directory, passphrase: key)
+    }
+
+    #if SQLITE_HAS_CODEC
+        /// Re-encrypts a pre-encryption plaintext database in place.
+        ///
+        /// Older installs wrote `gancho.sqlite` unencrypted. On the first launch
+        /// of an encrypting build we detect that file by its plaintext SQLite
+        /// magic header, export it into a sibling encrypted database with
+        /// `sqlcipher_export` (copying every table, index, and FTS row), and swap
+        /// it in. No clip is lost. A no-op on a fresh install (no file) or an
+        /// already-encrypted store (random header bytes).
+        static func encryptPlaintextStoreIfNeeded(at path: String, passphrase: String) throws {
+            let fileManager = FileManager.default
+            guard fileManager.fileExists(atPath: path) else { return }  // fresh install
+
+            // A plaintext database starts with the 16-byte SQLite magic header;
+            // an encrypted one has random bytes there (we keep no plaintext header).
+            guard let handle = FileHandle(forReadingAtPath: path) else { return }
+            let header = try handle.read(upToCount: 16)
+            try handle.close()
+            guard header == Data("SQLite format 3\u{0}".utf8) else { return }  // already encrypted
+
+            let encryptedPath = path + ".encrypting"
+            try? fileManager.removeItem(atPath: encryptedPath)
+            // Scope the plaintext connection so it closes before the file swap.
+            do {
+                let plaintext = try DatabaseQueue(path: path)
+                try plaintext.inDatabase { db in
+                    // Hex key has no quotes; escape defensively all the same.
+                    let quotedPath = encryptedPath.replacingOccurrences(of: "'", with: "''")
+                    let quotedKey = passphrase.replacingOccurrences(of: "'", with: "''")
+                    try db.execute(
+                        sql: "ATTACH DATABASE '\(quotedPath)' AS encrypted KEY '\(quotedKey)'")
+                    try db.execute(sql: "SELECT sqlcipher_export('encrypted')")
+                    try db.execute(sql: "DETACH DATABASE encrypted")
+                }
+            }
+
+            // Swap the encrypted file in, dropping the plaintext file and any
+            // stale WAL/SHM siblings that belong to the old database.
+            try fileManager.removeItem(atPath: path)
+            try? fileManager.removeItem(atPath: path + "-wal")
+            try? fileManager.removeItem(atPath: path + "-shm")
+            try fileManager.moveItem(atPath: encryptedPath, toPath: path)
+        }
+    #endif
 
     /// Injectable writer for tests (`DatabaseQueue()` in-memory).
     public init(writer: any DatabaseWriter, blobs: BlobStore) {
