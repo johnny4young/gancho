@@ -20,19 +20,24 @@ public struct IntelligencePreferences: Sendable, Equatable, Codable {
     /// Tier 1 — Apple Intelligence rewrites a clip on demand (summarize, fix
     /// grammar, change tone, key points) before pasting. On-device only.
     public var smartPaste: Bool
+    /// Suggest the board a clip likely belongs to, from the semantic neighbors
+    /// of how you've filed before. Only ever suggests — never files silently.
+    public var autoBoard: Bool
 
     public init(
         intelligentTitles: Bool = true,
         semanticSearch: Bool = true,
         searchableScreenshots: Bool = true,
         detectSecrets: Bool = true,
-        smartPaste: Bool = true
+        smartPaste: Bool = true,
+        autoBoard: Bool = true
     ) {
         self.intelligentTitles = intelligentTitles
         self.semanticSearch = semanticSearch
         self.searchableScreenshots = searchableScreenshots
         self.detectSecrets = detectSecrets
         self.smartPaste = smartPaste
+        self.autoBoard = autoBoard
     }
 
     /// Missing keys default ON — adding a toggle later must not silently flip
@@ -46,6 +51,7 @@ public struct IntelligencePreferences: Sendable, Equatable, Codable {
             try container.decodeIfPresent(Bool.self, forKey: .searchableScreenshots) ?? true
         detectSecrets = try container.decodeIfPresent(Bool.self, forKey: .detectSecrets) ?? true
         smartPaste = try container.decodeIfPresent(Bool.self, forKey: .smartPaste) ?? true
+        autoBoard = try container.decodeIfPresent(Bool.self, forKey: .autoBoard) ?? true
     }
 
     private static let defaultsKey = "intelligence-preferences"

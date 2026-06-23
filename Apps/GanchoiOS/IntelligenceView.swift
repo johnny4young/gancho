@@ -1,21 +1,21 @@
-import AppKit
 import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-/// On-device intelligence (the design's "Intelligence" screen): the pipeline a
-/// clip flows through at capture, and a toggle per enrichment stage. Every
-/// toggle gates a REAL stage in the capture pipeline; the deterministic tier-0
-/// classifier is always on. Zero network, every tier.
-struct IntelligenceView: View {
-    @Environment(AppModel.self) private var model
+/// On-device intelligence on iPhone (mirrors macOS `IntelligenceView`): the
+/// pipeline a clip flows through at capture, and a toggle per enrichment stage.
+/// Every toggle gates a REAL stage in `IOSAppModel.ingest`; the deterministic
+/// tier-0 classifier is always on. Toggles are per-device and never sync. Zero
+/// network, every tier.
+struct IOSIntelligenceView: View {
+    @Environment(IOSAppModel.self) private var model
 
     private struct Stage: Identifiable {
         let symbol: String
         let tint: Color
         let title: LocalizedStringKey
         let sub: LocalizedStringKey
-        var id: String { "\(symbol)" }
+        var id: String { symbol }
     }
 
     private var stages: [Stage] {
@@ -45,81 +45,73 @@ struct IntelligenceView: View {
 
     var body: some View {
         @Bindable var model = model
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
-            HStack {
-                Label("Intelligence", systemImage: "sparkles")
-                    .font(.title2.bold())
-                Spacer()
-                Label("On-device", systemImage: "lock.shield")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(GanchoTokens.Palette.success)
+        Form {
+            Section {
+                pipeline
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
             }
 
-            pipeline
+            Section {
+                featureRow(
+                    "wand.and.stars", GanchoTokens.Palette.kindTint(for: .uuid),
+                    "Smart classification",
+                    "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, Smart Actions, and masking.",
+                    alwaysOn: true)
+                toggleRow(
+                    "sparkles", GanchoTokens.Palette.accent, "Smarter titles",
+                    "Apple Intelligence writes a short, specific title on-device, falling back to heuristics on any failure — and never puts a secret in a title.",
+                    isOn: $model.intelligence.intelligentTitles)
+                toggleRow(
+                    "magnifyingglass", GanchoTokens.Palette.kindTint(for: .url),
+                    "Semantic search",
+                    "Find a clip by meaning, not just exact words. A 512-dim embedding indexes history on-device; the model assets stay local.",
+                    isOn: $model.intelligence.semanticSearch)
+                toggleRow(
+                    "photo", GanchoTokens.Palette.kindTint(for: .image),
+                    "Searchable screenshots",
+                    "On-device OCR reads text out of image clips and adds it to the full-text index, so a screenshot is findable by the words inside it.",
+                    isOn: $model.intelligence.searchableScreenshots)
+                toggleRow(
+                    "sparkles", GanchoTokens.Palette.accent, "Smart paste",
+                    "Rewrite a clip before pasting — summarize, fix grammar, change tone, pull key points, or redact PII. Model-backed rewrites use Apple Intelligence on-device; deterministic redaction needs no model.",
+                    isOn: $model.intelligence.smartPaste)
+                toggleRow(
+                    "square.stack", GanchoTokens.Palette.kindTint(for: .fileReference),
+                    "Suggest boards",
+                    "When a clip looks like ones you've filed before, gancho suggests the board it probably belongs to — one tap to file it. On-device, never automatic.",
+                    isOn: $model.intelligence.autoBoard)
+            } header: {
+                Text("Intelligence features")
+            }
 
-            Form {
-                Section {
-                    featureRow(
-                        "wand.and.stars", GanchoTokens.Palette.kindTint(for: .uuid),
-                        "Smart classification",
-                        "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, Smart Actions, and masking.",
-                        alwaysOn: true)
-                    toggleRow(
-                        "sparkles", GanchoTokens.Palette.accent, "Smarter titles",
-                        "Apple Intelligence writes a short, specific title on-device, falling back to heuristics on any failure — and never puts a secret in a title.",
-                        isOn: $model.intelligence.intelligentTitles)
-                    toggleRow(
-                        "magnifyingglass", GanchoTokens.Palette.kindTint(for: .url),
-                        "Semantic search",
-                        "Find a clip by meaning, not just exact words. A 512-dim embedding indexes history on-device; the model assets stay local.",
-                        isOn: $model.intelligence.semanticSearch)
-                    toggleRow(
-                        "photo", GanchoTokens.Palette.kindTint(for: .image),
-                        "Searchable screenshots",
-                        "On-device OCR reads text out of image clips and adds it to the full-text index, so a screenshot is findable by the words inside it.",
-                        isOn: $model.intelligence.searchableScreenshots)
-                    toggleRow(
-                        "sparkles", GanchoTokens.Palette.accent, "Smart paste",
-                        "Rewrite a clip before pasting — summarize, fix grammar, change tone, pull key points, or redact PII. Model-backed rewrites use Apple Intelligence on-device; deterministic redaction needs no model.",
-                        isOn: $model.intelligence.smartPaste)
-                    toggleRow(
-                        "square.stack", GanchoTokens.Palette.kindTint(for: .fileReference),
-                        "Suggest boards",
-                        "When a clip looks like ones you've filed before, gancho suggests the board it probably belongs to — one tap to file it. On-device, never automatic.",
-                        isOn: $model.intelligence.autoBoard)
-                } header: {
-                    Text("Intelligence features")
+            Section {
+                toggleRow(
+                    "lock", GanchoTokens.Palette.kindTint(for: .secret),
+                    "Detect & mask secrets",
+                    "If you copy a key by accident, gancho masks the preview (●●●● + last 4) and auto-expires it after 10 minutes. Deterministic, on-device.",
+                    isOn: $model.intelligence.detectSecrets)
+                if model.intelligence.detectSecrets {
+                    secretChips
                 }
+            } header: {
+                Text("Sensitive data")
+            }
 
-                Section {
-                    toggleRow(
-                        "lock", GanchoTokens.Palette.kindTint(for: .secret),
-                        "Detect & mask secrets",
-                        "If you copy a key by accident, gancho masks the preview (●●●● + last 4) and auto-expires it after 10 minutes. Deterministic, on-device.",
-                        isOn: $model.intelligence.detectSecrets)
-                    if model.intelligence.detectSecrets {
-                        secretChips
-                    }
-                } header: {
-                    Text("Sensitive data")
-                }
-
-                Section {
-                    Label {
-                        Text(
-                            "Every tier runs on this Mac. No clip text is ever sent to a server — gancho has none."
-                        )
-                        .font(.footnote)
-                    } icon: {
-                        Image(systemName: "lock.shield")
-                            .foregroundStyle(GanchoTokens.Palette.success)
-                    }
+            Section {
+                Label {
+                    Text(
+                        "Every tier runs on this iPhone. No clip text is ever sent to a server — gancho has none."
+                    )
+                    .font(.footnote)
+                } icon: {
+                    Image(systemName: "lock.shield")
+                        .foregroundStyle(GanchoTokens.Palette.success)
                 }
             }
-            .formStyle(.grouped)
         }
-        .padding(GanchoTokens.Spacing.md)
-        .frame(width: 520, height: 600)
+        .navigationTitle(Text("Intelligence"))
+        .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("intelligence")
     }
 
@@ -134,8 +126,8 @@ struct IntelligenceView: View {
                             .foregroundStyle(stage.tint)
                             .frame(width: 38, height: 38)
                             .background(stage.tint.opacity(0.13), in: .rect(cornerRadius: 11))
-                        Text(stage.title).font(.caption2.weight(.semibold)).multilineTextAlignment(
-                            .center)
+                        Text(stage.title).font(.caption2.weight(.semibold))
+                            .multilineTextAlignment(.center)
                         Text(stage.sub).font(.system(size: 9)).foregroundStyle(.tertiary)
                     }
                     .frame(width: 92)
@@ -145,7 +137,7 @@ struct IntelligenceView: View {
                     }
                 }
             }
-            .padding(.horizontal, GanchoTokens.Spacing.xxs)
+            .padding(GanchoTokens.Spacing.sm)
         }
     }
 
@@ -240,26 +232,5 @@ private struct FlowLayout: Layout {
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
         }
-    }
-}
-
-/// Window host for the Intelligence screen (menu-bar agent, no WindowGroup).
-@MainActor
-final class IntelligenceWindowController {
-    private var window: NSWindow?
-
-    func show(model: AppModel) {
-        if window == nil {
-            let hosting = NSHostingController(
-                rootView: IntelligenceView().environment(model).ganchoTinted())
-            let created = NSWindow(contentViewController: hosting)
-            created.title = String(localized: "Intelligence")
-            created.styleMask = [.titled, .closable]
-            created.isReleasedWhenClosed = false
-            created.center()
-            window = created
-        }
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
     }
 }
