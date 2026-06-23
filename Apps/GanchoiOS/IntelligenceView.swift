@@ -74,7 +74,7 @@ struct IOSIntelligenceView: View {
                     isOn: $model.intelligence.searchableScreenshots)
                 toggleRow(
                     "sparkles", GanchoTokens.Palette.accent, "Smart paste",
-                    "Rewrite a clip before pasting — summarize, fix grammar, change tone, or pull key points. Apple Intelligence runs on-device; secrets are never sent to the model.",
+                    "Rewrite a clip before pasting — summarize, fix grammar, change tone, pull key points, or redact PII. Model-backed rewrites use Apple Intelligence on-device; deterministic redaction needs no model.",
                     isOn: $model.intelligence.smartPaste)
                 toggleRow(
                     "square.stack", GanchoTokens.Palette.kindTint(for: .fileReference),

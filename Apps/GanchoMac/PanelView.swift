@@ -741,7 +741,7 @@ struct ClipPeek: View {
     @Environment(AppModel.self) private var model
     @State private var actionResult: String?
     @State private var boardIDs: Set<UUID> = []
-    /// Smart Paste runs the on-device model — show a spinner while it thinks.
+    /// Smart Paste can run the on-device model — show a spinner while it thinks.
     @State private var isThinking = false
     /// The board auto-board thinks this clip belongs to (a suggestion, never
     /// auto-filed); nil until computed or once accepted/dismissed.
@@ -959,8 +959,9 @@ struct ClipPeek: View {
         }
     }
 
-    /// Smart Paste fits text clips only, never a masked secret, and only when
-    /// Apple Intelligence is available + the user kept the toggle on.
+    /// Smart Paste fits text clips only and never a masked secret. Model-backed
+    /// rewrites need Apple Intelligence, but deterministic PII redaction remains
+    /// available whenever the user kept the Smart Paste toggle on.
     private var canSmartPaste: Bool {
         model.smartPasteAvailable && !item.isSensitive
             && item.kind != .image && item.kind != .fileReference && item.kind != .color
@@ -972,21 +973,25 @@ struct ClipPeek: View {
     private var smartPasteMenu: some View {
         Menu {
             ForEach(SmartPasteAction.allCases) { action in
-                Button {
-                    runSmartPaste(action)
-                } label: {
-                    Label(LocalizedStringKey(action.titleKey), systemImage: action.symbolName)
-                }
-            }
-            Divider()
-            Menu {
-                ForEach(Self.translateLanguageCodes, id: \.self) { code in
-                    Button(Self.localizedLanguageName(code)) {
-                        runTranslate(to: Self.englishLanguageName(code))
+                if action == .redactPII || model.smartPasteModelAvailable {
+                    Button {
+                        runSmartPaste(action)
+                    } label: {
+                        Label(LocalizedStringKey(action.titleKey), systemImage: action.symbolName)
                     }
                 }
-            } label: {
-                Label("Translate to", systemImage: "globe")
+            }
+            if model.smartPasteModelAvailable {
+                Divider()
+                Menu {
+                    ForEach(Self.translateLanguageCodes, id: \.self) { code in
+                        Button(Self.localizedLanguageName(code)) {
+                            runTranslate(to: Self.englishLanguageName(code))
+                        }
+                    }
+                } label: {
+                    Label("Translate to", systemImage: "globe")
+                }
             }
         } label: {
             Label("Smart paste", systemImage: "sparkles")

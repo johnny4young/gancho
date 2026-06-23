@@ -337,13 +337,20 @@ final class IOSAppModel {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
-    // MARK: - Smart paste (on-device Apple Intelligence)
+    // MARK: - Smart paste (deterministic + on-device Apple Intelligence)
 
     private let smartPasteService = SmartPasteService()
 
-    /// Available when the Smart Paste toggle is on AND Apple Intelligence is on
-    /// for this device. The Intelligence screen owns the per-device toggle.
-    var smartPasteAvailable: Bool { intelligence.smartPaste && SmartPasteService.isAvailable }
+    /// Available when the Smart Paste toggle is on. Deterministic actions such
+    /// as PII redaction do not need Apple Intelligence, so model availability
+    /// gates only model-backed rewrites and translations.
+    var smartPasteAvailable: Bool { intelligence.smartPaste }
+
+    /// Model-backed rewrites and translations require Apple Intelligence in
+    /// addition to the user's Smart Paste opt-in.
+    var smartPasteModelAvailable: Bool {
+        intelligence.smartPaste && SmartPasteService.isAvailable
+    }
 
     func smartPaste(_ text: String, action: SmartPasteAction) async -> String? {
         try? await smartPasteService.transform(text, action: action)
@@ -994,8 +1001,9 @@ struct ClipDetailView: View {
     /// auto-filed); nil until computed or once accepted/dismissed.
     @State private var suggestedBoard: Pinboard?
 
-    /// Smart Paste fits text clips only, never a masked secret, and only when
-    /// Apple Intelligence is available.
+    /// Smart Paste fits text clips only and never a masked secret. Model-backed
+    /// rewrites need Apple Intelligence, but deterministic PII redaction remains
+    /// available whenever the user kept the Smart Paste toggle on.
     private var canSmartPaste: Bool {
         model.smartPasteAvailable && !item.isSensitive
             && item.kind != .image && item.kind != .fileReference && item.kind != .color
@@ -1050,22 +1058,26 @@ struct ClipDetailView: View {
                 Section("Smart paste") {
                     Menu {
                         ForEach(SmartPasteAction.allCases) { action in
-                            Button {
-                                runSmartPaste(action)
-                            } label: {
-                                Label(
-                                    LocalizedStringKey(action.titleKey),
-                                    systemImage: action.symbolName)
-                            }
-                        }
-                        Menu {
-                            ForEach(Self.translateLanguageCodes, id: \.self) { code in
-                                Button(Self.localizedLanguageName(code)) {
-                                    runTranslate(to: Self.englishLanguageName(code))
+                            if action == .redactPII || model.smartPasteModelAvailable {
+                                Button {
+                                    runSmartPaste(action)
+                                } label: {
+                                    Label(
+                                        LocalizedStringKey(action.titleKey),
+                                        systemImage: action.symbolName)
                                 }
                             }
-                        } label: {
-                            Label("Translate to", systemImage: "globe")
+                        }
+                        if model.smartPasteModelAvailable {
+                            Menu {
+                                ForEach(Self.translateLanguageCodes, id: \.self) { code in
+                                    Button(Self.localizedLanguageName(code)) {
+                                        runTranslate(to: Self.englishLanguageName(code))
+                                    }
+                                }
+                            } label: {
+                                Label("Translate to", systemImage: "globe")
+                            }
                         }
                     } label: {
                         Label("Smart paste", systemImage: "sparkles")

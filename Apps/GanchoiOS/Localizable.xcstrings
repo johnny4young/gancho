@@ -1251,12 +1251,12 @@
         }
       }
     },
-    "Rewrite a clip before pasting — summarize, fix grammar, change tone, or pull key points. Apple Intelligence runs on-device; secrets are never sent to the model.": {
+    "Rewrite a clip before pasting — summarize, fix grammar, change tone, pull key points, or redact PII. Model-backed rewrites use Apple Intelligence on-device; deterministic redaction needs no model.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reescribe un clip antes de pegarlo — resume, corrige gramática, cambia el tono o saca los puntos clave. Apple Intelligence corre en el dispositivo; los secretos nunca se envían al modelo."
+            "value": "Reescribe un clip antes de pegarlo — resume, corrige gramática, cambia el tono, saca puntos clave o redacta PII. Las reescrituras con modelo usan Apple Intelligence en el dispositivo; la redacción determinista no necesita modelo."
           }
         }
       }

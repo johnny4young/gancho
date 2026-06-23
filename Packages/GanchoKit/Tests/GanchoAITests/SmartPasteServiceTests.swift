@@ -2,9 +2,10 @@ import Testing
 
 @testable import GanchoAI
 
-/// The on-device `transform` itself is device-gated + non-deterministic (like
-/// the title annotator), so the suite pins the PURE contract: the action set
-/// and the prompt instructions that keep it safe and clean.
+/// Model-backed transforms are device-gated + non-deterministic (like the title
+/// annotator), so the suite pins the pure contract: the action set and the
+/// prompt instructions that keep it safe and clean. Deterministic PII redaction
+/// is covered through the service because it intentionally bypasses the model.
 @Suite("Smart paste — transform actions")
 struct SmartPasteServiceTests {
     @Test("Every action has a distinct label/raw value, a symbol, and real instructions")
@@ -40,5 +41,17 @@ struct SmartPasteServiceTests {
         #expect(instructions.contains("French"))
         #expect(instructions.localizedCaseInsensitiveContains("secret"))
         #expect(instructions.localizedCaseInsensitiveContains("output only"))
+    }
+
+    @Test("Redact PII runs through the service without model availability")
+    func redactPIIDoesNotRequireModel() async throws {
+        let input =
+            "checkout failed for jane.doe@acme.com (+1 415-555-0199), card 4111 1111 1111 1111"
+        let out = try await SmartPasteService().transform(input, action: .redactPII)
+        #expect(out.contains("[email]"))
+        #expect(out.contains("[phone]"))
+        #expect(out.contains("[card]"))
+        #expect(!out.contains("jane.doe@acme.com"))
+        #expect(!out.contains("4111"))
     }
 }

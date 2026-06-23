@@ -25,7 +25,7 @@ struct PIIRedactorTests {
     func ssn() {
         let out = PIIRedactor.redact("SSN 123-45-6789 on file")
         #expect(!out.contains("123-45-6789"))
-        #expect(out.contains("[ssn]") || out.contains("[phone]"))
+        #expect(out.contains("[ssn]"))
     }
 
     @Test("Redacts a Luhn-valid card number with separators")

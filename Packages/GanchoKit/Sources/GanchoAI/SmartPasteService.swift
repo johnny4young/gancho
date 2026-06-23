@@ -2,10 +2,11 @@ import Foundation
 import FoundationModels
 
 /// On-device "Smart paste": rewrite a clip with Apple Intelligence before
-/// pasting — summarize, fix grammar, change tone, or pull key points. Same
-/// backend as the title annotator (`SystemLanguageModel`), so it is fully
-/// on-device (zero network) and degrades the same way: when Apple Intelligence
-/// is unavailable the caller hides the affordance.
+/// pasting — summarize, fix grammar, change tone, or pull key points — plus a
+/// deterministic PII-redaction action. Model-backed actions use the same
+/// backend as the title annotator (`SystemLanguageModel`), so they are fully
+/// on-device (zero network) and degrade the same way; redaction stays available
+/// without model assets.
 ///
 /// Privacy: the prompt text never leaves the device, and every action's
 /// instructions forbid echoing secret material. Callers additionally gate the
@@ -81,7 +82,9 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
 }
 
 public struct SmartPasteService: Sendable {
-    /// Cheap availability gate the UI uses to show/hide the affordance.
+    /// Cheap availability gate the UI uses for model-backed rewrites and
+    /// translations. Deterministic PII redaction does not require this to be
+    /// true.
     public static var isAvailable: Bool {
         SystemLanguageModel.default.availability == .available
     }
@@ -113,8 +116,9 @@ public struct SmartPasteService: Sendable {
     }
 
     /// Runs the action on a FRESH session (no transcript carryover) and returns
-    /// the transformed text. Throws `AnnotationError.backendUnavailable` when
-    /// Apple Intelligence is off — enrichment, never a hard failure for callers.
+    /// the transformed text. Model-backed actions throw
+    /// `AnnotationError.backendUnavailable` when Apple Intelligence is off;
+    /// `.redactPII` is deterministic and does not require model availability.
     public func transform(_ text: String, action: SmartPasteAction) async throws -> String {
         // Redaction is deterministic and on-device: it must preserve the text
         // exactly except for PII, and must not depend on the model running.
