@@ -10,7 +10,7 @@ struct SmartPasteServiceTests {
     @Test("Every action has a distinct label/raw value, a symbol, and real instructions")
     func actionMetadata() {
         let actions = SmartPasteAction.allCases
-        #expect(actions.count == 5)
+        #expect(actions.count == 6)
         #expect(Set(actions.map(\.titleKey)).count == actions.count)
         #expect(Set(actions.map(\.rawValue)).count == actions.count)
         for action in actions {

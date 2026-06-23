@@ -17,6 +17,7 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
     case formal
     case friendly
     case keyPoints
+    case redactPII
 
     public var id: String { rawValue }
 
@@ -28,6 +29,7 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
         case .formal: "Make formal"
         case .friendly: "Make friendly"
         case .keyPoints: "Key points"
+        case .redactPII: "Redact PII"
         }
     }
 
@@ -38,6 +40,7 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
         case .formal: "briefcase"
         case .friendly: "face.smiling"
         case .keyPoints: "list.bullet"
+        case .redactPII: "eye.slash"
         }
     }
 
@@ -66,6 +69,12 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
         case .keyPoints:
             return
                 "Extract the key points from the user's text as a short bullet list, one point per line beginning with \"- \". Output only the list, nothing else."
+                + guardrail
+        case .redactPII:
+            // Primary path is the deterministic `PIIRedactor`; these instructions
+            // describe the same intent and exist as a model fallback.
+            return
+                "Rewrite the user's text with every piece of personally identifiable information — names, emails, phone numbers, postal addresses, and account or ID numbers — replaced by a bracketed placeholder such as [name] or [email]. Preserve everything else exactly. Output only the redacted text, nothing else."
                 + guardrail
         }
     }
@@ -107,6 +116,9 @@ public struct SmartPasteService: Sendable {
     /// the transformed text. Throws `AnnotationError.backendUnavailable` when
     /// Apple Intelligence is off — enrichment, never a hard failure for callers.
     public func transform(_ text: String, action: SmartPasteAction) async throws -> String {
+        // Redaction is deterministic and on-device: it must preserve the text
+        // exactly except for PII, and must not depend on the model running.
+        if action == .redactPII { return PIIRedactor.redact(text) }
         guard Self.isAvailable else { throw AnnotationError.backendUnavailable }
         let clipped = String(text.prefix(maxPromptCharacters))
         let session = LanguageModelSession(instructions: action.instructions)
