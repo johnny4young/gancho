@@ -227,6 +227,39 @@ final class IOSAppModel {
         return (try? await grdb.boardIDs(forClip: item.id)) ?? []
     }
 
+    /// Suggest the board this clip probably belongs to, by a semantic k-NN vote
+    /// over how similar clips were filed (`BoardSuggester`). Only ever suggests;
+    /// nil when the toggle is off, the clip is sensitive, there are no eligible
+    /// user boards, or the neighborhood shows no clear home. 100% on-device.
+    func suggestedBoard(for item: ClipItem) async -> Pinboard? {
+        guard intelligence.autoBoard, !item.isSensitive,
+            let grdb = store as? GRDBClipboardStore
+        else { return nil }
+        let userBoards = ((try? await grdb.pinboards()) ?? []).filter { !$0.isSystem }
+        guard !userBoards.isEmpty else { return nil }
+        let current = (try? await grdb.boardIDs(forClip: item.id)) ?? []
+        let candidates = Set(userBoards.map(\.id)).subtracting(current)
+        guard !candidates.isEmpty else { return nil }
+
+        guard case .text(let text)? = try? await grdb.content(for: item.id),
+            let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+            let vector = try? embedder.vector(for: String(text.prefix(1_000)))
+        else { return nil }
+        let neighbors = ((try? await grdb.semanticSearch(queryVector: vector, topK: 8)) ?? [])
+            .filter { $0.id != item.id }
+        guard !neighbors.isEmpty else { return nil }
+
+        var neighborBoards: [Set<UUID>] = []
+        for neighbor in neighbors {
+            neighborBoards.append((try? await grdb.boardIDs(forClip: neighbor.id)) ?? [])
+        }
+        guard
+            let vote = BoardSuggester.suggest(
+                neighborBoardIDs: neighborBoards, candidates: candidates)
+        else { return nil }
+        return userBoards.first { $0.id == vote.boardID }
+    }
+
     /// Add or remove a clip from one board. Membership rides the clip's sync
     /// record, so the change propagates to other devices on the next cycle.
     func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
@@ -957,6 +990,9 @@ struct ClipDetailView: View {
     @State private var boardIDs: Set<UUID> = []
     @State private var smartResult: String?
     @State private var isThinking = false
+    /// The board auto-board thinks this clip belongs to (a suggestion, never
+    /// auto-filed); nil until computed or once accepted/dismissed.
+    @State private var suggestedBoard: Pinboard?
 
     /// Smart Paste fits text clips only, never a masked secret, and only when
     /// Apple Intelligence is available.
@@ -1049,6 +1085,33 @@ struct ClipDetailView: View {
                 }
             }
 
+            if let board = suggestedBoard {
+                Section {
+                    HStack(spacing: GanchoTokens.Spacing.xs) {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(GanchoTokens.Palette.accent)
+                        Text("Add to \(board.name)?").lineLimit(1)
+                        Spacer(minLength: 0)
+                        Button("Add") {
+                            Task {
+                                await model.setBoardMembership(item, board: board, member: true)
+                                boardIDs = await model.boardMembership(for: item)
+                                suggestedBoard = nil
+                            }
+                        }
+                        .buttonStyle(.borderless)
+                        Button {
+                            suggestedBoard = nil
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                        }
+                        .buttonStyle(.plain).foregroundStyle(.tertiary)
+                        .accessibilityLabel(Text("Dismiss"))
+                    }
+                }
+                .accessibilityIdentifier("board-suggestion")
+            }
+
             if !model.boards.isEmpty {
                 Section("Boards") {
                     ForEach(model.boards) { board in
@@ -1096,6 +1159,7 @@ struct ClipDetailView: View {
             await model.refreshBoards()
             boardIDs = await model.boardMembership(for: item)
         }
+        .task { suggestedBoard = await model.suggestedBoard(for: item) }
     }
 
     private static let translateLanguageCodes = [

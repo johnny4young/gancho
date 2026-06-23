@@ -1531,6 +1531,46 @@
           }
         }
       }
+    },
+    "Suggest boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugerir tableros"
+          }
+        }
+      }
+    },
+    "When a clip looks like ones you've filed before, gancho suggests the board it probably belongs to — one tap to file it. On-device, never automatic.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando un clip se parece a otros que ya archivaste, gancho sugiere el tablero al que probablemente pertenece — un toque para archivarlo. En el dispositivo, nunca automático."
+          }
+        }
+      }
+    },
+    "Add to %@?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Agregar a %@?"
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
