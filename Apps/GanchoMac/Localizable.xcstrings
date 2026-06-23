@@ -3967,6 +3967,16 @@
           }
         }
       }
+    },
+    "Redact PII": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar datos personales"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
