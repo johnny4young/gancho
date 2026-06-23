@@ -743,6 +743,9 @@ struct ClipPeek: View {
     @State private var boardIDs: Set<UUID> = []
     /// Smart Paste runs the on-device model — show a spinner while it thinks.
     @State private var isThinking = false
+    /// The board auto-board thinks this clip belongs to (a suggestion, never
+    /// auto-filed); nil until computed or once accepted/dismissed.
+    @State private var suggestedBoard: Pinboard?
 
     /// Masked clips show their stored masked preview, not the raw content. The
     /// peek is a preview, so cap very long clips: laying out a huge Text here on
@@ -757,6 +760,9 @@ struct ClipPeek: View {
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
             header
+            if let suggestedBoard {
+                suggestionChip(suggestedBoard)
+            }
             peekBody
             insightStrip
             transforms
@@ -780,6 +786,37 @@ struct ClipPeek: View {
         .accessibilityIdentifier("clip-peek")
         .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
         .task(id: item.id) { boardIDs = await model.boardMembership(for: item) }
+        .task(id: item.id) { suggestedBoard = await model.suggestedBoard(for: item) }
+    }
+
+    /// "Add to Dev?" — the one-tap board suggestion. Accepting files the clip;
+    /// the ✕ dismisses it. Auto-board never files silently.
+    private func suggestionChip(_ board: Pinboard) -> some View {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.accent)
+            Text("Add to \(board.name)?").font(.caption.weight(.medium)).lineLimit(1)
+            Spacer(minLength: 0)
+            Button("Add") {
+                model.assign(item, toBoard: board)
+                boardIDs.insert(board.id)
+                suggestedBoard = nil
+            }
+            .buttonStyle(.borderless)
+            Button {
+                suggestedBoard = nil
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless).foregroundStyle(.tertiary)
+            .accessibilityLabel(Text("Dismiss"))
+        }
+        .padding(.horizontal, GanchoTokens.Spacing.sm)
+        .padding(.vertical, 6)
+        .background(
+            GanchoTokens.Palette.accent.opacity(0.1),
+            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+        )
+        .accessibilityIdentifier("board-suggestion")
     }
 
     private var header: some View {

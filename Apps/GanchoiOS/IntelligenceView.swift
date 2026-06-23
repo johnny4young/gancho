@@ -76,6 +76,11 @@ struct IOSIntelligenceView: View {
                     "sparkles", GanchoTokens.Palette.accent, "Smart paste",
                     "Rewrite a clip before pasting — summarize, fix grammar, change tone, or pull key points. Apple Intelligence runs on-device; secrets are never sent to the model.",
                     isOn: $model.intelligence.smartPaste)
+                toggleRow(
+                    "square.stack", GanchoTokens.Palette.kindTint(for: .fileReference),
+                    "Suggest boards",
+                    "When a clip looks like ones you've filed before, gancho suggests the board it probably belongs to — one tap to file it. On-device, never automatic.",
+                    isOn: $model.intelligence.autoBoard)
             } header: {
                 Text("Intelligence features")
             }
