@@ -71,15 +71,21 @@ public enum PIIRedactor {
     }
 
     /// Replace accepted spans left-to-right, skipping any that overlap one
-    /// already taken. Earlier-inserted spans win an exact-position tie (stable
-    /// sort), which is why the structured-number detectors run first.
+    /// already taken. Earlier-inserted spans win an exact-position tie, which
+    /// is why the structured-number detectors run first.
     private static func apply(_ spans: [Span], to ns: NSString) -> String {
         guard !spans.isEmpty else { return ns as String }
-        let ordered = spans.sorted {
-            $0.range.location != $1.range.location
-                ? $0.range.location < $1.range.location
-                : $0.range.length > $1.range.length
-        }
+        let ordered = spans.enumerated().sorted { lhs, rhs in
+            let left = lhs.element
+            let right = rhs.element
+            if left.range.location != right.range.location {
+                return left.range.location < right.range.location
+            }
+            if left.range.length != right.range.length {
+                return left.range.length > right.range.length
+            }
+            return lhs.offset < rhs.offset
+        }.map(\.element)
         var result = ""
         var cursor = 0
         for span in ordered where span.range.location >= cursor {

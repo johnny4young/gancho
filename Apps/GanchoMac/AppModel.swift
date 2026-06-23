@@ -492,13 +492,21 @@ final class AppModel {
         (try? await grdbStore?.snippet(matchingKeyword: keyword)) ?? nil
     }
 
-    // MARK: - Smart paste (on-device Apple Intelligence)
+    // MARK: - Smart paste (deterministic + on-device Apple Intelligence)
 
     private let smartPasteService = SmartPasteService()
 
-    /// Smart Paste can run only when the user kept it on AND Apple Intelligence
-    /// is available on this device — the peek hides the menu otherwise.
+    /// Smart Paste affordances appear when the user kept the feature on.
+    /// Deterministic actions such as PII redaction do not need Apple
+    /// Intelligence, so the UI must not hide the entire menu behind model
+    /// availability.
     var smartPasteAvailable: Bool {
+        intelligence.smartPaste
+    }
+
+    /// Model-backed rewrites and translations require Apple Intelligence in
+    /// addition to the user's Smart Paste opt-in.
+    var smartPasteModelAvailable: Bool {
         intelligence.smartPaste && SmartPasteService.isAvailable
     }
 
