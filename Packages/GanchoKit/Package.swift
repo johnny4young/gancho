@@ -33,8 +33,13 @@ let package = Package(
         .executable(name: "gancho", targets: ["gancho"]),
     ],
     dependencies: [
-        // Storage engine (SQLite). Decision and rationale: docs/ARCHITECTURE.md.
-        .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
+        // Storage engine (SQLite) — SQLCipher-enabled fork for whole-database
+        // encryption. Upstream GRDB can't turn on SQLCipher without a fork
+        // (package traits need Xcode-UI support it still lacks); the fork only
+        // uncomments the marked `// GRDB+SQLCipher:` lines on the v7.11.0 tag,
+        // pulling Zetetic's official SQLCipher.swift. Rationale: docs/ARCHITECTURE.md.
+        .package(
+            url: "https://github.com/johnny4young/GRDB.swift.git", branch: "sqlcipher-7.11.0"),
         // Layout-aware keycodes for the synthetic ⌘V (covers Dvorak-QWERTY⌘).
         // Inherited practice from years of Maccy/community plumbing (MIT).
         .package(url: "https://github.com/Clipy/Sauce.git", from: "2.4.0"),
@@ -43,7 +48,12 @@ let package = Package(
         .package(url: "https://github.com/TelemetryDeck/SwiftSDK", from: "2.0.0"),
     ],
     targets: [
-        .target(name: "GanchoKit", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
+        .target(
+            name: "GanchoKit",
+            dependencies: [.product(name: "GRDB", package: "GRDB.swift")],
+            // SQLCipher APIs (`usePassphrase`) are gated behind this flag in
+            // both GRDB and our own `#if SQLITE_HAS_CODEC` encryption path.
+            swiftSettings: [.define("SQLITE_HAS_CODEC")]),
         .target(
             name: "ClipboardCore",
             dependencies: [
@@ -61,7 +71,11 @@ let package = Package(
         .target(name: "GanchoSync", dependencies: ["GanchoKit"]),
         .target(name: "GanchoMCP", dependencies: ["GanchoKit"]),
         .executableTarget(name: "gancho", dependencies: ["GanchoKit", "GanchoMCP"]),
-        .testTarget(name: "GanchoKitTests", dependencies: ["GanchoKit"]),
+        .testTarget(
+            name: "GanchoKitTests",
+            dependencies: ["GanchoKit"],
+            // Lets the on-disk encryption tests compile their `#if SQLITE_HAS_CODEC` path.
+            swiftSettings: [.define("SQLITE_HAS_CODEC")]),
         .testTarget(name: "GanchoMCPTests", dependencies: ["GanchoMCP", "GanchoKit"]),
         .testTarget(name: "GanchoSyncTests", dependencies: ["GanchoSync", "GanchoKit"]),
         .testTarget(name: "ClipboardCoreTests", dependencies: ["ClipboardCore"]),

@@ -135,7 +135,7 @@ final class AppModel {
 
     init() {
         let directory = SharedStorageLocation.macAppStoreDirectory
-        let grdb = try? GRDBClipboardStore(directory: directory)
+        let grdb = try? GRDBClipboardStore.encrypted(directory: directory)
         self.grdbStore = grdb
         self.store = grdb ?? InMemoryClipboardStore()
         let resolvedStore = self.store

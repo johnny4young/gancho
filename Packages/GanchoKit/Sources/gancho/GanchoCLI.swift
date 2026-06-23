@@ -168,7 +168,7 @@ struct GanchoCLI {
     private static func runMCP() async {
         let directory = storeDirectory()
         let config = MCPServerConfig.load(fromStoreDirectory: directory)
-        guard let store = try? GRDBClipboardStore(directory: directory) else {
+        guard let store = try? GRDBClipboardStore.encrypted(directory: directory) else {
             printErr("gancho: could not open the store at \(directory.path).\n")
             exit(1)
         }
@@ -220,7 +220,7 @@ struct GanchoCLI {
     }
 
     private static func openStore() throws -> GRDBClipboardStore {
-        try GRDBClipboardStore(directory: storeDirectory())
+        try GRDBClipboardStore.encrypted(directory: storeDirectory())
     }
 
     private static func mode(_ raw: String?) -> ClipSearchQuery.Mode {
