@@ -320,6 +320,61 @@ final class IOSAppModel {
         try? await smartPasteService.translate(text, to: language)
     }
 
+    // MARK: - Ask your clipboard (grounded on-device QA)
+
+    /// A grounded answer plus the clips it was drawn from (for citing/copying).
+    struct ClipboardAnswer: Identifiable, Sendable {
+        let id = UUID()
+        let answer: String
+        let sources: [ClipItem]
+    }
+
+    private let qaService = ClipboardQAService()
+
+    var askAvailable: Bool { ClipboardQAService.isAvailable }
+
+    /// Retrieve the most relevant clips (semantic when the embeddings are ready,
+    /// else full-text) and have the on-device model answer grounded ONLY in
+    /// them. Sensitive clips are filtered out before anything reaches the model.
+    /// The question and the clip text never leave the device.
+    func askClipboard(_ question: String) async -> ClipboardAnswer? {
+        let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let grdb = store as? GRDBClipboardStore, ClipboardQAService.isAvailable,
+            !trimmed.isEmpty
+        else { return nil }
+
+        var clips: [ClipItem] = []
+        if intelligence.semanticSearch, let embedder = ContextualSentenceEmbedder(),
+            embedder.hasAvailableAssets,
+            let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
+        {
+            clips = (try? await grdb.semanticSearch(queryVector: vector, topK: 6)) ?? []
+        }
+        if clips.isEmpty {
+            clips = (try? await grdb.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? []
+        }
+        let safe = clips.filter { !$0.isSensitive }
+        guard !safe.isEmpty else {
+            return ClipboardAnswer(
+                answer: String(localized: "Nothing in your clipboard matches that."), sources: [])
+        }
+
+        var sources: [String] = []
+        for clip in safe {
+            let body: String
+            if case .text(let text)? = try? await store.content(for: clip.id) {
+                body = text
+            } else {
+                body = clip.preview
+            }
+            sources.append(clip.title.isEmpty ? body : "\(clip.title): \(body)")
+        }
+        let answer = try? await qaService.answer(question: trimmed, sources: sources)
+        return ClipboardAnswer(
+            answer: answer ?? String(localized: "Couldn’t answer that — try again."),
+            sources: safe)
+    }
+
     func togglePin(_ item: ClipItem) async {
         guard let grdb = store as? GRDBClipboardStore else { return }
         try? await grdb.setPinned(id: item.id, !item.isPinned)
@@ -499,6 +554,8 @@ struct CaptureView: View {
     @State private var renameTarget: Pinboard?
     @State private var renameField = ""
     @State private var path: [UUID] = []
+    @State private var answer: IOSAppModel.ClipboardAnswer?
+    @State private var isAsking = false
 
     var body: some View {
         @Bindable var model = model
@@ -518,6 +575,12 @@ struct CaptureView: View {
                         }
                         .frame(height: 36)
                         .accessibilityIdentifier("paste-control")
+                    }
+
+                    if !model.query.isEmpty, model.askAvailable {
+                        Section {
+                            askRow
+                        }
                     }
 
                     Section("History") {
@@ -559,7 +622,10 @@ struct CaptureView: View {
                     }
                 }
                 .searchable(text: $model.query, prompt: Text("Search your clipboard"))
-                .onChange(of: model.query) { _, _ in Task { await model.search() } }
+                .onChange(of: model.query) { _, _ in
+                    answer = nil
+                    Task { await model.search() }
+                }
                 .navigationTitle("Gancho")
                 .navigationDestination(for: UUID.self) { id in
                     if let item = model.captures.first(where: { $0.id == id }) {
@@ -605,6 +671,79 @@ struct CaptureView: View {
             guard let id else { return }
             path = [id]
             model.deepLinkClipID = nil
+        }
+    }
+
+    /// "Ask your clipboard": a one-tap button to answer the typed query from
+    /// history, the spinner while it runs, and the grounded answer card. The
+    /// section only appears while searching and when the model is available.
+    @ViewBuilder private var askRow: some View {
+        if isAsking {
+            Label("Thinking…", systemImage: "sparkles")
+                .font(.callout).foregroundStyle(.secondary)
+                .symbolEffect(.pulse, options: .repeating)
+        } else if let answer {
+            answerCard(answer)
+        } else {
+            Button {
+                runAsk()
+            } label: {
+                Label("Ask gancho", systemImage: "sparkles")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(GanchoTokens.Palette.accent)
+            }
+            .accessibilityIdentifier("ask-clipboard")
+        }
+    }
+
+    private func answerCard(_ answer: IOSAppModel.ClipboardAnswer) -> some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+            HStack {
+                Label("Answer", systemImage: "sparkles").font(.subheadline.weight(.semibold))
+                Spacer()
+                Button {
+                    self.answer = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain).foregroundStyle(.tertiary)
+                .accessibilityLabel(Text("Dismiss"))
+            }
+            Text(answer.answer)
+                .font(.callout)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+            if !answer.sources.isEmpty {
+                Text("Sources").font(.caption).foregroundStyle(.secondary)
+                ForEach(answer.sources.prefix(4)) { clip in
+                    Button {
+                        Task { await model.copyToPasteboard(clip) }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: clip.kind.symbolName)
+                                .font(.caption)
+                                .foregroundStyle(GanchoTokens.Palette.kindTint(for: clip.kind))
+                            Text(clip.preview).font(.callout).lineLimit(1)
+                            Spacer(minLength: 0)
+                            Image(systemName: "doc.on.doc")
+                                .font(.caption2).foregroundStyle(.tertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .accessibilityIdentifier("ask-answer")
+    }
+
+    private func runAsk() {
+        let question = model.query
+        answer = nil
+        isAsking = true
+        Task {
+            let result = await model.askClipboard(question)
+            isAsking = false
+            answer = result
         }
     }
 
