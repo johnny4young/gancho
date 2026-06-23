@@ -64,7 +64,16 @@ final class IOSAppModel {
     private var tier: UserTier = .free
     private let purchases = StoreKitPurchaseHandler()
 
+    /// Per-device on-device intelligence toggles (the iOS Intelligence screen).
+    /// Device-local by design — they gate what runs HERE and never sync; the
+    /// enriched results that ride the clip record (title/OCR/sensitive) do.
+    var intelligence: IntelligencePreferences {
+        didSet { intelligence.save(to: defaults) }
+    }
+    private let defaults = UserDefaults.standard
+
     init() {
+        intelligence = IntelligencePreferences.load(from: defaults)
         thumbnails = ClipThumbnailStore(store: store)
         purchases.onTierChange = { [weak self] tier in
             guard let self else { return }
@@ -218,6 +227,39 @@ final class IOSAppModel {
         return (try? await grdb.boardIDs(forClip: item.id)) ?? []
     }
 
+    /// Suggest the board this clip probably belongs to, by a semantic k-NN vote
+    /// over how similar clips were filed (`BoardSuggester`). Only ever suggests;
+    /// nil when the toggle is off, the clip is sensitive, there are no eligible
+    /// user boards, or the neighborhood shows no clear home. 100% on-device.
+    func suggestedBoard(for item: ClipItem) async -> Pinboard? {
+        guard intelligence.autoBoard, !item.isSensitive,
+            let grdb = store as? GRDBClipboardStore
+        else { return nil }
+        let userBoards = ((try? await grdb.pinboards()) ?? []).filter { !$0.isSystem }
+        guard !userBoards.isEmpty else { return nil }
+        let current = (try? await grdb.boardIDs(forClip: item.id)) ?? []
+        let candidates = Set(userBoards.map(\.id)).subtracting(current)
+        guard !candidates.isEmpty else { return nil }
+
+        guard case .text(let text)? = try? await grdb.content(for: item.id),
+            let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+            let vector = try? embedder.vector(for: String(text.prefix(1_000)))
+        else { return nil }
+        let neighbors = ((try? await grdb.semanticSearch(queryVector: vector, topK: 8)) ?? [])
+            .filter { $0.id != item.id }
+        guard !neighbors.isEmpty else { return nil }
+
+        var neighborBoards: [Set<UUID>] = []
+        for neighbor in neighbors {
+            neighborBoards.append((try? await grdb.boardIDs(forClip: neighbor.id)) ?? [])
+        }
+        guard
+            let vote = BoardSuggester.suggest(
+                neighborBoardIDs: neighborBoards, candidates: candidates)
+        else { return nil }
+        return userBoards.first { $0.id == vote.boardID }
+    }
+
     /// Add or remove a clip from one board. Membership rides the clip's sync
     /// record, so the change propagates to other devices on the next cycle.
     func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
@@ -295,13 +337,20 @@ final class IOSAppModel {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
-    // MARK: - Smart paste (on-device Apple Intelligence)
+    // MARK: - Smart paste (deterministic + on-device Apple Intelligence)
 
     private let smartPasteService = SmartPasteService()
 
-    /// Available when Apple Intelligence is on for this device (no per-device
-    /// toggle on iOS yet — the Intelligence screen is macOS-only for now).
-    var smartPasteAvailable: Bool { SmartPasteService.isAvailable }
+    /// Available when the Smart Paste toggle is on. Deterministic actions such
+    /// as PII redaction do not need Apple Intelligence, so model availability
+    /// gates only model-backed rewrites and translations.
+    var smartPasteAvailable: Bool { intelligence.smartPaste }
+
+    /// Model-backed rewrites and translations require Apple Intelligence in
+    /// addition to the user's Smart Paste opt-in.
+    var smartPasteModelAvailable: Bool {
+        intelligence.smartPaste && SmartPasteService.isAvailable
+    }
 
     func smartPaste(_ text: String, action: SmartPasteAction) async -> String? {
         try? await smartPasteService.transform(text, action: action)
@@ -309,6 +358,61 @@ final class IOSAppModel {
 
     func smartTranslate(_ text: String, to language: String) async -> String? {
         try? await smartPasteService.translate(text, to: language)
+    }
+
+    // MARK: - Ask your clipboard (grounded on-device QA)
+
+    /// A grounded answer plus the clips it was drawn from (for citing/copying).
+    struct ClipboardAnswer: Identifiable, Sendable {
+        let id = UUID()
+        let answer: String
+        let sources: [ClipItem]
+    }
+
+    private let qaService = ClipboardQAService()
+
+    var askAvailable: Bool { ClipboardQAService.isAvailable }
+
+    /// Retrieve the most relevant clips (semantic when the embeddings are ready,
+    /// else full-text) and have the on-device model answer grounded ONLY in
+    /// them. Sensitive clips are filtered out before anything reaches the model.
+    /// The question and the clip text never leave the device.
+    func askClipboard(_ question: String) async -> ClipboardAnswer? {
+        let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let grdb = store as? GRDBClipboardStore, ClipboardQAService.isAvailable,
+            !trimmed.isEmpty
+        else { return nil }
+
+        var clips: [ClipItem] = []
+        if intelligence.semanticSearch, let embedder = ContextualSentenceEmbedder(),
+            embedder.hasAvailableAssets,
+            let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
+        {
+            clips = (try? await grdb.semanticSearch(queryVector: vector, topK: 6)) ?? []
+        }
+        if clips.isEmpty {
+            clips = (try? await grdb.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? []
+        }
+        let safe = clips.filter { !$0.isSensitive }
+        guard !safe.isEmpty else {
+            return ClipboardAnswer(
+                answer: String(localized: "Nothing in your clipboard matches that."), sources: [])
+        }
+
+        var sources: [String] = []
+        for clip in safe {
+            let body: String
+            if case .text(let text)? = try? await store.content(for: clip.id) {
+                body = text
+            } else {
+                body = clip.preview
+            }
+            sources.append(clip.title.isEmpty ? body : "\(clip.title): \(body)")
+        }
+        let answer = try? await qaService.answer(question: trimmed, sources: sources)
+        return ClipboardAnswer(
+            answer: answer ?? String(localized: "Couldn’t answer that — try again."),
+            sources: safe)
     }
 
     func togglePin(_ item: ClipItem) async {
@@ -408,13 +512,48 @@ final class IOSAppModel {
         // the content hash matches — warn subtly instead of duplicating.
         let stored = try? await store.insert(item, content: content)
         if let stored { await syncEngine.enqueue([stored]) }
+        let isNew = stored?.id == item.id
         flashNote(
-            stored?.id == item.id
-                ? String(localized: "Saved") : String(localized: "Already in your history"))
+            isNew ? String(localized: "Saved") : String(localized: "Already in your history"))
         // Bounded like every other load — fetching the whole backlog here is what
         // made a large history lag after a capture.
         captures = (try? await store.items(offset: 0, limit: 50)) ?? []
         reloadWidgets()
+        // Enrich only a genuinely new clip — a re-copy already carries its
+        // title/OCR/embedding from the first capture.
+        if isNew { enrich(item, content: content) }
+    }
+
+    /// On-device enrichment of a clip captured ON this iPhone — Apple
+    /// Intelligence titles, OCR, and semantic embeddings — so an iOS capture is
+    /// as rich as one synced from the Mac. Never blocks capture (utility
+    /// priority); the shared `EnrichmentPlan` gates it (Pro + non-sensitive +
+    /// per-stage toggles). Enriched fields that ride the clip record sync; the
+    /// embedding stays device-local.
+    private func enrich(_ item: ClipItem, content: ClipContent?) {
+        let plan = EnrichmentPlan(
+            content: content, kind: item.kind, isSensitive: item.isSensitive,
+            hasTitle: !item.title.isEmpty, isPro: tier == .pro, preferences: intelligence)
+        guard !plan.isEmpty, let grdb = store as? GRDBClipboardStore else { return }
+        Task(priority: .utility) {
+            if plan.runs(.ocr), case .binary(let data, _)? = content,
+                let text = try? await ImageTextExtractor().extractText(from: data)
+            {
+                _ = try? await grdb.attachExtractedText(id: item.id, text: text)
+            }
+            if plan.runs(.title), case .text(let text)? = content,
+                let annotation = try? await TieredClipAnnotator().annotate(text)
+            {
+                _ = try? await grdb.updateTitle(id: item.id, title: annotation.title)
+                await search()  // surface the new title without a manual refresh
+            }
+            if plan.runs(.embedding), case .text(let text)? = content,
+                let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+                let vector = try? embedder.vector(for: String(text.prefix(1_000)))
+            {
+                _ = try? await grdb.saveEmbedding(clipID: item.id, vector: vector)
+            }
+        }
     }
 
     private func makeItem(
@@ -436,6 +575,10 @@ final class IOSAppModel {
                 preview: String(text.prefix(120)),
                 contentHash: ClipItem.hash(of: text, kind: kind),
                 sourceAppBundleID: capture.sourceAppBundleID)
+            // Intelligence toggle off ⇒ skip secret detection/masking. The
+            // password-manager veto (Concealed/Transient) is separate, pre-read,
+            // and always on.
+            guard intelligence.detectSecrets else { return item }
             return SensitiveIngestionPolicy.decorate(
                 item, finding: SensitiveDataDetector().detect(text), originalText: text)
         }
@@ -451,6 +594,8 @@ struct CaptureView: View {
     @State private var renameTarget: Pinboard?
     @State private var renameField = ""
     @State private var path: [UUID] = []
+    @State private var answer: IOSAppModel.ClipboardAnswer?
+    @State private var isAsking = false
 
     var body: some View {
         @Bindable var model = model
@@ -470,6 +615,12 @@ struct CaptureView: View {
                         }
                         .frame(height: 36)
                         .accessibilityIdentifier("paste-control")
+                    }
+
+                    if !model.query.isEmpty, model.askAvailable {
+                        Section {
+                            askRow
+                        }
                     }
 
                     Section("History") {
@@ -511,7 +662,10 @@ struct CaptureView: View {
                     }
                 }
                 .searchable(text: $model.query, prompt: Text("Search your clipboard"))
-                .onChange(of: model.query) { _, _ in Task { await model.search() } }
+                .onChange(of: model.query) { _, _ in
+                    answer = nil
+                    Task { await model.search() }
+                }
                 .navigationTitle("Gancho")
                 .navigationDestination(for: UUID.self) { id in
                     if let item = model.captures.first(where: { $0.id == id }) {
@@ -557,6 +711,79 @@ struct CaptureView: View {
             guard let id else { return }
             path = [id]
             model.deepLinkClipID = nil
+        }
+    }
+
+    /// "Ask your clipboard": a one-tap button to answer the typed query from
+    /// history, the spinner while it runs, and the grounded answer card. The
+    /// section only appears while searching and when the model is available.
+    @ViewBuilder private var askRow: some View {
+        if isAsking {
+            Label("Thinking…", systemImage: "sparkles")
+                .font(.callout).foregroundStyle(.secondary)
+                .symbolEffect(.pulse, options: .repeating)
+        } else if let answer {
+            answerCard(answer)
+        } else {
+            Button {
+                runAsk()
+            } label: {
+                Label("Ask gancho", systemImage: "sparkles")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(GanchoTokens.Palette.accent)
+            }
+            .accessibilityIdentifier("ask-clipboard")
+        }
+    }
+
+    private func answerCard(_ answer: IOSAppModel.ClipboardAnswer) -> some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+            HStack {
+                Label("Answer", systemImage: "sparkles").font(.subheadline.weight(.semibold))
+                Spacer()
+                Button {
+                    self.answer = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain).foregroundStyle(.tertiary)
+                .accessibilityLabel(Text("Dismiss"))
+            }
+            Text(answer.answer)
+                .font(.callout)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+            if !answer.sources.isEmpty {
+                Text("Sources").font(.caption).foregroundStyle(.secondary)
+                ForEach(answer.sources.prefix(4)) { clip in
+                    Button {
+                        Task { await model.copyToPasteboard(clip) }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: clip.kind.symbolName)
+                                .font(.caption)
+                                .foregroundStyle(GanchoTokens.Palette.kindTint(for: clip.kind))
+                            Text(clip.preview).font(.callout).lineLimit(1)
+                            Spacer(minLength: 0)
+                            Image(systemName: "doc.on.doc")
+                                .font(.caption2).foregroundStyle(.tertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .accessibilityIdentifier("ask-answer")
+    }
+
+    private func runAsk() {
+        let question = model.query
+        answer = nil
+        isAsking = true
+        Task {
+            let result = await model.askClipboard(question)
+            isAsking = false
+            answer = result
         }
     }
 
@@ -770,9 +997,13 @@ struct ClipDetailView: View {
     @State private var boardIDs: Set<UUID> = []
     @State private var smartResult: String?
     @State private var isThinking = false
+    /// The board auto-board thinks this clip belongs to (a suggestion, never
+    /// auto-filed); nil until computed or once accepted/dismissed.
+    @State private var suggestedBoard: Pinboard?
 
-    /// Smart Paste fits text clips only, never a masked secret, and only when
-    /// Apple Intelligence is available.
+    /// Smart Paste fits text clips only and never a masked secret. Model-backed
+    /// rewrites need Apple Intelligence, but deterministic PII redaction remains
+    /// available whenever the user kept the Smart Paste toggle on.
     private var canSmartPaste: Bool {
         model.smartPasteAvailable && !item.isSensitive
             && item.kind != .image && item.kind != .fileReference && item.kind != .color
@@ -827,22 +1058,26 @@ struct ClipDetailView: View {
                 Section("Smart paste") {
                     Menu {
                         ForEach(SmartPasteAction.allCases) { action in
-                            Button {
-                                runSmartPaste(action)
-                            } label: {
-                                Label(
-                                    LocalizedStringKey(action.titleKey),
-                                    systemImage: action.symbolName)
-                            }
-                        }
-                        Menu {
-                            ForEach(Self.translateLanguageCodes, id: \.self) { code in
-                                Button(Self.localizedLanguageName(code)) {
-                                    runTranslate(to: Self.englishLanguageName(code))
+                            if action == .redactPII || model.smartPasteModelAvailable {
+                                Button {
+                                    runSmartPaste(action)
+                                } label: {
+                                    Label(
+                                        LocalizedStringKey(action.titleKey),
+                                        systemImage: action.symbolName)
                                 }
                             }
-                        } label: {
-                            Label("Translate to", systemImage: "globe")
+                        }
+                        if model.smartPasteModelAvailable {
+                            Menu {
+                                ForEach(Self.translateLanguageCodes, id: \.self) { code in
+                                    Button(Self.localizedLanguageName(code)) {
+                                        runTranslate(to: Self.englishLanguageName(code))
+                                    }
+                                }
+                            } label: {
+                                Label("Translate to", systemImage: "globe")
+                            }
                         }
                     } label: {
                         Label("Smart paste", systemImage: "sparkles")
@@ -860,6 +1095,33 @@ struct ClipDetailView: View {
                         }
                     }
                 }
+            }
+
+            if let board = suggestedBoard {
+                Section {
+                    HStack(spacing: GanchoTokens.Spacing.xs) {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(GanchoTokens.Palette.accent)
+                        Text("Add to \(board.name)?").lineLimit(1)
+                        Spacer(minLength: 0)
+                        Button("Add") {
+                            Task {
+                                await model.setBoardMembership(item, board: board, member: true)
+                                boardIDs = await model.boardMembership(for: item)
+                                suggestedBoard = nil
+                            }
+                        }
+                        .buttonStyle(.borderless)
+                        Button {
+                            suggestedBoard = nil
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                        }
+                        .buttonStyle(.plain).foregroundStyle(.tertiary)
+                        .accessibilityLabel(Text("Dismiss"))
+                    }
+                }
+                .accessibilityIdentifier("board-suggestion")
             }
 
             if !model.boards.isEmpty {
@@ -909,6 +1171,7 @@ struct ClipDetailView: View {
             await model.refreshBoards()
             boardIDs = await model.boardMembership(for: item)
         }
+        .task { suggestedBoard = await model.suggestedBoard(for: item) }
     }
 
     private static let translateLanguageCodes = [
@@ -953,6 +1216,12 @@ struct IOSSettingsView: View {
         NavigationStack {
             List {
                 Section {
+                    NavigationLink {
+                        IOSIntelligenceView()
+                    } label: {
+                        Label("Intelligence", systemImage: "sparkles")
+                    }
+                    .accessibilityIdentifier("open-intelligence")
                     NavigationLink {
                         IOSPrivacyCenterView()
                     } label: {

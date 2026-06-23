@@ -591,16 +591,6 @@
         }
       }
     },
-    "Copy result": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copiar resultado"
-          }
-        }
-      }
-    },
     "Decode JWT": {
       "localizations": {
         "es": {
@@ -1147,6 +1137,447 @@
           "stringUnit": {
             "state": "translated",
             "value": "UUID"
+          }
+        }
+      }
+    },
+    "Intelligence features": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Funciones de inteligencia"
+          }
+        }
+      }
+    },
+    "Sensitive data": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos sensibles"
+          }
+        }
+      }
+    },
+    "Always on": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siempre activa"
+          }
+        }
+      }
+    },
+    "Smart classification": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clasificación inteligente"
+          }
+        }
+      }
+    },
+    "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, Smart Actions, and masking.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un clasificador determinista etiqueta cada clip en menos de 5 ms — JWT, JSON, color, tarjeta, URL… — sin red. Alimenta los previews, las Smart Actions y el enmascarado."
+          }
+        }
+      }
+    },
+    "Smarter titles": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Títulos más inteligentes"
+          }
+        }
+      }
+    },
+    "Apple Intelligence writes a short, specific title on-device, falling back to heuristics on any failure — and never puts a secret in a title.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence escribe un título corto y específico en el dispositivo, con respaldo en heurísticas ante cualquier fallo — y nunca pone un secreto en un título."
+          }
+        }
+      }
+    },
+    "Semantic search": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Búsqueda semántica"
+          }
+        }
+      }
+    },
+    "Find a clip by meaning, not just exact words. A 512-dim embedding indexes history on-device; the model assets stay local.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encuentra un clip por significado, no solo por palabras exactas. Un embedding de 512 dimensiones indexa el historial en el dispositivo; los assets del modelo quedan locales."
+          }
+        }
+      }
+    },
+    "Searchable screenshots": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturas buscables"
+          }
+        }
+      }
+    },
+    "On-device OCR reads text out of image clips and adds it to the full-text index, so a screenshot is findable by the words inside it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El OCR en el dispositivo lee el texto de los clips de imagen y lo agrega al índice de texto completo, así una captura se encuentra por las palabras que tiene dentro."
+          }
+        }
+      }
+    },
+    "Rewrite a clip before pasting — summarize, fix grammar, change tone, pull key points, or redact PII. Model-backed rewrites use Apple Intelligence on-device; deterministic redaction needs no model.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reescribe un clip antes de pegarlo — resume, corrige gramática, cambia el tono, saca puntos clave o redacta PII. Las reescrituras con modelo usan Apple Intelligence en el dispositivo; la redacción determinista no necesita modelo."
+          }
+        }
+      }
+    },
+    "Detect & mask secrets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detectar y enmascarar secretos"
+          }
+        }
+      }
+    },
+    "If you copy a key by accident, gancho masks the preview (●●●● + last 4) and auto-expires it after 10 minutes. Deterministic, on-device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si copias una llave por accidente, gancho enmascara el preview (●●●● + últimos 4) y la expira sola a los 10 minutos. Determinista, en el dispositivo."
+          }
+        }
+      }
+    },
+    "Capture": {
+      "extractionState": "stale",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Captura"
+          }
+        }
+      }
+    },
+    "Clip enters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entra el clip"
+          }
+        }
+      }
+    },
+    "Tier 0 · Rules": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nivel 0 · Reglas"
+          }
+        }
+      }
+    },
+    "<5 ms · always on": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "<5 ms · siempre activo"
+          }
+        }
+      }
+    },
+    "Tier 1 · Apple Intelligence": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nivel 1 · Apple Intelligence"
+          }
+        }
+      }
+    },
+    "Titles · fallback-safe": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Títulos · con respaldo"
+          }
+        }
+      }
+    },
+    "Sensitive check": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chequeo de sensibles"
+          }
+        }
+      }
+    },
+    "Mask + expire": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enmascara + expira"
+          }
+        }
+      }
+    },
+    "Indexed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indexado"
+          }
+        }
+      }
+    },
+    "FTS + embeddings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FTS + embeddings"
+          }
+        }
+      }
+    },
+    "AWS keys": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llaves AWS"
+          }
+        }
+      }
+    },
+    "Stripe keys": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llaves Stripe"
+          }
+        }
+      }
+    },
+    "GitHub tokens": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tokens de GitHub"
+          }
+        }
+      }
+    },
+    "Slack tokens": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tokens de Slack"
+          }
+        }
+      }
+    },
+    "PEM private keys": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llaves privadas PEM"
+          }
+        }
+      }
+    },
+    "Credit cards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarjetas de crédito"
+          }
+        }
+      }
+    },
+    "High-entropy passwords": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contraseñas de alta entropía"
+          }
+        }
+      }
+    },
+    "Intelligence": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inteligencia"
+          }
+        }
+      }
+    },
+    "Every tier runs on this iPhone. No clip text is ever sent to a server — gancho has none.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada nivel corre en este iPhone. Ningún texto de clip se envía a un servidor — gancho no tiene."
+          }
+        }
+      }
+    },
+    "Ask gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pregúntale a gancho"
+          }
+        }
+      }
+    },
+    "Answer": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respuesta"
+          }
+        }
+      }
+    },
+    "Sources": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuentes"
+          }
+        }
+      }
+    },
+    "Dismiss": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
+          }
+        }
+      }
+    },
+    "Nothing in your clipboard matches that.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada en tu portapapeles coincide con eso."
+          }
+        }
+      }
+    },
+    "Couldn’t answer that — try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo responder — intenta de nuevo."
+          }
+        }
+      }
+    },
+    "Suggest boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugerir tableros"
+          }
+        }
+      }
+    },
+    "When a clip looks like ones you've filed before, gancho suggests the board it probably belongs to — one tap to file it. On-device, never automatic.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando un clip se parece a otros que ya archivaste, gancho sugiere el tablero al que probablemente pertenece — un toque para archivarlo. En el dispositivo, nunca automático."
+          }
+        }
+      }
+    },
+    "Add to %@?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Agregar a %@?"
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar"
+          }
+        }
+      }
+    },
+    "Redact PII": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar datos personales"
           }
         }
       }

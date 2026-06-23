@@ -2,10 +2,11 @@ import Foundation
 import FoundationModels
 
 /// On-device "Smart paste": rewrite a clip with Apple Intelligence before
-/// pasting — summarize, fix grammar, change tone, or pull key points. Same
-/// backend as the title annotator (`SystemLanguageModel`), so it is fully
-/// on-device (zero network) and degrades the same way: when Apple Intelligence
-/// is unavailable the caller hides the affordance.
+/// pasting — summarize, fix grammar, change tone, or pull key points — plus a
+/// deterministic PII-redaction action. Model-backed actions use the same
+/// backend as the title annotator (`SystemLanguageModel`), so they are fully
+/// on-device (zero network) and degrade the same way; redaction stays available
+/// without model assets.
 ///
 /// Privacy: the prompt text never leaves the device, and every action's
 /// instructions forbid echoing secret material. Callers additionally gate the
@@ -17,6 +18,7 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
     case formal
     case friendly
     case keyPoints
+    case redactPII
 
     public var id: String { rawValue }
 
@@ -28,6 +30,7 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
         case .formal: "Make formal"
         case .friendly: "Make friendly"
         case .keyPoints: "Key points"
+        case .redactPII: "Redact PII"
         }
     }
 
@@ -38,6 +41,7 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
         case .formal: "briefcase"
         case .friendly: "face.smiling"
         case .keyPoints: "list.bullet"
+        case .redactPII: "eye.slash"
         }
     }
 
@@ -67,12 +71,20 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
             return
                 "Extract the key points from the user's text as a short bullet list, one point per line beginning with \"- \". Output only the list, nothing else."
                 + guardrail
+        case .redactPII:
+            // Primary path is the deterministic `PIIRedactor`; these instructions
+            // describe the same intent and exist as a model fallback.
+            return
+                "Rewrite the user's text with every piece of personally identifiable information — names, emails, phone numbers, postal addresses, and account or ID numbers — replaced by a bracketed placeholder such as [name] or [email]. Preserve everything else exactly. Output only the redacted text, nothing else."
+                + guardrail
         }
     }
 }
 
 public struct SmartPasteService: Sendable {
-    /// Cheap availability gate the UI uses to show/hide the affordance.
+    /// Cheap availability gate the UI uses for model-backed rewrites and
+    /// translations. Deterministic PII redaction does not require this to be
+    /// true.
     public static var isAvailable: Bool {
         SystemLanguageModel.default.availability == .available
     }
@@ -104,9 +116,13 @@ public struct SmartPasteService: Sendable {
     }
 
     /// Runs the action on a FRESH session (no transcript carryover) and returns
-    /// the transformed text. Throws `AnnotationError.backendUnavailable` when
-    /// Apple Intelligence is off — enrichment, never a hard failure for callers.
+    /// the transformed text. Model-backed actions throw
+    /// `AnnotationError.backendUnavailable` when Apple Intelligence is off;
+    /// `.redactPII` is deterministic and does not require model availability.
     public func transform(_ text: String, action: SmartPasteAction) async throws -> String {
+        // Redaction is deterministic and on-device: it must preserve the text
+        // exactly except for PII, and must not depend on the model running.
+        if action == .redactPII { return PIIRedactor.redact(text) }
         guard Self.isAvailable else { throw AnnotationError.backendUnavailable }
         let clipped = String(text.prefix(maxPromptCharacters))
         let session = LanguageModelSession(instructions: action.instructions)

@@ -120,4 +120,42 @@ struct OnDeviceModelIntegrationTests {
         #expect(hits.first?.id == groceriesID, "semantic neighbor must rank first")
         print("NL search scores:", hits.map(\.score))
     }
+
+    @Test("Smart Paste rewrites a clip on-device (summarize)")
+    func smartPasteSummarizeLive() async throws {
+        try #require(SmartPasteService.isAvailable, "Apple Intelligence must be enabled")
+        let input = """
+            Hey team, the Friday deploy is pushed to Monday because staging is flaky. \
+            Please rotate the staging credentials beforehand and re-run the smoke suite.
+            """
+        let out = try await SmartPasteService().transform(input, action: .summarize)
+        print("Smart Paste (summarize):", out)
+        #expect(!out.isEmpty)
+    }
+
+    @Test("Smart Paste redacts PII deterministically through the service")
+    func smartPasteRedactLive() async throws {
+        let input =
+            "checkout failed for jane.doe@acme.com (+1 415-555-0199), card 4111 1111 1111 1111"
+        let out = try await SmartPasteService().transform(input, action: .redactPII)
+        print("Smart Paste (redact PII):", out)
+        #expect(out.contains("[email]"))
+        #expect(out.contains("[phone]"))
+        #expect(out.contains("[card]"))
+        #expect(!out.contains("jane.doe@acme.com"))
+    }
+
+    @Test("Ask your clipboard answers grounded in the provided clips")
+    func askClipboardLive() async throws {
+        try #require(ClipboardQAService.isAvailable, "Apple Intelligence must be enabled")
+        let sources = [
+            "Flight AA1234 SFO->JFK departs 8:45am gate B22",
+            "Total: $1,284.50 (includes 8.5% tax)",
+            "La reunion se movio para el jueves a las 10am",
+        ]
+        let answer = try await ClipboardQAService().answer(
+            question: "What time does my flight leave?", sources: sources)
+        print("Ask your clipboard:", answer)
+        #expect(!answer.isEmpty)
+    }
 }

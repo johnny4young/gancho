@@ -13,6 +13,7 @@ struct IntelligencePreferencesTests {
         #expect(prefs.searchableScreenshots)
         #expect(prefs.detectSecrets)
         #expect(prefs.smartPaste)
+        #expect(prefs.autoBoard)
     }
 
     @Test("Round-trips through UserDefaults, preserving each toggle")

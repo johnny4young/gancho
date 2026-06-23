@@ -282,34 +282,34 @@ final class AppModel {
     /// Pro-tier async enrichment — never blocks capture: OCR makes image
     /// clips searchable; the tiered annotator titles text clips.
     private func enrich(_ item: ClipItem, content: ClipContent?) {
-        guard tier == .pro, let grdbStore, !item.isSensitive else { return }
+        // The Pro + non-sensitive + per-toggle gating is the shared policy both
+        // platforms drive their enrichment IO from (see `EnrichmentPlan`); only
+        // the store writes and the list refresh differ per platform.
+        let plan = EnrichmentPlan(
+            content: content, kind: item.kind, isSensitive: item.isSensitive,
+            hasTitle: !item.title.isEmpty, isPro: tier == .pro, preferences: intelligence)
+        guard !plan.isEmpty, let grdbStore else { return }
         Task(priority: .utility) {
-            switch content {
-            case .binary(let data, _) where item.kind == .image:
-                // Searchable screenshots (OCR) — gated by the Intelligence toggle.
-                if intelligence.searchableScreenshots,
-                    let text = try? await ImageTextExtractor().extractText(from: data)
-                {
-                    _ = try? await grdbStore.attachExtractedText(id: item.id, text: text)
-                }
-            case .text(let text) where item.title.isEmpty:
-                // Tier 1 — Apple Intelligence titles, gated by the toggle.
-                if intelligence.intelligentTitles,
-                    let annotation = try? await TieredClipAnnotator().annotate(text)
-                {
-                    _ = try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
-                    await refreshRecents()
-                }
-                // Semantic vector (the embedder caches its model after the
-                // first call — warm-up cost measured in the AI spike).
-                if intelligence.semanticSearch,
-                    let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
-                    let vector = try? embedder.vector(for: String(text.prefix(1_000)))
-                {
-                    _ = try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
-                }
-            default:
-                break
+            // Searchable screenshots (OCR).
+            if plan.runs(.ocr), case .binary(let data, _)? = content,
+                let text = try? await ImageTextExtractor().extractText(from: data)
+            {
+                _ = try? await grdbStore.attachExtractedText(id: item.id, text: text)
+            }
+            // Tier 1 — Apple Intelligence titles.
+            if plan.runs(.title), case .text(let text)? = content,
+                let annotation = try? await TieredClipAnnotator().annotate(text)
+            {
+                _ = try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
+                await refreshRecents()
+            }
+            // Semantic vector (the embedder caches its model after the first
+            // call — warm-up cost measured in the AI spike).
+            if plan.runs(.embedding), case .text(let text)? = content,
+                let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+                let vector = try? embedder.vector(for: String(text.prefix(1_000)))
+            {
+                _ = try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
             }
         }
     }
@@ -492,13 +492,21 @@ final class AppModel {
         (try? await grdbStore?.snippet(matchingKeyword: keyword)) ?? nil
     }
 
-    // MARK: - Smart paste (on-device Apple Intelligence)
+    // MARK: - Smart paste (deterministic + on-device Apple Intelligence)
 
     private let smartPasteService = SmartPasteService()
 
-    /// Smart Paste can run only when the user kept it on AND Apple Intelligence
-    /// is available on this device — the peek hides the menu otherwise.
+    /// Smart Paste affordances appear when the user kept the feature on.
+    /// Deterministic actions such as PII redaction do not need Apple
+    /// Intelligence, so the UI must not hide the entire menu behind model
+    /// availability.
     var smartPasteAvailable: Bool {
+        intelligence.smartPaste
+    }
+
+    /// Model-backed rewrites and translations require Apple Intelligence in
+    /// addition to the user's Smart Paste opt-in.
+    var smartPasteModelAvailable: Bool {
         intelligence.smartPaste && SmartPasteService.isAvailable
     }
 
@@ -830,6 +838,37 @@ final class AppModel {
             try? await grdbStore.removeFromAllBoards(clipID: item.id)
             await refreshRecents()
         }
+    }
+
+    /// Suggest the board this clip probably belongs to, by a semantic k-NN vote
+    /// over how similar clips were filed (`BoardSuggester`). Only ever suggests;
+    /// nil when the toggle is off, the clip is sensitive, there are no eligible
+    /// user boards, or the neighborhood shows no clear home. 100% on-device.
+    func suggestedBoard(for item: ClipItem) async -> Pinboard? {
+        guard intelligence.autoBoard, !item.isSensitive, let grdbStore else { return nil }
+        let userBoards = ((try? await grdbStore.pinboards()) ?? []).filter { !$0.isSystem }
+        guard !userBoards.isEmpty else { return nil }
+        let current = (try? await grdbStore.boardIDs(forClip: item.id)) ?? []
+        let candidates = Set(userBoards.map(\.id)).subtracting(current)
+        guard !candidates.isEmpty else { return nil }
+
+        guard case .text(let text)? = try? await grdbStore.content(for: item.id),
+            let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+            let vector = try? embedder.vector(for: String(text.prefix(1_000)))
+        else { return nil }
+        let neighbors = ((try? await grdbStore.semanticSearch(queryVector: vector, topK: 8)) ?? [])
+            .filter { $0.id != item.id }
+        guard !neighbors.isEmpty else { return nil }
+
+        var neighborBoards: [Set<UUID>] = []
+        for neighbor in neighbors {
+            neighborBoards.append((try? await grdbStore.boardIDs(forClip: neighbor.id)) ?? [])
+        }
+        guard
+            let vote = BoardSuggester.suggest(
+                neighborBoardIDs: neighborBoards, candidates: candidates)
+        else { return nil }
+        return userBoards.first { $0.id == vote.boardID }
     }
 
     func createBoard(named name: String) {

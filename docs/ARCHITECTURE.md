@@ -45,13 +45,16 @@ Platform adapters
   └─ extension-safe entry points
 
 Shared engine-room targets (nonisolated + Sendable)
-  ├─ GanchoKit: ClipItem, stores, retention, snippets, sync boundary
-  ├─ GanchoAI: deterministic classifiers, annotation, embeddings, model seams
-  └─ GanchoDesign: tokens and shared component primitives
+  ├─ GanchoKit: ClipItem, GRDB store, retention, snippets, sync boundary
+  ├─ GanchoAI: deterministic classifiers, annotation, embeddings, QA, model seams
+  ├─ GanchoDesign: tokens and shared component primitives
+  ├─ GanchoSync: the CKSyncEngine adapter (only module importing CloudKit)
+  ├─ GanchoTelemetry: metadata-only analytics transport (network-isolated)
+  └─ GanchoMCP: local MCP tools over the store boundary (driven by the `gancho` CLI)
 
 Persistence and sync implementations
-  ├─ GRDB / SQLite / FTS5 local store
-  ├─ encrypted content envelope and metadata indexes
+  ├─ GRDB / SQLite / FTS5 local store with content-addressed disk blobs
+  ├─ iCloud-side content encryption via CKRecord `encryptedValues`
   ├─ CKSyncEngine over the user's private iCloud database
   └─ future LAN / self-hosted / non-Apple transports behind SyncEngine
 ```
@@ -91,16 +94,18 @@ Production storage is GRDB over SQLite with FTS5. SwiftData is not the v1 store:
 Gancho needs explicit schema control, fast search, portable export/backup, and a
 sync layer whose failure modes are visible.
 
-Planned store shape:
+Store shape:
 
-- `clips` metadata table: id, kind, timestamps, source app/device, sensitivity,
+- `clip` metadata table: id, kind, timestamps, source app/device, sensitivity,
   retention, pin state, content hash, and sync state.
-- encrypted content blobs: payload bytes and rich representations encrypted
-  before sync.
+- content-addressed disk blobs for payload bytes and rich representations,
+  encrypted in iCloud via `encryptedValues` on sync; whole-database local
+  encryption (SQLCipher) is the remaining planned piece.
 - FTS5 tables for searchable text, titles, tags, and snippet bodies.
-- embedding tables once the on-device embedding spike proves latency and memory.
+- embedding tables for on-device semantic search.
+- a `clip_board` junction plus board metadata and board tombstones.
 - tombstones for sync-compatible deletion.
-- an open export archive so users can leave without data lock-in.
+- an open JSON/CSV export so users can leave without data lock-in.
 
 Performance budgets:
 
@@ -124,11 +129,13 @@ clients without rewriting capture, search, or the snippet model.
 ## Intelligence tiers
 
 1. **Tier 0 — deterministic and universal.** `RuleClassifier`, data detectors,
-   local formatters, secret detection, and masking. Runs on every supported
-   device with zero network.
+   local formatters (Dev Actions), secret detection and masking, and PII
+   redaction. Runs on every supported device with zero network.
 2. **Tier 1 — Apple on-device models.** Structured annotations, titles,
-   summaries, OCR, and embeddings when Apple Intelligence/Foundation Models are
-   available. Failures never block capture or paste-back.
+   embeddings, OCR, semantic search and the embedding-based board suggestion,
+   Smart Paste rewrites/translation, and grounded "ask your clipboard" Q&A when
+   the on-device models are available. Sensitive clips are filtered out first,
+   and failures never block capture or paste-back.
 3. **Tier 2 — opt-in external or private-cloud actions.** Used only for explicit
    transformations where the user approves the outbound content.
 
