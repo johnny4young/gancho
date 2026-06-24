@@ -240,6 +240,27 @@ final class IOSAppModel {
         }
     }
 
+    /// Create a board and file `item` into it in one step — the inline "+New
+    /// board" path of the move-to-board sheet, where a clip is the reason the
+    /// board is being made. Returns the new board's id so the sheet can refresh
+    /// its checkmarks; nil if the board limit is hit or the create fails.
+    @discardableResult
+    func createBoard(named name: String, filing item: ClipItem) async -> UUID? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let grdb = store as? GRDBClipboardStore else { return nil }
+        let count = (try? await grdb.pinboards().filter { !$0.isSystem }.count) ?? 0
+        guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro) else {
+            flashNote(String(localized: "Upgrade to Pro for more boards"))
+            return nil
+        }
+        guard let board = try? await grdb.createPinboard(name: trimmed) else { return nil }
+        await syncEngine.enqueue(boards: [board])
+        try? await grdb.assign(clipID: item.id, toBoard: board.id)
+        await refreshBoards()
+        await search()
+        return board.id
+    }
+
     /// The boards a clip belongs to — drives the detail screen's checkmarks.
     func boardMembership(for item: ClipItem) async -> Set<UUID> {
         guard let grdb = store as? GRDBClipboardStore else { return [] }
@@ -655,6 +676,8 @@ struct CaptureView: View {
     @State private var showSettings = false
     /// The clip whose peek sheet is open (tap → peek bottom sheet).
     @State private var peekClip: ClipItem?
+    /// The clip being filed via the move-to-board sheet (swipe → Board).
+    @State private var moveTargetClip: ClipItem?
     @State private var showNewBoard = false
     @State private var newBoardName = ""
     @State private var renameTarget: Pinboard?
@@ -733,6 +756,7 @@ struct CaptureView: View {
                 }
                 .sheet(isPresented: $showSettings) { IOSSettingsView() }
                 .sheet(item: $peekClip) { ClipDetailView(item: $0) }
+                .sheet(item: $moveTargetClip) { MoveToBoardSheet(item: $0) }
                 .alert("New board", isPresented: $showNewBoard) {
                     TextField("Board name", text: $newBoardName)
                     Button("Cancel", role: .cancel) {}
@@ -872,6 +896,12 @@ struct CaptureView: View {
                 Label("Copy", systemImage: "doc.on.doc")
             }
             .tint(.blue)
+            Button {
+                moveTargetClip = item
+            } label: {
+                Label("Board", systemImage: "tray.and.arrow.down")
+            }
+            .tint(.indigo)
         }
         .contextMenu {
             Button {
@@ -953,7 +983,8 @@ struct CaptureView: View {
                     railChip(
                         board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
                         systemImage: board.sfSymbol,
-                        isActive: model.selectedBoardID == board.id
+                        isActive: model.selectedBoardID == board.id,
+                        dotColor: board.isSystem ? nil : BoardColors.color(for: board)
                     ) {
                         select(board: board.id)
                     }
@@ -990,11 +1021,16 @@ struct CaptureView: View {
     }
 
     private func railChip(
-        _ label: Text, systemImage: String, isActive: Bool, action: @escaping () -> Void
+        _ label: Text, systemImage: String, isActive: Bool, dotColor: Color? = nil,
+        action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 5) {
-                Image(systemName: systemImage).font(.caption)
+                if let dotColor, !isActive {
+                    Circle().fill(dotColor).frame(width: 8, height: 8)
+                } else {
+                    Image(systemName: systemImage).font(.caption)
+                }
                 label.font(.subheadline.weight(.medium)).lineLimit(1)
             }
             .padding(.horizontal, GanchoTokens.Spacing.sm)
@@ -1135,6 +1171,108 @@ struct CaptureView: View {
         if model.hints.number { parts.append(String(localized: "number")) }
         let detail = parts.isEmpty ? String(localized: "content") : parts.joined(separator: ", ")
         return String(localized: "Has \(detail) — not read yet")
+    }
+}
+
+/// A board's identity color as a small filled dot — the quiet per-board accent
+/// the design asks for (green stays the app accent; Favorites wears the warm
+/// favorite hue). Shared by every board row.
+struct BoardDot: View {
+    let board: Pinboard
+    var size: CGFloat = 12
+
+    var body: some View {
+        Circle()
+            .fill(board.isSystem ? GanchoTokens.Palette.warning : BoardColors.color(for: board))
+            .frame(width: size, height: size)
+    }
+}
+
+/// The move-to-board primitive: a quick "file this clip" sheet reached by
+/// swiping a row. A clip can live in several boards at once, so this is a
+/// multi-select — each tap toggles membership and saves immediately (the
+/// change rides the clip's sync record). A board can be created inline, which
+/// files the clip into it in one step.
+struct MoveToBoardSheet: View {
+    @Environment(IOSAppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let item: ClipItem
+    @State private var memberIDs: Set<UUID> = []
+    @State private var newBoardName = ""
+    @FocusState private var newFieldFocused: Bool
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(model.boards) { board in
+                        Button {
+                            toggle(board)
+                        } label: {
+                            HStack(spacing: GanchoTokens.Spacing.sm) {
+                                BoardDot(board: board)
+                                board.isSystem
+                                    ? Text("Favorites") : Text(verbatim: board.name)
+                                Spacer()
+                                if memberIDs.contains(board.id) {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(GanchoTokens.Palette.accent)
+                                        .fontWeight(.semibold)
+                                }
+                            }
+                        }
+                        .tint(.primary)
+                        .accessibilityIdentifier("move-board-\(board.id.uuidString)")
+                    }
+                }
+                Section {
+                    HStack {
+                        Image(systemName: "plus").foregroundStyle(.secondary)
+                        TextField("New board", text: $newBoardName)
+                            .focused($newFieldFocused)
+                            .submitLabel(.done)
+                            .onSubmit(createAndFile)
+                        if !newBoardName.trimmingCharacters(in: .whitespaces).isEmpty {
+                            Button("Add", action: createAndFile).buttonStyle(.borderless)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Add to board")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .task {
+            await model.refreshBoards()
+            memberIDs = await model.boardMembership(for: item)
+        }
+    }
+
+    private func toggle(_ board: Pinboard) {
+        let isMember = memberIDs.contains(board.id)
+        Task {
+            await model.setBoardMembership(item, board: board, member: !isMember)
+            memberIDs = await model.boardMembership(for: item)
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+    }
+
+    private func createAndFile() {
+        let name = newBoardName
+        newBoardName = ""
+        newFieldFocused = false
+        Task {
+            if await model.createBoard(named: name, filing: item) != nil {
+                memberIDs = await model.boardMembership(for: item)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+        }
     }
 }
 
@@ -1346,7 +1484,7 @@ struct ClipDetailView: View {
                                 Label {
                                     board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
                                 } icon: {
-                                    Image(systemName: board.sfSymbol)
+                                    BoardDot(board: board)
                                 }
                                 Spacer()
                                 if boardIDs.contains(board.id) {

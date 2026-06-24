@@ -1651,6 +1651,16 @@
           }
         }
       }
+    },
+    "Add to board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir a tablero"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
