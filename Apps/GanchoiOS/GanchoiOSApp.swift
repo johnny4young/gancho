@@ -61,6 +61,11 @@ final class IOSAppModel {
     private var isLoadingMore = false
     private static let pageSize = 100
     var hints = IntentionalPasteboardSource.ContentHints()
+    /// The pasteboard `changeCount` of the last clip captured via the paste
+    /// control. When it matches the current `hints.changeCount`, the copy on
+    /// the clipboard has already been read — so the card says "Saved", not
+    /// "not read yet". nil until the first capture this session.
+    var lastCapturedChangeCount: Int?
     /// Transient feedback ("Saved" / "Already in your history").
     var saveNote: String?
     var query = ""
@@ -599,6 +604,10 @@ final class IOSAppModel {
     /// UIPasteControl handoff: the system mediates the tap, so this path
     /// never shows an alert. Providers carry text, URLs, or images.
     func ingest(providers: [NSItemProvider]) {
+        // Mark this copy as read (metadata only — the change counter), so the
+        // capture card flips from "not read yet" to "Saved" until a new copy.
+        lastCapturedChangeCount = UIPasteboard.general.changeCount
+        Task { await refreshHints() }
         for provider in providers {
             if provider.canLoadObject(ofClass: UIImage.self) {
                 _ = provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
@@ -1187,7 +1196,13 @@ struct CaptureView: View {
                             .fixedSize(horizontal: false, vertical: true)
                         if model.hints.hasContent {
                             HStack(spacing: 6) {
-                                captureTag(Text("not read yet"), tint: GanchoTokens.Palette.warning)
+                                if alreadyCaptured {
+                                    captureTag(
+                                        Text("Saved"), tint: GanchoTokens.Palette.success)
+                                } else {
+                                    captureTag(
+                                        Text("not read yet"), tint: GanchoTokens.Palette.warning)
+                                }
                                 apiTag("detectPatterns")
                             }
                         }
@@ -1254,6 +1269,13 @@ struct CaptureView: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .overlay(Capsule().strokeBorder(.quaternary, lineWidth: 1))
+    }
+
+    /// True when the copy currently on the clipboard is the one we just saved
+    /// (matched by the pasteboard's change counter — metadata, no read).
+    private var alreadyCaptured: Bool {
+        model.lastCapturedChangeCount != nil
+            && model.hints.changeCount == model.lastCapturedChangeCount
     }
 
     /// What `detectPatterns` sensed, as a title — derived without reading.
