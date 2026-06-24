@@ -83,6 +83,13 @@ struct PanelView: View {
     @State private var selectedIndex = 0
     /// Non-nil when the keyboard moved up into the filter/board rails.
     @State private var railFocus: RailFocus?
+    /// Date-bucketed rows for the recent list, cached so the bucket math runs
+    /// once per data change, never on the scroll/arrow path.
+    @State private var groups: [DateGroup] = []
+    /// Incremental paging of the recent list: a page in flight, and whether the
+    /// store has no more rows to append.
+    @State private var isLoadingMore = false
+    @State private var reachedEnd = false
     @State private var previewText = ""
     @State private var kindFilter: ClipKindFilter = .all
     /// nil = "All clips"; otherwise the selected board's id. Boards are a
@@ -135,6 +142,8 @@ struct PanelView: View {
         .onChange(of: selectedBoardID) { _, _ in
             Task { await refresh() }
         }
+        // The kind filter narrows client-side, so regroup without a re-query.
+        .onChange(of: kindFilter) { _, _ in rebuildGroups() }
         .alert(boardSheetTitle, isPresented: boardSheetPresented) {
             TextField("Board name", text: $boardNameField)
             Button("Cancel", role: .cancel) {}
@@ -250,24 +259,31 @@ struct PanelView: View {
             if filtered.isEmpty {
                 emptyState
             } else {
-                recentHeader
+                // The chronological recent list groups under sticky date headers;
+                // search (ranked) and a board (curated) keep a flat list under the
+                // single "Recent" header.
+                if !isGroupedView { recentHeader }
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: GanchoTokens.Spacing.xxs) {
-                            ForEach(Array(filtered.enumerated()), id: \.element.id) { index, item in
-                                row(for: item, index: index)
-                                    .id(item.id)
-                                    // Load this image's thumbnail once it scrolls
-                                    // into view (LazyVStack → visible rows only).
-                                    .task(id: item.id) {
-                                        await model.thumbnails.ensureLoaded(item)
+                        LazyVStack(
+                            spacing: GanchoTokens.Spacing.xxs,
+                            pinnedViews: isGroupedView ? [.sectionHeaders] : []
+                        ) {
+                            if isGroupedView {
+                                ForEach(groups) { group in
+                                    Section {
+                                        ForEach(group.rows, id: \.item.id) { entry in
+                                            clipRow(index: entry.index, item: entry.item)
+                                        }
+                                    } header: {
+                                        sectionHeader(group.section, count: group.rows.count)
                                     }
-                                    // Single click SELECTS, double-click PASTES; hover no
-                                    // longer moves the selection (arrows + click only), so the
-                                    // mouse can rest over the list without hijacking it.
-                                    .onTapGesture(count: 2) { model.paste(item) }
-                                    .onTapGesture { select(index) }
-                                    .contextMenu { contextMenu(for: item) }
+                                }
+                            } else {
+                                ForEach(Array(filtered.enumerated()), id: \.element.id) {
+                                    index, item in
+                                    clipRow(index: index, item: item)
+                                }
                             }
                         }
                         .padding(.horizontal, GanchoTokens.Spacing.xxs)
@@ -534,6 +550,110 @@ struct PanelView: View {
         .padding(.horizontal, GanchoTokens.Spacing.xs)
     }
 
+    /// Date grouping applies to the chronological recent list only — search is
+    /// relevance-ranked and a board is a curated set, where date headers would
+    /// fight the ordering.
+    private var isGroupedView: Bool { query.isEmpty && selectedBoardID == nil }
+
+    /// A history section: the pinned clips (always first), or one semantic date
+    /// bucket for the rest. Named to avoid colliding with SwiftUI's `Section`.
+    private enum HistorySection: Hashable {
+        case pinned
+        case date(DateBucket)
+    }
+
+    /// A contiguous run of clips in one section.
+    private struct DateGroup: Identifiable {
+        let section: HistorySection
+        let rows: [(index: Int, item: ClipItem)]
+        // The first clip's id — unique per run, so the section `ForEach` never
+        // collides on ids.
+        var id: UUID { rows.first?.item.id ?? UUID() }
+    }
+
+    /// Recompute the sections for the recent list — pinned first, then date
+    /// buckets. Called when the data or the kind filter changes (NOT per render),
+    /// so the Calendar math over thousands of rows never lands on the scroll
+    /// path. The query orders pinned-first then by capture time, so the sections
+    /// come out contiguous in one linear pass.
+    private func rebuildGroups() {
+        guard isGroupedView else {
+            if !groups.isEmpty { groups = [] }
+            return
+        }
+        let now = Date()
+        var built: [DateGroup] = []
+        var section: HistorySection?
+        var rows: [(index: Int, item: ClipItem)] = []
+        for (index, item) in filtered.enumerated() {
+            let itemSection: HistorySection =
+                item.isPinned ? .pinned : .date(DateBucket.of(item.createdAt, now: now))
+            if itemSection != section {
+                if let section { built.append(DateGroup(section: section, rows: rows)) }
+                section = itemSection
+                rows = []
+            }
+            rows.append((index: index, item: item))
+        }
+        if let section { built.append(DateGroup(section: section, rows: rows)) }
+        groups = built
+    }
+
+    /// One clip row with its shared interactions — used by both the flat
+    /// (search/board) and date-grouped (recent) layouts.
+    private func clipRow(index: Int, item: ClipItem) -> some View {
+        row(for: item, index: index)
+            .id(item.id)
+            // Load this image's thumbnail once it scrolls into view (LazyVStack
+            // builds only visible rows — the view-level virtual scrolling).
+            .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+            // Pull the next page when this row is near the end (infinite scroll).
+            .onAppear { Task { await loadMoreIfNeeded(index) } }
+            // Single click SELECTS, double-click PASTES; hover no longer moves
+            // the selection (arrows + click only).
+            .onTapGesture(count: 2) { model.paste(item) }
+            .onTapGesture { select(index) }
+            .contextMenu { contextMenu(for: item) }
+    }
+
+    /// A sticky section header — "Pinned" (with a pin glyph) or a semantic date
+    /// (Today, Yesterday, This month, …) — with the section's clip count.
+    private func sectionHeader(_ section: HistorySection, count: Int) -> some View {
+        HStack(spacing: 4) {
+            if section == .pinned {
+                Image(systemName: "pin.fill").font(.system(size: 8))
+            }
+            Text(sectionTitle(section))
+            Spacer()
+            Text("\(count) clips")
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(.tertiary)
+        .textCase(.uppercase)
+        .padding(.horizontal, GanchoTokens.Spacing.xs)
+        .padding(.vertical, GanchoTokens.Spacing.xxs)
+        .background(.ultraThinMaterial)
+    }
+
+    private func sectionTitle(_ section: HistorySection) -> LocalizedStringKey {
+        switch section {
+        case .pinned: "Pinned"
+        case .date(let bucket): bucketTitle(bucket)
+        }
+    }
+
+    private func bucketTitle(_ bucket: DateBucket) -> LocalizedStringKey {
+        switch bucket {
+        case .today: "Today"
+        case .yesterday: "Yesterday"
+        case .thisMonth: "This month"
+        case .lastMonth: "Last month"
+        case .thisYear: "This year"
+        case .lastYear: "Last year"
+        case .older: "Older"
+        }
+    }
+
     /// Sync state on the left, keyboard hints on the right (the design footer):
     /// keycaps with room to breathe, not a cramped icon+label run.
     private var panelFooter: some View {
@@ -678,6 +798,8 @@ struct PanelView: View {
         // Returning .ignored here let the arrow propagate and steal focus.
         guard !filtered.isEmpty else { return .handled }
         selectedIndex = (selectedIndex + delta + filtered.count) % filtered.count
+        // Arrowing down toward the end pulls the next page ahead of the cursor.
+        if delta > 0 { Task { await loadMoreIfNeeded(selectedIndex) } }
         return .handled
     }
 
@@ -803,26 +925,69 @@ struct PanelView: View {
 
     /// Type-to-search: first keystroke already narrows; empty query shows
     /// recents (pins first, store order).
+    /// Recent list paginates on demand: one page up front, more appended as the
+    /// user nears the end (scroll or arrow). Metadata only — blobs/thumbnails
+    /// stay lazy per visible row — so memory tracks the loaded prefix, not the
+    /// whole store, and browsing is unbounded.
+    private static let pageSize = 100
+    private static let prefetchThreshold = 20
+
     private func refresh() async {
         let board = selectedBoardID
         if query.isEmpty {
             if let board, let grdb = model.grdbStore {
                 results = (try? await grdb.items(inBoard: board)) ?? []
+                reachedEnd = true  // a board is a curated set — loaded whole
             } else {
-                results = (try? await model.store.items(offset: 0, limit: 50)) ?? []
+                results = await loadRecentPage(offset: 0)
+                reachedEnd = results.count < Self.pageSize
             }
         } else if let grdb = model.grdbStore {
             results =
-                (try? await grdb.search(ClipSearchQuery(text: query, boardID: board), limit: 50))
+                (try? await grdb.search(ClipSearchQuery(text: query, boardID: board), limit: 100))
                 ?? []
+            reachedEnd = true  // ranked top results, not a scroll-through
         } else {
             let all = (try? await model.store.items(offset: 0, limit: 200)) ?? []
             results = all.filter { $0.preview.localizedCaseInsensitiveContains(query) }
+            reachedEnd = true
         }
         // A query that exactly matches a snippet's keyword offers a one-keystroke
         // insert (filling {fields} first if it's a template).
         snippetMatch = query.isEmpty ? nil : await model.snippet(matchingKeyword: query)
         selectedIndex = 0
+        rebuildGroups()
+    }
+
+    /// One page of the recent list, ordered by capture time so the date buckets
+    /// stay contiguous (and the keyboard cursor matches the visual order). Falls
+    /// back to the protocol ordering when no GRDB store is available (tests).
+    private func loadRecentPage(offset: Int) async -> [ClipItem] {
+        if let grdb = model.grdbStore {
+            return (try? await grdb.recentForBrowse(offset: offset, limit: Self.pageSize)) ?? []
+        }
+        return (try? await model.store.items(offset: offset, limit: Self.pageSize)) ?? []
+    }
+
+    /// Append the next page when the displayed cursor/scroll nears the end. Safe
+    /// to call often — it no-ops unless the recent list has more to load.
+    private func loadMoreIfNeeded(_ index: Int) async {
+        guard index >= filtered.count - Self.prefetchThreshold else { return }
+        await loadMore()
+    }
+
+    private func loadMore() async {
+        guard isGroupedView, !isLoadingMore, !reachedEnd else { return }
+        let offset = results.count
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+        let next = await loadRecentPage(offset: offset)
+        // The view may have changed during the await (query typed, board picked,
+        // a fresh refresh); only append if still extending the same list.
+        guard isGroupedView, results.count == offset else { return }
+        results.append(contentsOf: next)
+        if next.count < Self.pageSize { reachedEnd = true }
+        rebuildGroups()
     }
 
     /// The keyword-match banner above the list: ⏎ inserts the snippet (a
