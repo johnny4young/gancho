@@ -138,7 +138,6 @@ final class IOSAppModel {
                     guard let self else { return }
                     let wasSyncing = self.syncStatus == .syncing
                     self.syncStatus = status
-                    self.clipActivity.updateSync(ClipSyncBadge(status))
                     // A finished cycle may have pulled new boards/clips from
                     // iCloud. Refresh the lists so they appear without having to
                     // background and reopen the app.
