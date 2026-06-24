@@ -76,24 +76,20 @@ private struct ClipActivityLockScreen: View {
     }
 }
 
-/// Gancho's mark — the brand paperclip on a green rounded tile, so the activity
-/// reads as the app (an "app chip") in the Dynamic Island instead of a generic
-/// system clip. Scales with `size` for the pill, the expanded island, and the
-/// lock screen.
+/// Gancho's mark — the real brand icon (the green tile + white hook from the
+/// design system, `GanchoMark` in the asset catalog), so the activity reads as
+/// the app in the Dynamic Island and lock screen instead of a generic system
+/// clip. Scales with `size` for the pill, the expanded island, and the banner.
 struct GanchoMark: View {
     var size: CGFloat = 22
-    /// gancho brand green (#34C759 — Apple system green).
+    /// gancho brand green (#34C759 — Apple system green); used for the keyline.
     static let green = Color(red: 0.204, green: 0.780, blue: 0.349)
 
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-            .fill(Self.green)
+        Image("GanchoMark")
+            .resizable()
+            .interpolation(.high)
             .frame(width: size, height: size)
-            .overlay {
-                Image(systemName: "paperclip")
-                    .font(.system(size: size * 0.56, weight: .bold))
-                    .foregroundStyle(.white)
-            }
     }
 }
 
