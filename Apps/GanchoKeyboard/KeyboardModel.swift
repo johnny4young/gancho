@@ -181,6 +181,45 @@ final class KeyboardModel: ObservableObject {
         return UIImage(cgImage: cgImage)
     }
 
+    /// Swipe → Copy: put the clip on the pasteboard (vs tap, which inserts it
+    /// into the field) so it can be pasted in another app. Mirrors `insert`'s
+    /// per-kind handling; images go on as real image data.
+    func copy(_ entry: WidgetClipEntry) {
+        guard let store else { return }
+        Task {
+            switch try? await store.content(for: entry.id) {
+            case .text(let text):
+                UIPasteboard.general.string = text
+            case .fileReferences(let paths):
+                UIPasteboard.general.string = paths.joined(separator: "\n")
+            case .binary(let data, let type):
+                UIPasteboard.general.setData(data, forPasteboardType: type)
+            case nil:
+                return
+            }
+            flashNote("Copied")
+        }
+    }
+
+    /// Swipe → Delete: remove the clip and reload through the current path
+    /// (search stays scoped if a query is present).
+    func delete(_ entry: WidgetClipEntry) {
+        guard let store else { return }
+        Task {
+            try? await store.delete(id: entry.id)
+            await reloadCurrent()
+        }
+    }
+
+    /// Reload via whichever path is active — the plain/board list or the search.
+    private func reloadCurrent() async {
+        if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            await load()
+        } else {
+            await runSearch()
+        }
+    }
+
     func toggleExpand() {
         expanded.toggle()
         onModeChange?(expanded)
