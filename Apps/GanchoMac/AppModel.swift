@@ -251,15 +251,18 @@ final class AppModel {
     // MARK: - Capture pipeline
 
     private func ingest(_ capture: PasteboardCapture) {
-        var (item, content) = Self.makeItem(
+        // Universal Clipboard delivers a copy made on another device. If that
+        // device runs gancho it captures and syncs the original — already
+        // enriched (title/OCR) — so re-capturing the remote copy here only
+        // duplicates what sync brings, minus the enrichment. And if the origin
+        // isn't gancho, the user never chose to save it. Either way, skip it;
+        // this also keeps cross-device capture consistent with iOS's consensual
+        // model (the origin device decides, the rest receive via sync).
+        guard !capture.isFromUniversalClipboard else { return }
+        let (item, content) = Self.makeItem(
             from: capture, classifier: classifier, detector: sensitiveDetector,
             sensitiveLifetime: retentionPolicy.sensitiveLifetime,
             detectSecrets: intelligence.detectSecrets)
-        // Universal Clipboard interop: badge persists as a tag so sync can
-        // recognize already-synced arrivals and the UI can show the badge.
-        if capture.isFromUniversalClipboard {
-            item.tags.append("universal-clipboard")
-        }
         // Bucketized analytics: kind + a length BUCKET, never the content.
         let length: Int
         switch content {
