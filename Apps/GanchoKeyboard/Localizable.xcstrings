@@ -240,6 +240,16 @@
           }
         }
       }
+    },
+    "Image copied — long-press the field to paste": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagen copiada — mantén pulsado el campo para pegar"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
