@@ -240,6 +240,20 @@ final class IOSAppModel {
         return (try? await grdb.count(inBoard: board.id)) ?? 0
     }
 
+    /// Promote a clip to a reusable snippet — the peek's "Save as snippet".
+    /// Honors the free-tier snippet limit and surfaces a note either way.
+    func saveAsSnippet(_ item: ClipItem) async {
+        guard let grdb = store as? GRDBClipboardStore else { return }
+        let count = (try? await grdb.snippetCount()) ?? 0
+        guard SnippetLimits.canPromote(currentSnippetCount: count, isPro: tier == .pro) else {
+            flashNote(String(localized: "Upgrade to Pro for more snippets"))
+            return
+        }
+        try? await grdb.promoteToSnippet(id: item.id)
+        flashNote(String(localized: "Saved as snippet"))
+        await search()
+    }
+
     /// Creates a board and queues its metadata for sync, so it shows up on the
     /// user's other devices. The built-in Favorites board never counts against
     /// the free limit.
@@ -1469,16 +1483,31 @@ struct ClipDetailView: View {
     @State private var boardIDs: Set<UUID> = []
     @State private var smartResult: String?
     @State private var isThinking = false
+    /// Sensitive clips stay masked until the user taps Reveal (the design's
+    /// secret peek); never auto-revealed.
+    @State private var revealed = false
+    /// Whether the move-to-board sheet (the compact "Add to board") is open.
+    @State private var showMoveSheet = false
     /// The board auto-board thinks this clip belongs to (a suggestion, never
     /// auto-filed); nil until computed or once accepted/dismissed.
     @State private var suggestedBoard: Pinboard?
+
+    /// Text-like clips (not image / file / colour) — what snippets, Smart Paste
+    /// and most dev actions apply to.
+    private var isTextLike: Bool {
+        item.kind != .image && item.kind != .fileReference && item.kind != .color
+    }
 
     /// Smart Paste fits text clips only and never a masked secret. Model-backed
     /// rewrites need Apple Intelligence, but deterministic PII redaction remains
     /// available whenever the user kept the Smart Paste toggle on.
     private var canSmartPaste: Bool {
-        model.smartPasteAvailable && !item.isSensitive
-            && item.kind != .image && item.kind != .fileReference && item.kind != .color
+        model.smartPasteAvailable && !item.isSensitive && isTextLike
+    }
+
+    /// The boards this clip currently belongs to — shown as chips in the peek.
+    private var currentBoards: [Pinboard] {
+        model.boards.filter { boardIDs.contains($0.id) }
     }
 
     /// Text handed to the iOS share sheet — the full text once loaded, else the
@@ -1540,51 +1569,192 @@ struct ClipDetailView: View {
     var body: some View {
         List {
             actionRow
+            contentSection
+            metaChipsSection
+            boardsSection
+            if isTextLike, !item.isSensitive {
+                Section {
+                    Button("Save as snippet", systemImage: "textformat") {
+                        Task { await model.saveAsSnippet(item) }
+                    }
+                    .accessibilityIdentifier("detail-save-snippet")
+                }
+            }
+            smartActionsSection
+        }
+        .navigationTitle(Text(LocalizedStringKey(item.kind.rawValue)))
+        .sheet(isPresented: $showMoveSheet) {
+            MoveToBoardSheet(item: item)
+        }
+        .onChange(of: showMoveSheet) { _, open in
+            if !open {
+                Task { boardIDs = await model.boardMembership(for: item) }
+            }
+        }
+        .task {
+            if case .text(let text)? = try? await model.store.content(for: item.id) {
+                fullText = text
+            }
+        }
+        .task { await model.thumbnails.ensureLoaded(item) }
+        .task {
+            await model.refreshBoards()
+            boardIDs = await model.boardMembership(for: item)
+        }
+        .task { suggestedBoard = await model.suggestedBoard(for: item) }
+        // Presented as a peek: medium shows the preview + action row; drag up to
+        // the large detent for chips, boards, Smart Actions, and the full text.
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    /// The clip itself — image, text, or a masked secret kept behind Reveal.
+    @ViewBuilder private var contentSection: some View {
+        Section {
+            if item.kind == .image, !item.isSensitive,
+                let thumbnail = model.thumbnails.cached(for: item.id)
+            {
+                thumbnail
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: 340, alignment: .center)
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
+            } else if item.isSensitive, !revealed {
+                Text(item.preview)
+                    .font(item.kind == .code ? .body.monospaced() : .body)
+                    .foregroundStyle(.secondary)
+                Button("Reveal", systemImage: "eye") { revealed = true }
+                    .accessibilityIdentifier("detail-reveal")
+            } else {
+                // A very long Text inside a List row fails to lay out on iOS
+                // (the detail came up blank). Cap what we render; the whole clip
+                // is still available via Copy.
+                let body = fullText.isEmpty ? item.preview : fullText
+                Text(body.count > 8000 ? String(body.prefix(8000)) + "\n…" : body)
+                    .font(item.kind == .code ? .body.monospaced() : .body)
+                    .textSelection(.enabled)
+                if item.isSensitive {
+                    Button("Hide", systemImage: "eye.slash") { revealed = false }
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    /// Provenance at a glance — kind, masked badge, source app, source device.
+    @ViewBuilder private var metaChipsSection: some View {
+        Section {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: GanchoTokens.Spacing.xs) {
+                    metaChip(
+                        Text(LocalizedStringKey(item.kind.rawValue)),
+                        systemImage: item.kind.symbolName)
+                    if item.isSensitive {
+                        metaChip(Text("Masked"), systemImage: "lock.fill")
+                    }
+                    if let bundleID = item.sourceAppBundleID, !bundleID.isEmpty {
+                        metaChip(
+                            Text(verbatim: SourceApp.fallbackName(forBundleID: bundleID)),
+                            systemImage: "app.dashed")
+                    }
+                    if let device = item.sourceDeviceName, !device.isEmpty {
+                        metaChip(Text(verbatim: device), systemImage: "desktopcomputer")
+                    }
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    private func metaChip(_ text: Text, systemImage: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage).font(.caption2)
+            text.font(.caption)
+        }
+        .padding(.horizontal, GanchoTokens.Spacing.sm)
+        .padding(.vertical, 5)
+        .background(.quaternary, in: Capsule())
+        .foregroundStyle(.secondary)
+    }
+
+    /// Compact board membership: the auto-board suggestion, the boards this clip
+    /// is already in as chips, and one "Add to board" that opens the move sheet.
+    @ViewBuilder private var boardsSection: some View {
+        if let board = suggestedBoard {
             Section {
-                TypeBadge(kind: item.kind)
-                if item.kind == .image, !item.isSensitive,
-                    let thumbnail = model.thumbnails.cached(for: item.id)
-                {
-                    thumbnail
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: 340, alignment: .center)
-                        .clipShape(
-                            RoundedRectangle(
-                                cornerRadius: GanchoTokens.Radius.md, style: .continuous))
-                } else {
-                    // A very long Text inside a List row fails to lay out on iOS
-                    // (the detail came up blank). Cap what we render; the whole
-                    // clip is still available via Copy.
-                    let body = fullText.isEmpty ? item.preview : fullText
-                    Text(body.count > 8000 ? String(body.prefix(8000)) + "\n…" : body)
-                        .font(item.kind == .code ? .body.monospaced() : .body)
-                        .textSelection(.enabled)
-                }
-            }
-
-            let actions = DevActions.actions(for: item.kind)
-            if !actions.isEmpty {
-                Section("Actions") {
-                    ForEach(actions) { action in
-                        Button(LocalizedStringKey(action.title)) {
-                            actionResult = (try? action.transform(fullText)) ?? ""
+                HStack(spacing: GanchoTokens.Spacing.xs) {
+                    Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.accent)
+                    Text("Add to \(board.name)?").lineLimit(1)
+                    Spacer(minLength: 0)
+                    Button("Add") {
+                        Task {
+                            await model.setBoardMembership(item, board: board, member: true)
+                            boardIDs = await model.boardMembership(for: item)
+                            suggestedBoard = nil
                         }
                     }
-                    if let actionResult, !actionResult.isEmpty {
-                        Text(actionResult)
-                            .font(.body.monospaced())
-                            .textSelection(.enabled)
-                        Button("Copy result", systemImage: "doc.on.doc") {
-                            UIPasteboard.general.string = actionResult
-                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    .buttonStyle(.borderless)
+                    Button {
+                        suggestedBoard = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                    .buttonStyle(.plain).foregroundStyle(.tertiary)
+                    .accessibilityLabel(Text("Dismiss"))
+                }
+            }
+            .accessibilityIdentifier("board-suggestion")
+        }
+        Section("Boards") {
+            if !currentBoards.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: GanchoTokens.Spacing.xs) {
+                        ForEach(currentBoards) { board in
+                            HStack(spacing: 5) {
+                                BoardDot(board: board, size: 9)
+                                board.isSystem
+                                    ? Text("Favorites") : Text(verbatim: board.name)
+                            }
+                            .font(.caption)
+                            .padding(.horizontal, GanchoTokens.Spacing.sm)
+                            .padding(.vertical, 5)
+                            .background(.quaternary, in: Capsule())
                         }
                     }
                 }
+                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                .listRowBackground(Color.clear)
             }
+            Button {
+                showMoveSheet = true
+            } label: {
+                Label("Add to board", systemImage: "plus")
+            }
+            .accessibilityIdentifier("detail-add-to-board")
+        }
+    }
 
-            if canSmartPaste {
-                Section("Smart paste") {
+    /// On-device transforms: deterministic dev actions plus, when available,
+    /// Apple-Intelligence Smart Paste. One section, the design's "Smart Actions".
+    @ViewBuilder private var smartActionsSection: some View {
+        let actions = DevActions.actions(for: item.kind)
+        if !actions.isEmpty || canSmartPaste {
+            Section {
+                ForEach(actions) { action in
+                    Button(LocalizedStringKey(action.title)) {
+                        actionResult = (try? action.transform(fullText)) ?? ""
+                    }
+                }
+                if let actionResult, !actionResult.isEmpty {
+                    Text(actionResult).font(.body.monospaced()).textSelection(.enabled)
+                    Button("Copy result", systemImage: "doc.on.doc") {
+                        UIPasteboard.general.string = actionResult
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    }
+                }
+                if canSmartPaste {
                     Menu {
                         ForEach(SmartPasteAction.allCases) { action in
                             if action == .redactPII || model.smartPasteModelAvailable {
@@ -1613,98 +1783,25 @@ struct ClipDetailView: View {
                     }
                     .disabled(isThinking)
                     .accessibilityIdentifier("smart-paste-menu")
-
-                    if isThinking {
-                        Label("Thinking…", systemImage: "sparkles").foregroundStyle(.secondary)
-                    } else if let smartResult, !smartResult.isEmpty {
-                        Text(smartResult).font(.body).textSelection(.enabled)
-                        Button("Copy result", systemImage: "doc.on.doc") {
-                            UIPasteboard.general.string = smartResult
-                            UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        }
+                }
+                if isThinking {
+                    Label("Thinking…", systemImage: "sparkles").foregroundStyle(.secondary)
+                } else if let smartResult, !smartResult.isEmpty {
+                    Text(smartResult).font(.body).textSelection(.enabled)
+                    Button("Copy result", systemImage: "doc.on.doc") {
+                        UIPasteboard.general.string = smartResult
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
                     }
                 }
-            }
-
-            if let board = suggestedBoard {
-                Section {
-                    HStack(spacing: GanchoTokens.Spacing.xs) {
-                        Image(systemName: "sparkles")
-                            .foregroundStyle(GanchoTokens.Palette.accent)
-                        Text("Add to \(board.name)?").lineLimit(1)
-                        Spacer(minLength: 0)
-                        Button("Add") {
-                            Task {
-                                await model.setBoardMembership(item, board: board, member: true)
-                                boardIDs = await model.boardMembership(for: item)
-                                suggestedBoard = nil
-                            }
-                        }
-                        .buttonStyle(.borderless)
-                        Button {
-                            suggestedBoard = nil
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                        }
-                        .buttonStyle(.plain).foregroundStyle(.tertiary)
-                        .accessibilityLabel(Text("Dismiss"))
-                    }
+            } header: {
+                HStack {
+                    Text("Smart Actions")
+                    Spacer()
+                    Text("on-device").foregroundStyle(.tertiary)
                 }
-                .accessibilityIdentifier("board-suggestion")
-            }
-
-            if !model.boards.isEmpty {
-                Section("Boards") {
-                    ForEach(model.boards) { board in
-                        Button {
-                            Task {
-                                await model.setBoardMembership(
-                                    item, board: board, member: !boardIDs.contains(board.id))
-                                boardIDs = await model.boardMembership(for: item)
-                            }
-                        } label: {
-                            HStack {
-                                Label {
-                                    board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
-                                } icon: {
-                                    BoardDot(board: board)
-                                }
-                                Spacer()
-                                if boardIDs.contains(board.id) {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(GanchoTokens.Palette.accent)
-                                }
-                            }
-                        }
-                        .tint(.primary)
-                        .accessibilityIdentifier("detail-board-\(board.id.uuidString)")
-                    }
-                }
-            }
-
-            Section {
-                Button("Copy", systemImage: "doc.on.doc") {
-                    Task { await model.copyToPasteboard(item) }
-                }
-                .accessibilityIdentifier("detail-copy")
+                .textCase(nil)
             }
         }
-        .navigationTitle(Text(LocalizedStringKey(item.kind.rawValue)))
-        .task {
-            if case .text(let text)? = try? await model.store.content(for: item.id) {
-                fullText = text
-            }
-        }
-        .task { await model.thumbnails.ensureLoaded(item) }
-        .task {
-            await model.refreshBoards()
-            boardIDs = await model.boardMembership(for: item)
-        }
-        .task { suggestedBoard = await model.suggestedBoard(for: item) }
-        // Presented as a peek: medium shows the preview + action row; drag up to
-        // the large detent for the full text, Smart Paste, and boards.
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
     }
 
     private static let translateLanguageCodes = [
