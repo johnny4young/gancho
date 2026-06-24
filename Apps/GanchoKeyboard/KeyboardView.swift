@@ -208,7 +208,7 @@ struct KeyboardView: View {
             model.insert(entry)
         } label: {
             HStack(spacing: 10) {
-                keyboardTile(for: entry.kind)
+                keyboardTile(for: entry)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entry.displayText)
                         .lineLimit(2)
@@ -224,6 +224,7 @@ struct KeyboardView: View {
             .contentShape(.rect)
         }
         .buttonStyle(PressableScale())
+        .task(id: entry.id) { await model.ensureThumbnail(entry) }
     }
 
     private func sectionHeader(_ section: ClipSection) -> some View {
@@ -262,18 +263,28 @@ struct KeyboardView: View {
             .foregroundStyle(.tertiary)
     }
 
-    /// Kind-tinted leading tile (matches the macOS history row): the kind glyph
-    /// on a tint-washed rounded square.
-    private func keyboardTile(for kind: ClipContentKind) -> some View {
-        let tint = GanchoTokens.Palette.kindTint(for: kind)
-        return RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(tint.opacity(0.18))
-            .frame(width: 30, height: 30)
-            .overlay {
-                Image(systemName: kind.symbolName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(tint)
-            }
+    /// Leading tile: the image clip's thumbnail when one is loaded, otherwise the
+    /// kind glyph on a tint-washed rounded square (matches the app's history row).
+    @ViewBuilder private func keyboardTile(for entry: WidgetClipEntry) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        if let thumbnail = model.thumbnail(for: entry.id) {
+            thumbnail
+                .resizable()
+                .scaledToFill()
+                .frame(width: 30, height: 30)
+                .clipShape(shape)
+                .overlay(shape.strokeBorder(.separator, lineWidth: 0.5))
+        } else {
+            let tint = GanchoTokens.Palette.kindTint(for: entry.kind)
+            shape
+                .fill(tint.opacity(0.18))
+                .frame(width: 30, height: 30)
+                .overlay {
+                    Image(systemName: entry.kind.symbolName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(tint)
+                }
+        }
     }
 
     /// "Safari · 2 min" — source app (cheap fallback name) and capture time,
