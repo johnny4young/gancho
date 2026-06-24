@@ -1661,6 +1661,86 @@
           }
         }
       }
+    },
+    "Masked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enmascarado"
+          }
+        }
+      }
+    },
+    "Reveal": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revelar"
+          }
+        }
+      }
+    },
+    "Hide": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar"
+          }
+        }
+      }
+    },
+    "Save as snippet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como snippet"
+          }
+        }
+      }
+    },
+    "Saved as snippet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardado como snippet"
+          }
+        }
+      }
+    },
+    "Upgrade to Pro for more snippets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pasa a Pro para más snippets"
+          }
+        }
+      }
+    },
+    "Smart Actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acciones inteligentes"
+          }
+        }
+      }
+    },
+    "on-device": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en el dispositivo"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
