@@ -449,7 +449,11 @@ final class IOSAppModel {
     let store: any ClipboardStore = {
         let directory = SharedStorageLocation.storeDirectory(
             appGroupID: SharedInbox.appGroupID)
-        return (try? GRDBClipboardStore.encrypted(directory: directory)) ?? InMemoryClipboardStore()
+        return
+            (try? GRDBClipboardStore.encrypted(
+                directory: directory,
+                keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup))
+            ?? InMemoryClipboardStore()
     }()
 
     /// Metadata-only refresh — safe on every activation, never alerts.

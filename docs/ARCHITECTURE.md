@@ -127,7 +127,11 @@ inside the decrypted database.
 - **Key.** A random 256-bit key, never derived from user input, lives in the
   Keychain (`KeychainPassphraseStore`): `kSecAttrSynchronizable` for multi-device
   restore and `kSecAttrAccessibleAfterFirstUnlock` so background capture can open
-  the store while the device is locked. The key is never logged.
+  the store while the device is locked. The key is never logged. On iOS the app
+  writes it to a shared keychain access group (`…gancho.keys`) so the keyboard
+  and widget extensions — which open the same App Group database — can read it.
+  The macOS app uses its default keychain; the Homebrew CLI needs signing to
+  reach the key (a known gap, tracked separately).
 - **Wiring.** `GRDBClipboardStore.encrypted(directory:)` loads the key and opens
   the pool with `Configuration.prepareDatabase { try db.usePassphrase(key) }`.
   In-memory test stores and the perf harness stay plaintext.

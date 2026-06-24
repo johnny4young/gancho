@@ -31,6 +31,14 @@ public struct KeychainPassphraseStore: Sendable {
         case randomGenerationFailed
     }
 
+    /// Shared keychain access group for the iOS app and its database-reading
+    /// extensions (keyboard, widgets). The app writes the key here; the
+    /// extensions read it. Must match the `keychain-access-groups` entitlement
+    /// `$(AppIdentifierPrefix)com.johnny4young.gancho.keys` in each target —
+    /// `$(AppIdentifierPrefix)` resolves to the team prefix (DEVELOPMENT_TEAM =
+    /// JGWX5ZT2N2 in project.yml). macOS does not use a group (default keychain).
+    public static let iosSharedAccessGroup = "JGWX5ZT2N2.com.johnny4young.gancho.keys"
+
     private let service: String
     private let account: String
     private let accessGroup: String?
