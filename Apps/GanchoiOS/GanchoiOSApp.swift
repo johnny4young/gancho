@@ -840,6 +840,20 @@ struct CaptureView: View {
             guard phase == .active else { return }
             Task { await activate() }
         }
+        // Re-sense the pasteboard every time the app comes forward — the most
+        // reliable signal (scenePhase can miss). This is how the capture card
+        // tracks what you just copied in another app.
+        .onReceive(
+            NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
+        ) { _ in
+            Task { await model.refreshHints() }
+        }
+        // …and when the pasteboard changes while we're foreground (e.g. you tap
+        // Copy on a clip), so the card reflects it without a round-trip away.
+        .onReceive(NotificationCenter.default.publisher(for: UIPasteboard.changedNotification)) {
+            _ in
+            Task { await model.refreshHints() }
+        }
         .onChange(of: model.deepLinkClipID) { _, id in
             guard let id else { return }
             path = [id]
