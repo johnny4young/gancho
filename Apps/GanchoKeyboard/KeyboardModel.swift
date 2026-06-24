@@ -129,8 +129,11 @@ final class KeyboardModel: ObservableObject {
             case .fileReferences(let paths):
                 onInsert(paths.joined(separator: "\n"))
             case .binary(let data, let type):
+                // A keyboard can only type text into another app — iOS has no
+                // API to insert an image — so hand it off via the pasteboard and
+                // tell the user how to drop it in (long-press the field → Paste).
                 UIPasteboard.general.setData(data, forPasteboardType: type)
-                flashNote("Image copied — paste it")
+                flashNote("Image copied — long-press the field to paste")
             case nil:
                 break
             }
