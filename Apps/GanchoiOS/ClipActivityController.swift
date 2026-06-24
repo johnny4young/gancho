@@ -5,63 +5,52 @@
 import Foundation
 import GanchoKit
 
-/// Owns the "ready to paste" Live Activity: starts it when a clip is captured,
-/// keeps its sync badge current as the engine reports progress, and ends it on
-/// request. iOS can't paste into other apps, so this glanceable surface — the
-/// Dynamic Island and lock screen — is how a fresh clip announces itself.
-/// Sensitive clips are masked before they're handed in, so a secret never
-/// reaches the lock screen.
+/// Raises the "ready to paste" Live Activity when a clip is captured or copied.
+/// It's deliberately transient: a short, self-dismissing nudge — not a resident
+/// of the Dynamic Island. iOS can't watch the pasteboard from other apps in the
+/// background, so this only fires from inside Gancho. Sensitive clips are masked
+/// before they're handed in, so a secret never reaches the lock screen.
 @MainActor
 final class ClipActivityController {
-    private var activity: Activity<ClipActivityAttributes>?
-    /// The activity goes stale (and the system can retire it) ~30 min after the
-    /// last clip, so a forgotten clip doesn't linger on the lock screen forever.
-    private let staleAfter: TimeInterval = 30 * 60
+    /// How long "ready to paste" stays up before it dismisses itself. Short, so
+    /// it reads as a momentary confirmation rather than an always-on banner.
+    private let visibleFor: TimeInterval = 3 * 60
 
     /// Whether the user has Live Activities turned on for Gancho.
     var isAvailable: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
 
-    /// Start (or refresh) the activity for the just-captured clip.
+    /// Show the just-captured/copied clip, replacing any one already up, and
+    /// schedule its own dismissal so it doesn't linger.
     func show(_ item: ClipItem, sync: ClipSyncBadge) {
         guard isAvailable else { return }
-        let content = ActivityContent(state: state(for: item, sync: sync), staleDate: staleDate)
-        if let activity {
-            Task { await activity.update(content) }
-        } else {
-            activity = try? Activity.request(
-                attributes: ClipActivityAttributes(), content: content, pushType: nil)
-        }
-    }
-
-    /// Update only the sync badge of a live activity (no-op when none is showing
-    /// or the badge is unchanged).
-    func updateSync(_ sync: ClipSyncBadge) {
-        guard let activity else { return }
-        var state = activity.content.state
-        guard state.sync != sync else { return }
-        state.sync = sync
-        let content = ActivityContent(state: state, staleDate: staleDate)
-        Task { await activity.update(content) }
-    }
-
-    /// Dismiss the activity immediately.
-    func end() {
-        guard let activity else { return }
-        self.activity = nil
-        Task { await activity.end(nil, dismissalPolicy: .immediate) }
-    }
-
-    private func state(
-        for item: ClipItem, sync: ClipSyncBadge
-    )
-        -> ClipActivityAttributes.ContentState
-    {
-        ClipActivityAttributes.ContentState(
+        let state = ClipActivityAttributes.ContentState(
             preview: item.isSensitive ? "•••" : String(item.preview.prefix(120)),
             kindSymbolName: item.kind.symbolName,
             isSensitive: item.isSensitive,
             sync: sync)
+        let dismissAt = Date.now.addingTimeInterval(visibleFor)
+        let content = ActivityContent(state: state, staleDate: dismissAt)
+        Task {
+            await endAll(.immediate)
+            guard
+                let activity = try? Activity.request(
+                    attributes: ClipActivityAttributes(), content: content, pushType: nil)
+            else { return }
+            // End it with a future dismissal: the system removes it after the
+            // window even while Gancho is backgrounded (the user is pasting in
+            // another app), so it never becomes a permanent fixture.
+            await activity.end(content, dismissalPolicy: .after(dismissAt))
+        }
     }
 
-    private var staleDate: Date { Date.now.addingTimeInterval(staleAfter) }
+    /// Dismiss any live activity immediately.
+    func end() {
+        Task { await endAll(.immediate) }
+    }
+
+    private func endAll(_ policy: ActivityUIDismissalPolicy) async {
+        for activity in Activity<ClipActivityAttributes>.activities {
+            await activity.end(nil, dismissalPolicy: policy)
+        }
+    }
 }

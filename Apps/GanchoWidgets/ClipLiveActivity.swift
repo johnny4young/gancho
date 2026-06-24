@@ -16,9 +16,14 @@ struct ClipLiveActivity: Widget {
             let state = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Image(systemName: state.isSensitive ? "lock.fill" : state.kindSymbolName)
-                        .font(.title3)
-                        .foregroundStyle(.tint)
+                    HStack(spacing: 7) {
+                        GanchoMark(size: 24)
+                        if state.isSensitive {
+                            Image(systemName: "lock.fill")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     SyncBadge(state.sync)
@@ -35,17 +40,15 @@ struct ClipLiveActivity: Widget {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } compactLeading: {
-                Image(systemName: "paperclip")
-                    .foregroundStyle(.tint)
+                GanchoMark(size: 20)
             } compactTrailing: {
                 Image(systemName: state.sync.symbolName)
                     .foregroundStyle(syncColor(state.sync.emphasis))
             } minimal: {
-                Image(systemName: "paperclip")
-                    .foregroundStyle(.tint)
+                GanchoMark(size: 19)
             }
             .widgetURL(URL(string: "gancho://"))
-            .keylineTint(.accentColor)
+            .keylineTint(GanchoMark.green)
         }
     }
 }
@@ -56,11 +59,7 @@ private struct ClipActivityLockScreen: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: state.isSensitive ? "lock.fill" : state.kindSymbolName)
-                .font(.title3)
-                .foregroundStyle(.tint)
-                .frame(width: 38, height: 38)
-                .background(.tint.opacity(0.15), in: .rect(cornerRadius: 10))
+            GanchoMark(size: 38)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Ready to paste")
                     .font(.caption.bold())
@@ -74,6 +73,27 @@ private struct ClipActivityLockScreen: View {
             SyncBadge(state.sync)
         }
         .padding(14)
+    }
+}
+
+/// Gancho's mark — the brand paperclip on a green rounded tile, so the activity
+/// reads as the app (an "app chip") in the Dynamic Island instead of a generic
+/// system clip. Scales with `size` for the pill, the expanded island, and the
+/// lock screen.
+struct GanchoMark: View {
+    var size: CGFloat = 22
+    /// gancho brand green (#34C759 — Apple system green).
+    static let green = Color(red: 0.204, green: 0.780, blue: 0.349)
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+            .fill(Self.green)
+            .frame(width: size, height: size)
+            .overlay {
+                Image(systemName: "paperclip")
+                    .font(.system(size: size * 0.56, weight: .bold))
+                    .foregroundStyle(.white)
+            }
     }
 }
 
