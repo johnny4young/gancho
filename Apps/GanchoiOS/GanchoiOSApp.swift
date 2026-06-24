@@ -454,6 +454,9 @@ final class IOSAppModel {
             UIPasteboard.general.string = paths.joined(separator: "\n")
         }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+        // Copying a clip is the truest "ready to paste" moment — it's on the
+        // pasteboard now — so surface it on the Live Activity too.
+        clipActivity.show(item, sync: ClipSyncBadge(syncStatus))
     }
 
     // MARK: - Smart paste (deterministic + on-device Apple Intelligence)
@@ -710,16 +713,31 @@ final class IOSAppModel {
     }
 }
 
+/// The one sheet the capture screen can present at a time.
+enum CaptureSheet: Identifiable {
+    case settings
+    case boards
+    case peek(ClipItem)
+    case move(ClipItem)
+
+    var id: String {
+        switch self {
+        case .settings: "settings"
+        case .boards: "boards"
+        case .peek(let clip): "peek-\(clip.id)"
+        case .move(let clip): "move-\(clip.id)"
+        }
+    }
+}
+
 struct CaptureView: View {
     @Environment(IOSAppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showSettings = false
-    /// The clip whose peek sheet is open (tap → peek bottom sheet).
-    @State private var peekClip: ClipItem?
-    /// The clip being filed via the move-to-board sheet (swipe → Board).
-    @State private var moveTargetClip: ClipItem?
-    /// Whether the boards home (the managed list) is open.
-    @State private var showBoardsHome = false
+    /// One sheet at a time — Settings, the boards home, a clip peek, or the
+    /// move-to-board sheet. A single `.sheet(item:)` because stacking several
+    /// `.sheet` modifiers on one view is unreliable (two `isPresented` sheets
+    /// silently drop one — that's why the boards home wouldn't open).
+    @State private var activeSheet: CaptureSheet?
     @State private var showNewBoard = false
     @State private var newBoardName = ""
     @State private var renameTarget: Pinboard?
@@ -789,7 +807,7 @@ struct CaptureView: View {
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
-                            showBoardsHome = true
+                            activeSheet = .boards
                         } label: {
                             Image(systemName: "rectangle.stack")
                         }
@@ -798,17 +816,21 @@ struct CaptureView: View {
                     }
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
-                            showSettings = true
+                            activeSheet = .settings
                         } label: {
                             Image(systemName: "gearshape")
                         }
                         .accessibilityLabel(Text("Settings"))
                     }
                 }
-                .sheet(isPresented: $showSettings) { IOSSettingsView() }
-                .sheet(isPresented: $showBoardsHome) { BoardsHomeView() }
-                .sheet(item: $peekClip) { ClipDetailView(item: $0) }
-                .sheet(item: $moveTargetClip) { MoveToBoardSheet(item: $0) }
+                .sheet(item: $activeSheet) { sheet in
+                    switch sheet {
+                    case .settings: IOSSettingsView()
+                    case .boards: BoardsHomeView()
+                    case .peek(let clip): ClipDetailView(item: clip)
+                    case .move(let clip): MoveToBoardSheet(item: clip)
+                    }
+                }
                 .alert("New board", isPresented: $showNewBoard) {
                     TextField("Board name", text: $newBoardName)
                     Button("Cancel", role: .cancel) {}
@@ -919,7 +941,7 @@ struct CaptureView: View {
     @ViewBuilder
     private func clipRow(_ item: ClipItem) -> some View {
         Button {
-            peekClip = item
+            activeSheet = .peek(item)
         } label: {
             ClipCard(item: item, thumbnail: model.thumbnails.cached(for: item.id))
         }
@@ -949,7 +971,7 @@ struct CaptureView: View {
             }
             .tint(.blue)
             Button {
-                moveTargetClip = item
+                activeSheet = .move(item)
             } label: {
                 Label("Board", systemImage: "tray.and.arrow.down")
             }
@@ -1170,17 +1192,17 @@ struct CaptureView: View {
         }
     }
 
-    /// Compact iCloud sync indicator (no suggestion line — kept minimal on
-    /// iOS; pull-to-refresh forces a sync). Renders nothing when sync is off.
+    /// iCloud sync indicator. The steady states (off, synced) show nothing —
+    /// the "ready to paste" Live Activity carries sync status now, so the
+    /// history doesn't spend a card on a green "Synced" that's almost always
+    /// true. Only the transient and the actionable states surface here.
     @ViewBuilder
     private var syncStatusSection: some View {
         switch model.syncStatus {
-        case .idle:
+        case .idle, .upToDate:
             EmptyView()
         case .syncing:
             syncRow(Text("Syncing…"), "arrow.triangle.2.circlepath")
-        case .upToDate:
-            syncRow(Text("Synced"), "checkmark.icloud", tint: GanchoTokens.Palette.success)
         case .pending(let count):
             syncRow(
                 Text("\(Text("Waiting to sync")) · \(String(count))"), "arrow.up.circle")
