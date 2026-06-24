@@ -653,6 +653,8 @@ struct CaptureView: View {
     @Environment(IOSAppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
+    /// The clip whose peek sheet is open (tap → peek bottom sheet).
+    @State private var peekClip: ClipItem?
     @State private var showNewBoard = false
     @State private var newBoardName = ""
     @State private var renameTarget: Pinboard?
@@ -730,6 +732,7 @@ struct CaptureView: View {
                     }
                 }
                 .sheet(isPresented: $showSettings) { IOSSettingsView() }
+                .sheet(item: $peekClip) { ClipDetailView(item: $0) }
                 .alert("New board", isPresented: $showNewBoard) {
                     TextField("Board name", text: $newBoardName)
                     Button("Cancel", role: .cancel) {}
@@ -839,9 +842,12 @@ struct CaptureView: View {
     /// page (infinite scroll).
     @ViewBuilder
     private func clipRow(_ item: ClipItem) -> some View {
-        NavigationLink(value: item.id) {
+        Button {
+            peekClip = item
+        } label: {
             ClipCard(item: item, thumbnail: model.thumbnails.cached(for: item.id))
         }
+        .buttonStyle(.plain)
         .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
         .onAppear { Task { await model.loadMoreIfNeeded(item) } }
         .swipeActions(edge: .trailing) {
@@ -1089,6 +1095,7 @@ struct CaptureView: View {
 /// Per-kind detail: full content, dev actions, one-tap copy with haptics.
 struct ClipDetailView: View {
     @Environment(IOSAppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
     let item: ClipItem
     @State private var fullText = ""
     @State private var actionResult: String?
@@ -1107,8 +1114,65 @@ struct ClipDetailView: View {
             && item.kind != .image && item.kind != .fileReference && item.kind != .color
     }
 
+    /// Text handed to the iOS share sheet — the full text once loaded, else the
+    /// stored preview (sensitive clips share only their masked preview).
+    private var shareText: String {
+        item.isSensitive ? item.preview : (fullText.isEmpty ? item.preview : fullText)
+    }
+
+    /// The medium-detent quick actions (the peek's action row). Copy is primary
+    /// — iOS can't paste into another app, so copy-then-the-user-pastes is the
+    /// realizable path. Smart Paste and board membership live in the sections
+    /// below, revealed when the sheet is dragged to its large detent.
+    @ViewBuilder private var actionRow: some View {
+        HStack(spacing: 10) {
+            peekAction("Copy", systemImage: "doc.on.clipboard", primary: true) {
+                Task { await model.copyToPasteboard(item) }
+                dismiss()
+            }
+            ShareLink(item: shareText) {
+                peekActionLabel("Share", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(.plain)
+            peekAction(
+                item.isPinned ? "Pinned" : "Pin",
+                systemImage: item.isPinned ? "pin.fill" : "pin"
+            ) {
+                Task { await model.togglePin(item) }
+            }
+        }
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
+        .listRowBackground(Color.clear)
+    }
+
+    private func peekAction(
+        _ title: LocalizedStringKey, systemImage: String, primary: Bool = false,
+        _ run: @escaping () -> Void
+    ) -> some View {
+        Button(action: run) { peekActionLabel(title, systemImage: systemImage, primary: primary) }
+            .buttonStyle(.plain)
+    }
+
+    private func peekActionLabel(
+        _ title: LocalizedStringKey, systemImage: String, primary: Bool = false
+    ) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20))
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .background(
+                    primary
+                        ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
+                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                )
+                .foregroundStyle(primary ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+            Text(title).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
     var body: some View {
         List {
+            actionRow
             Section {
                 TypeBadge(kind: item.kind)
                 if item.kind == .image, !item.isSensitive,
@@ -1270,6 +1334,10 @@ struct ClipDetailView: View {
             boardIDs = await model.boardMembership(for: item)
         }
         .task { suggestedBoard = await model.suggestedBoard(for: item) }
+        // Presented as a peek: medium shows the preview + action row; drag up to
+        // the large detent for the full text, Smart Paste, and boards.
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     private static let translateLanguageCodes = [
