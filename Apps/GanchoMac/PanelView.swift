@@ -60,15 +60,29 @@ private enum BoardSheet: Identifiable {
     }
 }
 
+/// Which zone owns the keyboard: the search field (list navigation) or the
+/// peek (its action list). → moves focus into the peek, ← returns to the list.
+enum PanelFocus: Hashable { case search, peek }
+
+/// When the keyboard is "up" in the rails above the list: which rail and which
+/// chip. ↑ from the first list row enters `.filters`, ↑ again `.boards`; ←→ move
+/// within a rail, Space/Enter toggles. `nil` means the keyboard is in the list.
+private enum RailFocus: Hashable {
+    case boards(Int)  // 0 = "All clips", 1…n = model.boards[i-1]
+    case filters(Int)  // index into ClipKindFilter.allCases
+}
+
 /// The floating history panel: compact, keyboard-first (the explicit design
 /// decision vs Paste's full-width drawer). Every interaction works without
-/// a mouse: type-to-search, ↑↓, Enter, ⌥Enter, ⌘1–9, Space, Esc.
+/// a mouse: type-to-search, ↑↓ to navigate, → into the peek, Enter to paste.
 struct PanelView: View {
     @Environment(AppModel.self) private var model
-    @FocusState private var searchFocused: Bool
+    @FocusState private var focus: PanelFocus?
     @State private var query = ""
     @State private var results: [ClipItem] = []
     @State private var selectedIndex = 0
+    /// Non-nil when the keyboard moved up into the filter/board rails.
+    @State private var railFocus: RailFocus?
     @State private var previewText = ""
     @State private var kindFilter: ClipKindFilter = .all
     /// nil = "All clips"; otherwise the selected board's id. Boards are a
@@ -94,23 +108,25 @@ struct PanelView: View {
     var body: some View {
         HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
             listColumn
-                .frame(width: 340)
+                .frame(width: 440)
             // The peek opens BESIDE the list (not a modal) and follows the
             // hovered / selected clip — Quick-Look-style.
             if let selected = selectedItem {
-                ClipPeek(item: selected, text: previewText)
-                    .frame(width: 360)
+                ClipPeek(item: selected, text: previewText, focus: $focus)
+                    .frame(width: 400)
                     .ganchoSurface(radius: GanchoTokens.Radius.lg)
                     .transition(.opacity)
             }
         }
         .padding(GanchoTokens.Spacing.sm)
-        .frame(minWidth: selectedItem == nil ? 372 : 724, minHeight: 460)
+        .frame(minWidth: selectedItem == nil ? 472 : 864, minHeight: 520)
         .task { await refresh() }
         .task { await model.refreshBoards() }
         .onChange(of: query) { _, _ in
-            // A new query invalidates a previous answer.
+            // A new query invalidates a previous answer and drops rail focus
+            // (you're typing in the search field again).
             answer = nil
+            railFocus = nil
             Task { await refresh() }
         }
         .onChange(of: model.recentItems) { _, _ in
@@ -145,11 +161,11 @@ struct PanelView: View {
             // ready when onAppear fires, so an immediate focus is dropped
             // (arrow keys beep). The notification below re-grabs it on every
             // key transition, which covers first open and reopens alike.
-            DispatchQueue.main.async { searchFocused = true }
+            DispatchQueue.main.async { focus = .search }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
             _ in
-            searchFocused = true
+            focus = .search
         }
     }
 
@@ -158,12 +174,26 @@ struct PanelView: View {
     private var listColumn: some View {
         VStack(spacing: GanchoTokens.Spacing.xs) {
             SearchField("Search your clipboard", text: $query)
-                .focused($searchFocused)
-                .onKeyPress(.downArrow) { move(1) }
-                .onKeyPress(.upArrow) { move(-1) }
+                .focused($focus, equals: .search)
+                .onKeyPress(.downArrow) { navigateDown() }
+                .onKeyPress(.upArrow) { navigateUp() }
+                .onKeyPress(.leftArrow) { navigateLeft() }
+                .onKeyPress(.rightArrow) { navigateRight() }
+                .onKeyPress(.space, phases: .down) { _ in
+                    // In a rail, Space toggles the focused chip (and won't type a
+                    // space); in the list it falls through to the search field.
+                    guard railFocus != nil else { return .ignored }
+                    _ = toggleFocusedRail()
+                    return .handled
+                }
                 .onKeyPress(.return, phases: .down) { press in
-                    // An exact keyword match takes Enter (you typed the snippet's
-                    // shortcut on purpose); otherwise Enter pastes the selection.
+                    // In a rail, Enter toggles the focused chip. Otherwise an exact
+                    // keyword match takes Enter (you typed the snippet shortcut on
+                    // purpose); else Enter pastes the selection.
+                    if railFocus != nil {
+                        _ = toggleFocusedRail()
+                        return .handled
+                    }
                     if let match = snippetMatch {
                         invokeSnippet(match)
                     } else {
@@ -232,11 +262,11 @@ struct PanelView: View {
                                     .task(id: item.id) {
                                         await model.thumbnails.ensureLoaded(item)
                                     }
-                                    // Hover opens the peek beside the list, no Space needed.
-                                    .onHover { hovering in
-                                        if hovering { selectedIndex = index }
-                                    }
-                                    .onTapGesture { model.paste(item) }
+                                    // Single click SELECTS, double-click PASTES; hover no
+                                    // longer moves the selection (arrows + click only), so the
+                                    // mouse can rest over the list without hijacking it.
+                                    .onTapGesture(count: 2) { model.paste(item) }
+                                    .onTapGesture { select(index) }
                                     .contextMenu { contextMenu(for: item) }
                             }
                         }
@@ -268,6 +298,7 @@ struct PanelView: View {
 
     private func filterPill(_ filter: ClipKindFilter) -> some View {
         let isActive = filter == kindFilter
+        let isFocused = railFocus == .filters(ClipKindFilter.allCases.firstIndex(of: filter) ?? -1)
         return Button {
             kindFilter = filter
             selectedIndex = 0
@@ -287,9 +318,19 @@ struct PanelView: View {
                 in: Capsule()
             )
             .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+            .overlay(railRing(isFocused))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("filter-\(filter.rawValue)")
+    }
+
+    /// The keyboard-focus ring for a rail chip (filters + boards). A 1.5pt
+    /// primary outline reads on both the quaternary and accent-filled chips,
+    /// distinct from the accent fill that marks the *active* one.
+    private func railRing(_ focused: Bool) -> some View {
+        Capsule()
+            .strokeBorder(
+                focused ? AnyShapeStyle(.primary) : AnyShapeStyle(.clear), lineWidth: 1.5)
     }
 
     /// The board rail above the type filters: All clips · Favorites · user
@@ -300,15 +341,17 @@ struct PanelView: View {
             HStack(spacing: GanchoTokens.Spacing.xxs) {
                 boardChip(
                     label: Text("All clips"), systemImage: "tray.full",
-                    isActive: selectedBoardID == nil, identifier: "board-all"
+                    isActive: selectedBoardID == nil, isFocused: railFocus == .boards(0),
+                    identifier: "board-all"
                 ) {
                     selectedBoardID = nil
                 }
-                ForEach(model.boards) { board in
+                ForEach(Array(model.boards.enumerated()), id: \.element.id) { index, board in
                     boardChip(
                         label: board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
                         systemImage: board.sfSymbol,
                         isActive: selectedBoardID == board.id,
+                        isFocused: railFocus == .boards(index + 1),
                         identifier: "board-\(board.id.uuidString)"
                     ) {
                         selectedBoardID = board.id
@@ -345,7 +388,7 @@ struct PanelView: View {
     }
 
     private func boardChip(
-        label: Text, systemImage: String, isActive: Bool, identifier: String,
+        label: Text, systemImage: String, isActive: Bool, isFocused: Bool, identifier: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -360,6 +403,7 @@ struct PanelView: View {
                 in: Capsule()
             )
             .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+            .overlay(railRing(isFocused))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)
@@ -497,6 +541,7 @@ struct PanelView: View {
             SyncStatusView(status: model.syncStatus)
             Spacer(minLength: 0)
             hint("navigate", keys: ["arrow.up", "arrow.down"])
+            hint("actions", keys: ["arrow.right"])
             hint("paste", keys: ["return"])
         }
         .font(.caption2)
@@ -641,6 +686,101 @@ struct PanelView: View {
         model.paste(item, asPlainText: plain)
     }
 
+    /// Select a row without acting on it (the click + arrow path). Re-grabs
+    /// search focus so type-to-search and Enter-to-paste keep working after a
+    /// click lands focus on the row.
+    private func select(_ index: Int) {
+        selectedIndex = index
+        railFocus = nil
+        focus = .search
+    }
+
+    // MARK: - Rail keyboard navigation (filters + boards above the list)
+
+    private var currentFilterIndex: Int {
+        ClipKindFilter.allCases.firstIndex(of: kindFilter) ?? 0
+    }
+    /// 0 = "All clips"; otherwise the selected board's slot (1-based).
+    private var currentBoardIndex: Int {
+        guard let id = selectedBoardID else { return 0 }
+        return (model.boards.firstIndex { $0.id == id }).map { $0 + 1 } ?? 0
+    }
+
+    /// ↑: out of the list at row 0 into the filters, then up to the boards.
+    private func navigateUp() -> KeyPress.Result {
+        switch railFocus {
+        case nil:
+            guard selectedIndex == 0 else { return move(-1) }
+            railFocus = .filters(currentFilterIndex)
+        case .filters:
+            railFocus = .boards(currentBoardIndex)
+        case .boards:
+            break  // top of the stack
+        }
+        return .handled
+    }
+
+    /// ↓: boards → filters → back into the list.
+    private func navigateDown() -> KeyPress.Result {
+        switch railFocus {
+        case nil:
+            return move(1)
+        case .filters:
+            railFocus = nil
+            selectedIndex = 0
+        case .boards:
+            railFocus = .filters(currentFilterIndex)
+        }
+        return .handled
+    }
+
+    /// ← moves within the focused rail; in the list it is the search cursor.
+    private func navigateLeft() -> KeyPress.Result {
+        switch railFocus {
+        case .filters(let i): railFocus = .filters(max(0, i - 1))
+        case .boards(let i): railFocus = .boards(max(0, i - 1))
+        case nil: return .ignored
+        }
+        return .handled
+    }
+
+    /// → moves within the focused rail; in the list it hands off to the peek.
+    private func navigateRight() -> KeyPress.Result {
+        switch railFocus {
+        case .filters(let i):
+            railFocus = .filters(min(ClipKindFilter.allCases.count - 1, i + 1))
+        case .boards(let i):
+            railFocus = .boards(min(model.boards.count, i + 1))
+        case nil:
+            guard selectedItem != nil else { return .ignored }
+            focus = .peek
+        }
+        return .handled
+    }
+
+    /// Space / Enter on a focused chip: select it, or deselect (back to All) if
+    /// it is already active. Returns false when the keyboard is not in a rail.
+    @discardableResult
+    private func toggleFocusedRail() -> Bool {
+        switch railFocus {
+        case .filters(let i):
+            let filter = ClipKindFilter.allCases[i]
+            kindFilter = (kindFilter == filter) ? .all : filter
+            selectedIndex = 0
+            return true
+        case .boards(let i):
+            if i == 0 {
+                selectedBoardID = nil
+            } else if model.boards.indices.contains(i - 1) {
+                let board = model.boards[i - 1]
+                selectedBoardID = (selectedBoardID == board.id) ? nil : board.id
+            }
+            return true
+        case nil:
+            return false
+        }
+    }
+
     /// Load the selected clip's full text for the peek beside the list. Only
     /// text-like clips need a content read; reading an image/file blob from
     /// disk on every selection change would lag navigation, so those fall back
@@ -738,6 +878,9 @@ struct PanelView: View {
 struct ClipPeek: View {
     let item: ClipItem
     let text: String
+    /// Shared with the list: the peek owns the keyboard when this equals `.peek`
+    /// (entered with → from the list, left with ←).
+    var focus: FocusState<PanelFocus?>.Binding
     @Environment(AppModel.self) private var model
     @State private var actionResult: String?
     @State private var boardIDs: Set<UUID> = []
@@ -746,6 +889,8 @@ struct ClipPeek: View {
     /// The board auto-board thinks this clip belongs to (a suggestion, never
     /// auto-filed); nil until computed or once accepted/dismissed.
     @State private var suggestedBoard: Pinboard?
+    /// The highlighted action while the peek owns the keyboard (focus == .peek).
+    @State private var actionIndex = 0
 
     /// Masked clips show their stored masked preview, not the raw content. The
     /// peek is a preview, so cap very long clips: laying out a huge Text here on
@@ -765,7 +910,6 @@ struct ClipPeek: View {
             }
             peekBody
             insightStrip
-            transforms
             if canSmartPaste {
                 smartPasteMenu
             }
@@ -777,13 +921,35 @@ struct ClipPeek: View {
             } else if let actionResult, !actionResult.isEmpty {
                 resultBox(actionResult)
             }
-            footer
+            actionsList
         }
         .padding(GanchoTokens.Spacing.md)
         // Sized to its content and pinned to the top — the peek is a shorter
         // detail card, not the full height of the list.
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .accessibilityIdentifier("clip-peek")
+        // The peek owns the keyboard while focus == .peek: ↑↓ move among the
+        // actions, Enter runs the focused one, ← hands focus back to the list.
+        .focusable()
+        .focusEffectDisabled()
+        .focused(focus, equals: .peek)
+        .onKeyPress(.upArrow) { moveAction(-1) }
+        .onKeyPress(.downArrow) { moveAction(1) }
+        .onKeyPress(.leftArrow) {
+            focus.wrappedValue = .search
+            return .handled
+        }
+        .onKeyPress(.return) {
+            runFocusedAction()
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            model.panel.hide()
+            return .handled
+        }
+        .onChange(of: focus.wrappedValue) { _, newValue in
+            if newValue == .peek { actionIndex = 0 }
+        }
         .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
         .task(id: item.id) { boardIDs = await model.boardMembership(for: item) }
         .task(id: item.id) { suggestedBoard = await model.suggestedBoard(for: item) }
@@ -940,23 +1106,82 @@ struct ClipPeek: View {
         .lineLimit(1)
     }
 
-    @ViewBuilder private var transforms: some View {
-        let actions = DevActions.actions(for: item.kind)
-        if !actions.isEmpty {
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                ForEach(actions) { action in
-                    ActionButton(
-                        LocalizedStringKey(action.title), systemImage: "wand.and.sparkles",
-                        identifier: "dev-action-\(action.id.rawValue)"
-                    ) {
-                        actionResult = (try? action.transform(text)) ?? ""
-                        UserDefaults.standard.set(
-                            UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
-                            forKey: "dev-actions-run")
-                    }
+    /// One navigable action in the peek. The action list is the keyboard
+    /// surface: ↑↓ move among these, Enter runs the focused one, click runs it.
+    private struct PeekAction: Identifiable {
+        let id: String
+        let title: LocalizedStringKey
+        let symbol: String
+        let run: () -> Void
+    }
+
+    /// Paste variants first (the common case), then the per-kind Dev Actions.
+    /// Smart Paste keeps its own menu (it is async and has a language submenu).
+    private var navActions: [PeekAction] {
+        var actions: [PeekAction] = [
+            PeekAction(id: "preview-paste", title: "Paste", symbol: "doc.on.clipboard") {
+                model.paste(item)
+            },
+            PeekAction(id: "preview-paste-plain", title: "Paste plain", symbol: "doc.plaintext") {
+                model.paste(item, asPlainText: true)
+            },
+        ]
+        for action in DevActions.actions(for: item.kind) {
+            actions.append(
+                PeekAction(
+                    id: "dev-action-\(action.id.rawValue)",
+                    title: LocalizedStringKey(action.title), symbol: "wand.and.sparkles"
+                ) {
+                    actionResult = (try? action.transform(text)) ?? ""
+                    UserDefaults.standard.set(
+                        UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
+                        forKey: "dev-actions-run")
+                })
+        }
+        return actions
+    }
+
+    /// The keyboard-navigable action list (Quick-Look-style). The focused row is
+    /// highlighted only while the peek owns the keyboard (focus == .peek), so the
+    /// list and the peek never look "both selected".
+    private var actionsList: some View {
+        VStack(spacing: 2) {
+            ForEach(Array(navActions.enumerated()), id: \.element.id) { index, action in
+                let isFocused = focus.wrappedValue == .peek && index == actionIndex
+                HStack(spacing: GanchoTokens.Spacing.xs) {
+                    Image(systemName: action.symbol).frame(width: 16)
+                    Text(action.title).lineLimit(1)
+                    Spacer(minLength: 0)
                 }
+                .font(.body)
+                .padding(.horizontal, GanchoTokens.Spacing.sm)
+                .padding(.vertical, 6)
+                .background(
+                    isFocused
+                        ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.18))
+                        : AnyShapeStyle(.clear),
+                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+                )
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    actionIndex = index
+                    action.run()
+                }
+                .accessibilityIdentifier(action.id)
             }
         }
+    }
+
+    private func moveAction(_ delta: Int) -> KeyPress.Result {
+        let count = navActions.count
+        guard count > 0 else { return .handled }
+        actionIndex = (actionIndex + delta + count) % count
+        return .handled
+    }
+
+    private func runFocusedAction() {
+        guard navActions.indices.contains(actionIndex) else { return }
+        navActions[actionIndex].run()
     }
 
     /// Smart Paste fits text clips only and never a masked secret. Model-backed
@@ -1056,20 +1281,6 @@ struct ClipPeek: View {
                     model.toasts.show(GanchoToast(message: "Copied"))
                 }
             }
-        }
-    }
-
-    private var footer: some View {
-        HStack(spacing: GanchoTokens.Spacing.xxs) {
-            ActionButton("Paste", systemImage: "doc.on.clipboard", identifier: "preview-paste") {
-                model.paste(item)
-            }
-            ActionButton(
-                "Paste plain", systemImage: "doc.plaintext", identifier: "preview-paste-plain"
-            ) {
-                model.paste(item, asPlainText: true)
-            }
-            Spacer(minLength: 0)
         }
     }
 
