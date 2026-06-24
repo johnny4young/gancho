@@ -221,6 +221,25 @@ final class IOSAppModel {
         boards = (try? await grdb.pinboards()) ?? []
     }
 
+    /// Scope the history list to a board (or back to All clips) and refresh —
+    /// the one path both the rail and the boards home go through.
+    func selectBoard(_ id: UUID?) {
+        selectedBoardID = id
+        Task { await search() }
+    }
+
+    /// Total non-archived clips — the "All clips" count on the boards home.
+    func clipCount() async -> Int {
+        guard let grdb = store as? GRDBClipboardStore else { return 0 }
+        return (try? await grdb.count()) ?? 0
+    }
+
+    /// How many clips a board holds — its count on the boards home.
+    func clipCount(in board: Pinboard) async -> Int {
+        guard let grdb = store as? GRDBClipboardStore else { return 0 }
+        return (try? await grdb.count(inBoard: board.id)) ?? 0
+    }
+
     /// Creates a board and queues its metadata for sync, so it shows up on the
     /// user's other devices. The built-in Favorites board never counts against
     /// the free limit.
@@ -678,6 +697,8 @@ struct CaptureView: View {
     @State private var peekClip: ClipItem?
     /// The clip being filed via the move-to-board sheet (swipe → Board).
     @State private var moveTargetClip: ClipItem?
+    /// Whether the boards home (the managed list) is open.
+    @State private var showBoardsHome = false
     @State private var showNewBoard = false
     @State private var newBoardName = ""
     @State private var renameTarget: Pinboard?
@@ -745,6 +766,15 @@ struct CaptureView: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         kindFilterMenu
                     }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showBoardsHome = true
+                        } label: {
+                            Image(systemName: "rectangle.stack")
+                        }
+                        .accessibilityLabel(Text("Boards"))
+                        .accessibilityIdentifier("boards-home-open")
+                    }
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             showSettings = true
@@ -755,6 +785,7 @@ struct CaptureView: View {
                     }
                 }
                 .sheet(isPresented: $showSettings) { IOSSettingsView() }
+                .sheet(isPresented: $showBoardsHome) { BoardsHomeView() }
                 .sheet(item: $peekClip) { ClipDetailView(item: $0) }
                 .sheet(item: $moveTargetClip) { MoveToBoardSheet(item: $0) }
                 .alert("New board", isPresented: $showNewBoard) {
@@ -1045,8 +1076,7 @@ struct CaptureView: View {
     }
 
     private func select(board id: UUID?) {
-        model.selectedBoardID = id
-        Task { await model.search() }
+        model.selectBoard(id)
     }
 
     private var renamePresented: Binding<Bool> {
@@ -1273,6 +1303,159 @@ struct MoveToBoardSheet: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
         }
+    }
+}
+
+/// The boards home — the managed list the rail's quick switcher can't be.
+/// Smart boards (All clips, Favorites) sit above the user's boards, each with
+/// its identity color and live clip count. Tapping a board scopes the history
+/// to it; a board can be created, renamed, or deleted here. Reorder, recolor,
+/// and per-board sharing are deferred (each needs store or sync plumbing).
+struct BoardsHomeView: View {
+    @Environment(IOSAppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var totalCount = 0
+    @State private var counts: [UUID: Int] = [:]
+    @State private var showNewBoard = false
+    @State private var newBoardName = ""
+    @State private var renameTarget: Pinboard?
+    @State private var renameField = ""
+
+    private var systemBoards: [Pinboard] { model.boards.filter(\.isSystem) }
+    private var userBoards: [Pinboard] { model.boards.filter { !$0.isSystem } }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Button {
+                        open(nil)
+                    } label: {
+                        boardLabel(
+                            Text("All clips"), icon: Image(systemName: "tray.full"),
+                            tint: .secondary, count: totalCount)
+                    }
+                    .tint(.primary)
+                    ForEach(systemBoards) { boardRow($0) }
+                }
+                Section("Boards") {
+                    ForEach(userBoards) { boardRow($0) }
+                    Button {
+                        newBoardName = ""
+                        showNewBoard = true
+                    } label: {
+                        Label("New board", systemImage: "plus")
+                    }
+                    .accessibilityIdentifier("boards-home-new")
+                }
+            }
+            .navigationTitle("Boards")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .alert("New board", isPresented: $showNewBoard) {
+                TextField("Board name", text: $newBoardName)
+                Button("Cancel", role: .cancel) {}
+                Button("Create") {
+                    model.createBoard(named: newBoardName)
+                    Task { await reload() }
+                }
+            }
+            .alert("Rename board", isPresented: renamePresented) {
+                TextField("Board name", text: $renameField)
+                Button("Cancel", role: .cancel) {}
+                Button("Rename") {
+                    if let renameTarget { model.renameBoard(renameTarget, name: renameField) }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .task { await reload() }
+    }
+
+    private var renamePresented: Binding<Bool> {
+        Binding(get: { renameTarget != nil }, set: { if !$0 { renameTarget = nil } })
+    }
+
+    @ViewBuilder
+    private func boardRow(_ board: Pinboard) -> some View {
+        Button {
+            open(board.id)
+        } label: {
+            boardLabel(
+                board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                icon: BoardDot(board: board, size: 14), tint: .primary,
+                count: counts[board.id] ?? 0)
+        }
+        .tint(.primary)
+        .accessibilityIdentifier("boards-home-\(board.id.uuidString)")
+        .contextMenu {
+            if !board.isSystem { boardActions(board) }
+        }
+        .swipeActions(edge: .trailing) {
+            if !board.isSystem {
+                Button(role: .destructive) {
+                    delete(board)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                Button {
+                    renameField = board.name
+                    renameTarget = board
+                } label: {
+                    Label("Rename", systemImage: "pencil")
+                }
+                .tint(.blue)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func boardActions(_ board: Pinboard) -> some View {
+        Button {
+            renameField = board.name
+            renameTarget = board
+        } label: {
+            Label("Rename board", systemImage: "pencil")
+        }
+        Button(role: .destructive) {
+            delete(board)
+        } label: {
+            Label("Delete board", systemImage: "trash")
+        }
+    }
+
+    private func boardLabel(
+        _ title: Text, icon: some View, tint: Color, count: Int
+    ) -> some View {
+        HStack(spacing: GanchoTokens.Spacing.sm) {
+            icon.frame(width: 22)
+            title.foregroundStyle(tint)
+            Spacer(minLength: GanchoTokens.Spacing.sm)
+            Text("\(count)").foregroundStyle(.secondary).monospacedDigit()
+        }
+    }
+
+    private func open(_ id: UUID?) {
+        model.selectBoard(id)
+        dismiss()
+    }
+
+    private func delete(_ board: Pinboard) {
+        model.deleteBoard(board)
+        Task { await reload() }
+    }
+
+    private func reload() async {
+        await model.refreshBoards()
+        totalCount = await model.clipCount()
+        var fresh: [UUID: Int] = [:]
+        for board in model.boards { fresh[board.id] = await model.clipCount(in: board) }
+        counts = fresh
     }
 }
 
