@@ -1195,15 +1195,11 @@ struct CaptureView: View {
                             .foregroundStyle(.primary)
                             .fixedSize(horizontal: false, vertical: true)
                         if model.hints.hasContent {
-                            HStack(spacing: 6) {
-                                if alreadyCaptured {
-                                    captureTag(
-                                        Text("Saved"), tint: GanchoTokens.Palette.success)
-                                } else {
-                                    captureTag(
-                                        Text("not read yet"), tint: GanchoTokens.Palette.warning)
-                                }
-                                apiTag("detectPatterns")
+                            if alreadyCaptured {
+                                captureTag(Text("Saved"), tint: GanchoTokens.Palette.success)
+                            } else {
+                                captureTag(
+                                    Text("not read yet"), tint: GanchoTokens.Palette.warning)
                             }
                         }
                     }
@@ -1259,16 +1255,6 @@ struct CaptureView: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(tint.opacity(0.16), in: Capsule())
-    }
-
-    /// Mono, outlined API-name pill (e.g. `detectPatterns`).
-    private func apiTag(_ name: String) -> some View {
-        Text(verbatim: name)
-            .font(.caption2.monospaced())
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .overlay(Capsule().strokeBorder(.quaternary, lineWidth: 1))
     }
 
     /// True when the copy currently on the clipboard is the one we just saved
