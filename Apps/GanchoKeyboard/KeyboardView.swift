@@ -19,6 +19,9 @@ struct KeyboardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.regularMaterial)
+        // The keyboard runs outside the app, so it doesn't inherit the app's
+        // accent — pin it to Gancho green (active chips, the Save button).
+        .tint(GanchoTokens.Palette.accent)
         .task { await model.load() }
     }
 
@@ -59,6 +62,7 @@ struct KeyboardView: View {
                     boardChip(
                         label: board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
                         systemImage: board.sfSymbol,
+                        dotColor: board.isSystem ? nil : BoardColors.color(for: board),
                         isActive: model.selectedBoardID == board.id
                     ) {
                         model.selectBoard(board.id)
@@ -70,11 +74,16 @@ struct KeyboardView: View {
     }
 
     private func boardChip(
-        label: Text, systemImage: String? = nil, isActive: Bool, action: @escaping () -> Void
+        label: Text, systemImage: String? = nil, dotColor: Color? = nil, isActive: Bool,
+        action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                if let systemImage { Image(systemName: systemImage).font(.caption2) }
+                if let dotColor, !isActive {
+                    Circle().fill(dotColor).frame(width: 7, height: 7)
+                } else if let systemImage {
+                    Image(systemName: systemImage).font(.caption2)
+                }
                 label.font(.caption.weight(.medium))
             }
             .padding(.horizontal, 10)
