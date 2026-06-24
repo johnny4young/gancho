@@ -73,6 +73,9 @@ final class IOSAppModel {
     var deepLinkClipID: UUID?
     /// Cached, downsampled thumbnails for image clips (history rows + detail).
     let thumbnails: ClipThumbnailStore
+    /// The "last clip ready to paste" Live Activity (Dynamic Island + lock
+    /// screen); a no-op when the user hasn't enabled Live Activities.
+    let clipActivity = ClipActivityController()
 
     /// Sync boundary: pull-to-refresh forces a cycle. A `NoopSyncEngine`
     /// until the user is Pro on an iCloud-signed-in device; the adapter swaps
@@ -135,6 +138,7 @@ final class IOSAppModel {
                     guard let self else { return }
                     let wasSyncing = self.syncStatus == .syncing
                     self.syncStatus = status
+                    self.clipActivity.updateSync(ClipSyncBadge(status))
                     // A finished cycle may have pulled new boards/clips from
                     // iCloud. Refresh the lists so they appear without having to
                     // background and reopen the app.
@@ -637,6 +641,9 @@ final class IOSAppModel {
         // Bounded like every other load — search() pulls the first page only.
         await search()
         reloadWidgets()
+        // Surface the just-captured clip as "ready to paste" (masked if
+        // sensitive) on the Dynamic Island / lock screen.
+        if let stored { clipActivity.show(stored, sync: ClipSyncBadge(syncStatus)) }
         // Enrich only a genuinely new clip — a re-copy already carries its
         // title/OCR/embedding from the first capture.
         if isNew { enrich(item, content: content) }

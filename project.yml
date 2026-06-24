@@ -206,6 +206,10 @@ targets:
             CFBundleURLSchemes:
               - gancho
         UILaunchScreen: {}
+        # The "last clip ready to paste" Live Activity (Dynamic Island + lock
+        # screen) needs this opt-in; sensitive clips are masked before they
+        # reach it.
+        NSSupportsLiveActivities: true
         # CKSyncEngine wakes on silent push to pull remote clips.
         UIBackgroundModes:
           - remote-notification
