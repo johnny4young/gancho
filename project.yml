@@ -173,6 +173,10 @@ targets:
         # Shared with the share extension: capture handoff via SharedInbox.
         com.apple.security.application-groups:
           - group.com.johnny4young.gancho
+        # Shared key for the encrypted local store, read by the keyboard and
+        # widget extensions (they open the same App Group database).
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.johnny4young.gancho.keys
         # Encrypted iCloud history sync (Pro) — same container as macOS.
         com.apple.developer.icloud-container-identifiers:
           - iCloud.com.johnny4young.gancho
@@ -291,6 +295,9 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.johnny4young.gancho
+        # Reads the encrypted store's key from the app's shared keychain group.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.johnny4young.gancho.keys
     dependencies:
       - package: GanchoKit
         products:
@@ -322,6 +329,9 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.johnny4young.gancho
+        # Reads the encrypted store's key from the app's shared keychain group.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.johnny4young.gancho.keys
     dependencies:
       - package: GanchoKit
         products:
