@@ -1,4 +1,5 @@
 import GanchoKit
+import ImageIO
 import SwiftUI
 import UIKit
 
@@ -25,6 +26,13 @@ final class KeyboardModel: ObservableObject {
     /// made on other devices appear here too.
     @Published var boards: [Pinboard] = []
     @Published var selectedBoardID: UUID?
+    /// Tiny downsampled image thumbnails, keyed by clip id. A keyboard runs under
+    /// a hard memory budget, so this is capped (FIFO) and the decode never loads
+    /// a full image — it streams the on-disk thumbnail through ImageIO.
+    @Published private var thumbnails: [UUID: Image] = [:]
+    private var thumbnailOrder: [UUID] = []
+    private var thumbnailsInFlight: Set<UUID> = []
+    private let maxThumbnails = 24
 
     let hasFullAccess: Bool
     let onDelete: () -> Void
@@ -127,6 +135,50 @@ final class KeyboardModel: ObservableObject {
                 break
             }
         }
+    }
+
+    /// Cached thumbnail for the row, or nil to fall back to the kind tile.
+    func thumbnail(for id: UUID) -> Image? { thumbnails[id] }
+
+    /// Loads one image clip's thumbnail, lazily and once. A no-op for non-images,
+    /// sensitive clips, already-cached or in-flight ids. Reads the on-disk
+    /// thumbnail URL (never the full blob), downsamples off the main actor, and
+    /// evicts the oldest once the cap is reached so memory stays bounded.
+    func ensureThumbnail(_ entry: WidgetClipEntry) async {
+        guard entry.kind == .image, !entry.isSensitive, let store,
+            thumbnails[entry.id] == nil, !thumbnailsInFlight.contains(entry.id)
+        else { return }
+        thumbnailsInFlight.insert(entry.id)
+        defer { thumbnailsInFlight.remove(entry.id) }
+        guard let url = try? await store.thumbnailURL(for: entry.id) else { return }
+        let decoded = await Task.detached { Self.downsample(url, maxPixel: 120) }.value
+        guard let decoded else { return }
+        thumbnails[entry.id] = Image(uiImage: decoded)
+        thumbnailOrder.append(entry.id)
+        if thumbnailOrder.count > maxThumbnails {
+            let evicted = thumbnailOrder.removeFirst()
+            if evicted != entry.id { thumbnails[evicted] = nil }
+        }
+    }
+
+    /// Downsampled decode straight from the thumbnail file — ImageIO reads only
+    /// enough to build a `maxPixel` thumbnail, so a huge screenshot never lands
+    /// in the keyboard's memory whole.
+    nonisolated private static func downsample(_ url: URL, maxPixel: CGFloat) -> UIImage? {
+        guard
+            let source = CGImageSourceCreateWithURL(
+                url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary)
+        else { return nil }
+        let options =
+            [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+            ] as CFDictionary
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
     }
 
     func toggleExpand() {
