@@ -184,23 +184,55 @@ struct KeyboardView: View {
     }
 
     /// The plain recent view groups into Pinned + date sections (mirroring the
-    /// app); a board filter or a search renders the flat result list.
+    /// app); a board filter or a search renders the flat result list. A List, so
+    /// every row carries native swipe actions (Copy, Delete) and the date
+    /// sections get native headers.
     private var expandedList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 6) {
-                if model.entries.isEmpty {
-                    emptyLabel.padding(.vertical, 12)
-                } else if model.isGrouped {
-                    ForEach(model.sections) { group in
-                        sectionHeader(group.section)
-                        ForEach(group.entries) { entry in clipRow(entry) }
+        List {
+            if model.entries.isEmpty {
+                emptyLabel
+                    .padding(.vertical, 12)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else if model.isGrouped {
+                ForEach(model.sections) { group in
+                    Section {
+                        ForEach(group.entries) { entry in swipeRow(entry) }
+                    } header: {
+                        Text(sectionTitle(group.section))
                     }
-                } else {
-                    ForEach(model.entries) { entry in clipRow(entry) }
+                }
+            } else {
+                ForEach(model.entries) { entry in swipeRow(entry) }
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .environment(\.defaultMinListRowHeight, 0)
+    }
+
+    /// One history row with its swipe actions: Copy (→ pasteboard, so it can be
+    /// pasted in another app) leading, Delete trailing.
+    private func swipeRow(_ entry: WidgetClipEntry) -> some View {
+        clipRow(entry)
+            .listRowInsets(EdgeInsets(top: 3, leading: 2, bottom: 3, trailing: 2))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .swipeActions(edge: .leading) {
+                Button {
+                    model.copy(entry)
+                } label: {
+                    Label("Copy", systemImage: "doc.on.doc")
+                }
+                .tint(.blue)
+            }
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    model.delete(entry)
+                } label: {
+                    Label("Delete", systemImage: "trash")
                 }
             }
-            .padding(.horizontal, 2)
-        }
     }
 
     private func clipRow(_ entry: WidgetClipEntry) -> some View {
@@ -225,17 +257,6 @@ struct KeyboardView: View {
         }
         .buttonStyle(PressableScale())
         .task(id: entry.id) { await model.ensureThumbnail(entry) }
-    }
-
-    private func sectionHeader(_ section: ClipSection) -> some View {
-        Text(sectionTitle(section))
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .textCase(.uppercase)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 6)
-            .padding(.top, 6)
-            .padding(.bottom, 1)
     }
 
     private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
