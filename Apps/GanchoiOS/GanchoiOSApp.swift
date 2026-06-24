@@ -50,7 +50,16 @@ struct GanchoiOSApp: App {
 @Observable
 @MainActor
 final class IOSAppModel {
+    /// Raw loaded clips (recent page(s), a board, or search results). The kind
+    /// filter is applied on top via `visibleClips` so it never disturbs the
+    /// pagination offset.
     var captures: [ClipItem] = []
+    /// Date-grouped sections (Pinned + Today/Yesterday/…) for the recent view,
+    /// built from `visibleClips` via the shared `ClipSections` grouper.
+    var sections: [ClipSectionGroup] = []
+    private var reachedEnd = false
+    private var isLoadingMore = false
+    private static let pageSize = 100
     var hints = IntentionalPasteboardSource.ContentHints()
     /// Transient feedback ("Saved" / "Already in your history").
     var saveNote: String?
@@ -313,24 +322,66 @@ final class IOSAppModel {
         }
     }
 
+    /// The recent list (no query, no board) is the only date-grouped, paginated
+    /// view; a board loads whole, search returns ranked results.
+    var isGroupedView: Bool { query.isEmpty && selectedBoardID == nil }
+
+    /// `captures` narrowed by the kind filter — what the list actually shows.
+    var visibleClips: [ClipItem] {
+        guard let kindFilter else { return captures }
+        return captures.filter { $0.kind == kindFilter }
+    }
+
     func search() async {
         let grdb = store as? GRDBClipboardStore
-        guard let grdb, !query.isEmpty else {
+        if query.isEmpty {
             if let board = selectedBoardID, let grdb {
                 captures = (try? await grdb.items(inBoard: board)) ?? []
+                reachedEnd = true
             } else {
-                captures = (try? await store.items(offset: 0, limit: 50)) ?? []
+                captures = await loadRecentPage(offset: 0)
+                reachedEnd = captures.count < Self.pageSize
             }
-            if let kindFilter {
-                captures = captures.filter { $0.kind == kindFilter }
-            }
-            return
+        } else {
+            let kinds: Set<ClipContentKind>? = kindFilter.map { [$0] }
+            captures =
+                (try? await grdb?.search(
+                    ClipSearchQuery(text: query, kinds: kinds, boardID: selectedBoardID),
+                    limit: 50)) ?? []
+            reachedEnd = true
         }
-        let kinds: Set<ClipContentKind>? = kindFilter.map { [$0] }
-        captures =
-            (try? await grdb.search(
-                ClipSearchQuery(text: query, kinds: kinds, boardID: selectedBoardID), limit: 50))
-            ?? []
+        rebuildSections()
+    }
+
+    /// Pinned-first then capture-time order, so the date buckets stay contiguous.
+    private func loadRecentPage(offset: Int) async -> [ClipItem] {
+        if let grdb = store as? GRDBClipboardStore {
+            return (try? await grdb.recentForBrowse(offset: offset, limit: Self.pageSize)) ?? []
+        }
+        return (try? await store.items(offset: offset, limit: Self.pageSize)) ?? []
+    }
+
+    /// Append the next page as the list nears its end (infinite scroll). No-ops
+    /// unless the grouped recent view has more to load.
+    func loadMoreIfNeeded(_ item: ClipItem) async {
+        guard isGroupedView, !isLoadingMore, !reachedEnd,
+            let index = captures.firstIndex(where: { $0.id == item.id }),
+            index >= captures.count - 20
+        else { return }
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+        let offset = captures.count
+        let next = await loadRecentPage(offset: offset)
+        guard isGroupedView, captures.count == offset else { return }
+        captures.append(contentsOf: next)
+        if next.count < Self.pageSize { reachedEnd = true }
+        rebuildSections()
+    }
+
+    /// Rebuild the cached date sections — after a load, or when the kind filter
+    /// changes (so the Calendar math never lands on the scroll path).
+    func rebuildSections() {
+        sections = isGroupedView ? ClipSections.grouped(visibleClips, now: Date()) : []
     }
 
     /// 1-tap copy with haptic confirmation.
@@ -459,7 +510,7 @@ final class IOSAppModel {
     /// Metadata-only refresh — safe on every activation, never alerts.
     func refreshHints() async {
         hints = await source.hints()
-        captures = (try? await store.items(offset: 0, limit: 50)) ?? []
+        await search()
     }
 
     /// The user-initiated read (system paste transparency applies).
@@ -529,9 +580,8 @@ final class IOSAppModel {
         let isNew = stored?.id == item.id
         flashNote(
             isNew ? String(localized: "Saved") : String(localized: "Already in your history"))
-        // Bounded like every other load — fetching the whole backlog here is what
-        // made a large history lag after a capture.
-        captures = (try? await store.items(offset: 0, limit: 50)) ?? []
+        // Bounded like every other load — search() pulls the first page only.
+        await search()
         reloadWidgets()
         // Enrich only a genuinely new clip — a re-copy already carries its
         // title/OCR/embedding from the first capture.
@@ -637,47 +687,27 @@ struct CaptureView: View {
                         }
                     }
 
-                    Section("History") {
-                        if model.captures.isEmpty {
-                            emptyState
-                        } else {
-                            ForEach(model.captures) { item in
-                                NavigationLink(value: item.id) {
-                                    ClipCard(
-                                        item: item,
-                                        thumbnail: model.thumbnails.cached(for: item.id))
-                                }
-                                .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) {
-                                        Task { await model.delete(item) }
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                    Button {
-                                        Task { await model.togglePin(item) }
-                                    } label: {
-                                        Label(
-                                            item.isPinned ? "Unpin" : "Pin",
-                                            systemImage: item.isPinned ? "pin.slash" : "pin")
-                                    }
-                                    .tint(.orange)
-                                }
-                                .swipeActions(edge: .leading) {
-                                    Button {
-                                        Task { await model.copyToPasteboard(item) }
-                                    } label: {
-                                        Label("Copy", systemImage: "doc.on.doc")
-                                    }
-                                    .tint(.blue)
-                                }
+                    if model.visibleClips.isEmpty {
+                        Section("History") { emptyState }
+                    } else if model.isGroupedView {
+                        // Pinned first, then Today / Yesterday / … date sections.
+                        ForEach(model.sections) { group in
+                            Section(sectionTitle(group.section)) {
+                                ForEach(group.clips) { clipRow($0) }
                             }
+                        }
+                    } else {
+                        Section("History") {
+                            ForEach(model.visibleClips) { clipRow($0) }
                         }
                     }
                 }
                 .searchable(text: $model.query, prompt: Text("Search your clipboard"))
                 .onChange(of: model.query) { _, _ in
                     answer = nil
+                    Task { await model.search() }
+                }
+                .onChange(of: model.kindFilter) { _, _ in
                     Task { await model.search() }
                 }
                 .navigationTitle("Gancho")
@@ -804,6 +834,60 @@ struct CaptureView: View {
     /// Boards axis (above the type filter), as a horizontal rail of chips: All
     /// clips · Favorites · user boards · New board. The active chip takes the
     /// system accent; long-press a user board to rename or delete it.
+    /// One history row: tap pushes the detail (the peek lands in a later phase),
+    /// swipe gives Copy / Pin / Delete, and reaching the last rows pulls the next
+    /// page (infinite scroll).
+    @ViewBuilder
+    private func clipRow(_ item: ClipItem) -> some View {
+        NavigationLink(value: item.id) {
+            ClipCard(item: item, thumbnail: model.thumbnails.cached(for: item.id))
+        }
+        .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+        .onAppear { Task { await model.loadMoreIfNeeded(item) } }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                Task { await model.delete(item) }
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+            Button {
+                Task { await model.togglePin(item) }
+            } label: {
+                Label(
+                    item.isPinned ? "Unpin" : "Pin",
+                    systemImage: item.isPinned ? "pin.slash" : "pin")
+            }
+            .tint(.orange)
+        }
+        .swipeActions(edge: .leading) {
+            Button {
+                Task { await model.copyToPasteboard(item) }
+            } label: {
+                Label("Copy", systemImage: "doc.on.doc")
+            }
+            .tint(.blue)
+        }
+    }
+
+    private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
+        switch section {
+        case .pinned: "Pinned"
+        case .date(let bucket): bucketTitle(bucket)
+        }
+    }
+
+    private func bucketTitle(_ bucket: DateBucket) -> LocalizedStringKey {
+        switch bucket {
+        case .today: "Today"
+        case .yesterday: "Yesterday"
+        case .thisMonth: "This month"
+        case .lastMonth: "Last month"
+        case .thisYear: "This year"
+        case .lastYear: "Last year"
+        case .older: "Older"
+        }
+    }
+
     private var boardRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: GanchoTokens.Spacing.xs) {
