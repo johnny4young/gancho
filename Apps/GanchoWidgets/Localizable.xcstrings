@@ -100,6 +100,16 @@
           }
         }
       }
+    },
+    "Ready to paste": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo para pegar"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
