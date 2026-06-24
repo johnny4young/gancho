@@ -306,6 +306,8 @@ private struct RetentionSettingsTab: View {
         Text("7 days").tag(RetentionPolicy.Window.week)
         Text("30 days").tag(RetentionPolicy.Window.month)
         Text("90 days").tag(RetentionPolicy.Window.quarter)
+        Text("6 months").tag(RetentionPolicy.Window.halfYear)
+        Text("1 year").tag(RetentionPolicy.Window.year)
         Text("Forever").tag(RetentionPolicy.Window.never)
     }
 
@@ -315,6 +317,8 @@ private struct RetentionSettingsTab: View {
         Text("7 days").tag(RetentionPolicy.Window?.some(.week))
         Text("30 days").tag(RetentionPolicy.Window?.some(.month))
         Text("90 days").tag(RetentionPolicy.Window?.some(.quarter))
+        Text("6 months").tag(RetentionPolicy.Window?.some(.halfYear))
+        Text("1 year").tag(RetentionPolicy.Window?.some(.year))
     }
 
     private func perKindBinding(_ kind: ClipContentKind) -> Binding<RetentionPolicy.Window?> {
