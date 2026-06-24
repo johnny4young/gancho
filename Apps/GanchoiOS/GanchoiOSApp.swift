@@ -873,6 +873,52 @@ struct CaptureView: View {
             }
             .tint(.blue)
         }
+        .contextMenu {
+            Button {
+                Task { await model.copyToPasteboard(item) }
+            } label: {
+                Label("Copy", systemImage: "doc.on.clipboard")
+            }
+            if !item.isSensitive {
+                ShareLink(item: item.preview) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+            }
+            Button {
+                Task { await model.togglePin(item) }
+            } label: {
+                Label(
+                    item.isPinned ? "Unpin" : "Pin",
+                    systemImage: item.isPinned ? "pin.slash" : "pin")
+            }
+            Divider()
+            Button(role: .destructive) {
+                Task { await model.delete(item) }
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        } preview: {
+            clipPreview(item)
+        }
+    }
+
+    /// The rich preview iOS lifts under a long-press: the image renders for
+    /// image clips, otherwise the (masked-if-sensitive) text preview.
+    @ViewBuilder
+    private func clipPreview(_ item: ClipItem) -> some View {
+        if item.kind == .image, !item.isSensitive,
+            let thumbnail = model.thumbnails.cached(for: item.id)
+        {
+            thumbnail
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 300, maxHeight: 220)
+        } else {
+            Text(item.preview)
+                .font(item.kind == .code ? .body.monospaced() : .body)
+                .padding()
+                .frame(maxWidth: 300, alignment: .leading)
+        }
     }
 
     private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
