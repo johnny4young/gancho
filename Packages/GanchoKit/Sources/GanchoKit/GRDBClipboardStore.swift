@@ -33,6 +33,14 @@ public final class GRDBClipboardStore: ClipboardStore {
         let dbPath = directory.appendingPathComponent("gancho.sqlite").path
 
         var configuration = Configuration()
+        #if os(iOS)
+            // iOS terminates an app with 0xDEAD10CC if it holds a SQLite lock
+            // while suspended and the database lives in a shared App Group
+            // container. GRDB releases locks across suspension when this flag is
+            // set AND the app posts `DatabaseSuspension` notifications on the
+            // background/foreground boundary. No-op on macOS (nothing suspends).
+            configuration.observesSuspensionNotifications = true
+        #endif
         #if SQLITE_HAS_CODEC
             if let passphrase {
                 try Self.encryptPlaintextStoreIfNeeded(at: dbPath, passphrase: passphrase)

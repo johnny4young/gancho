@@ -16,6 +16,7 @@ import WidgetKit
 @main
 struct GanchoiOSApp: App {
     @State private var model = IOSAppModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -33,6 +34,15 @@ struct GanchoiOSApp: App {
             // Brand-green accent (iOS has no per-app OS accent picker, so green
             // is the default); the Synced check and success states use it too.
             .ganchoTinted()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Release the encrypted store's SQLite locks before iOS suspends the
+            // process (avoids 0xDEAD10CC), and resume on return to foreground.
+            switch phase {
+            case .background: DatabaseSuspension.suspend()
+            case .active: DatabaseSuspension.resume()
+            default: break
+            }
         }
     }
 }
