@@ -23,6 +23,29 @@ private let tinyPNG = Data(
 @Suite("GRDBClipboardStore — schema, content, export")
 struct GRDBClipboardStoreTests {
 
+    @Test("recentForBrowse floats pinned to the top, then orders by capture time")
+    func recentForBrowseOrder() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let now = Date()
+        // Oldest capture but pinned → must lead. The rest follow by capture time
+        // (newest first), regardless of recent use (`lastUsedAt` is ignored here).
+        let pinnedOld = ClipItem(
+            createdAt: now.addingTimeInterval(-3 * 86_400),
+            preview: "pinned-old", contentHash: ClipItem.hash(of: "a", kind: .text), isPinned: true)
+        let usedMiddle = ClipItem(
+            createdAt: now.addingTimeInterval(-86_400), lastUsedAt: now,
+            preview: "middle", contentHash: ClipItem.hash(of: "b", kind: .text))
+        let newest = ClipItem(
+            createdAt: now, preview: "newest", contentHash: ClipItem.hash(of: "c", kind: .text))
+        for item in [pinnedOld, usedMiddle, newest] {
+            try await store.insert(item, content: .text(item.preview))
+        }
+        #expect(
+            try await store.recentForBrowse(offset: 0, limit: 10).map(\.id)
+                == [pinnedOld.id, newest.id, usedMiddle.id])
+    }
+
     @Test("Text clips round-trip metadata and content")
     func textRoundTrip() async throws {
         let (store, dir) = try makeStore()

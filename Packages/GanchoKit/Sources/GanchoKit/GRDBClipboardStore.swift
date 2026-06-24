@@ -501,6 +501,22 @@ public final class GRDBClipboardStore: ClipboardStore {
         }
     }
 
+    /// Recent items for the grouped history browse: pinned first (pins always
+    /// sit at the top, even under "All clips"), then by capture time
+    /// (`createdAt`) descending so the date buckets of the rest stay contiguous
+    /// and the keyboard cursor matches the visual order. Non-archived; paginates
+    /// like `items(offset:limit:)`.
+    public func recentForBrowse(offset: Int, limit: Int) async throws -> [ClipItem] {
+        try await writer.read { db in
+            try ClipRow
+                .filter(Column("isArchived") == false)
+                .order(Column("isPinned").desc, Column("createdAt").desc)
+                .limit(limit, offset: offset)
+                .fetchAll(db)
+                .map(\.item)
+        }
+    }
+
     /// Visible (non-archived) items — matches what lists show.
     public func count() async throws -> Int {
         try await writer.read { db in
