@@ -1741,6 +1741,76 @@
           }
         }
       }
+    },
+    "A link is on your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay un enlace en tu portapapeles"
+          }
+        }
+      }
+    },
+    "Search text is on your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay texto de búsqueda en tu portapapeles"
+          }
+        }
+      }
+    },
+    "A number is on your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay un número en tu portapapeles"
+          }
+        }
+      }
+    },
+    "Something is on your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay algo en tu portapapeles"
+          }
+        }
+      }
+    },
+    "not read yet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sin leer todavía"
+          }
+        }
+      }
+    },
+    "Gancho never reads your clipboard on its own. It only sees the type until you tap Save.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho nunca lee tu portapapeles por su cuenta. Solo ve el tipo hasta que tocas Guardar."
+          }
+        }
+      }
+    },
+    "sensed, not read": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "detectado, sin leer"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

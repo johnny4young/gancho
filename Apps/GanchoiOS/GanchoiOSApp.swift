@@ -752,18 +752,7 @@ struct CaptureView: View {
                 boardRail
                 List {
                     syncStatusSection
-                    Section("Pasteboard") {
-                        hintsRow
-                        Button("Save clipboard", systemImage: "square.and.arrow.down") {
-                            Task { await model.saveClipboard() }
-                        }
-                        .accessibilityIdentifier("capture-button")
-                        PasteControlView { providers in
-                            model.ingest(providers: providers)
-                        }
-                        .frame(height: 36)
-                        .accessibilityIdentifier("paste-control")
-                    }
+                    pasteboardSection
 
                     if !model.query.isEmpty, model.askAvailable {
                         Section {
@@ -1163,32 +1152,110 @@ struct CaptureView: View {
         await model.search()
     }
 
-    @ViewBuilder
-    private var hintsRow: some View {
-        if let note = model.saveNote {
-            Label(note, systemImage: "checkmark.circle")
-                .foregroundStyle(GanchoTokens.Palette.success)
-                .accessibilityIdentifier("save-note")
-        }
-        if model.hints.hasContent {
-            // The capture banner: detection happened WITHOUT reading; the
-            // button is the explicit consent that triggers the read.
-            HStack {
-                Label(hintText, systemImage: "doc.on.clipboard")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button("Save it") {
-                    Task { await model.saveClipboard() }
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+    /// The consensual capture card (the design's Pasteboard section). gancho
+    /// senses the clipboard's TYPE via `detectPatterns` — no read, no "pasted
+    /// from" banner — and the green `UIPasteControl` is the user's one-tap "yes,
+    /// save this". Privacy is the function, not an apology.
+    @ViewBuilder private var pasteboardSection: some View {
+        Section {
+            if let note = model.saveNote {
+                Label(note, systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(GanchoTokens.Palette.success)
+                    .accessibilityIdentifier("save-note")
             }
-            .accessibilityIdentifier("pasteboard-hints")
-        } else {
-            Label("Pasteboard is empty", systemImage: "doc.on.clipboard")
-                .foregroundStyle(.tertiary)
-                .accessibilityIdentifier("pasteboard-hints")
+            VStack(spacing: 0) {
+                HStack(spacing: 11) {
+                    captureTile
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(senseTitle)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if model.hints.hasContent {
+                            HStack(spacing: 6) {
+                                captureTag(Text("not read yet"), tint: GanchoTokens.Palette.warning)
+                                apiTag("detectPatterns")
+                            }
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    PasteControlView { providers in model.ingest(providers: providers) }
+                        .frame(width: 108, height: 34)
+                        .accessibilityIdentifier("paste-control")
+                }
+                .padding(.vertical, 10)
+                Divider()
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .font(.caption)
+                        .foregroundStyle(GanchoTokens.Palette.accent)
+                    Text(
+                        "Gancho never reads your clipboard on its own. It only sees the type until you tap Save."
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.vertical, 9)
+            }
+            .accessibilityIdentifier("pasteboard-capture")
+        } header: {
+            HStack {
+                Text("Pasteboard")
+                Spacer()
+                Label("sensed, not read", systemImage: "shield.lefthalf.filled")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .textCase(nil)
+            }
         }
+    }
+
+    private var captureTile: some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(GanchoTokens.Palette.accent.opacity(0.15))
+            .frame(width: 38, height: 38)
+            .overlay {
+                Image(systemName: senseSymbol)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(GanchoTokens.Palette.accent)
+            }
+    }
+
+    /// Amber "not read yet" pill.
+    private func captureTag(_ text: Text, tint: Color) -> some View {
+        text
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(tint.opacity(0.16), in: Capsule())
+    }
+
+    /// Mono, outlined API-name pill (e.g. `detectPatterns`).
+    private func apiTag(_ name: String) -> some View {
+        Text(verbatim: name)
+            .font(.caption2.monospaced())
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .overlay(Capsule().strokeBorder(.quaternary, lineWidth: 1))
+    }
+
+    /// What `detectPatterns` sensed, as a title — derived without reading.
+    private var senseTitle: LocalizedStringKey {
+        guard model.hints.hasContent else { return "Pasteboard is empty" }
+        if model.hints.probableWebURL { return "A link is on your clipboard" }
+        if model.hints.probableWebSearch { return "Search text is on your clipboard" }
+        if model.hints.number { return "A number is on your clipboard" }
+        return "Something is on your clipboard"
+    }
+
+    private var senseSymbol: String {
+        if model.hints.probableWebURL { return "link" }
+        if model.hints.probableWebSearch { return "magnifyingglass" }
+        if model.hints.number { return "number" }
+        return "doc.on.clipboard"
     }
 
     /// iCloud sync indicator. The steady states (off, synced) show nothing —
@@ -1236,14 +1303,6 @@ struct CaptureView: View {
         }
     }
 
-    private var hintText: String {
-        var parts: [String] = []
-        if model.hints.probableWebURL { parts.append(String(localized: "link")) }
-        if model.hints.probableWebSearch { parts.append(String(localized: "search text")) }
-        if model.hints.number { parts.append(String(localized: "number")) }
-        let detail = parts.isEmpty ? String(localized: "content") : parts.joined(separator: ", ")
-        return String(localized: "Has \(detail) — not read yet")
-    }
 }
 
 /// A board's identity color as a small filled dot — the quiet per-board accent
@@ -2008,7 +2067,14 @@ struct PasteControlView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> UIPasteControl {
-        let control = UIPasteControl()
+        // Styled as the design's green "Save" — a system paste button that
+        // grants one-time access on tap, no "pasted from" banner.
+        let config = UIPasteControl.Configuration()
+        config.cornerStyle = .capsule
+        config.displayMode = .iconAndLabel
+        config.baseBackgroundColor = UIColor(GanchoTokens.Palette.accent)
+        config.baseForegroundColor = .white
+        let control = UIPasteControl(configuration: config)
         control.target = context.coordinator.target
         return control
     }
