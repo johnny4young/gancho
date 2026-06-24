@@ -5,6 +5,10 @@ XCODEGEN ?= xcodegen
 SCHEME_MAC ?= Gancho
 SCHEME_IOS ?= GanchoiOS
 PACKAGE ?= Packages/GanchoKit
+# Target a specific device for `install-ios` with `make install-ios IOS_DEVICE=<uuid>`.
+# Left empty, install-ios auto-detects the connected iPhone/iPad (in the recipe,
+# where DEVELOPER_DIR is exported — macOS's make 3.81 doesn't pass it to $(shell)).
+IOS_DEVICE ?=
 # macOS 26+ requires the XCUITest runner to be signed. Keep automatic signing
 # explicit by default, and let CI override this when it provides custom signing
 # settings (for example: make test-ui TEST_UI_SIGNING_FLAGS="DEVELOPMENT_TEAM=...").
@@ -19,7 +23,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project build build-ios test test-ui bench format lint hooks clean open
+.PHONY: help project build build-ios install-ios test test-ui bench format lint hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -38,6 +42,21 @@ build-signed: project ## Build the macOS app (Debug, team-signed) — stable ide
 build-ios: project ## Build the iOS app (Debug, generic device, unsigned)
 	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_IOS) -configuration Debug \
 		-destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+
+install-ios: project ## Build the iOS app (Debug, team-signed) and install it on the connected iPhone/iPad
+	@dev="$(IOS_DEVICE)"; \
+	if [ -z "$$dev" ]; then \
+		dev="$$(xcrun devicectl list devices 2>/dev/null | grep -iE 'iphone|ipad' | grep -i connected | grep -oE '[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}' | head -1)"; \
+	fi; \
+	if [ -z "$$dev" ]; then \
+		echo "No connected iPhone/iPad found — plug one in and trust this Mac (see: xcrun devicectl list devices)"; exit 1; \
+	fi; \
+	echo "Installing on device $$dev…"; \
+	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_IOS) -configuration Debug \
+		-destination 'generic/platform=iOS' -derivedDataPath build/ios \
+		CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=JGWX5ZT2N2 -allowProvisioningUpdates build && \
+	xcrun devicectl device install app --device "$$dev" \
+		build/ios/Build/Products/Debug-iphoneos/GanchoiOS.app
 
 test: ## Run package unit tests (Swift Testing)
 	swift test --package-path $(PACKAGE)
