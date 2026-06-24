@@ -183,36 +183,76 @@ struct KeyboardView: View {
         }
     }
 
+    /// The plain recent view groups into Pinned + date sections (mirroring the
+    /// app); a board filter or a search renders the flat result list.
     private var expandedList: some View {
         ScrollView {
-            LazyVStack(spacing: 6) {
+            LazyVStack(alignment: .leading, spacing: 6) {
                 if model.entries.isEmpty {
                     emptyLabel.padding(.vertical, 12)
-                }
-                ForEach(model.entries) { entry in
-                    Button {
-                        model.insert(entry)
-                    } label: {
-                        HStack(spacing: 10) {
-                            keyboardTile(for: entry.kind)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(entry.displayText)
-                                    .lineLimit(2)
-                                    .font(.callout)
-                                    .foregroundStyle(.primary)
-                                metadataLine(for: entry)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(.fill.quaternary, in: .rect(cornerRadius: 12))
-                        .contentShape(.rect)
+                } else if model.isGrouped {
+                    ForEach(model.sections) { group in
+                        sectionHeader(group.section)
+                        ForEach(group.entries) { entry in clipRow(entry) }
                     }
-                    .buttonStyle(PressableScale())
+                } else {
+                    ForEach(model.entries) { entry in clipRow(entry) }
                 }
             }
             .padding(.horizontal, 2)
+        }
+    }
+
+    private func clipRow(_ entry: WidgetClipEntry) -> some View {
+        Button {
+            model.insert(entry)
+        } label: {
+            HStack(spacing: 10) {
+                keyboardTile(for: entry.kind)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.displayText)
+                        .lineLimit(2)
+                        .font(.callout)
+                        .foregroundStyle(.primary)
+                    metadataLine(for: entry)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(.fill.quaternary, in: .rect(cornerRadius: 12))
+            .contentShape(.rect)
+        }
+        .buttonStyle(PressableScale())
+    }
+
+    private func sectionHeader(_ section: ClipSection) -> some View {
+        Text(sectionTitle(section))
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 6)
+            .padding(.top, 6)
+            .padding(.bottom, 1)
+    }
+
+    private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
+        switch section {
+        case .pinned: "Pinned"
+        case .date(let bucket): bucketTitle(bucket)
+        }
+    }
+
+    private func bucketTitle(_ bucket: DateBucket) -> LocalizedStringKey {
+        switch bucket {
+        case .today: "Today"
+        case .yesterday: "Yesterday"
+        case .thisMonth: "This month"
+        case .lastMonth: "Last month"
+        case .thisYear: "This year"
+        case .lastYear: "Last year"
+        case .older: "Older"
         }
     }
 

@@ -10,6 +10,10 @@ import UIKit
 @MainActor
 final class KeyboardModel: ObservableObject {
     @Published var entries: [WidgetClipEntry] = []
+    /// The grouped history (Pinned + date buckets), mirroring the app. Populated
+    /// only on the plain recent view; a board filter or a search returns the flat
+    /// `entries` instead.
+    @Published var sections: [KeyboardClipSection] = []
     @Published var searchText = ""
     /// Open expanded by default: the searchable card list (with the board strip)
     /// is the useful view; the user can collapse to the one-row strip.
@@ -45,20 +49,37 @@ final class KeyboardModel: ObservableObject {
         store = hasFullAccess ? try? IntentStore.open() : nil
     }
 
+    /// True on the plain recent view (no board, no query) — the only one that
+    /// groups by Pinned + date, exactly like the app's history.
+    var isGrouped: Bool {
+        selectedBoardID == nil && searchText.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     /// Pin-first history (sensitive excluded by `KeyboardClips`), narrowed to the
     /// selected board when one is active. Refreshes the board list each load so
-    /// boards synced from other devices show up.
+    /// boards synced from other devices show up. The plain recent view groups
+    /// into Pinned + date sections; a board view stays flat.
     func load() async {
         guard let store else { return }
         boards = (try? await store.pinboards()) ?? []
-        let all: [ClipItem]
         if let selectedBoardID {
-            all = (try? await store.items(inBoard: selectedBoardID)) ?? []
+            let all = (try? await store.items(inBoard: selectedBoardID)) ?? []
+            entries = KeyboardClips.ordered(
+                pinned: all.filter(\.isPinned), recent: all.filter { !$0.isPinned })
+            sections = []
         } else {
-            all = (try? await store.items(offset: 0, limit: 50)) ?? []
+            // recentForBrowse is pinned-first then capture-time desc — the order
+            // ClipSections needs for contiguous, non-fragmented date buckets
+            // (plain items() orders by activity and would split a day in two).
+            let recent = ((try? await store.recentForBrowse(offset: 0, limit: 60)) ?? [])
+                .filter { !$0.isSensitive }
+            sections = ClipSections.grouped(recent, now: .now).compactMap { group in
+                let entries = WidgetClips.entries(from: group.clips, limit: group.clips.count)
+                return entries.isEmpty
+                    ? nil : KeyboardClipSection(section: group.section, entries: entries)
+            }
+            entries = sections.flatMap(\.entries)
         }
-        entries = KeyboardClips.ordered(
-            pinned: all.filter(\.isPinned), recent: all.filter { !$0.isPinned })
     }
 
     func runSearch() async {
@@ -72,6 +93,7 @@ final class KeyboardModel: ObservableObject {
             (try? await store.search(
                 ClipSearchQuery(text: trimmed, boardID: selectedBoardID), limit: 30)) ?? []
         entries = WidgetClips.entries(from: hits.filter { !$0.isSensitive }, limit: 30)
+        sections = []
     }
 
     /// Switch the active board filter and reload through the current path
@@ -142,4 +164,13 @@ final class KeyboardModel: ObservableObject {
         case .storeUnavailable: "Couldn’t open Gancho"
         }
     }
+}
+
+/// One rendered history section in the keyboard: a `ClipSection` header (Pinned
+/// or a date bucket) over its entries. Id is the first entry's id — stable and
+/// unique per run, so a `ForEach` never collides even if a bucket recurs.
+struct KeyboardClipSection: Identifiable, Equatable {
+    let section: ClipSection
+    let entries: [WidgetClipEntry]
+    var id: UUID { entries.first?.id ?? UUID() }
 }
