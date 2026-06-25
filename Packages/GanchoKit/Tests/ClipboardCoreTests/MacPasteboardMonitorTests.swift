@@ -217,10 +217,13 @@
         @Test("A slow (Ask-stalled) read does not block the main actor")
         func slowReadKeepsMainResponsive() async {
             let pasteboard = FakePasteboard()
-            // A long read so a real "blocked" main actor (~3s) is unmistakably
-            // distinct from the actor merely being slow to resume the hop below
-            // under a contended CI runner — the threshold sits well between them.
-            pasteboard.readDelay = 3.0
+            // A long read so a real "blocked" main actor (the full read) is
+            // unmistakably distinct from the actor merely being slow to resume
+            // the hop below under a contended CI runner. Coverage-instrumented
+            // CI VMs were seen taking ~2s just to resume the hop, so the read
+            // sleeps well past that and the ceiling sits in the wide gap
+            // between scheduler jitter and a genuine block.
+            pasteboard.readDelay = 8.0
             let monitor = makeMonitor(pasteboard: pasteboard)
             var captures: [PasteboardCapture] = []
             monitor.onCapture = { captures.append($0) }
@@ -228,14 +231,15 @@
             pasteboard.write(.text("slow"), types: ["public.utf8-plain-text"])
             let before = ContinuousClock.now
             monitor.pollOnce()
-            // If the read ran on the main actor, this hop would wait ~3s. The
-            // generous ceiling absorbs scheduler jitter on loaded CI VMs while
-            // staying far below the 3s a genuine block would cost.
+            // If the read ran on the main actor, this hop would wait the full
+            // 8s read. The ceiling absorbs the ~2s of scheduler jitter seen on
+            // loaded CI coverage VMs while staying far below the 8s a genuine
+            // block would cost.
             await Task.yield()
             let elapsed = ContinuousClock.now - before
-            #expect(elapsed < .milliseconds(1500))
+            #expect(elapsed < .seconds(4))
 
-            await waitForCaptures(monitor, into: { captures }, attempts: 500)
+            await waitForCaptures(monitor, into: { captures }, attempts: 1000)
             #expect(captures.count == 1)
         }
 
