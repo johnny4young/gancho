@@ -135,7 +135,7 @@ final class AppModel {
 
     init() {
         let directory = SharedStorageLocation.macAppStoreDirectory
-        let grdb = try? GRDBClipboardStore(directory: directory)
+        let grdb = try? GRDBClipboardStore.encrypted(directory: directory)
         self.grdbStore = grdb
         self.store = grdb ?? InMemoryClipboardStore()
         let resolvedStore = self.store
@@ -251,15 +251,18 @@ final class AppModel {
     // MARK: - Capture pipeline
 
     private func ingest(_ capture: PasteboardCapture) {
-        var (item, content) = Self.makeItem(
+        // Universal Clipboard delivers a copy made on another device. If that
+        // device runs gancho it captures and syncs the original — already
+        // enriched (title/OCR) — so re-capturing the remote copy here only
+        // duplicates what sync brings, minus the enrichment. And if the origin
+        // isn't gancho, the user never chose to save it. Either way, skip it;
+        // this also keeps cross-device capture consistent with iOS's consensual
+        // model (the origin device decides, the rest receive via sync).
+        guard !capture.isFromUniversalClipboard else { return }
+        let (item, content) = Self.makeItem(
             from: capture, classifier: classifier, detector: sensitiveDetector,
             sensitiveLifetime: retentionPolicy.sensitiveLifetime,
             detectSecrets: intelligence.detectSecrets)
-        // Universal Clipboard interop: badge persists as a tag so sync can
-        // recognize already-synced arrivals and the UI can show the badge.
-        if capture.isFromUniversalClipboard {
-            item.tags.append("universal-clipboard")
-        }
         // Bucketized analytics: kind + a length BUCKET, never the content.
         let length: Int
         switch content {
@@ -698,6 +701,30 @@ final class AppModel {
         } else {
             syncStatus = .idle
         }
+    }
+
+    /// Pull the latest from iCloud (and push anything pending). Called when the
+    /// panel opens, so a clip captured on another device shows up without an app
+    /// restart — the engine only fetches on `start()`, and a menu-bar agent gets
+    /// no push to fetch on. The refresh-on-settle in `applySyncStatus` updates
+    /// the panel once the fetch lands. A no-op when sync is off.
+    func syncNow() {
+        guard syncEnabled else { return }
+        let engine = sync
+        Task { try? await engine.start() }
+    }
+
+    /// Drop the persisted CKSyncEngine state and re-arm sync, so it re-fetches
+    /// every zone from scratch. Fixes a device whose change token drifted ahead
+    /// of what it actually stored — older records never re-arrive on an
+    /// incremental fetch. Local rows are kept; remote records re-upsert.
+    func resetSyncAndRepull() {
+        let stateURL = URL.applicationSupportDirectory
+            .appendingPathComponent("Gancho", isDirectory: true)
+            .appendingPathComponent("sync-state.plist")
+        try? FileManager.default.removeItem(at: stateURL)
+        syncEnabled = false
+        configureSync()
     }
 
     /// Applies a status from the engine: updates the indicator and logs a

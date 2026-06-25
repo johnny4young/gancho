@@ -146,11 +146,32 @@ make open    # generate Gancho.xcodeproj and open Xcode
 | `make project` | Regenerate `Gancho.xcodeproj` from `project.yml` |
 | `make build` | Build the macOS app (unsigned Debug) |
 | `make build-ios` | Build the iOS app (unsigned Debug, generic device) |
+| `make install-ios` | Build the iOS app team-signed and install it on the connected iPhone/iPad |
 | `make test` | Run package unit tests |
 | `make format` / `make lint` | Format / verify Swift sources |
 | `make hooks` | Install the versioned pre-commit lint hook |
 | `make clean` | Remove generated project and build artifacts |
 | `make open` | Generate and open the Xcode project |
+
+### Run on a real device
+
+The keyboard, widgets, and the "ready to paste" Live Activity only come alive on
+hardware. Plug in an iPhone/iPad, trust the Mac, then:
+
+```bash
+make install-ios                      # auto-detects the connected device
+make install-ios IOS_DEVICE=<uuid>    # or target one explicitly
+make install-ios DEVELOPMENT_TEAM=<team-id>
+```
+
+`make install-ios` team-signs the build (Xcode-managed provisioning, so the app
+and its extensions get profiles on first run) and installs it with `devicectl`.
+The Makefile defaults to the maintainer's development team, but forks and CI can
+override `DEVELOPMENT_TEAM` without editing the file. Open Gancho on the device
+from the Home Screen. List devices and their UUIDs with
+`xcrun devicectl list devices`. After installing, enable the keyboard in
+Settings → General → Keyboard → Keyboards → Gancho (turn on Full Access for clip
+history), and Live Activities under the Gancho app's settings.
 
 ## Layout
 

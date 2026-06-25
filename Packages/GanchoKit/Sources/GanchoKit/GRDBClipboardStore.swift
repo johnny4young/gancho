@@ -6,7 +6,8 @@ import GRDB
 /// Layout decisions (see docs/ARCHITECTURE.md):
 /// - Metadata + full TEXT content live in the `clip` table; binary payloads
 ///   live on disk via `BlobStore` (the row keeps a content-hash reference).
-///   List queries page metadata only — blobs never ride along.
+///   The encrypted production store also encrypts those blob files and cached
+///   thumbnails. List queries page metadata only — blobs never ride along.
 /// - Schema changes go through `DatabaseMigrator`, versioned from v1.
 ///   NEVER edit a registered migration; append a new one.
 /// - The store never imports CloudKit: sync goes through the `SyncEngine`
@@ -21,15 +22,116 @@ public final class GRDBClipboardStore: ClipboardStore {
     var blobsForMaintenance: BlobStore { blobs }
 
     /// Production store at a directory (database + blobs side by side).
-    public convenience init(directory: URL) throws {
+    ///
+    /// - Parameter passphrase: when non-nil and the build links SQLCipher, the
+    ///   whole database — including the FTS5 index — is encrypted at rest with
+    ///   this key (see ``KeychainPassphraseStore``). A pre-encryption plaintext
+    ///   database is transparently re-encrypted in place before the pool opens.
+    ///   When nil (or on a non-SQLCipher build) the store is plaintext — the
+    ///   path used by tests and the perf harness.
+    public convenience init(directory: URL, passphrase: String? = nil) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let pool = try DatabasePool(path: directory.appendingPathComponent("gancho.sqlite").path)
+        let dbPath = directory.appendingPathComponent("gancho.sqlite").path
+
+        var configuration = Configuration()
+        #if os(iOS)
+            // iOS terminates an app with 0xDEAD10CC if it holds a SQLite lock
+            // while suspended and the database lives in a shared App Group
+            // container. GRDB releases locks across suspension when this flag is
+            // set AND the app posts `DatabaseSuspension` notifications on the
+            // background/foreground boundary. No-op on macOS (nothing suspends).
+            configuration.observesSuspensionNotifications = true
+        #endif
+        let blobEncryptionKeyData: Data?
+        #if SQLITE_HAS_CODEC
+            if let passphrase {
+                try Self.encryptPlaintextStoreIfNeeded(at: dbPath, passphrase: passphrase)
+                configuration.prepareDatabase { db in
+                    try db.usePassphrase(passphrase)
+                }
+                blobEncryptionKeyData = BlobStore.encryptionKeyData(for: passphrase)
+            } else {
+                blobEncryptionKeyData = nil
+            }
+        #else
+            blobEncryptionKeyData = nil
+        #endif
+
+        let pool = try DatabasePool(path: dbPath, configuration: configuration)
+        let blobStore = BlobStore(
+            directory: directory.appendingPathComponent("blobs"),
+            encryptionKeyData: blobEncryptionKeyData)
+        try blobStore.encryptPlaintextFilesIfNeeded()
         self.init(
             writer: pool,
-            blobs: BlobStore(directory: directory.appendingPathComponent("blobs")))
+            blobs: blobStore)
         try migrator.migrate(pool)
         try Self.reformatLegacyImagePreviews(in: pool)
     }
+
+    /// Opens the production store encrypted with the Keychain-managed key.
+    ///
+    /// The path the apps and the CLI use: it loads (or, on first launch,
+    /// generates) the random 256-bit key from ``KeychainPassphraseStore`` and
+    /// hands it to ``init(directory:passphrase:)``, which encrypts the database
+    /// and migrates any pre-encryption plaintext store. Distinct from the
+    /// plaintext `init`s that tests and the perf harness use.
+    ///
+    /// - Parameter keychainAccessGroup: shared keychain group for iOS
+    ///   database-reading extensions; `nil` for the macOS app, the CLI, and the
+    ///   iOS main app (which use their default keychain).
+    public static func encrypted(
+        directory: URL,
+        keychainAccessGroup: String? = nil
+    ) throws -> GRDBClipboardStore {
+        let key = try KeychainPassphraseStore(accessGroup: keychainAccessGroup).loadOrCreateKey()
+        return try GRDBClipboardStore(directory: directory, passphrase: key)
+    }
+
+    #if SQLITE_HAS_CODEC
+        /// Re-encrypts a pre-encryption plaintext database in place.
+        ///
+        /// Older installs wrote `gancho.sqlite` unencrypted. On the first launch
+        /// of an encrypting build we detect that file by its plaintext SQLite
+        /// magic header, export it into a sibling encrypted database with
+        /// `sqlcipher_export` (copying every table, index, and FTS row), and swap
+        /// it in. No clip is lost. A no-op on a fresh install (no file) or an
+        /// already-encrypted store (random header bytes).
+        static func encryptPlaintextStoreIfNeeded(at path: String, passphrase: String) throws {
+            let fileManager = FileManager.default
+            guard fileManager.fileExists(atPath: path) else { return }  // fresh install
+
+            // A plaintext database starts with the 16-byte SQLite magic header;
+            // an encrypted one has random bytes there (we keep no plaintext header).
+            guard let handle = FileHandle(forReadingAtPath: path) else { return }
+            let header = try handle.read(upToCount: 16)
+            try handle.close()
+            guard header == Data("SQLite format 3\u{0}".utf8) else { return }  // already encrypted
+
+            let encryptedPath = path + ".encrypting"
+            try? fileManager.removeItem(atPath: encryptedPath)
+            // Scope the plaintext connection so it closes before the file swap.
+            do {
+                let plaintext = try DatabaseQueue(path: path)
+                try plaintext.inDatabase { db in
+                    // Hex key has no quotes; escape defensively all the same.
+                    let quotedPath = encryptedPath.replacingOccurrences(of: "'", with: "''")
+                    let quotedKey = passphrase.replacingOccurrences(of: "'", with: "''")
+                    try db.execute(
+                        sql: "ATTACH DATABASE '\(quotedPath)' AS encrypted KEY '\(quotedKey)'")
+                    try db.execute(sql: "SELECT sqlcipher_export('encrypted')")
+                    try db.execute(sql: "DETACH DATABASE encrypted")
+                }
+            }
+
+            // Swap the encrypted file in, dropping the plaintext file and any
+            // stale WAL/SHM siblings that belong to the old database.
+            try fileManager.removeItem(atPath: path)
+            try? fileManager.removeItem(atPath: path + "-wal")
+            try? fileManager.removeItem(atPath: path + "-shm")
+            try fileManager.moveItem(atPath: encryptedPath, toPath: path)
+        }
+    #endif
 
     /// Injectable writer for tests (`DatabaseQueue()` in-memory).
     public init(writer: any DatabaseWriter, blobs: BlobStore) {
@@ -410,6 +512,22 @@ public final class GRDBClipboardStore: ClipboardStore {
         }
     }
 
+    /// Recent items for the grouped history browse: pinned first (pins always
+    /// sit at the top, even under "All clips"), then by capture time
+    /// (`createdAt`) descending so the date buckets of the rest stay contiguous
+    /// and the keyboard cursor matches the visual order. Non-archived; paginates
+    /// like `items(offset:limit:)`.
+    public func recentForBrowse(offset: Int, limit: Int) async throws -> [ClipItem] {
+        try await writer.read { db in
+            try ClipRow
+                .filter(Column("isArchived") == false)
+                .order(Column("isPinned").desc, Column("createdAt").desc)
+                .limit(limit, offset: offset)
+                .fetchAll(db)
+                .map(\.item)
+        }
+    }
+
     /// Visible (non-archived) items — matches what lists show.
     public func count() async throws -> Int {
         try await writer.read { db in
@@ -468,7 +586,22 @@ public final class GRDBClipboardStore: ClipboardStore {
         return nil
     }
 
-    /// Lazy list-row thumbnail for binary clips; nil for text clips.
+    /// Lazy list-row thumbnail BYTES for binary clips; nil for text clips. The
+    /// way app/extension readers should load thumbnails — it works for both
+    /// plaintext and encrypted stores (decoding the small cached thumbnail,
+    /// never the full blob once warmed).
+    public func thumbnailData(for id: UUID) async throws -> Data? {
+        let blobHash = try await writer.read { db in
+            try ClipRow.filter(key: id.uuidString).fetchOne(db)?.contentBlobHash
+        }
+        guard let blobHash else { return nil }
+        return try blobs.thumbnailData(for: blobHash)
+    }
+
+    /// Lazy list-row thumbnail FILE URL — for plaintext stores only; nil for
+    /// text clips or encrypted stores, whose cache must stay sealed on disk.
+    /// Prefer `thumbnailData(for:)` for rendering; this is the file-based path
+    /// (and the seal-safety contract: a non-nil URL means the file is plaintext).
     public func thumbnailURL(for id: UUID) async throws -> URL? {
         let blobHash = try await writer.read { db in
             try ClipRow.filter(key: id.uuidString).fetchOne(db)?.contentBlobHash

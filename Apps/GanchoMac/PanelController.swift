@@ -75,6 +75,11 @@ final class PanelController: NSObject, NSWindowDelegate {
             panel.orderFrontRegardless()
         }
         Task { await model.refreshRecents() }
+        // Opening the panel is "I want to see my clips" — pull the latest from
+        // iCloud (and push pending) so another device's recent clips appear.
+        // Non-blocking: the local list shows instantly; synced clips land on
+        // settle. (The engine has no push to fetch on by itself.)
+        model.syncNow()
         // Latency telemetry for the <100ms budget (debug builds only).
         #if DEBUG
             print("panel: open took \(ContinuousClock.now - clock)")
@@ -108,7 +113,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             : [.titled, .nonactivatingPanel, .fullSizeContentView]
         let created = KeyPanel(
             // Wide enough for the list + the peek column beside it.
-            contentRect: NSRect(x: 0, y: 0, width: 724, height: 480),
+            contentRect: NSRect(x: 0, y: 0, width: 864, height: 540),
             // Chromeless floating panel (Spotlight-style): titled so AppKit
             // reliably creates and orders it, with the title bar made
             // transparent and controls hidden below. Dismissed with Escape.

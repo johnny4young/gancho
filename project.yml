@@ -162,6 +162,8 @@ targets:
       base:
         # Same id as the macOS app → Universal Purchase across platforms.
         PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho
+        # The gancho mark (green tile + white hook) from the design system.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     sources:
       - path: Apps/GanchoiOS
       # Capture intents shared with the widget extension (App Intents a
@@ -173,6 +175,10 @@ targets:
         # Shared with the share extension: capture handoff via SharedInbox.
         com.apple.security.application-groups:
           - group.com.johnny4young.gancho
+        # Shared key for the encrypted local store, read by the keyboard and
+        # widget extensions (they open the same App Group database).
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.johnny4young.gancho.keys
         # Encrypted iCloud history sync (Pro) — same container as macOS.
         com.apple.developer.icloud-container-identifiers:
           - iCloud.com.johnny4young.gancho
@@ -194,6 +200,7 @@ targets:
     info:
       path: Apps/GanchoiOS/Info.plist
       properties:
+        AppIdentifierPrefix: $(DEVELOPMENT_TEAM).
         CFBundleDisplayName: Gancho
         # Widget deep links use the gancho:// scheme; custom schemes must be
         # registered for the OS to route them to the app (onOpenURL).
@@ -202,6 +209,10 @@ targets:
             CFBundleURLSchemes:
               - gancho
         UILaunchScreen: {}
+        # The "last clip ready to paste" Live Activity (Dynamic Island + lock
+        # screen) needs this opt-in; sensitive clips are masked before they
+        # reach it.
+        NSSupportsLiveActivities: true
         # CKSyncEngine wakes on silent push to pull remote clips.
         UIBackgroundModes:
           - remote-notification
@@ -291,6 +302,9 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.johnny4young.gancho
+        # Reads the encrypted store's key from the app's shared keychain group.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.johnny4young.gancho.keys
     dependencies:
       - package: GanchoKit
         products:
@@ -300,6 +314,7 @@ targets:
     info:
       path: Apps/GanchoWidgets/Info.plist
       properties:
+        AppIdentifierPrefix: $(DEVELOPMENT_TEAM).
         CFBundleDisplayName: Gancho
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
@@ -322,6 +337,9 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.johnny4young.gancho
+        # Reads the encrypted store's key from the app's shared keychain group.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.johnny4young.gancho.keys
     dependencies:
       - package: GanchoKit
         products:
@@ -332,6 +350,7 @@ targets:
     info:
       path: Apps/GanchoKeyboard/Info.plist
       properties:
+        AppIdentifierPrefix: $(DEVELOPMENT_TEAM).
         CFBundleDisplayName: Gancho
         NSExtension:
           NSExtensionPointIdentifier: com.apple.keyboard-service

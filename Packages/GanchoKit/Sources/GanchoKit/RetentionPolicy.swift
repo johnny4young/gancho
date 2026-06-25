@@ -9,6 +9,8 @@ public struct RetentionPolicy: Sendable, Equatable, Codable {
         case week = "7d"
         case month = "30d"
         case quarter = "90d"
+        case halfYear = "180d"
+        case year = "365d"
         case never
 
         /// Seconds of life, nil = unlimited.
@@ -18,6 +20,8 @@ public struct RetentionPolicy: Sendable, Equatable, Codable {
             case .week: 7 * 86_400
             case .month: 30 * 86_400
             case .quarter: 90 * 86_400
+            case .halfYear: 180 * 86_400
+            case .year: 365 * 86_400
             case .never: nil
             }
         }
@@ -32,7 +36,7 @@ public struct RetentionPolicy: Sendable, Equatable, Codable {
     public var sensitiveLifetime: TimeInterval
 
     public init(
-        global: Window = .month,
+        global: Window = .year,
         perKind: [ClipContentKind: Window] = [:],
         sensitiveLifetime: TimeInterval = 600
     ) {

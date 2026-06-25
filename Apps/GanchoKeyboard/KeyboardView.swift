@@ -19,6 +19,9 @@ struct KeyboardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.regularMaterial)
+        // The keyboard runs outside the app, so it doesn't inherit the app's
+        // accent — pin it to Gancho green (active chips, the Save button).
+        .tint(GanchoTokens.Palette.accent)
         .task { await model.load() }
     }
 
@@ -59,6 +62,7 @@ struct KeyboardView: View {
                     boardChip(
                         label: board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
                         systemImage: board.sfSymbol,
+                        dotColor: board.isSystem ? nil : BoardColors.color(for: board),
                         isActive: model.selectedBoardID == board.id
                     ) {
                         model.selectBoard(board.id)
@@ -70,11 +74,16 @@ struct KeyboardView: View {
     }
 
     private func boardChip(
-        label: Text, systemImage: String? = nil, isActive: Bool, action: @escaping () -> Void
+        label: Text, systemImage: String? = nil, dotColor: Color? = nil, isActive: Bool,
+        action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                if let systemImage { Image(systemName: systemImage).font(.caption2) }
+                if let dotColor, !isActive {
+                    Circle().fill(dotColor).frame(width: 7, height: 7)
+                } else if let systemImage {
+                    Image(systemName: systemImage).font(.caption2)
+                }
                 label.font(.caption.weight(.medium))
             }
             .padding(.horizontal, 10)
@@ -183,36 +192,98 @@ struct KeyboardView: View {
         }
     }
 
+    /// The plain recent view groups into Pinned + date sections (mirroring the
+    /// app); a board filter or a search renders the flat result list. A List, so
+    /// every row carries native swipe actions (Copy, Delete) and the date
+    /// sections get native headers.
     private var expandedList: some View {
-        ScrollView {
-            LazyVStack(spacing: 6) {
-                if model.entries.isEmpty {
-                    emptyLabel.padding(.vertical, 12)
-                }
-                ForEach(model.entries) { entry in
-                    Button {
-                        model.insert(entry)
-                    } label: {
-                        HStack(spacing: 10) {
-                            keyboardTile(for: entry.kind)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(entry.displayText)
-                                    .lineLimit(2)
-                                    .font(.callout)
-                                    .foregroundStyle(.primary)
-                                metadataLine(for: entry)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(.fill.quaternary, in: .rect(cornerRadius: 12))
-                        .contentShape(.rect)
+        List {
+            if model.entries.isEmpty {
+                emptyLabel
+                    .padding(.vertical, 12)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else if model.isGrouped {
+                ForEach(model.sections) { group in
+                    Section {
+                        ForEach(group.entries) { entry in swipeRow(entry) }
+                    } header: {
+                        Text(sectionTitle(group.section))
                     }
-                    .buttonStyle(PressableScale())
+                }
+            } else {
+                ForEach(model.entries) { entry in swipeRow(entry) }
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .environment(\.defaultMinListRowHeight, 0)
+    }
+
+    /// One history row with its swipe actions: Copy (→ pasteboard, so it can be
+    /// pasted in another app) leading, Delete trailing.
+    private func swipeRow(_ entry: WidgetClipEntry) -> some View {
+        clipRow(entry)
+            .listRowInsets(EdgeInsets(top: 3, leading: 2, bottom: 3, trailing: 2))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .swipeActions(edge: .leading) {
+                Button {
+                    model.copy(entry)
+                } label: {
+                    Label("Copy", systemImage: "doc.on.doc")
+                }
+                .tint(.blue)
+            }
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    model.delete(entry)
+                } label: {
+                    Label("Delete", systemImage: "trash")
                 }
             }
-            .padding(.horizontal, 2)
+    }
+
+    private func clipRow(_ entry: WidgetClipEntry) -> some View {
+        Button {
+            model.insert(entry)
+        } label: {
+            HStack(spacing: 10) {
+                keyboardTile(for: entry)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.displayText)
+                        .lineLimit(2)
+                        .font(.callout)
+                        .foregroundStyle(.primary)
+                    metadataLine(for: entry)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(.fill.quaternary, in: .rect(cornerRadius: 12))
+            .contentShape(.rect)
+        }
+        .buttonStyle(PressableScale())
+        .task(id: entry.id) { await model.ensureThumbnail(entry) }
+    }
+
+    private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
+        switch section {
+        case .pinned: "Pinned"
+        case .date(let bucket): bucketTitle(bucket)
+        }
+    }
+
+    private func bucketTitle(_ bucket: DateBucket) -> LocalizedStringKey {
+        switch bucket {
+        case .today: "Today"
+        case .yesterday: "Yesterday"
+        case .thisMonth: "This month"
+        case .lastMonth: "Last month"
+        case .thisYear: "This year"
+        case .lastYear: "Last year"
+        case .older: "Older"
         }
     }
 
@@ -222,18 +293,28 @@ struct KeyboardView: View {
             .foregroundStyle(.tertiary)
     }
 
-    /// Kind-tinted leading tile (matches the macOS history row): the kind glyph
-    /// on a tint-washed rounded square.
-    private func keyboardTile(for kind: ClipContentKind) -> some View {
-        let tint = GanchoTokens.Palette.kindTint(for: kind)
-        return RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(tint.opacity(0.18))
-            .frame(width: 30, height: 30)
-            .overlay {
-                Image(systemName: kind.symbolName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(tint)
-            }
+    /// Leading tile: the image clip's thumbnail when one is loaded, otherwise the
+    /// kind glyph on a tint-washed rounded square (matches the app's history row).
+    @ViewBuilder private func keyboardTile(for entry: WidgetClipEntry) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        if let thumbnail = model.thumbnail(for: entry.id) {
+            thumbnail
+                .resizable()
+                .scaledToFill()
+                .frame(width: 30, height: 30)
+                .clipShape(shape)
+                .overlay(shape.strokeBorder(.separator, lineWidth: 0.5))
+        } else {
+            let tint = GanchoTokens.Palette.kindTint(for: entry.kind)
+            shape
+                .fill(tint.opacity(0.18))
+                .frame(width: 30, height: 30)
+                .overlay {
+                    Image(systemName: entry.kind.symbolName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(tint)
+                }
+        }
     }
 
     /// "Safari · 2 min" — source app (cheap fallback name) and capture time,

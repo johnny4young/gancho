@@ -8,9 +8,11 @@ import GanchoKit
 /// the same classification pipeline the UI uses, so there is one capture path.
 enum IntentStore {
     nonisolated static func open() throws -> GRDBClipboardStore {
-        try GRDBClipboardStore(
-            directory: SharedStorageLocation.storeDirectory(
-                appGroupID: SharedInbox.appGroupID))
+        // The encrypted store's key lives in the shared keychain access group so
+        // these extensions can read what the app wrote (see docs/ARCHITECTURE.md).
+        try GRDBClipboardStore.encrypted(
+            directory: SharedStorageLocation.storeDirectory(appGroupID: SharedInbox.appGroupID),
+            keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup)
     }
 }
 

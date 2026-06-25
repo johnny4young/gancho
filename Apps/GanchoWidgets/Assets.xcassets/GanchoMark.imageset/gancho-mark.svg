@@ -1,0 +1,13 @@
+<svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="gancho">
+  <defs>
+    <linearGradient id="g" x1="48" y1="8" x2="48" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#43D267"></stop>
+      <stop offset="1" stop-color="#2BB14E"></stop>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="80" height="80" rx="20" fill="url(#g)"></rect>
+  <g transform="translate(48,48) scale(0.8) translate(-41,-45)">
+    <circle cx="50" cy="24" r="8" fill="none" stroke="#ffffff" stroke-width="7"></circle>
+    <path d="M50 32 L50 57 A15 15 0 1 1 35 57 L31.5 47.5" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"></path>
+  </g>
+</svg>

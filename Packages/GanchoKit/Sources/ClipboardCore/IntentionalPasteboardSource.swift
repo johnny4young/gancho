@@ -20,15 +20,20 @@
             public var probableWebURL: Bool
             public var probableWebSearch: Bool
             public var number: Bool
+            /// The pasteboard's change counter — a metadata Int (no content
+            /// read, no banner). Lets the UI tell "already saved this copy" from
+            /// "a fresh copy" by comparing against the last captured count.
+            public var changeCount: Int
 
             public init(
                 hasContent: Bool = false, probableWebURL: Bool = false,
-                probableWebSearch: Bool = false, number: Bool = false
+                probableWebSearch: Bool = false, number: Bool = false, changeCount: Int = 0
             ) {
                 self.hasContent = hasContent
                 self.probableWebURL = probableWebURL
                 self.probableWebSearch = probableWebSearch
                 self.number = number
+                self.changeCount = changeCount
             }
         }
 
@@ -39,7 +44,8 @@
         public func hints() async -> ContentHints {
             let pasteboard = UIPasteboard.general
             var hints = ContentHints(
-                hasContent: pasteboard.hasStrings || pasteboard.hasURLs || pasteboard.hasImages)
+                hasContent: pasteboard.hasStrings || pasteboard.hasURLs || pasteboard.hasImages,
+                changeCount: pasteboard.changeCount)
             guard hints.hasContent else { return hints }
 
             let patterns = try? await pasteboard.detectedPatterns(for: [

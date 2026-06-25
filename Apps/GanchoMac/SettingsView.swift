@@ -306,6 +306,8 @@ private struct RetentionSettingsTab: View {
         Text("7 days").tag(RetentionPolicy.Window.week)
         Text("30 days").tag(RetentionPolicy.Window.month)
         Text("90 days").tag(RetentionPolicy.Window.quarter)
+        Text("6 months").tag(RetentionPolicy.Window.halfYear)
+        Text("1 year").tag(RetentionPolicy.Window.year)
         Text("Forever").tag(RetentionPolicy.Window.never)
     }
 
@@ -315,6 +317,8 @@ private struct RetentionSettingsTab: View {
         Text("7 days").tag(RetentionPolicy.Window?.some(.week))
         Text("30 days").tag(RetentionPolicy.Window?.some(.month))
         Text("90 days").tag(RetentionPolicy.Window?.some(.quarter))
+        Text("6 months").tag(RetentionPolicy.Window?.some(.halfYear))
+        Text("1 year").tag(RetentionPolicy.Window?.some(.year))
     }
 
     private func perKindBinding(_ kind: ClipContentKind) -> Binding<RetentionPolicy.Window?> {
@@ -447,6 +451,18 @@ private struct ProSettingsTab: View {
             Text("Pro — iCloud sync, unlimited pins and boards — arrives with launch.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            #if DEBUG
+                Section {
+                    Button {
+                        model.resetSyncAndRepull()
+                    } label: {
+                        Text(verbatim: "Reset & re-pull sync")
+                    }
+                    .accessibilityIdentifier("debug-reset-sync")
+                } header: {
+                    Text(verbatim: "Debug")
+                }
+            #endif
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)

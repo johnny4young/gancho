@@ -99,13 +99,47 @@ Store shape:
 - `clip` metadata table: id, kind, timestamps, source app/device, sensitivity,
   retention, pin state, content hash, and sync state.
 - content-addressed disk blobs for payload bytes and rich representations,
-  encrypted in iCloud via `encryptedValues` on sync; whole-database local
-  encryption (SQLCipher) is the remaining planned piece.
+  encrypted in iCloud via `encryptedValues` on sync; the local database is
+  whole-database encrypted with SQLCipher (see "Encryption at rest" below).
 - FTS5 tables for searchable text, titles, tags, and snippet bodies.
 - embedding tables for on-device semantic search.
 - a `clip_board` junction plus board metadata and board tombstones.
 - tombstones for sync-compatible deletion.
 - an open JSON/CSV export so users can leave without data lock-in.
+
+### Encryption at rest
+
+The whole local database — every table **and the FTS5 index** — is encrypted with
+SQLCipher (256-bit AES). We chose whole-database encryption over field-level
+encryption deliberately: field-level would leave the FTS index (and therefore the
+searchable text) in cleartext, so a stolen `.sqlite` would still leak content.
+With SQLCipher a stolen file reveals nothing — no content, previews, titles, or
+searchable tokens — and full-text search keeps working unchanged because it runs
+inside the decrypted database.
+
+- **Dependency.** Upstream GRDB cannot enable SQLCipher through a plain SwiftPM
+  dependency (package traits need Xcode-UI support GRDB still lacks). The supported
+  path is a fork that uncomments the marked `// GRDB+SQLCipher:` lines, pulling
+  Zetetic's official `sqlcipher/SQLCipher.swift`. Gancho depends on that fork and
+  compiles `GanchoKit` with `SQLITE_HAS_CODEC`. No other SQLite library avoids the
+  fork (SQLite.swift ships its own `SQLiteCipher.swift` variant; shareup/sqlite
+  wraps GRDB; Realm is end-of-life).
+- **Key.** A random 256-bit key, never derived from user input, lives in the
+  Keychain (`KeychainPassphraseStore`): `kSecAttrSynchronizable` for multi-device
+  restore and `kSecAttrAccessibleAfterFirstUnlock` so background capture can open
+  the store while the device is locked. The key is never logged. On iOS the app
+  writes it to a shared keychain access group (`…gancho.keys`) so the keyboard
+  and widget extensions — which open the same App Group database — can read it.
+  The macOS app uses its default keychain; the Homebrew CLI needs signing to
+  reach the key (a known gap, tracked separately).
+- **Wiring.** `GRDBClipboardStore.encrypted(directory:)` loads the key and opens
+  the pool with `Configuration.prepareDatabase { try db.usePassphrase(key) }`.
+  In-memory test stores and the perf harness stay plaintext.
+- **Migration.** On the first encrypting launch, a pre-encryption plaintext store
+  (detected by its SQLite magic header) is re-encrypted in place with
+  `sqlcipher_export`; no clip is lost.
+- **Honest claim.** "Data encrypted on disk and in iCloud, without our own
+  servers." Never "zero-knowledge" — the Keychain holds the key.
 
 Performance budgets:
 

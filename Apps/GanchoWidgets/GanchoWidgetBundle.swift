@@ -9,5 +9,6 @@ struct GanchoWidgetBundle: WidgetBundle {
     var body: some Widget {
         RecentClipsWidget()
         SaveClipboardControl()
+        ClipLiveActivity()
     }
 }
