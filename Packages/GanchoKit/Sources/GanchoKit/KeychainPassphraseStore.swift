@@ -34,10 +34,11 @@ public struct KeychainPassphraseStore: Sendable {
     /// Shared keychain access group for the iOS app and its database-reading
     /// extensions (keyboard, widgets). The app writes the key here; the
     /// extensions read it. Must match the `keychain-access-groups` entitlement
-    /// `$(AppIdentifierPrefix)com.johnny4young.gancho.keys` in each target —
-    /// `$(AppIdentifierPrefix)` resolves to the team prefix (DEVELOPMENT_TEAM =
-    /// JGWX5ZT2N2 in project.yml). macOS does not use a group (default keychain).
-    public static let iosSharedAccessGroup = "JGWX5ZT2N2.com.johnny4young.gancho.keys"
+    /// `$(AppIdentifierPrefix)com.johnny4young.gancho.keys` in each target.
+    /// macOS does not use a group (default keychain).
+    public static var iosSharedAccessGroup: String {
+        iosSharedAccessGroup(infoDictionary: Bundle.main.infoDictionary)
+    }
 
     private let service: String
     private let account: String
@@ -119,7 +120,9 @@ public struct KeychainPassphraseStore: Sendable {
         case errSecSuccess:
             guard let data = item as? Data, let key = String(data: data, encoding: .utf8) else {
                 // An item exists but is unreadable — treat as missing rather
-                // than crashing; the caller regenerates.
+                // than crashing. Delete it first so the caller can regenerate
+                // instead of hitting `errSecDuplicateItem` on the stale row.
+                try deleteKey()
                 return nil
             }
             return key
@@ -154,5 +157,18 @@ public struct KeychainPassphraseStore: Sendable {
             throw Failure.randomGenerationFailed
         }
         return bytes.map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func iosSharedAccessGroup(infoDictionary: [String: Any]?) -> String {
+        let prefix =
+            (infoDictionary?["AppIdentifierPrefix"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedPrefix = normalizedTeamPrefix(prefix)
+        return "\(resolvedPrefix)com.johnny4young.gancho.keys"
+    }
+
+    private static func normalizedTeamPrefix(_ prefix: String?) -> String {
+        guard let prefix, !prefix.isEmpty else { return "JGWX5ZT2N2." }
+        return prefix.hasSuffix(".") ? prefix : "\(prefix)."
     }
 }

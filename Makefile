@@ -5,6 +5,9 @@ XCODEGEN ?= xcodegen
 SCHEME_MAC ?= Gancho
 SCHEME_IOS ?= GanchoiOS
 PACKAGE ?= Packages/GanchoKit
+# Default signing team for local signed builds. Override for forks/CI with
+# `make install-ios DEVELOPMENT_TEAM=<team-id>`.
+DEVELOPMENT_TEAM ?= JGWX5ZT2N2
 # Target a specific device for `install-ios` with `make install-ios IOS_DEVICE=<uuid>`.
 # Left empty, install-ios auto-detects the connected iPhone/iPad (in the recipe,
 # where DEVELOPER_DIR is exported — macOS's make 3.81 doesn't pass it to $(shell)).
@@ -37,7 +40,7 @@ build: project ## Build the macOS app (Debug, unsigned)
 
 build-signed: project ## Build the macOS app (Debug, team-signed) — stable identity so the Accessibility grant persists across rebuilds (paste-back testing)
 	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_MAC) -configuration Debug \
-		CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=JGWX5ZT2N2 build
+		CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=$(DEVELOPMENT_TEAM) build
 
 build-ios: project ## Build the iOS app (Debug, generic device, unsigned)
 	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_IOS) -configuration Debug \
@@ -54,7 +57,7 @@ install-ios: project ## Build the iOS app (Debug, team-signed) and install it on
 	echo "Installing on device $$dev…"; \
 	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_IOS) -configuration Debug \
 		-destination 'generic/platform=iOS' -derivedDataPath build/ios \
-		CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=JGWX5ZT2N2 -allowProvisioningUpdates build && \
+		CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=$(DEVELOPMENT_TEAM) -allowProvisioningUpdates build && \
 	xcrun devicectl device install app --device "$$dev" \
 		build/ios/Build/Products/Debug-iphoneos/GanchoiOS.app
 

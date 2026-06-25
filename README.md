@@ -161,11 +161,14 @@ hardware. Plug in an iPhone/iPad, trust the Mac, then:
 ```bash
 make install-ios                      # auto-detects the connected device
 make install-ios IOS_DEVICE=<uuid>    # or target one explicitly
+make install-ios DEVELOPMENT_TEAM=<team-id>
 ```
 
 `make install-ios` team-signs the build (Xcode-managed provisioning, so the app
-and its extensions get profiles on first run) and installs it with `devicectl`;
-open Gancho on the device from the Home Screen. List devices and their UUIDs with
+and its extensions get profiles on first run) and installs it with `devicectl`.
+The Makefile defaults to the maintainer's development team, but forks and CI can
+override `DEVELOPMENT_TEAM` without editing the file. Open Gancho on the device
+from the Home Screen. List devices and their UUIDs with
 `xcrun devicectl list devices`. After installing, enable the keyboard in
 Settings → General → Keyboard → Keyboards → Gancho (turn on Full Access for clip
 history), and Live Activities under the Gancho app's settings.

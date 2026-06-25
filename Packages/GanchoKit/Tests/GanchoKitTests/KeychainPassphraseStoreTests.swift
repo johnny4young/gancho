@@ -26,4 +26,19 @@ struct KeychainPassphraseStoreTests {
             #expect(seen.insert(key).inserted, "generated a duplicate 256-bit key")
         }
     }
+
+    @Test("iOS shared access group follows the signed app identifier prefix")
+    func accessGroupUsesInfoPlistPrefix() {
+        #expect(
+            KeychainPassphraseStore.iosSharedAccessGroup(infoDictionary: [
+                "AppIdentifierPrefix": "TEAM12345."
+            ]) == "TEAM12345.com.johnny4young.gancho.keys")
+        #expect(
+            KeychainPassphraseStore.iosSharedAccessGroup(infoDictionary: [
+                "AppIdentifierPrefix": "TEAM12345"
+            ]) == "TEAM12345.com.johnny4young.gancho.keys")
+        #expect(
+            KeychainPassphraseStore.iosSharedAccessGroup(infoDictionary: [:])
+                == "JGWX5ZT2N2.com.johnny4young.gancho.keys")
+    }
 }
