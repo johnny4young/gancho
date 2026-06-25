@@ -451,6 +451,18 @@ private struct ProSettingsTab: View {
             Text("Pro — iCloud sync, unlimited pins and boards — arrives with launch.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            #if DEBUG
+                Section {
+                    Button {
+                        model.resetSyncAndRepull()
+                    } label: {
+                        Text(verbatim: "Reset & re-pull sync")
+                    }
+                    .accessibilityIdentifier("debug-reset-sync")
+                } header: {
+                    Text(verbatim: "Debug")
+                }
+            #endif
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)

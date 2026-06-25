@@ -60,6 +60,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
             .saveZone(CKRecordZone(zoneID: boardZoneID)),
         ])
         await reenqueuePendingWork(into: engine)
+        await reconcilePendingChanges(in: engine)
         emit(.syncing)
         do {
             try await engine.fetchChanges()
@@ -201,6 +202,26 @@ public actor CKSyncEngineAdapter: SyncEngine {
                     UUID(uuidString: name).map { .deleteRecord(boardRecordID(for: $0)) }
                 })
         }
+    }
+
+    /// Drop pending `.saveRecord` changes the store no longer wants uploaded. A
+    /// resumed engine state can carry stale saves (e.g. a record uploaded under
+    /// a state the engine then lost track of) that no provider can build — the
+    /// send queue would jam on empty batches forever. Deletions are left alone:
+    /// their record names are tombstones tracked separately from the clip rows.
+    private func reconcilePendingChanges(in engine: CKSyncEngine) async {
+        let validClipIDs = Set(
+            ((try? await store.pendingUploads()) ?? []).map { recordID(for: $0.item.id) })
+        let validBoardIDs = Set(
+            ((try? await store.pendingBoardUploads()) ?? []).map { boardRecordID(for: $0.id) })
+        let stale = engine.state.pendingRecordZoneChanges.filter { change in
+            guard case .saveRecord(let id) = change else { return false }
+            if id.zoneID.zoneName == zoneID.zoneName { return !validClipIDs.contains(id) }
+            if id.zoneID.zoneName == boardZoneID.zoneName { return !validBoardIDs.contains(id) }
+            return false
+        }
+        guard !stale.isEmpty else { return }
+        engine.state.remove(pendingRecordZoneChanges: stale)
     }
 }
 

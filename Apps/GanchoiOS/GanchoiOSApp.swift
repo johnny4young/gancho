@@ -204,6 +204,16 @@ final class IOSAppModel {
         await refreshHints()
     }
 
+    /// Pull the latest from iCloud (and push pending) when the app comes
+    /// forward, so another device's recent clips appear without a pull-to-
+    /// refresh — the engine only fetches on `start()` and gets no push to fetch
+    /// on. The sync-status observer refreshes the list on settle. No-op off.
+    func syncNow() {
+        guard syncEnabled else { return }
+        let engine = syncEngine
+        Task { try? await engine.start() }
+    }
+
     /// Resolves a `gancho://clip/<id>` widget link: make sure the clip is in
     /// the list (so the detail destination finds it), then signal the view to
     /// navigate. A foreign or unknown link is ignored.
@@ -1169,6 +1179,7 @@ struct CaptureView: View {
 
     /// Foreground activation: metadata hints + extension inbox, no reads.
     private func activate() async {
+        model.syncNow()
         await model.refreshHints()
         await model.drainSharedInbox()
         await model.refreshBoards()
