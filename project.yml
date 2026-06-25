@@ -126,6 +126,8 @@ targets:
     info:
       path: Apps/GanchoMac/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: Gancho
         # Deep links keep Settings/panel reachable if macOS or a menu-bar
         # manager hides the status item.
@@ -201,6 +203,8 @@ targets:
       path: Apps/GanchoiOS/Info.plist
       properties:
         AppIdentifierPrefix: $(DEVELOPMENT_TEAM).
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: Gancho
         # Widget deep links use the gancho:// scheme; custom schemes must be
         # registered for the OS to route them to the app (onOpenURL).
@@ -274,6 +278,8 @@ targets:
     info:
       path: Apps/GanchoShare/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: Save to Gancho
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
@@ -315,6 +321,8 @@ targets:
       path: Apps/GanchoWidgets/Info.plist
       properties:
         AppIdentifierPrefix: $(DEVELOPMENT_TEAM).
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: Gancho
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
@@ -351,6 +359,8 @@ targets:
       path: Apps/GanchoKeyboard/Info.plist
       properties:
         AppIdentifierPrefix: $(DEVELOPMENT_TEAM).
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: Gancho
         NSExtension:
           NSExtensionPointIdentifier: com.apple.keyboard-service

@@ -38,6 +38,12 @@ jobs:
           path: Packages/GanchoKit/.build
           key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift') }}
 
+      - name: Release metadata sync
+        run: make release-check
+
+      - name: Website structure
+        run: make site-check
+
       - name: Lint (swift-format)
         run: swift format lint --strict --recursive Apps Packages/GanchoKit/Sources Packages/GanchoKit/Tests
 

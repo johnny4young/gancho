@@ -1,0 +1,167 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify tagged build
+    # Gancho targets macOS/iOS 26 and Swift 6.2; keep release gates on the same
+    # Xcode 26 runner family as CI.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Verify release metadata sync
+        run: make release-check
+
+      - name: Verify tag matches MARKETING_VERSION
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          marketing_version="$(sed -nE 's/^[[:space:]]*MARKETING_VERSION:[[:space:]]*"?([0-9][0-9A-Za-z.-]*)"?[[:space:]]*$/\1/p' project.yml | head -n1)"
+          if [ "$tag_version" != "$marketing_version" ]; then
+            echo "::error::Tag v${tag_version} does not match MARKETING_VERSION ${marketing_version} in project.yml."
+            exit 1
+          fi
+          echo "Tag v${tag_version} matches MARKETING_VERSION." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record toolchain
+        run: |
+          {
+            echo "### Release toolchain"
+            echo '```'
+            echo "Ref: ${GITHUB_REF_NAME}"
+            sw_vers
+            xcodebuild -version
+            swift --version
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: Packages/GanchoKit/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift') }}
+
+      - name: Lint
+        run: make lint
+
+      - name: Unit tests
+        run: make test
+
+      - name: Build macOS app
+        run: make build
+
+      - name: Build iOS app
+        run: make build-ios
+
+  publish:
+    name: Package and publish
+    needs: verify
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Import Developer ID certificate
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MACOS_CERTIFICATE_P12}" ]; then
+            echo "::notice::MACOS_CERTIFICATE_P12 is not configured; release ZIP will be unsigned."
+            exit 0
+          fi
+          keychain="${RUNNER_TEMP}/gancho-signing.keychain-db"
+          keychain_password="$(openssl rand -base64 24)"
+          cert_path="${RUNNER_TEMP}/developer-id.p12"
+          echo "${MACOS_CERTIFICATE_P12}" | base64 --decode > "${cert_path}"
+          security create-keychain -p "${keychain_password}" "${keychain}"
+          security set-keychain-settings -lut 21600 "${keychain}"
+          security unlock-keychain -p "${keychain_password}" "${keychain}"
+          security import "${cert_path}" -P "${MACOS_CERTIFICATE_PASSWORD}" \
+            -A -t cert -f pkcs12 -k "${keychain}"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -k "${keychain_password}" "${keychain}" >/dev/null
+          security list-keychains -d user -s "${keychain}" "$(security default-keychain -d user | tr -d ' \"')"
+          rm -f "${cert_path}"
+          security find-identity -v -p codesigning "${keychain}"
+
+      - name: Stage App Store Connect notary key
+        env:
+          MACOS_NOTARY_KEY_P8_BASE64: ${{ secrets.MACOS_NOTARY_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MACOS_NOTARY_KEY_P8_BASE64}" ]; then
+            echo "::notice::MACOS_NOTARY_KEY_P8 is not configured; Apple ID notary credentials may still be used."
+            exit 0
+          fi
+          key_path="${RUNNER_TEMP}/notary-key.p8"
+          echo "${MACOS_NOTARY_KEY_P8_BASE64}" | base64 --decode > "${key_path}"
+          echo "MACOS_NOTARY_KEY_P8=${key_path}" >> "$GITHUB_ENV"
+
+      - name: Build macOS release ZIP
+        env:
+          VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          CODE_SIGN_IDENTITY: ${{ secrets.MACOS_CODE_SIGN_IDENTITY }}
+          MACOS_SIGN_TEAM_ID: ${{ secrets.MACOS_SIGN_TEAM_ID }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_KEY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_KEY_ISSUER_ID }}
+          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+          MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [[ "${VERSION}" == v* ]]; then
+            export VERSION="${VERSION#v}"
+          fi
+          ./scripts/package-macos-zip.sh
+
+      - name: Run release artifact QA
+        run: ./scripts/qa-release.sh "$(ls dist/Gancho-*.zip | head -n1)"
+
+      - name: Summarize artifact checksum
+        id: artifact
+        run: |
+          set -euo pipefail
+          zip="$(ls dist/Gancho-*.zip | head -n1)"
+          sha="$(awk '{print $1}' "${zip}.sha256")"
+          version="$(basename "$zip" | sed -E 's/^Gancho-([0-9.]+)\.zip$/\1/')"
+          {
+            echo "zip=${zip}"
+            echo "sha=${sha}"
+            echo "version=${version}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Gancho release artifact"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Artifact | \`$(basename "$zip")\` |"
+            echo "| Version | \`${version}\` |"
+            echo "| SHA-256 | \`${sha}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            dist/Gancho-*.zip
+            dist/Gancho-*.zip.sha256
+          generate_release_notes: true

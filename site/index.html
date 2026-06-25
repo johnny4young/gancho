@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gancho — private clipboard memory for every Apple device</title>
+  <meta name="description" content="Gancho is a Privacy-first smart clipboard for Mac, iPhone, and iPad: local history, fast recall, encrypted sync, and local integrations.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Gancho — private clipboard memory">
+  <meta property="og:description" content="A local-first clipboard history and snippet library for Mac, iPhone, and iPad.">
+  <meta property="og:url" content="https://johnny4young.github.io/gancho/">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="assets/gancho-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="nav">
+    <div class="wrap nav__inner">
+      <a class="brand" href="#top" aria-label="Gancho home">
+        <img src="assets/gancho-mark.svg" alt="" width="32" height="32">
+        <span>Gancho</span>
+      </a>
+      <nav class="nav__links" aria-label="Primary">
+        <a href="#privacy">Privacy</a>
+        <a href="#platforms">Platforms</a>
+        <a href="#integrations">Integrations</a>
+        <a href="#releases">Releases</a>
+      </nav>
+      <a class="button button--ghost" href="https://github.com/johnny4young/gancho">GitHub</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section id="top" class="hero wrap">
+      <div class="hero__copy">
+        <p class="eyebrow"><span></span> Private by design · pre-release</p>
+        <h1>Your clipboard, everywhere — without turning it into someone else's data.</h1>
+        <p class="hero__lead">Gancho is a local-first clipboard history and curated snippet library for Mac, iPhone, and iPad. Capture safely, find instantly, reuse anywhere, and sync through the user's own iCloud account.</p>
+        <div class="hero__actions">
+          <a class="button button--primary" href="https://github.com/johnny4young/gancho/releases/latest">Download the latest build</a>
+          <a class="button button--secondary" href="https://github.com/johnny4young/gancho/blob/main/docs/SECURITY-MODEL.md">Read the privacy model</a>
+        </div>
+        <p class="hero__note">Early builds are for testers and maintainers while signing, TestFlight, and App Store launch pieces are finalized.</p>
+      </div>
+      <div class="hero__stage" aria-label="Gancho product preview">
+        <div class="app-card app-card--main">
+          <div class="panel-top">
+            <div class="traffic"><span></span><span></span><span></span></div>
+            <span class="panel-title">Gancho History</span>
+          </div>
+          <div class="search">Search clips, snippets, boards…</div>
+          <div class="clip-list">
+            <article class="clip-row active"><span class="kind">Text</span><strong>Release checklist for direct downloads</strong><small>Saved 2 min ago · expires in 1 year</small></article>
+            <article class="clip-row"><span class="kind image">Image</span><strong>Design mark for launch page</strong><small>Encrypted locally · not sent anywhere</small></article>
+            <article class="clip-row"><span class="kind code">Code</span><strong>gancho mcp status --json</strong><small>Local MCP · metadata-only access log</small></article>
+          </div>
+        </div>
+        <div class="floating-card floating-card--sync">
+          <span class="mini-icon">↻</span>
+          <div><strong>iCloud sync</strong><small>User-owned, encrypted records</small></div>
+        </div>
+        <div class="floating-card floating-card--privacy">
+          <span class="mini-icon">•</span>
+          <div><strong>Sensitive content vetoed</strong><small>Concealed and transient pasteboards are skipped before read</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy" class="section wrap">
+      <div class="section__heading">
+        <p class="eyebrow"><span></span> Privacy invariants</p>
+        <h2>Clipboard memory that earns trust before it earns convenience.</h2>
+        <p>Gancho treats copied content as private user data. The always-on loop observes metadata first, vetoes sensitive pasteboards before reading content, and keeps logs, telemetry, and support bundles content-free.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <h3>Veto before read</h3>
+          <p>Password-manager, transient, concealed, and auto-generated pasteboard types are rejected before Gancho reads a payload.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Encrypted local store</h3>
+          <p>History lives on the user's devices with SQLCipher-backed storage and encrypted binary blobs for image-heavy workflows.</p>
+        </article>
+        <article class="feature-card">
+          <h3>No content telemetry</h3>
+          <p>Operational signals are counters and buckets only. Clipboard bodies never belong in logs, analytics, crash reports, or support bundles.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="platforms" class="section section--split">
+      <div class="wrap split">
+        <div>
+          <p class="eyebrow"><span></span> Apple platforms first</p>
+          <h2>Automatic on Mac. Intentional everywhere else.</h2>
+          <p>Gancho starts where clipboard history is most powerful — the Mac menu bar — and extends to iPhone and iPad through explicit capture surfaces: Share Extension, keyboard, widgets, App Intents, and foreground actions.</p>
+        </div>
+        <div class="platform-list">
+          <div><strong>macOS</strong><span>Menu-bar history, fast search, paste-back, snippets, and boards.</span></div>
+          <div><strong>iOS & iPadOS</strong><span>Intentional capture, keyboard access, widgets, Live Activity, and shared encrypted storage.</span></div>
+          <div><strong>Future clients</strong><span>Sync and store boundaries keep room for visionOS, watchOS, Windows, Linux, and Android without replacing the core.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="integrations" class="section wrap">
+      <div class="section__heading">
+        <p class="eyebrow"><span></span> Local integrations</p>
+        <h2>Your clipboard can help your tools without becoming a cloud service.</h2>
+        <p>The `gancho` CLI and local MCP server expose user-approved clipboard context to local agents and editors. Access is opt-in, scope-limited, and sensitive clips stay excluded.</p>
+      </div>
+      <div class="terminal-card" role="img" aria-label="Gancho CLI example">
+        <div class="terminal-top"><span></span><span></span><span></span></div>
+        <pre><code>$ gancho search "release" --json
+[
+  { "kind": "text", "title": "Release checklist", "scope": "metadata" },
+  { "kind": "code", "title": "package-macos-zip.sh", "scope": "boards" }
+]</code></pre>
+      </div>
+    </section>
+
+    <section id="releases" class="section section--release">
+      <div class="wrap release-panel">
+        <div>
+          <p class="eyebrow"><span></span> Releases</p>
+          <h2>Versioned like a product, even before public launch.</h2>
+          <p>Release metadata is checked in CI: `project.yml`, `CHANGELOG.md`, the Homebrew formula template, GitHub tags, macOS ZIP artifacts, and Pages deployment move together.</p>
+        </div>
+        <div class="release-links">
+          <a href="https://github.com/johnny4young/gancho/releases/latest">Latest GitHub Release</a>
+          <a href="https://github.com/johnny4young/gancho/blob/main/CHANGELOG.md">CHANGELOG.md</a>
+          <a href="https://github.com/johnny4young/gancho/blob/main/docs/RELEASING.md">Release runbook</a>
+          <a href="https://github.com/johnny4young/gancho/blob/main/docs/ARCHITECTURE.md">Architecture</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer wrap">
+    <div class="brand brand--footer">
+      <img src="assets/gancho-mark.svg" alt="" width="28" height="28">
+      <span>Gancho</span>
+    </div>
+    <p>Proprietary pre-release software. © 2026 Johnny Young. No trackers, no analytics, no clipboard content on this page.</p>
+  </footer>
+</body>
+</html>

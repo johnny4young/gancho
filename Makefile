@@ -26,7 +26,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project build build-ios install-ios test test-ui bench format lint hooks clean open
+.PHONY: help project build build-signed build-ios install-ios test test-ui bench format lint release-check package-macos qa-release site-check hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -76,6 +76,18 @@ format: ## Format Swift sources in place
 
 lint: ## Verify formatting without changing files
 	swift format lint --strict --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests
+
+release-check: ## Verify release metadata/version sync before tagging
+	./scripts/check-version-sync.sh
+
+package-macos: release-check project ## Build and package the macOS Release app as dist/Gancho-<version>.zip
+	./scripts/package-macos-zip.sh
+
+qa-release: ## QA the newest dist/Gancho-*.zip or a provided ARTIFACT=/path/to/Gancho.app
+	./scripts/qa-release.sh $${ARTIFACT:-}
+
+site-check: ## Verify the static GitHub Pages site structure
+	./scripts/check-site.sh
 
 hooks: ## Install the versioned git hooks (pre-commit lint)
 	git config core.hooksPath scripts/githooks

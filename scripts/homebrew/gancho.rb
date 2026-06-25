@@ -9,11 +9,11 @@
 #   brew install gancho
 class Gancho < Formula
   desc "Privacy-first clipboard CLI and local MCP server for Gancho"
-  homepage "https://gancho.app"
-  # TODO(release): point at the tagged source tarball and fill the checksum.
-  url "https://github.com/johnny4young/gancho/archive/refs/tags/v0.1.0.tar.gz"
+  homepage "https://johnny4young.github.io/gancho/"
+  version "0.1.0"
+  url "https://github.com/johnny4young/gancho/archive/refs/tags/v#{version}.tar.gz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
-  license "MIT" # TODO(owner): confirm the license before publishing.
+  license :cannot_represent
 
   # Builds from source with the Swift toolchain that ships in Xcode 26.
   depends_on xcode: ["26.0", :build]

@@ -149,7 +149,10 @@ struct MCPAccessView: View {
                 .fill(enabled ? GanchoTokens.Palette.success : Color.secondary)
                 .frame(width: 7, height: 7)
             if enabled {
-                Text("Listening") + Text(verbatim: " · 127.0.0.1")
+                HStack(spacing: 0) {
+                    Text("Listening")
+                    Text(verbatim: " · 127.0.0.1")
+                }
             } else {
                 Text("Off")
             }

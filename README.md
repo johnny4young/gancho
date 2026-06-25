@@ -12,10 +12,13 @@
 GRDB/SQLite storage with FTS5 search, the Liquid Glass history panel,
 paste-back, pins and boards, the retention engine, the on-device intelligence
 stack, the iPhone/iPad app and its extensions, iCloud sync via `CKSyncEngine`,
-and StoreKit purchase plumbing are implemented and covered by tests. What
-remains before a public release is on-hardware verification of cross-device
-sync, code signing and App Store submission, and the account-gated launch
-pieces (App Store products, TestFlight, and the marketing site).
+and StoreKit purchase plumbing are implemented and covered by tests. The
+release/versioning lane is now scaffolded with a changelog, version-sync guard,
+tagged GitHub Release workflow, macOS ZIP packaging, artifact QA, and a static
+GitHub Pages site. What remains before a public release is on-hardware
+verification of cross-device sync, production signing/notarization, App Store
+submission, and the account-gated launch pieces (App Store products and
+TestFlight).
 
 ## Product goal
 
@@ -148,6 +151,10 @@ make open    # generate Gancho.xcodeproj and open Xcode
 | `make build-ios` | Build the iOS app (unsigned Debug, generic device) |
 | `make install-ios` | Build the iOS app team-signed and install it on the connected iPhone/iPad |
 | `make test` | Run package unit tests |
+| `make release-check` | Verify `project.yml`, `CHANGELOG.md`, and release templates are in sync |
+| `make package-macos` | Build `dist/Gancho-<version>.zip` for release QA |
+| `make qa-release` | QA the newest release ZIP, or `ARTIFACT=/path/to/Gancho.app` |
+| `make site-check` | Verify the static GitHub Pages site under `site/` |
 | `make format` / `make lint` | Format / verify Swift sources |
 | `make hooks` | Install the versioned pre-commit lint hook |
 | `make clean` | Remove generated project and build artifacts |
@@ -173,11 +180,30 @@ from the Home Screen. List devices and their UUIDs with
 Settings → General → Keyboard → Keyboards → Gancho (turn on Full Access for clip
 history), and Live Activities under the Gancho app's settings.
 
+### Release and website workflow
+
+Release metadata is intentionally boring and synchronized:
+
+- `project.yml` owns `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`.
+- `CHANGELOG.md` keeps `[Unreleased]` plus the newest released `## [x.y.z]`
+  entry matching `MARKETING_VERSION`.
+- `.github/workflows/release.yml` gates tagged `v*` releases with
+  `make release-check`, lint, tests, macOS build, iOS build, packaging, and
+  artifact QA before attaching `dist/Gancho-<version>.zip`.
+- `.github/workflows/pages.yml` deploys the static website from `site/` to
+  `https://johnny4young.github.io/gancho/`.
+
+See [CHANGELOG.md](CHANGELOG.md) and [docs/RELEASING.md](docs/RELEASING.md) for
+the full release runbook, signing/notarization secrets, and manual QA checklist.
+
 ## Layout
 
 ```text
 Apps/GanchoMac          macOS menu-bar agent + Liquid Glass panel
 Apps/GanchoiOS          iPhone/iPad app (+ Share, keyboard, widgets)
+site/                   Static GitHub Pages landing site
+CHANGELOG.md            Release notes that must match MARKETING_VERSION
+docs/RELEASING.md       Release/versioning, signing, QA, and Pages runbook
 Packages/GanchoKit      One SwiftPM package — seven library products + a CLI:
   GanchoKit               models, GRDB store, retention, snippets, sync boundary
   ClipboardCore           pasteboard adapters, capture + intelligence policy
