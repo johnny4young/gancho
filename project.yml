@@ -200,6 +200,7 @@ targets:
     info:
       path: Apps/GanchoiOS/Info.plist
       properties:
+        AppIdentifierPrefix: $(DEVELOPMENT_TEAM).
         CFBundleDisplayName: Gancho
         # Widget deep links use the gancho:// scheme; custom schemes must be
         # registered for the OS to route them to the app (onOpenURL).
@@ -313,6 +314,7 @@ targets:
     info:
       path: Apps/GanchoWidgets/Info.plist
       properties:
+        AppIdentifierPrefix: $(DEVELOPMENT_TEAM).
         CFBundleDisplayName: Gancho
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
@@ -348,6 +350,7 @@ targets:
     info:
       path: Apps/GanchoKeyboard/Info.plist
       properties:
+        AppIdentifierPrefix: $(DEVELOPMENT_TEAM).
         CFBundleDisplayName: Gancho
         NSExtension:
           NSExtensionPointIdentifier: com.apple.keyboard-service
