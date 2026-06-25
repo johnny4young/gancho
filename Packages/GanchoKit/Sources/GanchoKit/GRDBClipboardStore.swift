@@ -6,7 +6,8 @@ import GRDB
 /// Layout decisions (see docs/ARCHITECTURE.md):
 /// - Metadata + full TEXT content live in the `clip` table; binary payloads
 ///   live on disk via `BlobStore` (the row keeps a content-hash reference).
-///   List queries page metadata only — blobs never ride along.
+///   The encrypted production store also encrypts those blob files and cached
+///   thumbnails. List queries page metadata only — blobs never ride along.
 /// - Schema changes go through `DatabaseMigrator`, versioned from v1.
 ///   NEVER edit a registered migration; append a new one.
 /// - The store never imports CloudKit: sync goes through the `SyncEngine`
@@ -41,19 +42,29 @@ public final class GRDBClipboardStore: ClipboardStore {
             // background/foreground boundary. No-op on macOS (nothing suspends).
             configuration.observesSuspensionNotifications = true
         #endif
+        let blobEncryptionKeyData: Data?
         #if SQLITE_HAS_CODEC
             if let passphrase {
                 try Self.encryptPlaintextStoreIfNeeded(at: dbPath, passphrase: passphrase)
                 configuration.prepareDatabase { db in
                     try db.usePassphrase(passphrase)
                 }
+                blobEncryptionKeyData = BlobStore.encryptionKeyData(for: passphrase)
+            } else {
+                blobEncryptionKeyData = nil
             }
+        #else
+            blobEncryptionKeyData = nil
         #endif
 
         let pool = try DatabasePool(path: dbPath, configuration: configuration)
+        let blobStore = BlobStore(
+            directory: directory.appendingPathComponent("blobs"),
+            encryptionKeyData: blobEncryptionKeyData)
+        try blobStore.encryptPlaintextFilesIfNeeded()
         self.init(
             writer: pool,
-            blobs: BlobStore(directory: directory.appendingPathComponent("blobs")))
+            blobs: blobStore)
         try migrator.migrate(pool)
         try Self.reformatLegacyImagePreviews(in: pool)
     }
@@ -575,7 +586,22 @@ public final class GRDBClipboardStore: ClipboardStore {
         return nil
     }
 
-    /// Lazy list-row thumbnail for binary clips; nil for text clips.
+    /// Lazy list-row thumbnail BYTES for binary clips; nil for text clips. The
+    /// way app/extension readers should load thumbnails — it works for both
+    /// plaintext and encrypted stores (decoding the small cached thumbnail,
+    /// never the full blob once warmed).
+    public func thumbnailData(for id: UUID) async throws -> Data? {
+        let blobHash = try await writer.read { db in
+            try ClipRow.filter(key: id.uuidString).fetchOne(db)?.contentBlobHash
+        }
+        guard let blobHash else { return nil }
+        return try blobs.thumbnailData(for: blobHash)
+    }
+
+    /// Lazy list-row thumbnail FILE URL — for plaintext stores only; nil for
+    /// text clips or encrypted stores, whose cache must stay sealed on disk.
+    /// Prefer `thumbnailData(for:)` for rendering; this is the file-based path
+    /// (and the seal-safety contract: a non-nil URL means the file is plaintext).
     public func thumbnailURL(for id: UUID) async throws -> URL? {
         let blobHash = try await writer.read { db in
             try ClipRow.filter(key: id.uuidString).fetchOne(db)?.contentBlobHash

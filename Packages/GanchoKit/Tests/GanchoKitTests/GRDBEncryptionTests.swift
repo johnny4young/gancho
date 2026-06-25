@@ -22,12 +22,28 @@ import Testing
         return bytes
     }
 
+    private func fileBytes(in dir: URL) throws -> [Data] {
+        guard FileManager.default.fileExists(atPath: dir.path) else { return [] }
+        let urls = try FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles])
+        return try urls.compactMap { url in
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey])
+            return values.isRegularFile == true ? try Data(contentsOf: url) : nil
+        }
+    }
+
     private func tempDir() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("gancho-enc-\(UUID().uuidString)", isDirectory: true)
     }
 
     private let magicHeader = Data("SQLite format 3\u{0}".utf8)
+    private let encryptedTinyPNG = Data(
+        base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+    )!
+    private let pngHeader = Data([0x89, 0x50, 0x4e, 0x47])
 
     @Suite("GRDBClipboardStore — SQLCipher encryption at rest")
     struct GRDBEncryptionTests {
@@ -54,6 +70,66 @@ import Testing
             let head = raw.prefix(16)
             #expect(
                 head != magicHeader, "an encrypted database must not carry the SQLite magic header")
+        }
+
+        @Test("Encrypted stores seal binary blob payloads and read them back")
+        func encryptedStoreSealsBinaryBlobs() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let key = try testKey()
+            let payload = Data(Self.needle.utf8) + Data([0, 1, 2, 3])
+
+            var store: GRDBClipboardStore? = try GRDBClipboardStore(directory: dir, passphrase: key)
+            let item = ClipItem(
+                kind: .image, preview: "Image",
+                contentHash: ClipItem.hash(of: payload, kind: .image))
+            try await store?.insert(
+                item, content: .binary(data: payload, typeIdentifier: "public.data"))
+            store = nil
+
+            let blobDir = dir.appendingPathComponent("blobs", isDirectory: true)
+            let rawBlob = try #require(try fileBytes(in: blobDir).first)
+            #expect(
+                rawBlob.prefix(BlobStore.encryptedMagic.count).elementsEqual(
+                    BlobStore.encryptedMagic),
+                "blob file should use the sealed blob format")
+            #expect(
+                rawBlob.range(of: Data(Self.needle.utf8)) == nil,
+                "binary payload must not appear in cleartext on disk")
+
+            let reopened = try GRDBClipboardStore(directory: dir, passphrase: key)
+            #expect(
+                try await reopened.content(for: item.id)
+                    == .binary(data: payload, typeIdentifier: "public.data"))
+        }
+
+        @Test("Encrypted thumbnail cache is sealed on disk")
+        func encryptedThumbnailCacheIsSealed() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let key = try testKey()
+
+            var store: GRDBClipboardStore? = try GRDBClipboardStore(directory: dir, passphrase: key)
+            let item = ClipItem(
+                kind: .image, preview: "Image",
+                contentHash: ClipItem.hash(of: encryptedTinyPNG, kind: .image))
+            try await store?.insert(
+                item, content: .binary(data: encryptedTinyPNG, typeIdentifier: "public.png"))
+            let thumbnail = try #require(try await store?.thumbnailData(for: item.id))
+            #expect(!thumbnail.isEmpty)
+            #expect(try await store?.thumbnailURL(for: item.id) == nil)
+            #expect(try await store?.thumbnailData(for: item.id) == thumbnail)
+            store = nil
+
+            let thumbnailDir = dir.appendingPathComponent("blobs/thumbnails", isDirectory: true)
+            let rawThumbnail = try #require(try fileBytes(in: thumbnailDir).first)
+            #expect(
+                rawThumbnail.prefix(BlobStore.encryptedMagic.count).elementsEqual(
+                    BlobStore.encryptedMagic),
+                "thumbnail cache should use the sealed blob format")
+            #expect(
+                rawThumbnail.range(of: pngHeader) == nil,
+                "cached thumbnails must not remain as plaintext PNG files")
         }
 
         @Test("The right key reads the clips back; a wrong key cannot open the store")
@@ -113,6 +189,58 @@ import Testing
             #expect(
                 after.range(of: Data(Self.needle.utf8)) == nil,
                 "migrated content must no longer be cleartext on disk")
+        }
+
+        @Test("Pre-encryption blob payloads and thumbnails migrate in place")
+        func migratesPlaintextBlobsAndThumbnails() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+
+            var plaintext: GRDBClipboardStore? = try GRDBClipboardStore(
+                directory: dir, passphrase: nil)
+            let item = ClipItem(
+                kind: .image, preview: "Image",
+                contentHash: ClipItem.hash(of: encryptedTinyPNG, kind: .image))
+            try await plaintext?.insert(
+                item, content: .binary(data: encryptedTinyPNG, typeIdentifier: "public.png"))
+            let plaintextThumbnailURL = try #require(
+                try await plaintext?.thumbnailURL(for: item.id))
+            let plaintextThumbnail = try Data(contentsOf: plaintextThumbnailURL)
+            plaintext = nil
+
+            let blobDir = dir.appendingPathComponent("blobs", isDirectory: true)
+            let thumbnailDir = dir.appendingPathComponent("blobs/thumbnails", isDirectory: true)
+            let beforeBlob = try #require(try fileBytes(in: blobDir).first)
+            let beforeThumbnail = try #require(try fileBytes(in: thumbnailDir).first)
+            #expect(beforeBlob == encryptedTinyPNG, "seed blob should be plaintext")
+            #expect(
+                beforeThumbnail.range(of: pngHeader) != nil,
+                "seed thumbnail should be a plaintext PNG")
+
+            let key = try testKey()
+            let encrypted = try GRDBClipboardStore(directory: dir, passphrase: key)
+
+            #expect(
+                try await encrypted.content(for: item.id)
+                    == .binary(data: encryptedTinyPNG, typeIdentifier: "public.png"))
+            #expect(try await encrypted.thumbnailData(for: item.id) == plaintextThumbnail)
+
+            let afterBlob = try #require(try fileBytes(in: blobDir).first)
+            let afterThumbnail = try #require(try fileBytes(in: thumbnailDir).first)
+            #expect(
+                afterBlob.prefix(BlobStore.encryptedMagic.count).elementsEqual(
+                    BlobStore.encryptedMagic),
+                "migrated blob should be sealed")
+            #expect(
+                afterThumbnail.prefix(BlobStore.encryptedMagic.count).elementsEqual(
+                    BlobStore.encryptedMagic),
+                "migrated thumbnail should be sealed")
+            #expect(
+                afterBlob.range(of: encryptedTinyPNG) == nil,
+                "migrated binary payload must not remain cleartext")
+            #expect(
+                afterThumbnail.range(of: pngHeader) == nil,
+                "migrated thumbnail must not remain a plaintext PNG")
         }
     }
 

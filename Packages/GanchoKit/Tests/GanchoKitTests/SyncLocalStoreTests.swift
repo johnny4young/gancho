@@ -6,12 +6,13 @@ import Testing
 
 @Suite("SyncLocalStore bridge — uploads, remote apply, tombstones")
 struct SyncLocalStoreTests {
-    private func makeStore() throws -> GRDBClipboardStore {
+    private func makeStore(
+        blobDir: URL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sync-\(UUID().uuidString)")
+    ) throws -> GRDBClipboardStore {
         let store = GRDBClipboardStore(
             writer: try DatabaseQueue(),
-            blobs: BlobStore(
-                directory: FileManager.default.temporaryDirectory
-                    .appendingPathComponent("sync-\(UUID().uuidString)")))
+            blobs: BlobStore(directory: blobDir))
         try store.migrate()
         return store
     }
@@ -91,6 +92,31 @@ struct SyncLocalStoreTests {
 
         try await store.clearTombstone(recordID: item.id.uuidString)
         #expect(try await store.pendingDeletionRecordIDs().isEmpty)
+    }
+
+    @Test("Sync deletes remove now-orphaned binary blobs")
+    func deletionTombstonesCleanOrphanedBlobs() async throws {
+        let blobDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sync-delete-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: blobDir) }
+        let store = try makeStore(blobDir: blobDir)
+        let payload = Data("sync-delete-binary-payload".utf8)
+        let item = ClipItem(
+            kind: .image, preview: "Image",
+            contentHash: ClipItem.hash(of: payload, kind: .image))
+        try await store.insert(item, content: .binary(data: payload, typeIdentifier: "public.data"))
+
+        let blobFiles = try FileManager.default.contentsOfDirectory(atPath: blobDir.path)
+        #expect(blobFiles.filter { $0 != "thumbnails" }.count == 1)
+
+        try await store.deleteForSync(id: item.id)
+
+        #expect(try await store.count() == 0)
+        #expect(try await store.pendingDeletionRecordIDs() == [item.id.uuidString])
+        let remaining = (try? FileManager.default.contentsOfDirectory(atPath: blobDir.path)) ?? []
+        #expect(
+            remaining.filter { $0 != "thumbnails" }.isEmpty,
+            "sync delete should mirror direct delete's orphan blob cleanup")
     }
 
     @Test("Remote deletion removes the local row")
