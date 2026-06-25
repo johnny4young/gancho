@@ -28,7 +28,8 @@ final class KeyboardModel: ObservableObject {
     @Published var selectedBoardID: UUID?
     /// Tiny downsampled image thumbnails, keyed by clip id. A keyboard runs under
     /// a hard memory budget, so this is capped (FIFO) and the decode never loads
-    /// a full image — it streams the on-disk thumbnail through ImageIO.
+    /// a full image — it decodes the store's small thumbnail bytes through
+    /// ImageIO instead of opening the original screenshot.
     @Published private var thumbnails: [UUID: Image] = [:]
     private var thumbnailOrder: [UUID] = []
     private var thumbnailsInFlight: Set<UUID> = []
@@ -144,17 +145,18 @@ final class KeyboardModel: ObservableObject {
     func thumbnail(for id: UUID) -> Image? { thumbnails[id] }
 
     /// Loads one image clip's thumbnail, lazily and once. A no-op for non-images,
-    /// sensitive clips, already-cached or in-flight ids. Reads the on-disk
-    /// thumbnail URL (never the full blob), downsamples off the main actor, and
-    /// evicts the oldest once the cap is reached so memory stays bounded.
+    /// sensitive clips, already-cached or in-flight ids. Reads the store's
+    /// cached thumbnail bytes (never the full blob), downsamples off the main
+    /// actor, and evicts the oldest once the cap is reached so memory stays
+    /// bounded.
     func ensureThumbnail(_ entry: WidgetClipEntry) async {
         guard entry.kind == .image, !entry.isSensitive, let store,
             thumbnails[entry.id] == nil, !thumbnailsInFlight.contains(entry.id)
         else { return }
         thumbnailsInFlight.insert(entry.id)
         defer { thumbnailsInFlight.remove(entry.id) }
-        guard let url = try? await store.thumbnailURL(for: entry.id) else { return }
-        let decoded = await Task.detached { Self.downsample(url, maxPixel: 120) }.value
+        guard let data = try? await store.thumbnailData(for: entry.id) else { return }
+        let decoded = await Task.detached { Self.downsample(data, maxPixel: 120) }.value
         guard let decoded else { return }
         thumbnails[entry.id] = Image(uiImage: decoded)
         thumbnailOrder.append(entry.id)
@@ -164,13 +166,13 @@ final class KeyboardModel: ObservableObject {
         }
     }
 
-    /// Downsampled decode straight from the thumbnail file — ImageIO reads only
-    /// enough to build a `maxPixel` thumbnail, so a huge screenshot never lands
+    /// Downsampled decode from already-small thumbnail bytes. ImageIO reads only
+    /// enough to build a `maxPixel` thumbnail, so no original screenshot lands
     /// in the keyboard's memory whole.
-    nonisolated private static func downsample(_ url: URL, maxPixel: CGFloat) -> UIImage? {
+    nonisolated private static func downsample(_ data: Data, maxPixel: CGFloat) -> UIImage? {
         guard
-            let source = CGImageSourceCreateWithURL(
-                url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary)
+            let source = CGImageSourceCreateWithData(
+                data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary)
         else { return nil }
         let options =
             [
@@ -206,10 +208,16 @@ final class KeyboardModel: ObservableObject {
 
     /// Swipe → Delete: remove the clip and reload through the current path
     /// (search stays scoped if a query is present).
+    ///
+    /// Always `deleteForSync` (a tombstone + orphan-blob cleanup), never the
+    /// plain delete: the extension can't see whether sync is on, and if it is, a
+    /// plain delete would let the clip resurrect on the next pull. The tombstone
+    /// is harmless when sync is off (it's pruned once acknowledged, otherwise
+    /// just an inert row).
     func delete(_ entry: WidgetClipEntry) {
         guard let store else { return }
         Task {
-            try? await store.delete(id: entry.id)
+            try? await store.deleteForSync(id: entry.id)
             await reloadCurrent()
         }
     }

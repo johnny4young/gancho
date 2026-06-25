@@ -231,12 +231,24 @@ extension GRDBClipboardStore: SyncLocalStore {
     /// instead of `delete(id:)` when sync is active so the deletion can
     /// propagate before the row is forgotten.
     public func deleteForSync(id: UUID, now: Date = .now) async throws {
-        try await writer.write { db in
+        let blobHash = try await writer.write { db -> String? in
+            let hash = try ClipRow
+                .filter(key: id.uuidString)
+                .fetchOne(db)?.contentBlobHash
             try db.execute(
                 sql:
                     "INSERT OR REPLACE INTO sync_tombstone (recordID, deletedAt) VALUES (?, ?)",
                 arguments: [id.uuidString, now])
             try db.execute(sql: "DELETE FROM clip WHERE id = ?", arguments: [id.uuidString])
+            return hash
+        }
+        if let blobHash {
+            let stillReferenced = try await writer.read { db in
+                try ClipRow.filter(Column("contentBlobHash") == blobHash).fetchCount(db) > 0
+            }
+            if !stillReferenced {
+                blobsForMaintenance.delete(hash: blobHash)
+            }
         }
     }
 

@@ -82,28 +82,31 @@ struct GRDBClipboardStoreTests {
         try await store.insert(item, content: .binary(data: tinyPNG, typeIdentifier: "public.png"))
 
         let blobFiles = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { $0 != "thumbnails" }
         #expect(blobFiles.count == 1, "blob must land on disk")
         #expect(
             try await store.content(for: item.id)
                 == .binary(data: tinyPNG, typeIdentifier: "public.png"))
     }
 
-    @Test("Thumbnails generate lazily, bounded, and cache")
-    func lazyThumbnail() async throws {
+    @Test("Thumbnails are warmed at write and cached")
+    func warmedThumbnail() async throws {
         let (store, dir) = try makeStore()
         defer { try? FileManager.default.removeItem(at: dir) }
 
         let item = ClipItem(kind: .image, preview: "Image", contentHash: "img")
         try await store.insert(item, content: .binary(data: tinyPNG, typeIdentifier: "public.png"))
 
-        // No thumbnail directory until first request.
+        // Warmed from the in-memory data at write time — the cache exists before
+        // any thumbnail request, so a memory-tight reader never loads the full
+        // blob just to build it.
         #expect(
-            !FileManager.default.fileExists(
+            FileManager.default.fileExists(
                 atPath: dir.appendingPathComponent("thumbnails").path))
 
         let url = try #require(try await store.thumbnailURL(for: item.id))
         #expect(FileManager.default.fileExists(atPath: url.path))
-        // Second request returns the cached file.
+        // Repeat requests return the cached file.
         #expect(try await store.thumbnailURL(for: item.id) == url)
     }
 
