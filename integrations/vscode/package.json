@@ -6,7 +6,8 @@
   "publisher": "johnny4young",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.90.0"
+    "vscode": "^1.90.0",
+    "node": ">=24"
   },
   "categories": [
     "Other"
@@ -36,7 +37,7 @@
     "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^24.0.0",
     "@types/vscode": "^1.90.0",
     "typescript": "^5.4.0"
   }
