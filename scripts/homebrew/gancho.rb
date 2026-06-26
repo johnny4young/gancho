@@ -5,6 +5,9 @@
 # tap (e.g. `johnny4young/homebrew-tap`). Until then it documents exactly how
 # `brew install gancho` builds the tool from source.
 #
+# Gancho is proprietary (see LICENSE); building or running from source does not
+# grant rights beyond those stated there.
+#
 #   brew tap johnny4young/tap
 #   brew install gancho
 class Gancho < Formula
