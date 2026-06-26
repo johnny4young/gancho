@@ -19,7 +19,7 @@ jobs:
     # Needs the Xcode 26 runner (macOS/iOS 26 + Swift 6.2); macos-latest lags.
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Record toolchain
         run: |
@@ -30,7 +30,7 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Cache SwiftPM
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: Packages/GanchoKit/.build
           key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift') }}

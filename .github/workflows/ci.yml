@@ -21,7 +21,7 @@ jobs:
     # macos-latest still carries Xcode 16 (macOS 15 SDK) and cannot build it.
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Record toolchain
         run: |
@@ -33,7 +33,7 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Cache SwiftPM
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: Packages/GanchoKit/.build
           key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift') }}
@@ -74,7 +74,7 @@ jobs:
     # macos-latest still lags on Xcode 16 (macOS 15 SDK), so pin macos-26.
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -95,7 +95,7 @@ jobs:
 
       - name: Upload result bundles (on failure)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: xcresults-${{ github.run_id }}
           path: build/*.xcresult
@@ -110,7 +110,7 @@ jobs:
     runs-on: macos-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Select newest Xcode (betas included)
         run: |

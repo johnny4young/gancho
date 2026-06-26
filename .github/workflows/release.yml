@@ -18,7 +18,7 @@ jobs:
     # Xcode 26 runner family as CI.
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -51,7 +51,7 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Cache SwiftPM
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: Packages/GanchoKit/.build
           key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift') }}
@@ -73,7 +73,7 @@ jobs:
     needs: verify
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install XcodeGen
         run: brew install xcodegen
