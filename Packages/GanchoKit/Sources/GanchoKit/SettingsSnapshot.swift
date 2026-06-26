@@ -1,6 +1,6 @@
 import Foundation
 
-/// Portable settings document (vitrine's SettingsCodec pattern): everything
+/// Portable settings document: everything
 /// a reinstall needs, versioned, content-free by construction — preferences
 /// only, never clips.
 public struct SettingsSnapshot: Sendable, Equatable, Codable {

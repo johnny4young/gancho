@@ -1,6 +1,6 @@
 # XcodeGen spec — the source of truth for Gancho.xcodeproj.
 # Regenerate with `xcodegen generate` (or `make project`). Do not hand-edit the
-# generated .xcodeproj; it is git-ignored. (Pattern inherited from vitrine.)
+# generated .xcodeproj; it is git-ignored.
 
 name: Gancho
 
@@ -49,7 +49,7 @@ settings:
 packages:
   GanchoKit:
     path: Packages/GanchoKit
-  # Global hotkey recording + handling (vitrine-proven, MIT).
+  # Global hotkey recording + handling (MIT-licensed).
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     from: 2.3.0

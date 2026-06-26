@@ -1,4 +1,4 @@
-# Gancho developer entry points (pattern inherited from vitrine).
+# Gancho developer entry points.
 # `make help` lists targets.
 
 XCODEGEN ?= xcodegen

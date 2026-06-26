@@ -148,8 +148,8 @@ public struct RuleClassifier: Sendable {
     }
 }
 
-/// Heuristic code-language detection (pattern inherited from vitrine's
-/// LanguageDetector): cheap keyword/shape scoring, no parsing. The kind is
+/// Heuristic code-language detection: cheap keyword/shape scoring, no parsing.
+/// The kind is
 /// `code`; the language refines previews and syntax-aware actions.
 public enum CodeLanguageDetector {
     public enum Language: String, Sendable, Equatable, CaseIterable {

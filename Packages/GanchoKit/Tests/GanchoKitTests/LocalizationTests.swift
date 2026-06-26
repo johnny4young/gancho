@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-/// Localization gate (pattern inherited from vitrine): bilingual from the
+/// Localization gate: bilingual from the
 /// first real string. Reads the app String Catalogs straight from the repo
 /// (path-derived from #filePath), so the gate runs in plain `swift test`.
 @Suite("Localization gate — en + es from day one")

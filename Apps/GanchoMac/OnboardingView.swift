@@ -4,7 +4,7 @@ import GanchoKit
 import KeyboardShortcuts
 import SwiftUI
 
-/// Three-screen welcome (vitrine's WelcomeView pattern): privacy promise up
+/// Three-screen welcome: privacy promise up
 /// top, teach the core loop, configure the hotkey. Shown once
 /// (`hasSeenWelcome`), skippable, reopenable from the menu.
 struct OnboardingView: View {

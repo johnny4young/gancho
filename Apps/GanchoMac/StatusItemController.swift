@@ -14,8 +14,8 @@ import Observation
 /// intentionally has no autosave name: persisted menu-bar customization state
 /// is exactly what can keep a repaired agent registered in Accessibility while
 /// not painting. Command metadata is shared with the helper through
-/// `GanchoMenuBarCommand`, matching Vitrine's centralized command-surface
-/// pattern while keeping private clipboard previews out of the helper process.
+/// `GanchoMenuBarCommand`, a centralized command surface that keeps private
+/// clipboard previews out of the helper process.
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
     private static let autosaveName = "GanchoPrimaryStatusItem"

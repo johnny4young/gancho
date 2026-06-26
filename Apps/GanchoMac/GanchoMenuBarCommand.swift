@@ -3,9 +3,8 @@ import Foundation
 
 /// Shared command metadata for Gancho's menu-bar surfaces.
 ///
-/// Vitrine keeps its command titles, shortcuts, symbols, and accessibility
-/// identifiers in one enum so menus and equivalent controls cannot drift.
-/// Gancho follows the same maintainability pattern here: the in-process
+/// Command titles, shortcuts, symbols, and accessibility identifiers live in
+/// one enum so menus and equivalent controls cannot drift: the in-process
 /// `NSStatusItem` fallback and the external paint-only helper both render this
 /// command surface, while the main app remains the only process that performs
 /// private clipboard work.

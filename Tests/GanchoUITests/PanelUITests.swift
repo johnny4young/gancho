@@ -223,8 +223,8 @@ final class PanelUITests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 5))
 
         app.typeKey(.escape, modifierFlags: [])
-        // Window-geometry assertions self-skip on tiny virtual displays
-        // (vitrine pattern) — existence flips are stable everywhere.
+        // Window-geometry assertions self-skip on tiny virtual displays —
+        // existence flips are stable everywhere.
         let disappeared = NSPredicate(format: "exists == false")
         let expectation = XCTNSPredicateExpectation(predicate: disappeared, object: search)
         XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: 5), .completed)

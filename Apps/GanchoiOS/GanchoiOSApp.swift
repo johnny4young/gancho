@@ -199,7 +199,7 @@ final class IOSAppModel {
 
     func forceSync() async {
         // Start = "run a sync cycle now" on the boundary; the CloudKit
-        // adapter gives it real semantics on the device-day.
+        // adapter gives it real semantics during on-device verification.
         try? await syncEngine.start()
         await refreshHints()
     }

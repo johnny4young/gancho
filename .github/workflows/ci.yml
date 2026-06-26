@@ -1,4 +1,4 @@
-# CI (pattern inherited from vitrine): lint + package tests + app builds.
+# CI: lint + package tests + app builds.
 # Weekly run catches macOS runner-image drift before it bites a release.
 name: CI
 

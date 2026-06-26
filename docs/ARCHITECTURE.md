@@ -198,7 +198,7 @@ them impossible:
 
 For now, non-Apple work stops at analysis: capability matrix, portable envelope,
 and stack options. A read/search/paste companion or native capture adapter only
-becomes backlog after an explicit post-PMF decision.
+becomes a planned workstream after an explicit product decision.
 
 ## Build and quality gates
 

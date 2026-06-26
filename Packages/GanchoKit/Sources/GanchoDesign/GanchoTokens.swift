@@ -1,8 +1,8 @@
 import CoreGraphics
 
-/// Design tokens shared by every platform UI (pattern inherited from
-/// vitrine's VitrineTokens). Components consume token names, never bare
-/// numbers — see docs/ARCHITECTURE.md and the future DESIGN-SYSTEM.md.
+/// Design tokens shared by every platform UI. Components consume token names,
+/// never bare numbers — see docs/ARCHITECTURE.md and the future
+/// DESIGN-SYSTEM.md.
 public enum GanchoTokens {
     public enum Spacing {
         public static let xxs: CGFloat = 4
