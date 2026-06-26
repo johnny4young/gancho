@@ -4,13 +4,11 @@ import Testing
 
 @Suite("Pro catalog + entitlement rule")
 struct ProProductsTests {
-    @Test("Catalog IDs are the agreed bundle-scoped identifiers, annual first")
+    @Test("Catalog is the single one-time lifetime product")
     func catalog() {
-        #expect(ProCatalog.all.map(\.plan) == [.annual, .monthly, .lifetime])
-        #expect(ProCatalog.annual.id == "com.johnny4young.gancho.pro.annual")
-        #expect(ProCatalog.monthly.id == "com.johnny4young.gancho.pro.monthly")
+        #expect(ProCatalog.all.map(\.plan) == [.lifetime])
         #expect(ProCatalog.lifetime.id == "com.johnny4young.gancho.pro.lifetime")
-        #expect(ProCatalog.ids.count == 3)
+        #expect(ProCatalog.ids.count == 1)
         #expect(ProCatalog.product(for: .lifetime).id == ProCatalog.lifetime.id)
     }
 
@@ -21,7 +19,7 @@ struct ProProductsTests {
             StoreKitEntitlement.tier(forEntitledProductIDs: ["com.example.other"]) == .free)
         #expect(
             StoreKitEntitlement.tier(
-                forEntitledProductIDs: [ProCatalog.monthly.id]) == .pro)
+                forEntitledProductIDs: [ProCatalog.lifetime.id]) == .pro)
         #expect(
             StoreKitEntitlement.tier(
                 forEntitledProductIDs: [ProCatalog.lifetime.id, "com.example.other"]) == .pro)
@@ -33,7 +31,7 @@ struct ProProductsTests {
         #expect(handler.isPurchaseAvailable == false)
         #expect(await handler.availableProducts().isEmpty)
         #expect(await handler.currentTier() == .free)
-        let purchased = try await handler.purchase(.annual)
+        let purchased = try await handler.purchase(.lifetime)
         #expect(purchased == false)
     }
 }

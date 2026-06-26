@@ -25,8 +25,8 @@ struct PaywallView: View {
             }
 
             if model.purchases.isPurchaseAvailable {
-                // One button per plan; annual first (the visual default).
-                // Live prices come from StoreKit once products resolve.
+                // Gancho Pro is a single one-time purchase; the live price
+                // comes from StoreKit once the product resolves.
                 ForEach(ProCatalog.all) { product in
                     ActionButton(
                         LocalizedStringKey("Upgrade — \(product.displayName)"),
