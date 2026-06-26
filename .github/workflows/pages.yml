@@ -29,6 +29,11 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Turn Pages on automatically (needs the pages: write permission
+          # above) so the site deploys without a manual Settings → Pages step.
+          # Pages requires a public repo (or a paid plan for private Pages).
+          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
