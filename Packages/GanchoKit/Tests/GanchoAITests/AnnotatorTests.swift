@@ -133,7 +133,14 @@ struct EmbeddingIndexTests {
         #expect(hits.count == 10)
         // The query vector itself was inserted as seed 4242 — exact match wins.
         #expect(abs(hits[0].score - 1) < 1e-4)
-        #expect(elapsed < .milliseconds(100), "search took \(elapsed)")
+        // CI runs the suite with code coverage on, which instruments every
+        // access and inflates wall-clock timing several-fold; relax the budget
+        // there so the perf guard stays meaningful locally without flaking on
+        // the coverage run.
+        let budget: Duration =
+            ProcessInfo.processInfo.environment["CI"] == nil
+            ? .milliseconds(100) : .milliseconds(750)
+        #expect(elapsed < budget, "search took \(elapsed)")
         print("cosine search over 10k×512:", elapsed)
     }
 }
