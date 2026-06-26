@@ -5,9 +5,6 @@
 # tap (e.g. `johnny4young/homebrew-tap`). Until then it documents exactly how
 # `brew install gancho` builds the tool from source.
 #
-# Gancho is proprietary (see LICENSE); building or running from source does not
-# grant rights beyond those stated there.
-#
 #   brew tap johnny4young/tap
 #   brew install gancho
 class Gancho < Formula
@@ -16,7 +13,7 @@ class Gancho < Formula
   version "0.1.0"
   url "https://github.com/johnny4young/gancho/archive/refs/tags/v#{version}.tar.gz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
-  license :cannot_represent
+  license "MIT"
 
   # Builds from source with the Swift toolchain that ships in Xcode 26.
   depends_on xcode: ["26.0", :build]

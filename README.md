@@ -234,6 +234,16 @@ project.yml             XcodeGen source of truth for Gancho.xcodeproj
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture and
 platform strategy.
 
+## Acknowledgements
+
+Gancho is built on excellent open-source work, including
+[GRDB.swift](https://github.com/groue/GRDB.swift) and
+[SQLCipher](https://www.zetetic.net/sqlcipher/) for encrypted local storage,
+[KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) for the
+global hotkey, [Sauce](https://github.com/Clipy/Sauce) for keyboard-layout
+handling, and [TelemetryDeck](https://telemetrydeck.com) for content-free,
+privacy-respecting metrics.
+
 ## License
 
-Proprietary. © 2026 Johnny Young. All rights reserved.
+[MIT](LICENSE) © 2026 Johnny Young.

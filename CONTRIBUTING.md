@@ -1,6 +1,8 @@
 # Contributing
 
-Gancho is a closed-source product developed in the open with a small circle.
+Gancho is open source under the [MIT license](LICENSE). Contributions — bug
+reports, fixes, and features — are welcome. Open an issue to discuss larger
+changes first, then send a pull request.
 
 ## Prerequisites
 

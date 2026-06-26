@@ -137,7 +137,7 @@ targets:
               - gancho
         # Menu-bar app: no Dock icon (Settings can offer an override later).
         LSUIElement: true
-        NSHumanReadableCopyright: "© 2026 Johnny Young. All rights reserved."
+        NSHumanReadableCopyright: "© 2026 Johnny Young"
 
   GanchoMenuBarHelper:
     type: tool
