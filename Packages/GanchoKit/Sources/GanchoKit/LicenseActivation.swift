@@ -78,7 +78,11 @@ public struct LemonSqueezyValidator: Sendable {
 /// Orchestrates activation: validate the Lemon Squeezy key online once, then
 /// mint and sign the offline `LicenseToken`. A build without a signing key
 /// (App Store or from-source) has nothing to mint and returns `notLicensable`.
-public struct LicenseActivationService {
+///
+/// `@unchecked Sendable`: every stored value is immutable and the Ed25519
+/// private key is only ever read (signing is a pure operation), so sharing it
+/// across isolation is safe.
+public struct LicenseActivationService: @unchecked Sendable {
     public enum Outcome: Sendable, Equatable {
         case activated(signedToken: String)
         case rejected(reason: String)

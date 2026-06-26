@@ -65,6 +65,14 @@ public protocol PurchaseHandling: Sendable {
     func restorePurchases() async throws -> Bool
     /// The tier StoreKit currently entitles — the source of truth.
     func currentTier() async -> UserTier
+    /// Activates a direct-download license key (Lemon Squeezy). StoreKit-only
+    /// handlers ignore it and return false; the license handler stores and
+    /// verifies the signed token, then reports whether it unlocked Pro.
+    func activate(licenseKey: String) async -> Bool
+}
+
+extension PurchaseHandling {
+    public func activate(licenseKey: String) async -> Bool { false }
 }
 
 /// Honest placeholder used where no real handler is wired (previews, tests).
