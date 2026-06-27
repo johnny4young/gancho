@@ -451,6 +451,16 @@ private struct ProSettingsTab: View {
             Text("Pro — iCloud sync, unlimited pins and boards — arrives with launch.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            #if GANCHO_DIRECT_DOWNLOAD
+                Section("Software Updates") {
+                    Button("Check for Updates…") { model.updater.checkForUpdates() }
+                    Text(
+                        "Direct downloads update themselves automatically; you can also check now."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+            #endif
             #if DEBUG
                 Section {
                     Button {
