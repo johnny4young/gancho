@@ -169,11 +169,17 @@ Then publish:
    and `dist/gancho-cask-update.txt`.
 2. Commit `site/appcast.xml` to `main`; the Pages deploy serves it at the
    `SUFeedURL`. Installed apps now see the update.
-3. Bump the Homebrew cask: copy the `version`/`sha256` lines from
-   `gancho-cask-update.txt` into `Casks/gancho.rb` in the
-   [johnny4young/homebrew-tap](https://github.com/johnny4young/homebrew-tap)
-   repo, then `brew audit --cask --strict gancho` and push. `brew install --cask
-   gancho` now serves the new build.
+3. Bump the Homebrew cask. Once the DMG is attached to the release, trigger the
+   tap update (it downloads the released DMG, re-hashes it, and pushes the bump
+   to [johnny4young/homebrew-tap](https://github.com/johnny4young/homebrew-tap)):
+
+   ```bash
+   gh workflow run update-cask.yml -f tag=v<version>
+   ```
+
+   `brew install --cask gancho` then serves the new build. (To bump by hand
+   instead, copy the `version`/`sha256` lines from `gancho-cask-update.txt` into
+   `Casks/gancho.rb` and push.)
 
 > Never commit an `appcast.xml` whose enclosure points at a release/DMG that is
 > not published yet — Sparkle would try to download a missing file. `make
@@ -198,6 +204,7 @@ production downloads require them.
 | `MACOS_NOTARY_APPLE_ID` | Apple ID fallback for `notarytool` |
 | `MACOS_NOTARY_PASSWORD` | App-specific password fallback for `notarytool` |
 | `MACOS_NOTARY_TEAM_ID` | Team ID for Apple ID notarization fallback |
+| `HOMEBREW_TAP_TOKEN` | Fine-grained PAT with `Contents: write` on `johnny4young/homebrew-tap`, used by `update-cask.yml` to push the cask bump (the same token style `gos` uses for its tap) |
 
 The App Store Connect API-key path wins when both notarization credential styles
 are configured.

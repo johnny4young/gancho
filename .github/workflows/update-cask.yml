@@ -1,0 +1,99 @@
+name: Update Homebrew cask
+
+# Cross-repo half of the gos-style tap automation: bump the `gancho` cask in
+# johnny4young/homebrew-tap from a released DMG.
+#
+# Unlike gos (whose source tarball GitHub generates, so its formula bump is fully
+# automatic in CI), Gancho's DMG is built, signed, and notarized locally — the
+# Developer ID identity and the EdDSA appcast signature both need the
+# maintainer's keys. So run this AFTER the DMG is attached to the release:
+#
+#   gh workflow run update-cask.yml -f tag=v0.1.0
+#
+# Requires the HOMEBREW_TAP_TOKEN secret: a fine-grained PAT with Contents:write
+# on johnny4young/homebrew-tap (the same token gos uses for homebrew-gos).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag whose DMG to publish the cask for (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  update-cask:
+    name: Bump the gancho cask
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve version
+        id: ref
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          # Strict allow-list: a v-prefixed semver. This also guarantees the
+          # value carries no shell metacharacters before it reaches the later
+          # download / sed / commit steps.
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "::error::tag must be a v-prefixed semver like v0.1.0, got '$TAG'"
+            exit 1
+          fi
+          {
+            echo "tag=$TAG"
+            echo "version=${TAG#v}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download the released DMG and hash it
+        id: dmg
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.ref.outputs.tag }}
+          VERSION: ${{ steps.ref.outputs.version }}
+        run: |
+          set -euo pipefail
+          asset="Gancho-${VERSION}.dmg"
+          if ! gh release download "$TAG" --repo "$REPO" --pattern "$asset" --dir .; then
+            echo "::error::$asset is not attached to release $TAG — upload the DMG first."
+            exit 1
+          fi
+          sha="$(sha256sum "$asset" | cut -d' ' -f1)"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "$asset -> sha256 $sha"
+
+      - name: Check out the tap
+        uses: actions/checkout@v7
+        with:
+          repository: johnny4young/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Bump Casks/gancho.rb
+        env:
+          VERSION: ${{ steps.ref.outputs.version }}
+          SHA: ${{ steps.dmg.outputs.sha }}
+        run: |
+          set -euo pipefail
+          cask="tap/Casks/gancho.rb"
+          sed -i "s|^  version \".*\"|  version \"${VERSION}\"|" "$cask"
+          sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" "$cask"
+          grep -E '^  (version|sha256) ' "$cask"
+
+      - name: Commit and push
+        env:
+          TAG: ${{ steps.ref.outputs.tag }}
+        run: |
+          set -euo pipefail
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/gancho.rb
+          if git diff --cached --quiet; then
+            echo "Cask already current for ${TAG}"
+            exit 0
+          fi
+          git commit -m "chore(gancho): publish cask ${TAG}"
+          git push origin main
