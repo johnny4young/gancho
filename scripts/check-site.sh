@@ -18,7 +18,14 @@ grep -q '<html lang="en">' site/index.html || fail "site/index.html must declare
 grep -q '<title>Gancho' site/index.html || fail "site/index.html must set a Gancho title"
 grep -q 'Privacy-first' site/index.html || fail "site/index.html must carry the privacy-first product position"
 grep -q 'CHANGELOG.md' site/index.html || fail "site/index.html must link release notes/changelog"
-! grep -RIn --exclude='*.svg' 'http://' site >/dev/null || fail "site/ must not use insecure http:// URLs outside SVG namespaces"
+# The Sparkle appcast (site/appcast.xml) declares the Sparkle XML namespace,
+# whose URI is http://www.andymatuschak.org/xml-namespaces/sparkle — an XML
+# namespace identifier, not an insecure resource fetch. Allow it; reject any
+# other http:// URL outside SVG namespaces.
+if grep -RIn --exclude='*.svg' 'http://' site \
+	| grep -qv 'www.andymatuschak.org/xml-namespaces/sparkle'; then
+	fail "site/ must not use insecure http:// URLs (only the Sparkle XML namespace is allowed)"
+fi
 ! grep -RIn 'TODO' site >/dev/null || fail "site/ contains TODO markers"
 
 printf '✓ site/ structural checks passed\n'

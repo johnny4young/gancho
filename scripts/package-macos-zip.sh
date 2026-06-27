@@ -22,6 +22,9 @@ fi
 mkdir -p "$OUTPUT_DIR" build
 rm -rf "$DERIVED_DATA" "$RESULT_BUNDLE" "$ZIP_PATH" "$ZIP_PATH.sha256"
 
+printf '==> Fetching Sparkle.framework (embedded in the app bundle)\n'
+./scripts/fetch-sparkle.sh
+
 printf '==> Generating Xcode project\n'
 "${XCODEGEN:-xcodegen}" generate
 
