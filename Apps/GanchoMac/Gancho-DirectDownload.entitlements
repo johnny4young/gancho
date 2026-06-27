@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for the direct-download (Developer ID, GANCHO_DIRECT_DOWNLOAD)
+  build. Deliberately omits the iCloud and Push entitlements that the App Store
+  build carries: under manual Developer ID signing those require a provisioning
+  profile, and the direct channel does not ship CloudKit sync yet. The runtime
+  already degrades to NoopSyncEngine when the iCloud entitlement is absent
+  (GanchoSync.CloudKitEntitlements.currentTaskAllowsSync), so this build runs
+  cleanly with sync simply disabled. The app is not sandboxed and needs no
+  hardened-runtime exceptions; notarization is satisfied by the hardened runtime
+  build setting plus a secure timestamp.
+-->
+<plist version="1.0">
+<dict>
+</dict>
+</plist>

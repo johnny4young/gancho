@@ -15,6 +15,16 @@ cd "$repo_root"
 # The DMG IS the direct-download channel.
 export GANCHO_COMPILATION_CONDITIONS="GANCHO_DIRECT_DOWNLOAD"
 
+# Sign with the direct-download entitlements: no iCloud/Push, so manual Developer
+# ID signing needs no provisioning profile. The runtime disables sync when the
+# iCloud entitlement is absent. Override to a profile-backed file once the direct
+# channel ships CloudKit sync.
+# Absolute path: passed as a global build setting, it is resolved against each
+# target's own SRCROOT, so a relative path would break the SwiftPM framework
+# targets. The empty dict is a no-op for those frameworks and drops iCloud/Push
+# from the app.
+ENTITLEMENTS="${ENTITLEMENTS:-$repo_root/Apps/GanchoMac/Gancho-DirectDownload.entitlements}"
+
 PROJECT="${PROJECT:-Gancho.xcodeproj}"
 SCHEME="${SCHEME:-Gancho}"
 CONFIGURATION="${CONFIGURATION:-Release}"
@@ -52,6 +62,7 @@ if [ -n "${CODE_SIGN_IDENTITY:-}" ]; then
 		CODE_SIGNING_ALLOWED=YES
 		CODE_SIGN_STYLE=Manual
 		"CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY"
+		"CODE_SIGN_ENTITLEMENTS=$ENTITLEMENTS"
 		ENABLE_HARDENED_RUNTIME=YES
 		CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
 		OTHER_CODE_SIGN_FLAGS="--timestamp"
@@ -93,7 +104,7 @@ sign_sparkle_helpers() {
 			--sign "$CODE_SIGN_IDENTITY" "$item"
 	done
 	codesign --force --options runtime --timestamp \
-		--entitlements Apps/GanchoMac/Gancho.entitlements \
+		--entitlements "$ENTITLEMENTS" \
 		--sign "$CODE_SIGN_IDENTITY" "$APP_PATH"
 }
 
@@ -151,7 +162,11 @@ notarize() {
 if [ -n "${CODE_SIGN_IDENTITY:-}" ]; then
 	printf '==> Verifying code signature\n'
 	codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-	if codesign --display --verbose=2 "$APP_PATH" 2>&1 | grep -q 'flags=.*runtime'; then
+	# Capture first: piping codesign straight into `grep -q` lets grep exit on
+	# the first match and SIGPIPE codesign, which `set -o pipefail` then reports
+	# as a failed pipeline even though the runtime flag is present.
+	sig_info="$(codesign --display --verbose=2 "$APP_PATH" 2>&1)"
+	if printf '%s\n' "$sig_info" | grep -q 'flags=.*runtime'; then
 		printf '✓ Hardened runtime is enabled\n'
 	else
 		echo "error: signed app is missing the hardened runtime" >&2

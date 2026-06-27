@@ -116,6 +116,27 @@ CI, and the packaging scripts all run it first.
   Vendor/bin/generate_keys -p   # must equal SUPublicEDKey in Info.plist
   ```
 
+### App signing entitlements
+
+The direct-download build signs with `Apps/GanchoMac/Gancho-DirectDownload.entitlements`,
+a deliberately minimal file (no iCloud/Push). Manual Developer ID signing of the
+App Store entitlements would demand a provisioning profile; dropping iCloud/Push
+removes that requirement, and the runtime already disables CloudKit sync when the
+entitlement is absent (`GanchoSync.CloudKitEntitlements.currentTaskAllowsSync`).
+So the direct channel ships **without** sync for now; when it needs sync, add a
+Developer ID provisioning profile with iCloud + Push and point `ENTITLEMENTS` at
+a profile-backed entitlements file.
+
+### Notarization credentials
+
+Store them once in the login Keychain (no secret juggling per build):
+
+```bash
+xcrun notarytool store-credentials "gancho-notary" \
+  --apple-id "<your-apple-id>" --team-id "JGWX5ZT2N2" \
+  --password "<app-specific-password>"   # from appleid.apple.com
+```
+
 ### Cutting a direct-download release
 
 The Sparkle signature is over the DMG bytes, so the DMG that is signed for the
@@ -123,18 +144,22 @@ appcast must be the exact file uploaded to the release — do not rebuild it in
 between.
 
 ```bash
-# 1. Build the signed, notarized DMG (set CODE_SIGN_IDENTITY + notary creds for
-#    a production build; unsigned without them is a dev artifact only).
-CODE_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
-MACOS_NOTARY_KEY_P8="$HOME/keys/AuthKey_XXXXXXXXXX.p8" \
-MACOS_NOTARY_KEY_ID="XXXXXXXXXX" \
-MACOS_NOTARY_KEY_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
+# 1. Build the signed, notarized, stapled DMG. Sign by the certificate's SHA-1
+#    hash (`security find-identity -v -p codesigning`) when more than one
+#    "Developer ID Application" cert is installed, to avoid an ambiguous match.
+CODE_SIGN_IDENTITY=<developer-id-sha1-hash> \
+MACOS_NOTARY_KEYCHAIN_PROFILE=gancho-notary \
 make package-dmg
 
 # 2. Sign that DMG and refresh the feed (uses the Keychain EdDSA key). The
 #    <enclosure> points at the release asset for tag v<MARKETING_VERSION>.
 make appcast
 ```
+
+Without `CODE_SIGN_IDENTITY` the script builds an unsigned dev artifact; without
+notary credentials it skips stapling. A production build needs both. The
+App Store Connect API-key variables (`MACOS_NOTARY_KEY_*`) are an alternative to
+the Keychain profile and are what CI uses.
 
 Then publish:
 
