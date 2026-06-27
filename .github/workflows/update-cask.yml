@@ -1,17 +1,19 @@
 name: Update Homebrew cask
 
-# Cross-repo half of the gos-style tap automation: bump the `gancho` cask in
-# johnny4young/homebrew-tap from a released DMG.
+# Cross-repo half of the tap automation: regenerate the `gancho` cask in
+# johnny4young/homebrew-tap from this repo's source template
+# (packaging/Casks/gancho.rb) with a released DMG's version and SHA-256.
 #
-# Unlike gos (whose source tarball GitHub generates, so its formula bump is fully
-# automatic in CI), Gancho's DMG is built, signed, and notarized locally — the
-# Developer ID identity and the EdDSA appcast signature both need the
-# maintainer's keys. So run this AFTER the DMG is attached to the release:
+# Unlike Vitrine (whose DMG is built and signed in CI, so its cask bump runs
+# inline in the release workflow), Gancho's DMG is built, signed, and notarized
+# locally — the Developer ID identity and the EdDSA appcast signature both need
+# the maintainer's keys. So run this AFTER the DMG is attached to the release:
 #
 #   gh workflow run update-cask.yml -f tag=v0.1.0
 #
-# Requires the HOMEBREW_TAP_TOKEN secret: a fine-grained PAT with Contents:write
-# on johnny4young/homebrew-tap (the same token gos uses for homebrew-gos).
+# Requires the TAP_DEPLOY_KEY secret: an SSH deploy key with write access on
+# johnny4young/homebrew-tap (scoped to that one repo, unlike a PAT). Vitrine uses
+# the same key style for its own bump.
 
 on:
   workflow_dispatch:
@@ -28,6 +30,9 @@ jobs:
     name: Bump the gancho cask
     runs-on: ubuntu-latest
     steps:
+      - name: Check out gancho (for the cask template)
+        uses: actions/checkout@v7
+
       - name: Resolve version
         id: ref
         env:
@@ -36,7 +41,7 @@ jobs:
           set -euo pipefail
           # Strict allow-list: a v-prefixed semver. This also guarantees the
           # value carries no shell metacharacters before it reaches the later
-          # download / sed / commit steps.
+          # download / sed / push steps.
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
             echo "::error::tag must be a v-prefixed semver like v0.1.0, got '$TAG'"
             exit 1
@@ -64,36 +69,37 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "$asset -> sha256 $sha"
 
-      - name: Check out the tap
-        uses: actions/checkout@v7
-        with:
-          repository: johnny4young/homebrew-tap
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: tap
-
-      - name: Bump Casks/gancho.rb
+      - name: Regenerate the cask from the template and push to the tap
         env:
-          VERSION: ${{ steps.ref.outputs.version }}
-          SHA: ${{ steps.dmg.outputs.sha }}
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
+          CASK_VERSION: ${{ steps.ref.outputs.version }}
+          CASK_SHA256: ${{ steps.dmg.outputs.sha }}
         run: |
           set -euo pipefail
-          cask="tap/Casks/gancho.rb"
-          sed -i "s|^  version \".*\"|  version \"${VERSION}\"|" "$cask"
-          sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" "$cask"
-          grep -E '^  (version|sha256) ' "$cask"
-
-      - name: Commit and push
-        env:
-          TAG: ${{ steps.ref.outputs.tag }}
-        run: |
-          set -euo pipefail
-          cd tap
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/gancho.rb
-          if git diff --cached --quiet; then
-            echo "Cask already current for ${TAG}"
+          if [ -z "${TAP_DEPLOY_KEY}" ]; then
+            echo "::warning::TAP_DEPLOY_KEY is not configured; update the tap manually (docs/RELEASING.md)."
             exit 0
           fi
-          git commit -m "chore(gancho): publish cask ${TAG}"
-          git push origin main
+          KEY_FILE="$(mktemp)"
+          printf '%s\n' "${TAP_DEPLOY_KEY}" > "${KEY_FILE}"
+          chmod 600 "${KEY_FILE}"
+          export GIT_SSH_COMMAND="ssh -i ${KEY_FILE} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone --depth 1 git@github.com:johnny4young/homebrew-tap.git tap
+          # The tap copy is the template from the `cask` line down (the header
+          # comment is repo guidance, not cask content), with the published
+          # version and checksum substituted for the placeholders.
+          awk '/^cask "gancho"/,0' packaging/Casks/gancho.rb \
+            | sed -e "s/^  version \".*\"/  version \"${CASK_VERSION}\"/" \
+                  -e "s/^  sha256 \".*\"/  sha256 \"${CASK_SHA256}\"/" \
+            > tap/Casks/gancho.rb
+          cd tap
+          if git diff --quiet; then
+            echo "Tap already serves ${CASK_VERSION}; nothing to push."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/gancho.rb
+          git commit -m "gancho ${CASK_VERSION}"
+          git push origin HEAD:main
+          echo "Homebrew tap updated to \`${CASK_VERSION}\`." >> "$GITHUB_STEP_SUMMARY"
