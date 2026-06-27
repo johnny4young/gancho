@@ -4067,6 +4067,36 @@
           }
         }
       }
+    },
+    "Check for Updates…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar actualizaciones…"
+          }
+        }
+      }
+    },
+    "Software Updates": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizaciones de software"
+          }
+        }
+      }
+    },
+    "Direct downloads update themselves automatically; you can also check now.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las descargas directas se actualizan automáticamente; también puedes buscar ahora."
+          }
+        }
+      }
     }
   },
   "version": "1.1"
