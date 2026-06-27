@@ -17,7 +17,8 @@ release metadata synchronized.
 | macOS `Gancho.dmg` (direct-download channel) | License + Sparkle auto-update build (`GANCHO_DIRECT_DOWNLOAD`); signed/notarized when an identity is present | `scripts/package-macos-dmg.sh` |
 | Sparkle `appcast.xml` | EdDSA-signed update feed served from `site/` at the app's `SUFeedURL` | `scripts/generate-appcast.sh` |
 | GitHub release notes | Generated from the tag plus `CHANGELOG.md` | `.github/workflows/release.yml` |
-| CLI Homebrew formula template | Kept in sync with `MARKETING_VERSION` until it is copied to a tap | `scripts/homebrew/gancho.rb` |
+| Homebrew cask (`gancho`) | GUI app install (`brew install --cask gancho`) via the notarized DMG, published to [johnny4young/homebrew-tap](https://github.com/johnny4young/homebrew-tap); bumped from `gancho-cask-update.txt` | `scripts/package-macos-dmg.sh` + tap |
+| CLI Homebrew formula template | The `gancho` CLI + MCP server, built from source; kept in sync with `MARKETING_VERSION` until copied to a tap | `scripts/homebrew/gancho.rb` |
 | GitHub Pages website | Static landing page deployed from `site/` | `.github/workflows/pages.yml` |
 
 The unsigned ZIP path is for local and fork validation only. A production direct
@@ -164,14 +165,21 @@ the Keychain profile and are what CI uses.
 Then publish:
 
 1. Create the GitHub release for the tag and upload `dist/Gancho-<version>.dmg`
-   (the same bytes `make appcast` just signed).
+   (the same bytes `make appcast` just signed), `dist/Gancho-<version>.dmg.sha256`,
+   and `dist/gancho-cask-update.txt`.
 2. Commit `site/appcast.xml` to `main`; the Pages deploy serves it at the
    `SUFeedURL`. Installed apps now see the update.
+3. Bump the Homebrew cask: copy the `version`/`sha256` lines from
+   `gancho-cask-update.txt` into `Casks/gancho.rb` in the
+   [johnny4young/homebrew-tap](https://github.com/johnny4young/homebrew-tap)
+   repo, then `brew audit --cask --strict gancho` and push. `brew install --cask
+   gancho` now serves the new build.
 
 > Never commit an `appcast.xml` whose enclosure points at a release/DMG that is
 > not published yet — Sparkle would try to download a missing file. `make
 > appcast` overwrites `site/appcast.xml`, so generate it only when the DMG is
-> ready to upload.
+> ready to upload. The cask's `sha256` is over the same DMG bytes, so bump it
+> from the same `gancho-cask-update.txt`.
 
 ## GitHub Actions secrets
 

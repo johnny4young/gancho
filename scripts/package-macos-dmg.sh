@@ -195,6 +195,17 @@ fi
 
 shasum -a 256 "$DMG_PATH" > "$DMG_PATH.sha256"
 
+# Homebrew cask bump source of truth: the two lines to paste into the tap's
+# Casks/gancho.rb (mirrors Vitrine's <name>-cask-update.txt). Upload this with
+# the DMG so the cask sha256 always matches the published bytes.
+dmg_sha="$(awk '{print $1}' "$DMG_PATH.sha256")"
+cask_update="$OUTPUT_DIR/gancho-cask-update.txt"
+{
+	printf 'version "%s"\n' "$VERSION"
+	printf 'sha256 "%s"\n' "$dmg_sha"
+} > "$cask_update"
+
 printf '==> Release artifact\n'
 printf 'DMG:    %s\n' "$DMG_PATH"
-printf 'SHA256: %s\n' "$(awk '{print $1}' "$DMG_PATH.sha256")"
+printf 'SHA256: %s\n' "$dmg_sha"
+printf 'Cask:   %s\n' "$cask_update"
