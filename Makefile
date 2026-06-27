@@ -31,7 +31,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project build build-signed build-ios install-ios test test-ui bench format lint release-check package-macos qa-release site-check hooks clean open
+.PHONY: help project build build-signed build-ios install-ios test test-ui bench format lint release-check package-macos package-dmg qa-release site-check hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -87,6 +87,9 @@ release-check: ## Verify release metadata/version sync before tagging
 
 package-macos: release-check project ## Build and package the macOS Release app as dist/Gancho-<version>.zip
 	./scripts/package-macos-zip.sh
+
+package-dmg: release-check ## Build the direct-download (license) flavor and package it as a signed DMG
+	./scripts/package-macos-dmg.sh
 
 qa-release: ## QA the newest dist/Gancho-*.zip or a provided ARTIFACT=/path/to/Gancho.app
 	./scripts/qa-release.sh $${ARTIFACT:-}
