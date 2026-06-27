@@ -113,6 +113,13 @@ targets:
       # clipboard state.
       - target: GanchoMenuBarHelper
         embed: false
+      # The `gancho` CLI + local MCP server ships inside the app bundle so a
+      # Homebrew cask / DMG install gets the command-line tool too; the cask
+      # symlinks it onto PATH as `gancho`. Build-ordering dependency only — the
+      # copy is the post-build script below (a tool product has no
+      # XcodeGen-embeddable container).
+      - target: GanchoCLI
+        embed: false
     postBuildScripts:
       - name: Embed the menu-bar helper and its LaunchAgent in the app bundle
         basedOnDependencyAnalysis: true
@@ -134,6 +141,20 @@ targets:
           mkdir -p "${launch_agents}"
           cp -f "${SRCROOT}/Apps/GanchoMenuBarHelper/com.johnny4young.gancho.menubar-helper.plist" \
             "${launch_agents}/com.johnny4young.gancho.menubar-helper.plist"
+      - name: Embed the gancho CLI in the app bundle
+        basedOnDependencyAnalysis: true
+        inputFiles:
+          - "$(BUILT_PRODUCTS_DIR)/gancho-cli"
+        outputFiles:
+          - "$(TARGET_BUILD_DIR)/$(EXECUTABLE_FOLDER_PATH)/gancho-cli"
+        script: |
+          set -euo pipefail
+          # Plain cp (the sandboxed user script may only write the declared
+          # output). Runs before code signing so Xcode seals the bundle with the
+          # CLI in place; the DMG path re-signs it with the hardened runtime.
+          cp -f "${BUILT_PRODUCTS_DIR}/gancho-cli" \
+            "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/gancho-cli"
+          chmod 755 "${TARGET_BUILD_DIR}/${EXECUTABLE_FOLDER_PATH}/gancho-cli"
     info:
       path: Apps/GanchoMac/Info.plist
       properties:
@@ -157,6 +178,28 @@ targets:
         # Menu-bar app: no Dock icon (Settings can offer an override later).
         LSUIElement: true
         NSHumanReadableCopyright: "© 2026 Johnny Young"
+
+  # The scriptable `gancho` CLI + stdio MCP server, also published from source
+  # via scripts/homebrew/gancho.rb. Built here as a tool target so the macOS app
+  # bundle can embed it; the same sources back the SwiftPM `gancho` executable.
+  GanchoCLI:
+    type: tool
+    platform: macOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        # Named gancho-cli, not gancho: the default APFS volume is
+        # case-insensitive, so Contents/MacOS/gancho would clobber the app's
+        # `Gancho` executable. The Homebrew cask symlinks it onto PATH as gancho.
+        PRODUCT_NAME: gancho-cli
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.cli
+    sources:
+      - path: Packages/GanchoKit/Sources/gancho
+    dependencies:
+      - package: GanchoKit
+        products:
+          - GanchoKit
+          - GanchoMCP
 
   GanchoMenuBarHelper:
     type: tool

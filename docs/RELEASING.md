@@ -17,8 +17,8 @@ release metadata synchronized.
 | macOS `Gancho.dmg` (direct-download channel) | License + Sparkle auto-update build (`GANCHO_DIRECT_DOWNLOAD`); signed/notarized when an identity is present | `scripts/package-macos-dmg.sh` |
 | Sparkle `appcast.xml` | EdDSA-signed update feed served from `site/` at the app's `SUFeedURL` | `scripts/generate-appcast.sh` |
 | GitHub release notes | Generated from the tag plus `CHANGELOG.md` | `.github/workflows/release.yml` |
-| Homebrew cask (`gancho`) | GUI app install (`brew install --cask gancho`) via the notarized DMG, published to [johnny4young/homebrew-tap](https://github.com/johnny4young/homebrew-tap); bumped from `gancho-cask-update.txt` | `scripts/package-macos-dmg.sh` + tap |
-| CLI Homebrew formula template | The `gancho` CLI + MCP server, built from source; kept in sync with `MARKETING_VERSION` until copied to a tap | `scripts/homebrew/gancho.rb` |
+| Homebrew cask (`gancho`) | `brew install --cask gancho` installs the GUI app **and** the bundled `gancho` CLI (symlinked onto PATH) from the notarized DMG, published to [johnny4young/homebrew-tap](https://github.com/johnny4young/homebrew-tap); bumped from `gancho-cask-update.txt` | `scripts/package-macos-dmg.sh` + tap |
+| CLI Homebrew formula template | Alternative from-source install of just the `gancho` CLI + MCP server (the cask already bundles it); kept version-synced until copied to a tap | `scripts/homebrew/gancho.rb` |
 | GitHub Pages website | Static landing page deployed from `site/` | `.github/workflows/pages.yml` |
 
 The unsigned ZIP path is for local and fork validation only. A production direct
