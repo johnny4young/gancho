@@ -327,7 +327,12 @@ final class AppModel {
                 let annotation = try? await TieredClipAnnotator().annotate(text)
             {
                 _ = try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
-                if tasteTitle { consumeFreeAITitle() }
+                if tasteTitle {
+                    consumeFreeAITitle()
+                    // The moment the taste runs out is the conversion moment: a
+                    // gentle, tappable nudge — never an interrupting gateway.
+                    if freeAITitlesRemaining == 0 { showAITasteEndedNudge() }
+                }
                 await refreshRecents()
             }
             // Semantic vector (the embedder caches its model after the first
@@ -479,6 +484,18 @@ final class AppModel {
                     self?.requestAccessibilityPrompt()
                 }),
             duration: .seconds(5))
+    }
+
+    /// One-time conversion nudge the moment the free AI-title taste runs out.
+    private func showAITasteEndedNudge() {
+        toasts.show(
+            GanchoToast(
+                message: "Loved the smart AI titles? Pro keeps them on every clip",
+                action: ToastAction(title: "See Pro") { [weak self] in
+                    guard let self else { return }
+                    paywallWindow.show(trigger: .freeLimitReached, model: self)
+                }),
+            duration: .seconds(6))
     }
 
     /// Show the system Accessibility prompt (it pre-adds Gancho to the list) and
