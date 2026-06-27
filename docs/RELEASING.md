@@ -140,55 +140,49 @@ xcrun notarytool store-credentials "gancho-notary" \
 
 ### Cutting a direct-download release
 
-The Sparkle signature is over the DMG bytes, so the DMG that is signed for the
-appcast must be the exact file uploaded to the release — do not rebuild it in
-between.
+Everything is signed **locally** — the Developer ID identity and the EdDSA
+appcast key stay in the login Keychain, never in CI. One-time prerequisites: the
+Developer ID cert in the Keychain, the `gancho-notary` notary profile (above),
+and the `TAP_DEPLOY_KEY` repo secret for the cask bump.
+
+The Sparkle signature is over the DMG bytes, so the DMG signed for the appcast
+must be the exact file uploaded to the release — do not rebuild it in between.
+Fill the two placeholders and run the rest verbatim:
 
 ```bash
-# 1. Build the signed, notarized, stapled DMG. Sign by the certificate's SHA-1
-#    hash (`security find-identity -v -p codesigning`) when more than one
-#    "Developer ID Application" cert is installed, to avoid an ambiguous match.
-CODE_SIGN_IDENTITY=<developer-id-sha1-hash> \
-MACOS_NOTARY_KEYCHAIN_PROFILE=gancho-notary \
-make package-dmg
+ID=<developer-id-sha1-hash>     # security find-identity -v -p codesigning
+VERSION=<x.y.z>                 # must equal MARKETING_VERSION in project.yml
 
-# 2. Sign that DMG and refresh the feed (uses the Keychain EdDSA key). The
-#    <enclosure> points at the release asset for tag v<MARKETING_VERSION>.
+# 1. Build the signed/notarized DMG + the EdDSA-signed appcast (local).
+CODE_SIGN_IDENTITY="$ID" MACOS_NOTARY_KEYCHAIN_PROFILE=gancho-notary make package-dmg
 make appcast
+
+# 2. Tag and push — release.yml creates the GitHub release.
+git tag "v$VERSION" && git push origin "v$VERSION"
+
+# 3. Attach the signed DMG (the exact bytes `make appcast` hashed) + sidecars.
+gh release upload "v$VERSION" \
+  "dist/Gancho-$VERSION.dmg" "dist/Gancho-$VERSION.dmg.sha256" \
+  dist/gancho-cask-update.txt site/appcast.xml
+
+# 4. Publish the appcast (Pages serves it at SUFeedURL) and bump the cask.
+git add site/appcast.xml && git commit -m "release: appcast v$VERSION" && git push
+gh workflow run update-cask.yml -f tag="v$VERSION"
 ```
 
-Without `CODE_SIGN_IDENTITY` the script builds an unsigned dev artifact; without
-notary credentials it skips stapling. A production build needs both. The
-App Store Connect API-key variables (`MACOS_NOTARY_KEY_*`) are an alternative to
-the Keychain profile and are what CI uses.
+Notes:
 
-Then publish:
-
-1. Create the GitHub release for the tag and upload `dist/Gancho-<version>.dmg`
-   (the same bytes `make appcast` just signed), `dist/Gancho-<version>.dmg.sha256`,
-   and `dist/gancho-cask-update.txt`.
-2. Commit `site/appcast.xml` to `main`; the Pages deploy serves it at the
-   `SUFeedURL`. Installed apps now see the update.
-3. Bump the Homebrew cask. Once the DMG is attached to the release, trigger the
-   tap update (it downloads the released DMG, re-hashes it, regenerates the cask
-   from the source template `packaging/Casks/gancho.rb`, and pushes it to
-   [johnny4young/homebrew-tap](https://github.com/johnny4young/homebrew-tap) over
-   the `TAP_DEPLOY_KEY`):
-
-   ```bash
-   gh workflow run update-cask.yml -f tag=v<version>
-   ```
-
-   `brew install --cask gancho` then serves the new build. The cask definition
-   itself is edited in `packaging/Casks/gancho.rb`; the tap copy is generated, so
-   never hand-edit it. (Manual fallback: copy the `version`/`sha256` lines from
-   `gancho-cask-update.txt` into the regenerated cask and push.)
-
-> Never commit an `appcast.xml` whose enclosure points at a release/DMG that is
-> not published yet — Sparkle would try to download a missing file. `make
-> appcast` overwrites `site/appcast.xml`, so generate it only when the DMG is
-> ready to upload. The cask's `sha256` is over the same DMG bytes, so bump it
-> from the same `gancho-cask-update.txt`.
+- Without `CODE_SIGN_IDENTITY` the script builds an unsigned dev artifact; without
+  notary credentials it skips stapling. A production build needs both. The
+  `MACOS_NOTARY_KEY_*` App Store Connect API-key variables are an alternative to
+  the Keychain notary profile.
+- Step 4 downloads the released DMG, re-hashes it, regenerates the cask from
+  `packaging/Casks/gancho.rb`, and pushes it to the tap over `TAP_DEPLOY_KEY`;
+  `brew install --cask gancho` then serves the new build. Edit the cask only in
+  `packaging/Casks/gancho.rb` — the tap copy is generated, never hand-edited.
+- Never commit an `appcast.xml` whose enclosure points at a DMG not yet uploaded
+  — Sparkle would chase a missing file. `make appcast` overwrites
+  `site/appcast.xml`, so generate it only when the DMG is ready.
 
 ## GitHub Actions secrets
 
