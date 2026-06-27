@@ -72,6 +72,35 @@ if [ ! -d "$APP_PATH" ]; then
 	exit 1
 fi
 
+# Re-sign Sparkle's nested helpers. Xcode's Embed & Sign re-signs the framework
+# bundle with our identity but leaves the XPC services, Autoupdate, and
+# Updater.app ad-hoc signed — notarization rejects ad-hoc nested executables.
+# Sign inside-out, then re-seal the app over them. A forced re-sign drops
+# entitlements, so re-apply the source ones. The app is not sandboxed, so the
+# helpers need no sandbox/network entitlements.
+sign_sparkle_helpers() {
+	local spk="$APP_PATH/Contents/Frameworks/Sparkle.framework"
+	[ -d "$spk" ] || return 0
+	printf '==> Re-signing Sparkle helpers (%s)\n' "$CODE_SIGN_IDENTITY"
+	local v="$spk/Versions/Current" item
+	for item in \
+		"$v/XPCServices/Downloader.xpc" \
+		"$v/XPCServices/Installer.xpc" \
+		"$v/Autoupdate" \
+		"$v/Updater.app" \
+		"$spk"; do
+		[ -e "$item" ] && codesign --force --options runtime --timestamp \
+			--sign "$CODE_SIGN_IDENTITY" "$item"
+	done
+	codesign --force --options runtime --timestamp \
+		--entitlements Apps/GanchoMac/Gancho.entitlements \
+		--sign "$CODE_SIGN_IDENTITY" "$APP_PATH"
+}
+
+if [ -n "${CODE_SIGN_IDENTITY:-}" ]; then
+	sign_sparkle_helpers
+fi
+
 notary_args=()
 notary_profile=""
 notary_key_path="${MACOS_NOTARY_KEY_P8:-}"
