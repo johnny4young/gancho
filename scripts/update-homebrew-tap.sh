@@ -126,13 +126,16 @@ ruby -c "$tap_file"
 
 # --- commit + push (idempotent) --------------------------------------------------
 cd "$tap_dir"
-if git diff --quiet; then
+git config user.name "github-actions[bot]"
+git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+# Stage first, then check the *staged* diff: a brand-new entry is an untracked
+# file that `git diff` alone would not see, which would skip the push and
+# silently never publish a first-time cask/formula.
+git add "${subdir}/${name}.rb"
+if git diff --cached --quiet; then
   echo "Tap already serves ${name} ${version}; nothing to push."
   exit 0
 fi
-git config user.name "github-actions[bot]"
-git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-git add "${subdir}/${name}.rb"
 git commit -m "chore(${name}): publish ${kind} v${version}"
 git push origin HEAD:main
 
