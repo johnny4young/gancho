@@ -41,9 +41,9 @@ public struct PaywallCopy: Sendable, Equatable, Codable {
     public static let standard = PaywallCopy(
         headline: "Gancho is free forever. Pro goes further.",
         freeForeverPoints: [
-            "30-day history, 2,000 items", "Full search and paste-back",
-            "15 pins, 3 boards, 20 snippets", "Developer actions",
-            "All privacy features",
+            "30-day history, 2,000 items", "Smart AI titles to try",
+            "Full search and paste-back", "15 pins, 3 boards, 20 snippets",
+            "Developer actions", "All privacy features",
         ],
         proPoints: [
             "Unlimited history and pins", "iCloud sync across your devices",

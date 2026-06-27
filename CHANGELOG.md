@@ -10,8 +10,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Free taste of on-device AI: the first 25 text clips a free user copies get a
-  real AI title (titles only — semantic search and OCR stay Pro), so new users
-  see the on-device intelligence on their own clips before deciding.
+  real AI title (titles only — semantic search and OCR stay Pro). It is now
+  surfaced where users can read it — the paywall's free column, the onboarding,
+  and a one-time tappable nudge when it runs out — so the sample is a deliberate,
+  enticing feature rather than a silent one.
+- Settings → Pro shows how many clips Gancho is keeping for you.
 - macOS app icon — the Gancho hook mark.
 - Release automation foundation: version-sync checks, a tagged GitHub Release
   workflow, macOS app ZIP packaging, artifact QA, and GitHub Pages deployment.

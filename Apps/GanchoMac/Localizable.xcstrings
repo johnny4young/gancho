@@ -4137,6 +4137,36 @@
           }
         }
       }
+    },
+    "Smart AI titles to try": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Títulos IA inteligentes para probar"
+          }
+        }
+      }
+    },
+    "Your first clips get smart AI titles, free and on-device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus primeros clips reciben títulos IA inteligentes, gratis y en el dispositivo."
+          }
+        }
+      }
+    },
+    "Clips kept for you": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clips que Gancho guarda por ti"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

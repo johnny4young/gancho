@@ -438,6 +438,7 @@ private struct IntegrationsSettingsTab: View {
 
 private struct ProSettingsTab: View {
     @Environment(AppModel.self) private var model
+    @State private var clipCount: Int?
 
     var body: some View {
         Form {
@@ -445,6 +446,9 @@ private struct ProSettingsTab: View {
                 "Plan",
                 value: model.tier == .pro
                     ? String(localized: "Pro") : String(localized: "Free"))
+            if let clipCount {
+                LabeledContent("Clips kept for you", value: clipCount.formatted())
+            }
             Button("See what Pro adds") {
                 model.paywallWindow.show(trigger: .settingsPro, model: model)
             }
@@ -476,6 +480,9 @@ private struct ProSettingsTab: View {
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)
+        .task {
+            if let store = model.grdbStore { clipCount = try? await store.count() }
+        }
     }
 }
 
