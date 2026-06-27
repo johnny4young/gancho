@@ -69,39 +69,19 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "$asset -> sha256 $sha"
 
-      - name: Regenerate the cask from the template and push to the tap
+      # Regenerate Casks/gancho.rb in the tap from packaging/Casks/gancho.rb and
+      # push it over the deploy key. Shared, app-agnostic logic vendored verbatim
+      # from the same script Vitrine and gos use (validates the sha + `ruby -c`
+      # before publishing).
+      - name: Publish the gancho cask to the tap
         env:
           TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
-          CASK_VERSION: ${{ steps.ref.outputs.version }}
-          CASK_SHA256: ${{ steps.dmg.outputs.sha }}
+          VERSION: ${{ steps.ref.outputs.version }}
+          SHA256: ${{ steps.dmg.outputs.sha }}
         run: |
-          set -euo pipefail
-          if [ -z "${TAP_DEPLOY_KEY}" ]; then
-            echo "::warning::TAP_DEPLOY_KEY is not configured; update the tap manually (docs/RELEASING.md)."
-            exit 0
-          fi
-          KEY_FILE="$(mktemp)"
-          printf '%s\n' "${TAP_DEPLOY_KEY}" > "${KEY_FILE}"
-          chmod 600 "${KEY_FILE}"
-          export GIT_SSH_COMMAND="ssh -i ${KEY_FILE} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
-          git clone --depth 1 git@github.com:johnny4young/homebrew-tap.git tap
-          # The tap copy is the template from the `cask` line down (the header
-          # comment is repo guidance, not cask content), with the published
-          # version and checksum substituted for the placeholders.
-          awk '/^cask "gancho"/,0' packaging/Casks/gancho.rb \
-            | sed -e "s/^  version \".*\"/  version \"${CASK_VERSION}\"/" \
-                  -e "s/^  sha256 \".*\"/  sha256 \"${CASK_SHA256}\"/" \
-            > tap/Casks/gancho.rb
-          cd tap
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Stage first, then check the *staged* diff: a first-time cask is a new
-          # (untracked) file that `git diff` alone would miss, skipping the push.
-          git add Casks/gancho.rb
-          if git diff --cached --quiet; then
-            echo "Tap already serves ${CASK_VERSION}; nothing to push."
-            exit 0
-          fi
-          git commit -m "gancho ${CASK_VERSION}"
-          git push origin HEAD:main
-          echo "Homebrew tap updated to \`${CASK_VERSION}\`." >> "$GITHUB_STEP_SUMMARY"
+          scripts/update-homebrew-tap.sh \
+            --kind cask \
+            --name gancho \
+            --version "$VERSION" \
+            --sha256 "$SHA256" \
+            --template packaging/Casks/gancho.rb
