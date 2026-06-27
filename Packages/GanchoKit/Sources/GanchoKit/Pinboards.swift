@@ -39,8 +39,8 @@ public struct Pinboard: Identifiable, Sendable, Equatable, Codable {
 /// the market). Pure functions: the command layer consults them with the
 /// user's tier; enforcement UX (paywall) is the monetization ticket's job.
 public enum PinLimits {
-    public static let freeMaxPins = 10
-    public static let freeMaxPinboards = 1
+    public static let freeMaxPins = 15
+    public static let freeMaxPinboards = 3
 
     public static func canPin(currentPinCount: Int, isPro: Bool) -> Bool {
         isPro || currentPinCount < freeMaxPins

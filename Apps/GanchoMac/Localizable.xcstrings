@@ -4097,6 +4097,26 @@
           }
         }
       }
+    },
+    "30-day history, 2,000 items": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historial de 30 días, 2.000 ítems"
+          }
+        }
+      }
+    },
+    "15 pins, 3 boards, 20 snippets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 pins, 3 tableros, 20 snippets"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

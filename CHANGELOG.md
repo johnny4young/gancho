@@ -9,8 +9,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- macOS app icon — the Gancho hook mark.
 - Release automation foundation: version-sync checks, a tagged GitHub Release
   workflow, macOS app ZIP packaging, artifact QA, and GitHub Pages deployment.
+
+### Changed
+
+- More generous free tier: 30-day / 2,000-item history (was 7-day / 500), and
+  15 pins across 3 boards (was 10 pins, 1 board) — the free plan is the
+  distribution engine, so it should feel complete on its own.
 
 ## [0.1.0] - 2026-06-25
 

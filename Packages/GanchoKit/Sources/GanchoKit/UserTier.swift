@@ -21,8 +21,8 @@ public enum UserTier: String, Sendable, Equatable, Codable {
 /// Free-plan ceilings. Deliberately generous (the distribution engine):
 /// everything works — history depth and pin counts are the gates.
 public enum FreeTierLimits {
-    public static let historyDays: TimeInterval = 7 * 86_400
-    public static let historyItems = 500
+    public static let historyDays: TimeInterval = 30 * 86_400
+    public static let historyItems = 2_000
     /// Pin/board ceilings live in `PinLimits`; snippet ceilings arrive with
     /// the library table.
 }
