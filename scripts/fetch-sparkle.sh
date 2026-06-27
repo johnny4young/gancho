@@ -12,9 +12,10 @@ SPARKLE_VERSION="${SPARKLE_VERSION:-2.9.3}"
 SPARKLE_SHA256="${SPARKLE_SHA256:-74a07da821f92b79310009954c0e15f350173374a3abe39095b4fc5096916be6}"
 VENDOR_DIR="${VENDOR_DIR:-Vendor}"
 FRAMEWORK="$VENDOR_DIR/Sparkle.framework"
+TOOLS="$VENDOR_DIR/bin"
 
-if [ -d "$FRAMEWORK" ] && [ -z "${FORCE:-}" ]; then
-	printf '✓ Sparkle.framework already present in %s/ (set FORCE=1 to refetch)\n' "$VENDOR_DIR"
+if [ -d "$FRAMEWORK" ] && [ -x "$TOOLS/sign_update" ] && [ -z "${FORCE:-}" ]; then
+	printf '✓ Sparkle.framework + bin/ already present in %s/ (set FORCE=1 to refetch)\n' "$VENDOR_DIR"
 	exit 0
 fi
 
@@ -40,3 +41,13 @@ rm -rf "$FRAMEWORK"
 tar -xf "$tmp/sparkle.tar.xz" -C "$tmp"
 cp -R "$tmp/Sparkle.framework" "$FRAMEWORK"
 printf '✓ %s (Sparkle %s)\n' "$FRAMEWORK" "$SPARKLE_VERSION"
+
+# The release tarball also ships the appcast tooling (sign_update,
+# generate_appcast). Keep them next to the framework so `make appcast` can sign
+# DMGs with the maintainer's Keychain EdDSA key at release time.
+if [ -d "$tmp/bin" ]; then
+	printf '==> Extracting Sparkle bin/ tools into %s/\n' "$TOOLS"
+	rm -rf "$TOOLS"
+	cp -R "$tmp/bin" "$TOOLS"
+	printf '✓ %s (sign_update, generate_appcast, generate_keys)\n' "$TOOLS"
+fi

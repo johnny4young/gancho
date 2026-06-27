@@ -14,6 +14,8 @@ release metadata synchronized.
 | Artifact | Status | Produced by |
 | --- | --- | --- |
 | macOS `Gancho.app` ZIP | Starter direct-download artifact; signed/notarized when secrets are configured | `scripts/package-macos-zip.sh` / `.github/workflows/release.yml` |
+| macOS `Gancho.dmg` (direct-download channel) | License + Sparkle auto-update build (`GANCHO_DIRECT_DOWNLOAD`); signed/notarized when an identity is present | `scripts/package-macos-dmg.sh` |
+| Sparkle `appcast.xml` | EdDSA-signed update feed served from `site/` at the app's `SUFeedURL` | `scripts/generate-appcast.sh` |
 | GitHub release notes | Generated from the tag plus `CHANGELOG.md` | `.github/workflows/release.yml` |
 | CLI Homebrew formula template | Kept in sync with `MARKETING_VERSION` until it is copied to a tap | `scripts/homebrew/gancho.rb` |
 | GitHub Pages website | Static landing page deployed from `site/` | `.github/workflows/pages.yml` |
@@ -91,6 +93,60 @@ The release workflow re-runs the sync guard, lint, tests, and both app builds on
 the tagged commit before publishing. The publish job packages the macOS app,
 computes a SHA-256 sidecar, runs artifact QA, and attaches the ZIP and checksum
 to the GitHub Release.
+
+## Direct-download channel (DMG + Sparkle auto-update)
+
+The direct-download build turns on `GANCHO_DIRECT_DOWNLOAD`: Pro unlocks with a
+Lemon Squeezy license key instead of StoreKit, and the app updates itself with
+[Sparkle](https://sparkle-project.org). The App Store build never links the
+updater. `Sparkle.framework` and its CLI tools are fetched (checksum-pinned)
+into the git-ignored `Vendor/` by `scripts/fetch-sparkle.sh`; `make project`,
+CI, and the packaging scripts all run it first.
+
+### Sparkle update keys
+
+- The **public** EdDSA key is baked into the app as `SUPublicEDKey` (in
+  `Apps/GanchoMac/Info.plist`). The app rejects any update whose signature does
+  not verify against it.
+- The **private** EdDSA key lives only in the maintainer's login Keychain (it
+  was created by `Vendor/bin/generate_keys`). It is **never** a CI secret —
+  appcasts are signed locally. Confirm the keypair before a release:
+
+  ```bash
+  Vendor/bin/generate_keys -p   # must equal SUPublicEDKey in Info.plist
+  ```
+
+### Cutting a direct-download release
+
+The Sparkle signature is over the DMG bytes, so the DMG that is signed for the
+appcast must be the exact file uploaded to the release — do not rebuild it in
+between.
+
+```bash
+# 1. Build the signed, notarized DMG (set CODE_SIGN_IDENTITY + notary creds for
+#    a production build; unsigned without them is a dev artifact only).
+CODE_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+MACOS_NOTARY_KEY_P8="$HOME/keys/AuthKey_XXXXXXXXXX.p8" \
+MACOS_NOTARY_KEY_ID="XXXXXXXXXX" \
+MACOS_NOTARY_KEY_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
+make package-dmg
+
+# 2. Sign that DMG and refresh the feed (uses the Keychain EdDSA key). The
+#    <enclosure> points at the release asset for tag v<MARKETING_VERSION>.
+make appcast
+```
+
+Then publish:
+
+1. Create the GitHub release for the tag and upload `dist/Gancho-<version>.dmg`
+   (the same bytes `make appcast` just signed).
+2. Commit `site/appcast.xml` to `main`; the Pages deploy serves it at the
+   `SUFeedURL`. Installed apps now see the update.
+
+> Never commit an `appcast.xml` whose enclosure points at a release/DMG that is
+> not published yet — Sparkle would try to download a missing file. `make
+> appcast` overwrites `site/appcast.xml`, so generate it only when the DMG is
+> ready to upload.
 
 ## GitHub Actions secrets
 
