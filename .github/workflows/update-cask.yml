@@ -93,13 +93,15 @@ jobs:
                   -e "s/^  sha256 \".*\"/  sha256 \"${CASK_SHA256}\"/" \
             > tap/Casks/gancho.rb
           cd tap
-          if git diff --quiet; then
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Stage first, then check the *staged* diff: a first-time cask is a new
+          # (untracked) file that `git diff` alone would miss, skipping the push.
+          git add Casks/gancho.rb
+          if git diff --cached --quiet; then
             echo "Tap already serves ${CASK_VERSION}; nothing to push."
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Casks/gancho.rb
           git commit -m "gancho ${CASK_VERSION}"
           git push origin HEAD:main
           echo "Homebrew tap updated to \`${CASK_VERSION}\`." >> "$GITHUB_STEP_SUMMARY"
