@@ -9,6 +9,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Free taste of on-device AI: the first 25 text clips a free user copies get a
+  real AI title (titles only — semantic search and OCR stay Pro), so new users
+  see the on-device intelligence on their own clips before deciding.
 - macOS app icon — the Gancho hook mark.
 - Release automation foundation: version-sync checks, a tagged GitHub Release
   workflow, macOS app ZIP packaging, artifact QA, and GitHub Pages deployment.

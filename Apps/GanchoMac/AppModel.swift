@@ -99,6 +99,16 @@ final class AppModel {
     private var screenShareTimer: Timer?
     private var uiTestPanelObserver: NSObjectProtocol?
 
+    /// Free AI-title "taste": how many of `FreeTierLimits.freeAITitleTaste` have
+    /// been spent, and the consume step. Persisted so the budget survives relaunch.
+    private var freeAITitlesUsed: Int { defaults.integer(forKey: "free-ai-titles-used") }
+    private var freeAITitlesRemaining: Int {
+        FreeTierLimits.freeAITitlesRemaining(used: freeAITitlesUsed)
+    }
+    private func consumeFreeAITitle() {
+        defaults.set(freeAITitlesUsed + 1, forKey: "free-ai-titles-used")
+    }
+
     /// Opt-out for the share auto-pause (on by default).
     var autoPauseOnScreenShare: Bool {
         didSet { defaults.set(autoPauseOnScreenShare, forKey: "auto-pause-screen-share") }
@@ -297,7 +307,14 @@ final class AppModel {
         let plan = EnrichmentPlan(
             content: content, kind: item.kind, isSensitive: item.isSensitive,
             hasTitle: !item.title.isEmpty, isPro: tier == .pro, preferences: intelligence)
-        guard !plan.isEmpty, let grdbStore else { return }
+        // Free taste: the first `FreeTierLimits.freeAITitleTaste` text clips get a
+        // real AI title even on the free tier, so a new user sees the on-device
+        // intelligence on their OWN clips before deciding. Titles only — semantic
+        // search and OCR stay Pro; sensitive clips are never enriched.
+        let tasteTitle =
+            tier != .pro && !item.isSensitive && item.title.isEmpty
+            && freeAITitlesRemaining > 0
+        guard !plan.isEmpty || tasteTitle, let grdbStore else { return }
         Task(priority: .utility) {
             // Searchable screenshots (OCR).
             if plan.runs(.ocr), case .binary(let data, _)? = content,
@@ -306,10 +323,11 @@ final class AppModel {
                 _ = try? await grdbStore.attachExtractedText(id: item.id, text: text)
             }
             // Tier 1 — Apple Intelligence titles.
-            if plan.runs(.title), case .text(let text)? = content,
+            if plan.runs(.title) || tasteTitle, case .text(let text)? = content,
                 let annotation = try? await TieredClipAnnotator().annotate(text)
             {
                 _ = try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
+                if tasteTitle { consumeFreeAITitle() }
                 await refreshRecents()
             }
             // Semantic vector (the embedder caches its model after the first

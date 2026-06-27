@@ -109,4 +109,14 @@ struct TierEnforcementTests {
         UserTier.pro.save(to: defaults)
         #expect(UserTier.load(from: defaults) == .pro)
     }
+
+    @Test("Free AI-title taste budget counts down and floors at zero")
+    func freeAITitleTasteBudget() {
+        #expect(FreeTierLimits.freeAITitlesRemaining(used: 0) == FreeTierLimits.freeAITitleTaste)
+        #expect(
+            FreeTierLimits.freeAITitlesRemaining(used: 10)
+                == FreeTierLimits.freeAITitleTaste - 10)
+        #expect(FreeTierLimits.freeAITitlesRemaining(used: FreeTierLimits.freeAITitleTaste) == 0)
+        #expect(FreeTierLimits.freeAITitlesRemaining(used: 999) == 0)
+    }
 }

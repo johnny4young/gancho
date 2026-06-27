@@ -25,4 +25,15 @@ public enum FreeTierLimits {
     public static let historyItems = 2_000
     /// Pin/board ceilings live in `PinLimits`; snippet ceilings arrive with
     /// the library table.
+
+    /// A free "taste" of on-device intelligence: the first N text clips a free
+    /// user copies get a real AI title, so they see the magic on their OWN clips
+    /// before deciding. Titles only — semantic search and OCR stay Pro.
+    public static let freeAITitleTaste = 25
+
+    /// How many taste titles remain given how many have been spent. Pure so the
+    /// conversion gate stays unit-testable.
+    public static func freeAITitlesRemaining(used: Int) -> Int {
+        max(0, freeAITitleTaste - used)
+    }
 }
