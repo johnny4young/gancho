@@ -136,6 +136,11 @@ targets:
         # Holds the injected Ed25519 license signing key in the direct-download
         # release build; empty (and thus unlicensable) everywhere else.
         GanchoLicenseSigningKey: $(GANCHO_LICENSE_SIGNING_KEY)
+        # Sparkle auto-update (direct-download). The appcast is served from
+        # GitHub Pages and signed with the EdDSA key whose public half is here;
+        # these are inert until the Sparkle framework + updater are wired in.
+        SUFeedURL: https://johnny4young.github.io/gancho/appcast.xml
+        SUPublicEDKey: Y5DOypMB7sZ04Ffw2gkLr9BlZRHKGWgWu0bB9jEsqmU=
         CFBundleDisplayName: Gancho
         # Deep links keep Settings/panel reachable if macOS or a menu-bar
         # manager hides the status item.

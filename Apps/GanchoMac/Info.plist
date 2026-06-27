@@ -37,5 +37,9 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Johnny Young</string>
+	<key>SUFeedURL</key>
+	<string>https://johnny4young.github.io/gancho/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>Y5DOypMB7sZ04Ffw2gkLr9BlZRHKGWgWu0bB9jEsqmU=</string>
 </dict>
 </plist>
