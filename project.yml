@@ -64,6 +64,11 @@ targets:
         # Shared 1:1 with the iOS app to enable App Store Universal Purchase
         # (buy Pro once, entitled on Mac AND iPhone). Same id, distinct platform.
         PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho
+        # Direct-download (non-App-Store) license: the release DMG build exports
+        # GANCHO_COMPILATION_CONDITIONS=GANCHO_DIRECT_DOWNLOAD and the Ed25519
+        # signing key. Both stay empty for App Store and from-source builds.
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) ${GANCHO_COMPILATION_CONDITIONS}
+        GANCHO_LICENSE_SIGNING_KEY: ${GANCHO_LICENSE_SIGNING_KEY}
     sources:
       - path: Apps/GanchoMac
     entitlements:
@@ -128,6 +133,9 @@ targets:
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Holds the injected Ed25519 license signing key in the direct-download
+        # release build; empty (and thus unlicensable) everywhere else.
+        GanchoLicenseSigningKey: $(GANCHO_LICENSE_SIGNING_KEY)
         CFBundleDisplayName: Gancho
         # Deep links keep Settings/panel reachable if macOS or a menu-bar
         # manager hides the status item.

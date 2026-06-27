@@ -16,6 +16,11 @@ IOS_DEVICE ?=
 # explicit by default, and let CI override this when it provides custom signing
 # settings (for example: make test-ui TEST_UI_SIGNING_FLAGS="DEVELOPMENT_TEAM=...").
 TEST_UI_SIGNING_FLAGS ?= CODE_SIGNING_ALLOWED=YES
+# Direct-download license signing (honor model). Empty by default — a
+# from-source or App Store build cannot mint license tokens. The release DMG
+# build exports the real values. Exported so xcodegen picks them up.
+export GANCHO_LICENSE_SIGNING_KEY ?=
+export GANCHO_COMPILATION_CONDITIONS ?=
 
 # When xcode-select points at CommandLineTools, `swift test` cannot find the
 # Swift Testing module and `xcodebuild` is unavailable. Prefer the full Xcode

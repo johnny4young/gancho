@@ -12,6 +12,8 @@ struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
 
     private let copy = PaywallCopy.standard
+    @State private var licenseKey = ""
+    @State private var licenseError: String?
 
     var body: some View {
         VStack(spacing: GanchoTokens.Spacing.md) {
@@ -24,28 +26,58 @@ struct PaywallView: View {
                 column(title: "Pro", points: copy.proPoints)
             }
 
-            if model.purchases.isPurchaseAvailable {
-                // Gancho Pro is a single one-time purchase; the live price
-                // comes from StoreKit once the product resolves.
-                ForEach(ProCatalog.all) { product in
-                    ActionButton(
-                        LocalizedStringKey("Upgrade — \(product.displayName)"),
-                        systemImage: "star.fill",
-                        identifier: "upgrade-\(product.plan.rawValue)"
-                    ) {
-                        model.buyPlan(product.plan)
-                        dismiss()
+            #if GANCHO_DIRECT_DOWNLOAD
+                // Direct download: buy on Lemon Squeezy, then paste the key.
+                ActionButton(
+                    "Get Gancho Pro", systemImage: "cart.fill", identifier: "buy-pro"
+                ) {
+                    NSWorkspace.shared.open(LemonSqueezyStore.checkoutURL)
+                }
+                TextField("Paste your license key", text: $licenseKey)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("license-key-field")
+                if let licenseError {
+                    Text(LocalizedStringKey(licenseError))
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+                ActionButton(
+                    "Activate", systemImage: "checkmark.seal.fill",
+                    identifier: "activate-license"
+                ) {
+                    Task {
+                        let key = licenseKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if await model.activateLicense(key) {
+                            dismiss()
+                        } else {
+                            licenseError = "That license key could not be activated."
+                        }
                     }
                 }
-                Button("Restore purchases") {
-                    model.restorePurchases()
+            #else
+                if model.purchases.isPurchaseAvailable {
+                    // Gancho Pro is a single one-time purchase; the live price
+                    // comes from StoreKit once the product resolves.
+                    ForEach(ProCatalog.all) { product in
+                        ActionButton(
+                            LocalizedStringKey("Upgrade — \(product.displayName)"),
+                            systemImage: "star.fill",
+                            identifier: "upgrade-\(product.plan.rawValue)"
+                        ) {
+                            model.buyPlan(product.plan)
+                            dismiss()
+                        }
+                    }
+                    Button("Restore purchases") {
+                        model.restorePurchases()
+                    }
+                    .accessibilityIdentifier("restore-button")
+                } else {
+                    Text("In-app purchases are unavailable on this device.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                .accessibilityIdentifier("restore-button")
-            } else {
-                Text("In-app purchases are unavailable on this device.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            #endif
 
             Button("Stay free") { dismiss() }
                 .accessibilityIdentifier("stay-free-button")

@@ -120,3 +120,11 @@ public struct LicenseActivationService: @unchecked Sendable {
         }
     }
 }
+
+/// The Lemon Squeezy hosted checkout where a buyer purchases a direct-download
+/// license. The paywall opens this; the buyer then activates the emailed key.
+public enum LemonSqueezyStore {
+    public static let checkoutURL = URL(
+        string: "https://johnny4young.lemonsqueezy.com/checkout/buy/"
+            + "be41fa28-055d-4803-893d-9ddada3cc89d")!
+}

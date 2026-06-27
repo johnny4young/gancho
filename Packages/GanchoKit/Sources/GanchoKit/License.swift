@@ -70,12 +70,11 @@ public struct LicenseVerifier: Sendable {
         return decoded
     }
 
-    /// The public key baked into the app. REPLACE the base64 below with your
-    /// own: run `scripts/generate-license-keypair.swift` and paste the public
-    /// key it prints. The matching private key is injected only at release time
-    /// (see `LicenseSigningKey`). The value here is a throwaway placeholder.
+    /// The public key baked into the app. Its matching private key is injected
+    /// only at release time (see `LicenseSigningKey`); rotate the pair with
+    /// `scripts/generate-license-keypair.swift` and replace the base64 below.
     public static let embedded = LicenseVerifier(
         publicKey: try! Curve25519.Signing.PublicKey(
             rawRepresentation: Data(
-                base64Encoded: "zf+tmlZtuvmhFD3tuxH3GzLVB3DMVmCJCTdO5wI8oWE=")!))
+                base64Encoded: "J8LZORbLAEsr4ooyqQflmCmgfBhEAhcw5ncOXiotU9I=")!))
 }

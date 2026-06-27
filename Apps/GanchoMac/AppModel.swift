@@ -55,7 +55,7 @@ final class AppModel {
     let settingsWindow = SettingsWindowController()
     let mcpAccessWindow = MCPAccessWindowController()
     let intelligenceWindow = IntelligenceWindowController()
-    let purchases = StoreKitPurchaseHandler()
+    let purchases: any PurchaseHandling = AppModel.makePurchaseHandler()
     let telemetry: TelemetryPipeline
 
     /// Encrypted iCloud sync, behind the boundary. A `NoopSyncEngine` until
@@ -197,7 +197,9 @@ final class AppModel {
 
         // StoreKit drives the tier: the listener catches renewals/refunds,
         // and a launch refresh reconciles against current entitlements.
-        purchases.onTierChange = { [weak self] tier in
+        // Only StoreKit has out-of-process tier changes (renewals, refunds);
+        // the direct-download license handler changes only on activation.
+        (purchases as? StoreKitPurchaseHandler)?.onTierChange = { [weak self] tier in
             self?.applyTier(tier)
         }
         Task {
@@ -798,6 +800,30 @@ final class AppModel {
 
     func restorePurchases() {
         Task { _ = try? await purchases.restorePurchases() }
+    }
+
+    /// Activates a direct-download Lemon Squeezy license key. Returns whether it
+    /// unlocked Pro; the App Store build's handler ignores it. The tier is
+    /// reconciled from the verified token either way.
+    func activateLicense(_ licenseKey: String) async -> Bool {
+        let unlocked = await purchases.activate(licenseKey: licenseKey)
+        applyTier(await purchases.currentTier())
+        return unlocked
+    }
+
+    @MainActor
+    private static func makePurchaseHandler() -> any PurchaseHandling {
+        #if GANCHO_DIRECT_DOWNLOAD
+            return LicenseKeyPurchaseHandler(
+                store: KeychainLicenseTokenStore(),
+                activation: LicenseActivationService(
+                    validator: LemonSqueezyValidator(
+                        transport: { try await URLSession.shared.data(for: $0) }),
+                    signingKey: LicenseSigningKey.embedded),
+                instanceName: Host.current().localizedName ?? "Mac")
+        #else
+            return StoreKitPurchaseHandler()
+        #endif
     }
 
     // MARK: - Pins & boards
