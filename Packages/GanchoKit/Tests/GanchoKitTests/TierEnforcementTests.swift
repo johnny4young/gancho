@@ -28,27 +28,30 @@ struct TierEnforcementTests {
         try await store.importBatch(entries)
     }
 
-    @Test("Items beyond 500 archive — hidden from lists, NOT deleted")
+    @Test("Items beyond the free item ceiling archive — hidden from lists, NOT deleted")
     func countOverflowArchives() async throws {
         let store = try makeStore()
-        try await seed(store, count: 520)
+        let total = FreeTierLimits.historyItems + 20
+        try await seed(store, count: total)
 
         let summary = try await TierEnforcement(store: store).enforce(tier: .free, now: now)
 
         #expect(summary.archived == 20)
-        #expect(try await store.count() == 500, "list count hides archived")
+        #expect(
+            try await store.count() == FreeTierLimits.historyItems, "list count hides archived")
         #expect(try await store.archivedCount() == 20)
         // Export still carries EVERYTHING — no data hostage.
         let export = try await store.exportJSON()
         let object = try JSONSerialization.jsonObject(with: export) as? [String: Any]
-        #expect((object?["clips"] as? [[String: Any]])?.count == 520)
+        #expect((object?["clips"] as? [[String: Any]])?.count == total)
     }
 
-    @Test("Items older than 7 days archive")
+    @Test("Items older than the free history window archive")
     func ageOverflowArchives() async throws {
         let store = try makeStore()
-        try await seed(store, count: 5, ageDays: 10)
-        try await seed(store, count: 5, ageDays: 1)
+        let windowDays = FreeTierLimits.historyDays / 86_400
+        try await seed(store, count: 5, ageDays: windowDays + 3)  // beyond the window
+        try await seed(store, count: 5, ageDays: 1)  // within it
 
         let summary = try await TierEnforcement(store: store).enforce(tier: .free, now: now)
 
@@ -59,11 +62,12 @@ struct TierEnforcementTests {
     @Test("Pins and board members never archive")
     func pinsExempt() async throws {
         let store = try makeStore()
+        let windowDays = FreeTierLimits.historyDays / 86_400
         let pinned = ClipItem(
-            createdAt: now.addingTimeInterval(-30 * 86_400), preview: "pinned",
+            createdAt: now.addingTimeInterval(-(windowDays + 30) * 86_400), preview: "pinned",
             contentHash: "hp", isPinned: true)
         try await store.insert(pinned, content: .text("pinned"))
-        try await seed(store, count: 3, ageDays: 10)
+        try await seed(store, count: 3, ageDays: windowDays + 3)
 
         try await TierEnforcement(store: store).enforce(tier: .free, now: now)
 
@@ -73,7 +77,8 @@ struct TierEnforcementTests {
     @Test("Upgrading to Pro releases every archived clip")
     func proReleases() async throws {
         let store = try makeStore()
-        try await seed(store, count: 510)
+        let total = FreeTierLimits.historyItems + 10
+        try await seed(store, count: total)
         try await TierEnforcement(store: store).enforce(tier: .free, now: now)
         #expect(try await store.archivedCount() == 10)
 
@@ -81,13 +86,14 @@ struct TierEnforcementTests {
 
         #expect(summary.released == 10)
         #expect(try await store.archivedCount() == 0)
-        #expect(try await store.count() == 510)
+        #expect(try await store.count() == total)
     }
 
     @Test("Archived clips do not surface in search")
     func archivedHiddenFromSearch() async throws {
         let store = try makeStore()
-        try await seed(store, count: 3, ageDays: 10)
+        let windowDays = FreeTierLimits.historyDays / 86_400
+        try await seed(store, count: 3, ageDays: windowDays + 3)
         try await TierEnforcement(store: store).enforce(tier: .free, now: now)
 
         #expect(try await store.search(ClipSearchQuery(text: "clip")).isEmpty)

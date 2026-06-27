@@ -209,13 +209,17 @@ struct PinboardTests {
         #expect(try await store.pendingBoardDeletionRecordIDs().isEmpty)
     }
 
-    @Test("Free limits: 10 pins, 1 board; Pro unlimited")
+    @Test("Free pin/board limits gate at the ceiling; Pro is unlimited")
     func freeLimits() {
-        #expect(PinLimits.canPin(currentPinCount: 9, isPro: false))
-        #expect(!PinLimits.canPin(currentPinCount: 10, isPro: false))
+        #expect(PinLimits.canPin(currentPinCount: PinLimits.freeMaxPins - 1, isPro: false))
+        #expect(!PinLimits.canPin(currentPinCount: PinLimits.freeMaxPins, isPro: false))
         #expect(PinLimits.canPin(currentPinCount: 10_000, isPro: true))
-        #expect(PinLimits.canCreatePinboard(currentBoardCount: 0, isPro: false))
-        #expect(!PinLimits.canCreatePinboard(currentBoardCount: 1, isPro: false))
+        #expect(
+            PinLimits.canCreatePinboard(
+                currentBoardCount: PinLimits.freeMaxPinboards - 1, isPro: false))
+        #expect(
+            !PinLimits.canCreatePinboard(
+                currentBoardCount: PinLimits.freeMaxPinboards, isPro: false))
         #expect(PinLimits.canCreatePinboard(currentBoardCount: 50, isPro: true))
     }
 }
