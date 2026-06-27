@@ -32,6 +32,9 @@ fi
 mkdir -p "$OUTPUT_DIR" build
 rm -rf "$DERIVED_DATA" "$RESULT_BUNDLE" "$DMG_PATH" "$DMG_PATH.sha256"
 
+printf '==> Fetching Sparkle.framework (auto-updater, direct-download)\n'
+./scripts/fetch-sparkle.sh
+
 printf '==> Generating Xcode project (GANCHO_DIRECT_DOWNLOAD)\n'
 "${XCODEGEN:-xcodegen}" generate
 

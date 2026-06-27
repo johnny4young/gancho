@@ -79,6 +79,11 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      # Fetch the embedded Sparkle.framework (git-ignored Vendor/) so the macOS
+      # link step resolves `-framework Sparkle`. Mirrors `make project`.
+      - name: Fetch Sparkle framework
+        run: ./scripts/fetch-sparkle.sh
+
       - name: Generate project
         run: xcodegen generate
 
@@ -124,6 +129,7 @@ jobs:
 
       - name: Build everything against the newest SDK
         run: |
+          ./scripts/fetch-sparkle.sh
           xcodegen generate
           swift test --package-path Packages/GanchoKit
           xcodebuild -project Gancho.xcodeproj -scheme Gancho -configuration Debug \
