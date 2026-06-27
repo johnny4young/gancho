@@ -56,6 +56,10 @@ final class AppModel {
     let mcpAccessWindow = MCPAccessWindowController()
     let intelligenceWindow = IntelligenceWindowController()
     let purchases: any PurchaseHandling = AppModel.makePurchaseHandler()
+    #if GANCHO_DIRECT_DOWNLOAD
+        // Sparkle auto-updater, started at launch (direct-download channel only).
+        let updater = SparkleUpdater()
+    #endif
     let telemetry: TelemetryPipeline
 
     /// Encrypted iCloud sync, behind the boundary. A `NoopSyncEngine` until

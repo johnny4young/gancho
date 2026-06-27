@@ -100,6 +100,12 @@ targets:
           - GanchoTelemetry
           - GanchoSync
       - package: KeyboardShortcuts
+      # Sparkle auto-updater for the direct-download build. Fetched into Vendor/
+      # by scripts/fetch-sparkle.sh (git-ignored); used only behind
+      # #if GANCHO_DIRECT_DOWNLOAD. Embedded in the bundle and re-signed on copy.
+      - framework: Vendor/Sparkle.framework
+        embed: true
+        codeSign: true
       # A separate helper process owns the visible menu-bar paperclip. macOS can
       # keep status items hidden for the main bundle identifier even when they
       # remain Accessibility-visible; the helper gives the user a fresh,

@@ -31,12 +31,15 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project build build-signed build-ios install-ios test test-ui bench format lint release-check package-macos package-dmg qa-release site-check hooks clean open
+.PHONY: help project fetch-sparkle build build-signed build-ios install-ios test test-ui bench format lint release-check package-macos package-dmg qa-release site-check hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
 
-project: ## Regenerate Gancho.xcodeproj from project.yml
+fetch-sparkle: ## Fetch the pinned Sparkle.framework into Vendor/ (auto-updater)
+	./scripts/fetch-sparkle.sh
+
+project: fetch-sparkle ## Regenerate Gancho.xcodeproj from project.yml
 	$(XCODEGEN) generate
 
 build: project ## Build the macOS app (Debug, unsigned)
