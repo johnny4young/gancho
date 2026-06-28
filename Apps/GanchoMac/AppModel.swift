@@ -818,12 +818,12 @@ final class AppModel {
             privacyEvents.record(sync: event)
         }
         // Edge-triggered: log a failure to the support trail once per failure,
-        // not on every re-emit while it stays failed. The detailed cause lives
-        // in the iCloud-sync section; here it's a content-free identifier.
-        if case .failed(let cause) = status, !wasFailed {
+        // not on every re-emit while it stays failed. The detailed, localized
+        // cause already shows in the iCloud-sync section, so keep this line
+        // fixed and user-friendly rather than leaking the raw enum case name.
+        if case .failed = status, !wasFailed {
             diagnostics.record(
-                String(localized: "Sync"),
-                String(localized: "iCloud sync failed.") + " (\(cause.rawValue))")
+                String(localized: "Sync"), String(localized: "iCloud sync failed."))
         }
         // A finished fetch may have pulled new clips/boards from iCloud — refresh
         // so the panel and Library reflect them without a manual reopen.

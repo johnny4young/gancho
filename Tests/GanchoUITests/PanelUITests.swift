@@ -297,15 +297,18 @@ final class PanelUITests: XCTestCase {
         waitForAppToStart(app)
         defer { app.terminate() }
 
-        let privacyCenter = app.windows["Privacy Center"].firstMatch
+        // Locate the Privacy Center by its stable accessibility identifier, not
+        // the localized window title, so a non-English runner can't fail a
+        // correct UI.
+        let privacyCenter = app.descendants(matching: .any)["privacy-center"].firstMatch
         XCTAssertTrue(
             privacyCenter.waitForExistence(timeout: 8),
-            "the -open-privacy-center-on-launch hook must open the Privacy Center window")
+            "the -open-privacy-center-on-launch hook must open the Privacy Center")
 
         // The ephemeral-store launch logged an issue, so the "Recent issues"
         // section must surface it with the Copy-for-support affordance — the
         // end-to-end proof that the error log records and renders.
-        let copyButton = privacyCenter.buttons["copy-diagnostics"].firstMatch
+        let copyButton = app.buttons["copy-diagnostics"].firstMatch
         XCTAssertTrue(
             copyButton.waitForExistence(timeout: 5),
             "an ephemeral-store launch must log a content-free issue shown in Recent issues")
