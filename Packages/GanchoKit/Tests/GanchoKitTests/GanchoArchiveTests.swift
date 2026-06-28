@@ -53,6 +53,36 @@ struct GanchoArchiveTests {
                 == .binary(data: png, typeIdentifier: "public.png"))
     }
 
+    @Test("A FileWrapper export (what iOS fileExporter writes) round-trips")
+    func fileWrapperRoundTrip() async throws {
+        let source = try makeStore()
+        try await source.insert(
+            ClipItem(preview: "backup me", contentHash: "fw1"), content: .text("backup me"))
+        try await source.insert(
+            ClipItem(kind: .image, preview: "Image", contentHash: "fw2"),
+            content: .binary(data: png, typeIdentifier: "public.png"))
+
+        let dir = tempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try await GanchoArchive.export(from: source, to: dir)
+
+        // iOS exports the archive through a FileWrapper (`fileExporter`):
+        // serialize the directory and write it back out, exactly as the system
+        // does — the blob and clips must survive that hop.
+        let exported = tempDir()
+        defer { try? FileManager.default.removeItem(at: exported) }
+        try FileWrapper(url: dir).write(to: exported, options: .atomic, originalContentsURL: nil)
+
+        let target = try makeStore()
+        let summary = try await GanchoArchive.restore(from: exported, into: target)
+        #expect(summary.inserted == 2)
+        let restored = try await target.items()
+        #expect(restored.contains { $0.preview == "backup me" })
+        #expect(
+            try await target.content(for: restored.first { $0.kind == .image }!.id)
+                == .binary(data: png, typeIdentifier: "public.png"))
+    }
+
     @Test("Merge into an existing base dedupes by hash+device")
     func mergeDedupes() async throws {
         let source = try makeStore()

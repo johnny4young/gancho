@@ -21,11 +21,19 @@ struct GanchoiOSApp: App {
     /// explains the save paths before dropping the user on an empty list.
     @AppStorage("ios-has-seen-welcome") private var hasSeenWelcome = false
 
+    /// UI-test hook: route straight to the Privacy Center on launch (no
+    /// welcome, no navigation) so XCUITest can assert the diagnostics log.
+    private var routeToPrivacyCenter: Bool {
+        ProcessInfo.processInfo.arguments.contains("-open-privacy-center-on-launch")
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
-                // iPad gets the sidebar layout; iPhone keeps the stack.
-                if UIDevice.current.userInterfaceIdiom == .pad {
+                if routeToPrivacyCenter {
+                    NavigationStack { IOSPrivacyCenterView() }
+                } else if UIDevice.current.userInterfaceIdiom == .pad {
+                    // iPad gets the sidebar layout; iPhone keeps the stack.
                     IPadSplitView()
                 } else {
                     CaptureView()
@@ -39,7 +47,7 @@ struct GanchoiOSApp: App {
             .ganchoTinted()
             .sheet(
                 isPresented: Binding(
-                    get: { !hasSeenWelcome },
+                    get: { !hasSeenWelcome && !routeToPrivacyCenter },
                     set: { showing in if !showing { hasSeenWelcome = true } })
             ) {
                 IOSOnboardingView { hasSeenWelcome = true }
@@ -260,6 +268,11 @@ final class IOSAppModel {
             #endif
             configureSync()
         }
+        // Log a data-loss-level storage failure eagerly (before any view reads
+        // the diagnostics log), so the Privacy Center shows it the moment it
+        // opens. The log isn't @Observable-tracked, so a later record wouldn't
+        // refresh an open screen.
+        recordStorageHealthIfNeeded()
     }
 
     /// Arms or disarms iCloud sync to match the current tier + account.
@@ -608,6 +621,9 @@ final class IOSAppModel {
             // Silent before: the user tapped Copy, felt the (missing) result, and
             // pasted stale content. Say the load failed instead.
             flashNote(String(localized: "Couldn’t load this clip — try again."))
+            diagnostics.record(
+                String(localized: "Copy"),
+                String(localized: "A clip’s content couldn’t be loaded."))
             return
         }
         switch content {
@@ -702,6 +718,11 @@ final class IOSAppModel {
     /// Durable store in the App Group container (shared family location);
     /// in-memory fallback keeps the app usable if the container is missing.
     let store: any ClipboardStore = {
+        // Test hook: force the in-memory fallback so the "history isn't being
+        // saved" path (and its diagnostics entry) is drivable by a UI test.
+        if ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store") {
+            return InMemoryClipboardStore()
+        }
         let directory = SharedStorageLocation.storeDirectory(
             appGroupID: SharedInbox.appGroupID)
         return
@@ -714,6 +735,48 @@ final class IOSAppModel {
     /// True when the durable store failed to open and the app fell back to
     /// memory — captures won't survive relaunch, so the list warns the user.
     var storageIsEphemeral: Bool { !store.isDurable }
+
+    /// Content-free log of recent operational issues, shown in the Privacy
+    /// Center for support — never any clip text.
+    let diagnostics = DiagnosticLog()
+    private var recordedStorageHealth = false
+
+    /// Record the ephemeral-store condition once (the worst issue — data loss).
+    func recordStorageHealthIfNeeded() {
+        guard storageIsEphemeral, !recordedStorageHealth else { return }
+        recordedStorageHealth = true
+        diagnostics.record(
+            String(localized: "Storage"),
+            String(localized: "Couldn’t open secure storage — running in memory."))
+    }
+
+    /// Export a portable `.ganchoarchive` of the whole history to a temp dir for
+    /// the system exporter to move into Files. Same format macOS reads/writes —
+    /// device-to-device migration, no lock-in, never auto-uploaded.
+    func makeBackupArchive() async -> URL? {
+        guard let grdb = store as? GRDBClipboardStore else { return nil }
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gancho-backup.ganchoarchive", isDirectory: true)
+        try? FileManager.default.removeItem(at: dir)
+        guard (try? await GanchoArchive.export(from: grdb, to: dir)) != nil else { return nil }
+        return dir
+    }
+
+    /// Restore a `.ganchoarchive` (merge + dedupe by hash+device; checksummed,
+    /// transactional). Returns the summary; refreshes the list on success.
+    @discardableResult
+    func restoreBackup(from url: URL) async -> GanchoArchive.RestoreSummary? {
+        guard let grdb = store as? GRDBClipboardStore else { return nil }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let summary = try? await GanchoArchive.restore(from: url, into: grdb) else {
+            diagnostics.record(
+                String(localized: "Backup"), String(localized: "A backup couldn’t be restored."))
+            return nil
+        }
+        await search()
+        return summary
+    }
 
     /// Metadata-only refresh — safe on every activation, never alerts.
     func refreshHints() async {
@@ -2181,9 +2244,11 @@ struct ClipDetailView: View {
 /// iOS settings: honest capture explainer + the Shortcuts gallery link.
 struct IOSSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    #if DEBUG
-        @Environment(IOSAppModel.self) private var model
-    #endif
+    @Environment(IOSAppModel.self) private var model
+    @State private var exportDocument: GanchoArchiveDocument?
+    @State private var showExporter = false
+    @State private var showImporter = false
+    @State private var transferNote: String?
 
     var body: some View {
         NavigationStack {
@@ -2213,6 +2278,28 @@ struct IOSSettingsView: View {
                         Label("Example Shortcuts gallery", systemImage: "square.stack.3d.up")
                     }
                 }
+                Section("Your history") {
+                    Button {
+                        startBackup()
+                    } label: {
+                        Label("Back up history…", systemImage: "arrow.down.doc")
+                    }
+                    .accessibilityIdentifier("backup-history")
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Label("Restore from backup…", systemImage: "arrow.up.doc")
+                    }
+                    .accessibilityIdentifier("restore-history")
+                    Text("Backups are .ganchoarchive files on your device — never uploaded.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if let transferNote {
+                        Text(verbatim: transferNote)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 #if DEBUG
                     Section {
                         Toggle(
@@ -2240,7 +2327,71 @@ struct IOSSettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .fileExporter(
+                isPresented: $showExporter, document: exportDocument, contentType: .folder,
+                defaultFilename: "gancho-backup.ganchoarchive"
+            ) { result in
+                if case .failure = result {
+                    transferNote = String(localized: "Couldn’t save the backup.")
+                }
+                exportDocument = nil
+            }
+            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.folder]) { result in
+                guard case .success(let url) = result else { return }
+                Task {
+                    if let summary = await model.restoreBackup(from: url) {
+                        transferNote = String(
+                            localized:
+                                "Restored \(summary.inserted) clips (\(summary.skippedDuplicates) already here)."
+                        )
+                    } else {
+                        transferNote = String(localized: "That backup couldn’t be restored.")
+                    }
+                }
+            }
         }
+    }
+
+    /// Build the .ganchoarchive in a temp dir, then hand it to the system
+    /// exporter — the file lands wherever the user picks in Files. Off-device
+    /// only if THEY choose an off-device location.
+    private func startBackup() {
+        Task {
+            guard let url = await model.makeBackupArchive(),
+                let document = try? GanchoArchiveDocument(directory: url)
+            else {
+                transferNote = String(localized: "Couldn’t prepare the backup.")
+                return
+            }
+            exportDocument = document
+            showExporter = true
+        }
+    }
+}
+
+/// Wraps a `.ganchoarchive` directory as a single document so `fileExporter`
+/// can write it out (and macOS can read it back). Stores the URL (Sendable) and
+/// builds the directory `FileWrapper` lazily at write time — the format is a
+/// directory of clips.json, manifest.json, and the blobs. Export-only; restore
+/// goes through `fileImporter`, so the read path is never exercised.
+struct GanchoArchiveDocument: FileDocument {
+    static let readableContentTypes: [UTType] = [.folder]
+
+    private let directory: URL
+
+    init(directory url: URL) throws {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        directory = url
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        throw CocoaError(.fileReadUnsupportedScheme)
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        try FileWrapper(url: directory)
     }
 }
 
@@ -2293,6 +2444,38 @@ struct IOSPrivacyCenterView: View {
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            }
+
+            Section("Recent issues") {
+                let issues = Array(model.diagnostics.entries.reversed())
+                if issues.isEmpty {
+                    Text("No issues recorded.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(issues) { entry in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: entry.message).font(.footnote)
+                            HStack(spacing: 4) {
+                                Text(verbatim: entry.category)
+                                Text(verbatim: "·")
+                                Text(entry.at, format: .relative(presentation: .named))
+                            }
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                    Button("Copy for support") {
+                        UIPasteboard.general.string =
+                            issues
+                            .map { "\($0.at): [\($0.category)] \($0.message)" }
+                            .joined(separator: "\n")
+                    }
+                    .accessibilityIdentifier("copy-diagnostics")
+                }
+                Text("Recent technical issues only — content-free, nothing about your clips.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Privacy Center")

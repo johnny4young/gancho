@@ -314,6 +314,23 @@ targets:
     dependencies:
       - target: Gancho
 
+  # iOS UI smoke harness — the iOS sibling of GanchoUITests. XCTest is allowed
+  # ONLY in UI-test targets; unit tests stay Swift Testing in the package.
+  GanchoiOSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        # XCTestCase overrides nonisolated members — the app-wide MainActor
+        # default does not fit a UI-test bundle.
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        GENERATE_INFOPLIST_FILE: YES
+    sources:
+      - path: Tests/GanchoiOSUITests
+    dependencies:
+      - target: GanchoiOS
+
   # Share-sheet capture: the only iOS path that works from inside other
   # apps, and the loudest proof that capture is intent-only on iOS.
   GanchoShare:
@@ -450,3 +467,15 @@ schemes:
       config: Debug
       targets:
         - GanchoUITests
+
+  GanchoiOS:
+    build:
+      targets:
+        GanchoiOS: all
+        GanchoiOSUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - GanchoiOSUITests

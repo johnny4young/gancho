@@ -1,6 +1,86 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Recent issues": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Problemas recientes"
+          }
+        }
+      }
+    },
+    "No issues recorded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay problemas registrados."
+          }
+        }
+      }
+    },
+    "Copy for support": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar para soporte"
+          }
+        }
+      }
+    },
+    "Recent technical issues only — content-free, nothing about your clips.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo problemas técnicos recientes: sin contenido, nada sobre tus clips."
+          }
+        }
+      }
+    },
+    "Storage": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Almacenamiento"
+          }
+        }
+      }
+    },
+    "Couldn’t open secure storage — running in memory.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir el almacenamiento seguro: funcionando en memoria."
+          }
+        }
+      }
+    },
+    "Sync": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronización"
+          }
+        }
+      }
+    },
+    "iCloud sync failed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falló la sincronización con iCloud."
+          }
+        }
+      }
+    },
     "%lld clips": {
       "localizations": {
         "es": {

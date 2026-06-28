@@ -7,6 +7,30 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- iPhone/iPad can now **back up and restore your history** from Settings → Your
+  history, using the same portable `.ganchoarchive` format as macOS — so a
+  backup made on one device imports on another. The export goes through the
+  system file picker (save anywhere in Files), restore merges and de-dupes by
+  content, and the archive is checksummed and never auto-uploaded.
+- iPad **hardware-keyboard shortcuts**: with a Magic Keyboard or Smart Keyboard
+  Folio attached, ⌘F focuses search, ⌘1–9 copy the first nine clips, and ⌘↩
+  copies the selected clip (↑↓ already walk the list) — the macOS panel's
+  keyboard-first flow now reaches iPad.
+- A content-free **error log** ("Recent issues") in the Privacy Center on both
+  macOS and iPhone/iPad: records operational failures — storage that wouldn't
+  open, a sync that failed (macOS), a clip that couldn't load to copy or a
+  backup that wouldn't restore (iOS) — with no clip text, a fixed in-memory
+  cap, nothing persisted or uploaded, and a "Copy for support" button. Backed
+  by a shared `DiagnosticLog`.
+
+### Changed
+
+- On iPad, the clip detail pane no longer stretches its action row and text
+  edge-to-edge across a wide pane — it's capped to a readable column and
+  centred, instead of reusing the iPhone sheet's full-width shape.
+
 ## [0.2.0] - 2026-06-28
 
 ### Added
