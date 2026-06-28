@@ -7,6 +7,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-06-28
+
+### Added
+
+- Gancho Pro is now purchasable from the direct-download Mac app: the paywall
+  opens the checkout and activates your license key on the spot (it previously
+  showed "Pro is coming soon"). The Mac App Store build keeps using in-app
+  purchase.
+
 ## [0.3.0] - 2026-06-28
 
 ### Added
