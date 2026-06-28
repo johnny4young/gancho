@@ -1,5 +1,20 @@
 name: Website
 
+# The marketing landing deploys to Cloudflare Pages at the canonical domain
+# (gancho.app). GitHub Pages keeps serving ONLY the signed Sparkle appcast — the
+# SUFeedURL baked into the app, which every install polls, so that URL must keep
+# resolving — plus a tiny redirect stub at the old site root that forwards the
+# legacy github.io URL to the canonical domain.
+#
+# One-time setup (owner-gated):
+#   - Create the Pages project once:
+#       npx wrangler pages project create gancho-web --production-branch=main
+#   - Add the custom domain gancho.app to the gancho-web project (Cloudflare
+#     dashboard → Pages → Custom domains), with DNS on Cloudflare.
+#   - Set repo secrets CLOUDFLARE_API_TOKEN (scoped to Pages:Edit) and
+#     CLOUDFLARE_ACCOUNT_ID. Without them the Cloudflare step skips and the
+#     appcast still publishes (graceful degradation, mirroring the release flow).
+
 on:
   push:
     branches: [main]
@@ -18,8 +33,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build static site
+  cloudflare:
+    name: Deploy landing to Cloudflare Pages
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -27,27 +42,59 @@ jobs:
       - name: Check site structure
         run: ./scripts/check-site.sh
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v6
-        with:
-          # Turn Pages on automatically (needs the pages: write permission
-          # above) so the site deploys without a manual Settings → Pages step.
-          # Pages requires a public repo (or a paid plan for private Pages).
-          enablement: true
+      # Stage the landing WITHOUT the appcast: the appcast deliberately stays on
+      # GitHub Pages (the SUFeedURL the installed base polls), deployed below.
+      - name: Stage landing
+        run: |
+          mkdir -p dist-web
+          rsync -a --exclude appcast.xml site/ dist-web/
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: site
+      # Guarded by the Cloudflare secrets the same way the appcast is guarded by
+      # the EdDSA key in the release flow, so a fork (or this repo before the
+      # secrets exist) still deploys the appcast below without failing here.
+      - name: Deploy to Cloudflare Pages
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 pages deploy dist-web --project-name=gancho-web --branch=main
 
-  deploy:
-    name: Deploy to GitHub Pages
-    needs: build
+  appcast:
+    name: Deploy appcast to GitHub Pages
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy Pages artifact
+      - uses: actions/checkout@v7
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
+
+      # GitHub Pages now serves ONLY the signed appcast (the SUFeedURL the app
+      # polls) plus a redirect stub at the old site root → the canonical domain.
+      - name: Stage appcast + redirect stub
+        run: |
+          mkdir -p _site
+          cp site/appcast.xml _site/appcast.xml
+          printf '%s\n' \
+            '<!doctype html>' \
+            '<meta charset="utf-8">' \
+            '<title>Gancho</title>' \
+            '<link rel="canonical" href="https://gancho.app/">' \
+            '<meta name="robots" content="noindex">' \
+            '<meta http-equiv="refresh" content="0; url=https://gancho.app/">' \
+            '<script>location.replace("https://gancho.app/" + location.hash)</script>' \
+            '<p>Gancho has moved to <a href="https://gancho.app/">gancho.app</a>.</p>' \
+            > _site/index.html
+
+      - name: Upload appcast Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - name: Deploy appcast to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

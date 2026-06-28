@@ -227,12 +227,18 @@ on a clean compatible Mac:
 Record the macOS build, hardware architecture, app version, artifact checksum,
 and manual smoke result in the release notes before publishing broadly.
 
-## GitHub Pages website
+## Website (Cloudflare Pages) + appcast (GitHub Pages)
 
-The website lives in `site/` and deploys through `.github/workflows/pages.yml` on
-pushes to `main` that touch the site or the Pages workflow. Keep it static for
-now: no build step, no external trackers, no clipboard content, and no network
-calls except user-initiated links to GitHub releases/docs.
+The marketing landing lives in `site/` and deploys to **Cloudflare Pages** at the
+canonical domain **https://gancho.app** through `.github/workflows/pages.yml` on
+pushes to `main` that touch the site or the Pages workflow. Keep it static: no
+build step, no external trackers, no clipboard content, and no network calls
+except user-initiated links to GitHub releases/docs.
+
+GitHub Pages deliberately keeps serving **only** the signed Sparkle **appcast** —
+`https://johnny4young.github.io/gancho/appcast.xml`, the `SUFeedURL` baked into the
+app, which every install polls, so that URL must keep resolving — plus a redirect
+stub at the old site root that forwards the legacy github.io URL to gancho.app.
 
 Run the local structural check before changing the site:
 
@@ -240,10 +246,21 @@ Run the local structural check before changing the site:
 make site-check
 ```
 
-The expected development URL is:
+### One-time Cloudflare setup (owner-gated)
 
-```text
-https://johnny4young.github.io/gancho/
-```
+1. Create the Pages project once from the terminal:
 
-A custom domain can be added later with a `site/CNAME` file once DNS is ready.
+   ```bash
+   npx wrangler pages project create gancho-web --production-branch=main
+   ```
+
+2. Add the custom domain `gancho.app` to the `gancho-web` project (Cloudflare
+   dashboard → Workers & Pages → gancho-web → Custom domains), with DNS on
+   Cloudflare.
+3. Set the repo secrets `CLOUDFLARE_API_TOKEN` (a token scoped to **Pages → Edit**
+   for the account) and `CLOUDFLARE_ACCOUNT_ID`. Until they exist the Cloudflare
+   deploy step skips and only the appcast publishes, so the workflow never fails
+   for lack of them.
+
+The Sparkle `SUFeedURL` in `Apps/GanchoMac/Info.plist` stays on github.io and must
+not change — existing installs poll it for updates.

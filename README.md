@@ -190,8 +190,9 @@ Release metadata is intentionally boring and synchronized:
 - `.github/workflows/release.yml` gates tagged `v*` releases with
   `make release-check`, lint, tests, macOS build, iOS build, packaging, and
   artifact QA before attaching `dist/Gancho-<version>.zip`.
-- `.github/workflows/pages.yml` deploys the static website from `site/` to
-  `https://johnny4young.github.io/gancho/`.
+- `.github/workflows/pages.yml` deploys the landing from `site/` to Cloudflare
+  Pages (`https://gancho.app`) and keeps the signed Sparkle appcast on GitHub
+  Pages (`https://johnny4young.github.io/gancho/appcast.xml`, the app's feed URL).
 
 See [CHANGELOG.md](CHANGELOG.md) and [docs/RELEASING.md](docs/RELEASING.md) for
 the full release runbook, signing/notarization secrets, and manual QA checklist.
