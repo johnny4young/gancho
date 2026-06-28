@@ -36,6 +36,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Library shows a live used/limit count next to Boards and Snippets for
   free users, and the Pro footer escalates (neutral → "almost full" → "limit
   reached"), so the upsell forewarns instead of ambushing at the ceiling.
+- Retention settings now explain how the windows stack: a per-type limit
+  overrides the global one, and a callout makes clear that detected secrets
+  always follow the shorter "Sensitive items" limit — even when history is set
+  to keep everything longer — so "Forever" never silently keeps a password.
+- The "Never capture from these apps" denylist gains an "Add a running app…"
+  picker (no need to know an app's bundle identifier) plus a format hint, so
+  the feature is usable without hunting for bundle ids.
 
 ## [0.1.0] - 2026-06-25
 
