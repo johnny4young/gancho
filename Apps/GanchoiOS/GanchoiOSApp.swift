@@ -608,6 +608,9 @@ final class IOSAppModel {
             // Silent before: the user tapped Copy, felt the (missing) result, and
             // pasted stale content. Say the load failed instead.
             flashNote(String(localized: "Couldn’t load this clip — try again."))
+            diagnostics.record(
+                String(localized: "Copy"),
+                String(localized: "A clip’s content couldn’t be loaded."))
             return
         }
         switch content {
@@ -715,6 +718,20 @@ final class IOSAppModel {
     /// memory — captures won't survive relaunch, so the list warns the user.
     var storageIsEphemeral: Bool { !store.isDurable }
 
+    /// Content-free log of recent operational issues, shown in the Privacy
+    /// Center for support — never any clip text.
+    let diagnostics = DiagnosticLog()
+    private var recordedStorageHealth = false
+
+    /// Record the ephemeral-store condition once (the worst issue — data loss).
+    func recordStorageHealthIfNeeded() {
+        guard storageIsEphemeral, !recordedStorageHealth else { return }
+        recordedStorageHealth = true
+        diagnostics.record(
+            String(localized: "Storage"),
+            String(localized: "Couldn’t open secure storage — running in memory."))
+    }
+
     /// Export a portable `.ganchoarchive` of the whole history to a temp dir for
     /// the system exporter to move into Files. Same format macOS reads/writes —
     /// device-to-device migration, no lock-in, never auto-uploaded.
@@ -735,6 +752,8 @@ final class IOSAppModel {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         guard let summary = try? await GanchoArchive.restore(from: url, into: grdb) else {
+            diagnostics.record(
+                String(localized: "Backup"), String(localized: "A backup couldn’t be restored."))
             return nil
         }
         await search()
@@ -1382,6 +1401,7 @@ struct CaptureView: View {
 
     /// Foreground activation: metadata hints + extension inbox, no reads.
     private func activate() async {
+        model.recordStorageHealthIfNeeded()
         model.syncNow()
         await model.refreshHints()
         await model.drainSharedInbox()
@@ -2407,6 +2427,38 @@ struct IOSPrivacyCenterView: View {
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            }
+
+            Section("Recent issues") {
+                let issues = Array(model.diagnostics.entries.reversed())
+                if issues.isEmpty {
+                    Text("No issues recorded.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(issues) { entry in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: entry.message).font(.footnote)
+                            HStack(spacing: 4) {
+                                Text(verbatim: entry.category)
+                                Text(verbatim: "·")
+                                Text(entry.at, format: .relative(presentation: .named))
+                            }
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                    Button("Copy for support") {
+                        UIPasteboard.general.string =
+                            issues
+                            .map { "\($0.at): [\($0.category)] \($0.message)" }
+                            .joined(separator: "\n")
+                    }
+                    .accessibilityIdentifier("copy-diagnostics")
+                }
+                Text("Recent technical issues only — content-free, nothing about your clips.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Privacy Center")

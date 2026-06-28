@@ -1,6 +1,96 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Recent issues": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Problemas recientes"
+          }
+        }
+      }
+    },
+    "No issues recorded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay problemas registrados."
+          }
+        }
+      }
+    },
+    "Copy for support": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar para soporte"
+          }
+        }
+      }
+    },
+    "Recent technical issues only — content-free, nothing about your clips.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo problemas técnicos recientes: sin contenido, nada sobre tus clips."
+          }
+        }
+      }
+    },
+    "Storage": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Almacenamiento"
+          }
+        }
+      }
+    },
+    "Couldn’t open secure storage — running in memory.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir el almacenamiento seguro: funcionando en memoria."
+          }
+        }
+      }
+    },
+    "A clip’s content couldn’t be loaded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar el contenido de un clip."
+          }
+        }
+      }
+    },
+    "Backup": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia de seguridad"
+          }
+        }
+      }
+    },
+    "A backup couldn’t be restored.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo restaurar una copia de seguridad."
+          }
+        }
+      }
+    },
     "All clips": {
       "localizations": {
         "es": {

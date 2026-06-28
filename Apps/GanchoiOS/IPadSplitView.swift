@@ -7,6 +7,9 @@ import SwiftUI
 struct IPadSplitView: View {
     @Environment(IOSAppModel.self) private var model
     @State private var selectedID: UUID?
+    /// Bound to the history search field so ⌘F can focus it from a hardware
+    /// keyboard (Magic Keyboard / Smart Keyboard Folio).
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         @Bindable var model = model
@@ -65,23 +68,69 @@ struct IPadSplitView: View {
                 }
             }
             .searchable(text: $model.query, prompt: Text("Search your clipboard"))
+            .searchFocused($searchFocused)
             .onChange(of: model.query) { _, _ in Task { await model.search() } }
             .navigationTitle(Text("History"))
             .refreshable { await model.forceSync() }
         } detail: {
             if let item = model.captures.first(where: { $0.id == selectedID }) {
+                // ClipDetailView is shaped for the iPhone peek sheet (full-width
+                // action row, edge-to-edge text). On a wide iPad pane that runs
+                // the buttons and lines too long, so cap it to a readable column
+                // and centre it instead of stretching to the pane edge.
                 ClipDetailView(item: item)
+                    .frame(maxWidth: 680)
+                    .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 Text("Select a clip")
                     .foregroundStyle(.secondary)
             }
         }
+        // Hardware-keyboard shortcuts for iPad: ⌘F focus search, ⌘⏎ copy the
+        // selected clip, ⌘1–9 copy the Nth recent clip. ↑↓ row navigation comes
+        // free from the List's selection binding.
+        .background { keyboardCommands }
         .task {
             await model.refreshHints()
             await model.drainSharedInbox()
             await model.refreshBoards()
             await model.search()
         }
+    }
+
+    /// Invisible buttons whose only job is to carry `.keyboardShortcut`s for a
+    /// connected hardware keyboard. Kept off-screen (`background` + zero opacity)
+    /// so they never affect layout or VoiceOver.
+    @ViewBuilder private var keyboardCommands: some View {
+        Group {
+            Button(action: { searchFocused = true }) { Color.clear }
+                .keyboardShortcut("f", modifiers: .command)
+            Button(action: copySelected) { Color.clear }
+                .keyboardShortcut(.return, modifiers: .command)
+            ForEach(1...9, id: \.self) { n in
+                Button(action: { copyClip(at: n - 1) }) { Color.clear }
+                    .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)
+            }
+        }
+        .opacity(0)
+        .accessibilityHidden(true)
+    }
+
+    /// Copy the clip currently highlighted in the history column.
+    private func copySelected() {
+        guard let id = selectedID,
+            let item = model.captures.first(where: { $0.id == id })
+        else { return }
+        Task { await model.copyToPasteboard(item) }
+    }
+
+    /// Copy the Nth clip in the visible history (⌘1–9), selecting it too so the
+    /// detail pane follows and the action is visible.
+    private func copyClip(at index: Int) {
+        let clips = model.captures
+        guard clips.indices.contains(index) else { return }
+        selectedID = clips[index].id
+        Task { await model.copyToPasteboard(clips[index]) }
     }
 
     /// Shown when iPad is also on the in-memory fallback. The iPhone stack has
