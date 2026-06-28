@@ -9,6 +9,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Shortcuts/Siri automation grew: the **Search Clips** intent now takes a
+  **type filter** (Any / Text / Link / Code / Color / Image / Secret) and a
+  **maximum results** count, and **Search Clips** + **Copy Last URL** are now
+  offered as Siri/Spotlight app shortcuts (previously only Save Clipboard and
+  Clear Sensitive were).
 - Free taste of on-device AI: the first 25 text clips a free user copies get a
   real AI title (titles only — semantic search and OCR stay Pro). It is now
   surfaced where users can read it — the paywall's free column, the onboarding,

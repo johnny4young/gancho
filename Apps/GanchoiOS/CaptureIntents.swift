@@ -11,6 +11,31 @@ import UIKit
 /// widget extension can reuse them (App Intents in a widget need target
 /// membership in both the app and the extension).
 
+/// Clip-type filter for Shortcuts — mirrors the app's type rail so a shortcut
+/// can scope a search ("the last *link* about…").
+enum ClipKindFilterAppEnum: String, AppEnum {
+    case any, text, link, code, color, image, secret
+
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Clip type"
+    static let caseDisplayRepresentations: [ClipKindFilterAppEnum: DisplayRepresentation] = [
+        .any: "Any", .text: "Text", .link: "Link", .code: "Code",
+        .color: "Color", .image: "Image", .secret: "Secret",
+    ]
+
+    /// The concrete kinds this filter matches (nil = no restriction).
+    var clipKinds: Set<ClipContentKind>? {
+        switch self {
+        case .any: nil
+        case .text: [.text]
+        case .link: [.url]
+        case .code: [.code, .json, .uuid]
+        case .color: [.color]
+        case .image: [.image]
+        case .secret: [.secret, .jwt, .creditCard]
+        }
+    }
+}
+
 /// Full-text search over history, returning entities Shortcuts can chain.
 struct SearchClipIntent: AppIntent {
     static let title: LocalizedStringResource = "Search Clips"
@@ -19,9 +44,18 @@ struct SearchClipIntent: AppIntent {
     @Parameter(title: "Search for")
     var query: String
 
+    @Parameter(title: "Type", default: .any)
+    var kind: ClipKindFilterAppEnum
+
+    @Parameter(title: "Maximum results", default: 10)
+    var maxResults: Int
+
     func perform() async throws -> some IntentResult & ReturnsValue<[ClipEntity]> {
         let store = try IntentStore.open()
-        let hits = try await store.search(ClipSearchQuery(text: query), limit: 10)
+        // Clamp so a shortcut can't ask for a runaway or empty result set.
+        let limit = min(max(maxResults, 1), 100)
+        let hits = try await store.search(
+            ClipSearchQuery(text: query, kinds: kind.clipKinds), limit: limit)
         return .result(value: hits.map(ClipEntity.init))
     }
 }
@@ -111,5 +145,15 @@ struct GanchoShortcuts: AppShortcutsProvider {
             phrases: ["Clear sensitive clips in \(.applicationName)"],
             shortTitle: "Clear Sensitive",
             systemImageName: "trash.slash")
+        AppShortcut(
+            intent: CopyLastURLIntent(),
+            phrases: ["Copy my last URL from \(.applicationName)"],
+            shortTitle: "Copy Last URL",
+            systemImageName: "link")
+        AppShortcut(
+            intent: SearchClipIntent(),
+            phrases: ["Search clips in \(.applicationName)"],
+            shortTitle: "Search Clips",
+            systemImageName: "magnifyingglass")
     }
 }
