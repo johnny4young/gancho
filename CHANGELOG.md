@@ -43,6 +43,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The "Never capture from these apps" denylist gains an "Add a running app…"
   picker (no need to know an app's bundle identifier) plus a format hint, so
   the feature is usable without hunting for bundle ids.
+- The panel's Smart Paste menu now states the rewrites run on your Mac and
+  nothing leaves the device — the reassurance lands right where a privacy-
+  conscious user hesitates.
+- The snippet editor now explains how snippets work up front: type the keyword
+  in the panel to insert one, and add `{field}` placeholders to fill in before
+  pasting (previously the `{field}` hint only appeared after you'd typed one).
 
 ## [0.1.0] - 2026-06-25
 

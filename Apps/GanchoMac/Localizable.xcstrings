@@ -4447,6 +4447,26 @@
           }
         }
       }
+    },
+    "Runs on your Mac — nothing leaves the device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corre en tu Mac — nada sale del dispositivo."
+          }
+        }
+      }
+    },
+    "Type the keyword in the panel to insert this snippet. Add {field} placeholders to fill in before pasting.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe la palabra clave en el panel para insertar este snippet. Agrega marcadores {field} para rellenar antes de pegar."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

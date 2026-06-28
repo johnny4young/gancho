@@ -1573,6 +1573,8 @@ struct ClipPeek: View {
                     Label("Translate to", systemImage: "globe")
                 }
             }
+            Divider()
+            Label("Runs on your Mac — nothing leaves the device.", systemImage: "lock.shield")
         } label: {
             Label("Smart paste", systemImage: "sparkles")
                 .font(.body.weight(.medium))
