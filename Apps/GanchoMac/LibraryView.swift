@@ -33,6 +33,8 @@ struct LibraryView: View {
     // Board name prompt (create / rename).
     @State private var boardSheet: BoardSheet?
     @State private var boardNameField = ""
+    /// The board a destructive "Delete board" is awaiting confirmation on.
+    @State private var boardPendingDeletion: Pinboard?
 
     private enum EditorField { case title, keyword }
 
@@ -57,6 +59,18 @@ struct LibraryView: View {
             Button("Cancel", role: .cancel) {}
             Button(boardSheetConfirm) { commitBoardSheet() }
         }
+        .confirmationDialog(
+            "Delete this board?",
+            isPresented: Binding(
+                get: { boardPendingDeletion != nil },
+                set: { if !$0 { boardPendingDeletion = nil } }),
+            presenting: boardPendingDeletion
+        ) { board in
+            Button("Delete board", role: .destructive) { deleteBoard(board) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Your clips stay in history — only the board is removed.")
+        }
     }
 
     // MARK: - Sidebar
@@ -79,7 +93,9 @@ struct LibraryView: View {
                                     boardNameField = board.name
                                     boardSheet = .rename(board)
                                 }
-                                Button("Delete board", role: .destructive) { deleteBoard(board) }
+                                Button("Delete board", role: .destructive) {
+                                    boardPendingDeletion = board
+                                }
                             }
                         }
                     }
@@ -363,7 +379,7 @@ struct LibraryView: View {
         {
             Button("Remove from board") { mutate { model.unassign(clip, fromBoard: board) } }
         }
-        Button("Promote to Library") { mutate { model.promoteToSnippet(clip) } }
+        Button("Save as snippet") { mutate { model.promoteToSnippet(clip) } }
         Divider()
         Button("Copy", systemImage: "doc.on.doc") { copy(clip) }
         Button("Delete", role: .destructive) { mutate { model.delete(clip) } }
@@ -473,11 +489,12 @@ struct LibraryView: View {
 
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 ActionButton(
-                    "Remove from Library", systemImage: "trash", identifier: "snippet-demote"
+                    "Move to history", systemImage: "arrow.uturn.backward",
+                    identifier: "snippet-demote"
                 ) {
                     demote()
                 }
-                .foregroundStyle(GanchoTokens.Palette.danger)
+                .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 ActionButton("Copy", systemImage: "doc.on.doc", identifier: "snippet-copy") {
                     SystemPasteboardWriter().write(.text(snippetBody), asPlainText: true)
