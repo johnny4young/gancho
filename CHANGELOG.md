@@ -65,6 +65,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   appeared even mid-search.
 - On iOS, Smart Paste actions sit one tap from the clip's Smart Actions section
   instead of inside a nested menu (Translate stays a submenu for its languages).
+- Saving from the iOS share sheet now plays a success haptic when a clip lands —
+  the sheet used to disappear with no confirmation that anything was captured.
 
 ### Fixed
 

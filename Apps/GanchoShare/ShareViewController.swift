@@ -15,13 +15,18 @@ final class ShareViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         Task {
-            await ingestAttachments()
+            let saved = await ingestAttachments()
+            // The sheet otherwise vanishes with zero feedback; a success tap
+            // confirms the capture actually landed.
+            if saved > 0 {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
             extensionContext?.completeRequest(returningItems: nil)
         }
     }
 
-    private func ingestAttachments() async {
-        guard let inbox = SharedInbox.inAppGroup() else { return }
+    private func ingestAttachments() async -> Int {
+        guard let inbox = SharedInbox.inAppGroup() else { return 0 }
         let providers = (extensionContext?.inputItems ?? [])
             .compactMap { $0 as? NSExtensionItem }
             .flatMap { $0.attachments ?? [] }
@@ -31,6 +36,7 @@ final class ShareViewController: UIViewController {
         // payloads aren't a problem either: the deposit IS the deferred
         // import (a file the app processes later).
         let classifier = RuleClassifier()
+        var saved = 0
         for provider in providers {
             if let capture = await capture(from: provider) {
                 let kind: ClipContentKind? =
@@ -38,9 +44,14 @@ final class ShareViewController: UIViewController {
                     case .image: .image
                     default: capture.textRepresentation.map(classifier.classify)
                     }
-                try? inbox.deposit(SharedInbox.PreparedCapture(capture: capture, kind: kind))
+                if (try? inbox.deposit(
+                    SharedInbox.PreparedCapture(capture: capture, kind: kind))) != nil
+                {
+                    saved += 1
+                }
             }
         }
+        return saved
     }
 
     /// Richest-first extraction, mirroring the macOS reader's fidelity
