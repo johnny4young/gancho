@@ -797,8 +797,8 @@ struct PanelView: View {
                 Text(captureDetail(notice)).font(.caption2).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            if let action = captureAction(notice) {
-                Button(action) { handleCaptureAction(notice) }
+            if let actionLabel = captureAction(notice) {
+                Button(actionLabel) { handleCaptureAction(notice) }
                     .buttonStyle(.borderless)
                     .font(.caption.weight(.medium))
             }
