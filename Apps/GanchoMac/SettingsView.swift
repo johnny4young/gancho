@@ -164,6 +164,14 @@ private struct GeneralSettingsTab: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            Section {
+                Button("My Clipboard, Wrapped…", systemImage: "gift") { model.exportWrapped() }
+                    .accessibilityIdentifier("export-wrapped")
+                Text("A shareable stats card — generated on-device, never uploaded.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)
@@ -498,9 +506,11 @@ private struct ProSettingsTab: View {
             Button("See what Pro adds") {
                 model.paywallWindow.show(trigger: .settingsPro, model: model)
             }
-            Text("Pro — iCloud sync, unlimited pins and boards — arrives with launch.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            Text(
+                "Pro unlocks unlimited history, pins, and boards today. iCloud sync arrives with launch."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
             #if GANCHO_DIRECT_DOWNLOAD
                 Section("Software Updates") {
                     Button("Check for Updates…") { model.updater.checkForUpdates() }

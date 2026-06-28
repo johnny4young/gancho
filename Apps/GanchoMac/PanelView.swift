@@ -366,12 +366,18 @@ struct PanelView: View {
             selectedIndex = 0
         } label: {
             HStack(spacing: 4) {
-                if let kind = filter.tintKind {
+                // A checkmark marks the active pill so the selection reads
+                // without relying on the accent colour alone (WCAG 1.4.1).
+                if isActive {
+                    Image(systemName: "checkmark").font(.caption2.weight(.bold))
+                        .accessibilityHidden(true)
+                } else if let kind = filter.tintKind {
                     Circle()
                         .fill(GanchoTokens.Palette.kindTint(for: kind))
                         .frame(width: 6, height: 6)
+                        .accessibilityHidden(true)
                 }
-                Text(filter.title).font(.caption.weight(.medium))
+                Text(filter.title).font(.caption.weight(isActive ? .semibold : .medium))
             }
             .padding(.horizontal, GanchoTokens.Spacing.xs)
             .padding(.vertical, 3)
@@ -384,6 +390,7 @@ struct PanelView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("filter-\(filter.rawValue)")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
     /// The keyboard-focus ring for a rail chip (filters + boards). A 1.5pt
@@ -454,8 +461,11 @@ struct PanelView: View {
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                Image(systemName: systemImage).font(.caption2)
-                label.font(.caption.weight(.medium))
+                // Active board swaps its glyph for a checkmark, so the selection
+                // shows without leaning on the accent colour alone (WCAG 1.4.1).
+                Image(systemName: isActive ? "checkmark" : systemImage).font(.caption2)
+                    .accessibilityHidden(true)
+                label.font(.caption.weight(isActive ? .semibold : .medium))
             }
             .padding(.horizontal, GanchoTokens.Spacing.xs)
             .padding(.vertical, 3)
@@ -468,6 +478,7 @@ struct PanelView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
     private var boardSheetPresented: Binding<Bool> {

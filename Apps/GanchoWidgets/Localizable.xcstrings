@@ -110,6 +110,16 @@
           }
         }
       }
+    },
+    "Copy or share to Gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia o comparte a Gancho"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

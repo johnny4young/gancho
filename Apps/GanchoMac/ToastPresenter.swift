@@ -74,7 +74,11 @@ final class ToastPresenter {
 
     /// Show a toast top-center on the active screen. A new toast replaces any
     /// currently shown one and resets the auto-dismiss timer.
-    func show(_ toast: GanchoToast, duration: Duration = .seconds(2.4)) {
+    func show(_ toast: GanchoToast, duration: Duration? = nil) {
+        // A toast with an action (e.g. Undo) needs long enough to read AND reach
+        // the button, far longer than a fire-and-forget confirmation. Callers can
+        // still override; otherwise actionable toasts get 6s, plain ones 2.4s.
+        let duration = duration ?? (toast.action != nil ? .seconds(6) : .seconds(2.4))
         let host = NSHostingView(
             rootView: ToastView(toast: toast, onDismiss: { [weak self] in self?.dismiss() })
                 .frame(maxWidth: 360))

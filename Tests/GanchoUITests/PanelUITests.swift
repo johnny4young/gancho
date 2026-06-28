@@ -263,4 +263,22 @@ final class PanelUITests: XCTestCase {
         XCTAssertTrue(
             card.waitForExistence(timeout: 3), "the ? button must open the keyboard cheat-sheet")
     }
+
+    @MainActor
+    func testFilterPillExposesSelectedState() {
+        let app = launchWithPanel()
+        defer { app.terminate() }
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
+
+        // Activating a filter marks it selected (the non-colour active cue +
+        // VoiceOver state, WCAG 1.4.1). Coordinate-click since the chip is small.
+        let links = app.buttons["filter-links"].firstMatch
+        XCTAssertTrue(links.waitForExistence(timeout: 3), "the Links filter pill must exist")
+        links.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        let selected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isSelected == true"), object: links)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [selected], timeout: 3), .completed,
+            "the active filter pill must expose the selected accessibility trait")
+    }
 }

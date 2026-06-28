@@ -27,10 +27,7 @@ extension GanchoMenuBarCommand {
         case .privacyCenter:
             model.privacyCenterWindow.show(model: model)
         case .wrapped:
-            Task {
-                let stats = await WrappedStats.gather(model: model)
-                WrappedExporter.savePNG(stats: stats)
-            }
+            model.exportWrapped()
         case .fixClipboardAccess:
             model.permissionWindow.show(model: model)
         case .showInDock:

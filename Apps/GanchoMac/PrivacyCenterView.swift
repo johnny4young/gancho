@@ -113,9 +113,14 @@ struct PrivacyCenterView: View {
                             Text("Never")
                         }
                     }
-                    LabeledContent(
-                        "Developer actions run",
-                        value: "\(UserDefaults.standard.integer(forKey: "dev-actions-run"))")
+                    #if DEBUG
+                        // Internal usage counter — useful while developing, but it
+                        // reads as debug instrumentation in a user-facing privacy
+                        // dashboard, so keep it out of release builds.
+                        LabeledContent(
+                            "Developer actions run",
+                            value: "\(UserDefaults.standard.integer(forKey: "dev-actions-run"))")
+                    #endif
                 }
 
                 Section("Network") {

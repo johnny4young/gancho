@@ -12,9 +12,17 @@ import Foundation
 public enum LicenseSigningKey {
     static let infoPlistKey = "GanchoLicenseSigningKey"
 
-    public static var embedded: Curve25519.Signing.PrivateKey? {
+    /// Parsed once and cached: the Info.plist value is fixed for the process, so
+    /// a `static let` avoids re-reading the plist + re-running CryptoKit on every
+    /// `isConfigured` check during SwiftUI body recomputation.
+    public static let embedded: Curve25519.Signing.PrivateKey? =
         key(fromBase64: Bundle.main.object(forInfoDictionaryKey: infoPlistKey) as? String)
-    }
+
+    /// Whether this build can actually activate a direct-download license (a
+    /// signing key is baked). False for from-source / CI / unsigned builds — so
+    /// the paywall can show an honest "coming soon" instead of dead-ending every
+    /// license key on "could not be activated".
+    public static var isConfigured: Bool { embedded != nil }
 
     /// Pure parser, testable without a bundle. Rejects an empty value and the
     /// unexpanded `$(GANCHO_LICENSE_SIGNING_KEY)` placeholder.

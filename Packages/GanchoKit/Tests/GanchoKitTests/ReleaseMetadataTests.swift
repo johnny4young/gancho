@@ -89,4 +89,11 @@ struct ReleaseMetadataTests {
         #expect(index.contains("Privacy-first"))
         #expect(index.contains("CHANGELOG.md"))
     }
+
+    @Test func storeKitProductCopyDoesNotShipSyncEarly() throws {
+        let storeKit = try Self.text("Apps", "GanchoMac", "Gancho.storekit")
+
+        #expect(storeKit.contains("iCloud sync is coming soon"))
+        #expect(!storeKit.contains("sync and AI"))
+    }
 }

@@ -74,6 +74,18 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   of small text are finally legible.
 - The iOS keyboard's compact strip ends with a chevron that expands it to the
   full, searchable list — the control-bar toggle alone wasn't discoverable.
+- The active filter and board pills now carry a checkmark and the "selected"
+  accessibility trait, so the selection reads without relying on the accent
+  colour alone (WCAG 1.4.1) and announces correctly in VoiceOver.
+- Toasts that carry an action (e.g. Undo) now stay up long enough to read and
+  reach the button instead of vanishing after the fire-and-forget 2.4s.
+- "My Clipboard, Wrapped…" is now reachable from Settings, not just the
+  menu-bar command, so the shareable stats card is actually discoverable.
+- The iOS Recent Clips widget's empty state now says how to fill it ("Copy or
+  share to Gancho") instead of a bare "Nothing yet".
+- Distinct icon for "Smart paste" in the Intelligence list (it shared the
+  "sparkles" glyph with "Smarter titles"), and the internal "Developer actions
+  run" counter is now hidden from the release Privacy Center (DEBUG-only).
 
 ### Fixed
 
@@ -84,6 +96,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   your history; only the board is removed.
 - The iOS clip detail sheet now has a Done button — previously it could only be
   dismissed by dragging it down, with no visible affordance.
+- The paywall and StoreKit test product copy no longer present iCloud sync as a
+  shipped Pro benefit — it's marked "coming soon", and the Settings Pro note
+  now separates what Pro unlocks today (unlimited history, pins, boards) from
+  what arrives with launch (sync), so nobody upgrades expecting sync that isn't
+  there yet.
+- The direct-download paywall no longer dead-ends every license key on "That
+  license key could not be activated" when the build ships without a signing
+  key — it shows an honest "Pro is coming soon — purchases aren't open in this
+  build yet" instead of a field that can never succeed.
 
 ## [0.1.0] - 2026-06-25
 

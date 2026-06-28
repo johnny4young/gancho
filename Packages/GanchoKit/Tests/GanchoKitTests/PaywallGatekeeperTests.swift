@@ -32,4 +32,13 @@ struct PaywallGatekeeperTests {
                     trigger: trigger, tier: .pro, hasPastedBackOnce: true))
         }
     }
+
+    @Test("Standard Pro copy separates shipped benefits from upcoming sync")
+    func standardCopyIsHonestAboutSync() {
+        let copy = PaywallCopy.standard
+
+        #expect(copy.proPoints.contains("Unlimited history, pins, and boards"))
+        #expect(copy.proPoints.contains("iCloud sync (coming soon)"))
+        #expect(!copy.proPoints.contains("iCloud sync across your devices"))
+    }
 }
