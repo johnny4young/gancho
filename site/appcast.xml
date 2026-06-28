@@ -3,6 +3,15 @@
     <channel>
         <title>Gancho</title>
         <item>
+            <title>0.2.0</title>
+            <pubDate>Sun, 28 Jun 2026 10:50:58 -0500</pubDate>
+            <link>https://johnny4young.github.io/gancho/</link>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/johnny4young/gancho/releases/download/v0.2.0/Gancho-0.2.0.dmg" length="15898277" type="application/octet-stream" sparkle:edSignature="z7/q3JXBv/FJVoEhdJnHbUjDGXFGDiUV/AbGaqIm4JNHEFAvwIg0i8mVPswMsJXjducGJ8+nzIH7RKSyVJ7/Ag=="/>
+        </item>
+        <item>
             <title>0.1.0</title>
             <pubDate>Sat, 27 Jun 2026 16:23:08 -0500</pubDate>
             <link>https://johnny4young.github.io/gancho/</link>
