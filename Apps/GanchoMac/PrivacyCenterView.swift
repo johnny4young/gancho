@@ -29,6 +29,29 @@ struct PrivacyCenterView: View {
 
             heroClaim
 
+            if model.storageIsEphemeral {
+                // The counters below all read 0 on the in-memory fallback; say so
+                // rather than let the dashboard imply nothing is happening.
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("History isn't being saved").font(.body.weight(.semibold))
+                        Text(
+                            "Gancho is on a temporary store, so these numbers reset on quit and your clips won't persist."
+                        )
+                        .font(.footnote).foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "externaldrive.badge.exclamationmark")
+                        .foregroundStyle(GanchoTokens.Palette.danger)
+                }
+                .padding(GanchoTokens.Spacing.sm)
+                .background(
+                    GanchoTokens.Palette.danger.opacity(0.1),
+                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                )
+                .accessibilityIdentifier("privacy-storage-warning")
+            }
+
             Form {
                 Section("This week, on this Mac") {
                     LabeledContent("Clips captured", value: "\(captured)")
@@ -145,10 +168,7 @@ struct PrivacyCenterView: View {
         if let grdb = model.grdbStore {
             expired = (try? await grdb.purgedItemCount(since: weekAgo)) ?? 0
             synced = (try? await grdb.syncedCount()) ?? 0
-            masked =
-                (try? await grdb.search(
-                    ClipSearchQuery(text: "●●●●", mode: .exact), limit: 500
-                ).count) ?? 0
+            masked = (try? await grdb.sensitiveCount()) ?? 0
         }
         let recent = await model.recentMCPAccesses(limit: 50)
         mcpAccesses = recent

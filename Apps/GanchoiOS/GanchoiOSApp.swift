@@ -604,7 +604,12 @@ final class IOSAppModel {
 
     /// 1-tap copy with haptic confirmation.
     func copyToPasteboard(_ item: ClipItem) async {
-        guard let content = try? await store.content(for: item.id) else { return }
+        guard let content = try? await store.content(for: item.id) else {
+            // Silent before: the user tapped Copy, felt the (missing) result, and
+            // pasted stale content. Say the load failed instead.
+            flashNote(String(localized: "Couldn’t load this clip — try again."))
+            return
+        }
         switch content {
         case .text(let text):
             UIPasteboard.general.string = text
@@ -705,6 +710,10 @@ final class IOSAppModel {
                 keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup))
             ?? InMemoryClipboardStore()
     }()
+
+    /// True when the durable store failed to open and the app fell back to
+    /// memory — captures won't survive relaunch, so the list warns the user.
+    var storageIsEphemeral: Bool { !store.isDurable }
 
     /// Metadata-only refresh — safe on every activation, never alerts.
     func refreshHints() async {
@@ -894,6 +903,7 @@ struct CaptureView: View {
             VStack(spacing: 0) {
                 boardRail
                 List {
+                    if model.storageIsEphemeral { storageWarningSection }
                     syncStatusSection
                     pasteboardSection
 
@@ -1458,6 +1468,26 @@ struct CaptureView: View {
         return "doc.on.clipboard"
     }
 
+    /// Shown only when the durable store failed to open — captures are running
+    /// in memory and will be lost on relaunch. Honest beats silent.
+    private var storageWarningSection: some View {
+        Section {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("History isn't being saved").font(.subheadline.weight(.semibold))
+                    Text(
+                        "Gancho couldn't open its secure storage. Captures will vanish when you quit the app."
+                    )
+                    .font(.footnote).foregroundStyle(.secondary)
+                }
+            } icon: {
+                Image(systemName: "externaldrive.badge.exclamationmark")
+                    .foregroundStyle(GanchoTokens.Palette.danger)
+            }
+            .accessibilityIdentifier("storage-warning")
+        }
+    }
+
     /// iCloud sync indicator. The steady states (off, synced) show nothing —
     /// the "ready to paste" Live Activity carries sync status now, so the
     /// history doesn't spend a card on a green "Synced" that's almost always
@@ -1473,23 +1503,38 @@ struct CaptureView: View {
             syncRow(
                 Text("\(Text("Waiting to sync")) · \(String(count))"), "arrow.up.circle")
         case .paused(let cause):
-            syncRow(Text(causeText(cause)), "pause.circle", tint: GanchoTokens.Palette.warning)
+            syncRow(
+                Text(causeText(cause)), "pause.circle", tint: GanchoTokens.Palette.warning,
+                retry: true)
         case .failed(let cause):
             syncRow(
-                Text(causeText(cause)), "exclamationmark.icloud", tint: GanchoTokens.Palette.danger)
+                Text(causeText(cause)), "exclamationmark.icloud",
+                tint: GanchoTokens.Palette.danger, retry: true)
         }
     }
 
-    private func syncRow(_ text: Text, _ symbol: String, tint: Color = .secondary) -> some View {
+    private func syncRow(
+        _ text: Text, _ symbol: String, tint: Color = .secondary, retry: Bool = false
+    ) -> some View {
         Section {
-            Label {
-                text
-            } icon: {
-                // "Synced" reads green (a state); paused/failed warn — like macOS.
-                Image(systemName: symbol).foregroundStyle(tint)
+            HStack {
+                Label {
+                    text
+                } icon: {
+                    // "Synced" reads green (a state); paused/failed warn — like macOS.
+                    Image(systemName: symbol).foregroundStyle(tint)
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                // A paused/failed sync was informational only; give it a way out.
+                if retry {
+                    Spacer(minLength: GanchoTokens.Spacing.sm)
+                    Button("Retry") { model.syncNow() }
+                        .font(.footnote)
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("sync-retry")
+                }
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
             .accessibilityIdentifier("sync-status")
         }
     }

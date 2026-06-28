@@ -24,6 +24,16 @@ public protocol ClipboardStore: Sendable {
     /// Exports are always available, on every tier — no data hostage.
     func exportJSON() async throws -> Data
     func exportCSV() async throws -> Data
+
+    /// Whether writes survive an app relaunch. `false` only for the in-memory
+    /// fallback used when the durable store can't open — so the UI can warn the
+    /// user their history isn't actually being saved instead of failing silent.
+    nonisolated var isDurable: Bool { get }
+}
+
+extension ClipboardStore {
+    /// Durable by default; the in-memory fallback overrides to `false`.
+    public nonisolated var isDurable: Bool { true }
 }
 
 extension ClipboardStore {
@@ -46,6 +56,9 @@ public actor InMemoryClipboardStore: ClipboardStore {
     private var contents: [UUID: ClipContent] = [:]
 
     public init() {}
+
+    /// The fallback store loses everything on relaunch — the UI surfaces this.
+    public nonisolated var isDurable: Bool { false }
 
     @discardableResult
     public func insert(_ item: ClipItem, content: ClipContent?) async throws -> ClipItem {

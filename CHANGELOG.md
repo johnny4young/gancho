@@ -94,9 +94,29 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Distinct icon for "Smart paste" in the Intelligence list (it shared the
   "sparkles" glyph with "Smarter titles"), and the internal "Developer actions
   run" counter is now hidden from the release Privacy Center (DEBUG-only).
+- Settings → Integrations now explains how to actually use the MCP server: a
+  "Connect an agent" section with the CLI install + `claude mcp add` command,
+  and a note that scope changes apply the next time `gancho mcp` starts —
+  enabling the toggle alone never started a server.
 
 ### Fixed
 
+- Data-loss warning: when the encrypted store can't open, Gancho now shows a
+  prominent "History isn't being saved" banner (panel + iOS list + Privacy
+  Center) instead of silently running on a throwaway in-memory store and losing
+  every clip on quit.
+- On iOS, tapping Copy when a clip's content can't be loaded now says so
+  ("Couldn't load this clip — try again") instead of silently leaving stale
+  content on the pasteboard; a paused or failed sync gains a Retry button.
+- On iPad, selecting a clip and then searching/filtering no longer leaves a
+  ghost detail pane, and the history column shows an empty state when there's
+  nothing to list.
+- The Privacy Center's "Secrets masked" stat now counts detected sensitive
+  clips (via a new `sensitiveCount()`) instead of a fragile match on the masked
+  preview string, and it warns when storage is ephemeral (its counters would
+  otherwise all read 0).
+- The MCP access log shows relative timestamps ("3 hours ago") so yesterday's
+  access is distinguishable from this minute's.
 - "Add to board → New board…" from a clip now prompts for a name and files the
   clip into the board it creates, instead of silently making a board literally
   named "Board".

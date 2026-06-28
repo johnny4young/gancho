@@ -2121,6 +2121,66 @@
           }
         }
       }
+    },
+    "History isn't being saved": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El historial no se está guardando"
+          }
+        }
+      }
+    },
+    "Gancho couldn't open its secure storage. Captures will vanish when you quit the app.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho no pudo abrir su almacenamiento seguro. Las capturas se perderán al cerrar la app."
+          }
+        }
+      }
+    },
+    "Couldn’t load this clip — try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar este clip — inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Retry": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reintentar"
+          }
+        }
+      }
+    },
+    "No clips here": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay clips aquí"
+          }
+        }
+      }
+    },
+    "Copy or share something to Gancho to see it here.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia o comparte algo a Gancho para verlo aquí."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

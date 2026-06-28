@@ -475,6 +475,11 @@ private struct IntegrationsSettingsTab: View {
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+                if model.mcpConfig.isEnabled {
+                    Text("Scope changes apply the next time the gancho mcp server starts.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 Button("Open MCP Access…") { model.mcpAccessWindow.show(model: model) }
                     .accessibilityIdentifier("open-mcp-access")
                 Text(
@@ -482,6 +487,26 @@ private struct IntegrationsSettingsTab: View {
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            }
+
+            if model.mcpConfig.isEnabled {
+                Section("Connect an agent") {
+                    Text(
+                        "Turning this on only allows access — your agent runs the server. Install the gancho CLI, then point your agent at it:"
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    Text(verbatim: "brew install johnny4young/tap/gancho")
+                        .font(.footnote.monospaced()).textSelection(.enabled)
+                    Text(verbatim: "claude mcp add gancho -- gancho mcp")
+                        .font(.footnote.monospaced()).textSelection(.enabled)
+                    Button("Copy connect command") {
+                        SystemPasteboardWriter().write(
+                            .text("claude mcp add gancho -- gancho mcp"), asPlainText: true)
+                        model.toasts.show(GanchoToast(message: "Copied"))
+                    }
+                    .accessibilityIdentifier("copy-mcp-connect")
+                }
             }
         }
         .formStyle(.grouped)

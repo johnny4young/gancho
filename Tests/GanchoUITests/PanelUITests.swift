@@ -265,20 +265,47 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
+    func testEphemeralStorageShowsWarningBanner() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item", "-force-ephemeral-store",
+        ]
+        app.launch()
+        waitForAppToStart(app)
+        _ = app.wait(for: .runningForeground, timeout: 5)
+        defer { app.terminate() }
+
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
+        // When the durable store can't open, the panel must warn that history
+        // isn't being saved (data-loss > silent fallback).
+        let notice = app.descendants(matching: .any)["capture-notice"].firstMatch
+        XCTAssertTrue(
+            notice.waitForExistence(timeout: 3),
+            "ephemeral storage must surface the capture-notice warning banner")
+    }
+
+    @MainActor
     func testFilterPillExposesSelectedState() {
         let app = launchWithPanel()
         defer { app.terminate() }
         XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
 
         // Activating a filter marks it selected (the non-colour active cue +
-        // VoiceOver state, WCAG 1.4.1). Coordinate-click since the chip is small.
+        // VoiceOver state, WCAG 1.4.1). The chip is small, so a synthetic
+        // coordinate click can miss — retry until the trait flips rather than
+        // depend on a single click landing.
         let links = app.buttons["filter-links"].firstMatch
         XCTAssertTrue(links.waitForExistence(timeout: 3), "the Links filter pill must exist")
-        links.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
-        let selected = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "isSelected == true"), object: links)
-        XCTAssertEqual(
-            XCTWaiter().wait(for: [selected], timeout: 3), .completed,
-            "the active filter pill must expose the selected accessibility trait")
+        let selected = NSPredicate(format: "isSelected == true")
+        var didSelect = false
+        for _ in 0..<3 where !didSelect {
+            links.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+            didSelect =
+                XCTWaiter().wait(
+                    for: [XCTNSPredicateExpectation(predicate: selected, object: links)],
+                    timeout: 2) == .completed
+        }
+        XCTAssertTrue(
+            didSelect, "the active filter pill must expose the selected accessibility trait")
     }
 }

@@ -44,6 +44,19 @@ struct IPadSplitView: View {
             List(model.captures, selection: $selectedID) { item in
                 ClipCard(item: item).tag(item.id)
             }
+            .overlay {
+                if model.captures.isEmpty {
+                    ContentUnavailableView(
+                        "No clips here", systemImage: "tray",
+                        description: Text("Copy or share something to Gancho to see it here."))
+                }
+            }
+            // A search/filter replaces `captures`; drop a selection that's no
+            // longer in the list so the detail pane's empty state is intentional,
+            // not a ghost of a filtered-out clip.
+            .onChange(of: model.captures) { _, clips in
+                if !clips.contains(where: { $0.id == selectedID }) { selectedID = nil }
+            }
             .searchable(text: $model.query, prompt: Text("Search your clipboard"))
             .onChange(of: model.query) { _, _ in Task { await model.search() } }
             .navigationTitle(Text("History"))
