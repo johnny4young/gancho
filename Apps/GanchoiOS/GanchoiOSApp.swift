@@ -2088,7 +2088,6 @@ struct ClipDetailView: View {
                                     systemImage: action.symbolName)
                             }
                             .disabled(isThinking)
-                            .accessibilityIdentifier("smart-paste-\(action.rawValue)")
                         }
                     }
                     if model.smartPasteModelAvailable {

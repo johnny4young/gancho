@@ -1961,6 +1961,16 @@
           }
         }
       }
+    },
+    "No clips match “%@”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ningún clip coincide con “%@”."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

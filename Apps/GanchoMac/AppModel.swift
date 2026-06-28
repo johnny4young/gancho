@@ -1061,7 +1061,11 @@ final class AppModel {
     }
 
     func addToDenylist(_ bundleID: String) {
-        monitor.denylist.add(bundleID)
+        // Trim pasted whitespace/newlines so a manual entry actually matches the
+        // frontmost app's bundle id (an untrimmed entry silently never matches).
+        let trimmed = bundleID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        monitor.denylist.add(trimmed)
         monitor.denylist.save(to: defaults)
     }
 
