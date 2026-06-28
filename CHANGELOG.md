@@ -74,6 +74,18 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   of small text are finally legible.
 - The iOS keyboard's compact strip ends with a chevron that expands it to the
   full, searchable list — the control-bar toggle alone wasn't discoverable.
+- The active filter and board pills now carry a checkmark and the "selected"
+  accessibility trait, so the selection reads without relying on the accent
+  colour alone (WCAG 1.4.1) and announces correctly in VoiceOver.
+- Toasts that carry an action (e.g. Undo) now stay up long enough to read and
+  reach the button instead of vanishing after the fire-and-forget 2.4s.
+- "My Clipboard, Wrapped…" is now reachable from Settings, not just the
+  menu-bar command, so the shareable stats card is actually discoverable.
+- The iOS Recent Clips widget's empty state now says how to fill it ("Copy or
+  share to Gancho") instead of a bare "Nothing yet".
+- Distinct icon for "Smart paste" in the Intelligence list (it shared the
+  "sparkles" glyph with "Smarter titles"), and the internal "Developer actions
+  run" counter is now hidden from the release Privacy Center (DEBUG-only).
 
 ### Fixed
 

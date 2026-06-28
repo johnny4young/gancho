@@ -164,6 +164,14 @@ private struct GeneralSettingsTab: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            Section {
+                Button("My Clipboard, Wrapped…", systemImage: "gift") { model.exportWrapped() }
+                    .accessibilityIdentifier("export-wrapped")
+                Text("A shareable stats card — generated on-device, never uploaded.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)

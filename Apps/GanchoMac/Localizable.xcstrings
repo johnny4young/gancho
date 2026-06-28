@@ -4567,6 +4567,16 @@
           }
         }
       }
+    },
+    "A shareable stats card — generated on-device, never uploaded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una tarjeta de estadísticas para compartir — generada en el dispositivo, nunca se sube."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

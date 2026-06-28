@@ -694,6 +694,15 @@ final class AppModel {
         monitor.ignoreNextCopy()
     }
 
+    /// Generates the shareable "Wrapped" stats card and saves it (on-device).
+    /// Exposed so a Settings button can reach it, not just the menu-bar command.
+    func exportWrapped() {
+        Task {
+            let stats = await WrappedStats.gather(model: self)
+            WrappedExporter.savePNG(stats: stats)
+        }
+    }
+
     // MARK: - Purchases
 
     /// Applies a tier from StoreKit and releases any archived clips when the

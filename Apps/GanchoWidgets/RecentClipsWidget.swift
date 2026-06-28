@@ -133,6 +133,10 @@ struct RecentClipsView: View {
             Text("Nothing yet")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+            Text("Copy or share to Gancho")
+                .font(.caption2)
+                .foregroundStyle(.quaternary)
+                .multilineTextAlignment(.center)
             Spacer()
         }
         .frame(maxWidth: .infinity)
