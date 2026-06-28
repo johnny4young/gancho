@@ -1811,6 +1811,26 @@
           }
         }
       }
+    },
+    "Clear filters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limpiar filtros"
+          }
+        }
+      }
+    },
+    "No clips in this filter.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay clips en este filtro."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

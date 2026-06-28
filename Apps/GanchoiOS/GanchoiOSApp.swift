@@ -834,7 +834,20 @@ struct CaptureView: View {
                     switch sheet {
                     case .settings: IOSSettingsView()
                     case .boards: BoardsHomeView()
-                    case .peek(let clip): ClipDetailView(item: clip)
+                    case .peek(let clip):
+                        // Wrap the peek in its own NavigationStack so it gets a
+                        // titled bar + an explicit Done button (the codebase
+                        // sheet convention) — drag-to-dismiss isn't discoverable.
+                        // The pushed (deep-link) path keeps the parent's back
+                        // button, so ClipDetailView itself stays unwrapped.
+                        NavigationStack {
+                            ClipDetailView(item: clip)
+                                .toolbar {
+                                    ToolbarItem(placement: .confirmationAction) {
+                                        Button("Done") { activeSheet = nil }
+                                    }
+                                }
+                        }
                     case .move(let clip): MoveToBoardSheet(item: clip)
                     }
                 }
@@ -1164,16 +1177,46 @@ struct CaptureView: View {
         .accessibilityLabel(Text("Filter by type"))
     }
 
-    /// Honest about the platform: no background capture exists on iOS.
-    private var emptyState: some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            Text("Nothing captured yet.")
-                .foregroundStyle(.secondary)
-            Text(
-                "iOS apps can't watch the clipboard in the background — no app can. Capture with the button above, the share sheet from any app, or a Shortcut on your Action Button."
-            )
-            .font(.footnote)
-            .foregroundStyle(.tertiary)
+    private var hasActiveFilter: Bool {
+        model.kindFilter != nil || model.selectedBoardID != nil
+    }
+
+    private func clearFilters() {
+        model.kindFilter = nil
+        model.selectBoard(nil)
+    }
+
+    /// Branches on context so it never lies: a search with no hits, a filter
+    /// that excluded everything, or a genuinely empty history (the honest
+    /// no-background-capture explanation). Before the split, "Nothing captured
+    /// yet" showed up mid-search even when there were clips.
+    @ViewBuilder private var emptyState: some View {
+        if !model.query.isEmpty {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                Text("No clips match “\(model.query)”.")
+                    .foregroundStyle(.secondary)
+                if hasActiveFilter {
+                    Button("Clear filters") { clearFilters() }
+                        .font(.footnote)
+                }
+            }
+        } else if hasActiveFilter {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                Text("No clips in this filter.")
+                    .foregroundStyle(.secondary)
+                Button("Clear filters") { clearFilters() }
+                    .font(.footnote)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                Text("Nothing captured yet.")
+                    .foregroundStyle(.secondary)
+                Text(
+                    "iOS apps can't watch the clipboard in the background — no app can. Capture with the button above, the share sheet from any app, or a Shortcut on your Action Button."
+                )
+                .font(.footnote)
+                .foregroundStyle(.tertiary)
+            }
         }
     }
 

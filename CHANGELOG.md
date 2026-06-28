@@ -55,6 +55,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The panel's no-results state now offers a "Clear filters" button when a type
   or board filter is narrowing the list, replacing a hint that wrongly told you
   to "press esc to clear the search" (esc hides the panel).
+- On iPhone/iPad, search and filters now show a context-aware empty state —
+  "No clips match …" when a search misses, or "No clips in this filter" with a
+  Clear filters button — instead of the generic "Nothing captured yet" that
+  appeared even mid-search.
 
 ### Fixed
 
@@ -63,6 +67,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   named "Board".
 - Deleting a board now asks for confirmation first — the clips always stay in
   your history; only the board is removed.
+- The iOS clip detail sheet now has a Done button — previously it could only be
+  dismissed by dragging it down, with no visible affordance.
 
 ## [0.1.0] - 2026-06-25
 
