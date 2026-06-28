@@ -370,10 +370,12 @@ struct PanelView: View {
                 // without relying on the accent colour alone (WCAG 1.4.1).
                 if isActive {
                     Image(systemName: "checkmark").font(.caption2.weight(.bold))
+                        .accessibilityHidden(true)
                 } else if let kind = filter.tintKind {
                     Circle()
                         .fill(GanchoTokens.Palette.kindTint(for: kind))
                         .frame(width: 6, height: 6)
+                        .accessibilityHidden(true)
                 }
                 Text(filter.title).font(.caption.weight(isActive ? .semibold : .medium))
             }
@@ -462,6 +464,7 @@ struct PanelView: View {
                 // Active board swaps its glyph for a checkmark, so the selection
                 // shows without leaning on the accent colour alone (WCAG 1.4.1).
                 Image(systemName: isActive ? "checkmark" : systemImage).font(.caption2)
+                    .accessibilityHidden(true)
                 label.font(.caption.weight(isActive ? .semibold : .medium))
             }
             .padding(.horizontal, GanchoTokens.Spacing.xs)
