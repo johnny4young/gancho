@@ -146,6 +146,39 @@ struct PrivacyCenterView: View {
                     #endif
                 }
 
+                Section("Recent issues") {
+                    let issues = Array(model.diagnostics.entries.reversed())
+                    if issues.isEmpty {
+                        Text("No issues recorded.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(issues) { entry in
+                            LabeledContent {
+                                Text(entry.at, style: .time)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(verbatim: entry.message)
+                                    Text(verbatim: entry.category)
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        Button("Copy for support") {
+                            let dump =
+                                issues
+                                .map { "\($0.at): [\($0.category)] \($0.message)" }
+                                .joined(separator: "\n")
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(dump, forType: .string)
+                        }
+                        .accessibilityIdentifier("copy-diagnostics")
+                    }
+                    Text("Recent technical issues only — content-free, nothing about your clips.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Network") {
                     Text(
                         "Gancho sends no clipboard content anywhere. Verify it yourself with Little Snitch or any network monitor — this screen included."

@@ -45,7 +45,7 @@ Platform adapters
   └─ extension-safe entry points
 
 Shared engine-room targets (nonisolated + Sendable)
-  ├─ GanchoKit: ClipItem, GRDB store, retention, snippets, sync boundary
+  ├─ GanchoKit: ClipItem, GRDB store, retention, snippets, sync boundary, diagnostics log
   ├─ GanchoAI: deterministic classifiers, annotation, embeddings, QA, model seams
   ├─ GanchoDesign: tokens and shared component primitives
   ├─ GanchoSync: the CKSyncEngine adapter (only module importing CloudKit)

@@ -18,11 +18,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Folio attached, ⌘F focuses search, ⌘1–9 copy the first nine clips, and ⌘↩
   copies the selected clip (↑↓ already walk the list) — the macOS panel's
   keyboard-first flow now reaches iPad.
-- A content-free **error log** in the iOS Privacy Center ("Recent issues"):
-  records operational failures — storage that wouldn't open, a clip that
-  couldn't load to copy, a backup that wouldn't restore — with no clip text, a
-  fixed in-memory cap, nothing persisted or uploaded, and a "Copy for support"
-  button. Backed by a shared `DiagnosticLog` so other surfaces can adopt it.
+- A content-free **error log** ("Recent issues") in the Privacy Center on both
+  macOS and iPhone/iPad: records operational failures — storage that wouldn't
+  open, a sync that failed (macOS), a clip that couldn't load to copy or a
+  backup that wouldn't restore (iOS) — with no clip text, a fixed in-memory
+  cap, nothing persisted or uploaded, and a "Copy for support" button. Backed
+  by a shared `DiagnosticLog`.
 
 ### Changed
 

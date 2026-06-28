@@ -48,6 +48,10 @@ final class AppModel {
     let monitor: MacPasteboardMonitor
     let pasteBack = PasteBackService()
     let privacyEvents = InMemoryPrivacyEventRecorder()
+    /// Content-free log of recent operational issues (storage that wouldn't
+    /// open, a sync that failed) for the Privacy Center and support — never any
+    /// clip text, never persisted or uploaded.
+    let diagnostics = DiagnosticLog()
     let panel = PanelController()
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
     let toasts = ToastPresenter()
@@ -233,6 +237,13 @@ final class AppModel {
             configureSync()
         }
         telemetry.record(.appLaunched)
+        // A data-loss-level storage failure also lands in the support log (the
+        // banner already shouts; this keeps a copyable, timestamped trail).
+        if storageIsEphemeral {
+            diagnostics.record(
+                String(localized: "Storage"),
+                String(localized: "Couldn’t open secure storage — running in memory."))
+        }
         Task { await refreshRecents() }
 
         // UI-test hook: deterministic panel access without the global hotkey.
@@ -789,9 +800,18 @@ final class AppModel {
     /// metadata-only milestone (synced/paused/failed) to the Privacy Center.
     private func applySyncStatus(_ status: SyncStatus) {
         let wasSyncing = syncStatus == .syncing
+        let wasFailed: Bool = { if case .failed = syncStatus { true } else { false } }()
         syncStatus = status
         if let event = Self.syncEvent(for: status) {
             privacyEvents.record(sync: event)
+        }
+        // Edge-triggered: log a failure to the support trail once per failure,
+        // not on every re-emit while it stays failed. The detailed cause lives
+        // in the iCloud-sync section; here it's a content-free identifier.
+        if case .failed(let cause) = status, !wasFailed {
+            diagnostics.record(
+                String(localized: "Sync"),
+                String(localized: "iCloud sync failed.") + " (\(cause.rawValue))")
         }
         // A finished fetch may have pulled new clips/boards from iCloud — refresh
         // so the panel and Library reflect them without a manual reopen.
