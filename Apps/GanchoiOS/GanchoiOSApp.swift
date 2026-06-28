@@ -2329,7 +2329,7 @@ struct IOSSettingsView: View {
             }
             .fileExporter(
                 isPresented: $showExporter, document: exportDocument, contentType: .folder,
-                defaultFilename: "gancho-backup"
+                defaultFilename: "gancho-backup.ganchoarchive"
             ) { result in
                 if case .failure = result {
                     transferNote = String(localized: "Couldn’t save the backup.")
