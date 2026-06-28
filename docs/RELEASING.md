@@ -109,9 +109,10 @@ CI, and the packaging scripts all run it first.
 - The **public** EdDSA key is baked into the app as `SUPublicEDKey` (in
   `Apps/GanchoMac/Info.plist`). The app rejects any update whose signature does
   not verify against it.
-- The **private** EdDSA key lives only in the maintainer's login Keychain (it
-  was created by `Vendor/bin/generate_keys`). It is **never** a CI secret —
-  appcasts are signed locally. Confirm the keypair before a release:
+- The **private** EdDSA key was created by `Vendor/bin/generate_keys`. The CI
+  release signs the appcast with it from the `SPARKLE_EDDSA_PRIVATE_KEY` secret
+  (`generate_keys -x` exports it); a local `make appcast` reads it from the
+  maintainer's login Keychain instead. Confirm the keypair before a release:
 
   ```bash
   Vendor/bin/generate_keys -p   # must equal SUPublicEDKey in Info.plist
@@ -140,13 +141,20 @@ xcrun notarytool store-credentials "gancho-notary" \
 
 ### Cutting a direct-download release
 
-Everything is signed **locally** — the Developer ID identity and the EdDSA
-appcast key stay in the login Keychain, never in CI. One-time prerequisites: the
-Developer ID cert in the Keychain, the `gancho-notary` notary profile (above),
-and the `TAP_DEPLOY_KEY` repo secret for the cask bump.
+**A tag is a complete release.** With the signing secrets configured (table
+above), pushing `vX.Y.Z` runs `release.yml`, which builds the signed + notarized
+DMG (license flavor), signs the appcast, publishes the GitHub release, bumps the
+Homebrew tap cask, and deploys the appcast to GitHub Pages:
 
-The Sparkle signature is over the DMG bytes, so the DMG signed for the appcast
-must be the exact file uploaded to the release — do not rebuild it in between.
+```bash
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+The local flow below stays available for **testing** the artifacts before a tag
+(or as a fallback if the CI secrets aren't set). The Sparkle signature is over
+the DMG bytes, so the DMG signed for the appcast must be the exact file uploaded
+to the release — do not rebuild it in between. One-time local prerequisites: the
+Developer ID cert in the Keychain, the `gancho-notary` notary profile (above).
 Fill the two placeholders and run the rest verbatim:
 
 ```bash
@@ -201,10 +209,36 @@ production downloads require them.
 | `MACOS_NOTARY_APPLE_ID` | Apple ID fallback for `notarytool` |
 | `MACOS_NOTARY_PASSWORD` | App-specific password fallback for `notarytool` |
 | `MACOS_NOTARY_TEAM_ID` | Team ID for Apple ID notarization fallback |
-| `TAP_DEPLOY_KEY` | SSH deploy key with write access on `johnny4young/homebrew-tap` (scoped to that one repo, unlike a PAT), used by `update-cask.yml` to push the cask bump — the same key style Vitrine uses for its tap |
+| `TAP_DEPLOY_KEY` | SSH deploy key with write access on `johnny4young/homebrew-tap` (scoped to that one repo, unlike a PAT), used to push the cask bump — the same key style Vitrine uses for its tap |
+| `SPARKLE_EDDSA_PRIVATE_KEY` | The EdDSA private key (`Vendor/bin/generate_keys -x`) that signs the appcast in CI. Its public half is the `SUPublicEDKey` in `Info.plist`. Absent → the release publishes a DMG with no appcast update entry |
+| `GANCHO_LICENSE_SIGNING_KEY` | The Ed25519 private key that turns on **direct-download Pro**: XcodeGen bakes it into the build's `GanchoLicenseSigningKey` so the app can mint + verify license activation tokens. Absent → the build stays Free and the paywall shows "Pro is coming soon" |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Deploy the marketing landing to Cloudflare Pages (`gancho-web` → gancho.app) from the Website workflow |
 
 The App Store Connect API-key path wins when both notarization credential styles
 are configured.
+
+### Enabling direct-download Pro (payments)
+
+The license-activation infrastructure ships built, the Lemon Squeezy product +
+hosted checkout already exist (`LemonSqueezyStore`), and the **public** verifier
+key is already committed in `License.swift`. Payments turn on when the release
+build bakes in the matching **private** key:
+
+1. Set the private key that matches the committed public key as the repo secret
+   `GANCHO_LICENSE_SIGNING_KEY` (the value saved when the keypair was generated).
+   If that private key was lost, regenerate the pair and replace the committed
+   public key in `License.swift`:
+
+   ```bash
+   swift scripts/generate-license-keypair.swift   # prints public, writes private
+   ```
+
+2. Tag a release. `release.yml` bakes the key into the signed DMG, and the
+   paywall automatically switches from "Pro is coming soon" to the real Lemon
+   Squeezy purchase + activation flow — `LicenseSigningKey.isConfigured` gates
+   this, so no code change is needed.
+
+A from-source or App Store build never gets the key, so it stays Free / StoreKit.
 
 ## Artifact QA
 

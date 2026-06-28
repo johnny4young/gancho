@@ -66,34 +66,42 @@ struct ReleaseMetadataTests {
         }
     }
 
-    @Test func releaseWorkflowGuardsTaggedArtifacts() throws {
+    @Test func releaseWorkflowBuildsTheSignedLicenseDMG() throws {
         let workflow = try Self.text(".github", "workflows", "release.yml")
 
         #expect(workflow.contains("tags: [\"v*\"]"))
         #expect(workflow.contains("make release-check"))
         #expect(workflow.contains("GITHUB_REF_NAME#v"))
-        #expect(workflow.contains("./scripts/package-macos-zip.sh"))
-        #expect(workflow.contains("./scripts/qa-release.sh"))
+        // The publish job builds the signed, notarized direct-download DMG with
+        // the license-signing key baked in, then publishes + bumps the cask.
+        #expect(workflow.contains("make package-dmg"))
+        #expect(workflow.contains("GANCHO_LICENSE_SIGNING_KEY"))
         #expect(workflow.contains("softprops/action-gh-release"))
-        #expect(workflow.contains("dist/Gancho-*.zip"))
+        #expect(workflow.contains("dist/Gancho-*.dmg"))
+        #expect(workflow.contains("update-homebrew-tap.sh"))
     }
 
-    @Test func pagesWorkflowSplitsCloudflareLandingFromAppcast() throws {
+    @Test func releaseWorkflowPublishesTheSignedAppcast() throws {
+        let workflow = try Self.text(".github", "workflows", "release.yml")
+
+        // The appcast (the SUFeedURL the installed base polls) is signed over the
+        // exact released DMG and deployed to GitHub Pages + a redirect stub to
+        // the canonical Cloudflare domain — all on the release tag.
+        #expect(workflow.contains("make appcast"))
+        #expect(workflow.contains("SPARKLE_EDDSA_PRIVATE_KEY"))
+        #expect(workflow.contains("actions/deploy-pages"))
+        #expect(workflow.contains("path: _site"))
+        #expect(workflow.contains("https://gancho.app/"))
+    }
+
+    @Test func pagesWorkflowDeploysTheLandingToCloudflare() throws {
         let workflow = try Self.text(".github", "workflows", "pages.yml")
         let index = try Self.text("site", "index.html")
 
-        // The marketing landing deploys to Cloudflare Pages (gancho.app)…
+        // The Website workflow deploys ONLY the marketing landing to Cloudflare
+        // Pages; the appcast is published by the Release workflow (above).
         #expect(workflow.contains("wrangler@4 pages deploy"))
         #expect(workflow.contains("--project-name=gancho-web"))
-        // …while GitHub Pages keeps serving ONLY the signed appcast (the
-        // SUFeedURL the installed base polls) plus a redirect stub to the
-        // canonical domain. The artifact path is the appcast staging dir.
-        #expect(workflow.contains("actions/configure-pages"))
-        #expect(workflow.contains("actions/upload-pages-artifact"))
-        #expect(workflow.contains("actions/deploy-pages"))
-        #expect(workflow.contains("path: _site"))
-        #expect(workflow.contains("appcast.xml"))
-        #expect(workflow.contains("https://gancho.app/"))
         #expect(index.contains("Privacy-first"))
         #expect(index.contains("CHANGELOG.md"))
     }

@@ -36,11 +36,23 @@ cp "$DMG" "$work/"
 
 mkdir -p "$SITE_DIR"
 printf '==> Generating EdDSA-signed appcast for %s\n' "$(basename "$DMG")"
-Vendor/bin/generate_appcast \
-	--download-url-prefix "$RELEASE_BASE" \
-	--link "$PROJECT_LINK" \
-	-o "$SITE_DIR/appcast.xml" \
-	"$work"
+# CI signs with the EdDSA private key from a secret, fed on stdin via
+# `--ed-key-file -` so it never touches disk or the log. Locally the key is read
+# from the login Keychain (no flag, no secret juggling). Same script both ways.
+if [ -n "${SPARKLE_EDDSA_PRIVATE_KEY:-}" ]; then
+	printf '%s' "$SPARKLE_EDDSA_PRIVATE_KEY" | Vendor/bin/generate_appcast \
+		--ed-key-file - \
+		--download-url-prefix "$RELEASE_BASE" \
+		--link "$PROJECT_LINK" \
+		-o "$SITE_DIR/appcast.xml" \
+		"$work"
+else
+	Vendor/bin/generate_appcast \
+		--download-url-prefix "$RELEASE_BASE" \
+		--link "$PROJECT_LINK" \
+		-o "$SITE_DIR/appcast.xml" \
+		"$work"
+fi
 
 printf '✓ %s/appcast.xml\n' "$SITE_DIR"
 printf '  enclosure base: %s\n' "$RELEASE_BASE"
