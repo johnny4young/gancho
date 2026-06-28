@@ -10,7 +10,7 @@
 class Gancho < Formula
   desc "Privacy-first clipboard CLI and local MCP server for Gancho"
   homepage "https://johnny4young.github.io/gancho/"
-  version "0.2.0"
+  version "0.3.0"
   url "https://github.com/johnny4young/gancho/archive/refs/tags/v#{version}.tar.gz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
   license "MIT"
