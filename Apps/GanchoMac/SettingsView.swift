@@ -481,7 +481,15 @@ private struct ProSettingsTab: View {
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)
         .task {
-            if let store = model.grdbStore { clipCount = try? await store.count() }
+            // "Kept for you" = everything on disk: the visible clips PLUS the
+            // archived ones free-tier enforcement hides but never deletes (the
+            // upgrade carrot). Pro releases all archives, so there the archived
+            // term is 0 and this equals the visible count.
+            guard let store = model.grdbStore, let visible = try? await store.count() else {
+                return
+            }
+            let archived = (try? await store.archivedCount()) ?? 0
+            clipCount = visible + archived
         }
     }
 }
