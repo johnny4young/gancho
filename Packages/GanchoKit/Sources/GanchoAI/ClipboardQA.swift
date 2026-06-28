@@ -31,16 +31,21 @@ public struct ClipboardQA: Sendable {
         let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
 
+        // Filter sensitive WITHIN each strategy: a semantic pass that returns
+        // only secrets must still fall through to FTS, or the user gets a false
+        // "no match" while non-sensitive full-text hits exist.
         var clips: [ClipItem] = []
         if useSemantic, let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
             let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
         {
-            clips = (try? await store.semanticSearch(queryVector: vector, topK: 6)) ?? []
+            clips = ((try? await store.semanticSearch(queryVector: vector, topK: 6)) ?? [])
+                .filter { !$0.isSensitive }
         }
         if clips.isEmpty {
-            clips = (try? await store.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? []
+            clips = ((try? await store.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? [])
+                .filter { !$0.isSensitive }
         }
-        return clips.filter { !$0.isSensitive }
+        return clips
     }
 
     private let service = ClipboardQAService()

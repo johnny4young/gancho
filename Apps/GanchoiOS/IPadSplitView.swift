@@ -48,7 +48,9 @@ struct IPadSplitView: View {
                 }
             }
             .overlay {
-                if model.captures.isEmpty {
+                // Gate on the storage warning so the empty-state doesn't cover
+                // the "History isn't being saved" row when the store is ephemeral.
+                if model.captures.isEmpty && !model.storageIsEphemeral {
                     ContentUnavailableView(
                         "No clips here", systemImage: "tray",
                         description: Text("Copy or share something to Gancho to see it here."))
