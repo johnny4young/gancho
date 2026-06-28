@@ -2191,6 +2191,86 @@
           }
         }
       }
+    },
+    "Your history": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu historial"
+          }
+        }
+      }
+    },
+    "Back up history…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respaldar el historial…"
+          }
+        }
+      }
+    },
+    "Restore from backup…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar desde un respaldo…"
+          }
+        }
+      }
+    },
+    "Backups are .ganchoarchive files on your device — never uploaded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los respaldos son archivos .ganchoarchive en tu dispositivo — nunca se suben."
+          }
+        }
+      }
+    },
+    "Couldn’t save the backup.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el respaldo."
+          }
+        }
+      }
+    },
+    "That backup couldn’t be restored.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese respaldo no se pudo restaurar."
+          }
+        }
+      }
+    },
+    "Couldn’t prepare the backup.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo preparar el respaldo."
+          }
+        }
+      }
+    },
+    "Restored %lld clips (%lld already here).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restauré %lld clips (%lld ya estaban)."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

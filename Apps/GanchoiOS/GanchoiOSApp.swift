@@ -715,6 +715,32 @@ final class IOSAppModel {
     /// memory — captures won't survive relaunch, so the list warns the user.
     var storageIsEphemeral: Bool { !store.isDurable }
 
+    /// Export a portable `.ganchoarchive` of the whole history to a temp dir for
+    /// the system exporter to move into Files. Same format macOS reads/writes —
+    /// device-to-device migration, no lock-in, never auto-uploaded.
+    func makeBackupArchive() async -> URL? {
+        guard let grdb = store as? GRDBClipboardStore else { return nil }
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gancho-backup.ganchoarchive", isDirectory: true)
+        try? FileManager.default.removeItem(at: dir)
+        guard (try? await GanchoArchive.export(from: grdb, to: dir)) != nil else { return nil }
+        return dir
+    }
+
+    /// Restore a `.ganchoarchive` (merge + dedupe by hash+device; checksummed,
+    /// transactional). Returns the summary; refreshes the list on success.
+    @discardableResult
+    func restoreBackup(from url: URL) async -> GanchoArchive.RestoreSummary? {
+        guard let grdb = store as? GRDBClipboardStore else { return nil }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let summary = try? await GanchoArchive.restore(from: url, into: grdb) else {
+            return nil
+        }
+        await search()
+        return summary
+    }
+
     /// Metadata-only refresh — safe on every activation, never alerts.
     func refreshHints() async {
         hints = await source.hints()
@@ -2181,9 +2207,11 @@ struct ClipDetailView: View {
 /// iOS settings: honest capture explainer + the Shortcuts gallery link.
 struct IOSSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    #if DEBUG
-        @Environment(IOSAppModel.self) private var model
-    #endif
+    @Environment(IOSAppModel.self) private var model
+    @State private var exportDocument: GanchoArchiveDocument?
+    @State private var showExporter = false
+    @State private var showImporter = false
+    @State private var transferNote: String?
 
     var body: some View {
         NavigationStack {
@@ -2213,6 +2241,28 @@ struct IOSSettingsView: View {
                         Label("Example Shortcuts gallery", systemImage: "square.stack.3d.up")
                     }
                 }
+                Section("Your history") {
+                    Button {
+                        startBackup()
+                    } label: {
+                        Label("Back up history…", systemImage: "arrow.down.doc")
+                    }
+                    .accessibilityIdentifier("backup-history")
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Label("Restore from backup…", systemImage: "arrow.up.doc")
+                    }
+                    .accessibilityIdentifier("restore-history")
+                    Text("Backups are .ganchoarchive files on your device — never uploaded.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if let transferNote {
+                        Text(verbatim: transferNote)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 #if DEBUG
                     Section {
                         Toggle(
@@ -2240,7 +2290,71 @@ struct IOSSettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .fileExporter(
+                isPresented: $showExporter, document: exportDocument, contentType: .folder,
+                defaultFilename: "gancho-backup"
+            ) { result in
+                if case .failure = result {
+                    transferNote = String(localized: "Couldn’t save the backup.")
+                }
+                exportDocument = nil
+            }
+            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.folder]) { result in
+                guard case .success(let url) = result else { return }
+                Task {
+                    if let summary = await model.restoreBackup(from: url) {
+                        transferNote = String(
+                            localized:
+                                "Restored \(summary.inserted) clips (\(summary.skippedDuplicates) already here)."
+                        )
+                    } else {
+                        transferNote = String(localized: "That backup couldn’t be restored.")
+                    }
+                }
+            }
         }
+    }
+
+    /// Build the .ganchoarchive in a temp dir, then hand it to the system
+    /// exporter — the file lands wherever the user picks in Files. Off-device
+    /// only if THEY choose an off-device location.
+    private func startBackup() {
+        Task {
+            guard let url = await model.makeBackupArchive(),
+                let document = try? GanchoArchiveDocument(directory: url)
+            else {
+                transferNote = String(localized: "Couldn’t prepare the backup.")
+                return
+            }
+            exportDocument = document
+            showExporter = true
+        }
+    }
+}
+
+/// Wraps a `.ganchoarchive` directory as a single document so `fileExporter`
+/// can write it out (and macOS can read it back). Stores the URL (Sendable) and
+/// builds the directory `FileWrapper` lazily at write time — the format is a
+/// directory of clips.json, manifest.json, and the blobs. Export-only; restore
+/// goes through `fileImporter`, so the read path is never exercised.
+struct GanchoArchiveDocument: FileDocument {
+    static let readableContentTypes: [UTType] = [.folder]
+
+    private let directory: URL
+
+    init(directory url: URL) throws {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        directory = url
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        throw CocoaError(.fileReadUnsupportedScheme)
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        try FileWrapper(url: directory)
     }
 }
 

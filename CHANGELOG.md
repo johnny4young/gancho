@@ -7,6 +7,14 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- iPhone/iPad can now **back up and restore your history** from Settings → Your
+  history, using the same portable `.ganchoarchive` format as macOS — so a
+  backup made on one device imports on another. The export goes through the
+  system file picker (save anywhere in Files), restore merges and de-dupes by
+  content, and the archive is checksummed and never auto-uploaded.
+
 ## [0.2.0] - 2026-06-28
 
 ### Added
