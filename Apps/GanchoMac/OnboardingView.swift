@@ -66,6 +66,11 @@ struct OnboardingView: View {
             Text("Your clips never leave this Mac unless YOU turn on iCloud sync.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            Label(
+                "Your first clips get smart AI titles, free and on-device.", systemImage: "sparkles"
+            )
+            .font(.footnote)
+            .foregroundStyle(.tint)
         }
     }
 
