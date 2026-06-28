@@ -99,6 +99,17 @@
             #expect(denylist.contains("com.bitwarden.desktop"))
         }
 
+        @Test("Manual denylist entries are trimmed before storage and matching")
+        func manualEntryTrimming() {
+            var denylist = SourceAppDenylist()
+            denylist.add("  com.example.banking\n")
+            denylist.add(" \n ")
+
+            #expect(denylist.userBundleIDs == ["com.example.banking"])
+            #expect(denylist.contains("com.example.banking"))
+            #expect(denylist.contains("\ncom.example.banking "))
+        }
+
         @Test("Denylist persists through UserDefaults")
         func denylistRoundTrip() throws {
             let suite = "denylist-test-\(UUID().uuidString)"
