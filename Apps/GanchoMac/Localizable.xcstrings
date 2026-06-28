@@ -4387,6 +4387,66 @@
           }
         }
       }
+    },
+    "Move to history": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mover al historial"
+          }
+        }
+      }
+    },
+    "Saved as snippet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardado como snippet"
+          }
+        }
+      }
+    },
+    "Clear filters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limpiar filtros"
+          }
+        }
+      }
+    },
+    "Try another word.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prueba con otra palabra."
+          }
+        }
+      }
+    },
+    "Delete this board?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Eliminar este tablero?"
+          }
+        }
+      }
+    },
+    "Your clips stay in history — only the board is removed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus clips quedan en el historial — solo se elimina el tablero."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

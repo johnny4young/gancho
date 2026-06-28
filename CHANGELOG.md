@@ -36,6 +36,20 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Library shows a live used/limit count next to Boards and Snippets for
   free users, and the Pro footer escalates (neutral → "almost full" → "limit
   reached"), so the upsell forewarns instead of ambushing at the ceiling.
+- Plainer snippet wording: "Save as snippet" / "Move to history" replace the
+  jargon "Promote to Library" / "Remove from Library" (and the demote action no
+  longer wears a destructive red trash icon — it doesn't delete anything).
+- The panel's no-results state now offers a "Clear filters" button when a type
+  or board filter is narrowing the list, replacing a hint that wrongly told you
+  to "press esc to clear the search" (esc hides the panel).
+
+### Fixed
+
+- "Add to board → New board…" from a clip now prompts for a name and files the
+  clip into the board it creates, instead of silently making a board literally
+  named "Board".
+- Deleting a board now asks for confirmation first — the clips always stay in
+  your history; only the board is removed.
 
 ## [0.1.0] - 2026-06-25
 
