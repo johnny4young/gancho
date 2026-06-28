@@ -4447,6 +4447,96 @@
           }
         }
       }
+    },
+    "History": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historial"
+          }
+        }
+      }
+    },
+    "Sensitive items": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elementos sensibles"
+          }
+        }
+      }
+    },
+    "A per-type limit overrides the global window; leave a type on Use global to follow it. Pinned clips and boards never expire.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un límite por tipo anula la ventana global; deja un tipo en Usar global para seguirla. Los clips fijados y los tableros nunca expiran."
+          }
+        }
+      }
+    },
+    "Detected secrets — passwords, keys, cards — always follow this limit, even when your history keeps everything longer. It's a safety guard you can shorten but not extend.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los secretos detectados — contraseñas, llaves, tarjetas — siempre siguen este límite, incluso cuando tu historial guarda todo por más tiempo. Es una protección de seguridad que puedes acortar pero no extender."
+          }
+        }
+      }
+    },
+    "Add a running app…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar una app abierta…"
+          }
+        }
+      }
+    },
+    "A bundle identifier looks like com.apple.Safari.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un identificador de paquete se ve así: com.apple.Safari."
+          }
+        }
+      }
+    },
+    "Runs on your Mac — nothing leaves the device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corre en tu Mac — nada sale del dispositivo."
+          }
+        }
+      }
+    },
+    "Type the keyword in the panel to insert this snippet. Add {field} placeholders to fill in before pasting.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe la palabra clave en el panel para insertar este snippet. Agrega marcadores {field} para rellenar antes de pegar."
+          }
+        }
+      }
+    },
+    "Undo": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deshacer"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

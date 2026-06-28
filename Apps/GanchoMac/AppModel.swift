@@ -916,6 +916,23 @@ final class AppModel {
         }
     }
 
+    /// Assign + a one-tap Undo (the board-suggestion accept path). The action is
+    /// reversible, so offer the reversal in the toast instead of making the user
+    /// hunt through the board menu to take it back.
+    func assignWithUndo(_ item: ClipItem, toBoard board: Pinboard) {
+        guard let grdbStore else { return }
+        Task {
+            try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
+            await refreshRecents()
+            toasts.show(
+                GanchoToast(
+                    message: "Added to board",
+                    action: ToastAction(title: "Undo") { [weak self] in
+                        self?.unassign(item, fromBoard: board)
+                    }))
+        }
+    }
+
     func unassign(_ item: ClipItem, fromBoard board: Pinboard) {
         guard let grdbStore else { return }
         Task {
@@ -1044,7 +1061,11 @@ final class AppModel {
     }
 
     func addToDenylist(_ bundleID: String) {
-        monitor.denylist.add(bundleID)
+        // Trim pasted whitespace/newlines so a manual entry actually matches the
+        // frontmost app's bundle id (an untrimmed entry silently never matches).
+        let trimmed = bundleID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        monitor.denylist.add(trimmed)
         monitor.denylist.save(to: defaults)
     }
 

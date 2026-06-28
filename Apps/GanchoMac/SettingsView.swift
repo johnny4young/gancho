@@ -250,6 +250,16 @@ private struct CaptureSettingsTab: View {
                         .accessibilityLabel(Text("Remove"))
                     }
                 }
+                Menu("Add a running app…") {
+                    ForEach(runningApps) { app in
+                        Button {
+                            model.addToDenylist(app.id)
+                        } label: {
+                            Text(verbatim: app.name)
+                        }
+                    }
+                }
+                .accessibilityIdentifier("denylist-running-apps")
                 HStack {
                     TextField("Bundle identifier", text: $newDenylistEntry)
                         .accessibilityIdentifier("denylist-add-field")
@@ -259,6 +269,9 @@ private struct CaptureSettingsTab: View {
                         newDenylistEntry = ""
                     }
                 }
+                Text("A bundle identifier looks like com.apple.Safari.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 Text("Password managers and banking apps are excluded by default.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -266,6 +279,27 @@ private struct CaptureSettingsTab: View {
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)
+    }
+
+    private struct RunningApp: Identifiable {
+        let id: String  // bundle identifier
+        let name: String
+    }
+
+    /// Currently-running, Dock-visible apps not already on the denylist — the
+    /// no-typing way to add one (you rarely know an app's bundle id by heart).
+    private var runningApps: [RunningApp] {
+        let denied = Set(model.denylistEntries)
+        var seen = Set<String>()
+        return NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular }
+            .compactMap { app -> RunningApp? in
+                guard let id = app.bundleIdentifier, let name = app.localizedName,
+                    !denied.contains(id), seen.insert(id).inserted
+                else { return nil }
+                return RunningApp(id: id, name: name)
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 }
 
@@ -275,27 +309,39 @@ private struct RetentionSettingsTab: View {
     var body: some View {
         @Bindable var model = model
         Form {
-            Picker("Keep history for", selection: $model.retentionPolicy.global) {
-                windowOptions
-            }
-            Picker(
-                "Images", selection: perKindBinding(.image)
-            ) { windowOptionsWithDefault }
-            Picker(
-                "Text", selection: perKindBinding(.text)
-            ) { windowOptionsWithDefault }
-
-            Picker(
-                "Sensitive items expire after",
-                selection: $model.retentionPolicy.sensitiveLifetime
-            ) {
-                Text("5 minutes").tag(TimeInterval(300))
-                Text("10 minutes").tag(TimeInterval(600))
-                Text("30 minutes").tag(TimeInterval(1800))
-            }
-            Text("Pinned clips and boards never expire.")
+            Section("History") {
+                Picker("Keep history for", selection: $model.retentionPolicy.global) {
+                    windowOptions
+                }
+                Picker(
+                    "Images", selection: perKindBinding(.image)
+                ) { windowOptionsWithDefault }
+                Picker(
+                    "Text", selection: perKindBinding(.text)
+                ) { windowOptionsWithDefault }
+                Text(
+                    "A per-type limit overrides the global window; leave a type on Use global to follow it. Pinned clips and boards never expire."
+                )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            }
+
+            Section("Sensitive items") {
+                Picker(
+                    "Sensitive items expire after",
+                    selection: $model.retentionPolicy.sensitiveLifetime
+                ) {
+                    Text("5 minutes").tag(TimeInterval(300))
+                    Text("10 minutes").tag(TimeInterval(600))
+                    Text("30 minutes").tag(TimeInterval(1800))
+                }
+                Label(
+                    "Detected secrets — passwords, keys, cards — always follow this limit, even when your history keeps everything longer. It's a safety guard you can shorten but not extend.",
+                    systemImage: "lock.shield"
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)

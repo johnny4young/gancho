@@ -24,6 +24,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   "paused", not "broken".
 - Onboarding now points to the menu-bar home and offers a "Show in Dock"
   toggle, so a Dock-less app stays discoverable even if you forget the shortcut.
+- A first-run welcome on iPhone/iPad explains Gancho's novel capture model up
+  front — there's no background clipboard watching, so it walks through the
+  three ways to save (the Paste button, the share sheet, and Shortcuts/Action
+  Button) before dropping you on an empty list.
 - macOS app icon — the Gancho hook mark.
 - Release automation foundation: version-sync checks, a tagged GitHub Release
   workflow, macOS app ZIP packaging, artifact QA, and GitHub Pages deployment.
@@ -36,12 +40,40 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Library shows a live used/limit count next to Boards and Snippets for
   free users, and the Pro footer escalates (neutral → "almost full" → "limit
   reached"), so the upsell forewarns instead of ambushing at the ceiling.
+- Retention settings now explain how the windows stack: a per-type limit
+  overrides the global one, and a callout makes clear that detected secrets
+  always follow the shorter "Sensitive items" limit — even when history is set
+  to keep everything longer — so "Forever" never silently keeps a password.
+- The "Never capture from these apps" denylist gains an "Add a running app…"
+  picker (no need to know an app's bundle identifier) plus a format hint, so
+  the feature is usable without hunting for bundle ids.
+- The panel's Smart Paste menu now states the rewrites run on your Mac and
+  nothing leaves the device — the reassurance lands right where a privacy-
+  conscious user hesitates.
+- The snippet editor now explains how snippets work up front: type the keyword
+  in the panel to insert one, and add `{field}` placeholders to fill in before
+  pasting (previously the `{field}` hint only appeared after you'd typed one).
 - Plainer snippet wording: "Save as snippet" / "Move to history" replace the
   jargon "Promote to Library" / "Remove from Library" (and the demote action no
   longer wears a destructive red trash icon — it doesn't delete anything).
 - The panel's no-results state now offers a "Clear filters" button when a type
   or board filter is narrowing the list, replacing a hint that wrongly told you
   to "press esc to clear the search" (esc hides the panel).
+- On iPhone/iPad, search and filters now show a context-aware empty state —
+  "No clips match …" when a search misses, or "No clips in this filter" with a
+  Clear filters button — instead of the generic "Nothing captured yet" that
+  appeared even mid-search.
+- On iOS, Smart Paste actions sit one tap from the clip's Smart Actions section
+  instead of inside a nested menu (Translate stays a submenu for its languages).
+- Saving from the iOS share sheet now plays a success haptic when a clip lands —
+  the sheet used to disappear with no confirmation that anything was captured.
+- Accepting a board suggestion in the macOS peek now offers a one-tap Undo in
+  the confirmation toast, so a mis-file is reversible without the board menu.
+- Tapping an image clip on iOS opens it full screen with pinch- and
+  double-tap-zoom (loading the full image, not the 340pt preview) — screenshots
+  of small text are finally legible.
+- The iOS keyboard's compact strip ends with a chevron that expands it to the
+  full, searchable list — the control-bar toggle alone wasn't discoverable.
 
 ### Fixed
 
@@ -50,6 +82,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   named "Board".
 - Deleting a board now asks for confirmation first — the clips always stay in
   your history; only the board is removed.
+- The iOS clip detail sheet now has a Done button — previously it could only be
+  dismissed by dragging it down, with no visible affordance.
 
 ## [0.1.0] - 2026-06-25
 

@@ -36,24 +36,26 @@ public struct SourceAppDenylist: Sendable, Equatable, Codable {
     public var disabledSuggestions: Set<String>
 
     public init(userBundleIDs: Set<String> = [], disabledSuggestions: Set<String> = []) {
-        self.userBundleIDs = userBundleIDs
-        self.disabledSuggestions = disabledSuggestions
+        self.userBundleIDs = Set(userBundleIDs.compactMap(Self.normalizedBundleID))
+        self.disabledSuggestions = Set(disabledSuggestions.compactMap(Self.normalizedBundleID))
     }
 
     /// The veto check the monitor runs pre-read.
     public func contains(_ bundleID: String?) -> Bool {
-        guard let bundleID else { return false }
+        guard let bundleID = bundleID.flatMap(Self.normalizedBundleID) else { return false }
         if userBundleIDs.contains(bundleID) { return true }
         return Self.suggestedBundleIDs.contains(bundleID)
             && !disabledSuggestions.contains(bundleID)
     }
 
     public mutating func add(_ bundleID: String) {
+        guard let bundleID = Self.normalizedBundleID(bundleID) else { return }
         userBundleIDs.insert(bundleID)
         disabledSuggestions.remove(bundleID)
     }
 
     public mutating func remove(_ bundleID: String) {
+        guard let bundleID = Self.normalizedBundleID(bundleID) else { return }
         userBundleIDs.remove(bundleID)
         if Self.suggestedBundleIDs.contains(bundleID) {
             disabledSuggestions.insert(bundleID)
@@ -72,5 +74,10 @@ public struct SourceAppDenylist: Sendable, Equatable, Codable {
     public func save(to defaults: UserDefaults) {
         guard let data = try? JSONEncoder().encode(self) else { return }
         defaults.set(data, forKey: Self.defaultsKey)
+    }
+
+    private static func normalizedBundleID(_ bundleID: String) -> String? {
+        let trimmed = bundleID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

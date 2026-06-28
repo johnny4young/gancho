@@ -250,6 +250,16 @@
           }
         }
       }
+    },
+    "Show all clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar todos los clips"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

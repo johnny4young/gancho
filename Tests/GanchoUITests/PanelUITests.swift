@@ -244,4 +244,23 @@ final class PanelUITests: XCTestCase {
         app.typeText("focus works")
         XCTAssertEqual(search.value as? String, "focus works")
     }
+
+    @MainActor
+    func testFooterShortcutsButtonOpensCheatSheet() {
+        let app = launchWithPanel()
+        defer { app.terminate() }
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
+
+        // The footer "?" surfaces the power shortcuts (⌘P/⌘S/⌥⏎/⌘1-9) the inline
+        // hints can't fit.
+        let helpButton = app.buttons["panel-shortcuts-button"].firstMatch
+        XCTAssertTrue(helpButton.waitForExistence(timeout: 3), "the footer ? button must exist")
+        // The button is tiny and edge-anchored, so XCUITest can report it as not
+        // hittable; click its center coordinate directly.
+        helpButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+
+        let card = app.descendants(matching: .any)["panel-shortcuts"].firstMatch
+        XCTAssertTrue(
+            card.waitForExistence(timeout: 3), "the ? button must open the keyboard cheat-sheet")
+    }
 }

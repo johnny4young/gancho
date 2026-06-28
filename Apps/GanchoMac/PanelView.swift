@@ -1356,7 +1356,7 @@ struct ClipPeek: View {
             Text("Add to \(board.name)?").font(.caption.weight(.medium)).lineLimit(1)
             Spacer(minLength: 0)
             Button("Add") {
-                model.assign(item, toBoard: board)
+                model.assignWithUndo(item, toBoard: board)
                 boardIDs.insert(board.id)
                 suggestedBoard = nil
             }
@@ -1611,6 +1611,8 @@ struct ClipPeek: View {
                     Label("Translate to", systemImage: "globe")
                 }
             }
+            Divider()
+            Label("Runs on your Mac — nothing leaves the device.", systemImage: "lock.shield")
         } label: {
             Label("Smart paste", systemImage: "sparkles")
                 .font(.body.weight(.medium))
