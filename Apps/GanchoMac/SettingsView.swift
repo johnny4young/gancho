@@ -498,9 +498,11 @@ private struct ProSettingsTab: View {
             Button("See what Pro adds") {
                 model.paywallWindow.show(trigger: .settingsPro, model: model)
             }
-            Text("Pro — iCloud sync, unlimited pins and boards — arrives with launch.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            Text(
+                "Pro unlocks unlimited history, pins, and boards today. iCloud sync arrives with launch."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
             #if GANCHO_DIRECT_DOWNLOAD
                 Section("Software Updates") {
                     Button("Check for Updates…") { model.updater.checkForUpdates() }

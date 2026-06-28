@@ -16,6 +16,12 @@ public enum LicenseSigningKey {
         key(fromBase64: Bundle.main.object(forInfoDictionaryKey: infoPlistKey) as? String)
     }
 
+    /// Whether this build can actually activate a direct-download license (a
+    /// signing key is baked). False for from-source / CI / unsigned builds — so
+    /// the paywall can show an honest "coming soon" instead of dead-ending every
+    /// license key on "could not be activated".
+    public static var isConfigured: Bool { embedded != nil }
+
     /// Pure parser, testable without a bundle. Rejects an empty value and the
     /// unexpanded `$(GANCHO_LICENSE_SIGNING_KEY)` placeholder.
     public static func key(fromBase64 base64: String?) -> Curve25519.Signing.PrivateKey? {

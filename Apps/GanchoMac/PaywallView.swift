@@ -27,32 +27,46 @@ struct PaywallView: View {
             }
 
             #if GANCHO_DIRECT_DOWNLOAD
-                // Direct download: buy on Lemon Squeezy, then paste the key.
-                ActionButton(
-                    "Get Gancho Pro", systemImage: "cart.fill", identifier: "buy-pro"
-                ) {
-                    NSWorkspace.shared.open(LemonSqueezyStore.checkoutURL)
-                }
-                TextField("Paste your license key", text: $licenseKey)
-                    .textFieldStyle(.roundedBorder)
-                    .accessibilityIdentifier("license-key-field")
-                if let licenseError {
-                    Text(LocalizedStringKey(licenseError))
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                }
-                ActionButton(
-                    "Activate", systemImage: "checkmark.seal.fill",
-                    identifier: "activate-license"
-                ) {
-                    Task {
-                        let key = licenseKey.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if await model.activateLicense(key) {
-                            dismiss()
-                        } else {
-                            licenseError = "That license key could not be activated."
+                if LicenseSigningKey.isConfigured {
+                    // Direct download: buy on Lemon Squeezy, then paste the key.
+                    ActionButton(
+                        "Get Gancho Pro", systemImage: "cart.fill", identifier: "buy-pro"
+                    ) {
+                        NSWorkspace.shared.open(LemonSqueezyStore.checkoutURL)
+                    }
+                    TextField("Paste your license key", text: $licenseKey)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier("license-key-field")
+                    if let licenseError {
+                        Text(LocalizedStringKey(licenseError))
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                    ActionButton(
+                        "Activate", systemImage: "checkmark.seal.fill",
+                        identifier: "activate-license"
+                    ) {
+                        Task {
+                            let key = licenseKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if await model.activateLicense(key) {
+                                dismiss()
+                            } else {
+                                licenseError = "That license key could not be activated."
+                            }
                         }
                     }
+                } else {
+                    // No signing key baked into this build, so activation can
+                    // never succeed — be honest instead of dead-ending every key
+                    // on "could not be activated".
+                    Label(
+                        "Pro is coming soon — purchases aren't open in this build yet.",
+                        systemImage: "clock.badge"
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("pro-coming-soon")
                 }
             #else
                 if model.purchases.isPurchaseAvailable {

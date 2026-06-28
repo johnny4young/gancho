@@ -4537,6 +4537,36 @@
           }
         }
       }
+    },
+    "iCloud sync (coming soon)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronización con iCloud (próximamente)"
+          }
+        }
+      }
+    },
+    "Pro is coming soon — purchases aren't open in this build yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro llega pronto — las compras aún no están abiertas en esta versión."
+          }
+        }
+      }
+    },
+    "Pro unlocks unlimited history, pins, and boards today. iCloud sync arrives with launch.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro desbloquea historial, pines y tableros ilimitados hoy. La sincronización con iCloud llega con el lanzamiento."
+          }
+        }
+      }
     }
   },
   "version": "1.1"
