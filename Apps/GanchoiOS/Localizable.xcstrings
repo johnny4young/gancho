@@ -1951,6 +1951,16 @@
           }
         }
       }
+    },
+    "Open full screen to zoom": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir a pantalla completa para hacer zoom"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

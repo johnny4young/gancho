@@ -67,6 +67,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of inside a nested menu (Translate stays a submenu for its languages).
 - Saving from the iOS share sheet now plays a success haptic when a clip lands —
   the sheet used to disappear with no confirmation that anything was captured.
+- Accepting a board suggestion in the macOS peek now offers a one-tap Undo in
+  the confirmation toast, so a mis-file is reversible without the board menu.
+- Tapping an image clip on iOS opens it full screen with pinch- and
+  double-tap-zoom (loading the full image, not the 340pt preview) — screenshots
+  of small text are finally legible.
+- The iOS keyboard's compact strip ends with a chevron that expands it to the
+  full, searchable list — the control-bar toggle alone wasn't discoverable.
 
 ### Fixed
 

@@ -1356,7 +1356,7 @@ struct ClipPeek: View {
             Text("Add to \(board.name)?").font(.caption.weight(.medium)).lineLimit(1)
             Spacer(minLength: 0)
             Button("Add") {
-                model.assign(item, toBoard: board)
+                model.assignWithUndo(item, toBoard: board)
                 boardIDs.insert(board.id)
                 suggestedBoard = nil
             }

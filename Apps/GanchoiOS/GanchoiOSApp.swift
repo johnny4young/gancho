@@ -130,6 +130,69 @@ struct IOSOnboardingView: View {
     }
 }
 
+/// Full-screen, pinch-zoomable view of an image clip — the in-list preview caps
+/// at 340pt, too small to read a screenshot's text. Loads the full image (not
+/// the thumbnail) so zooming stays sharp.
+struct FullScreenImageView: View {
+    @Environment(IOSAppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let item: ClipItem
+    @State private var image: Image?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let image {
+                    ZoomableImageView(image: image)
+                } else {
+                    ProgressView()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .task {
+            if case .binary(let data, _)? = try? await model.store.content(for: item.id),
+                let uiImage = UIImage(data: data)
+            {
+                image = Image(uiImage: uiImage)
+            }
+        }
+    }
+}
+
+/// Pinch + double-tap zoom over a static image. Plain SwiftUI gestures keep it
+/// dependency-free; double-tap toggles a 2.5× zoom for one-handed reading.
+private struct ZoomableImageView: View {
+    let image: Image
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+
+    var body: some View {
+        image
+            .resizable()
+            .scaledToFit()
+            .scaleEffect(scale)
+            .gesture(
+                MagnifyGesture()
+                    .onChanged { scale = max(1, min(6, lastScale * $0.magnification)) }
+                    .onEnded { _ in lastScale = scale }
+            )
+            .onTapGesture(count: 2) {
+                withAnimation(.snappy) {
+                    scale = scale > 1 ? 1 : 2.5
+                    lastScale = scale
+                }
+            }
+    }
+}
+
 @Observable
 @MainActor
 final class IOSAppModel {
@@ -1734,6 +1797,9 @@ struct ClipDetailView: View {
     @State private var revealed = false
     /// Whether the move-to-board sheet (the compact "Add to board") is open.
     @State private var showMoveSheet = false
+    /// Whether the tapped image is open full-screen for pinch-zoom (screenshots
+    /// are often small text the 340pt preview can't make legible).
+    @State private var showFullImage = false
     /// The board auto-board thinks this clip belongs to (a suggestion, never
     /// auto-filed); nil until computed or once accepted/dismissed.
     @State private var suggestedBoard: Pinboard?
@@ -1832,6 +1898,9 @@ struct ClipDetailView: View {
         .sheet(isPresented: $showMoveSheet) {
             MoveToBoardSheet(item: item)
         }
+        .fullScreenCover(isPresented: $showFullImage) {
+            FullScreenImageView(item: item).environment(model)
+        }
         .onChange(of: showMoveSheet) { _, open in
             if !open {
                 Task { boardIDs = await model.boardMembership(for: item) }
@@ -1865,7 +1934,12 @@ struct ClipDetailView: View {
                     .scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: 340, alignment: .center)
                     .clipShape(
-                        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
+                        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture { showFullImage = true }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint(Text("Open full screen to zoom"))
             } else if item.isSensitive, !revealed {
                 Text(item.preview)
                     .font(item.kind == .code ? .body.monospaced() : .body)

@@ -186,6 +186,20 @@ struct KeyboardView: View {
                         }
                         .buttonStyle(PressableScale())
                     }
+                    // Trailing affordance so the one-row strip advertises the
+                    // fuller, searchable list (the chevron in the control bar
+                    // alone wasn't discoverable).
+                    Button(action: model.toggleExpand) {
+                        Image(systemName: "chevron.up")
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                            .background(.fill.quaternary, in: .capsule)
+                            .contentShape(.capsule)
+                    }
+                    .buttonStyle(PressableScale())
+                    .accessibilityLabel(Text("Show all clips"))
                 }
             }
             .padding(.horizontal, 2)
