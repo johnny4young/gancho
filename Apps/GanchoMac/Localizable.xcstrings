@@ -4137,6 +4137,226 @@
           }
         }
       }
+    },
+    "Almost full — Pro unlocks unlimited": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Casi lleno — Pro lo hace ilimitado"
+          }
+        }
+      }
+    },
+    "Free limit reached — go unlimited": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llegaste al límite gratis — pásate a ilimitado"
+          }
+        }
+      }
+    },
+    "Keyboard shortcuts": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajos de teclado"
+          }
+        }
+      }
+    },
+    "Move selection": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mover la selección"
+          }
+        }
+      }
+    },
+    "Open actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir acciones"
+          }
+        }
+      }
+    },
+    "Back to list": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volver a la lista"
+          }
+        }
+      }
+    },
+    "Paste without formatting": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar sin formato"
+          }
+        }
+      }
+    },
+    "Paste that numbered clip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar ese clip por número"
+          }
+        }
+      }
+    },
+    "Pin or unpin": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fijar o desfijar"
+          }
+        }
+      }
+    },
+    "Save as snippet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como snippet"
+          }
+        }
+      }
+    },
+    "Select all in search": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seleccionar todo en la búsqueda"
+          }
+        }
+      }
+    },
+    "Show this list": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar esta lista"
+          }
+        }
+      }
+    },
+    "Keyboard shortcuts (⌘/)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajos de teclado (⌘/)"
+          }
+        }
+      }
+    },
+    "Private Mode is on": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El Modo privado está activo"
+          }
+        }
+      }
+    },
+    "New copies aren't being saved.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las copias nuevas no se están guardando."
+          }
+        }
+      }
+    },
+    "Resume": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reanudar"
+          }
+        }
+      }
+    },
+    "Gancho can't see what you copy.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho no puede ver lo que copias."
+          }
+        }
+      }
+    },
+    "Fix": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arreglar"
+          }
+        }
+      }
+    },
+    "Paused while screen sharing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa mientras compartes pantalla"
+          }
+        }
+      }
+    },
+    "Capture resumes when you stop sharing.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La captura se reanuda cuando dejas de compartir."
+          }
+        }
+      }
+    },
+    "Forgot the shortcut? Gancho also lives in your menu bar — click its icon anytime.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Olvidaste el atajo? Gancho también vive en tu barra de menú — haz clic en su ícono cuando quieras."
+          }
+        }
+      }
+    },
+    "Also show Gancho in the Dock": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar también Gancho en el Dock"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

@@ -12,6 +12,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Free taste of on-device AI: the first 25 text clips a free user copies get a
   real AI title (titles only — semantic search and OCR stay Pro), so new users
   see the on-device intelligence on their own clips before deciding.
+- Keyboard shortcut cheat-sheet in the panel (press ⌘/ or the footer "?"):
+  surfaces the power shortcuts the footer can't fit — ⌘P pin, ⌘S snippet,
+  ⌥⏎ paste-plain, ⌘1-9 quick-paste.
+- In-panel capture notice: when capture is paused (Private Mode), off (no
+  clipboard access), or paused while screen sharing, the panel now says so —
+  with a one-tap Resume / Fix — so a copy that doesn't appear reads as
+  "paused", not "broken".
+- Onboarding now points to the menu-bar home and offers a "Show in Dock"
+  toggle, so a Dock-less app stays discoverable even if you forget the shortcut.
 - macOS app icon — the Gancho hook mark.
 - Release automation foundation: version-sync checks, a tagged GitHub Release
   workflow, macOS app ZIP packaging, artifact QA, and GitHub Pages deployment.
@@ -21,6 +30,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More generous free tier: 30-day / 2,000-item history (was 7-day / 500), and
   15 pins across 3 boards (was 10 pins, 1 board) — the free plan is the
   distribution engine, so it should feel complete on its own.
+- The Library shows a live used/limit count next to Boards and Snippets for
+  free users, and the Pro footer escalates (neutral → "almost full" → "limit
+  reached"), so the upsell forewarns instead of ambushing at the ceiling.
 
 ## [0.1.0] - 2026-06-25
 

@@ -84,7 +84,7 @@ struct LibraryView: View {
                         }
                     }
                 } header: {
-                    sectionHeader(Text("Boards"), identifier: "board-new") {
+                    sectionHeader(Text("Boards"), identifier: "board-new", badge: boardLimitBadge) {
                         boardNameField = ""
                         boardSheet = .new
                     }
@@ -100,7 +100,10 @@ struct LibraryView: View {
                         snippetRow(snippet).tag(LibrarySelection.snippet(snippet.id))
                     }
                 } header: {
-                    sectionHeader(Text("Library · Snippets"), identifier: "snippet-new") {
+                    sectionHeader(
+                        Text("Library · Snippets"), identifier: "snippet-new",
+                        badge: snippetLimitBadge
+                    ) {
                         createSnippet()
                     }
                 }
@@ -148,12 +151,15 @@ struct LibraryView: View {
     }
 
     private func sectionHeader(
-        _ label: Text, identifier: String, add: @escaping () -> Void
+        _ label: Text, identifier: String, badge: Text? = nil, add: @escaping () -> Void
     )
         -> some View
     {
         HStack {
             label
+            if let badge {
+                badge.font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
+            }
             Spacer()
             Button(action: add) {
                 Image(systemName: "plus")
@@ -161,6 +167,33 @@ struct LibraryView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .accessibilityIdentifier(identifier)
+        }
+    }
+
+    /// Free users see a live `used/limit` count by each section so the ceiling
+    /// is visible BEFORE they hit it (Pro browses without a counter).
+    private var userBoardCount: Int { boards.filter { !$0.isSystem }.count }
+
+    private var boardLimitBadge: Text? {
+        guard model.tier != .pro else { return nil }
+        return Text(verbatim: "\(userBoardCount)/\(PinLimits.freeMaxPinboards)")
+    }
+
+    private var snippetLimitBadge: Text? {
+        guard model.tier != .pro else { return nil }
+        return Text(verbatim: "\(snippets.count)/\(SnippetLimits.freeMaxSnippets)")
+    }
+
+    /// The footer line escalates as the free user fills up: neutral → soft
+    /// "almost full" → "limit reached", so the upsell forewarns instead of
+    /// ambushing at the wall.
+    private var proFooterSubtitle: LocalizedStringKey {
+        switch FreeTierLimits.pressure(
+            boardsUsed: userBoardCount, snippetsUsed: snippets.count, isPro: model.tier == .pro)
+        {
+        case .comfortable: "Unlimited boards & snippets"
+        case .almostFull: "Almost full — Pro unlocks unlimited"
+        case .reached: "Free limit reached — go unlimited"
         }
     }
 
@@ -176,7 +209,7 @@ struct LibraryView: View {
                         .foregroundStyle(GanchoTokens.Palette.accent)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(verbatim: "gancho Pro").font(.caption.weight(.semibold))
-                        Text("Unlimited boards & snippets")
+                        Text(proFooterSubtitle)
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)

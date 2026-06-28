@@ -119,4 +119,34 @@ struct TierEnforcementTests {
         #expect(FreeTierLimits.freeAITitlesRemaining(used: FreeTierLimits.freeAITitleTaste) == 0)
         #expect(FreeTierLimits.freeAITitlesRemaining(used: 999) == 0)
     }
+
+    @Test("Free-tier pressure escalates: comfortable → almostFull → reached")
+    func freeTierPressureEscalates() {
+        // Pro never feels pressure, even at zero room.
+        #expect(
+            FreeTierLimits.pressure(
+                boardsUsed: PinLimits.freeMaxPinboards, snippetsUsed: SnippetLimits.freeMaxSnippets,
+                isPro: true) == .comfortable)
+        // Empty free account: plenty of room.
+        #expect(
+            FreeTierLimits.pressure(boardsUsed: 0, snippetsUsed: 0, isPro: false) == .comfortable)
+        // One board slot left → almost full (the snippet axis still comfortable).
+        #expect(
+            FreeTierLimits.pressure(
+                boardsUsed: PinLimits.freeMaxPinboards - 1, snippetsUsed: 0, isPro: false)
+                == .almostFull)
+        // One snippet slot left → almost full (the board axis still comfortable).
+        #expect(
+            FreeTierLimits.pressure(
+                boardsUsed: 0, snippetsUsed: SnippetLimits.freeMaxSnippets - 1, isPro: false)
+                == .almostFull)
+        // A ceiling hit on either axis → reached.
+        #expect(
+            FreeTierLimits.pressure(
+                boardsUsed: PinLimits.freeMaxPinboards, snippetsUsed: 0, isPro: false) == .reached)
+        #expect(
+            FreeTierLimits.pressure(
+                boardsUsed: 0, snippetsUsed: SnippetLimits.freeMaxSnippets, isPro: false)
+                == .reached)
+    }
 }

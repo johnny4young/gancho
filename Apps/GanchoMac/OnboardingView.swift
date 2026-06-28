@@ -124,6 +124,21 @@ struct OnboardingView: View {
             )
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
+
+            Label(
+                "Forgot the shortcut? Gancho also lives in your menu bar — click its icon anytime.",
+                systemImage: "menubar.rectangle"
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+
+            Toggle(
+                "Also show Gancho in the Dock",
+                isOn: Binding(get: { model.showInDock }, set: { model.showInDock = $0 })
+            )
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .accessibilityIdentifier("onboarding-show-in-dock")
         }
     }
 
