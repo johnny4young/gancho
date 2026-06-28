@@ -47,14 +47,18 @@ enum ClipKindFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// Drives the new-board / rename-board name prompt.
+/// Drives the new-board / rename-board name prompt. `newForClip` is the
+/// per-clip "Add to board → New board…" path: it prompts for a name, then files
+/// that clip into the board it creates.
 private enum BoardSheet: Identifiable {
     case new
+    case newForClip(ClipItem)
     case rename(Pinboard)
 
     var id: String {
         switch self {
         case .new: "new"
+        case .newForClip(let clip): "new-\(clip.id.uuidString)"
         case .rename(let board): board.id.uuidString
         }
     }
@@ -97,6 +101,8 @@ struct PanelView: View {
     @State private var selectedBoardID: UUID?
     @State private var boardSheet: BoardSheet?
     @State private var boardNameField = ""
+    /// The board a destructive "Delete board" is awaiting confirmation on.
+    @State private var boardPendingDeletion: Pinboard?
     /// The snippet whose keyword the query matches exactly — typing it surfaces
     /// a one-keystroke insert banner above the list (the in-app expansion path).
     @State private var snippetMatch: ClipItem?
@@ -114,6 +120,10 @@ struct PanelView: View {
     private var filtered: [ClipItem] {
         kindFilter == .all ? results : results.filter { kindFilter.matches($0.kind) }
     }
+
+    /// A type or board filter is narrowing the list — drives the no-results
+    /// "Clear filters" affordance.
+    private var hasActiveFilter: Bool { kindFilter != .all || selectedBoardID != nil }
 
     var body: some View {
         HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
@@ -153,6 +163,21 @@ struct PanelView: View {
             TextField("Board name", text: $boardNameField)
             Button("Cancel", role: .cancel) {}
             Button(boardSheetConfirm) { commitBoardSheet() }
+        }
+        .confirmationDialog(
+            "Delete this board?",
+            isPresented: Binding(
+                get: { boardPendingDeletion != nil },
+                set: { if !$0 { boardPendingDeletion = nil } }),
+            presenting: boardPendingDeletion
+        ) { board in
+            Button("Delete board", role: .destructive) {
+                if selectedBoardID == board.id { selectedBoardID = nil }
+                model.deleteBoard(board)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Your clips stay in history — only the board is removed.")
         }
         .sheet(item: $fillRequest) { request in
             SnippetFillSheet(request: request) { values in
@@ -400,8 +425,7 @@ struct PanelView: View {
                                 boardSheet = .rename(board)
                             }
                             Button("Delete board", role: .destructive) {
-                                if selectedBoardID == board.id { selectedBoardID = nil }
-                                model.deleteBoard(board)
+                                boardPendingDeletion = board
                             }
                         }
                     }
@@ -465,6 +489,7 @@ struct PanelView: View {
         guard !name.isEmpty else { return }
         switch boardSheet {
         case .new: model.createBoard(named: name)
+        case .newForClip(let clip): model.createBoard(named: name, assigning: clip)
         case .rename(let board): model.renameBoard(board, name: name)
         case nil: break
         }
@@ -916,14 +941,26 @@ struct PanelView: View {
                     .padding(.bottom, GanchoTokens.Spacing.xs)
                 Text("No matches")
                     .font(.headline)
-                Text("No clips for “\(query)”. Try another word or clear the filters.")
+                Text("No clips for “\(query)”.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                Text("Press esc to clear the search")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                if hasActiveFilter {
+                    // esc hides the panel, so the old "press esc" hint was wrong;
+                    // a real button clears the type/board filter narrowing the list.
+                    Button("Clear filters") {
+                        kindFilter = .all
+                        selectedBoardID = nil
+                    }
+                    .buttonStyle(.borderless)
                     .padding(.top, GanchoTokens.Spacing.xxs)
+                    .accessibilityIdentifier("clear-filters")
+                } else {
+                    Text("Try another word.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, GanchoTokens.Spacing.xxs)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -950,7 +987,7 @@ struct PanelView: View {
         Button(item.isPinned ? "Unpin" : "Pin") {
             model.togglePin(item)
         }
-        Button("Promote to Library") {
+        Button("Save as snippet") {
             model.promoteToSnippet(item)
         }
         Button("Add to paste stack") {
@@ -969,7 +1006,8 @@ struct PanelView: View {
             }
             Divider()
             Button("New board…") {
-                model.createBoard(named: String(localized: "Board"))
+                boardNameField = ""
+                boardSheet = .newForClip(item)
             }
             Button("Remove from board") { model.removeFromAllBoards(item) }
         }

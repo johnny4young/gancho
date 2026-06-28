@@ -897,7 +897,7 @@ final class AppModel {
                 return
             }
             _ = try? await grdbStore.promoteToSnippet(id: item.id)
-            toasts.show(GanchoToast(message: "Promoted to Library"))
+            toasts.show(GanchoToast(message: "Saved as snippet"))
             await refreshRecents()
         }
     }
@@ -963,7 +963,10 @@ final class AppModel {
         return userBoards.first { $0.id == vote.boardID }
     }
 
-    func createBoard(named name: String) {
+    /// Creates a board and, when `assigning` is set, files that clip into it —
+    /// the per-clip "Add to board → New board…" path expects the clip to land in
+    /// the board it just named.
+    func createBoard(named name: String, assigning item: ClipItem? = nil) {
         guard let grdbStore else { return }
         Task {
             // The built-in Favorites board never counts against the free limit.
@@ -975,8 +978,13 @@ final class AppModel {
             }
             if let board = try? await grdbStore.createPinboard(name: name) {
                 await sync.enqueue(boards: [board])
+                if let item {
+                    try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
+                    toasts.show(GanchoToast(message: "Added to board"))
+                }
             }
             await refreshBoards()
+            if item != nil { await refreshRecents() }
         }
     }
 
