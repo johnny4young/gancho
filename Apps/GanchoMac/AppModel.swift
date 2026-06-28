@@ -273,6 +273,18 @@ final class AppModel {
         } else if monitor.status == .deniedByPrivacySettings {
             Task { permissionWindow.show(model: self) }
         }
+
+        // UI-test hook: open the Privacy Center directly, without depending on the
+        // status-item menu (which self-skips on headless runners). Pairs with
+        // `-force-ephemeral-store` to assert the diagnostics "Recent issues" log.
+        if CommandLine.arguments.contains("-open-privacy-center-on-launch") {
+            NSApplication.shared.setActivationPolicy(.regular)
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(300))
+                privacyCenterWindow.show(model: self)
+                _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+            }
+        }
     }
 
     private func applyActivationPolicy() {

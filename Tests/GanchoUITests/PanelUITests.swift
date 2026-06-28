@@ -285,6 +285,33 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
+    func testPrivacyCenterRecentIssuesLogsEphemeralStorage() {
+        // Force the in-memory fallback so AppModel records a content-free
+        // "Storage" issue at launch, then open the Privacy Center directly.
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-use-in-process-status-item", "-force-ephemeral-store",
+            "-open-privacy-center-on-launch",
+        ]
+        app.launch()
+        waitForAppToStart(app)
+        defer { app.terminate() }
+
+        let privacyCenter = app.windows["Privacy Center"].firstMatch
+        XCTAssertTrue(
+            privacyCenter.waitForExistence(timeout: 8),
+            "the -open-privacy-center-on-launch hook must open the Privacy Center window")
+
+        // The ephemeral-store launch logged an issue, so the "Recent issues"
+        // section must surface it with the Copy-for-support affordance — the
+        // end-to-end proof that the error log records and renders.
+        let copyButton = privacyCenter.buttons["copy-diagnostics"].firstMatch
+        XCTAssertTrue(
+            copyButton.waitForExistence(timeout: 5),
+            "an ephemeral-store launch must log a content-free issue shown in Recent issues")
+    }
+
+    @MainActor
     func testFilterPillExposesSelectedState() {
         let app = launchWithPanel()
         defer { app.terminate() }
