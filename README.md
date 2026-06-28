@@ -8,6 +8,8 @@
 > *Gancho* means “hook” in Spanish: it is where you hang everything you copy.
 > And when something *tiene gancho*, it hooks you.
 
+**[gancho.app](https://gancho.app)** · [Releases](https://github.com/johnny4young/gancho/releases) · [Changelog](CHANGELOG.md)
+
 **Status: in active development (pre-release).** The capture engine, local
 GRDB/SQLite storage with FTS5 search, the Liquid Glass history panel,
 paste-back, pins and boards, the retention engine, the on-device intelligence
