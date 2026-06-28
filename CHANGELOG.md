@@ -24,6 +24,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   "paused", not "broken".
 - Onboarding now points to the menu-bar home and offers a "Show in Dock"
   toggle, so a Dock-less app stays discoverable even if you forget the shortcut.
+- A first-run welcome on iPhone/iPad explains Gancho's novel capture model up
+  front — there's no background clipboard watching, so it walks through the
+  three ways to save (the Paste button, the share sheet, and Shortcuts/Action
+  Button) before dropping you on an empty list.
 - macOS app icon — the Gancho hook mark.
 - Release automation foundation: version-sync checks, a tagged GitHub Release
   workflow, macOS app ZIP packaging, artifact QA, and GitHub Pages deployment.
@@ -59,6 +63,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   "No clips match …" when a search misses, or "No clips in this filter" with a
   Clear filters button — instead of the generic "Nothing captured yet" that
   appeared even mid-search.
+- On iOS, Smart Paste actions sit one tap from the clip's Smart Actions section
+  instead of inside a nested menu (Translate stays a submenu for its languages).
 
 ### Fixed
 
