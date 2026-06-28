@@ -1,172 +1,1009 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="es" data-theme="auto" data-lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gancho — private clipboard memory for every Apple device</title>
-  <meta name="description" content="Gancho is a Privacy-first smart clipboard for Mac, iPhone, and iPad: local history, fast recall, on-device AI, encrypted sync, and local integrations.">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Gancho — private clipboard memory">
-  <meta property="og:description" content="A local-first clipboard history and snippet library for Mac, iPhone, and iPad.">
-  <meta property="og:url" content="https://gancho.app/">
-  <meta name="twitter:card" content="summary">
-  <link rel="canonical" href="https://gancho.app/">
-  <link rel="icon" href="assets/gancho-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>gancho — your clipboard, everywhere · private by design</title>
+<meta name="description" content="gancho is a private-by-design clipboard history and snippet library for Mac, iPhone, and iPad: local history, instant recall, on-device AI, and a curated snippet library. Local-first, encrypted, no servers, no telemetry." />
+<link rel="canonical" href="https://gancho.app/" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="gancho — your clipboard, everywhere" />
+<meta property="og:description" content="A private-by-design clipboard history and snippet library for Mac, iPhone, and iPad. Local-first, encrypted, on-device AI." />
+<meta property="og:url" content="https://gancho.app/" />
+<meta name="twitter:card" content="summary" />
+<link rel="icon" href="assets/gancho-mark.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="styles.css" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    background: var(--surface-app);
+    -webkit-font-smoothing: antialiased;
+    line-height: var(--leading-normal);
+    transition: background var(--dur-normal) var(--ease-standard), color var(--dur-normal) var(--ease-standard);
+  }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+
+  /* ---- marketing type scale (proportional to native tokens) ---- */
+  .display { font-size: clamp(38px, 6vw, 66px); line-height: 1.04; letter-spacing: -0.035em; font-weight: var(--weight-bold); }
+  .h2 { font-size: clamp(26px, 3.6vw, 40px); line-height: 1.1; letter-spacing: -0.025em; font-weight: var(--weight-bold); margin: 0; }
+  .lede { font-size: clamp(16px, 1.7vw, 20px); line-height: 1.5; color: var(--text-secondary); font-weight: var(--weight-regular); }
+  .kicker { font-size: var(--text-footnote); font-weight: var(--weight-semibold); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+  .mono { font-family: var(--font-mono); }
+
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+  section { position: relative; }
+
+  /* ---- pills / chips ---- */
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px 6px 11px; border-radius: var(--radius-pill);
+    background: var(--glass-tint); border: 1px solid var(--glass-stroke); backdrop-filter: blur(var(--glass-blur)) saturate(180%); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    font-size: var(--text-footnote); font-weight: var(--weight-medium); color: var(--text-secondary); }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sync-ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sync-ok) 22%, transparent); }
+
+  /* ---- buttons ---- */
+  .btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: var(--radius-md);
+    font-size: var(--text-headline); font-weight: var(--weight-semibold); cursor: pointer; border: 1px solid transparent;
+    transition: transform var(--dur-fast) var(--ease-standard), background var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast); white-space: nowrap; }
+  .btn:active { transform: translateY(1px); }
+  .btn-accent { background: var(--accent); color: var(--text-on-accent); box-shadow: 0 1px 0 rgba(0,0,0,0.05), 0 6px 18px color-mix(in srgb, var(--accent) 34%, transparent); }
+  .btn-accent:hover { background: var(--green-600); }
+  .btn-ghost { background: var(--surface-card); color: var(--text-primary); border-color: var(--hairline); box-shadow: var(--shadow-card); }
+  .btn-ghost:hover { background: var(--surface-selection); }
+  .btn-sm { height: 36px; padding: 0 14px; font-size: var(--text-title); }
+
+  /* ---- NAV ---- */
+  header.nav { position: sticky; top: 0; z-index: 100; }
+  .nav-inner { margin: 10px auto 0; max-width: 1160px; padding: 9px 12px 9px 16px;
+    display: flex; align-items: center; gap: 16px;
+    background: var(--glass-tint); border: 1px solid var(--glass-stroke); border-radius: var(--radius-lg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    box-shadow: var(--shadow-pop); }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: var(--weight-bold); font-size: 18px; letter-spacing: -0.02em; color: var(--text-primary); }
+  .brand .mark { width: 26px; height: 26px; color: var(--accent); flex: none; }
+  .nav-links { display: flex; align-items: center; gap: 4px; margin-left: 8px; }
+  .nav-links a { padding: 7px 12px; border-radius: var(--radius-sm); font-size: var(--text-title); font-weight: var(--weight-medium); color: var(--text-secondary); transition: background var(--dur-fast), color var(--dur-fast); }
+  .nav-links a:hover { color: var(--text-primary); background: var(--surface-selection); }
+  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+  /* segmented controls (theme + lang) */
+  .seg { display: inline-flex; background: var(--surface-selection); border-radius: var(--radius-pill); padding: 3px; gap: 2px; }
+  .seg button { border: none; background: transparent; font-family: inherit; font-size: var(--text-footnote); font-weight: var(--weight-semibold);
+    color: var(--text-secondary); height: 28px; min-width: 30px; padding: 0 9px; border-radius: var(--radius-pill); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    transition: color var(--dur-fast); }
+  .seg button[aria-selected="true"] { background: var(--surface-card); color: var(--text-primary); box-shadow: var(--shadow-card); }
+  .seg .ico { width: 15px; height: 15px; }
+
+  /* ---- HERO ---- */
+  .hero { padding: 56px 0 40px; overflow: hidden;
+    background:
+      radial-gradient(80% 70% at 14% -10%, color-mix(in srgb, var(--accent) 16%, transparent) 0%, transparent 55%),
+      radial-gradient(70% 60% at 100% 0%, color-mix(in srgb, var(--kind-file) 12%, transparent) 0%, transparent 55%); }
+  .hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center; }
+  .hero h1 { margin: 18px 0 0; }
+  .hero .lede { margin: 20px 0 0; max-width: 30em; }
+  .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+  .hero-foot { margin-top: 22px; font-size: var(--text-footnote); color: var(--text-tertiary); display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .hero-foot .sep { width: 3px; height: 3px; border-radius: 50%; background: var(--text-tertiary); opacity: 0.6; }
+
+  /* ---- floating glass clipboard panel (signature mock) ---- */
+  .panel { width: 100%; max-width: 420px; margin-left: auto; border-radius: var(--radius-lg);
+    background: var(--glass-tint); border: 1px solid var(--glass-stroke);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    box-shadow: var(--shadow-panel); overflow: hidden; }
+  .panel-search { display: flex; align-items: center; gap: 9px; padding: 13px 14px; border-bottom: 1px solid var(--hairline); }
+  .panel-search .field { flex: 1; font-size: var(--text-title); color: var(--text-tertiary); }
+  .panel-search .kbd { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); border: 1px solid var(--hairline); border-radius: 5px; padding: 2px 6px; }
+  .clips { padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+  .clip { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: var(--radius-sm); cursor: default; transition: background var(--dur-fast); }
+  .clip.sel { background: var(--surface-selection); }
+  .clip:hover { background: var(--surface-selection); }
+  .clip .kico { width: 26px; height: 26px; border-radius: 7px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .clip .body { flex: 1; min-width: 0; }
+  .clip .t { font-size: var(--text-body); font-weight: var(--weight-medium); color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clip .p { font-size: var(--text-footnote); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clip .p.code { font-family: var(--font-mono); }
+  .clip .qn { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); flex: none; }
+  .clip .pin { color: var(--accent); flex: none; }
+  .panel-foot { display: flex; align-items: center; gap: 7px; padding: 10px 14px; border-top: 1px solid var(--hairline); font-size: var(--text-footnote); color: var(--text-secondary); }
+  .panel-foot .ok { color: var(--sync-ok); display: inline-flex; }
+
+  /* ---- generic section spacing ---- */
+  .band { padding: 70px 0; }
+  .band-tint { background:
+      linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 4%, transparent) 50%, transparent); }
+  .sec-head { max-width: 40em; }
+  .sec-head .h2 { margin-top: 12px; }
+  .sec-head .lede { margin-top: 14px; }
+
+  /* trust strip */
+  .trust { display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: center; justify-content: center; padding: 22px 0; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+  .trust span { font-size: var(--text-title); font-weight: var(--weight-medium); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 8px; }
+  .trust .mk { color: var(--sync-ok); }
+
+  /* cards grid */
+  .grid { display: grid; gap: 16px; margin-top: 38px; }
+  .grid.f3 { grid-template-columns: repeat(3, 1fr); }
+  .grid.f2 { grid-template-columns: repeat(2, 1fr); }
+  .card { background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-lg); padding: 22px; box-shadow: var(--shadow-card); }
+  .card .ic { width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 6px; font-size: var(--text-headline); font-weight: var(--weight-semibold); letter-spacing: -0.01em; }
+  .card p { margin: 0; font-size: var(--text-title); color: var(--text-secondary); }
+  .card .tag { display: inline-block; margin-top: 12px; font-size: var(--text-caption); font-weight: var(--weight-semibold); letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-tertiary); }
+
+  /* two worlds */
+  .worlds { display: grid; grid-template-columns: 1fr auto 1fr; gap: 22px; align-items: stretch; margin-top: 38px; }
+  .world { background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-xl); padding: 26px; box-shadow: var(--shadow-card); }
+  .world .lab { font-size: var(--text-caption); font-weight: var(--weight-semibold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
+  .world h3 { margin: 8px 0 6px; font-size: var(--text-large); font-weight: var(--weight-bold); letter-spacing: -0.02em; }
+  .world p { margin: 0 0 16px; font-size: var(--text-title); color: var(--text-secondary); }
+  .world ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .world li { display: flex; align-items: center; gap: 10px; font-size: var(--text-title); color: var(--text-primary); }
+  .world li .mk { color: var(--accent); flex: none; }
+  .bridge { align-self: center; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--accent); }
+  .bridge .glyph { width: 46px; height: 46px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 14%, transparent); display: flex; align-items: center; justify-content: center; }
+  .bridge .cap { font-size: var(--text-caption); font-weight: var(--weight-semibold); color: var(--text-secondary); text-align: center; white-space: nowrap; }
+
+  /* ---- gallery (device mocks) ---- */
+  .gallery { display: grid; grid-template-columns: 1.4fr 0.9fr; gap: 26px; margin-top: 40px; align-items: end; }
+
+  /* macOS window */
+  .win { border-radius: 14px; overflow: hidden; background: var(--surface-card); border: 1px solid var(--hairline); box-shadow: var(--shadow-panel); }
+  .win-bar { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--hairline); background: color-mix(in srgb, var(--surface-app) 60%, var(--surface-card)); }
+  .tl { width: 12px; height: 12px; border-radius: 50%; }
+  .win-title { margin-left: 8px; font-size: var(--text-footnote); font-weight: var(--weight-semibold); color: var(--text-secondary); }
+  .win-body { display: grid; grid-template-columns: 168px 1fr; min-height: 320px; }
+  .side { border-right: 1px solid var(--hairline); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .side .gh { font-size: 10px; font-weight: var(--weight-semibold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); padding: 8px 8px 4px; }
+  .side .it { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: var(--radius-sm); font-size: var(--text-title); color: var(--text-primary); }
+  .side .it.on { background: var(--accent); color: var(--text-on-accent); }
+  .side .it .ct { margin-left: auto; font-size: var(--text-caption); color: var(--text-tertiary); }
+  .side .it.on .ct { color: color-mix(in srgb, var(--text-on-accent) 80%, transparent); }
+  .side .it .d { width: 16px; flex: none; display: flex; }
+  .board-grid { padding: 16px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-content: start; }
+  .bc { background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-card); padding: 12px; box-shadow: var(--shadow-card); }
+  .bc .hd { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .bc .hd .t { font-size: var(--text-body); font-weight: var(--weight-semibold); }
+  .bc .pv { font-size: var(--text-footnote); color: var(--text-secondary); line-height: 1.4; }
+  .bc .pv.code { font-family: var(--font-mono); color: var(--text-primary); }
+  .swatch { width: 20px; height: 20px; border-radius: 5px; border: 1px solid var(--hairline); }
+
+  /* iPhone */
+  .phone { width: 252px; justify-self: center; border-radius: 40px; background: #050506; padding: 9px; box-shadow: var(--shadow-panel); }
+  .phone-scr { border-radius: 32px; overflow: hidden; background: var(--surface-app); position: relative; }
+  .phone-status { height: 38px; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 20px 5px; font-size: 12px; font-weight: var(--weight-semibold); color: var(--text-primary); }
+  .phone-island { position: absolute; top: 9px; left: 50%; transform: translateX(-50%); width: 78px; height: 22px; background: #050506; border-radius: 14px; }
+  .phone-body { padding: 8px 12px 16px; }
+  .sync-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: var(--weight-semibold); color: var(--sync-ok); background: color-mix(in srgb, var(--sync-ok) 14%, transparent); padding: 4px 10px; border-radius: var(--radius-pill); }
+  .pb-card { margin-top: 10px; background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-md); padding: 11px 12px; box-shadow: var(--shadow-card); }
+  .pb-card .lab { font-size: 10px; font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-tertiary); }
+  .pb-card .v { font-size: var(--text-body); font-weight: var(--weight-medium); margin-top: 3px; }
+  .ph-list { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
+  .ph-row { display: flex; align-items: center; gap: 9px; background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 8px 9px; }
+  .ph-row .kico { width: 22px; height: 22px; border-radius: 6px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .ph-row .t { font-size: 12px; font-weight: var(--weight-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ph-search { margin-top: 12px; display: flex; align-items: center; gap: 8px; background: var(--surface-selection); border-radius: var(--radius-md); padding: 9px 12px; font-size: 12px; color: var(--text-tertiary); }
+
+  /* intelligence pipeline */
+  .pipe { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin-top: 34px; }
+  .stage { flex: 1; min-width: 150px; background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-md); padding: 14px; box-shadow: var(--shadow-card); }
+  .stage .ic { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 9px; }
+  .stage .st { font-size: var(--text-body); font-weight: var(--weight-semibold); }
+  .stage .sb { font-size: var(--text-caption); color: var(--text-secondary); margin-top: 2px; }
+  .pipe .arrow { align-self: center; color: var(--text-tertiary); flex: none; }
+
+  /* integrations code block */
+  .codewrap { margin-top: 32px; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--hairline); box-shadow: var(--shadow-card); background: var(--surface-card); }
+  .code-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--hairline); background: color-mix(in srgb, var(--surface-app) 60%, var(--surface-card)); }
+  .code-bar .ti { font-family: var(--font-mono); font-size: var(--text-footnote); color: var(--text-secondary); }
+  pre.code { margin: 0; padding: 18px 18px; font-family: var(--font-mono); font-size: var(--text-body); line-height: 1.65; color: var(--text-primary); overflow-x: auto; }
+  pre.code .c { color: var(--text-tertiary); }
+  pre.code .g { color: var(--green-600); }
+  pre.code .b { color: var(--kind-file); }
+  pre.code .p { color: var(--kind-uuid); }
+
+  /* changelog */
+  .log { margin-top: 36px; display: flex; flex-direction: column; }
+  .log-row { display: grid; grid-template-columns: 132px 1fr; gap: 22px; padding: 22px 0; border-top: 1px solid var(--hairline); }
+  .log-row:first-child { border-top: none; }
+  .log-meta .ver { display: inline-flex; align-items: center; font-size: var(--text-footnote); font-weight: var(--weight-bold); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 3px 10px; border-radius: var(--radius-pill); }
+  .log-meta .dt { display: block; margin-top: 8px; font-size: var(--text-footnote); color: var(--text-tertiary); }
+  .log-body h3 { margin: 0 0 8px; font-size: var(--text-headline); font-weight: var(--weight-semibold); }
+  .log-body ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+  .log-body li { font-size: var(--text-title); color: var(--text-secondary); }
+  .log-body li b { color: var(--text-primary); font-weight: var(--weight-semibold); }
+
+  /* CTA band */
+  .cta { margin: 70px 0; }
+  .cta-inner { border-radius: var(--radius-xl); padding: 48px 40px; text-align: center;
+    background:
+      radial-gradient(60% 120% at 50% 0%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%),
+      var(--surface-card);
+    border: 1px solid var(--hairline); box-shadow: var(--shadow-card); }
+  .cta-inner .h2 { margin-bottom: 12px; }
+  .cta-inner .lede { margin: 0 auto 26px; max-width: 34em; }
+  .cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  /* footer */
+  footer { border-top: 1px solid var(--hairline); padding: 40px 0 56px; }
+  .foot-grid { display: flex; flex-wrap: wrap; gap: 24px; justify-content: space-between; align-items: flex-start; }
+  .foot-note { font-size: var(--text-footnote); color: var(--text-tertiary); max-width: 30em; margin-top: 12px; }
+  .foot-links { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+  .foot-links a { font-size: var(--text-title); color: var(--text-secondary); }
+  .foot-links a:hover { color: var(--text-primary); }
+
+  svg.i { display: block; }
+
+  /* ---- pricing / Pro ---- */
+  .price-wrap { max-width: 680px; margin: 40px auto 0; }
+  .price-card { position: relative; background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-xl); padding: 32px; box-shadow: var(--shadow-pop);
+    background-image: radial-gradient(130% 90% at 50% -25%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 62%); }
+  .price-tier { font-size: var(--text-caption); font-weight: var(--weight-semibold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
+  .price-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+  .price-now { font-size: 46px; font-weight: var(--weight-bold); letter-spacing: -0.03em; line-height: 1; }
+  .price-was { font-size: 20px; color: var(--text-tertiary); text-decoration: line-through; }
+  .price-badge { font-size: var(--text-footnote); font-weight: var(--weight-semibold); color: var(--green-600); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); border-radius: var(--radius-pill); padding: 4px 11px; }
+  .price-note { margin: 12px 0 0; font-size: var(--text-title); color: var(--text-secondary); }
+  .price-list { list-style: none; margin: 22px 0; padding: 0; display: grid; gap: 12px; }
+  .price-list li { display: flex; align-items: flex-start; gap: 11px; font-size: var(--text-title); color: var(--text-primary); }
+  .price-list .ck { color: var(--accent); flex: none; margin-top: 1px; }
+  .price-list li b { font-weight: var(--weight-semibold); }
+  .price-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .price-fine { margin-top: 14px; font-size: var(--text-footnote); color: var(--text-tertiary); }
+  .price-free { margin: 16px auto 0; max-width: 680px; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: var(--text-footnote); color: var(--text-secondary); text-align: center; }
+  .price-free .mk { color: var(--sync-ok); flex: none; }
+
+  /* ---- Smart Actions showcase ---- */
+  .sa { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 26px; margin-top: 38px; align-items: start; }
+  .peek { background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); overflow: hidden; }
+  .peek-head { display: flex; align-items: center; gap: 11px; padding: 15px 16px; border-bottom: 1px solid var(--hairline); }
+  .peek-head .kico { width: 32px; height: 32px; border-radius: 9px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .peek-head .t { font-size: var(--text-title); font-weight: var(--weight-semibold); }
+  .peek-head .s { font-size: var(--text-footnote); color: var(--text-secondary); font-family: var(--font-mono); }
+  .peek-head .badge { margin-left: auto; font-size: var(--text-caption); font-weight: var(--weight-semibold); color: var(--kind-secret); background: color-mix(in srgb,var(--kind-secret) 10%,transparent); border: 1px solid color-mix(in srgb,var(--kind-secret) 22%,transparent); padding: 3px 9px; border-radius: var(--radius-pill); }
+  .sa-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px 4px; }
+  .sa-chip { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 13px; border-radius: var(--radius-pill); font-size: var(--text-footnote); font-weight: var(--weight-semibold); border: 1px solid var(--hairline); background: var(--surface-app); color: var(--text-secondary); }
+  .sa-chip.on { background: var(--accent); color: var(--text-on-accent); border-color: transparent; box-shadow: 0 4px 12px color-mix(in srgb,var(--accent) 30%,transparent); }
+  .sa-out { margin: 12px 16px 16px; border-radius: var(--radius-md); border: 1px solid var(--hairline); background: var(--surface-app); overflow: hidden; }
+  .sa-out .ol { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--hairline); font-size: var(--text-caption); font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-tertiary); }
+  .sa-out .ol .copy { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); text-transform: none; letter-spacing: 0; font-size: var(--text-footnote); }
+  pre.sa-code { margin: 0; padding: 13px 14px; font-family: var(--font-mono); font-size: var(--text-footnote); line-height: 1.6; color: var(--text-primary); overflow-x: auto; }
+  pre.sa-code .k { color: var(--kind-uuid); }
+  pre.sa-code .v { color: var(--kind-file); }
+  pre.sa-code .d { color: var(--text-tertiary); }
+  .sa-kinds { display: flex; flex-direction: column; gap: 9px; }
+  .sa-kind { display: flex; align-items: center; gap: 12px; background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-card); }
+  .sa-kind .kico { width: 30px; height: 30px; border-radius: 8px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .sa-kind .nm { font-size: var(--text-title); font-weight: var(--weight-semibold); min-width: 64px; }
+  .sa-kind .ac { font-size: var(--text-footnote); color: var(--text-secondary); }
+  .sa-kind .ac b { color: var(--text-primary); font-weight: var(--weight-medium); }
+  .sa-note { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; font-size: var(--text-footnote); color: var(--text-tertiary); }
+
+  /* ---- Intelligence feature-detail cards ---- */
+  .intel-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 18px; }
+  .ic-card { background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-card); }
+  .ic-card .top { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+  .ic-card .ic { width: 36px; height: 36px; border-radius: 10px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .ic-card .top .t { font-size: var(--text-headline); font-weight: var(--weight-semibold); flex: 1; }
+  .ic-card .tier { font-size: var(--text-caption); font-weight: var(--weight-semibold); letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-tertiary); background: var(--surface-selection); padding: 3px 9px; border-radius: var(--radius-pill); }
+  .ic-card .tier.on { color: var(--green-600); background: color-mix(in srgb,var(--accent) 12%,transparent); }
+  .ic-card p { margin: 0; font-size: var(--text-title); color: var(--text-secondary); }
+  .ba { margin-top: 13px; border-radius: var(--radius-md); border: 1px solid var(--hairline); background: var(--surface-app); padding: 11px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .ba .line { display: flex; align-items: center; gap: 10px; font-size: var(--text-footnote); }
+  .ba .tag { font-size: 10px; font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-tertiary); width: 52px; flex: none; }
+  .ba .raw { font-family: var(--font-mono); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ba .good { font-weight: var(--weight-semibold); color: var(--text-primary); }
+  .ba .arrow { color: var(--accent); flex: none; }
+  .ba .chiprow { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ba .qchip { font-size: var(--text-caption); font-weight: var(--weight-semibold); color: var(--text-secondary); background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-pill); padding: 3px 9px; }
+  .ba .hit { display: flex; align-items: center; gap: 8px; font-size: var(--text-footnote); color: var(--text-primary); }
+  .ba .hit .kk { color: var(--kind-code); flex: none; }
+
+  /* ---- responsive ---- */
+  @media (max-width: 1040px) {
+    .nav-links { display: none; }
+  }
+  @media (max-width: 900px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 36px; }
+    .panel { margin: 0 auto; }
+    .grid.f3 { grid-template-columns: repeat(2, 1fr); }
+    .worlds { grid-template-columns: 1fr; }
+    .bridge { flex-direction: row; }
+    .bridge .glyph { transform: rotate(90deg); }
+    .gallery { grid-template-columns: 1fr; }
+    .win-body { grid-template-columns: 150px 1fr; }
+    .sa { grid-template-columns: 1fr; }
+    .intel-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 680px) {
+    .grid.f3, .grid.f2 { grid-template-columns: 1fr; }
+    .log-row { grid-template-columns: 1fr; gap: 10px; }
+    .board-grid { grid-template-columns: 1fr; }
+    .seg .lbl-long { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+</style>
 </head>
 <body>
-  <a class="skip-link" href="#main">Skip to content</a>
-  <header class="nav">
-    <div class="wrap nav__inner">
-      <a class="brand" href="#top" aria-label="Gancho home">
-        <img src="assets/gancho-mark.svg" alt="" width="32" height="32">
-        <span>Gancho</span>
-      </a>
-      <nav class="nav__links" aria-label="Primary">
-        <a href="#privacy">Privacy</a>
-        <a href="#intelligence">Intelligence</a>
-        <a href="#platforms">Platforms</a>
-        <a href="#integrations">Integrations</a>
-        <a href="#releases">Releases</a>
-      </nav>
-      <a class="button button--ghost" href="https://github.com/johnny4young/gancho">GitHub</a>
+
+<!-- ============ NAV ============ -->
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top">
+      <svg class="mark" viewBox="0 0 96 96" fill="none" aria-hidden="true"><circle cx="50" cy="24" r="8" stroke="currentColor" stroke-width="7"/><path d="M50 32 L50 57 A15 15 0 1 1 35 57 L31.5 47.5" stroke="currentColor" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      gancho
+    </a>
+    <nav class="nav-links">
+      <a href="#privacy" data-i18n="nav.privacy">Privacidad</a>
+      <a href="#features" data-i18n="nav.features">Funciones</a>
+      <a href="#worlds" data-i18n="nav.worlds">Cómo funciona</a>
+      <a href="#platforms" data-i18n="nav.platforms">Plataformas</a>
+      <a href="#pricing" data-i18n="nav.pricing">Precios</a>
+      <a href="#changelog" data-i18n="nav.changelog">Novedades</a>
+    </nav>
+    <div class="nav-right">
+      <div class="seg" id="seg-theme" role="group" aria-label="Theme">
+        <button data-theme-val="auto" title="Auto"><svg class="ico i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg></button>
+        <button data-theme-val="light" title="Light"><svg class="ico i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.4 5.4l1.7 1.7M16.9 16.9l1.7 1.7M18.6 5.4l-1.7 1.7M7.1 16.9l-1.7 1.7"/></svg></button>
+        <button data-theme-val="dark" title="Dark"><svg class="ico i" viewBox="0 0 24 24" fill="currentColor"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg></button>
+      </div>
+      <div class="seg" id="seg-lang" role="group" aria-label="Language">
+        <button data-lang-val="es">ES</button>
+        <button data-lang-val="en">EN</button>
+      </div>
+      <a class="btn btn-accent btn-sm" href="https://github.com/johnny4young/gancho/releases/latest" data-i18n="nav.download">Descargar</a>
     </div>
-  </header>
+  </div>
+</header>
 
-  <main id="main">
-    <section id="top" class="hero wrap">
-      <div class="hero__copy">
-        <p class="eyebrow"><span></span> Private by design · pre-release</p>
-        <h1>Your clipboard, everywhere — without turning it into someone else's data.</h1>
-        <p class="hero__lead">Gancho is a local-first clipboard history and curated snippet library for Mac, iPhone, and iPad. Capture safely, find instantly, reuse anywhere, and sync through the user's own iCloud account.</p>
-        <div class="hero__actions">
-          <a class="button button--primary" href="https://github.com/johnny4young/gancho/releases/latest">Download the latest build</a>
-          <a class="button button--secondary" href="https://github.com/johnny4young/gancho/blob/main/docs/SECURITY-MODEL.md">Read the privacy model</a>
-        </div>
-        <p class="hero__note">Early builds are for testers and maintainers while signing, TestFlight, and App Store launch pieces are finalized.</p>
+<!-- ============ HERO ============ -->
+<section class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><span class="dot"></span><span data-i18n="hero.badge">Privado por diseño · pre-lanzamiento</span></span>
+      <h1 class="display"><span data-i18n="hero.title">Tu portapapeles, en todas partes</span><span style="color:var(--text-tertiary)" data-i18n="hero.title2"> — privado por diseño.</span></h1>
+      <p class="lede" data-i18n="hero.lede">gancho recuerda todo lo que copias en tu Mac, iPhone y iPad: historial local, búsqueda instantánea y una biblioteca de snippets curada. El contenido nunca sale de tus dispositivos.</p>
+      <div class="hero-cta">
+        <a class="btn btn-accent" href="https://github.com/johnny4young/gancho/releases/latest" data-i18n="hero.cta1">Descargar para macOS</a>
+        <a class="btn btn-ghost" href="#features" data-i18n="hero.cta2">Ver las funciones</a>
       </div>
-      <div class="hero__stage" aria-label="Gancho product preview">
-        <div class="app-card app-card--main">
-          <div class="panel-top">
-            <div class="traffic"><span></span><span></span><span></span></div>
-            <span class="panel-title">Gancho History</span>
+      <div class="hero-foot">
+        <span data-i18n="hero.f1">macOS 14+ · iOS 17+</span><span class="sep"></span>
+        <span data-i18n="hero.f2">Gratis y de código abierto</span><span class="sep"></span>
+        <span data-i18n="hero.f3">Sin servidores · sin telemetría</span>
+      </div>
+    </div>
+
+    <!-- signature glass panel -->
+    <div class="panel" aria-label="gancho panel">
+      <div class="panel-search">
+        <svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <span class="field" data-i18n="panel.search">Busca en tu portapapeles…</span>
+        <span class="kbd">⌥⌘V</span>
+      </div>
+      <div class="clips">
+        <div class="clip sel">
+          <span class="kico" style="background:color-mix(in srgb,var(--kind-code) 16%,transparent);color:var(--kind-code)"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></span>
+          <div class="body"><div class="t" data-i18n="clip.code.t">useEffect cleanup</div><div class="p code">return () =&gt; controller.abort();</div></div>
+          <span class="qn">⌘1</span>
+        </div>
+        <div class="clip">
+          <span class="kico" style="background:color-mix(in srgb,var(--kind-secret) 16%,transparent);color:var(--kind-secret)"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2zM9 7a3 3 0 0 1 6 0v2H9V7z"/></svg></span>
+          <div class="body"><div class="t" data-i18n="clip.secret.t">OpenAI API key</div><div class="p code">•••• •••• •••• 7Rq8</div></div>
+          <span class="qn">⌘2</span>
+        </div>
+        <div class="clip">
+          <span class="kico" style="background:color-mix(in srgb,var(--kind-url) 16%,transparent);color:var(--kind-url)"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg></span>
+          <div class="body"><div class="t" data-i18n="clip.url.t">Política de privacidad</div><div class="p">https://gancho.app/privacy</div></div>
+          <span class="qn">⌘3</span>
+        </div>
+        <div class="clip">
+          <span class="kico" style="background:color-mix(in srgb,var(--kind-color) 16%,transparent);color:var(--kind-color)"><span class="swatch" style="background:#34C759;width:15px;height:15px;border:none"></span></span>
+          <div class="body"><div class="t" data-i18n="clip.color.t">Brand green</div><div class="p code">#34C759</div></div>
+          <svg class="pin i" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2l8 8-5 1-3 6-2-2-4 4-1-1 4-4-2-2 6-3 1-5z"/></svg>
+        </div>
+        <div class="clip">
+          <span class="kico" style="background:color-mix(in srgb,var(--kind-image) 16%,transparent);color:var(--kind-image)"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5L5 20"/></svg></span>
+          <div class="body"><div class="t" data-i18n="clip.image.t">Marca de lanzamiento</div><div class="p" data-i18n="clip.image.p">PNG · 248 KB · 1640×1024 · cifrado</div></div>
+        </div>
+      </div>
+      <div class="panel-foot">
+        <span class="ok"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a4 4 0 0 1 1-7.5A5.5 5.5 0 0 1 16 6.5 4 4 0 0 1 19 14H6.5"/><path d="M9 16.5l2 2 4-4.5"/></svg></span>
+        <span data-i18n="panel.foot">Sincronizado · tu iCloud, cifrado</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- trust strip -->
+<div class="wrap">
+  <div class="trust">
+    <span><svg class="i mk" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3Z"/></svg><span data-i18n="trust.1">Local-first</span></span>
+    <span><svg class="i mk" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2zM9 7a3 3 0 0 1 6 0v2H9V7z"/></svg><span data-i18n="trust.2">Cifrado en el dispositivo</span></span>
+    <span><svg class="i mk" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg><span data-i18n="trust.3">Sin servidores</span></span>
+    <span><svg class="i mk" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg><span data-i18n="trust.4">Sin telemetría de contenido</span></span>
+  </div>
+</div>
+
+<!-- ============ PRIVACY ============ -->
+<section class="band band-tint" id="privacy">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker" data-i18n="priv.kicker">Invariantes de privacidad</span>
+      <h2 class="h2" data-i18n="priv.title">Se gana tu confianza antes de ganarse tu comodidad.</h2>
+      <p class="lede" data-i18n="priv.lede">gancho trata lo que copias como datos privados. Observa los metadatos primero, veta los pasteboards sensibles antes de leerlos y mantiene registros y diagnósticos sin contenido.</p>
+    </div>
+    <div class="grid f3">
+      <div class="card">
+        <div class="ic" style="background:color-mix(in srgb,var(--kind-secret) 14%,transparent);color:var(--kind-secret)"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2zM9 7a3 3 0 0 1 6 0v2H9V7z"/></svg></div>
+        <h3 data-i18n="priv.c1.t">Veto antes de leer</h3>
+        <p data-i18n="priv.c1.p">Los tipos de gestores de contraseñas, transitorios, ocultos y autogenerados se rechazan antes de que gancho lea el contenido.</p>
+        <span class="tag" data-i18n="priv.c1.tag">Sensible → omitido</span>
+      </div>
+      <div class="card">
+        <div class="ic" style="background:color-mix(in srgb,var(--kind-file) 14%,transparent);color:var(--kind-file)"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor" stroke="none"/></svg></div>
+        <h3 data-i18n="priv.c2.t">Almacén local cifrado</h3>
+        <p data-i18n="priv.c2.p">El historial vive en tus dispositivos con almacenamiento respaldado por SQLCipher y blobs binarios cifrados para flujos con imágenes.</p>
+        <span class="tag" data-i18n="priv.c2.tag">SQLCipher · en disco</span>
+      </div>
+      <div class="card">
+        <div class="ic" style="background:color-mix(in srgb,var(--kind-uuid) 14%,transparent);color:var(--kind-uuid)"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></div>
+        <h3 data-i18n="priv.c3.t">Sin telemetría de contenido</h3>
+        <p data-i18n="priv.c3.p">Las señales operativas son solo contadores y buckets. El contenido del portapapeles nunca aparece en logs, analítica, informes de fallos ni diagnósticos.</p>
+        <span class="tag" data-i18n="priv.c3.tag">Solo recuentos</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section class="band" id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker" data-i18n="feat.kicker">Funciones</span>
+      <h2 class="h2" data-i18n="feat.title">Todo lo que copias, entendido y a un atajo de distancia.</h2>
+      <p class="lede" data-i18n="feat.lede">Un clasificador en el dispositivo etiqueta cada clip al capturarlo. gancho le da a cada tipo su color, su vista previa y sus acciones — sin enviar nada a la nube.</p>
+    </div>
+    <div class="grid f3">
+      <div class="card">
+        <div class="ic" style="background:color-mix(in srgb,var(--kind-text) 16%,transparent);color:var(--text-secondary)"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+        <h3 data-i18n="feat.1.t">Búsqueda instantánea</h3>
+        <p data-i18n="feat.1.p">Escribe para filtrar todo tu historial. ↑↓ para moverte, ⏎ para pegar, ⌘1–9 para pegar al instante los primeros nueve.</p>
+      </div>
+      <div class="card">
+        <div class="ic" style="background:color-mix(in srgb,var(--kind-jwt) 16%,transparent);color:var(--kind-jwt)"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.6 4.7L18 8.4l-4.4 1.7L12 15l-1.6-4.9L6 8.4l4.4-1.7L12 2Zm6.4 9l.9 2.5 2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9.9-2.5Z"/></svg></div>
+        <h3 data-i18n="feat.2.t">17 tipos detectados</h3>
+        <p data-i18n="feat.2.p">Código, JSON, JWT, UUID, color, imagen, archivo, email, teléfono, tarjeta, dirección… Cada familia tiene su glifo. JWT, tarjetas y secretos se enmascaran.</p>
+      </div>
+      <div class="card">
+        <div class="ic" style="background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.6 4.7L18 8.4l-4.4 1.7L12 15l-1.6-4.9L6 8.4l4.4-1.7L12 2Z"/></svg></div>
+        <h3 data-i18n="feat.3.t">Smart Actions</h3>
+        <p data-i18n="feat.3.p">Transformaciones puras y offline por tipo: decodificar un JWT, formatear JSON, base64, parsear una URL, convertir un color. Sin red, nunca.</p>
+      </div>
+      <div class="card">
+        <div class="ic" style="background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2l8 8-5 1-3 6-2-2-4 4-1-1 4-4-2-2 6-3 1-5z"/></svg></div>
+        <h3 data-i18n="feat.4.t">Promover a la Biblioteca</h3>
+        <p data-i18n="feat.4.p">El gesto insignia: un atajo convierte un clip efímero del historial en un snippet permanente y curado. <i>Tiene gancho.</i></p>
+      </div>
+      <div class="card">
+        <div class="ic" style="background:color-mix(in srgb,var(--kind-file) 16%,transparent);color:var(--kind-file)"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="8" height="6" rx="1.5"/><rect x="3" y="14" width="8" height="5" rx="1.5"/><path d="M14 8h7M14 16h7"/></svg></div>
+        <h3 data-i18n="feat.5.t">Pila de pegado</h3>
+        <p data-i18n="feat.5.p">Pon en cola N clips y cada ⌘V suelta el siguiente en orden. Un HUD flotante muestra qué viene y cuántos quedan.</p>
+      </div>
+      <div class="card">
+        <div class="ic" style="background:color-mix(in srgb,var(--sync-ok) 16%,transparent);color:var(--sync-ok)"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a4 4 0 0 1 1-7.7A5.5 5.5 0 0 1 16 6.6 4 4 0 0 1 19 15Z"/><path d="M12 11v7M9 15l3 3 3-3"/></svg></div>
+        <h3 data-i18n="feat.6.t">Sync por tu iCloud</h3>
+        <p data-i18n="feat.6.p">Registros cifrados en tu propia cuenta de iCloud con CKSyncEngine. Sin servidores intermedios: tu contenido es tuyo.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SMART ACTIONS ============ -->
+<section class="band band-tint" id="smart-actions">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker" data-i18n="sa.kicker">Smart Actions</span>
+      <h2 class="h2" data-i18n="sa.title">El clip correcto sabe lo que puedes hacer con él.</h2>
+      <p class="lede" data-i18n="sa.lede">gancho detecta el tipo y ofrece transformaciones puras y offline — sin red, nunca. Decodifica un JWT, formatea JSON, parsea una URL o convierte un color, y el resultado cae en una caja que copias con un clic.</p>
+    </div>
+    <div class="sa">
+      <!-- JWT decode peek -->
+      <div class="peek" aria-label="JWT decode">
+        <div class="peek-head">
+          <span class="kico" style="background:color-mix(in srgb,var(--kind-jwt) 16%,transparent);color:var(--kind-jwt)"><svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="3"/><path d="M11 12h9M17 12v3M20 12v4"/></svg></span>
+          <div><div class="t" data-i18n="sa.jwt.t">JWT · session token</div><div class="s">eyJhbGciOiJIUzI1Ni…s5d8Z2</div></div>
+          <span class="badge" data-i18n="sa.jwt.mask">Enmascarado</span>
+        </div>
+        <div class="sa-chips">
+          <span class="sa-chip on"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="3"/><path d="M11 12h9M17 12v3"/></svg><span data-i18n="sa.jwt.a1">Decodificar JWT</span></span>
+          <span class="sa-chip"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>Base64</span>
+        </div>
+        <div class="sa-out">
+          <div class="ol"><span data-i18n="sa.jwt.out">Resultado · en el dispositivo</span><span class="copy"><svg class="i" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg><span data-i18n="sa.copy">Copiar</span></span></div>
+<pre class="sa-code"><span class="d">// header</span>
+{ <span class="k">"alg"</span>: <span class="v">"HS256"</span>, <span class="k">"typ"</span>: <span class="v">"JWT"</span> }
+<span class="d">// payload</span>
+{
+  <span class="k">"sub"</span>:   <span class="v">"user_8f2a"</span>,
+  <span class="k">"scope"</span>: <span class="v">"read"</span>,
+  <span class="k">"exp"</span>:   <span class="v">1900800000</span>
+}</pre>
+        </div>
+      </div>
+
+      <!-- per-kind action list -->
+      <div>
+        <div class="sa-kinds">
+          <div class="sa-kind"><span class="kico" style="background:color-mix(in srgb,var(--kind-json) 16%,transparent);color:var(--kind-json)"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4S5 4 5 8s-2 4-2 4 2 0 2 4 3 4 3 4M16 4s3 0 3 4 2 4 2 4-2 0-2 4-3 4-3 4"/></svg></span><span class="nm">JSON</span><span class="ac"><b data-i18n="sa.k.json">Formatear</b> · <span data-i18n="sa.k.json2">Minificar · Base64</span></span></div>
+          <div class="sa-kind"><span class="kico" style="background:color-mix(in srgb,var(--kind-url) 16%,transparent);color:var(--kind-url)"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg></span><span class="nm">URL</span><span class="ac"><b data-i18n="sa.k.url">Parsear</b> · Base64</span></div>
+          <div class="sa-kind"><span class="kico" style="background:color-mix(in srgb,var(--kind-color) 16%,transparent)"><span class="swatch" style="background:#34C759;width:16px;height:16px;border:none"></span></span><span class="nm" data-i18n="sa.k.colornm">Color</span><span class="ac"><b>#34C759</b> → RGB 52,199,89 · HSL 135°,59%,49%</span></div>
+          <div class="sa-kind"><span class="kico" style="background:color-mix(in srgb,var(--kind-uuid) 16%,transparent);color:var(--kind-uuid)"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span><span class="nm">UUID</span><span class="ac"><b data-i18n="sa.k.uuid">Formatos</b> · mayús/minús · sin guiones</span></div>
+          <div class="sa-kind"><span class="kico" style="background:color-mix(in srgb,var(--kind-code) 16%,transparent);color:var(--kind-code)"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></span><span class="nm" data-i18n="sa.k.textnm">Texto / Código</span><span class="ac"><b data-i18n="sa.k.text">Base64</b> codificar / decodificar</span></div>
+        </div>
+        <span class="sa-note"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3Z"/></svg><span data-i18n="sa.note">Las transformaciones se ejecutan localmente. Nada sale del dispositivo.</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TWO WORLDS ============ -->
+<section class="band band-tint" id="worlds">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker" data-i18n="worlds.kicker">Cómo funciona</span>
+      <h2 class="h2" data-i18n="worlds.title">Dos mundos, un gesto que los une.</h2>
+      <p class="lede" data-i18n="worlds.lede">El Historial captura solo; la Biblioteca guarda con intención. Un atajo promueve lo efímero a permanente.</p>
+    </div>
+    <div class="worlds">
+      <div class="world">
+        <span class="lab" data-i18n="worlds.h.lab">Efímero · automático</span>
+        <h3 data-i18n="worlds.h.t">Historial</h3>
+        <p data-i18n="worlds.h.p">Todo lo que copias, capturado en segundo plano y ordenado por tipo. Buscable al instante, con retención que tú controlas.</p>
+        <ul>
+          <li><svg class="i mk" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span data-i18n="worlds.h.1">Captura automática en el Mac</span></li>
+          <li><svg class="i mk" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span data-i18n="worlds.h.2">Pins y vista rápida</span></li>
+          <li><svg class="i mk" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span data-i18n="worlds.h.3">Retención configurable</span></li>
+        </ul>
+      </div>
+      <div class="bridge">
+        <span class="glyph"><svg class="i" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        <span class="cap" data-i18n="worlds.bridge">Promover ⌘S</span>
+      </div>
+      <div class="world">
+        <span class="lab" data-i18n="worlds.l.lab">Permanente · curado</span>
+        <h3 data-i18n="worlds.l.t">Biblioteca</h3>
+        <p data-i18n="worlds.l.p">Snippets y plantillas que reutilizas: agrupados en boards, con disparadores por palabra clave y {marcadores} que rellenas al pegar.</p>
+        <ul>
+          <li><svg class="i mk" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span data-i18n="worlds.l.1">Boards para organizar clips</span></li>
+          <li><svg class="i mk" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span data-i18n="worlds.l.2">Disparadores de teclado</span></li>
+          <li><svg class="i mk" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span data-i18n="worlds.l.3">Plantillas con marcadores</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PLATFORMS / GALLERY ============ -->
+<section class="band" id="platforms">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker" data-i18n="plat.kicker">Plataformas</span>
+      <h2 class="h2" data-i18n="plat.title">Automático en el Mac. Intencional en todas partes.</h2>
+      <p class="lede" data-i18n="plat.lede">gancho empieza donde el historial es más potente — la barra de menús del Mac — y se extiende a iPhone y iPad con superficies de captura explícitas.</p>
+    </div>
+    <div class="gallery">
+      <!-- macOS Library window -->
+      <div class="win" aria-label="macOS Library">
+        <div class="win-bar">
+          <span class="tl" style="background:#ff5f57"></span><span class="tl" style="background:#febc2e"></span><span class="tl" style="background:#28c840"></span>
+          <span class="win-title" data-i18n="win.title">gancho — Biblioteca</span>
+        </div>
+        <div class="win-body">
+          <div class="side">
+            <div class="gh" data-i18n="win.boards">Boards</div>
+            <div class="it on"><span class="d"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></span><span data-i18n="win.all">Todos los clips</span><span class="ct">142</span></div>
+            <div class="it"><span class="d"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2l8 8-5 1-3 6-2-2-4 4-1-1 4-4-2-2 6-3 1-5z"/></svg></span><span data-i18n="win.pinned">Fijados</span><span class="ct">8</span></div>
+            <div class="it"><span class="d"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg></span><span data-i18n="win.work">Trabajo</span><span class="ct">23</span></div>
+            <div class="it"><span class="d"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg></span><span data-i18n="win.design">Diseño</span><span class="ct">9</span></div>
+            <div class="gh" data-i18n="win.snippets">Biblioteca · Snippets</div>
+            <div class="it"><span class="d"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span><span data-i18n="win.sig">Firma de correo</span></div>
+            <div class="it"><span class="d"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span><span data-i18n="win.tpl">Plantilla standup</span></div>
           </div>
-          <div class="search">Search clips, snippets, boards…</div>
-          <div class="clip-list">
-            <article class="clip-row active"><span class="kind">Text</span><strong>Release checklist for direct downloads</strong><small>Saved 2 min ago · expires in 1 year</small></article>
-            <article class="clip-row"><span class="kind image">Image</span><strong>Design mark for launch page</strong><small>Encrypted locally · not sent anywhere</small></article>
-            <article class="clip-row"><span class="kind code">Code</span><strong>gancho mcp status --json</strong><small>Local MCP · metadata-only access log</small></article>
+          <div class="board-grid">
+            <div class="bc">
+              <div class="hd"><span style="color:var(--kind-code)"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></span><span class="t">useEffect cleanup</span></div>
+              <div class="pv code">return () =&gt; controller.abort();</div>
+            </div>
+            <div class="bc">
+              <div class="hd"><span style="color:var(--kind-jwt)"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="3"/><path d="M11 12h9M17 12v3"/></svg></span><span class="t">Session token</span></div>
+              <div class="pv code">•••••••••• · s5d8Z2</div>
+            </div>
+            <div class="bc">
+              <div class="hd"><span class="swatch" style="background:#34C759"></span><span class="t">Brand green</span></div>
+              <div class="pv code">#34C759</div>
+            </div>
+            <div class="bc">
+              <div class="hd"><span style="color:var(--kind-secret)"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2zM9 7a3 3 0 0 1 6 0v2H9V7z"/></svg></span><span class="t">OpenAI API key</span></div>
+              <div class="pv code">•••• •••• •••• 7Rq8</div>
+            </div>
           </div>
         </div>
-        <div class="floating-card floating-card--sync">
-          <span class="mini-icon">↻</span>
-          <div><strong>iCloud sync</strong><small>User-owned, encrypted records</small></div>
-        </div>
-        <div class="floating-card floating-card--privacy">
-          <span class="mini-icon">•</span>
-          <div><strong>Sensitive content vetoed</strong><small>Concealed and transient pasteboards are skipped before read</small></div>
-        </div>
       </div>
-    </section>
 
-    <section id="privacy" class="section wrap">
-      <div class="section__heading">
-        <p class="eyebrow"><span></span> Privacy invariants</p>
-        <h2>Clipboard memory that earns trust before it earns convenience.</h2>
-        <p>Gancho treats copied content as private user data. The always-on loop observes metadata first, vetoes sensitive pasteboards before reading content, and keeps logs, telemetry, and support bundles content-free.</p>
-      </div>
-      <div class="feature-grid">
-        <article class="feature-card">
-          <h3>Veto before read</h3>
-          <p>Password-manager, transient, concealed, and auto-generated pasteboard types are rejected before Gancho reads a payload.</p>
-        </article>
-        <article class="feature-card">
-          <h3>Encrypted local store</h3>
-          <p>History lives on the user's devices with SQLCipher-backed storage and encrypted binary blobs for image-heavy workflows.</p>
-        </article>
-        <article class="feature-card">
-          <h3>No content telemetry</h3>
-          <p>Operational signals are counters and buckets only. Clipboard bodies never belong in logs, analytics, crash reports, or support bundles.</p>
-        </article>
-      </div>
-    </section>
-
-    <section id="intelligence" class="section wrap">
-      <div class="section__heading">
-        <p class="eyebrow"><span></span> On-device intelligence</p>
-        <h2>Smart recall that never leaves your device.</h2>
-        <p>Gancho's intelligence runs on-device with Apple's frameworks. No clipboard content is sent to a server for it, and detected secrets are excluded from every intelligent feature.</p>
-      </div>
-      <div class="feature-grid">
-        <article class="feature-card">
-          <h3>Ask your clipboard</h3>
-          <p>Ask a question and get an answer grounded only in your own history — retrieved by on-device semantic search and OCR, in the app or through Shortcuts and Siri.</p>
-        </article>
-        <article class="feature-card">
-          <h3>Automatic titles</h3>
-          <p>Copied text earns a readable title on-device, so history reads like a list of ideas instead of raw snippets.</p>
-        </article>
-        <article class="feature-card">
-          <h3>Smart Paste</h3>
-          <p>Rewrite, translate, or redact personal data before you paste. Each transform runs locally and is offered only for non-sensitive clips.</p>
-        </article>
-      </div>
-    </section>
-
-    <section id="platforms" class="section section--split">
-      <div class="wrap split">
-        <div>
-          <p class="eyebrow"><span></span> Apple platforms first</p>
-          <h2>Automatic on Mac. Intentional everywhere else.</h2>
-          <p>Gancho starts where clipboard history is most powerful — the Mac menu bar — and extends to iPhone and iPad through explicit capture surfaces: Share Extension, keyboard, widgets, App Intents, and foreground actions.</p>
-        </div>
-        <div class="platform-list">
-          <div><strong>macOS</strong><span>Menu-bar history, fast search, paste-back, snippets, and boards.</span></div>
-          <div><strong>iOS & iPadOS</strong><span>Intentional capture, keyboard access, widgets, Live Activity, shared encrypted storage, portable backup and restore, and iPad keyboard shortcuts.</span></div>
-          <div><strong>Future clients</strong><span>Sync and store boundaries keep room for visionOS, watchOS, Windows, Linux, and Android without replacing the core.</span></div>
+      <!-- iPhone -->
+      <div class="phone" aria-label="iPhone">
+        <div class="phone-scr">
+          <div class="phone-island"></div>
+          <div class="phone-status"><span>9:41</span><span style="display:inline-flex;align-items:center;gap:5px"><svg class="i" width="16" height="11" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg class="i" width="23" height="11" viewBox="0 0 26 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="15" height="8" rx="1.5" fill="currentColor"/><rect x="23" y="4" width="1.6" height="4" rx="0.8" fill="currentColor" opacity="0.5"/></svg></span><span style="display:none">􀙇 􀛨</span></div>
+          <div class="phone-body">
+            <span class="sync-pill"><svg class="i" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a4 4 0 0 1 1-7.5A5.5 5.5 0 0 1 16 6.5 4 4 0 0 1 19 14H6.5"/></svg><span data-i18n="ph.synced">Sincronizado</span></span>
+            <div class="pb-card">
+              <div class="lab" data-i18n="ph.pb">Portapapeles</div>
+              <div class="v" data-i18n="ph.pbv">Checklist de lanzamiento</div>
+            </div>
+            <div class="ph-list">
+              <div class="ph-row"><span class="kico" style="background:color-mix(in srgb,var(--kind-code) 16%,transparent);color:var(--kind-code)"><svg class="i" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></span><span class="t">gancho mcp status</span></div>
+              <div class="ph-row"><span class="kico" style="background:color-mix(in srgb,var(--kind-url) 16%,transparent);color:var(--kind-url)"><svg class="i" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg></span><span class="t" data-i18n="ph.url">Política de privacidad</span></div>
+              <div class="ph-row"><span class="kico" style="background:color-mix(in srgb,var(--kind-image) 16%,transparent);color:var(--kind-image)"><svg class="i" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5L5 20"/></svg></span><span class="t" data-i18n="ph.img">Marca de lanzamiento</span></div>
+            </div>
+            <div class="ph-search"><svg class="i" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span data-i18n="ph.search">Buscar clips…</span></div>
+          </div>
         </div>
       </div>
-    </section>
+    </div>
+  </div>
+</section>
 
-    <section id="integrations" class="section wrap">
-      <div class="section__heading">
-        <p class="eyebrow"><span></span> Local integrations</p>
-        <h2>Your clipboard can help your tools without becoming a cloud service.</h2>
-        <p>The `gancho` CLI and local MCP server expose user-approved clipboard context to local agents and editors. Access is opt-in, scope-limited, and sensitive clips stay excluded.</p>
+<!-- ============ INTELLIGENCE ============ -->
+<section class="band band-tint" id="intelligence">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker" data-i18n="intel.kicker">Inteligencia en el dispositivo</span>
+      <h2 class="h2" data-i18n="intel.title">Entiende cada clip. Sin red, en cada etapa.</h2>
+      <p class="lede" data-i18n="intel.lede">Un pipeline determinista clasifica al instante; Apple Intelligence mejora los títulos cuando está disponible; el detector de datos sensibles enmascara antes de indexar.</p>
+    </div>
+    <div class="pipe">
+      <div class="stage"><div class="ic" style="background:color-mix(in srgb,var(--kind-text) 14%,transparent);color:var(--text-secondary)"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M9 3v2h6V3"/></svg></div><div class="st" data-i18n="intel.s1.t">Captura</div><div class="sb" data-i18n="intel.s1.s">Entra el clip</div></div>
+      <span class="arrow"><svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg></span>
+      <div class="stage"><div class="ic" style="background:color-mix(in srgb,var(--kind-uuid) 14%,transparent);color:var(--kind-uuid)"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.6 4.7L18 8.4l-4.4 1.7L12 15l-1.6-4.9L6 8.4l4.4-1.7L12 2Z"/></svg></div><div class="st" data-i18n="intel.s2.t">Tier 0 · Reglas</div><div class="sb" data-i18n="intel.s2.s">&lt;5 ms · siempre activo</div></div>
+      <span class="arrow"><svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg></span>
+      <div class="stage"><div class="ic" style="background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.6 4.7L18 8.4l-4.4 1.7L12 15l-1.6-4.9L6 8.4l4.4-1.7L12 2Zm6.4 9l.9 2.5 2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9.9-2.5Z"/></svg></div><div class="st" data-i18n="intel.s3.t">Tier 1 · Apple Intelligence</div><div class="sb" data-i18n="intel.s3.s">Títulos · con respaldo seguro</div></div>
+      <span class="arrow"><svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg></span>
+      <div class="stage"><div class="ic" style="background:color-mix(in srgb,var(--kind-secret) 14%,transparent);color:var(--kind-secret)"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2zM9 7a3 3 0 0 1 6 0v2H9V7z"/></svg></div><div class="st" data-i18n="intel.s4.t">Chequeo sensible</div><div class="sb" data-i18n="intel.s4.s">Enmascarar + expirar</div></div>
+      <span class="arrow"><svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg></span>
+      <div class="stage"><div class="ic" style="background:color-mix(in srgb,var(--kind-url) 14%,transparent);color:var(--kind-url)"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><div class="st" data-i18n="intel.s5.t">Indexado</div><div class="sb" data-i18n="intel.s5.s">FTS + embeddings</div></div>
+    </div>
+
+    <div class="intel-grid">
+      <div class="ic-card">
+        <div class="top">
+          <span class="ic" style="background:color-mix(in srgb,var(--kind-uuid) 14%,transparent);color:var(--kind-uuid)"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.6 4.7L18 8.4l-4.4 1.7L12 15l-1.6-4.9L6 8.4l4.4-1.7L12 2Z"/></svg></span>
+          <span class="t" data-i18n="intel.f1.t">Clasificación inteligente</span>
+          <span class="tier on" data-i18n="intel.f1.tier">Siempre activo</span>
+        </div>
+        <p data-i18n="intel.f1.p">Tier 0 — un clasificador <b>determinista</b> corre en cada dispositivo en menos de 5 ms y sin red. Etiqueta cada clip como uno de 17 tipos para impulsar vistas previas, Smart Actions y enmascarado. No requiere Apple Intelligence.</p>
+        <div class="ba">
+          <div class="line"><span class="tag" data-i18n="intel.f1.l1">Detecta</span><span class="raw">eyJhbGci… · #34C759 · sk-proj-…</span></div>
+          <div class="line"><span class="tag" data-i18n="intel.f1.l2">Etiqueta</span><span class="good">JWT · Color · Secret</span></div>
+        </div>
       </div>
-      <div class="terminal-card" role="img" aria-label="Gancho CLI example">
-        <div class="terminal-top"><span></span><span></span><span></span></div>
-        <pre><code>$ gancho search "release" --json
+
+      <div class="ic-card">
+        <div class="top">
+          <span class="ic" style="background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.6 4.7L18 8.4l-4.4 1.7L12 15l-1.6-4.9L6 8.4l4.4-1.7L12 2Zm6.4 9l.9 2.5 2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9.9-2.5Z"/></svg></span>
+          <span class="t" data-i18n="intel.f2.t">Títulos más inteligentes</span>
+          <span class="tier" data-i18n="intel.f2.tier">Apple Intelligence</span>
+        </div>
+        <p data-i18n="intel.f2.p">Tier 1 — Apple Intelligence (Foundation Models en el dispositivo) escribe un título corto y específico. <b>Recurre</b> a heurísticas deterministas ante cualquier fallo, y nunca pone una contraseña o tarjeta en un título.</p>
+        <div class="ba">
+          <div class="line"><span class="tag" data-i18n="intel.f2.l1">Crudo</span><span class="raw">Subject: Re: Q3 planning — can we move…</span></div>
+          <div class="line"><span class="tag" data-i18n="intel.f2.l2">Título</span><svg class="arrow i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg><span class="good" data-i18n="intel.f2.title">Email: reprogramar planning Q3</span></div>
+        </div>
+      </div>
+
+      <div class="ic-card">
+        <div class="top">
+          <span class="ic" style="background:color-mix(in srgb,var(--kind-url) 14%,transparent);color:var(--kind-url)"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+          <span class="t" data-i18n="intel.f3.t">Búsqueda semántica</span>
+          <span class="tier" data-i18n="intel.f3.tier">Apple Intelligence</span>
+        </div>
+        <p data-i18n="intel.f3.p">Encuentra un clip por <b>significado</b>, no solo por palabras exactas. Un embedding de 512 dimensiones indexa el historial en el dispositivo; la búsqueda es una coincidencia coseno exacta. Los modelos se descargan una vez y quedan locales.</p>
+        <div class="ba">
+          <div class="line"><span class="tag" data-i18n="intel.f3.l1">Buscas</span><span class="chiprow"><span class="qchip" data-i18n="intel.f3.q">“ese error de abortar”</span></span></div>
+          <div class="line"><span class="tag" data-i18n="intel.f3.l2">Encuentra</span><span class="hit"><span class="kk"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></span><span>useEffect cleanup · controller.abort()</span></span></div>
+        </div>
+      </div>
+
+      <div class="ic-card">
+        <div class="top">
+          <span class="ic" style="background:color-mix(in srgb,var(--kind-image) 14%,transparent);color:var(--kind-image)"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5L5 20"/></svg></span>
+          <span class="t" data-i18n="intel.f4.t">Capturas buscables</span>
+          <span class="tier" data-i18n="intel.f4.tier">Visión · OCR</span>
+        </div>
+        <p data-i18n="intel.f4.p">El OCR en el dispositivo (Vision) lee el texto de los clips de imagen y lo adjunta al mismo índice de texto completo — así una captura se encuentra por las palabras que contiene. Sin red, como en cada etapa.</p>
+        <div class="ba">
+          <div class="line"><span class="tag" data-i18n="intel.f4.l1">Imagen</span><span class="raw">screenshot.png · 1640×1024</span></div>
+          <div class="line"><span class="tag" data-i18n="intel.f4.l2">Texto OCR</span><svg class="arrow i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg><span class="good" data-i18n="intel.f4.ocr">“Release checklist · v0.6”</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sa-note" style="justify-content:center;width:100%;margin-top:22px">
+      <svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3Z"/></svg>
+      <span data-i18n="intel.foot">Cada etapa corre en este dispositivo. Ningún texto de clip se envía a un servidor — gancho no tiene ninguno.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INTEGRATIONS ============ -->
+<section class="band" id="integrations">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker" data-i18n="int.kicker">Integraciones locales</span>
+      <h2 class="h2" data-i18n="int.title">Tu portapapeles ayuda a tus herramientas sin volverse un servicio en la nube.</h2>
+      <p class="lede" data-i18n="int.lede">La CLI <span class="mono">gancho</span> y el servidor MCP local exponen contexto aprobado por ti a agentes y editores. Opt-in, con alcance limitado y los clips sensibles siempre excluidos.</p>
+    </div>
+    <div class="codewrap">
+      <div class="code-bar">
+        <span class="tl" style="background:#ff5f57"></span><span class="tl" style="background:#febc2e"></span><span class="tl" style="background:#28c840"></span>
+        <span class="ti">zsh — gancho</span>
+      </div>
+<pre class="code"><span class="c"># búsqueda con alcance de metadatos · sin contenido sensible</span>
+<span class="g">$</span> gancho search <span class="b">"release"</span> --json
 [
-  { "kind": "text", "title": "Release checklist", "scope": "metadata" },
-  { "kind": "code", "title": "package-macos-zip.sh", "scope": "boards" }
-]</code></pre>
-      </div>
-    </section>
+  { <span class="p">"kind"</span>: <span class="b">"text"</span>, <span class="p">"title"</span>: <span class="b">"Release checklist"</span>, <span class="p">"scope"</span>: <span class="b">"metadata"</span> },
+  { <span class="p">"kind"</span>: <span class="b">"code"</span>, <span class="p">"title"</span>: <span class="b">"package-macos-zip.sh"</span>, <span class="p">"scope"</span>: <span class="b">"boards"</span> }
+]
 
-    <section id="releases" class="section section--release">
-      <div class="wrap release-panel">
-        <div>
-          <p class="eyebrow"><span></span> Releases</p>
-          <h2>Versioned like a product, even before public launch.</h2>
-          <p>Release metadata is checked in CI: `project.yml`, `CHANGELOG.md`, the Homebrew formula template, GitHub tags, macOS ZIP artifacts, and Pages deployment move together.</p>
-        </div>
-        <div class="release-links">
-          <a href="https://github.com/johnny4young/gancho/releases/latest">Latest GitHub Release</a>
-          <a href="https://github.com/johnny4young/gancho/blob/main/CHANGELOG.md">CHANGELOG.md</a>
-          <a href="https://github.com/johnny4young/gancho/blob/main/docs/RELEASING.md">Release runbook</a>
-          <a href="https://github.com/johnny4young/gancho/blob/main/docs/ARCHITECTURE.md">Architecture</a>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer class="footer wrap">
-    <div class="brand brand--footer">
-      <img src="assets/gancho-mark.svg" alt="" width="28" height="28">
-      <span>Gancho</span>
+<span class="c"># el servidor MCP es opt-in y registra solo metadatos</span>
+<span class="g">$</span> gancho mcp status --json
+{ <span class="p">"server"</span>: <span class="b">"off"</span>, <span class="p">"scope"</span>: <span class="b">"metadata"</span>, <span class="p">"sensitive"</span>: <span class="b">"vetoed"</span> }</pre>
     </div>
-    <p>Open source under the MIT license · pre-release. © 2026 Johnny Young. No trackers, no analytics, no clipboard content on this page.</p>
-  </footer>
+  </div>
+</section>
+
+<!-- ============ PRICING ============ -->
+<section class="band" id="pricing">
+  <div class="wrap">
+    <div class="sec-head" style="margin:0 auto;text-align:center">
+      <span class="kicker" data-i18n="pro.kicker">Precios</span>
+      <h2 class="h2" data-i18n="pro.title">Gratis para siempre. Pro cuando quieras más.</h2>
+      <p class="lede" data-i18n="pro.lede" style="margin-left:auto;margin-right:auto">gancho es gratis y de código abierto. Pro es una licencia de <b>pago único</b> — sin suscripción. El plan gratis no pierde nada: sin marcas de agua, sin límites de resolución, sin molestias.</p>
+    </div>
+    <div class="price-wrap">
+      <div class="price-card">
+        <span class="price-tier" data-i18n="pro.tier">gancho Pro · licencia de por vida</span>
+        <div class="price-row">
+          <span class="price-now">$19.99</span>
+          <span class="price-was">$25</span>
+          <span class="price-badge" data-i18n="pro.badge">Early bird · solo 2026</span>
+        </div>
+        <p class="price-note" data-i18n="pro.note">El precio normal es <b>$25</b>. Durante 2026 cuesta <b>$19.99</b> como precio de lanzamiento — sin códigos.</p>
+        <ul class="price-list">
+          <li><span class="ck"><svg class="i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span data-i18n="pro.l1"><b>Historial ilimitado</b> — guarda todo, sin el tope de 30 días / 2.000 ítems del plan gratis.</span></li>
+          <li><span class="ck"><svg class="i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span data-i18n="pro.l2"><b>Pins y boards ilimitados</b> — sin el límite de 15 pins en 3 boards.</span></li>
+          <li><span class="ck"><svg class="i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span data-i18n="pro.l3"><b>IA on-device completa</b> — búsqueda semántica y OCR de capturas, además de títulos con IA sin límite (la versión gratis prueba los títulos).</span></li>
+        </ul>
+        <div class="price-actions">
+          <a class="btn btn-accent" href="https://johnny4young.lemonsqueezy.com/checkout/buy/be41fa28-055d-4803-893d-9ddada3cc89d" data-i18n="pro.cta">Obtener gancho Pro</a>
+          <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/releases/latest" data-i18n="pro.cta2">Descargar gratis</a>
+        </div>
+        <p class="price-fine" data-i18n="pro.fine">Pago único vía Lemon Squeezy · activa tu licencia dentro de la app · sin suscripción.</p>
+      </div>
+      <div class="price-free">
+        <svg class="mk i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3Z"/></svg>
+        <span data-i18n="pro.free">La sincronización iCloud cifrada llega con el lanzamiento. La versión gratis sigue siendo completa: 30 días / 2.000 ítems, 15 pins y 3 boards.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CHANGELOG ============ -->
+<section class="band band-tint" id="changelog">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker" data-i18n="log.kicker">Novedades</span>
+      <h2 class="h2" data-i18n="log.title">Versionado como un producto, antes del lanzamiento público.</h2>
+      <p class="lede" data-i18n="log.lede">Los metadatos de cada versión se verifican en CI: project.yml, CHANGELOG.md, los tags de GitHub y los artefactos se mueven juntos.</p>
+    </div>
+    <div class="log">
+      <div class="log-row">
+        <div class="log-meta"><span class="ver">0.3.1</span><span class="dt" data-i18n="log.0.d">Jun 2026 · pre-lanzamiento</span></div>
+        <div class="log-body"><h3 data-i18n="log.0.t">Pro de canal directo</h3><ul>
+          <li data-i18n="log.0.1"><b>gancho Pro</b> ya se puede comprar: el paywall abre el checkout y activa tu licencia al instante.</li>
+          <li data-i18n="log.0.2">Cada release se firma, notariza y publica solo en CI — un tag es un lanzamiento completo.</li>
+        </ul></div>
+      </div>
+      <div class="log-row">
+        <div class="log-meta"><span class="ver">0.3.0</span><span class="dt" data-i18n="log.1.d">Jun 2026</span></div>
+        <div class="log-body"><h3 data-i18n="log.1.t">Backup en iOS, teclado de iPad y error-log</h3><ul>
+          <li data-i18n="log.1.1"><b>Backup y restauración</b> del historial en iPhone/iPad — formato <span class="mono">.ganchoarchive</span> portable que cruza de un dispositivo a otro.</li>
+          <li data-i18n="log.1.2"><b>Atajos de teclado físico en iPad</b>: ⌘F para buscar, ⌘1–9 para copiar, ⌘↩ para el clip seleccionado.</li>
+          <li data-i18n="log.1.3"><b>Error-log sin contenido</b> («Recent issues») en el Centro de privacidad de macOS e iOS.</li>
+        </ul></div>
+      </div>
+      <div class="log-row">
+        <div class="log-meta"><span class="ver">0.2.0</span><span class="dt" data-i18n="log.2.d">Jun 2026</span></div>
+        <div class="log-body"><h3 data-i18n="log.2.t">Shortcuts, IA y un plan gratis más generoso</h3><ul>
+          <li data-i18n="log.2.1"><b>Intents de Shortcuts/Siri</b>: buscar clips con filtro de tipo y <b>Pregúntale a tu portapapeles</b> (respuesta on-device, secretos excluidos).</li>
+          <li data-i18n="log.2.2"><b>Prueba gratis de IA on-device</b>: tus primeros 25 clips de texto reciben un título con IA.</li>
+          <li data-i18n="log.2.3">Plan gratis más generoso (30 días / 2.000 ítems, 15 pins, 3 boards) e icono de la app.</li>
+        </ul></div>
+      </div>
+      <div class="log-row">
+        <div class="log-meta"><span class="ver">0.1.0</span><span class="dt" data-i18n="log.3.d">Jun 2026</span></div>
+        <div class="log-body"><h3 data-i18n="log.3.t">Base inicial</h3><ul>
+          <li data-i18n="log.3.1">Captura en macOS, almacén local cifrado, búsqueda FTS, retención, paste-back, pins, boards, snippets y MCP/CLI local.</li>
+          <li data-i18n="log.3.2">App de iPhone/iPad con share, teclado, widgets y plumbing de sincronización por iCloud.</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section class="wrap cta">
+  <div class="cta-inner">
+    <h2 class="h2" data-i18n="cta.title">Prueba gancho hoy.</h2>
+    <p class="lede" data-i18n="cta.lede">Las primeras builds son para testers y mantenedores mientras se finalizan la firma, TestFlight y el lanzamiento en la App Store.</p>
+    <div class="cta-actions">
+      <a class="btn btn-accent" href="https://github.com/johnny4young/gancho/releases/latest" data-i18n="cta.1">Descargar la última build</a>
+      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho" data-i18n="cta.2">Ver en GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap foot-grid">
+    <div>
+      <a class="brand" href="#top">
+        <svg class="mark" viewBox="0 0 96 96" fill="none" aria-hidden="true"><circle cx="50" cy="24" r="8" stroke="currentColor" stroke-width="7"/><path d="M50 32 L50 57 A15 15 0 1 1 35 57 L31.5 47.5" stroke="currentColor" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        gancho
+      </a>
+      <p class="foot-note" data-i18n="foot.note">Código abierto bajo licencia MIT · pre-lanzamiento. Sin trackers, sin analítica, sin contenido del portapapeles en esta página.</p>
+    </div>
+    <div class="foot-links">
+      <a href="#privacy" data-i18n="nav.privacy">Privacidad</a>
+      <a href="#features" data-i18n="nav.features">Funciones</a>
+      <a href="#pricing" data-i18n="nav.pricing">Precios</a>
+      <a href="#changelog" data-i18n="nav.changelog">Novedades</a>
+      <a href="https://github.com/johnny4young/gancho">GitHub</a>
+      <a href="https://github.com/johnny4young/gancho/blob/main/CHANGELOG.md">CHANGELOG</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  /* ---------- i18n ---------- */
+  const I18N = {
+    en: {
+      "nav.privacy": "Privacy", "nav.features": "Features", "nav.worlds": "How it works", "nav.platforms": "Platforms", "nav.pricing": "Pricing", "nav.changelog": "Changelog", "nav.download": "Download",
+      "hero.badge": "Private by design · pre-release",
+      "hero.title": "Your clipboard, everywhere", "hero.title2": " — private by design.",
+      "hero.lede": "gancho remembers everything you copy on Mac, iPhone, and iPad: local history, instant search, and a curated snippet library. Content never leaves your devices.",
+      "hero.cta1": "Download for macOS", "hero.cta2": "See the features",
+      "hero.f1": "macOS 14+ · iOS 17+", "hero.f2": "Free & open source", "hero.f3": "No servers · no telemetry",
+      "panel.search": "Search your clipboard…", "panel.foot": "Synced · your iCloud, encrypted",
+      "clip.code.t": "useEffect cleanup", "clip.secret.t": "OpenAI API key", "clip.url.t": "Privacy policy", "clip.color.t": "Brand green", "clip.image.t": "Launch mark", "clip.image.p": "PNG · 248 KB · 1640×1024 · encrypted",
+      "trust.1": "Local-first", "trust.2": "Encrypted on device", "trust.3": "No servers", "trust.4": "No content telemetry",
+      "priv.kicker": "Privacy invariants", "priv.title": "It earns your trust before it earns your convenience.",
+      "priv.lede": "gancho treats what you copy as private data. It observes metadata first, vetoes sensitive pasteboards before reading them, and keeps logs and diagnostics content-free.",
+      "priv.c1.t": "Veto before read", "priv.c1.p": "Password-manager, transient, concealed, and auto-generated types are rejected before gancho reads a payload.", "priv.c1.tag": "Sensitive → skipped",
+      "priv.c2.t": "Encrypted local store", "priv.c2.p": "History lives on your devices with SQLCipher-backed storage and encrypted binary blobs for image-heavy workflows.", "priv.c2.tag": "SQLCipher · on disk",
+      "priv.c3.t": "No content telemetry", "priv.c3.p": "Operational signals are counters and buckets only. Clipboard bodies never appear in logs, analytics, crash reports, or support bundles.", "priv.c3.tag": "Counts only",
+      "feat.kicker": "Features", "feat.title": "Everything you copy, understood — and one shortcut away.",
+      "feat.lede": "An on-device classifier tags every clip at capture. gancho gives each kind its color, its preview, and its actions — sending nothing to the cloud.",
+      "feat.1.t": "Instant recall", "feat.1.p": "Type to filter your whole history. ↑↓ to move, ⏎ to paste, ⌘1–9 to instantly paste the first nine.",
+      "feat.2.t": "17 detected kinds", "feat.2.p": "Code, JSON, JWT, UUID, color, image, file, email, phone, card, address… Each family gets its glyph. JWTs, cards, and secrets are masked.",
+      "feat.3.t": "Smart Actions", "feat.3.p": "Pure, offline per-kind transforms: decode a JWT, pretty-print JSON, base64, parse a URL, convert a color. No network, ever.",
+      "feat.4.t": "Promote to Library", "feat.4.p": "The signature gesture: one shortcut turns an ephemeral history clip into a permanent, curated snippet. <i>It hooks you.</i>",
+      "feat.5.t": "Paste stack", "feat.5.p": "Queue N clips and each ⌘V drops the next in order. A floating HUD shows what's next and how many remain.",
+      "feat.6.t": "Sync via your iCloud", "feat.6.p": "Encrypted records in your own iCloud account with CKSyncEngine. No middle servers — your content is yours.",
+      "worlds.kicker": "How it works", "worlds.title": "Two worlds, one gesture that joins them.",
+      "worlds.lede": "History captures only; the Library saves with intent. One shortcut promotes the ephemeral into the permanent.",
+      "worlds.h.lab": "Ephemeral · automatic", "worlds.h.t": "History", "worlds.h.p": "Everything you copy, captured in the background and sorted by kind. Instantly searchable, with retention you control.",
+      "worlds.h.1": "Automatic capture on Mac", "worlds.h.2": "Pins and quick look", "worlds.h.3": "Configurable retention",
+      "worlds.bridge": "Promote ⌘S",
+      "worlds.l.lab": "Permanent · curated", "worlds.l.t": "Library", "worlds.l.p": "Snippets and templates you reuse: grouped into boards, with keyword triggers and {placeholders} you fill in on paste.",
+      "worlds.l.1": "Boards to organize clips", "worlds.l.2": "Keyboard triggers", "worlds.l.3": "Templates with placeholders",
+      "plat.kicker": "Platforms", "plat.title": "Automatic on Mac. Intentional everywhere else.",
+      "plat.lede": "gancho starts where history is most powerful — the Mac menu bar — and extends to iPhone and iPad through explicit capture surfaces.",
+      "win.title": "gancho — Library", "win.boards": "Boards", "win.all": "All clips", "win.pinned": "Pinned", "win.work": "Work", "win.design": "Design", "win.snippets": "Library · Snippets", "win.sig": "Email signature", "win.tpl": "Standup template",
+      "ph.synced": "Synced", "ph.pb": "Pasteboard", "ph.pbv": "Release checklist", "ph.url": "Privacy policy", "ph.img": "Launch mark", "ph.search": "Search clips…",
+      "intel.kicker": "On-device intelligence", "intel.title": "It understands every clip. No network, at every stage.",
+      "intel.lede": "A deterministic pipeline classifies instantly; Apple Intelligence improves titles when available; the sensitive-data detector masks before indexing.",
+      "intel.s1.t": "Capture", "intel.s1.s": "Clip enters", "intel.s2.t": "Tier 0 · Rules", "intel.s2.s": "<5 ms · always on",
+      "intel.s3.t": "Tier 1 · Apple Intelligence", "intel.s3.s": "Titles · fallback-safe", "intel.s4.t": "Sensitive check", "intel.s4.s": "Mask + expire", "intel.s5.t": "Indexed", "intel.s5.s": "FTS + embeddings",
+      "intel.f1.t": "Smart classification", "intel.f1.tier": "Always on",
+      "intel.f1.p": "Tier 0 — a <b>deterministic</b> classifier runs on every device in under 5 ms with zero network. It tags each clip as one of 17 kinds to drive previews, Smart Actions, and masking. No Apple Intelligence required.",
+      "intel.f1.l1": "Detects", "intel.f1.l2": "Tags",
+      "intel.f2.t": "Smarter titles", "intel.f2.tier": "Apple Intelligence",
+      "intel.f2.p": "Tier 1 — Apple Intelligence (on-device Foundation Models) writes a short, specific title. It <b>falls back</b> to deterministic heuristics on any failure, and never puts a password or card in a title.",
+      "intel.f2.l1": "Raw", "intel.f2.l2": "Title", "intel.f2.title": "Email: Q3 planning reschedule",
+      "intel.f3.t": "Semantic search", "intel.f3.tier": "Apple Intelligence",
+      "intel.f3.p": "Find a clip by <b>meaning</b>, not just exact words. A 512-dim embedding indexes history on-device; search is an exact cosine match. Models download once, then stay local.",
+      "intel.f3.l1": "You search", "intel.f3.l2": "It finds", "intel.f3.q": "“that error about aborting”",
+      "intel.f4.t": "Searchable screenshots", "intel.f4.tier": "Vision · OCR",
+      "intel.f4.p": "On-device OCR (Vision) reads text out of image clips and attaches it to the same full-text index — so a screenshot is findable by the words inside it. No network, like every tier.",
+      "intel.f4.l1": "Image", "intel.f4.l2": "OCR text", "intel.f4.ocr": "“Release checklist · v0.6”",
+      "intel.foot": "Every stage runs on this device. No clip text is ever sent to a server — gancho has none.",
+      "sa.kicker": "Smart Actions", "sa.title": "The right clip knows what you can do with it.",
+      "sa.lede": "gancho detects the kind and offers pure, offline transforms — no network, ever. Decode a JWT, pretty-print JSON, parse a URL, or convert a color, and the result drops into a box you copy with one click.",
+      "sa.jwt.t": "JWT · session token", "sa.jwt.mask": "Masked",
+      "sa.jwt.a1": "Decode JWT", "sa.jwt.out": "Result · on device", "sa.copy": "Copy",
+      "sa.k.json": "Pretty-print", "sa.k.json2": "Minify · Base64", "sa.k.url": "Parse",
+      "sa.k.colornm": "Color", "sa.k.uuid": "Formats", "sa.k.textnm": "Text / Code", "sa.k.text": "Base64",
+      "sa.note": "Transforms run locally. Nothing leaves the device.",
+      "int.kicker": "Local integrations", "int.title": "Your clipboard helps your tools without becoming a cloud service.",
+      "int.lede": "The gancho CLI and local MCP server expose user-approved context to local agents and editors. Opt-in, scope-limited, and sensitive clips always excluded.",
+      "log.kicker": "Changelog", "log.title": "Versioned like a product, even before public launch.",
+      "log.lede": "Each release's metadata is verified in CI: project.yml, CHANGELOG.md, GitHub tags, and artifacts all move together.",
+      "log.0.d": "Jun 2026 · pre-release", "log.0.t": "Direct-download Pro",
+      "log.0.1": "<b>gancho Pro</b> is now purchasable: the paywall opens the checkout and activates your license on the spot.",
+      "log.0.2": "Every release is signed, notarized, and published entirely in CI — a tag is a complete release.",
+      "log.1.d": "Jun 2026", "log.1.t": "iOS backup, iPad keyboard & error log",
+      "log.1.1": "<b>Back up &amp; restore</b> your history on iPhone/iPad — a portable <span class=\"mono\">.ganchoarchive</span> that imports across devices.",
+      "log.1.2": "<b>iPad hardware-keyboard shortcuts</b>: ⌘F to search, ⌘1–9 to copy, ⌘↩ for the selected clip.",
+      "log.1.3": "<b>Content-free error log</b> (“Recent issues”) in the Privacy Center on macOS and iOS.",
+      "log.2.d": "Jun 2026", "log.2.t": "Shortcuts, AI & a more generous free tier",
+      "log.2.1": "<b>Shortcuts/Siri intents</b>: search clips with a type filter and <b>Ask Your Clipboard</b> (grounded on-device, secrets excluded).",
+      "log.2.2": "<b>Free taste of on-device AI</b>: your first 25 text clips get a real AI title.",
+      "log.2.3": "More generous free tier (30-day / 2,000-item, 15 pins, 3 boards) and an app icon.",
+      "log.3.d": "Jun 2026", "log.3.t": "Initial baseline",
+      "log.3.1": "macOS capture, encrypted local store, FTS search, retention, paste-back, pins, boards, snippets, and a local MCP/CLI.",
+      "log.3.2": "iPhone/iPad companion with share, keyboard, widgets, and iCloud sync plumbing.",
+      "pro.kicker": "Pricing", "pro.title": "Free forever. Pro when you want more.",
+      "pro.lede": "gancho is free and open source. Pro is an optional <b>one-time</b> license — no subscription. The free tier loses nothing: no watermark, no resolution cap, no nags.",
+      "pro.tier": "gancho Pro · lifetime license",
+      "pro.badge": "Early bird · 2026 only",
+      "pro.note": "Regular price is <b>$25</b>. Through 2026 it's <b>$19.99</b> as a launch price — no code needed.",
+      "pro.l1": "<b>Unlimited history</b> — keep everything, with no 30-day / 2,000-item cap.",
+      "pro.l2": "<b>Unlimited pins &amp; boards</b> — past the free 15 pins across 3 boards.",
+      "pro.l3": "<b>Full on-device AI</b> — semantic search and screenshot OCR, plus unlimited AI titles (free gets a taste).",
+      "pro.cta": "Get gancho Pro", "pro.cta2": "Download for free",
+      "pro.fine": "One-time payment via Lemon Squeezy · activate your license in the app · no subscription.",
+      "pro.free": "Encrypted iCloud sync arrives with launch. The free tier stays complete: 30-day / 2,000-item, 15 pins, and 3 boards.",
+      "cta.title": "Try gancho today.", "cta.lede": "Early builds are for testers and maintainers while signing, TestFlight, and the App Store launch are finalized.",
+      "cta.1": "Download the latest build", "cta.2": "View on GitHub",
+      "foot.note": "Open source under the MIT license · pre-release. No trackers, no analytics, no clipboard content on this page."
+    }
+  };
+
+  const html = document.documentElement;
+  const LS_THEME = "gancho.site.theme", LS_LANG = "gancho.site.lang";
+  // capture Spanish defaults straight from the DOM
+  const ES = {};
+  document.querySelectorAll("[data-i18n]").forEach(el => { ES[el.getAttribute("data-i18n")] = el.innerHTML; });
+
+  function applyLang(lang) {
+    const dict = lang === "en" ? I18N.en : ES;
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const k = el.getAttribute("data-i18n");
+      const v = (lang === "en") ? (I18N.en[k] ?? ES[k]) : ES[k];
+      if (v != null) el.innerHTML = v;
+    });
+    html.setAttribute("lang", lang);
+    html.setAttribute("data-lang", lang);
+    document.querySelectorAll("#seg-lang button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.langVal === lang)));
+    try { localStorage.setItem(LS_LANG, lang); } catch (e) {}
+  }
+  function applyTheme(theme) {
+    if (theme === "auto") html.removeAttribute("data-theme"); else html.setAttribute("data-theme", theme);
+    document.querySelectorAll("#seg-theme button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.themeVal === theme)));
+    try { localStorage.setItem(LS_THEME, theme); } catch (e) {}
+  }
+
+  document.getElementById("seg-theme").addEventListener("click", e => { const b = e.target.closest("button"); if (b) applyTheme(b.dataset.themeVal); });
+  document.getElementById("seg-lang").addEventListener("click", e => { const b = e.target.closest("button"); if (b) applyLang(b.dataset.langVal); });
+
+  let t = "auto", l = "es";
+  try { t = localStorage.getItem(LS_THEME) || "auto"; l = localStorage.getItem(LS_LANG) || "es"; } catch (e) {}
+  applyTheme(t); applyLang(l);
+</script>
 </body>
 </html>
