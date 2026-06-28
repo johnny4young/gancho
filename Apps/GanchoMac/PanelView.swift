@@ -106,6 +106,9 @@ struct PanelView: View {
     /// the on-device model is currently answering.
     @State private var answer: AppModel.ClipboardAnswer?
     @State private var isAsking = false
+    /// The keyboard cheat-sheet overlay (⌘/ or the footer "?"): surfaces the
+    /// power shortcuts (⌘P/⌘S/⌥⏎/⌘1-9) that the footer hints can't fit.
+    @State private var showShortcuts = false
 
     /// The rows actually shown: `results` narrowed by the active filter pill.
     private var filtered: [ClipItem] {
@@ -127,6 +130,8 @@ struct PanelView: View {
         }
         .padding(GanchoTokens.Spacing.sm)
         .frame(minWidth: selectedItem == nil ? 472 : 864, minHeight: 520)
+        .overlay { shortcutsOverlay }
+        .animation(.snappy(duration: 0.12), value: showShortcuts)
         .task { await refresh() }
         .task { await model.refreshBoards() }
         .onChange(of: query) { _, _ in
@@ -211,7 +216,19 @@ struct PanelView: View {
                     return .handled
                 }
                 .onKeyPress(.escape) {
+                    // The cheat-sheet intercepts esc first; otherwise esc hides
+                    // the panel.
+                    if showShortcuts {
+                        showShortcuts = false
+                        return .handled
+                    }
                     model.panel.hide()
+                    return .handled
+                }
+                .onKeyPress(characters: CharacterSet(charactersIn: "/"), phases: .down) { press in
+                    // ⌘/ — the universal "show me the shortcuts" gesture.
+                    guard press.modifiers.contains(.command) else { return .ignored }
+                    showShortcuts.toggle()
                     return .handled
                 }
                 .onKeyPress(characters: CharacterSet(charactersIn: "a"), phases: .down) { press in
@@ -247,6 +264,10 @@ struct PanelView: View {
             boardRail
 
             filterRail
+
+            if let captureNotice {
+                captureBanner(captureNotice)
+            }
 
             if let snippetMatch {
                 snippetBanner(snippetMatch)
@@ -663,11 +684,180 @@ struct PanelView: View {
             hint("navigate", keys: ["arrow.up", "arrow.down"])
             hint("actions", keys: ["arrow.right"])
             hint("paste", keys: ["return"])
+            Button {
+                showShortcuts.toggle()
+            } label: {
+                Image(systemName: "questionmark.circle")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .buttonStyle(.plain)
+            .help("Keyboard shortcuts (⌘/)")
+            .accessibilityLabel("Keyboard shortcuts")
+            .accessibilityIdentifier("panel-shortcuts-button")
         }
         .font(.caption2)
         .foregroundStyle(.tertiary)
         .padding(.top, GanchoTokens.Spacing.xxs)
         .padding(.horizontal, GanchoTokens.Spacing.xxs)
+    }
+
+    // MARK: - Keyboard cheat-sheet
+
+    /// A dimmed scrim + a card listing every panel shortcut. Toggled by ⌘/ or
+    /// the footer "?"; esc and a scrim tap dismiss it.
+    @ViewBuilder private var shortcutsOverlay: some View {
+        if showShortcuts {
+            ZStack {
+                Color.black.opacity(0.18)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture { showShortcuts = false }
+                shortcutsCard
+            }
+            .transition(.opacity)
+        }
+    }
+
+    private var shortcutsCard: some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+            HStack {
+                Text("Keyboard shortcuts").font(.headline)
+                Spacer()
+                Button {
+                    showShortcuts = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close")
+            }
+            shortcutLine(["↑", "↓"], "Move selection")
+            shortcutLine(["→"], "Open actions")
+            shortcutLine(["←"], "Back to list")
+            shortcutLine(["⏎"], "Paste")
+            shortcutLine(["⌥", "⏎"], "Paste without formatting")
+            shortcutLine(["⌘", "1–9"], "Paste that numbered clip")
+            shortcutLine(["⌘", "P"], "Pin or unpin")
+            shortcutLine(["⌘", "S"], "Save as snippet")
+            shortcutLine(["⌘", "A"], "Select all in search")
+            shortcutLine(["esc"], "Close")
+            shortcutLine(["⌘", "/"], "Show this list")
+        }
+        .padding(GanchoTokens.Spacing.md)
+        .frame(width: 320)
+        .background(
+            .regularMaterial,
+            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+                .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline)
+        )
+        .shadow(radius: 20, y: 8)
+        .accessibilityIdentifier("panel-shortcuts")
+    }
+
+    private func shortcutLine(_ caps: [String], _ label: LocalizedStringKey) -> some View {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            HStack(spacing: 3) { ForEach(caps, id: \.self) { keycap($0) } }
+                .frame(width: 86, alignment: .leading)
+            Text(label).font(.callout)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func keycap(_ text: String) -> some View {
+        Text(verbatim: text)
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .frame(minWidth: 18, minHeight: 18)
+            .padding(.horizontal, 4)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+    }
+
+    // MARK: - Capture notice
+
+    /// Why capture isn't recording right now — surfaced IN the panel so a copy
+    /// that doesn't show up reads as "paused", not "broken". Private mode is the
+    /// reactive common case; denied/screen-share are read when the panel opens.
+    private enum CaptureNotice { case privateMode, denied, screenShare }
+
+    private var captureNotice: CaptureNotice? {
+        if model.monitorStatus == .deniedByPrivacySettings { return .denied }
+        if model.preferences.isPrivateModePaused { return .privateMode }
+        if model.monitorStatus == .pausedByScreenShare { return .screenShare }
+        return nil
+    }
+
+    @ViewBuilder private func captureBanner(_ notice: CaptureNotice) -> some View {
+        let tint = captureTint(notice)
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            Image(systemName: captureSymbol(notice)).foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(captureTitle(notice)).font(.caption.weight(.semibold))
+                Text(captureDetail(notice)).font(.caption2).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            if let actionLabel = captureAction(notice) {
+                Button(actionLabel) { handleCaptureAction(notice) }
+                    .buttonStyle(.borderless)
+                    .font(.caption.weight(.medium))
+            }
+        }
+        .padding(.horizontal, GanchoTokens.Spacing.sm)
+        .padding(.vertical, GanchoTokens.Spacing.xs)
+        .background(
+            tint.opacity(0.12),
+            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+        )
+        .padding(.horizontal, GanchoTokens.Spacing.xxs)
+        .accessibilityIdentifier("capture-notice")
+    }
+
+    private func captureSymbol(_ notice: CaptureNotice) -> String {
+        switch notice {
+        case .privateMode: "eye.slash"
+        case .denied: "exclamationmark.triangle.fill"
+        case .screenShare: "rectangle.on.rectangle"
+        }
+    }
+
+    private func captureTint(_ notice: CaptureNotice) -> Color {
+        switch notice {
+        case .privateMode, .screenShare: GanchoTokens.Palette.warning
+        case .denied: GanchoTokens.Palette.danger
+        }
+    }
+
+    private func captureTitle(_ notice: CaptureNotice) -> LocalizedStringKey {
+        switch notice {
+        case .privateMode: "Private Mode is on"
+        case .denied: "Clipboard access is off"
+        case .screenShare: "Paused while screen sharing"
+        }
+    }
+
+    private func captureDetail(_ notice: CaptureNotice) -> LocalizedStringKey {
+        switch notice {
+        case .privateMode: "New copies aren't being saved."
+        case .denied: "Gancho can't see what you copy."
+        case .screenShare: "Capture resumes when you stop sharing."
+        }
+    }
+
+    private func captureAction(_ notice: CaptureNotice) -> LocalizedStringKey? {
+        switch notice {
+        case .privateMode: "Resume"
+        case .denied: "Fix"
+        case .screenShare: nil
+        }
+    }
+
+    private func handleCaptureAction(_ notice: CaptureNotice) {
+        switch notice {
+        case .privateMode: model.togglePrivateMode()
+        case .denied: model.permissionWindow.show(model: model)
+        case .screenShare: break
+        }
     }
 
     /// A keyboard hint: one or more keycaps followed by what they do.

@@ -36,4 +36,29 @@ public enum FreeTierLimits {
     public static func freeAITitlesRemaining(used: Int) -> Int {
         max(0, freeAITitleTaste - used)
     }
+
+    /// How close a free user is to their boards/snippets ceilings. Drives the
+    /// Library's footer nudge so the upsell FOREWARNS (a count that's almost
+    /// full, then the wall) instead of ambushing them at the limit. Pure so the
+    /// thresholds stay unit-testable.
+    public enum Pressure: Sendable, Equatable {
+        /// Plenty of room — the neutral "Pro goes unlimited" footer.
+        case comfortable
+        /// One slot left on either axis — a soft "almost full" warning.
+        case almostFull
+        /// A ceiling is hit — the next create opens the paywall.
+        case reached
+    }
+
+    public static func pressure(
+        boardsUsed: Int, snippetsUsed: Int, isPro: Bool
+    ) -> Pressure {
+        guard !isPro else { return .comfortable }
+        let boardsLeft = PinLimits.freeMaxPinboards - boardsUsed
+        let snippetsLeft = SnippetLimits.freeMaxSnippets - snippetsUsed
+        let left = min(boardsLeft, snippetsLeft)
+        if left <= 0 { return .reached }
+        if left == 1 { return .almostFull }
+        return .comfortable
+    }
 }
