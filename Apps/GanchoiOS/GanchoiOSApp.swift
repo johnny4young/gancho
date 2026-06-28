@@ -604,7 +604,12 @@ final class IOSAppModel {
 
     /// 1-tap copy with haptic confirmation.
     func copyToPasteboard(_ item: ClipItem) async {
-        guard let content = try? await store.content(for: item.id) else { return }
+        guard let content = try? await store.content(for: item.id) else {
+            // Silent before: the user tapped Copy, felt the (missing) result, and
+            // pasted stale content. Say the load failed instead.
+            flashNote(String(localized: "Couldn’t load this clip — try again."))
+            return
+        }
         switch content {
         case .text(let text):
             UIPasteboard.general.string = text
@@ -651,50 +656,28 @@ final class IOSAppModel {
         let sources: [ClipItem]
     }
 
-    private let qaService = ClipboardQAService()
+    var askAvailable: Bool { ClipboardQA.isAvailable }
 
-    var askAvailable: Bool { ClipboardQAService.isAvailable }
-
-    /// Retrieve the most relevant clips (semantic when the embeddings are ready,
-    /// else full-text) and have the on-device model answer grounded ONLY in
-    /// them. Sensitive clips are filtered out before anything reaches the model.
-    /// The question and the clip text never leave the device.
+    /// Ask-your-clipboard, via the shared `ClipboardQA` coordinator (the same one
+    /// the Shortcuts `AskClipboardIntent` uses — retrieval + privacy filtering
+    /// live there, not forked here). This layer only maps the outcome to the
+    /// answer card's copy.
     func askClipboard(_ question: String) async -> ClipboardAnswer? {
-        let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let grdb = store as? GRDBClipboardStore, ClipboardQAService.isAvailable,
-            !trimmed.isEmpty
-        else { return nil }
-
-        var clips: [ClipItem] = []
-        if intelligence.semanticSearch, let embedder = ContextualSentenceEmbedder(),
-            embedder.hasAvailableAssets,
-            let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
+        guard let grdb = store as? GRDBClipboardStore else { return nil }
+        switch await ClipboardQA().answer(
+            question: question, store: grdb, useSemantic: intelligence.semanticSearch)
         {
-            clips = (try? await grdb.semanticSearch(queryVector: vector, topK: 6)) ?? []
-        }
-        if clips.isEmpty {
-            clips = (try? await grdb.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? []
-        }
-        let safe = clips.filter { !$0.isSensitive }
-        guard !safe.isEmpty else {
+        case .unavailable:
+            return nil
+        case .noMatch:
             return ClipboardAnswer(
                 answer: String(localized: "Nothing in your clipboard matches that."), sources: [])
+        case .failed(let safe):
+            return ClipboardAnswer(
+                answer: String(localized: "Couldn’t answer that — try again."), sources: safe)
+        case .answered(let text, let safe):
+            return ClipboardAnswer(answer: text, sources: safe)
         }
-
-        var sources: [String] = []
-        for clip in safe {
-            let body: String
-            if case .text(let text)? = try? await store.content(for: clip.id) {
-                body = text
-            } else {
-                body = clip.preview
-            }
-            sources.append(clip.title.isEmpty ? body : "\(clip.title): \(body)")
-        }
-        let answer = try? await qaService.answer(question: trimmed, sources: sources)
-        return ClipboardAnswer(
-            answer: answer ?? String(localized: "Couldn’t answer that — try again."),
-            sources: safe)
     }
 
     func togglePin(_ item: ClipItem) async {
@@ -727,6 +710,10 @@ final class IOSAppModel {
                 keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup))
             ?? InMemoryClipboardStore()
     }()
+
+    /// True when the durable store failed to open and the app fell back to
+    /// memory — captures won't survive relaunch, so the list warns the user.
+    var storageIsEphemeral: Bool { !store.isDurable }
 
     /// Metadata-only refresh — safe on every activation, never alerts.
     func refreshHints() async {
@@ -916,6 +903,7 @@ struct CaptureView: View {
             VStack(spacing: 0) {
                 boardRail
                 List {
+                    if model.storageIsEphemeral { storageWarningSection }
                     syncStatusSection
                     pasteboardSection
 
@@ -1480,6 +1468,26 @@ struct CaptureView: View {
         return "doc.on.clipboard"
     }
 
+    /// Shown only when the durable store failed to open — captures are running
+    /// in memory and will be lost on relaunch. Honest beats silent.
+    private var storageWarningSection: some View {
+        Section {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("History isn't being saved").font(.subheadline.weight(.semibold))
+                    Text(
+                        "Gancho couldn't open its secure storage. Captures will vanish when you quit the app."
+                    )
+                    .font(.footnote).foregroundStyle(.secondary)
+                }
+            } icon: {
+                Image(systemName: "externaldrive.badge.exclamationmark")
+                    .foregroundStyle(GanchoTokens.Palette.danger)
+            }
+            .accessibilityIdentifier("storage-warning")
+        }
+    }
+
     /// iCloud sync indicator. The steady states (off, synced) show nothing —
     /// the "ready to paste" Live Activity carries sync status now, so the
     /// history doesn't spend a card on a green "Synced" that's almost always
@@ -1495,23 +1503,38 @@ struct CaptureView: View {
             syncRow(
                 Text("\(Text("Waiting to sync")) · \(String(count))"), "arrow.up.circle")
         case .paused(let cause):
-            syncRow(Text(causeText(cause)), "pause.circle", tint: GanchoTokens.Palette.warning)
+            syncRow(
+                Text(causeText(cause)), "pause.circle", tint: GanchoTokens.Palette.warning,
+                retry: true)
         case .failed(let cause):
             syncRow(
-                Text(causeText(cause)), "exclamationmark.icloud", tint: GanchoTokens.Palette.danger)
+                Text(causeText(cause)), "exclamationmark.icloud",
+                tint: GanchoTokens.Palette.danger, retry: true)
         }
     }
 
-    private func syncRow(_ text: Text, _ symbol: String, tint: Color = .secondary) -> some View {
+    private func syncRow(
+        _ text: Text, _ symbol: String, tint: Color = .secondary, retry: Bool = false
+    ) -> some View {
         Section {
-            Label {
-                text
-            } icon: {
-                // "Synced" reads green (a state); paused/failed warn — like macOS.
-                Image(systemName: symbol).foregroundStyle(tint)
+            HStack {
+                Label {
+                    text
+                } icon: {
+                    // "Synced" reads green (a state); paused/failed warn — like macOS.
+                    Image(systemName: symbol).foregroundStyle(tint)
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                // A paused/failed sync was informational only; give it a way out.
+                if retry {
+                    Spacer(minLength: GanchoTokens.Spacing.sm)
+                    Button("Retry") { model.syncNow() }
+                        .font(.footnote)
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("sync-retry")
+                }
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
             .accessibilityIdentifier("sync-status")
         }
     }

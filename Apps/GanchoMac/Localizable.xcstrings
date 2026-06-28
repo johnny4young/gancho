@@ -4587,6 +4587,96 @@
           }
         }
       }
+    },
+    "History isn't being saved": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El historial no se está guardando"
+          }
+        }
+      }
+    },
+    "Gancho couldn't open its secure storage — clips vanish when you quit.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho no pudo abrir su almacenamiento seguro — los clips se pierden al salir."
+          }
+        }
+      }
+    },
+    "Gancho is on a temporary store, so these numbers reset on quit and your clips won't persist.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho está en un almacenamiento temporal, así que estos números se reinician al salir y tus clips no persisten."
+          }
+        }
+      }
+    },
+    "Scope changes apply the next time the gancho mcp server starts.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los cambios de alcance se aplican la próxima vez que arranca el servidor gancho mcp."
+          }
+        }
+      }
+    },
+    "Connect an agent": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectar un agente"
+          }
+        }
+      }
+    },
+    "Turning this on only allows access — your agent runs the server. Install the gancho CLI, then point your agent at it:": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activarlo solo permite el acceso — tu agente corre el servidor. Instala el CLI de gancho y luego apunta tu agente a él:"
+          }
+        }
+      }
+    },
+    "Copy connect command": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar comando de conexión"
+          }
+        }
+      }
+    },
+    "Selected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seleccionado"
+          }
+        }
+      }
+    },
+    "Not selected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No seleccionado"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

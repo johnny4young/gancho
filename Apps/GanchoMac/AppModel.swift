@@ -34,6 +34,10 @@ final class AppModel {
     private(set) var recentItems: [ClipItem] = []
     var monitorStatus: MonitorStatus { monitor.status }
 
+    /// True when the durable store failed to open and the app is running on the
+    /// in-memory fallback — history won't survive a relaunch, so the panel warns.
+    var storageIsEphemeral: Bool { !store.isDurable }
+
     /// Durable store under Application Support; falls back to in-memory if
     /// the disk store cannot open (never block launch on a storage error).
     let store: any ClipboardStore
@@ -149,7 +153,11 @@ final class AppModel {
 
     init() {
         let directory = SharedStorageLocation.macAppStoreDirectory
-        let grdb = try? GRDBClipboardStore.encrypted(directory: directory)
+        // Test hook: force the in-memory fallback so the "history isn't being
+        // saved" warning path is drivable by a UI test (mirrors a real failure
+        // to open the encrypted store).
+        let forceEphemeral = ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store")
+        let grdb = forceEphemeral ? nil : (try? GRDBClipboardStore.encrypted(directory: directory))
         self.grdbStore = grdb
         self.store = grdb ?? InMemoryClipboardStore()
         let resolvedStore = self.store

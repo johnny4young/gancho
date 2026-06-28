@@ -11,6 +11,31 @@ import UIKit
 /// widget extension can reuse them (App Intents in a widget need target
 /// membership in both the app and the extension).
 
+/// Clip-type filter for Shortcuts — mirrors the app's type rail so a shortcut
+/// can scope a search ("the last *link* about…").
+enum ClipKindFilterAppEnum: String, AppEnum {
+    case any, text, link, code, color, image, secret
+
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Clip type"
+    static let caseDisplayRepresentations: [ClipKindFilterAppEnum: DisplayRepresentation] = [
+        .any: "Any", .text: "Text", .link: "Link", .code: "Code",
+        .color: "Color", .image: "Image", .secret: "Secret",
+    ]
+
+    /// The concrete kinds this filter matches (nil = no restriction).
+    var clipKinds: Set<ClipContentKind>? {
+        switch self {
+        case .any: nil
+        case .text: [.text]
+        case .link: [.url]
+        case .code: [.code, .json, .uuid]
+        case .color: [.color]
+        case .image: [.image]
+        case .secret: [.secret, .jwt, .creditCard]
+        }
+    }
+}
+
 /// Full-text search over history, returning entities Shortcuts can chain.
 struct SearchClipIntent: AppIntent {
     static let title: LocalizedStringResource = "Search Clips"
@@ -19,9 +44,18 @@ struct SearchClipIntent: AppIntent {
     @Parameter(title: "Search for")
     var query: String
 
+    @Parameter(title: "Type", default: .any)
+    var kind: ClipKindFilterAppEnum
+
+    @Parameter(title: "Maximum results", default: 10)
+    var maxResults: Int
+
     func perform() async throws -> some IntentResult & ReturnsValue<[ClipEntity]> {
         let store = try IntentStore.open()
-        let hits = try await store.search(ClipSearchQuery(text: query), limit: 10)
+        // Clamp so a shortcut can't ask for a runaway or empty result set.
+        let limit = min(max(maxResults, 1), 100)
+        let hits = try await store.search(
+            ClipSearchQuery(text: query, kinds: kind.clipKinds), limit: limit)
         return .result(value: hits.map(ClipEntity.init))
     }
 }
@@ -55,6 +89,40 @@ struct ClearSensitiveIntent: AppIntent {
         let store = try IntentStore.open()
         let removed = try await store.deleteAllSensitive()
         return .result(dialog: "Removed \(removed) sensitive clips.")
+    }
+}
+
+/// "Ask your clipboard" from Shortcuts: a grounded, on-device answer over your
+/// history. Uses the same `ClipboardQA` coordinator as the app — retrieval and
+/// the sensitive-clip filtering are shared, not forked.
+struct AskClipboardIntent: AppIntent {
+    static let title: LocalizedStringResource = "Ask Your Clipboard"
+    static let description = IntentDescription(
+        "Answers a question grounded only in your clip history, on-device.")
+
+    @Parameter(title: "Question")
+    var question: String
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        // Disambiguate the two reasons answer() returns .unavailable: a blank
+        // question is the user's mistake, not a missing model.
+        guard !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return .result(dialog: "Ask a question about your clips first.")
+        }
+        guard ClipboardQA.isAvailable else {
+            return .result(dialog: "Ask needs Apple Intelligence on this device.")
+        }
+        let store = try IntentStore.open()
+        switch await ClipboardQA().answer(question: question, store: store, useSemantic: true) {
+        case .unavailable:
+            return .result(dialog: "Ask needs Apple Intelligence on this device.")
+        case .noMatch:
+            return .result(dialog: "Nothing in your clipboard matches that.")
+        case .failed:
+            return .result(dialog: "Couldn’t answer that — try again.")
+        case .answered(let text, _):
+            return .result(dialog: "\(text)")
+        }
     }
 }
 
@@ -111,5 +179,23 @@ struct GanchoShortcuts: AppShortcutsProvider {
             phrases: ["Clear sensitive clips in \(.applicationName)"],
             shortTitle: "Clear Sensitive",
             systemImageName: "trash.slash")
+        AppShortcut(
+            intent: CopyLastURLIntent(),
+            phrases: ["Copy my last URL from \(.applicationName)"],
+            shortTitle: "Copy Last URL",
+            systemImageName: "link")
+        AppShortcut(
+            intent: SearchClipIntent(),
+            phrases: ["Search clips in \(.applicationName)"],
+            shortTitle: "Search Clips",
+            systemImageName: "magnifyingglass")
+        AppShortcut(
+            intent: AskClipboardIntent(),
+            phrases: [
+                "Ask \(.applicationName) about my clipboard",
+                "Ask my clipboard in \(.applicationName)",
+            ],
+            shortTitle: "Ask Clipboard",
+            systemImageName: "sparkles")
     }
 }

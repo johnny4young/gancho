@@ -555,6 +555,19 @@ public final class GRDBClipboardStore: ClipboardStore {
         }
     }
 
+    /// How many sensitive clips are currently held — the honest count behind the
+    /// Privacy Center's "Secrets masked" stat (the old proxy counted clips whose
+    /// preview literally rendered as the mask string, which under- and over-
+    /// counted depending on the secret's shape).
+    public func sensitiveCount() async throws -> Int {
+        try await writer.read { db in
+            // Exclude archived rows like `search` and the other dashboard
+            // counters do, so "Secrets masked" agrees with the rest of them.
+            try Int.fetchOne(
+                db, sql: "SELECT COUNT(*) FROM clip WHERE isSensitive = 1 AND isArchived = 0") ?? 0
+        }
+    }
+
     /// Removes every sensitive clip immediately ("Clear Sensitive" intent
     /// and panic actions). Returns how many were removed.
     @discardableResult

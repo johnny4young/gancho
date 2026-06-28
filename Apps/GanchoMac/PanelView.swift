@@ -387,9 +387,11 @@ struct PanelView: View {
             )
             .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
             .overlay(railRing(isFocused))
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("filter-\(filter.rawValue)")
+        .accessibilityValue(isActive ? Text("Selected") : Text("Not selected"))
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
@@ -475,9 +477,11 @@ struct PanelView: View {
             )
             .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
             .overlay(railRing(isFocused))
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)
+        .accessibilityValue(isActive ? Text("Selected") : Text("Not selected"))
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
@@ -725,6 +729,8 @@ struct PanelView: View {
             } label: {
                 Image(systemName: "questionmark.circle")
                     .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 20, height: 20)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .help("Keyboard shortcuts (⌘/)")
@@ -815,9 +821,11 @@ struct PanelView: View {
     /// Why capture isn't recording right now — surfaced IN the panel so a copy
     /// that doesn't show up reads as "paused", not "broken". Private mode is the
     /// reactive common case; denied/screen-share are read when the panel opens.
-    private enum CaptureNotice { case privateMode, denied, screenShare }
+    private enum CaptureNotice { case storageEphemeral, privateMode, denied, screenShare }
 
     private var captureNotice: CaptureNotice? {
+        // Data loss outranks everything: the user must know nothing is persisting.
+        if model.storageIsEphemeral { return .storageEphemeral }
         if model.monitorStatus == .deniedByPrivacySettings { return .denied }
         if model.preferences.isPrivateModePaused { return .privateMode }
         if model.monitorStatus == .pausedByScreenShare { return .screenShare }
@@ -851,6 +859,7 @@ struct PanelView: View {
 
     private func captureSymbol(_ notice: CaptureNotice) -> String {
         switch notice {
+        case .storageEphemeral: "externaldrive.badge.exclamationmark"
         case .privateMode: "eye.slash"
         case .denied: "exclamationmark.triangle.fill"
         case .screenShare: "rectangle.on.rectangle"
@@ -860,12 +869,13 @@ struct PanelView: View {
     private func captureTint(_ notice: CaptureNotice) -> Color {
         switch notice {
         case .privateMode, .screenShare: GanchoTokens.Palette.warning
-        case .denied: GanchoTokens.Palette.danger
+        case .denied, .storageEphemeral: GanchoTokens.Palette.danger
         }
     }
 
     private func captureTitle(_ notice: CaptureNotice) -> LocalizedStringKey {
         switch notice {
+        case .storageEphemeral: "History isn't being saved"
         case .privateMode: "Private Mode is on"
         case .denied: "Clipboard access is off"
         case .screenShare: "Paused while screen sharing"
@@ -874,6 +884,8 @@ struct PanelView: View {
 
     private func captureDetail(_ notice: CaptureNotice) -> LocalizedStringKey {
         switch notice {
+        case .storageEphemeral:
+            "Gancho couldn't open its secure storage — clips vanish when you quit."
         case .privateMode: "New copies aren't being saved."
         case .denied: "Gancho can't see what you copy."
         case .screenShare: "Capture resumes when you stop sharing."
@@ -884,7 +896,7 @@ struct PanelView: View {
         switch notice {
         case .privateMode: "Resume"
         case .denied: "Fix"
-        case .screenShare: nil
+        case .storageEphemeral, .screenShare: nil
         }
     }
 
@@ -892,7 +904,7 @@ struct PanelView: View {
         switch notice {
         case .privateMode: model.togglePrivateMode()
         case .denied: model.permissionWindow.show(model: model)
-        case .screenShare: break
+        case .storageEphemeral, .screenShare: break
         }
     }
 

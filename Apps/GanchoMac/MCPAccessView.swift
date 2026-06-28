@@ -189,7 +189,9 @@ struct MCPAccessView: View {
 
     private func logRow(_ event: MCPAccessEvent) -> some View {
         LabeledContent {
-            Text(event.occurredAt, style: .time)
+            // Relative ("3 hours ago") so the user can tell yesterday's access
+            // from this minute's — `.time` alone hid the date.
+            Text(event.occurredAt, format: .relative(presentation: .named))
         } label: {
             Label {
                 HStack(spacing: GanchoTokens.Spacing.xs) {
