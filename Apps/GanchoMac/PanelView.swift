@@ -387,9 +387,11 @@ struct PanelView: View {
             )
             .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
             .overlay(railRing(isFocused))
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("filter-\(filter.rawValue)")
+        .accessibilityValue(isActive ? Text("Selected") : Text("Not selected"))
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
@@ -475,9 +477,11 @@ struct PanelView: View {
             )
             .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
             .overlay(railRing(isFocused))
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)
+        .accessibilityValue(isActive ? Text("Selected") : Text("Not selected"))
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
@@ -725,6 +729,8 @@ struct PanelView: View {
             } label: {
                 Image(systemName: "questionmark.circle")
                     .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 20, height: 20)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .help("Keyboard shortcuts (⌘/)")

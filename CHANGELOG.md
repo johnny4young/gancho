@@ -102,9 +102,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Data-loss warning: when the encrypted store can't open, Gancho now shows a
-  prominent "History isn't being saved" banner (panel + iOS list + Privacy
-  Center) instead of silently running on a throwaway in-memory store and losing
-  every clip on quit.
+  prominent "History isn't being saved" banner (panel + iPhone/iPad history
+  lists + Privacy Center) instead of silently running on a throwaway in-memory
+  store and losing every clip on quit.
 - On iOS, tapping Copy when a clip's content can't be loaded now says so
   ("Couldn't load this clip — try again") instead of silently leaving stale
   content on the pasteboard; a paused or failed sync gains a Retry button.

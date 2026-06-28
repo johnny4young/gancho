@@ -41,8 +41,11 @@ struct IPadSplitView: View {
             .onChange(of: model.kindFilter) { _, _ in Task { await model.search() } }
             .onChange(of: model.selectedBoardID) { _, _ in Task { await model.search() } }
         } content: {
-            List(model.captures, selection: $selectedID) { item in
-                ClipCard(item: item).tag(item.id)
+            List(selection: $selectedID) {
+                if model.storageIsEphemeral { storageWarningSection }
+                ForEach(model.captures) { item in
+                    ClipCard(item: item).tag(item.id)
+                }
             }
             .overlay {
                 if model.captures.isEmpty {
@@ -74,6 +77,26 @@ struct IPadSplitView: View {
             await model.drainSharedInbox()
             await model.refreshBoards()
             await model.search()
+        }
+    }
+
+    /// Shown when iPad is also on the in-memory fallback. The iPhone stack has
+    /// the same warning; keep the split view honest too.
+    private var storageWarningSection: some View {
+        Section {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("History isn't being saved").font(.subheadline.weight(.semibold))
+                    Text(
+                        "Gancho couldn't open its secure storage. Captures will vanish when you quit the app."
+                    )
+                    .font(.footnote).foregroundStyle(.secondary)
+                }
+            } icon: {
+                Image(systemName: "externaldrive.badge.exclamationmark")
+                    .foregroundStyle(GanchoTokens.Palette.danger)
+            }
+            .accessibilityIdentifier("storage-warning")
         }
     }
 

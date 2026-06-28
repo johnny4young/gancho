@@ -4657,6 +4657,26 @@
           }
         }
       }
+    },
+    "Selected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seleccionado"
+          }
+        }
+      }
+    },
+    "Not selected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No seleccionado"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
