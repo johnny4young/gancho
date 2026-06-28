@@ -17,6 +17,9 @@ import WidgetKit
 struct GanchoiOSApp: App {
     @State private var model = IOSAppModel()
     @Environment(\.scenePhase) private var scenePhase
+    /// One-time welcome: iOS's intent-based capture is novel, so first launch
+    /// explains the save paths before dropping the user on an empty list.
+    @AppStorage("ios-has-seen-welcome") private var hasSeenWelcome = false
 
     var body: some Scene {
         WindowGroup {
@@ -34,6 +37,13 @@ struct GanchoiOSApp: App {
             // Brand-green accent (iOS has no per-app OS accent picker, so green
             // is the default); the Synced check and success states use it too.
             .ganchoTinted()
+            .sheet(
+                isPresented: Binding(
+                    get: { !hasSeenWelcome },
+                    set: { showing in if !showing { hasSeenWelcome = true } })
+            ) {
+                IOSOnboardingView { hasSeenWelcome = true }
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             // Release the encrypted store's SQLite locks before iOS suspends the
@@ -42,6 +52,79 @@ struct GanchoiOSApp: App {
             case .background: DatabaseSuspension.suspend()
             case .active: DatabaseSuspension.resume()
             default: break
+            }
+        }
+    }
+}
+
+/// First-run welcome (shown once via `ios-has-seen-welcome`). One scroll
+/// screen: what Gancho is, then the three ways to save on iOS — because there
+/// is no background clipboard watching, the save paths are the whole model.
+struct IOSOnboardingView: View {
+    let onDone: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: GanchoTokens.Spacing.lg) {
+                    VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                        Image(systemName: "doc.on.clipboard.fill")
+                            .font(.system(size: 44))
+                            .foregroundStyle(.tint)
+                        Text("Everything you copy, saved and searchable")
+                            .font(.title2.bold())
+                        Text(
+                            "Gancho keeps a private history of what you copy — all on this device."
+                        )
+                        .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
+                        Text("Three ways to save")
+                            .font(.headline)
+                        onboardingRow(
+                            "hand.tap", "Tap to save",
+                            "iOS can't watch the clipboard in the background — no app can. Use the Paste button to save what you copied."
+                        )
+                        onboardingRow(
+                            "square.and.arrow.up", "Share from any app",
+                            "Send text, a link, or an image to Gancho from the share sheet.")
+                        onboardingRow(
+                            "bolt", "Shortcuts & Action Button",
+                            "Save your clipboard with a Shortcut — even from the Action Button.")
+                    }
+
+                    Label(
+                        "Nothing leaves this device unless you turn on iCloud sync.",
+                        systemImage: "lock.shield"
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+                .padding()
+            }
+            .navigationTitle("Welcome to Gancho")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Get started") { onDone() }
+                        .accessibilityIdentifier("onboarding-done")
+                }
+            }
+        }
+    }
+
+    private func onboardingRow(
+        _ symbol: String, _ title: LocalizedStringKey, _ detail: LocalizedStringKey
+    ) -> some View {
+        HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
+            Image(systemName: symbol)
+                .font(.title3)
+                .foregroundStyle(.tint)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(detail).font(.footnote).foregroundStyle(.secondary)
             }
         }
     }
@@ -834,7 +917,20 @@ struct CaptureView: View {
                     switch sheet {
                     case .settings: IOSSettingsView()
                     case .boards: BoardsHomeView()
-                    case .peek(let clip): ClipDetailView(item: clip)
+                    case .peek(let clip):
+                        // Wrap the peek in its own NavigationStack so it gets a
+                        // titled bar + an explicit Done button (the codebase
+                        // sheet convention) — drag-to-dismiss isn't discoverable.
+                        // The pushed (deep-link) path keeps the parent's back
+                        // button, so ClipDetailView itself stays unwrapped.
+                        NavigationStack {
+                            ClipDetailView(item: clip)
+                                .toolbar {
+                                    ToolbarItem(placement: .confirmationAction) {
+                                        Button("Done") { activeSheet = nil }
+                                    }
+                                }
+                        }
                     case .move(let clip): MoveToBoardSheet(item: clip)
                     }
                 }
@@ -1164,16 +1260,46 @@ struct CaptureView: View {
         .accessibilityLabel(Text("Filter by type"))
     }
 
-    /// Honest about the platform: no background capture exists on iOS.
-    private var emptyState: some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            Text("Nothing captured yet.")
-                .foregroundStyle(.secondary)
-            Text(
-                "iOS apps can't watch the clipboard in the background — no app can. Capture with the button above, the share sheet from any app, or a Shortcut on your Action Button."
-            )
-            .font(.footnote)
-            .foregroundStyle(.tertiary)
+    private var hasActiveFilter: Bool {
+        model.kindFilter != nil || model.selectedBoardID != nil
+    }
+
+    private func clearFilters() {
+        model.kindFilter = nil
+        model.selectBoard(nil)
+    }
+
+    /// Branches on context so it never lies: a search with no hits, a filter
+    /// that excluded everything, or a genuinely empty history (the honest
+    /// no-background-capture explanation). Before the split, "Nothing captured
+    /// yet" showed up mid-search even when there were clips.
+    @ViewBuilder private var emptyState: some View {
+        if !model.query.isEmpty {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                Text("No clips match “\(model.query)”.")
+                    .foregroundStyle(.secondary)
+                if hasActiveFilter {
+                    Button("Clear filters") { clearFilters() }
+                        .font(.footnote)
+                }
+            }
+        } else if hasActiveFilter {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                Text("No clips in this filter.")
+                    .foregroundStyle(.secondary)
+                Button("Clear filters") { clearFilters() }
+                    .font(.footnote)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                Text("Nothing captured yet.")
+                    .foregroundStyle(.secondary)
+                Text(
+                    "iOS apps can't watch the clipboard in the background — no app can. Capture with the button above, the share sheet from any app, or a Shortcut on your Action Button."
+                )
+                .font(.footnote)
+                .foregroundStyle(.tertiary)
+            }
         }
     }
 
@@ -1875,34 +2001,35 @@ struct ClipDetailView: View {
                     }
                 }
                 if canSmartPaste {
-                    Menu {
-                        ForEach(SmartPasteAction.allCases) { action in
-                            if action == .redactPII || model.smartPasteModelAvailable {
-                                Button {
-                                    runSmartPaste(action)
-                                } label: {
-                                    Label(
-                                        LocalizedStringKey(action.titleKey),
-                                        systemImage: action.symbolName)
-                                }
-                            }
-                        }
-                        if model.smartPasteModelAvailable {
-                            Menu {
-                                ForEach(Self.translateLanguageCodes, id: \.self) { code in
-                                    Button(Self.localizedLanguageName(code)) {
-                                        runTranslate(to: Self.englishLanguageName(code))
-                                    }
-                                }
+                    // Smart Paste actions are one tap from the section instead of
+                    // buried in a nested menu; Translate stays a submenu (9
+                    // languages). `accessibilityIdentifier` kept for the tests.
+                    ForEach(SmartPasteAction.allCases) { action in
+                        if action == .redactPII || model.smartPasteModelAvailable {
+                            Button {
+                                runSmartPaste(action)
                             } label: {
-                                Label("Translate to", systemImage: "globe")
+                                Label(
+                                    LocalizedStringKey(action.titleKey),
+                                    systemImage: action.symbolName)
                             }
+                            .disabled(isThinking)
+                            .accessibilityIdentifier("smart-paste-\(action.rawValue)")
                         }
-                    } label: {
-                        Label("Smart paste", systemImage: "sparkles")
                     }
-                    .disabled(isThinking)
-                    .accessibilityIdentifier("smart-paste-menu")
+                    if model.smartPasteModelAvailable {
+                        Menu {
+                            ForEach(Self.translateLanguageCodes, id: \.self) { code in
+                                Button(Self.localizedLanguageName(code)) {
+                                    runTranslate(to: Self.englishLanguageName(code))
+                                }
+                            }
+                        } label: {
+                            Label("Translate to", systemImage: "globe")
+                        }
+                        .disabled(isThinking)
+                        .accessibilityIdentifier("smart-paste-menu")
+                    }
                 }
                 if isThinking {
                     Label("Thinking…", systemImage: "sparkles").foregroundStyle(.secondary)

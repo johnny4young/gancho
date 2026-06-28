@@ -408,6 +408,12 @@ struct LibraryView: View {
                 .overlay(
                     roundedCard.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
 
+            Text(
+                "Type the keyword in the panel to insert this snippet. Add {field} placeholders to fill in before pasting."
+            )
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+
             let fields = SnippetTemplate.fields(in: snippetBody)
             if !fields.isEmpty {
                 fieldStrip(fields)

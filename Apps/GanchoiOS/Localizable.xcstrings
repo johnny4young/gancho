@@ -1811,6 +1811,146 @@
           }
         }
       }
+    },
+    "Clear filters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limpiar filtros"
+          }
+        }
+      }
+    },
+    "No clips in this filter.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay clips en este filtro."
+          }
+        }
+      }
+    },
+    "Everything you copy, saved and searchable": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo lo que copias, guardado y buscable"
+          }
+        }
+      }
+    },
+    "Gancho keeps a private history of what you copy — all on this device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho guarda un historial privado de lo que copias — todo en este dispositivo."
+          }
+        }
+      }
+    },
+    "Three ways to save": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tres formas de guardar"
+          }
+        }
+      }
+    },
+    "Tap to save": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca para guardar"
+          }
+        }
+      }
+    },
+    "iOS can't watch the clipboard in the background — no app can. Use the Paste button to save what you copied.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS no puede vigilar el portapapeles en segundo plano — ninguna app puede. Usa el botón Pegar para guardar lo que copiaste."
+          }
+        }
+      }
+    },
+    "Share from any app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparte desde cualquier app"
+          }
+        }
+      }
+    },
+    "Send text, a link, or an image to Gancho from the share sheet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envía texto, un enlace o una imagen a Gancho desde la hoja de compartir."
+          }
+        }
+      }
+    },
+    "Shortcuts & Action Button": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajos y Botón de Acción"
+          }
+        }
+      }
+    },
+    "Save your clipboard with a Shortcut — even from the Action Button.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda tu portapapeles con un Atajo — incluso desde el Botón de Acción."
+          }
+        }
+      }
+    },
+    "Nothing leaves this device unless you turn on iCloud sync.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada sale de este dispositivo a menos que actives la sincronización con iCloud."
+          }
+        }
+      }
+    },
+    "Welcome to Gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te damos la bienvenida a Gancho"
+          }
+        }
+      }
+    },
+    "Get started": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empezar"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
