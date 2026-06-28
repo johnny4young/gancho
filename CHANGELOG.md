@@ -11,9 +11,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Shortcuts/Siri automation grew: the **Search Clips** intent now takes a
   **type filter** (Any / Text / Link / Code / Color / Image / Secret) and a
-  **maximum results** count, and **Search Clips** + **Copy Last URL** are now
-  offered as Siri/Spotlight app shortcuts (previously only Save Clipboard and
-  Clear Sensitive were).
+  **maximum results** count; a new **Ask Your Clipboard** intent answers a
+  question grounded only in your history (on-device, secrets filtered out); and
+  Search Clips, Copy Last URL, and Ask Your Clipboard are now offered as
+  Siri/Spotlight app shortcuts (previously only Save Clipboard and Clear
+  Sensitive were). The ask retrieval is shared with the in-app feature via a
+  new `ClipboardQA` coordinator — no logic fork.
 - Free taste of on-device AI: the first 25 text clips a free user copies get a
   real AI title (titles only — semantic search and OCR stay Pro). It is now
   surfaced where users can read it — the paywall's free column, the onboarding,

@@ -92,6 +92,32 @@ struct ClearSensitiveIntent: AppIntent {
     }
 }
 
+/// "Ask your clipboard" from Shortcuts: a grounded, on-device answer over your
+/// history. Uses the same `ClipboardQA` coordinator as the app — retrieval and
+/// the sensitive-clip filtering are shared, not forked.
+struct AskClipboardIntent: AppIntent {
+    static let title: LocalizedStringResource = "Ask Your Clipboard"
+    static let description = IntentDescription(
+        "Answers a question grounded only in your clip history, on-device.")
+
+    @Parameter(title: "Question")
+    var question: String
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let store = try IntentStore.open()
+        switch await ClipboardQA().answer(question: question, store: store, useSemantic: true) {
+        case .unavailable:
+            return .result(dialog: "Ask needs Apple Intelligence on this device.")
+        case .noMatch:
+            return .result(dialog: "Nothing in your clipboard matches that.")
+        case .failed:
+            return .result(dialog: "Couldn’t answer that — try again.")
+        case .answered(let text, _):
+            return .result(dialog: "\(text)")
+        }
+    }
+}
+
 /// Clips as entities: Shortcuts can pass them around; Spotlight indexes
 /// them (semantic schema adoption deepens when the SDK-27 APIs stabilize).
 struct ClipEntity: AppEntity, Identifiable {
@@ -155,5 +181,13 @@ struct GanchoShortcuts: AppShortcutsProvider {
             phrases: ["Search clips in \(.applicationName)"],
             shortTitle: "Search Clips",
             systemImageName: "magnifyingglass")
+        AppShortcut(
+            intent: AskClipboardIntent(),
+            phrases: [
+                "Ask \(.applicationName) about my clipboard",
+                "Ask my clipboard in \(.applicationName)",
+            ],
+            shortTitle: "Ask Clipboard",
+            systemImageName: "sparkles")
     }
 }

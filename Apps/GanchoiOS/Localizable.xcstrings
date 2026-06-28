@@ -2071,6 +2071,56 @@
           }
         }
       }
+    },
+    "Ask Your Clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pregúntale a tu portapapeles"
+          }
+        }
+      }
+    },
+    "Answers a question grounded only in your clip history, on-device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Responde una pregunta basándose solo en tu historial de clips, en el dispositivo."
+          }
+        }
+      }
+    },
+    "Ask needs Apple Intelligence on this device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preguntar necesita Apple Intelligence en este dispositivo."
+          }
+        }
+      }
+    },
+    "Question": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pregunta"
+          }
+        }
+      }
+    },
+    "Ask Clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preguntar al portapapeles"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -651,50 +651,28 @@ final class IOSAppModel {
         let sources: [ClipItem]
     }
 
-    private let qaService = ClipboardQAService()
+    var askAvailable: Bool { ClipboardQA.isAvailable }
 
-    var askAvailable: Bool { ClipboardQAService.isAvailable }
-
-    /// Retrieve the most relevant clips (semantic when the embeddings are ready,
-    /// else full-text) and have the on-device model answer grounded ONLY in
-    /// them. Sensitive clips are filtered out before anything reaches the model.
-    /// The question and the clip text never leave the device.
+    /// Ask-your-clipboard, via the shared `ClipboardQA` coordinator (the same one
+    /// the Shortcuts `AskClipboardIntent` uses — retrieval + privacy filtering
+    /// live there, not forked here). This layer only maps the outcome to the
+    /// answer card's copy.
     func askClipboard(_ question: String) async -> ClipboardAnswer? {
-        let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let grdb = store as? GRDBClipboardStore, ClipboardQAService.isAvailable,
-            !trimmed.isEmpty
-        else { return nil }
-
-        var clips: [ClipItem] = []
-        if intelligence.semanticSearch, let embedder = ContextualSentenceEmbedder(),
-            embedder.hasAvailableAssets,
-            let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
+        guard let grdb = store as? GRDBClipboardStore else { return nil }
+        switch await ClipboardQA().answer(
+            question: question, store: grdb, useSemantic: intelligence.semanticSearch)
         {
-            clips = (try? await grdb.semanticSearch(queryVector: vector, topK: 6)) ?? []
-        }
-        if clips.isEmpty {
-            clips = (try? await grdb.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? []
-        }
-        let safe = clips.filter { !$0.isSensitive }
-        guard !safe.isEmpty else {
+        case .unavailable:
+            return nil
+        case .noMatch:
             return ClipboardAnswer(
                 answer: String(localized: "Nothing in your clipboard matches that."), sources: [])
+        case .failed(let safe):
+            return ClipboardAnswer(
+                answer: String(localized: "Couldn’t answer that — try again."), sources: safe)
+        case .answered(let text, let safe):
+            return ClipboardAnswer(answer: text, sources: safe)
         }
-
-        var sources: [String] = []
-        for clip in safe {
-            let body: String
-            if case .text(let text)? = try? await store.content(for: clip.id) {
-                body = text
-            } else {
-                body = clip.preview
-            }
-            sources.append(clip.title.isEmpty ? body : "\(clip.title): \(body)")
-        }
-        let answer = try? await qaService.answer(question: trimmed, sources: sources)
-        return ClipboardAnswer(
-            answer: answer ?? String(localized: "Couldn’t answer that — try again."),
-            sources: safe)
     }
 
     func togglePin(_ item: ClipItem) async {
