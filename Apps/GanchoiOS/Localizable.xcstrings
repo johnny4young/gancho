@@ -2181,6 +2181,16 @@
           }
         }
       }
+    },
+    "Ask a question about your clips first.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primero hazle una pregunta a tus clips."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

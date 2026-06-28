@@ -561,7 +561,10 @@ public final class GRDBClipboardStore: ClipboardStore {
     /// counted depending on the secret's shape).
     public func sensitiveCount() async throws -> Int {
         try await writer.read { db in
-            try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM clip WHERE isSensitive = 1") ?? 0
+            // Exclude archived rows like `search` and the other dashboard
+            // counters do, so "Secrets masked" agrees with the rest of them.
+            try Int.fetchOne(
+                db, sql: "SELECT COUNT(*) FROM clip WHERE isSensitive = 1 AND isArchived = 0") ?? 0
         }
     }
 

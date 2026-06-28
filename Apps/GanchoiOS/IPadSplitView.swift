@@ -58,7 +58,9 @@ struct IPadSplitView: View {
             // longer in the list so the detail pane's empty state is intentional,
             // not a ghost of a filtered-out clip.
             .onChange(of: model.captures) { _, clips in
-                if !clips.contains(where: { $0.id == selectedID }) { selectedID = nil }
+                if let id = selectedID, !clips.contains(where: { $0.id == id }) {
+                    selectedID = nil
+                }
             }
             .searchable(text: $model.query, prompt: Text("Search your clipboard"))
             .onChange(of: model.query) { _, _ in Task { await model.search() } }

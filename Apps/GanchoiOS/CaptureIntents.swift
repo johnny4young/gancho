@@ -104,6 +104,14 @@ struct AskClipboardIntent: AppIntent {
     var question: String
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        // Disambiguate the two reasons answer() returns .unavailable: a blank
+        // question is the user's mistake, not a missing model.
+        guard !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return .result(dialog: "Ask a question about your clips first.")
+        }
+        guard ClipboardQA.isAvailable else {
+            return .result(dialog: "Ask needs Apple Intelligence on this device.")
+        }
         let store = try IntentStore.open()
         switch await ClipboardQA().answer(question: question, store: store, useSemantic: true) {
         case .unavailable:
