@@ -8,6 +8,8 @@
 > *Gancho* means “hook” in Spanish: it is where you hang everything you copy.
 > And when something *tiene gancho*, it hooks you.
 
+**[gancho.app](https://gancho.app)** · [Releases](https://github.com/johnny4young/gancho/releases) · [Changelog](CHANGELOG.md)
+
 **Status: in active development (pre-release).** The capture engine, local
 GRDB/SQLite storage with FTS5 search, the Liquid Glass history panel,
 paste-back, pins and boards, the retention engine, the on-device intelligence
@@ -190,8 +192,9 @@ Release metadata is intentionally boring and synchronized:
 - `.github/workflows/release.yml` gates tagged `v*` releases with
   `make release-check`, lint, tests, macOS build, iOS build, packaging, and
   artifact QA before attaching `dist/Gancho-<version>.zip`.
-- `.github/workflows/pages.yml` deploys the static website from `site/` to
-  `https://johnny4young.github.io/gancho/`.
+- `.github/workflows/pages.yml` deploys the landing from `site/` to Cloudflare
+  Pages (`https://gancho.app`) and keeps the signed Sparkle appcast on GitHub
+  Pages (`https://johnny4young.github.io/gancho/appcast.xml`, the app's feed URL).
 
 See [CHANGELOG.md](CHANGELOG.md) and [docs/RELEASING.md](docs/RELEASING.md) for
 the full release runbook, signing/notarization secrets, and manual QA checklist.
