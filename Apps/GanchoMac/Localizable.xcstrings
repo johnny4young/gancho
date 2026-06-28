@@ -4577,6 +4577,16 @@
           }
         }
       }
+    },
+    "Unlimited history, pins, and boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historial, pines y tableros ilimitados"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

@@ -96,10 +96,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   your history; only the board is removed.
 - The iOS clip detail sheet now has a Done button — previously it could only be
   dismissed by dragging it down, with no visible affordance.
-- The paywall no longer presents iCloud sync as a shipped Pro benefit — it's
-  marked "coming soon", and the Settings Pro note now separates what Pro unlocks
-  today (unlimited history, pins, boards) from what arrives with launch (sync),
-  so nobody upgrades expecting sync that isn't there yet.
+- The paywall and StoreKit test product copy no longer present iCloud sync as a
+  shipped Pro benefit — it's marked "coming soon", and the Settings Pro note
+  now separates what Pro unlocks today (unlimited history, pins, boards) from
+  what arrives with launch (sync), so nobody upgrades expecting sync that isn't
+  there yet.
 - The direct-download paywall no longer dead-ends every license key on "That
   license key could not be activated" when the build ships without a signing
   key — it shows an honest "Pro is coming soon — purchases aren't open in this
