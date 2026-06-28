@@ -21,11 +21,19 @@ struct GanchoiOSApp: App {
     /// explains the save paths before dropping the user on an empty list.
     @AppStorage("ios-has-seen-welcome") private var hasSeenWelcome = false
 
+    /// UI-test hook: route straight to the Privacy Center on launch (no
+    /// welcome, no navigation) so XCUITest can assert the diagnostics log.
+    private var routeToPrivacyCenter: Bool {
+        ProcessInfo.processInfo.arguments.contains("-open-privacy-center-on-launch")
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
-                // iPad gets the sidebar layout; iPhone keeps the stack.
-                if UIDevice.current.userInterfaceIdiom == .pad {
+                if routeToPrivacyCenter {
+                    NavigationStack { IOSPrivacyCenterView() }
+                } else if UIDevice.current.userInterfaceIdiom == .pad {
+                    // iPad gets the sidebar layout; iPhone keeps the stack.
                     IPadSplitView()
                 } else {
                     CaptureView()
@@ -39,7 +47,7 @@ struct GanchoiOSApp: App {
             .ganchoTinted()
             .sheet(
                 isPresented: Binding(
-                    get: { !hasSeenWelcome },
+                    get: { !hasSeenWelcome && !routeToPrivacyCenter },
                     set: { showing in if !showing { hasSeenWelcome = true } })
             ) {
                 IOSOnboardingView { hasSeenWelcome = true }
@@ -260,6 +268,11 @@ final class IOSAppModel {
             #endif
             configureSync()
         }
+        // Log a data-loss-level storage failure eagerly (before any view reads
+        // the diagnostics log), so the Privacy Center shows it the moment it
+        // opens. The log isn't @Observable-tracked, so a later record wouldn't
+        // refresh an open screen.
+        recordStorageHealthIfNeeded()
     }
 
     /// Arms or disarms iCloud sync to match the current tier + account.
@@ -705,6 +718,11 @@ final class IOSAppModel {
     /// Durable store in the App Group container (shared family location);
     /// in-memory fallback keeps the app usable if the container is missing.
     let store: any ClipboardStore = {
+        // Test hook: force the in-memory fallback so the "history isn't being
+        // saved" path (and its diagnostics entry) is drivable by a UI test.
+        if ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store") {
+            return InMemoryClipboardStore()
+        }
         let directory = SharedStorageLocation.storeDirectory(
             appGroupID: SharedInbox.appGroupID)
         return
@@ -1401,7 +1419,6 @@ struct CaptureView: View {
 
     /// Foreground activation: metadata hints + extension inbox, no reads.
     private func activate() async {
-        model.recordStorageHealthIfNeeded()
         model.syncNow()
         await model.refreshHints()
         await model.drainSharedInbox()

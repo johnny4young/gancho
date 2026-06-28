@@ -79,6 +79,13 @@ test-ui: project ## Run the XCUITest smoke suite (drives the real app; signed ru
 	xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
 		-only-testing:GanchoUITests $(TEST_UI_SIGNING_FLAGS)
 
+# Override the simulator with: make test-ui-ios IOS_SIM_DEST='platform=iOS Simulator,name=iPhone 17'
+IOS_SIM_DEST ?= platform=iOS Simulator,name=iPhone 17
+test-ui-ios: project ## Run the iOS XCUITest smoke suite on a simulator
+	xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_IOS) \
+		-only-testing:GanchoiOSUITests \
+		-destination '$(IOS_SIM_DEST)' CODE_SIGNING_ALLOWED=NO
+
 format: ## Format Swift sources in place
 	swift format --in-place --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests
 
