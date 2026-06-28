@@ -78,14 +78,22 @@ struct ReleaseMetadataTests {
         #expect(workflow.contains("dist/Gancho-*.zip"))
     }
 
-    @Test func pagesWorkflowDeploysTheStaticSite() throws {
+    @Test func pagesWorkflowSplitsCloudflareLandingFromAppcast() throws {
         let workflow = try Self.text(".github", "workflows", "pages.yml")
         let index = try Self.text("site", "index.html")
 
+        // The marketing landing deploys to Cloudflare Pages (gancho.app)…
+        #expect(workflow.contains("wrangler@4 pages deploy"))
+        #expect(workflow.contains("--project-name=gancho-web"))
+        // …while GitHub Pages keeps serving ONLY the signed appcast (the
+        // SUFeedURL the installed base polls) plus a redirect stub to the
+        // canonical domain. The artifact path is the appcast staging dir.
         #expect(workflow.contains("actions/configure-pages"))
         #expect(workflow.contains("actions/upload-pages-artifact"))
         #expect(workflow.contains("actions/deploy-pages"))
-        #expect(workflow.contains("path: site"))
+        #expect(workflow.contains("path: _site"))
+        #expect(workflow.contains("appcast.xml"))
+        #expect(workflow.contains("https://gancho.app/"))
         #expect(index.contains("Privacy-first"))
         #expect(index.contains("CHANGELOG.md"))
     }
