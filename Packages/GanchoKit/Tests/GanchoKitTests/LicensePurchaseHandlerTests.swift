@@ -125,4 +125,28 @@ struct LicensePurchaseHandlerTests {
             await UnavailablePurchaseHandler().activateResult(licenseKey: "X") == .notLicensable)
         #expect(await UnavailablePurchaseHandler().activate(licenseKey: "X") == false)
     }
+
+    @Test("A valid key whose token can't be persisted reports .storageUnavailable, not success")
+    func resultStorageUnavailable() async {
+        let handler = LicenseKeyPurchaseHandler(
+            store: FailingLicenseTokenStore(),
+            verifier: LicenseVerifier(publicKey: key.publicKey),
+            activation: service(activated: true), instanceName: "Test Mac")
+        guard case .storageUnavailable = await handler.activateResult(licenseKey: "GOOD-KEY")
+        else {
+            Issue.record("expected .storageUnavailable when the store can't save")
+            return
+        }
+        // The entitlement must not have "taken" — currentTier still reads Free.
+        #expect(await handler.currentTier() == .free)
+    }
+}
+
+/// A store whose Keychain write always fails — exercises the activation path
+/// where the key validates but the signed token can't be persisted.
+private struct FailingLicenseTokenStore: LicenseTokenStore {
+    struct WriteFailed: Error {}
+    func load() -> String? { nil }
+    func save(_ token: String) throws { throw WriteFailed() }
+    func clear() throws {}
 }

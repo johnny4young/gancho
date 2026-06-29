@@ -60,6 +60,11 @@ public enum LicenseActivationResult: Sendable, Equatable {
     case activated
     case invalidKey(reason: String)
     case networkUnavailable(reason: String)
+    /// The key validated, but the signed token couldn't be persisted on this
+    /// device (e.g. a Keychain write failure) — so the entitlement wouldn't
+    /// survive a relaunch. Its own case so the UI never claims Pro while
+    /// `currentTier()` would still read `.free`.
+    case storageUnavailable(reason: String)
     case notLicensable
 }
 

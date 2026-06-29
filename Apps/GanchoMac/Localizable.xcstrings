@@ -4827,6 +4827,16 @@
           }
         }
       }
+    },
+    "Your key is valid, but the license couldn’t be saved on this Mac. Check Keychain access and try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu clave es válida, pero la licencia no se pudo guardar en esta Mac. Revisa el acceso al Llavero e inténtalo de nuevo."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

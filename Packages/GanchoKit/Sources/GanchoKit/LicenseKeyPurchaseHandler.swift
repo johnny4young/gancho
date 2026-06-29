@@ -47,10 +47,23 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
         guard !trimmed.isEmpty else { return .invalidKey(reason: "Empty key") }
         switch await activation.activate(licenseKey: trimmed, instanceName: instanceName) {
         case .activated(let signed):
-            try? store.save(signed)
-            return verifier.verify(signed) != nil
-                ? .activated
-                : .invalidKey(reason: "Signed token failed local verification")
+            // Verify BEFORE persisting — never store a token that doesn't check
+            // out against the embedded public key.
+            guard verifier.verify(signed) != nil else {
+                return .invalidKey(reason: "Signed token failed local verification")
+            }
+            // Persist, then confirm it reads back. A Keychain write can fail; if
+            // it does, the entitlement wouldn't survive a relaunch (currentTier
+            // reads from the store), so report it instead of a false success.
+            do {
+                try store.save(signed)
+            } catch {
+                return .storageUnavailable(reason: error.localizedDescription)
+            }
+            guard let stored = store.load(), verifier.verify(stored) != nil else {
+                return .storageUnavailable(reason: "The license did not persist on this device")
+            }
+            return .activated
         case .rejected(let reason):
             return .invalidKey(reason: reason)
         case .unreachable(let reason):

@@ -144,6 +144,9 @@ struct PaywallView: View {
             case .networkUnavailable:
                 licenseError =
                     "Couldn’t reach the license server. Check your connection and try again."
+            case .storageUnavailable:
+                licenseError =
+                    "Your key is valid, but the license couldn’t be saved on this Mac. Check Keychain access and try again."
             case .notLicensable:
                 licenseError = "Purchases aren’t open in this build yet."
             }
