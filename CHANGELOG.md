@@ -7,6 +7,41 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-06-28
+
+### Added
+
+- An **Undo window** for deleting a clip (macOS): the clip disappears at once,
+  but the destructive removal — and the iCloud tombstone that propagates it to
+  your other devices — only commits after a few seconds, with a "Deleted · Undo"
+  toast. A mis-tap never loses history, and pins, boards, and timestamps all
+  survive an Undo intact.
+- A **Gancho Pro screen on iPhone/iPad** (Settings → Gancho Pro): it shows what
+  Pro unlocks, whether you're on the free or Pro plan, and a Restore Purchase
+  button — and it now opens automatically when you reach a free-tier limit,
+  instead of a note that vanished with no way forward.
+- **VoiceOver announcements** for action confirmations across the Mac app, the
+  iPhone app, and the keyboard: copy, paste, save, pin, delete, and "Synced"
+  are now spoken aloud, not just shown.
+
+### Changed
+
+- The Mac panel's sync indicator now reads **"Synced · &lt;time&gt; ago"** with a
+  live relative timestamp, so a finished sync reads as current rather than stale.
+- Activating a Pro license on the Mac now explains **exactly why** a key didn't
+  take — a wrong or used-up key, no network, or a save failure — instead of one
+  generic message, and a successful activation shows a "Welcome to Pro" moment.
+- Count labels are grammatically correct in English and Spanish now ("1 clip",
+  not "1 clips").
+
+### Fixed
+
+- A valid Pro license that couldn't be saved to the Keychain no longer shows a
+  false "Welcome to Pro": activation confirms the license actually persisted
+  before unlocking, and reports a clear error otherwise (direct-download Mac).
+- Deleting your most-recent clip no longer leaves the menu-bar "Last copied"
+  preview pointing at the clip you just removed.
+
 ## [0.3.1] - 2026-06-28
 
 ### Added
