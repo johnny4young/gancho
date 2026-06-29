@@ -2361,6 +2361,126 @@
           }
         }
       }
+    },
+    "Gancho Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho Pro"
+          }
+        }
+      }
+    },
+    "You’re on Gancho Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tienes Gancho Pro"
+          }
+        }
+      }
+    },
+    "You’re on the free plan": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estás en el plan gratis"
+          }
+        }
+      }
+    },
+    "What Pro unlocks": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qué desbloquea Pro"
+          }
+        }
+      }
+    },
+    "See Gancho Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver Gancho Pro"
+          }
+        }
+      }
+    },
+    "Restore purchase": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar compra"
+          }
+        }
+      }
+    },
+    "Gancho Pro is a one-time purchase, available at gancho.app. Free stays free, forever.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho Pro es una compra única, disponible en gancho.app. Lo gratis sigue gratis, para siempre."
+          }
+        }
+      }
+    },
+    "No purchase to restore on this Apple ID. Pro is sold at gancho.app.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay compras que restaurar en este Apple ID. Pro se vende en gancho.app."
+          }
+        }
+      }
+    },
+    "Unlimited history, pins, and boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historial, pines y tableros ilimitados"
+          }
+        }
+      }
+    },
+    "On-device AI titles and search": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Títulos y búsqueda con IA en el dispositivo"
+          }
+        }
+      }
+    },
+    "iCloud sync (coming soon)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronización con iCloud (próximamente)"
+          }
+        }
+      }
+    },
+    "Pro restored — enjoy.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro restaurado. ¡Disfrútalo!"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

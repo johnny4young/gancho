@@ -39,14 +39,37 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
         return .pro
     }
 
-    public func activate(licenseKey: String) async -> Bool {
+    /// Validates the key online once, stores the signed token, and reports the
+    /// distinguishable outcome so the UI can guide the user. `activate(_:)` (the
+    /// Bool convenience) is derived from this by the protocol default.
+    public func activateResult(licenseKey: String) async -> LicenseActivationResult {
         let trimmed = licenseKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        guard
-            case .activated(let signed) = await activation.activate(
-                licenseKey: trimmed, instanceName: instanceName)
-        else { return false }
-        try? store.save(signed)
-        return verifier.verify(signed) != nil
+        guard !trimmed.isEmpty else { return .invalidKey(reason: "Empty key") }
+        switch await activation.activate(licenseKey: trimmed, instanceName: instanceName) {
+        case .activated(let signed):
+            // Verify BEFORE persisting — never store a token that doesn't check
+            // out against the embedded public key.
+            guard verifier.verify(signed) != nil else {
+                return .invalidKey(reason: "Signed token failed local verification")
+            }
+            // Persist, then confirm it reads back. A Keychain write can fail; if
+            // it does, the entitlement wouldn't survive a relaunch (currentTier
+            // reads from the store), so report it instead of a false success.
+            do {
+                try store.save(signed)
+            } catch {
+                return .storageUnavailable(reason: error.localizedDescription)
+            }
+            guard let stored = store.load(), verifier.verify(stored) != nil else {
+                return .storageUnavailable(reason: "The license did not persist on this device")
+            }
+            return .activated
+        case .rejected(let reason):
+            return .invalidKey(reason: reason)
+        case .unreachable(let reason):
+            return .networkUnavailable(reason: reason)
+        case .notLicensable:
+            return .notLicensable
+        }
     }
 }

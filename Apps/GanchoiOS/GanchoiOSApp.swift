@@ -242,7 +242,12 @@ final class IOSAppModel {
     private var syncEngine: any SyncEngine = NoopSyncEngine()
     private var syncEnabled = false
     private(set) var syncStatus: SyncStatus = .idle
-    private var tier: UserTier = .free
+    /// The entitlement tier — readable so the Pro screen can show "free vs Pro"
+    /// state, set only here from the purchase handler / debug toggle.
+    private(set) var tier: UserTier = .free
+    /// Bumped whenever a free-tier limit is hit, so the main screen can surface
+    /// the Pro screen instead of letting a transient note dead-end the user.
+    var proGateTick = 0
     private let purchases = StoreKitPurchaseHandler()
 
     /// Per-device on-device intelligence toggles (the iOS Intelligence screen).
@@ -317,6 +322,18 @@ final class IOSAppModel {
         } else {
             syncStatus = .idle
         }
+    }
+
+    /// Restores a prior Pro purchase (Universal Purchase on this Apple ID) and
+    /// reconciles the tier + sync. Returns whether Pro is now active, so the Pro
+    /// screen can confirm or explain "nothing to restore". A no-op for keys —
+    /// the direct-download license lives on the Mac, not on this Apple ID.
+    @discardableResult
+    func restorePro() async -> Bool {
+        let restored = (try? await purchases.restorePurchases()) ?? false
+        tier = await purchases.currentTier()
+        configureSync()
+        return restored
     }
 
     #if DEBUG
@@ -440,7 +457,8 @@ final class IOSAppModel {
         Task {
             let count = (try? await grdb.pinboards().filter { !$0.isSystem }.count) ?? 0
             guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro) else {
-                flashNote(String(localized: "Upgrade to Pro for more boards"))
+                // Don't dead-end on a vanishing note: surface the Pro screen.
+                proGateTick += 1
                 return
             }
             if let board = try? await grdb.createPinboard(name: trimmed) {
@@ -936,6 +954,7 @@ enum CaptureSheet: Identifiable {
     case boards
     case peek(ClipItem)
     case move(ClipItem)
+    case pro
 
     var id: String {
         switch self {
@@ -943,6 +962,7 @@ enum CaptureSheet: Identifiable {
         case .boards: "boards"
         case .peek(let clip): "peek-\(clip.id)"
         case .move(let clip): "move-\(clip.id)"
+        case .pro: "pro"
         }
     }
 }
@@ -1049,7 +1069,23 @@ struct CaptureView: View {
                                 }
                         }
                     case .move(let clip): MoveToBoardSheet(item: clip)
+                    case .pro:
+                        // Wrapped like the peek: a titled bar + explicit Done,
+                        // since drag-to-dismiss isn't discoverable.
+                        NavigationStack {
+                            ProInfoView()
+                                .toolbar {
+                                    ToolbarItem(placement: .confirmationAction) {
+                                        Button("Done") { activeSheet = nil }
+                                    }
+                                }
+                        }
                     }
+                }
+                .onChange(of: model.proGateTick) { _, _ in
+                    // A free-tier limit was hit somewhere — show the Pro screen
+                    // rather than letting a vanishing note dead-end the user.
+                    activeSheet = .pro
                 }
                 .alert("New board", isPresented: $showNewBoard) {
                     TextField("Board name", text: $newBoardName)
@@ -2245,6 +2281,83 @@ struct ClipDetailView: View {
 }
 
 /// iOS settings: honest capture explainer + the Shortcuts gallery link.
+/// The honest Pro screen for iOS — what Pro unlocks, the current free/Pro
+/// state, and a real next step (restore a Universal Purchase, or learn where to
+/// buy), so a free-tier limit no longer dead-ends on a note that vanishes.
+/// Reachable from Settings and surfaced automatically when a limit is hit.
+struct ProInfoView: View {
+    @Environment(IOSAppModel.self) private var model
+    @State private var restoring = false
+    @State private var restoreNote: String?
+    private let copy = PaywallCopy.standard
+
+    var body: some View {
+        List {
+            Section {
+                HStack(spacing: GanchoTokens.Spacing.sm) {
+                    Image(
+                        systemName: model.tier == .pro ? "checkmark.seal.fill" : "seal"
+                    )
+                    .foregroundStyle(
+                        model.tier == .pro ? GanchoTokens.Palette.success : Color.secondary)
+                    Text(
+                        model.tier == .pro
+                            ? "You’re on Gancho Pro" : "You’re on the free plan"
+                    )
+                    .font(.headline)
+                }
+            }
+            Section("What Pro unlocks") {
+                ForEach(copy.proPoints, id: \.self) { point in
+                    Label(LocalizedStringKey(point), systemImage: "checkmark")
+                        .font(.callout)
+                }
+            }
+            if model.tier != .pro {
+                Section {
+                    Link(destination: URL(string: "https://gancho.app/#pricing")!) {
+                        Label("See Gancho Pro", systemImage: "cart")
+                    }
+                    .accessibilityIdentifier("see-pro")
+                    Button {
+                        Task { await restore() }
+                    } label: {
+                        if restoring {
+                            ProgressView()
+                        } else {
+                            Label("Restore purchase", systemImage: "arrow.clockwise")
+                        }
+                    }
+                    .disabled(restoring)
+                    .accessibilityIdentifier("restore-purchase")
+                    if let restoreNote {
+                        Text(LocalizedStringKey(restoreNote))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } footer: {
+                    Text(
+                        "Gancho Pro is a one-time purchase, available at gancho.app. Free stays free, forever."
+                    )
+                }
+            }
+        }
+        .navigationTitle("Gancho Pro")
+        .accessibilityIdentifier("pro-info")
+    }
+
+    private func restore() async {
+        restoring = true
+        restoreNote = nil
+        let ok = await model.restorePro()
+        restoring = false
+        restoreNote =
+            ok
+            ? "Pro restored — enjoy."
+            : "No purchase to restore on this Apple ID. Pro is sold at gancho.app."
+    }
+}
+
 struct IOSSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(IOSAppModel.self) private var model
@@ -2257,6 +2370,12 @@ struct IOSSettingsView: View {
         NavigationStack {
             List {
                 Section {
+                    NavigationLink {
+                        ProInfoView()
+                    } label: {
+                        Label("Gancho Pro", systemImage: "star")
+                    }
+                    .accessibilityIdentifier("open-pro")
                     NavigationLink {
                         IOSIntelligenceView()
                     } label: {

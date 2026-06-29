@@ -74,4 +74,79 @@ struct LicensePurchaseHandlerTests {
             store: InMemoryLicenseTokenStore(token: foreign), activated: true)
         #expect(await handler.currentTier() == .free)
     }
+
+    // MARK: - Distinguishable activation results (drives the paywall's guidance)
+
+    @Test("activateResult reports .activated for a good key")
+    func resultActivated() async {
+        let handler = handler(store: InMemoryLicenseTokenStore(), activated: true)
+        #expect(await handler.activateResult(licenseKey: "GOOD-KEY") == .activated)
+    }
+
+    @Test("A key Lemon Squeezy rejects reports .invalidKey, not a network error")
+    func resultInvalidKey() async {
+        let handler = handler(store: InMemoryLicenseTokenStore(), activated: false)
+        guard case .invalidKey = await handler.activateResult(licenseKey: "BAD-KEY") else {
+            Issue.record("expected .invalidKey")
+            return
+        }
+    }
+
+    @Test("An empty key reports .invalidKey without ever calling out")
+    func resultEmptyKey() async {
+        let handler = handler(store: InMemoryLicenseTokenStore(), activated: true)
+        guard case .invalidKey = await handler.activateResult(licenseKey: "   ") else {
+            Issue.record("expected .invalidKey for an empty key")
+            return
+        }
+    }
+
+    @Test("A server that can't be reached reports .networkUnavailable")
+    func resultNetworkUnavailable() async {
+        let transport: LemonSqueezyValidator.Transport = { _ in
+            throw URLError(.notConnectedToInternet)
+        }
+        let handler = LicenseKeyPurchaseHandler(
+            store: InMemoryLicenseTokenStore(),
+            verifier: LicenseVerifier(publicKey: key.publicKey),
+            activation: LicenseActivationService(
+                validator: LemonSqueezyValidator(transport: transport), signingKey: key),
+            instanceName: "Test Mac")
+        guard case .networkUnavailable = await handler.activateResult(licenseKey: "GOOD-KEY")
+        else {
+            Issue.record("expected .networkUnavailable")
+            return
+        }
+    }
+
+    @Test("A handler that can't license keys reports .notLicensable")
+    func defaultReportsNotLicensable() async {
+        #expect(
+            await UnavailablePurchaseHandler().activateResult(licenseKey: "X") == .notLicensable)
+        #expect(await UnavailablePurchaseHandler().activate(licenseKey: "X") == false)
+    }
+
+    @Test("A valid key whose token can't be persisted reports .storageUnavailable, not success")
+    func resultStorageUnavailable() async {
+        let handler = LicenseKeyPurchaseHandler(
+            store: FailingLicenseTokenStore(),
+            verifier: LicenseVerifier(publicKey: key.publicKey),
+            activation: service(activated: true), instanceName: "Test Mac")
+        guard case .storageUnavailable = await handler.activateResult(licenseKey: "GOOD-KEY")
+        else {
+            Issue.record("expected .storageUnavailable when the store can't save")
+            return
+        }
+        // The entitlement must not have "taken" — currentTier still reads Free.
+        #expect(await handler.currentTier() == .free)
+    }
+}
+
+/// A store whose Keychain write always fails — exercises the activation path
+/// where the key validates but the signed token can't be persisted.
+private struct FailingLicenseTokenStore: LicenseTokenStore {
+    struct WriteFailed: Error {}
+    func load() -> String? { nil }
+    func save(_ token: String) throws { throw WriteFailed() }
+    func clear() throws {}
 }
