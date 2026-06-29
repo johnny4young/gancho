@@ -56,6 +56,7 @@ private struct ToastView: View {
                     onDismiss()
                 }
                 .buttonStyle(.borderless)
+                .accessibilityIdentifier("toast-action")
                 .foregroundStyle(GanchoTokens.Palette.accent)
             }
         }
