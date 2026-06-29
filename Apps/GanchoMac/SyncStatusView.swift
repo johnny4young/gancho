@@ -37,7 +37,14 @@ struct SyncStatusView: View {
         switch status {
         case .idle: Text(verbatim: "")
         case .syncing: Text("Syncing…")
-        case .upToDate: Text("Synced")
+        // Show recency so "Synced" reads as live, not stale — the relative time
+        // updates itself. Falls back to a bare "Synced" when no timestamp is known.
+        case .upToDate(let at):
+            if let at {
+                Text("\(Text("Synced")) · \(Text(at, style: .relative))")
+            } else {
+                Text("Synced")
+            }
         case .pending(let count): Text("\(Text("Waiting to sync")) · \(String(count))")
         case .paused(let cause), .failed(let cause): Text(Self.causeText(cause))
         }
