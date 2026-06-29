@@ -68,6 +68,11 @@
   .nav-links a { padding: 7px 12px; border-radius: var(--radius-sm); font-size: var(--text-title); font-weight: var(--weight-medium); color: var(--text-secondary); transition: background var(--dur-fast), color var(--dur-fast); }
   .nav-links a:hover { color: var(--text-primary); background: var(--surface-selection); }
   .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  /* On desktop the menu wrapper is transparent: links + controls sit straight in
+   * the nav row. On mobile it becomes a dropdown the burger opens. */
+  .nav-menu { display: contents; }
+  .nav-burger { display: none; margin-left: auto; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border-radius: var(--radius-sm); border: 1px solid var(--hairline); background: var(--surface-card); color: var(--text-primary); cursor: pointer; box-shadow: var(--shadow-card); }
+  .nav-burger .burger-close { display: none; }
 
   /* segmented controls (theme + lang) */
   .seg { display: inline-flex; background: var(--surface-selection); border-radius: var(--radius-pill); padding: 3px; gap: 2px; }
@@ -310,17 +315,17 @@
 
   /* ---- Intelligence feature-detail cards ---- */
   .intel-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 18px; }
-  .ic-card { background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-card); }
-  .ic-card .top { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+  .ic-card { background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-card); min-width: 0; }
+  .ic-card .top { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; flex-wrap: wrap; }
   .ic-card .ic { width: 36px; height: 36px; border-radius: 10px; flex: none; display: flex; align-items: center; justify-content: center; }
-  .ic-card .top .t { font-size: var(--text-headline); font-weight: var(--weight-semibold); flex: 1; }
+  .ic-card .top .t { font-size: var(--text-headline); font-weight: var(--weight-semibold); flex: 1; min-width: 0; }
   .ic-card .tier { font-size: var(--text-caption); font-weight: var(--weight-semibold); letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-tertiary); background: var(--surface-selection); padding: 3px 9px; border-radius: var(--radius-pill); }
   .ic-card .tier.on { color: var(--green-600); background: color-mix(in srgb,var(--accent) 12%,transparent); }
   .ic-card p { margin: 0; font-size: var(--text-title); color: var(--text-secondary); }
   .ba { margin-top: 13px; border-radius: var(--radius-md); border: 1px solid var(--hairline); background: var(--surface-app); padding: 11px 12px; display: flex; flex-direction: column; gap: 8px; }
-  .ba .line { display: flex; align-items: center; gap: 10px; font-size: var(--text-footnote); }
+  .ba .line { display: flex; align-items: center; gap: 10px; font-size: var(--text-footnote); min-width: 0; }
   .ba .tag { font-size: 10px; font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-tertiary); width: 52px; flex: none; }
-  .ba .raw { font-family: var(--font-mono); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ba .raw { font-family: var(--font-mono); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
   .ba .good { font-weight: var(--weight-semibold); color: var(--text-primary); }
   .ba .arrow { color: var(--accent); flex: none; }
   .ba .chiprow { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -330,7 +335,20 @@
 
   /* ---- responsive ---- */
   @media (max-width: 1040px) {
-    .nav-links { display: none; }
+    .nav-inner { position: relative; }
+    .nav-burger { display: inline-flex; }
+    .nav-inner.open .nav-burger .burger-open { display: none; }
+    .nav-inner.open .nav-burger .burger-close { display: block; }
+    .nav-menu { display: none; position: absolute; top: calc(100% + 9px); left: 0; right: 0;
+      flex-direction: column; align-items: stretch; gap: 7px; padding: 12px;
+      background: color-mix(in srgb, var(--surface-card) 96%, transparent); border: 1px solid var(--hairline); border-radius: var(--radius-lg);
+      backdrop-filter: blur(var(--glass-blur)) saturate(180%); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+      box-shadow: var(--shadow-pop); }
+    .nav-inner.open .nav-menu { display: flex; }
+    .nav-menu .nav-links { display: flex; flex-direction: column; align-items: stretch; gap: 1px; margin: 0; }
+    .nav-menu .nav-links a { padding: 11px 12px; font-size: var(--text-headline); border-radius: var(--radius-sm); }
+    .nav-menu .nav-right { margin: 7px 0 0; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
+    .nav-menu .nav-right .btn { flex: 1; justify-content: center; min-width: 130px; }
   }
   @media (max-width: 900px) {
     .hero-grid { grid-template-columns: 1fr; gap: 36px; }
@@ -362,6 +380,11 @@
       <svg class="mark" viewBox="0 0 96 96" fill="none" aria-hidden="true"><circle cx="50" cy="24" r="8" stroke="currentColor" stroke-width="7"/><path d="M50 32 L50 57 A15 15 0 1 1 35 57 L31.5 47.5" stroke="currentColor" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/></svg>
       gancho
     </a>
+    <button class="nav-burger" aria-label="Menú" aria-expanded="false">
+      <svg class="i burger-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="i burger-close" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="nav-menu">
     <nav class="nav-links">
       <a href="#privacy" data-i18n="nav.privacy">Privacidad</a>
       <a href="#features" data-i18n="nav.features">Funciones</a>
@@ -381,6 +404,7 @@
         <button data-lang-val="en">EN</button>
       </div>
       <a class="btn btn-accent btn-sm" href="https://github.com/johnny4young/gancho/releases/latest" data-i18n="nav.download">Descargar</a>
+    </div>
     </div>
   </div>
 </header>
@@ -1047,6 +1071,15 @@
 
   document.getElementById("seg-theme").addEventListener("click", e => { const b = e.target.closest("button"); if (b) applyTheme(b.dataset.themeVal); });
   document.getElementById("seg-lang").addEventListener("click", e => { const b = e.target.closest("button"); if (b) applyLang(b.dataset.langVal); });
+
+  /* ---------- mobile nav (burger) ---------- */
+  const navInner = document.querySelector(".nav-inner");
+  const burger = document.querySelector(".nav-burger");
+  function setNav(open) { navInner.classList.toggle("open", open); burger.setAttribute("aria-expanded", String(open)); }
+  burger.addEventListener("click", () => setNav(!navInner.classList.contains("open")));
+  document.querySelectorAll(".nav-menu .nav-links a").forEach(a => a.addEventListener("click", () => setNav(false)));
+  // tapping outside the open menu closes it
+  document.addEventListener("click", e => { if (navInner.classList.contains("open") && !navInner.contains(e.target)) setNav(false); });
 
   let t = "auto", l = "es";
   try { t = localStorage.getItem(LS_THEME) || "auto"; l = localStorage.getItem(LS_LANG) || "es"; } catch (e) {}
