@@ -713,6 +713,10 @@ final class AppModel {
     func delete(_ item: ClipItem) {
         pendingDeletionIDs.insert(item.id)
         recentItems.removeAll { $0.id == item.id }
+        // The deleted clip may have been the most-recent one — re-publish so the
+        // menu-bar helper's "Last copied" preview doesn't point at it until the
+        // next refresh.
+        publishLastCopied()
         deletionTasks[item.id]?.cancel()
         deletionTasks[item.id] = Task { [weak self] in
             try? await Task.sleep(for: .seconds(6))
@@ -735,14 +739,22 @@ final class AppModel {
     }
 
     private func commitDeletion(_ item: ClipItem) async {
+        // A late Undo may have reclaimed the clip right at the window boundary —
+        // only commit if it's still pending.
+        guard pendingDeletionIDs.contains(item.id) else { return }
         deletionTasks[item.id] = nil
-        pendingDeletionIDs.remove(item.id)
         if syncEnabled, let grdbStore {
             _ = try? await grdbStore.deleteForSync(id: item.id)
             await sync.enqueueDeletion(ids: [item.id])
         } else {
             _ = try? await store.delete(id: item.id)
         }
+        // Clear the hold and reconcile from the store of record only AFTER the
+        // delete lands: a refresh mid-commit can't flash the clip back (it stays
+        // filtered until now), and a failed delete honestly reappears — the list
+        // and "Last copied" are both re-derived from what's actually stored.
+        pendingDeletionIDs.remove(item.id)
+        await refreshRecents()
     }
 
     func togglePause() {
