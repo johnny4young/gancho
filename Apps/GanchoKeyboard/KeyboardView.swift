@@ -29,11 +29,15 @@ struct KeyboardView: View {
         VStack(spacing: 8) {
             controlBar
             if let note = model.note {
-                Label(note, systemImage: "checkmark.circle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.tint)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .transition(.opacity)
+                Label {
+                    Text(note)
+                } icon: {
+                    Image(systemName: "checkmark.circle.fill")
+                }
+                .font(.caption2)
+                .foregroundStyle(.tint)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .transition(.opacity)
             }
             if model.expanded {
                 if !model.boards.isEmpty { boardRow }

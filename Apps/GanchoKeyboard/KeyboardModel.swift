@@ -19,7 +19,8 @@ final class KeyboardModel: ObservableObject {
     /// Open expanded by default: the searchable card list (with the board strip)
     /// is the useful view; the user can collapse to the one-row strip.
     @Published var expanded = true
-    @Published var note: LocalizedStringKey?
+    // A resource (not a bare key) so flashNote can also speak it to VoiceOver.
+    @Published var note: LocalizedStringResource?
     @Published private(set) var saving = false
     /// Board filter (a higher axis than search). nil = all clips; otherwise the
     /// selected board, including the always-present Favorites. Synced boards
@@ -250,8 +251,9 @@ final class KeyboardModel: ObservableObject {
 
     /// Shows a transient note and auto-clears it (cancelling any prior timer so
     /// rapid taps don't leave a stale message).
-    private func flashNote(_ key: LocalizedStringKey) {
+    private func flashNote(_ key: LocalizedStringResource) {
         note = key
+        UIAccessibility.post(notification: .announcement, argument: String(localized: key))
         noteTask?.cancel()
         noteTask = Task {
             try? await Task.sleep(for: .seconds(2))
@@ -259,7 +261,7 @@ final class KeyboardModel: ObservableObject {
         }
     }
 
-    private static func message(for outcome: SharedCapture.Outcome) -> LocalizedStringKey {
+    private static func message(for outcome: SharedCapture.Outcome) -> LocalizedStringResource {
         switch outcome {
         case .savedText, .savedImage: "Saved to Gancho"
         case .empty: "The clipboard is empty"
