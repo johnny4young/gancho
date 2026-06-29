@@ -36,22 +36,41 @@ struct LocalizationTests {
         }
     }
 
+    /// The es string unit(s) for a key: either a single `stringUnit`, or every
+    /// category of a `variations.plural` (so pluralized keys validate too).
+    static func esUnits(_ value: [String: Any]) -> [(state: String?, value: String)] {
+        guard let es = (value["localizations"] as? [String: Any])?["es"] as? [String: Any] else {
+            return []  // No es localization at all → let the emptiness be the failure.
+        }
+        if let unit = es["stringUnit"] as? [String: Any] {
+            return [(unit["state"] as? String, unit["value"] as? String ?? "")]
+        }
+        if let plural = (es["variations"] as? [String: Any])?["plural"] as? [String: Any] {
+            return plural.values
+                .compactMap { ($0 as? [String: Any])?["stringUnit"] as? [String: Any] }
+                .map { ($0["state"] as? String, $0["value"] as? String ?? "") }
+        }
+        // No es localization, or one with neither a stringUnit nor plural
+        // variations: return empty so `#expect(!units.isEmpty, "…no es value")`
+        // is the real guard, instead of a sentinel that silently passes it.
+        return []
+    }
+
     @Test("Every key carries a translated Spanish value")
     func everyKeyHasSpanish() throws {
         for catalog in try Self.loadCatalogs() {
             #expect(!catalog.strings.isEmpty, "\(catalog.path) must not be empty")
             for (key, value) in catalog.strings {
-                let unit =
-                    ((value["localizations"] as? [String: Any])?["es"] as? [String: Any])?[
-                        "stringUnit"] as? [String: Any]
-                let state = unit?["state"] as? String
-                let esValue = (unit?["value"] as? String) ?? ""
-                #expect(
-                    state == "translated",
-                    "\(catalog.path): '\(key)' is missing a translated es value")
-                #expect(
-                    esValue.isEmpty == false,
-                    "\(catalog.path): '\(key)' has an empty es value")
+                let units = Self.esUnits(value)
+                #expect(!units.isEmpty, "\(catalog.path): '\(key)' has no es value")
+                for unit in units {
+                    #expect(
+                        unit.state == "translated",
+                        "\(catalog.path): '\(key)' is missing a translated es value")
+                    #expect(
+                        unit.value.isEmpty == false,
+                        "\(catalog.path): '\(key)' has an empty es value")
+                }
             }
         }
     }
@@ -60,12 +79,11 @@ struct LocalizationTests {
     func placeholdersAligned() throws {
         for catalog in try Self.loadCatalogs() {
             for (key, value) in catalog.strings {
-                let es =
-                    (((value["localizations"] as? [String: Any])?["es"] as? [String: Any])?[
-                        "stringUnit"] as? [String: Any])?["value"] as? String ?? ""
-                #expect(
-                    Self.placeholders(in: key) == Self.placeholders(in: es),
-                    "\(catalog.path): placeholder mismatch in '\(key)' → '\(es)'")
+                for unit in Self.esUnits(value) {
+                    #expect(
+                        Self.placeholders(in: key) == Self.placeholders(in: unit.value),
+                        "\(catalog.path): placeholder mismatch in '\(key)' → '\(unit.value)'")
+                }
             }
         }
     }

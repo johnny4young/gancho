@@ -792,6 +792,9 @@ final class IOSAppModel {
 
     private func flashNote(_ text: String) {
         saveNote = text
+        // The note is a transient overlay VoiceOver won't focus on its own; speak
+        // it so a blind user gets the same confirmation a sighted one sees.
+        UIAccessibility.post(notification: .announcement, argument: text)
         Task {
             try? await Task.sleep(for: .seconds(2))
             saveNote = nil

@@ -27,7 +27,9 @@ struct GanchoToast {
         }
     }
 
-    let message: LocalizedStringKey
+    // A resource (not a bare LocalizedStringKey) so the presenter can resolve the
+    // localized string to a VoiceOver announcement, not just render it.
+    let message: LocalizedStringResource
     var style: Style = .success
     /// Optional one-tap follow-up (e.g. "Enable" → open Accessibility).
     var action: ToastAction?
@@ -91,6 +93,17 @@ final class ToastPresenter {
         panel.contentView = host
         positionTopCenter(panel, size: size)
         panel.orderFrontRegardless()
+
+        // The toast lives in a non-activating panel VoiceOver never focuses, so a
+        // blind user would otherwise get no confirmation that the action happened.
+        // Speak it explicitly.
+        NSAccessibility.post(
+            element: NSApp as Any,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: String(localized: toast.message),
+                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+            ])
 
         dismissTask?.cancel()
         dismissTask = Task { [weak self] in
