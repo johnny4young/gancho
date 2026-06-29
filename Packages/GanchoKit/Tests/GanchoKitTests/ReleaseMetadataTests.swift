@@ -102,7 +102,7 @@ struct ReleaseMetadataTests {
         // Pages; the appcast is published by the Release workflow (above).
         #expect(workflow.contains("wrangler@4 pages deploy"))
         #expect(workflow.contains("--project-name=gancho-web"))
-        #expect(index.contains("Privacy-first"))
+        #expect(index.contains("private by design"))
         #expect(index.contains("CHANGELOG.md"))
     }
 

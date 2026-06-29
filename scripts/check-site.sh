@@ -14,9 +14,12 @@ fail() {
 [ -f site/styles.css ] || fail "site/styles.css is missing"
 [ -f site/assets/gancho-mark.svg ] || fail "site/assets/gancho-mark.svg is missing"
 
-grep -q '<html lang="en">' site/index.html || fail "site/index.html must declare lang=\"en\""
-grep -q '<title>Gancho' site/index.html || fail "site/index.html must set a Gancho title"
-grep -q 'Privacy-first' site/index.html || fail "site/index.html must carry the privacy-first product position"
+# The site is bilingual (ES default + EN toggle); it declares a lang and the
+# data-lang marker that drives the in-page switcher.
+grep -qE '<html lang="(es|en)"' site/index.html || fail "site/index.html must declare a lang"
+grep -q 'data-lang=' site/index.html || fail "site/index.html must carry the bilingual data-lang marker"
+grep -qi '<title>gancho' site/index.html || fail "site/index.html must set a gancho title"
+grep -qi 'private by design' site/index.html || fail "site/index.html must carry the privacy-first product position"
 grep -q 'CHANGELOG.md' site/index.html || fail "site/index.html must link release notes/changelog"
 # The Sparkle appcast (site/appcast.xml) declares the Sparkle XML namespace,
 # whose URI is http://www.andymatuschak.org/xml-namespaces/sparkle — an XML
