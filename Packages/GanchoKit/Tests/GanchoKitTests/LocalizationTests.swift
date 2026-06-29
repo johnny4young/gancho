@@ -40,7 +40,7 @@ struct LocalizationTests {
     /// category of a `variations.plural` (so pluralized keys validate too).
     static func esUnits(_ value: [String: Any]) -> [(state: String?, value: String)] {
         guard let es = (value["localizations"] as? [String: Any])?["es"] as? [String: Any] else {
-            return [(nil, "")]
+            return []  // No es localization at all → let the emptiness be the failure.
         }
         if let unit = es["stringUnit"] as? [String: Any] {
             return [(unit["state"] as? String, unit["value"] as? String ?? "")]
@@ -50,7 +50,10 @@ struct LocalizationTests {
                 .compactMap { ($0 as? [String: Any])?["stringUnit"] as? [String: Any] }
                 .map { ($0["state"] as? String, $0["value"] as? String ?? "") }
         }
-        return [(nil, "")]
+        // No es localization, or one with neither a stringUnit nor plural
+        // variations: return empty so `#expect(!units.isEmpty, "…no es value")`
+        // is the real guard, instead of a sentinel that silently passes it.
+        return []
     }
 
     @Test("Every key carries a translated Spanish value")
