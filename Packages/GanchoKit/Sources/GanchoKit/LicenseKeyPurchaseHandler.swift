@@ -39,14 +39,24 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
         return .pro
     }
 
-    public func activate(licenseKey: String) async -> Bool {
+    /// Validates the key online once, stores the signed token, and reports the
+    /// distinguishable outcome so the UI can guide the user. `activate(_:)` (the
+    /// Bool convenience) is derived from this by the protocol default.
+    public func activateResult(licenseKey: String) async -> LicenseActivationResult {
         let trimmed = licenseKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        guard
-            case .activated(let signed) = await activation.activate(
-                licenseKey: trimmed, instanceName: instanceName)
-        else { return false }
-        try? store.save(signed)
-        return verifier.verify(signed) != nil
+        guard !trimmed.isEmpty else { return .invalidKey(reason: "Empty key") }
+        switch await activation.activate(licenseKey: trimmed, instanceName: instanceName) {
+        case .activated(let signed):
+            try? store.save(signed)
+            return verifier.verify(signed) != nil
+                ? .activated
+                : .invalidKey(reason: "Signed token failed local verification")
+        case .rejected(let reason):
+            return .invalidKey(reason: reason)
+        case .unreachable(let reason):
+            return .networkUnavailable(reason: reason)
+        case .notLicensable:
+            return .notLicensable
+        }
     }
 }

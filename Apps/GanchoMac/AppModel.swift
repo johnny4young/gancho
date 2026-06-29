@@ -890,13 +890,15 @@ final class AppModel {
         Task { _ = try? await purchases.restorePurchases() }
     }
 
-    /// Activates a direct-download Lemon Squeezy license key. Returns whether it
-    /// unlocked Pro; the App Store build's handler ignores it. The tier is
-    /// reconciled from the verified token either way.
-    func activateLicense(_ licenseKey: String) async -> Bool {
-        let unlocked = await purchases.activate(licenseKey: licenseKey)
+    /// Activates a direct-download Lemon Squeezy license key. Reports the
+    /// distinguishable outcome (activated / wrong key / no network / not
+    /// licensable) so the paywall can guide the user instead of dead-ending
+    /// every failure on one message. The tier is reconciled from the verified
+    /// token either way.
+    func activateLicense(_ licenseKey: String) async -> LicenseActivationResult {
+        let result = await purchases.activateResult(licenseKey: licenseKey)
         applyTier(await purchases.currentTier())
-        return unlocked
+        return result
     }
 
     @MainActor

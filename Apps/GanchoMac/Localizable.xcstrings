@@ -4757,6 +4757,76 @@
           }
         }
       }
+    },
+    "Welcome to Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bienvenido a Pro"
+          }
+        }
+      }
+    },
+    "Everything is unlocked. Thanks for backing gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo está desbloqueado. Gracias por apoyar a gancho."
+          }
+        }
+      }
+    },
+    "Welcome to Pro. Everything is unlocked.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bienvenido a Pro. Todo está desbloqueado."
+          }
+        }
+      }
+    },
+    "That key isn’t valid, or it’s already been used up. Double-check the key from your purchase email.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esa clave no es válida o ya se agotó. Revisa la clave del correo de tu compra."
+          }
+        }
+      }
+    },
+    "Couldn’t reach the license server. Check your connection and try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo conectar con el servidor de licencias. Revisa tu conexión e inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Purchases aren’t open in this build yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las compras aún no están disponibles en esta versión."
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
