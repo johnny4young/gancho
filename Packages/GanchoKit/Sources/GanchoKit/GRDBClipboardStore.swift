@@ -628,8 +628,19 @@ public final class GRDBClipboardStore: ClipboardStore {
     /// Versioned JSON export: full metadata + text content; binary payloads
     /// referenced by content hash (the blobs directory travels alongside).
     public func exportJSON() async throws -> Data {
-        let rows = try await writer.read { db in
+        try await exportJSON(excludeSensitive: false)
+    }
+
+    /// As ``exportJSON()``, optionally dropping detector-flagged sensitive
+    /// clips — an export must not turn a short-expiry secret into permanent
+    /// plaintext unless the caller explicitly opts in. (The zero-argument
+    /// form keeps the `ClipboardStore` protocol contract unchanged.)
+    public func exportJSON(excludeSensitive: Bool) async throws -> Data {
+        var rows = try await writer.read { db in
             try ClipRow.order(Column("createdAt").asc).fetchAll(db)
+        }
+        if excludeSensitive {
+            rows.removeAll(where: \.isSensitive)
         }
         let payload = ExportDocument(version: 1, exportedAt: .now, clips: rows)
         let encoder = JSONEncoder()
@@ -640,8 +651,17 @@ public final class GRDBClipboardStore: ClipboardStore {
 
     /// RFC-4180 CSV: metadata + text content (binaries listed by reference).
     public func exportCSV() async throws -> Data {
-        let rows = try await writer.read { db in
+        try await exportCSV(excludeSensitive: false)
+    }
+
+    /// As ``exportCSV()``, optionally dropping detector-flagged sensitive
+    /// clips (see ``exportJSON(excludeSensitive:)``).
+    public func exportCSV(excludeSensitive: Bool) async throws -> Data {
+        var rows = try await writer.read { db in
             try ClipRow.order(Column("createdAt").asc).fetchAll(db)
+        }
+        if excludeSensitive {
+            rows.removeAll(where: \.isSensitive)
         }
         let formatter = ISO8601DateFormatter()
         var csv =
@@ -659,6 +679,15 @@ public final class GRDBClipboardStore: ClipboardStore {
     }
 
     private static func csvEscape(_ field: String) -> String {
+        // Formula-injection guard (OWASP CSV injection): clipboard text is
+        // attacker-influenced by nature, and a field starting with = + - @
+        // (or a leading tab/CR) executes as a formula when the CSV is opened
+        // in Excel/Numbers/Sheets. Neutralize with a leading apostrophe —
+        // spreadsheets then render the field as literal text.
+        var field = field
+        if let first = field.first, "=+-@\t\r".contains(first) {
+            field = "'" + field
+        }
         guard field.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else {
             return field
         }

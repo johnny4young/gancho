@@ -13,7 +13,7 @@ import GanchoMCP
 ///   gancho search <query> [--limit N] [--mode exact|fuzzy|regex] [--json]
 ///   gancho copy <clip-id>
 ///   gancho save [--title <t>] [--language <id>] [--content-base64 <b64>]
-///   gancho export [--csv] [--out <path>]
+///   gancho export [--csv] [--include-sensitive] [--out <path>]
 ///   gancho mcp                      # run the stdio MCP server
 ///   gancho status | enable [--scope metadata|boards|all] | disable
 ///
@@ -156,7 +156,14 @@ struct GanchoCLI {
     private static func runExport(_ args: [String]) async throws {
         let options = Options(args)
         let store = try openStore()
-        let data = options.flag("csv") ? try await store.exportCSV() : try await store.exportJSON()
+        // Sensitive clips are excluded unless explicitly opted in: an export
+        // must not defeat the secret detector's short-expiry protection by
+        // default. `--include-sensitive` restores the full dump.
+        let excludeSensitive = !options.flag("include-sensitive")
+        let data =
+            options.flag("csv")
+            ? try await store.exportCSV(excludeSensitive: excludeSensitive)
+            : try await store.exportJSON(excludeSensitive: excludeSensitive)
         if let path = options.value("out") {
             try data.write(to: URL(fileURLWithPath: path))
             print("Exported \(ByteSize.formatted(data.count)) to \(path).")
@@ -262,14 +269,15 @@ struct GanchoCLI {
               gancho search <query> [--limit N] [--mode exact|fuzzy|regex] [--json]
               gancho copy <clip-id>
               gancho save [--title <t>] [--language <id>] [--content-base64 <b64>]
-              gancho export [--csv] [--out <path>]
+              gancho export [--csv] [--include-sensitive] [--out <path>]
               gancho mcp
               gancho status
               gancho enable [--scope metadata|boards|all]
               gancho disable
 
-            The MCP server (gancho mcp) is opt-in and OFF by default; enable it
-            from Gancho → Settings or with `gancho enable`.
+            Exports skip detector-flagged sensitive clips unless you pass
+            --include-sensitive. The MCP server (gancho mcp) is opt-in and OFF
+            by default; enable it from Gancho → Settings or with `gancho enable`.
             """)
     }
 }
