@@ -32,6 +32,41 @@ struct SensitiveDataDetectorTests {
         // Slack
         ("xoxb-123456789012-abcdefghijklmnop", .slackToken),
         ("xoxp-2-123456789012-abcdefghijklmnop", .slackToken),
+        // Slack incoming webhook (the URL IS the credential). The host literal
+        // is split so this synthetic fixture is not a contiguous webhook URL in
+        // the source — GitHub push-protection flags the shape even when the
+        // token is fake; the concatenated runtime value still exercises the
+        // detector regex.
+        (
+            "https://hooks.slack." + "com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+            .slackWebhookURL
+        ),
+        // Google API key (fixed AIza prefix + 35 chars), bare and embedded
+        ("AIzaSyDaGmWKa4JsXZ-HjGw7ISLn-3namBGewQe", .googleAPIKey),
+        ("curl 'https://maps.example/api?key=AIzaSyDaGmWKa4JsXZ-HjGw7ISLn-3namBGewQe'", .googleAPIKey),
+        // GCP service-account JSON (file shape, even without the PEM block)
+        ("{\"type\": \"service_account\", \"project_id\": \"demo-project\"}", .gcpServiceAccount),
+        // OpenAI-style keys (sk- with hyphens — distinct from Stripe's sk_)
+        ("sk-proj-abc123DEF456ghi789JKL012mno345PQR678", .openAIKey),
+        ("OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz123456", .openAIKey),
+        // npm automation token
+        ("npm_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789", .npmToken),
+        // Azure connection strings (AccountKey / SharedAccessKey values)
+        (
+            "DefaultEndpointsProtocol=https;AccountName=acct;"
+                + "AccountKey=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP0123456789+/==;"
+                + "EndpointSuffix=core.windows.net",
+            .azureConnectionString
+        ),
+        (
+            "Endpoint=sb://demo.servicebus.windows.net/;SharedAccessKeyName=root;"
+                + "SharedAccessKey=AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+AbCdEf=",
+            .azureConnectionString
+        ),
+        // Authorization headers / bearer credentials
+        ("Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.payload.signature", .authorizationHeader),
+        ("curl -H 'Authorization: Basic dXNlcjpwYXNzd29yZA=='", .authorizationHeader),
+        ("Bearer AbCdEfGhIjKlMnOpQrStUvWx123456", .authorizationHeader),
         // PEM private keys (all header variants)
         ("-----BEGIN PRIVATE KEY-----\nMIIEvg==\n-----END PRIVATE KEY-----", .pemPrivateKey),
         (
@@ -44,6 +79,11 @@ struct SensitiveDataDetectorTests {
             .pemPrivateKey
         ),
         ("-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIC2w==", .pemPrivateKey),
+        // PGP private-key block (not a PEM header variant)
+        (
+            "-----BEGIN PGP PRIVATE KEY BLOCK-----\nlQdGBGXk\n-----END PGP PRIVATE KEY BLOCK-----",
+            .pgpPrivateKey
+        ),
         // Passwords by context
         ("password: hunter2-is-bad", .probablePassword),
         ("PASSWORD=Sup3r$ecret!", .probablePassword),
@@ -73,6 +113,11 @@ struct SensitiveDataDetectorTests {
         "lowercaseonlytoken",  // one char class
         "SHORT#a1",  // too short for the shape route
         "9400 1118 9922 3857 2418 99",  // USPS tracking, not a card (no Luhn)
+        "the bearer of this letter deserves respect",  // prose "bearer", no token
+        "npm_install failed with exit code 1",  // npm_ prefix, not a 36-char token
+        "sk-learn is my favorite python package",  // sk- prefix, token too short
+        "-----BEGIN PGP PUBLIC KEY BLOCK-----\nmQENBGXk",  // public block is public
+        "https://hooks.slack.com/services/about",  // webhook docs URL, no T/B/token path
     ]
 
     @Test("Everyday clips stay clean", arguments: Self.cleanInputs)
