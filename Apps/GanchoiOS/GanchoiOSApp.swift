@@ -68,7 +68,9 @@ struct GanchoiOSApp: App {
             case .active:
                 DatabaseSuspension.resume()
                 // With the store resumed, run the retention/tier pass the Mac
-                // does on a timer — iOS gets it on every return to foreground.
+                // does on a timer — iOS gets it on return to foreground,
+                // throttled inside runMaintenance() so frequent app switches
+                // don't repeat the full purge + blob sweep.
                 Task { await model.runMaintenance() }
             default: break
             }
@@ -406,11 +408,25 @@ final class IOSAppModel {
     /// refresh the visible list. Mirrors the Mac's timer-driven pass — iOS has
     /// no retention-policy UI yet, so the policy loads its defaults until a
     /// settings surface exists.
+    ///
+    /// Throttled: foregrounding is frequent but the purge + tier pass (with
+    /// its orphan-blob directory sweep) is not launch-critical, so it runs at
+    /// most once per interval. The timestamp persists in UserDefaults so a
+    /// relaunch doesn't reset the clock.
+    private static let maintenanceInterval: TimeInterval = 10 * 60
+    private static let lastMaintenanceKey = "ios-last-maintenance-at"
+
     func runMaintenance() async {
         guard let grdb = store as? GRDBClipboardStore else { return }
+        if let last = defaults.object(forKey: Self.lastMaintenanceKey) as? Date,
+            Date().timeIntervalSince(last) < Self.maintenanceInterval
+        {
+            return
+        }
         let policy = RetentionPolicy.load(from: defaults)
         _ = try? await RetentionEngine(store: grdb).runPurge(policy: policy)
         _ = try? await TierEnforcement(store: grdb).enforce(tier: tier)
+        defaults.set(Date(), forKey: Self.lastMaintenanceKey)
         await search()
     }
 

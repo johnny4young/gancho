@@ -232,6 +232,17 @@ struct GanchoCLI {
         printErr(
             "gancho mcp: ready (access \(config.isEnabled ? "ON, scope \(config.scope.rawValue)" : "OFF")).\n"
         )
+        // Elevated exposure is made loud, not gated: the config file is
+        // plaintext, so any local process could have raised the scope.
+        if config.isEnabled, config.isElevated {
+            let exposure =
+                config.scope == .all
+                ? "the full content of ALL non-sensitive clips"
+                : "the full content of pinned/board clips"
+            printErr(
+                "gancho mcp: ⚠ scope=\(config.scope.rawValue) exposes \(exposure) to any "
+                    + "connected client. Run `gancho enable --scope metadata` to restrict.\n")
+        }
         await MCPStdioTransport(server: server).run()
     }
 

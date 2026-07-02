@@ -65,6 +65,12 @@ public struct MCPServerConfig: Sendable, Equatable, Codable {
         self.scope = scope
     }
 
+    /// True when the scope exposes clip CONTENT (`boards` or `all`) rather
+    /// than metadata-only previews. This file is plaintext, so any local
+    /// process can raise the scope — callers surface elevation prominently
+    /// (the CLI flags it on server start) instead of gating on it.
+    public var isElevated: Bool { scope != .metadata }
+
     public static let fileName = "mcp-config.json"
 
     /// Loads the config from a store directory; OFF/metadata when the file is

@@ -16,13 +16,22 @@
         private(set) var readSawMainThread: Bool?
         /// Simulates the pasteboard-privacy "Ask" stall.
         var readDelay: TimeInterval = 0
+        /// When set, `currentTypes()` returns this from the SECOND call on —
+        /// simulates a fast A→B swap landing between the poll-time veto and
+        /// the detached read's re-check (the TOCTOU window).
+        var typesOnRecheck: Set<String>?
+        private var typeCalls = 0
 
         func currentChangeCount() -> Int {
             lock.withLock { changeCount }
         }
 
         func currentTypes() -> Set<String> {
-            lock.withLock { types }
+            lock.withLock {
+                typeCalls += 1
+                if typeCalls > 1, let swapped = typesOnRecheck { return swapped }
+                return types
+            }
         }
 
         func readPayload() -> PasteboardCapture.Payload? {
@@ -136,6 +145,26 @@
 
             #expect(captures.isEmpty)
             #expect(pasteboard.readCalls == 0, "veto must run before the read")
+        }
+
+        @Test("A sensitive type swapped in after the poll-time veto still blocks the read")
+        func sensitiveVetoRecheckedAtReadTime() async {
+            let pasteboard = FakePasteboard()
+            let monitor = makeMonitor(pasteboard: pasteboard)
+            var captures: [PasteboardCapture] = []
+            monitor.onCapture = { captures.append($0) }
+
+            // Clean types at poll time; a concealed marker by the time the
+            // detached read re-checks — a fast A→B swap in the TOCTOU window.
+            pasteboard.write(.text("swapped-in secret"), types: ["public.utf8-plain-text"])
+            pasteboard.typesOnRecheck = [
+                "public.utf8-plain-text", SensitivePasteboardTypes.concealed,
+            ]
+            monitor.pollOnce()
+            try? await Task.sleep(for: .milliseconds(100))
+
+            #expect(captures.isEmpty)
+            #expect(pasteboard.readCalls == 0, "the re-check must run before the payload read")
         }
 
         @Test("Our own self-write marker is never re-captured")
