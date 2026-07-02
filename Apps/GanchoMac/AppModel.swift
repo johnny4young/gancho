@@ -986,6 +986,10 @@ final class AppModel {
                 }
             }
             _ = try? await grdbStore.setPinned(id: item.id, !item.isPinned)
+            // setPinned flagged the row for upload; enqueue pushes it now
+            // instead of at the next sync start(). The engine builds the
+            // record from the stored row, so only the id matters here.
+            await sync.enqueue([item])
             toasts.show(GanchoToast(message: item.isPinned ? "Unpinned" : "Pinned"))
             await refreshRecents()
         }
@@ -1244,6 +1248,15 @@ final class AppModel {
         let tier = tier
         Task {
             _ = try? await RetentionEngine(store: grdbStore).runPurge(policy: policy)
+            // The purge tombstoned any synced victims; enqueue those deletions
+            // now so they propagate immediately rather than at the next sync
+            // start(). Re-adding an already-pending deletion is a no-op in the
+            // engine, so sweeping the whole tombstone table is safe.
+            if syncEnabled {
+                let recordIDs = (try? await grdbStore.pendingDeletionRecordIDs()) ?? []
+                let ids = recordIDs.compactMap { UUID(uuidString: $0) }
+                if !ids.isEmpty { await sync.enqueueDeletion(ids: ids) }
+            }
             _ = try? await TierEnforcement(store: grdbStore).enforce(tier: tier)
             await refreshRecents()
         }

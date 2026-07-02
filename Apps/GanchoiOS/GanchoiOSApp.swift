@@ -425,6 +425,15 @@ final class IOSAppModel {
         }
         let policy = RetentionPolicy.load(from: defaults)
         _ = try? await RetentionEngine(store: grdb).runPurge(policy: policy)
+        // The purge tombstoned any synced victims; enqueue those deletions now
+        // so they propagate immediately rather than at the next sync start().
+        // Re-adding an already-pending deletion is a no-op in the engine, so
+        // sweeping the whole tombstone table is safe.
+        if syncEnabled {
+            let recordIDs = (try? await grdb.pendingDeletionRecordIDs()) ?? []
+            let ids = recordIDs.compactMap { UUID(uuidString: $0) }
+            if !ids.isEmpty { await syncEngine.enqueueDeletion(ids: ids) }
+        }
         _ = try? await TierEnforcement(store: grdb).enforce(tier: tier)
         defaults.set(Date(), forKey: Self.lastMaintenanceKey)
         await search()
@@ -757,6 +766,10 @@ final class IOSAppModel {
     func togglePin(_ item: ClipItem) async {
         guard let grdb = store as? GRDBClipboardStore else { return }
         try? await grdb.setPinned(id: item.id, !item.isPinned)
+        // setPinned flagged the row for upload; enqueue pushes it now instead
+        // of at the next sync start(). The engine builds the record from the
+        // stored row, so only the id matters here.
+        await syncEngine.enqueue([item])
         await search()
     }
 
