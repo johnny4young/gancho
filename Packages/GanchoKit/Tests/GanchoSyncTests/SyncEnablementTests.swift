@@ -62,8 +62,8 @@ private struct StubSyncLocalStore: SyncLocalStore {
     func applyRemoteUpsert(
         _ item: ClipItem, content: ClipContent?, systemFields: Data
     )
-        async throws
-    {}
+        async throws -> Bool
+    { true }
     func applyRemoteDeletion(recordID: String) async throws {}
     func clearTombstone(recordID: String) async throws {}
     func forgetAllSyncFields() async throws {}

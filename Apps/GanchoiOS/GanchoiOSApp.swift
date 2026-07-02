@@ -65,7 +65,11 @@ struct GanchoiOSApp: App {
             // process (avoids 0xDEAD10CC), and resume on return to foreground.
             switch phase {
             case .background: DatabaseSuspension.suspend()
-            case .active: DatabaseSuspension.resume()
+            case .active:
+                DatabaseSuspension.resume()
+                // With the store resumed, run the retention/tier pass the Mac
+                // does on a timer — iOS gets it on every return to foreground.
+                Task { await model.runMaintenance() }
             default: break
             }
         }
@@ -395,6 +399,19 @@ final class IOSAppModel {
         guard syncEnabled else { return }
         let engine = syncEngine
         Task { try? await engine.start() }
+    }
+
+    /// Foreground maintenance: purge expired history (the "auto-expires after
+    /// 10 minutes" promise for secrets) and apply free-tier ceilings, then
+    /// refresh the visible list. Mirrors the Mac's timer-driven pass — iOS has
+    /// no retention-policy UI yet, so the policy loads its defaults until a
+    /// settings surface exists.
+    func runMaintenance() async {
+        guard let grdb = store as? GRDBClipboardStore else { return }
+        let policy = RetentionPolicy.load(from: defaults)
+        _ = try? await RetentionEngine(store: grdb).runPurge(policy: policy)
+        _ = try? await TierEnforcement(store: grdb).enforce(tier: tier)
+        await search()
     }
 
     /// Resolves a `gancho://clip/<id>` widget link: make sure the clip is in

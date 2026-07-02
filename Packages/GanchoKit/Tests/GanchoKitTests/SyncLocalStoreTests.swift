@@ -53,19 +53,26 @@ struct SyncLocalStoreTests {
             updatedAt: base, preview: "local", contentHash: "h", isPinned: false)
         try await store.insert(local, content: .text("local"))
 
-        // Older remote → ignored, but its system fields are recorded.
+        // Older remote → ignored, but its system fields are recorded. The
+        // returned Bool tells the sync adapter to skip follow-up state from
+        // the record too (board membership).
         let older = ClipItem(
             id: local.id, updatedAt: base.addingTimeInterval(-60), preview: "older remote",
             contentHash: "h")
-        try await store.applyRemoteUpsert(older, content: .text("older"), systemFields: Data([7]))
+        let olderApplied = try await store.applyRemoteUpsert(
+            older, content: .text("older"), systemFields: Data([7]))
+        #expect(!olderApplied, "a stale remote must report it was skipped")
         #expect(try await store.items().first?.preview == "local")
+        #expect(try await store.content(for: local.id) == .text("local"))
         #expect(try await store.systemFields(for: local.id) == Data([7]))
 
         // Newer remote → wins.
         let newer = ClipItem(
             id: local.id, updatedAt: base.addingTimeInterval(60), preview: "newer remote",
             contentHash: "h")
-        try await store.applyRemoteUpsert(newer, content: .text("newer"), systemFields: Data([8]))
+        let newerApplied = try await store.applyRemoteUpsert(
+            newer, content: .text("newer"), systemFields: Data([8]))
+        #expect(newerApplied)
         #expect(try await store.items().first?.preview == "newer remote")
         #expect(try await store.content(for: local.id) == .text("newer"))
     }
@@ -146,5 +153,175 @@ struct SyncLocalStoreTests {
         #expect(try await store.pendingUploads().count == 2)
         #expect(try await store.systemFields(for: a.id) == nil)
         #expect(try await store.systemFields(for: b.id) == nil)
+    }
+
+    @Test("A remote-winning upsert never touches local-only curation columns")
+    func remoteUpsertPreservesLocalOnlyColumns() async throws {
+        let store = try makeStore()
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let local = ClipItem(updatedAt: base, preview: "local", contentHash: "h")
+        try await store.insert(local, content: .text("local"))
+
+        // Curate locally: snippet + keyword + uses + archived — none of which
+        // the sync record can carry, so a remote edit must leave them alone.
+        try await store.promoteToSnippet(id: local.id, title: "My snippet")
+        try await store.setKeyword(id: local.id, keyword: "sig")
+        try await store.incrementUses(id: local.id)
+        try await store.writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET isArchived = 1 WHERE id = ?",
+                arguments: [local.id.uuidString])
+        }
+
+        // A newer remote edit of the same clip (e.g. it was pinned on the phone).
+        let remote = ClipItem(
+            id: local.id, updatedAt: Date().addingTimeInterval(600), title: "Remote title",
+            preview: "remote", contentHash: "h", isPinned: true)
+        let applied = try await store.applyRemoteUpsert(
+            remote, content: .text("remote"), systemFields: Data([1]))
+        #expect(applied)
+
+        let row = try await store.writer.read { db in
+            try ClipRow.filter(key: local.id.uuidString).fetchOne(db)
+        }
+        let merged = try #require(row)
+        // Local-only curation survives …
+        #expect(merged.isSnippet, "a remote edit must never demote a snippet")
+        #expect(merged.isArchived)
+        #expect(merged.keyword == "sig")
+        #expect(merged.uses == 1)
+        // … while the synced fields took the remote's values.
+        #expect(merged.title == "Remote title")
+        #expect(merged.preview == "remote")
+        #expect(merged.isPinned)
+        #expect(merged.contentText == "remote")
+    }
+
+    @Test("Remote content: nil leaves local content untouched; binary keeps OCR text")
+    func remoteUpsertContentSemantics() async throws {
+        let store = try makeStore()
+        let base = Date(timeIntervalSince1970: 1_000_000)
+
+        // nil content (e.g. an asset over the size cap) never blanks content.
+        let textClip = ClipItem(updatedAt: base, preview: "text", contentHash: "ht")
+        try await store.insert(textClip, content: .text("the body"))
+        let metadataOnly = ClipItem(
+            id: textClip.id, updatedAt: base.addingTimeInterval(60), preview: "edited",
+            contentHash: "ht")
+        let applied = try await store.applyRemoteUpsert(
+            metadataOnly, content: nil, systemFields: Data([1]))
+        #expect(applied)
+        #expect(try await store.content(for: textClip.id) == .text("the body"))
+        #expect(try await store.items().first?.preview == "edited")
+
+        // A binary payload replaces the blob but keeps contentText — for image
+        // clips that column holds locally attached OCR text, which never syncs.
+        let imageClip = ClipItem(
+            updatedAt: base, kind: .image, preview: "Image", contentHash: "hi")
+        try await store.insert(
+            imageClip, content: .binary(data: Data([1, 2]), typeIdentifier: "public.png"))
+        try await store.attachExtractedText(id: imageClip.id, text: "receipt total 42")
+        let remoteImage = ClipItem(
+            id: imageClip.id, updatedAt: Date().addingTimeInterval(600), kind: .image,
+            preview: "Image", contentHash: "hi")
+        #expect(
+            try await store.applyRemoteUpsert(
+                remoteImage, content: .binary(data: Data([3, 4]), typeIdentifier: "public.png"),
+                systemFields: Data([2])))
+        let row = try await store.writer.read { db in
+            try ClipRow.filter(key: imageClip.id.uuidString).fetchOne(db)
+        }
+        let imageRow = try #require(row)
+        #expect(imageRow.contentText == "receipt total 42")
+        #expect(
+            try await store.content(for: imageClip.id)
+                == .binary(data: Data([3, 4]), typeIdentifier: "public.png"))
+    }
+
+    @Test("Pin toggles re-flag a synced clip for upload and bump updatedAt")
+    func pinToggleReflagsForUpload() async throws {
+        let store = try makeStore()
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let item = ClipItem(updatedAt: base, preview: "pin me", contentHash: "h")
+        try await store.insert(item, content: .text("pin me"))
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))
+        #expect(try await store.pendingUploads().isEmpty)
+
+        try await store.setPinned(id: item.id, true)
+
+        let pending = try await store.pendingUploads()
+        #expect(pending.map(\.item.id) == [item.id])
+        let updated = try #require(pending.first?.item)
+        #expect(updated.isPinned)
+        #expect(updated.updatedAt > base, "LWW needs the pin toggle to look newer")
+    }
+
+    @Test("A pre-change remote copy cannot revert a fresh local board assignment")
+    func staleRemoteLosesToFreshBoardAssignment() async throws {
+        let store = try makeStore()
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let item = ClipItem(updatedAt: base, preview: "boarded", contentHash: "h")
+        try await store.insert(item, content: .text("boarded"))
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))
+
+        // Local: add the clip to a board. The assignment bumps updatedAt, so
+        // the not-yet-uploaded change outranks the server's pre-add copy.
+        let board = try await store.createPinboard(name: "Work")
+        try await store.assign(clipID: item.id, toBoard: board.id)
+
+        // A fetch delivers the record as the server last saw it (updatedAt =
+        // base, no boards). It must lose LWW: the adapter then skips
+        // setBoardMembership, and the pending upload must survive.
+        let stale = ClipItem(
+            id: item.id, updatedAt: base, preview: "boarded", contentHash: "h")
+        let applied = try await store.applyRemoteUpsert(
+            stale, content: .text("boarded"), systemFields: Data([2]))
+        #expect(!applied, "the stale remote must lose so membership is not reverted")
+        #expect(try await store.boardIDs(forClip: item.id) == [board.id])
+        #expect(
+            try await store.pendingUploads().map(\.item.id) == [item.id],
+            "the assignment still uploads — the stale fetch must not de-queue it")
+    }
+
+    @Test("A locally tombstoned record is not resurrected by a remote upsert")
+    func tombstoneBlocksResurrection() async throws {
+        let store = try makeStore()
+        let item = ClipItem(preview: "deleted here", contentHash: "h")
+        try await store.insert(item, content: .text("deleted here"))
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))
+        try await store.deleteForSync(id: item.id)
+        #expect(try await store.pendingDeletionRecordIDs() == [item.id.uuidString])
+
+        // A concurrent remote edit arrives after the local delete.
+        let remote = ClipItem(
+            id: item.id, updatedAt: Date().addingTimeInterval(600), preview: "remote edit",
+            contentHash: "h")
+        let applied = try await store.applyRemoteUpsert(
+            remote, content: .text("remote edit"), systemFields: Data([2]))
+        #expect(!applied)
+        #expect(try await store.count() == 0, "the local deletion wins")
+        #expect(
+            try await store.pendingDeletionRecordIDs() == [item.id.uuidString],
+            "the pending deletion still propagates")
+    }
+
+    @Test("Panic delete tombstones synced secrets only")
+    func deleteAllSensitiveTombstonesSyncedRows() async throws {
+        let store = try makeStore()
+        let synced = ClipItem(preview: "synced secret", contentHash: "hs", isSensitive: true)
+        let unsynced = ClipItem(preview: "local secret", contentHash: "hu", isSensitive: true)
+        let plain = ClipItem(preview: "plain", contentHash: "hp")
+        try await store.insert(synced, content: .text("synced secret"))
+        try await store.insert(unsynced, content: .text("local secret"))
+        try await store.insert(plain, content: .text("plain"))
+        try await store.markUploaded(id: synced.id, systemFields: Data([1]))
+
+        let removed = try await store.deleteAllSensitive()
+
+        #expect(removed == 2)
+        #expect(try await store.count() == 1)
+        #expect(
+            try await store.pendingDeletionRecordIDs() == [synced.id.uuidString],
+            "only the synced secret has a cloud record to delete")
     }
 }
