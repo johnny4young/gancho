@@ -295,6 +295,22 @@ struct GRDBClipboardStoreTests {
         #expect(full.contains("ghp_notARealTokenJustAShapeForTesting01"))
     }
 
+    @Test("Raw-key adoption is env-gated (GANCHO_RAWKEY_ADOPT=1) and OFF by default")
+    func rawKeyAdoptionFlag() {
+        // `encrypted(directory:keychainAccessGroup:)` branches on exactly this
+        // gate; only the literal "1" opts in (rollout: `.audit/06` §5).
+        #expect(!GRDBClipboardStore.rawKeyAdoptionEnabled(environment: [:]))
+        #expect(
+            !GRDBClipboardStore.rawKeyAdoptionEnabled(
+                environment: ["GANCHO_RAWKEY_ADOPT": "0"]))
+        #expect(
+            !GRDBClipboardStore.rawKeyAdoptionEnabled(
+                environment: ["GANCHO_RAWKEY_ADOPT": "true"]))
+        #expect(
+            GRDBClipboardStore.rawKeyAdoptionEnabled(
+                environment: ["GANCHO_RAWKEY_ADOPT": "1"]))
+    }
+
     @Test("v16 creates the hot-query indexes")
     func hotQueryIndexes() async throws {
         let (store, dir) = try makeStore()
