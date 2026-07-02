@@ -14,12 +14,14 @@ import GanchoMCP
 ///   gancho copy <clip-id>
 ///   gancho save [--title <t>] [--language <id>] [--content-base64 <b64>]
 ///   gancho export [--csv] [--include-sensitive] [--out <path>]
+///   gancho boards [--json]
+///   gancho pin <clip-id> | unpin <clip-id>
 ///   gancho mcp                      # run the stdio MCP server
 ///   gancho status | enable [--scope metadata|boards|all] | disable
 ///
-/// `search`/`copy`/`save`/`export` are the user's own actions and are not
-/// logged; the `mcp` server (which serves automated agents) logs every access
-/// to the Privacy Center.
+/// `search`/`copy`/`save`/`export`/`boards`/`pin` are the user's own actions
+/// and are not logged; the `mcp` server (which serves automated agents) logs
+/// every access to the Privacy Center.
 @main
 struct GanchoCLI {
     static func main() async {
@@ -36,6 +38,9 @@ struct GanchoCLI {
             case "copy": try await runCopy(args)
             case "save": try await runSave(args)
             case "export": try await runExport(args)
+            case "boards": try await runBoards(args)
+            case "pin": try await runSetPinned(args, pinned: true)
+            case "unpin": try await runSetPinned(args, pinned: false)
             case "mcp": await runMCP()
             case "status": try await runStatus()
             case "enable": try runEnable(args)
@@ -172,6 +177,47 @@ struct GanchoCLI {
         }
     }
 
+    /// Lists the user's boards (id, symbol, name), tab-separated like
+    /// `search`, or as JSON with `--json` — enough for shell scripts to pick
+    /// a board id without opening the app.
+    private static func runBoards(_ args: [String]) async throws {
+        let options = Options(args)
+        let store = try openStore()
+        let boards = try await store.pinboards()
+        if options.flag("json") {
+            let payload = boards.map(CLIBoard.init)
+            printData(try encodePretty(payload))
+        } else if boards.isEmpty {
+            print("No boards yet.")
+        } else {
+            for board in boards {
+                print("\(board.id.uuidString)\t\(board.sfSymbol)\t\(board.name)")
+            }
+        }
+    }
+
+    /// `gancho pin` / `gancho unpin`. Sensitive clips are refused outright —
+    /// pinning would exempt a detector-flagged secret from the short-expiry
+    /// retention that protects it, so the CLI mirrors the MCP veto.
+    private static func runSetPinned(_ args: [String], pinned: Bool) async throws {
+        let verb = pinned ? "pin" : "unpin"
+        guard let raw = args.first, let id = UUID(uuidString: raw) else {
+            printErr("usage: gancho \(verb) <clip-id>\n")
+            exit(2)
+        }
+        let store = try openStore()
+        guard let item = try await store.item(id: id) else {
+            printErr("No clip with id \(raw).\n")
+            exit(1)
+        }
+        if item.isSensitive {
+            printErr("Clip \(raw) is sensitive; the CLI does not \(verb) sensitive clips.\n")
+            exit(1)
+        }
+        try await store.setPinned(id: id, pinned)
+        print("\(pinned ? "Pinned" : "Unpinned") clip \(raw).")
+    }
+
     private static func runMCP() async {
         let directory = storeDirectory()
         let config = MCPServerConfig.load(fromStoreDirectory: directory)
@@ -270,6 +316,9 @@ struct GanchoCLI {
               gancho copy <clip-id>
               gancho save [--title <t>] [--language <id>] [--content-base64 <b64>]
               gancho export [--csv] [--include-sensitive] [--out <path>]
+              gancho boards [--json]
+              gancho pin <clip-id>
+              gancho unpin <clip-id>
               gancho mcp
               gancho status
               gancho enable [--scope metadata|boards|all]
@@ -298,6 +347,19 @@ private struct CLIClip: Encodable {
         preview = item.preview
         isPinned = item.isPinned
         createdAt = item.createdAt
+    }
+}
+
+/// Wire shape for `gancho boards --json` (the human format is tab-separated).
+private struct CLIBoard: Encodable {
+    let id: String
+    let name: String
+    let sfSymbol: String
+
+    init(board: Pinboard) {
+        id = board.id.uuidString
+        name = board.name
+        sfSymbol = board.sfSymbol
     }
 }
 
