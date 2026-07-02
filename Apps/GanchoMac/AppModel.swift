@@ -3,6 +3,7 @@ import AppKit
 import ApplicationServices
 import ClipboardCore
 import GanchoAI
+import GanchoAppCore
 import GanchoKit
 import GanchoSync
 import GanchoTelemetry
@@ -1075,31 +1076,7 @@ final class AppModel {
     /// user boards, or the neighborhood shows no clear home. 100% on-device.
     func suggestedBoard(for item: ClipItem) async -> Pinboard? {
         guard intelligence.autoBoard, !item.isSensitive, let grdbStore else { return nil }
-        let userBoards = ((try? await grdbStore.pinboards()) ?? []).filter { !$0.isSystem }
-        guard !userBoards.isEmpty else { return nil }
-        let current = (try? await grdbStore.boardIDs(forClip: item.id)) ?? []
-        let candidates = Set(userBoards.map(\.id)).subtracting(current)
-        guard !candidates.isEmpty else { return nil }
-
-        guard case .text(let text)? = try? await grdbStore.content(for: item.id),
-            let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
-            let vector = try? embedder.vector(for: String(text.prefix(1_000)))
-        else { return nil }
-        let neighbors =
-            ((try? await grdbStore.semanticSearch(
-                queryVector: vector, topK: 8, snippetsOnly: false)) ?? [])
-            .filter { $0.id != item.id }
-        guard !neighbors.isEmpty else { return nil }
-
-        var neighborBoards: [Set<UUID>] = []
-        for neighbor in neighbors {
-            neighborBoards.append((try? await grdbStore.boardIDs(forClip: neighbor.id)) ?? [])
-        }
-        guard
-            let vote = BoardSuggester.suggest(
-                neighborBoardIDs: neighborBoards, candidates: candidates)
-        else { return nil }
-        return userBoards.first { $0.id == vote.boardID }
+        return await BoardSuggestionService().suggest(for: item, store: grdbStore)
     }
 
     /// Creates a board and, when `assigning` is set, files that clip into it —
