@@ -4,36 +4,45 @@ import GanchoKit
 import SwiftUI
 
 /// The local MCP server control surface (the design's "MCP Access" screen): an
-/// opt-in toggle, the three EXPOSURE scopes, the four tools agents can call with
+/// opt-in toggle, the three EXPOSURE scopes, the five tools agents can call with
 /// their read/write reach under the current scope, the sensitive-veto guarantee,
 /// and the metadata-only access log. Off by default; every number is local.
 struct MCPAccessView: View {
     @Environment(AppModel.self) private var model
     @State private var log: [MCPAccessEvent] = []
 
-    /// Tools the local server exposes. `reads` = the call can return a content
-    /// body (so it's gated by scope); writes never expose content.
+    /// Tools the local server exposes, with what each can reveal to an agent.
     private struct Tool: Identifiable {
         let name: MCPToolName
         let symbol: String
         let descriptionKey: LocalizedStringKey
-        let reads: Bool
+        let exposure: Exposure
         var id: String { name.rawValue }
+    }
+
+    /// What a tool can reveal: `.content` calls can return a content body (so
+    /// they're gated by scope); `.metadata` calls return names and ids in every
+    /// scope but never a content body; `.write` calls expose nothing.
+    private enum Exposure {
+        case content, metadata, write
     }
 
     private let tools: [Tool] = [
         .init(
             name: .searchClips, symbol: "magnifyingglass",
-            descriptionKey: "Find clips by text query.", reads: true),
+            descriptionKey: "Find clips by text query.", exposure: .content),
         .init(
             name: .getClip, symbol: "doc.text",
-            descriptionKey: "Fetch one clip by id.", reads: true),
+            descriptionKey: "Fetch one clip by id.", exposure: .content),
         .init(
             name: .createPin, symbol: "pin",
-            descriptionKey: "Pin a clip or add it to a board.", reads: false),
+            descriptionKey: "Pin a clip or add it to a board.", exposure: .write),
         .init(
             name: .pasteStack, symbol: "square.stack",
-            descriptionKey: "Queue clips into the paste stack.", reads: true),
+            descriptionKey: "Queue clips into the paste stack.", exposure: .content),
+        .init(
+            name: .listBoards, symbol: "rectangle.stack",
+            descriptionKey: "List your boards by name.", exposure: .metadata),
     ]
 
     private var enabled: Bool { model.mcpConfig.isEnabled }
@@ -173,18 +182,23 @@ struct MCPAccessView: View {
     }
 
     @ViewBuilder private func toolBadge(_ tool: Tool) -> some View {
-        let (textKey, tint): (LocalizedStringKey, Color) =
-            tool.reads
-            ? (exposesBody
-                ? ("Reads content", GanchoTokens.Palette.success)
-                : ("Metadata only", GanchoTokens.Palette.warning))
-            : ("Write", .secondary)
-        Text(textKey)
+        let badge: (key: LocalizedStringKey, tint: Color) =
+            switch tool.exposure {
+            case .content:
+                exposesBody
+                    ? ("Reads content", GanchoTokens.Palette.success)
+                    : ("Metadata only", GanchoTokens.Palette.warning)
+            case .metadata:
+                ("Metadata only", GanchoTokens.Palette.warning)
+            case .write:
+                ("Write", .secondary)
+            }
+        Text(badge.key)
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(tint)
+            .foregroundStyle(badge.tint)
             .padding(.horizontal, GanchoTokens.Spacing.xs)
             .padding(.vertical, 2)
-            .background(tint.opacity(0.12), in: Capsule())
+            .background(badge.tint.opacity(0.12), in: Capsule())
     }
 
     private func logRow(_ event: MCPAccessEvent) -> some View {
