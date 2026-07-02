@@ -148,9 +148,74 @@ public enum ClipRecordMapper {
         return record
     }
 
+    // MARK: - CKAsset staging
+    //
+    // A CKAsset's payload must live in a file CloudKit reads later, at batch
+    // send time — so `makeAsset` cannot delete it, and CloudKit never deletes
+    // the caller's source file either. Left alone, every synced binary clip
+    // would strand an UNENCRYPTED copy of its content in tmp, outside the
+    // SQLCipher + AES-GCM boundary the rest of the store maintains. The
+    // staging lifecycle closes that hole: assets stage in one dedicated
+    // directory, the sync adapter deletes each record's file the moment
+    // CloudKit reports it sent, and a start-time sweep reaps stragglers from
+    // crashed or failed sends.
+    //
+    // Staged files are deliberately NOT wrapped in `SealedEnvelope`: CloudKit
+    // uploads the staged file's bytes VERBATIM as the asset payload, so a
+    // sealed file would sync ciphertext — undecryptable on the receiving
+    // device — as the clip's content (and `decode` reads the fetched asset
+    // from CloudKit-managed storage, expecting the original bytes). CloudKit
+    // already encrypts CKAsset payloads in transit and at rest server-side;
+    // the local plaintext window is bounded by the lifecycle above.
+
+    /// The directory `makeAsset` stages binary payloads in. Everything in it
+    /// is plaintext clip content awaiting upload — transient by contract.
+    public static var assetStagingDirectory: URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("gancho-ck-assets", isDirectory: true)
+    }
+
+    /// Deletes the staged file behind a record's `contentAsset`, if the asset
+    /// points into ``assetStagingDirectory``. Call once CloudKit no longer
+    /// needs the file (the record was reported sent). Assets on *fetched*
+    /// records live in CloudKit-managed storage and are left alone.
+    public static func removeStagedAsset(for record: CKRecord) {
+        guard let asset = record["contentAsset"] as? CKAsset, let url = asset.fileURL else {
+            return
+        }
+        // Resolve symlinks before comparing: temporaryDirectory routes through
+        // /var → /private/var on Darwin, and the CKAsset may hand back either
+        // form. Only files strictly inside the staging directory are deleted.
+        let staging = assetStagingDirectory.resolvingSymlinksInPath().standardizedFileURL
+        let file = url.resolvingSymlinksInPath().standardizedFileURL
+        guard file.deletingLastPathComponent().path == staging.path else { return }
+        try? FileManager.default.removeItem(at: file)
+    }
+
+    /// Removes staged assets older than `maxAge` — files orphaned by a crash
+    /// or a failed send between staging and the sent-record event. Recent
+    /// files are left alone: they may belong to a batch CloudKit has not read
+    /// yet, and deleting one would drop its upload.
+    public static func sweepStagedAssets(olderThan maxAge: TimeInterval = 3600) {
+        let fileManager = FileManager.default
+        guard
+            let files = try? fileManager.contentsOfDirectory(
+                at: assetStagingDirectory,
+                includingPropertiesForKeys: [.contentModificationDateKey])
+        else { return }
+        for file in files {
+            let values = try? file.resourceValues(forKeys: [.contentModificationDateKey])
+            guard let modified = values?.contentModificationDate else { continue }
+            if Date.now.timeIntervalSince(modified) > maxAge {
+                try? fileManager.removeItem(at: file)
+            }
+        }
+    }
+
     private static func makeAsset(_ data: Data) -> CKAsset? {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("gancho-asset-\(UUID().uuidString)")
+        let directory = assetStagingDirectory
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("gancho-asset-\(UUID().uuidString)")
         guard (try? data.write(to: url, options: .atomic)) != nil else { return nil }
         return CKAsset(fileURL: url)
     }

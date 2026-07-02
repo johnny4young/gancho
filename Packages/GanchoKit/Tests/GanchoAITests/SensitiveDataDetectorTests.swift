@@ -32,6 +32,51 @@ struct SensitiveDataDetectorTests {
         // Slack
         ("xoxb-123456789012-abcdefghijklmnop", .slackToken),
         ("xoxp-2-123456789012-abcdefghijklmnop", .slackToken),
+        // Slack incoming webhook (the URL IS the credential). The host literal
+        // is split so this synthetic fixture is not a contiguous webhook URL in
+        // the source — GitHub push-protection flags the shape even when the
+        // token is fake; the concatenated runtime value still exercises the
+        // detector regex.
+        (
+            "https://hooks.slack." + "com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+            .slackWebhookURL
+        ),
+        // Google API key (fixed AIza prefix + 35 chars), bare and embedded. The
+        // key is split mid-literal so the source carries no contiguous scannable
+        // key; the concatenated runtime value still exercises the detector.
+        ("AIzaSyDaGmWKa4JsXZ" + "-HjGw7ISLn-3namBGewQe", .googleAPIKey),
+        (
+            "curl 'https://maps.example/api?key=AIzaSyDaGmWKa4JsXZ" + "-HjGw7ISLn-3namBGewQe'",
+            .googleAPIKey
+        ),
+        // GCP service-account JSON (file shape, even without the PEM block)
+        ("{\"type\": \"service_account\", \"project_id\": \"demo-project\"}", .gcpServiceAccount),
+        // OpenAI-style keys (sk- with hyphens — distinct from Stripe's sk_).
+        // Split mid-literal so no contiguous key sits in the source.
+        ("sk-proj-abc123DEF456" + "ghi789JKL012mno345PQR678", .openAIKey),
+        ("OPENAI_API_KEY=sk-abcdefghijkl" + "mnopqrstuvwxyz123456", .openAIKey),
+        // npm automation token (split mid-literal)
+        ("npm_AbCdEfGhIjKlMnOp" + "QrStUvWxYz0123456789", .npmToken),
+        // Azure connection strings (AccountKey / SharedAccessKey values)
+        (
+            "DefaultEndpointsProtocol=https;AccountName=acct;"
+                + "AccountKey=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP0123456789+/==;"
+                + "EndpointSuffix=core.windows.net",
+            .azureConnectionString
+        ),
+        (
+            "Endpoint=sb://demo.servicebus.windows.net/;SharedAccessKeyName=root;"
+                + "SharedAccessKey=AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+AbCdEf=",
+            .azureConnectionString
+        ),
+        // Authorization headers / bearer credentials. Bearer values are split
+        // mid-literal so the source carries no contiguous scannable token.
+        (
+            "Authorization: Bearer eyJhbGci" + "OiJIUzI1NiJ9.payload.signature",
+            .authorizationHeader
+        ),
+        ("curl -H 'Authorization: Basic " + "dXNlcjpwYXNzd29yZA=='", .authorizationHeader),
+        ("Bearer " + "AbCdEfGhIjKlMnOpQrStUvWx123456", .authorizationHeader),
         // PEM private keys (all header variants)
         ("-----BEGIN PRIVATE KEY-----\nMIIEvg==\n-----END PRIVATE KEY-----", .pemPrivateKey),
         (
@@ -44,6 +89,11 @@ struct SensitiveDataDetectorTests {
             .pemPrivateKey
         ),
         ("-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIC2w==", .pemPrivateKey),
+        // PGP private-key block (not a PEM header variant)
+        (
+            "-----BEGIN PGP PRIVATE KEY BLOCK-----\nlQdGBGXk\n-----END PGP PRIVATE KEY BLOCK-----",
+            .pgpPrivateKey
+        ),
         // Passwords by context
         ("password: hunter2-is-bad", .probablePassword),
         ("PASSWORD=Sup3r$ecret!", .probablePassword),
@@ -54,6 +104,10 @@ struct SensitiveDataDetectorTests {
         ("Xk9#mP2$vL5@qR8w", .probablePassword),
         ("J7!nF4&hT1*sW6^zB3%", .probablePassword),
         ("aB3$dE6&gH9(kM2)", .probablePassword),
+        // Long single-class high-entropy secret (32-char base32 TOTP seed
+        // shape). Split mid-literal so no contiguous secret-shaped token sits
+        // in the source.
+        ("Q2W3E4R5T6Y7UABC" + "DFGHIJKLMNOPSVXZ", .probablePassword),
     ]
 
     @Test("Detects sanitized secret shapes", arguments: Self.secrets)
@@ -73,6 +127,13 @@ struct SensitiveDataDetectorTests {
         "lowercaseonlytoken",  // one char class
         "SHORT#a1",  // too short for the shape route
         "9400 1118 9922 3857 2418 99",  // USPS tracking, not a card (no Luhn)
+        "the bearer of this letter deserves respect",  // prose "bearer", no token
+        "npm_install failed with exit code 1",  // npm_ prefix, not a 36-char token
+        "sk-learn is my favorite python package",  // sk- prefix, token too short
+        "-----BEGIN PGP PUBLIC KEY BLOCK-----\nmQENBGXk",  // public block is public
+        "https://hooks.slack.com/services/about",  // webhook docs URL, no T/B/token path
+        "the quick brown fox jumps over the lazy dog by the river",  // long prose, spaces
+        "aaaabbbbccccddddeeeeffffgggg",  // long single-class token, low entropy
     ]
 
     @Test("Everyday clips stay clean", arguments: Self.cleanInputs)
@@ -88,6 +149,13 @@ struct SensitiveMaskingTests {
         let masked = SensitiveMasking.maskedPreview(for: "sk_live_4eC39HqLyjWDarjtT1zdp7dc")
         #expect(masked == "●●●● p7dc")
         #expect(!masked.contains("sk_live"))
+    }
+
+    @Test("Short secrets mask entirely — no last-4 reveal of an OTP or PIN")
+    func shortSecretsMaskFully() {
+        #expect(SensitiveMasking.maskedPreview(for: "483921") == "●●●●")
+        #expect(SensitiveMasking.maskedPreview(for: "483 921") == "●●●●")
+        #expect(SensitiveMasking.maskedPreview(for: "Sup3r$e!") == "●●●●")
     }
 
     @Test("Multiline secrets (PEM) mask entirely")

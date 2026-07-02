@@ -12,6 +12,16 @@ public protocol SyncLocalStore: Sendable {
     /// Clips that still need uploading: never synced (no system fields) or
     /// edited since last upload.
     func pendingUploads() async throws -> [(item: ClipItem, content: ClipContent?)]
+    /// How many clips still need uploading — a bare COUNT, so status
+    /// refreshes never hydrate (and decrypt) content just to show a number.
+    func pendingUploadCount() async throws -> Int
+    /// The ids of clips still needing upload, oldest first — content-free,
+    /// for callers that only register record ids with the engine.
+    func pendingUploadIDs() async throws -> [UUID]
+    /// One clip still needing upload, with its content — nil when the clip
+    /// is gone or already synced. Lets the batch provider hydrate exactly
+    /// the records a send batch references instead of the whole backlog.
+    func pendingUpload(id: UUID) async throws -> (item: ClipItem, content: ClipContent?)?
     /// Record IDs of deletions waiting to propagate (tombstones).
     func pendingDeletionRecordIDs() async throws -> [String]
 
@@ -25,10 +35,13 @@ public protocol SyncLocalStore: Sendable {
 
     /// Applies a remote change, last-writer-wins by `updatedAt`: a remote
     /// older than the local row is ignored (but its system fields are still
-    /// stored so we don't fight it). Never flips `needsUpload`.
+    /// stored so we don't fight it). Never flips `needsUpload`. Returns
+    /// whether the remote won — when it did not, the caller must not apply
+    /// any follow-up state from the record (e.g. board membership) either.
+    @discardableResult
     func applyRemoteUpsert(
-        _ item: ClipItem, content: ClipContent?, systemFields: Data)
-        async throws
+        _ item: ClipItem, content: ClipContent?, systemFields: Data
+    ) async throws -> Bool
     /// Applies a remote deletion by record id.
     func applyRemoteDeletion(recordID: String) async throws
     /// Forgets a tombstone once its deletion has propagated.
@@ -82,6 +95,44 @@ extension GRDBClipboardStore: SyncLocalStore {
         return result
     }
 
+    public func pendingUploadCount() async throws -> Int {
+        try await writer.read { db in
+            try Int.fetchOne(
+                db,
+                sql: """
+                    SELECT COUNT(*) FROM clip
+                    WHERE syncSystemFields IS NULL OR needsUpload = 1
+                    """) ?? 0
+        }
+    }
+
+    public func pendingUploadIDs() async throws -> [UUID] {
+        let names = try await writer.read { db in
+            try String.fetchAll(
+                db,
+                sql: """
+                    SELECT id FROM clip
+                    WHERE syncSystemFields IS NULL OR needsUpload = 1
+                    ORDER BY createdAt ASC
+                    """)
+        }
+        return names.compactMap { UUID(uuidString: $0) }
+    }
+
+    public func pendingUpload(id: UUID) async throws -> (item: ClipItem, content: ClipContent?)? {
+        let row = try await writer.read { db in
+            try ClipRow.fetchOne(
+                db,
+                sql: """
+                    SELECT * FROM clip
+                    WHERE id = ? AND (syncSystemFields IS NULL OR needsUpload = 1)
+                    """,
+                arguments: [id.uuidString])
+        }
+        guard let row else { return nil }
+        return (row.item, try await content(for: row.item.id))
+    }
+
     public func pendingDeletionRecordIDs() async throws -> [String] {
         try await writer.read { db in
             try String.fetchAll(db, sql: "SELECT recordID FROM sync_tombstone")
@@ -112,9 +163,10 @@ extension GRDBClipboardStore: SyncLocalStore {
         }
     }
 
+    @discardableResult
     public func applyRemoteUpsert(
         _ item: ClipItem, content: ClipContent?, systemFields: Data
-    ) async throws {
+    ) async throws -> Bool {
         var row = ClipRow(item: item)
         switch content {
         case .text(let text):
@@ -129,23 +181,88 @@ extension GRDBClipboardStore: SyncLocalStore {
             break
         }
         let finalRow = row
-        try await writer.write { db in
-            // Last-writer-wins: skip if the local copy is newer, but still
-            // record the remote's system fields so we stop re-sending ours.
+        return try await writer.write { db in
             if let localUpdatedAt = try Date.fetchOne(
                 db, sql: "SELECT updatedAt FROM clip WHERE id = ?",
-                arguments: [item.id.uuidString]),
-                localUpdatedAt > item.updatedAt
+                arguments: [item.id.uuidString])
             {
+                // Last-writer-wins: skip if the local copy is newer, but still
+                // record the remote's system fields so we stop re-sending ours.
+                if localUpdatedAt > item.updatedAt {
+                    try db.execute(
+                        sql: "UPDATE clip SET syncSystemFields = ? WHERE id = ?",
+                        arguments: [systemFields, item.id.uuidString])
+                    return false
+                }
+                // The remote won over an existing row: update ONLY the columns
+                // the record actually syncs. Local-only curation — isSnippet,
+                // isArchived, keyword, uses, sortIndex — never travels, so a
+                // whole-row upsert would silently reset it (demoting a
+                // snippet, which retention would then purge).
                 try db.execute(
-                    sql: "UPDATE clip SET syncSystemFields = ? WHERE id = ?",
-                    arguments: [systemFields, item.id.uuidString])
-                return
+                    sql: """
+                        UPDATE clip SET
+                            createdAt = ?, updatedAt = ?, lastUsedAt = ?, kind = ?,
+                            title = ?, preview = ?, contentHash = ?,
+                            sourceAppBundleID = ?, sourceDeviceName = ?,
+                            isPinned = ?, isSensitive = ?, expiresAt = ?, tags = ?,
+                            syncSystemFields = ?, needsUpload = 0
+                        WHERE id = ?
+                        """,
+                    arguments: [
+                        finalRow.createdAt, finalRow.updatedAt, finalRow.lastUsedAt,
+                        finalRow.kind, finalRow.title, finalRow.preview,
+                        finalRow.contentHash, finalRow.sourceAppBundleID,
+                        finalRow.sourceDeviceName, finalRow.isPinned,
+                        finalRow.isSensitive, finalRow.expiresAt, finalRow.tags,
+                        systemFields, item.id.uuidString,
+                    ])
+                // Content columns move only when the remote carries content —
+                // nil (an asset over the size cap, or an undecodable payload)
+                // must not blank local content. A binary payload keeps
+                // contentText: for image clips it holds locally attached OCR
+                // text, which the record never syncs.
+                switch content {
+                case .text, .fileReferences:
+                    try db.execute(
+                        sql: """
+                            UPDATE clip SET contentText = ?, contentBlobHash = NULL,
+                                contentTypeIdentifier = ?
+                            WHERE id = ?
+                            """,
+                        arguments: [
+                            finalRow.contentText, finalRow.contentTypeIdentifier,
+                            item.id.uuidString,
+                        ])
+                case .binary:
+                    try db.execute(
+                        sql: """
+                            UPDATE clip SET contentBlobHash = ?, contentTypeIdentifier = ?
+                            WHERE id = ?
+                            """,
+                        arguments: [
+                            finalRow.contentBlobHash, finalRow.contentTypeIdentifier,
+                            item.id.uuidString,
+                        ])
+                case nil:
+                    break
+                }
+                return true
             }
-            try finalRow.upsert(db)
+            // A new row — unless we deleted this record locally and its
+            // tombstone is still waiting to propagate: inserting would
+            // resurrect the deletion (the pending CK delete wins instead).
+            let tombstoned =
+                try Bool.fetchOne(
+                    db,
+                    sql: "SELECT EXISTS (SELECT 1 FROM sync_tombstone WHERE recordID = ?)",
+                    arguments: [item.id.uuidString]) ?? false
+            if tombstoned { return false }
+            try finalRow.insert(db)
             try db.execute(
                 sql: "UPDATE clip SET syncSystemFields = ?, needsUpload = 0 WHERE id = ?",
                 arguments: [systemFields, item.id.uuidString])
+            return true
         }
     }
 

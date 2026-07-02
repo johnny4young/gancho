@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import GanchoKit
 
@@ -15,6 +16,24 @@ public enum DevActions {
         case parseURL
         case convertColor
         case uuidFormats
+        case sha256Hex
+        case sha1Hex
+        case md5Hex
+        case urlEncode
+        case urlDecode
+        case caseConvert
+        case epochToDate
+        case dateToEpoch
+        case sortLines
+        case dedupeLines
+        case reverseLines
+        case countStats
+        case htmlEntityEncode
+        case htmlEntityDecode
+        case slugify
+        case numberBaseConvert
+        case jsonEscape
+        case jsonUnescape
     }
 
     public struct Action: Identifiable, Sendable {
@@ -34,15 +53,39 @@ public enum DevActions {
         case .jwt:
             [action(.decodeJWT)]
         case .json:
-            [action(.jsonPretty), action(.jsonMinify), action(.base64Encode)]
+            [
+                action(.jsonPretty), action(.jsonMinify), action(.jsonEscape),
+                action(.base64Encode),
+            ]
         case .url:
-            [action(.parseURL), action(.base64Encode)]
+            [
+                action(.parseURL), action(.urlEncode), action(.urlDecode),
+                action(.base64Encode),
+            ]
         case .color:
             [action(.convertColor)]
         case .uuid:
             [action(.uuidFormats)]
-        case .text, .code:
-            [action(.base64Encode), action(.base64Decode)]
+        case .date:
+            [action(.dateToEpoch)]
+        case .text:
+            [
+                action(.caseConvert), action(.slugify), action(.countStats),
+                action(.sortLines), action(.dedupeLines), action(.reverseLines),
+                action(.epochToDate), action(.numberBaseConvert),
+                action(.urlEncode), action(.htmlEntityEncode),
+                action(.base64Encode), action(.base64Decode), action(.sha256Hex),
+            ]
+        case .code:
+            [
+                action(.jsonEscape), action(.jsonUnescape),
+                action(.htmlEntityEncode), action(.htmlEntityDecode),
+                action(.urlEncode), action(.urlDecode),
+                action(.caseConvert), action(.countStats),
+                action(.sortLines), action(.dedupeLines),
+                action(.base64Encode), action(.base64Decode),
+                action(.sha256Hex), action(.sha1Hex), action(.md5Hex),
+            ]
         default:
             []
         }
@@ -66,6 +109,42 @@ public enum DevActions {
             Action(id: id, title: "Convert color", transform: convertColor)
         case .uuidFormats:
             Action(id: id, title: "UUID formats", transform: uuidFormats)
+        case .sha256Hex:
+            Action(id: id, title: "SHA-256 hash", transform: sha256Hex)
+        case .sha1Hex:
+            Action(id: id, title: "SHA-1 hash", transform: sha1Hex)
+        case .md5Hex:
+            Action(id: id, title: "MD5 hash", transform: md5Hex)
+        case .urlEncode:
+            Action(id: id, title: "URL encode", transform: urlEncode)
+        case .urlDecode:
+            Action(id: id, title: "URL decode", transform: urlDecode)
+        case .caseConvert:
+            Action(id: id, title: "Convert case", transform: caseConvert)
+        case .epochToDate:
+            Action(id: id, title: "Epoch to date", transform: epochToDate)
+        case .dateToEpoch:
+            Action(id: id, title: "Date to epoch", transform: dateToEpoch)
+        case .sortLines:
+            Action(id: id, title: "Sort lines", transform: sortLines)
+        case .dedupeLines:
+            Action(id: id, title: "Dedupe lines", transform: dedupeLines)
+        case .reverseLines:
+            Action(id: id, title: "Reverse lines", transform: reverseLines)
+        case .countStats:
+            Action(id: id, title: "Count stats", transform: countStats)
+        case .htmlEntityEncode:
+            Action(id: id, title: "HTML-entity encode", transform: htmlEntityEncode)
+        case .htmlEntityDecode:
+            Action(id: id, title: "HTML-entity decode", transform: htmlEntityDecode)
+        case .slugify:
+            Action(id: id, title: "Slugify", transform: slugify)
+        case .numberBaseConvert:
+            Action(id: id, title: "Convert number base", transform: numberBaseConvert)
+        case .jsonEscape:
+            Action(id: id, title: "JSON-escape string", transform: jsonEscape)
+        case .jsonUnescape:
+            Action(id: id, title: "JSON-unescape string", transform: jsonUnescape)
         }
     }
 
@@ -172,7 +251,270 @@ public enum DevActions {
             """
     }
 
+    static func sha256Hex(_ text: String) throws -> String {
+        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func sha1Hex(_ text: String) throws -> String {
+        Insecure.SHA1.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func md5Hex(_ text: String) throws -> String {
+        Insecure.MD5.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func urlEncode(_ text: String) throws -> String {
+        // RFC 3986 unreserved characters only — everything else gets escaped.
+        let unreserved = CharacterSet(
+            charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                + "abcdefghijklmnopqrstuvwxyz0123456789-._~")
+        guard let encoded = text.addingPercentEncoding(withAllowedCharacters: unreserved)
+        else { throw ActionError.notApplicable("could not percent-encode") }
+        return encoded
+    }
+
+    static func urlDecode(_ text: String) throws -> String {
+        guard let decoded = text.removingPercentEncoding
+        else { throw ActionError.notApplicable("not valid percent-encoding") }
+        return decoded
+    }
+
+    static func caseConvert(_ text: String) throws -> String {
+        let words = splitWords(text)
+        guard !words.isEmpty else { throw ActionError.notApplicable("no words to convert") }
+        let lower = words.map { $0.lowercased() }
+        let capitalized = lower.map { $0.prefix(1).uppercased() + String($0.dropFirst()) }
+        let camel = ([lower[0]] + capitalized.dropFirst()).joined()
+        return """
+            camel: \(camel)
+            snake: \(lower.joined(separator: "_"))
+            kebab: \(lower.joined(separator: "-"))
+            title: \(capitalized.joined(separator: " "))
+            upper: \(words.joined(separator: " ").uppercased())
+            lower: \(lower.joined(separator: " "))
+            """
+    }
+
+    static func epochToDate(_ text: String) throws -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let raw = Int64(trimmed), raw > 0 else {
+            throw ActionError.notApplicable("not a Unix timestamp")
+        }
+        // 12+ digit values are read as milliseconds, shorter ones as seconds.
+        let seconds = raw >= 100_000_000_000 ? Double(raw) / 1000 : Double(raw)
+        guard seconds < 253_402_300_800 else {  // before year 10000
+            throw ActionError.notApplicable("not a plausible Unix timestamp")
+        }
+        let date = Date(timeIntervalSince1970: seconds)
+        let utc = ISO8601DateFormatter()
+        let local = ISO8601DateFormatter()
+        local.timeZone = .current
+        return """
+            utc: \(utc.string(from: date))
+            local: \(local.string(from: date))
+            """
+    }
+
+    static func dateToEpoch(_ text: String) throws -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let plain = ISO8601DateFormatter()
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = plain.date(from: trimmed) ?? fractional.date(from: trimmed)
+        else { throw ActionError.notApplicable("not an ISO-8601 date") }
+        let millis = Int64((date.timeIntervalSince1970 * 1000).rounded())
+        return """
+            seconds: \(millis / 1000)
+            milliseconds: \(millis)
+            """
+    }
+
+    static func sortLines(_ text: String) throws -> String {
+        try splitLines(text).sorted().joined(separator: "\n")
+    }
+
+    /// Stable: keeps the first occurrence of each line, in original order.
+    static func dedupeLines(_ text: String) throws -> String {
+        var seen = Set<String>()
+        return try splitLines(text).filter { seen.insert($0).inserted }
+            .joined(separator: "\n")
+    }
+
+    static func reverseLines(_ text: String) throws -> String {
+        try splitLines(text).reversed().joined(separator: "\n")
+    }
+
+    static func countStats(_ text: String) throws -> String {
+        let lineCount = text.isEmpty ? 0 : text.components(separatedBy: "\n").count
+        let wordCount = text.split(whereSeparator: { $0.isWhitespace }).count
+        return """
+            lines: \(lineCount)
+            words: \(wordCount)
+            characters: \(text.count)
+            bytes: \(text.utf8.count)
+            """
+    }
+
+    static func htmlEntityEncode(_ text: String) throws -> String {
+        var output = ""
+        for char in text {
+            switch char {
+            case "&": output += "&amp;"
+            case "<": output += "&lt;"
+            case ">": output += "&gt;"
+            case "\"": output += "&quot;"
+            case "'": output += "&#39;"
+            default: output.append(char)
+            }
+        }
+        return output
+    }
+
+    static func htmlEntityDecode(_ text: String) throws -> String {
+        var output = ""
+        var index = text.startIndex
+        while index < text.endIndex {
+            let char = text[index]
+            let windowEnd =
+                text.index(index, offsetBy: 12, limitedBy: text.endIndex) ?? text.endIndex
+            guard char == "&",
+                let semicolon = text[index..<windowEnd].firstIndex(of: ";")
+            else {
+                output.append(char)
+                index = text.index(after: index)
+                continue
+            }
+            let body = String(text[text.index(after: index)..<semicolon])
+            if let decoded = decodeEntity(body) {
+                output.append(decoded)
+                index = text.index(after: semicolon)
+            } else {
+                // Not an entity we know — keep the ampersand literal.
+                output.append(char)
+                index = text.index(after: index)
+            }
+        }
+        return output
+    }
+
+    static func slugify(_ text: String) throws -> String {
+        let folded = text.folding(
+            options: [.diacriticInsensitive, .caseInsensitive],
+            locale: Locale(identifier: "en_US_POSIX"))
+        var slug = ""
+        var pendingHyphen = false
+        for char in folded.lowercased() {
+            if char.isASCII, char.isLetter || char.isNumber {
+                if pendingHyphen, !slug.isEmpty { slug.append("-") }
+                pendingHyphen = false
+                slug.append(char)
+            } else {
+                pendingHyphen = true
+            }
+        }
+        guard !slug.isEmpty else { throw ActionError.notApplicable("no letters or digits") }
+        return slug
+    }
+
+    static func numberBaseConvert(_ text: String) throws -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        var body = trimmed[...]
+        let negative = body.hasPrefix("-")
+        if negative { body = body.dropFirst() }
+        let parsed: UInt64? =
+            if body.hasPrefix("0x") {
+                UInt64(body.dropFirst(2), radix: 16)
+            } else if body.hasPrefix("0b") {
+                UInt64(body.dropFirst(2), radix: 2)
+            } else if body.hasPrefix("0o") {
+                UInt64(body.dropFirst(2), radix: 8)
+            } else {
+                UInt64(body, radix: 10)
+            }
+        guard let value = parsed else { throw ActionError.notApplicable("not an integer") }
+        let sign = negative ? "-" : ""
+        return """
+            dec: \(sign)\(value)
+            hex: \(sign)0x\(String(value, radix: 16))
+            bin: \(sign)0b\(String(value, radix: 2))
+            oct: \(sign)0o\(String(value, radix: 8))
+            """
+    }
+
+    static func jsonEscape(_ text: String) throws -> String {
+        // Serialize as a one-element array, then strip the brackets — gives
+        // the bare string literal without hand-rolled escaping rules.
+        guard let data = try? JSONSerialization.data(withJSONObject: [text]),
+            let wrapped = String(data: data, encoding: .utf8),
+            wrapped.count >= 2
+        else { throw ActionError.notApplicable("could not JSON-escape") }
+        return String(wrapped.dropFirst().dropLast())
+    }
+
+    static func jsonUnescape(_ text: String) throws -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2, trimmed.hasPrefix("\""), trimmed.hasSuffix("\""),
+            let data = "[\(trimmed)]".data(using: .utf8),
+            let strings = (try? JSONSerialization.jsonObject(with: data)) as? [String],
+            strings.count == 1
+        else { throw ActionError.notApplicable("not a JSON string literal") }
+        return strings[0]
+    }
+
     // MARK: - Helpers
+
+    /// Splits into words on non-alphanumerics and lower→upper camel humps.
+    private static func splitWords(_ text: String) -> [String] {
+        var words: [String] = []
+        var current = ""
+        var previous: Character?
+        for char in text {
+            guard char.isLetter || char.isNumber else {
+                if !current.isEmpty { words.append(current) }
+                current = ""
+                previous = nil
+                continue
+            }
+            if let previous, previous.isLowercase || previous.isNumber, char.isUppercase,
+                !current.isEmpty
+            {
+                words.append(current)
+                current = ""
+            }
+            current.append(char)
+            previous = char
+        }
+        if !current.isEmpty { words.append(current) }
+        return words
+    }
+
+    private static func splitLines(_ text: String) throws -> [String] {
+        let lines = text.components(separatedBy: "\n")
+        guard lines.count > 1 else {
+            throw ActionError.notApplicable("needs more than one line")
+        }
+        return lines
+    }
+
+    /// `body` is the text between `&` and `;` — named or numeric entity.
+    private static func decodeEntity(_ body: String) -> Character? {
+        let named: [String: Character] = [
+            "amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "nbsp": "\u{00A0}",
+        ]
+        if body.hasPrefix("#x") || body.hasPrefix("#X") {
+            guard let value = UInt32(body.dropFirst(2), radix: 16),
+                let scalar = Unicode.Scalar(value)
+            else { return nil }
+            return Character(scalar)
+        }
+        if body.hasPrefix("#") {
+            guard let value = UInt32(body.dropFirst(), radix: 10),
+                let scalar = Unicode.Scalar(value)
+            else { return nil }
+            return Character(scalar)
+        }
+        return named[body]
+    }
 
     private static func jsonObject(_ text: String) -> Any? {
         guard let data = text.data(using: .utf8) else { return nil }

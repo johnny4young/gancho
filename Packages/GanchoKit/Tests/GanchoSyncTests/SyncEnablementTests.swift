@@ -55,6 +55,11 @@ struct SyncEnablementTests {
 /// the adapter must not touch CloudKit, which this proves on CI (no iCloud).
 private struct StubSyncLocalStore: SyncLocalStore {
     func pendingUploads() async throws -> [(item: ClipItem, content: ClipContent?)] { [] }
+    func pendingUploadCount() async throws -> Int { 0 }
+    func pendingUploadIDs() async throws -> [UUID] { [] }
+    func pendingUpload(id: UUID) async throws -> (item: ClipItem, content: ClipContent?)? {
+        nil
+    }
     func pendingDeletionRecordIDs() async throws -> [String] { [] }
     func markUploaded(id: UUID, systemFields: Data) async throws {}
     func systemFields(for id: UUID) async throws -> Data? { nil }
@@ -62,8 +67,8 @@ private struct StubSyncLocalStore: SyncLocalStore {
     func applyRemoteUpsert(
         _ item: ClipItem, content: ClipContent?, systemFields: Data
     )
-        async throws
-    {}
+        async throws -> Bool
+    { true }
     func applyRemoteDeletion(recordID: String) async throws {}
     func clearTombstone(recordID: String) async throws {}
     func forgetAllSyncFields() async throws {}

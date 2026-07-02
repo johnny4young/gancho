@@ -87,6 +87,8 @@
             #expect(denylist.contains("com.1password.1password"))
             #expect(denylist.contains("com.bitwarden.desktop"))
             #expect(denylist.contains("com.apple.Passwords"))
+            #expect(denylist.contains("com.markmcguill.strongbox.mac"))
+            #expect(denylist.contains("com.keepassium.ios"))
             #expect(!denylist.contains("com.apple.Safari"))
         }
 

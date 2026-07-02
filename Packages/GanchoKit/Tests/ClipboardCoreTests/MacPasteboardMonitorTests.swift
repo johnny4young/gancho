@@ -16,13 +16,22 @@
         private(set) var readSawMainThread: Bool?
         /// Simulates the pasteboard-privacy "Ask" stall.
         var readDelay: TimeInterval = 0
+        /// When set, `currentTypes()` returns this from the SECOND call on —
+        /// simulates a fast A→B swap landing between the poll-time veto and
+        /// the detached read's re-check (the TOCTOU window).
+        var typesOnRecheck: Set<String>?
+        private var typeCalls = 0
 
         func currentChangeCount() -> Int {
             lock.withLock { changeCount }
         }
 
         func currentTypes() -> Set<String> {
-            lock.withLock { types }
+            lock.withLock {
+                typeCalls += 1
+                if typeCalls > 1, let swapped = typesOnRecheck { return swapped }
+                return types
+            }
         }
 
         func readPayload() -> PasteboardCapture.Payload? {
@@ -138,6 +147,26 @@
             #expect(pasteboard.readCalls == 0, "veto must run before the read")
         }
 
+        @Test("A sensitive type swapped in after the poll-time veto still blocks the read")
+        func sensitiveVetoRecheckedAtReadTime() async {
+            let pasteboard = FakePasteboard()
+            let monitor = makeMonitor(pasteboard: pasteboard)
+            var captures: [PasteboardCapture] = []
+            monitor.onCapture = { captures.append($0) }
+
+            // Clean types at poll time; a concealed marker by the time the
+            // detached read re-checks — a fast A→B swap in the TOCTOU window.
+            pasteboard.write(.text("swapped-in secret"), types: ["public.utf8-plain-text"])
+            pasteboard.typesOnRecheck = [
+                "public.utf8-plain-text", SensitivePasteboardTypes.concealed,
+            ]
+            monitor.pollOnce()
+            try? await Task.sleep(for: .milliseconds(100))
+
+            #expect(captures.isEmpty)
+            #expect(pasteboard.readCalls == 0, "the re-check must run before the payload read")
+        }
+
         @Test("Our own self-write marker is never re-captured")
         func selfWriteSkipped() async {
             let pasteboard = FakePasteboard()
@@ -217,30 +246,25 @@
         @Test("A slow (Ask-stalled) read does not block the main actor")
         func slowReadKeepsMainResponsive() async {
             let pasteboard = FakePasteboard()
-            // A long read so a real "blocked" main actor (the full read) is
-            // unmistakably distinct from the actor merely being slow to resume
-            // the hop below under a contended CI runner. Coverage-instrumented
-            // CI VMs were seen taking ~2s just to resume the hop, so the read
-            // sleeps well past that and the ceiling sits in the wide gap
-            // between scheduler jitter and a genuine block.
-            pasteboard.readDelay = 8.0
+            // A non-trivial read delay so the payload read is unmistakably
+            // scheduled asynchronously — pollOnce must return before it
+            // finishes. Non-blocking is proven DETERMINISTICALLY (the read ran
+            // off the main thread) rather than by timing the main-actor hop: a
+            // wall-clock ceiling flakes on a loaded, coverage-instrumented CI
+            // runner, since the read's Thread.sleep parks a cooperative-pool
+            // thread and hop-resumption jitter can exceed any fixed ceiling.
+            pasteboard.readDelay = 1.0
             let monitor = makeMonitor(pasteboard: pasteboard)
             var captures: [PasteboardCapture] = []
             monitor.onCapture = { captures.append($0) }
 
             pasteboard.write(.text("slow"), types: ["public.utf8-plain-text"])
-            let before = ContinuousClock.now
             monitor.pollOnce()
-            // If the read ran on the main actor, this hop would wait the full
-            // 8s read. The ceiling absorbs the ~2s of scheduler jitter seen on
-            // loaded CI coverage VMs while staying far below the 8s a genuine
-            // block would cost.
-            await Task.yield()
-            let elapsed = ContinuousClock.now - before
-            #expect(elapsed < .seconds(4))
-
             await waitForCaptures(monitor, into: { captures }, attempts: 1000)
             #expect(captures.count == 1)
+            // The content read never runs on the main thread — the mechanism by
+            // which a slow read cannot block the main actor.
+            #expect(pasteboard.readSawMainThread == false)
         }
 
         @Test("A burst of changes coalesces to the latest content")

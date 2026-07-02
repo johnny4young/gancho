@@ -18,13 +18,14 @@ public enum MCPAccessScope: String, Sendable, Codable, CaseIterable {
     case all
 }
 
-/// The four tools the local server exposes. Raw values are the wire names
+/// The five tools the local server exposes. Raw values are the wire names
 /// MCP clients call; the enum keeps the access log and scope checks honest.
 public enum MCPToolName: String, Sendable, Codable, CaseIterable {
     case searchClips = "search_clips"
     case getClip = "get_clip"
     case createPin = "create_pin"
     case pasteStack = "paste_stack"
+    case listBoards = "list_boards"
 }
 
 /// One MCP/CLI access, recorded for the Privacy Center. Metadata only by
@@ -63,6 +64,12 @@ public struct MCPServerConfig: Sendable, Equatable, Codable {
         self.isEnabled = isEnabled
         self.scope = scope
     }
+
+    /// True when the scope exposes clip CONTENT (`boards` or `all`) rather
+    /// than metadata-only previews. This file is plaintext, so any local
+    /// process can raise the scope — callers surface elevation prominently
+    /// (the CLI flags it on server start) instead of gating on it.
+    public var isElevated: Bool { scope != .metadata }
 
     public static let fileName = "mcp-config.json"
 

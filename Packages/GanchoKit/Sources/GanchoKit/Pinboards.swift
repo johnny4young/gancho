@@ -54,10 +54,13 @@ public enum PinLimits {
 extension GRDBClipboardStore {
     // MARK: - Pins
 
+    /// Pin state syncs (it rides the clip record), so a toggle re-flags the
+    /// clip for upload; the `updatedAt` bump makes the change win last-writer-
+    /// wins against a stale remote copy on the other devices.
     public func setPinned(id: UUID, _ pinned: Bool) async throws {
         try await writer.write { db in
             try db.execute(
-                sql: "UPDATE clip SET isPinned = ?, updatedAt = ? WHERE id = ?",
+                sql: "UPDATE clip SET isPinned = ?, updatedAt = ?, needsUpload = 1 WHERE id = ?",
                 arguments: [pinned, Date(), id.uuidString])
         }
     }
@@ -120,14 +123,17 @@ extension GRDBClipboardStore {
     /// Add a clip to a board (idempotent). Orthogonal to pinning: board
     /// membership does not touch `isPinned`. Membership rides the clip's sync
     /// record, so the change marks the clip for re-upload — the next sync cycle
-    /// carries its fresh board set to the other devices.
+    /// carries its fresh board set to the other devices. The `updatedAt` bump
+    /// matters: without it, a fetched pre-change copy of the record (equal
+    /// timestamp — remote wins ties) would silently revert the membership.
     public func assign(clipID: UUID, toBoard boardID: UUID) async throws {
         try await writer.write { db in
             try db.execute(
                 sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) VALUES (?, ?)",
                 arguments: [clipID.uuidString, boardID.uuidString])
             try db.execute(
-                sql: "UPDATE clip SET needsUpload = 1 WHERE id = ?", arguments: [clipID.uuidString])
+                sql: "UPDATE clip SET needsUpload = 1, updatedAt = ? WHERE id = ?",
+                arguments: [Date(), clipID.uuidString])
         }
     }
 
@@ -137,7 +143,8 @@ extension GRDBClipboardStore {
                 sql: "DELETE FROM clip_board WHERE clipID = ? AND boardID = ?",
                 arguments: [clipID.uuidString, boardID.uuidString])
             try db.execute(
-                sql: "UPDATE clip SET needsUpload = 1 WHERE id = ?", arguments: [clipID.uuidString])
+                sql: "UPDATE clip SET needsUpload = 1, updatedAt = ? WHERE id = ?",
+                arguments: [Date(), clipID.uuidString])
         }
     }
 
@@ -146,7 +153,8 @@ extension GRDBClipboardStore {
             try db.execute(
                 sql: "DELETE FROM clip_board WHERE clipID = ?", arguments: [clipID.uuidString])
             try db.execute(
-                sql: "UPDATE clip SET needsUpload = 1 WHERE id = ?", arguments: [clipID.uuidString])
+                sql: "UPDATE clip SET needsUpload = 1, updatedAt = ? WHERE id = ?",
+                arguments: [Date(), clipID.uuidString])
         }
     }
 
