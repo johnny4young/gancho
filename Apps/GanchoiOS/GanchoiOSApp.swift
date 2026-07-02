@@ -40,6 +40,13 @@ struct GanchoiOSApp: App {
                 }
             }
             .environment(model)
+            // Post-launch maintenance: the cosmetic legacy-preview backfill
+            // moved off the synchronous store open (it scanned image rows on
+            // every cold launch); run it once the first frame is up.
+            .task {
+                guard let grdb = model.store as? GRDBClipboardStore else { return }
+                try? await grdb.backfillLegacyPreviews()
+            }
             // Widget deep links (`gancho://clip/<id>`) open the right clip.
             .onOpenURL { model.handleDeepLink($0) }
             // Brand-green accent (iOS has no per-app OS accent picker, so green

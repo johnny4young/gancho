@@ -66,7 +66,10 @@ public final class GRDBClipboardStore: ClipboardStore {
             writer: pool,
             blobs: blobStore)
         try migrator.migrate(pool)
-        try Self.reformatLegacyImagePreviews(in: pool)
+        // NOTE: the cosmetic legacy-preview backfill is deliberately NOT run
+        // here — it scanned image rows inside a write transaction on every
+        // open, taxing cold launch in the app and every extension. Apps call
+        // `backfillLegacyPreviews()` after first render instead.
     }
 
     /// Opens the production store encrypted with the Keychain-managed key.

@@ -249,6 +249,12 @@ final class AppModel {
                 String(localized: "Couldn’t open secure storage — running in memory."))
         }
         Task { await refreshRecents() }
+        // Post-launch maintenance: the cosmetic legacy-preview backfill moved
+        // off the synchronous store open (it scanned image rows on every
+        // launch); run it at utility priority once the UI is wired up.
+        if let grdb {
+            Task(priority: .utility) { try? await grdb.backfillLegacyPreviews() }
+        }
 
         // UI-test hook: deterministic panel access without the global hotkey.
         if CommandLine.arguments.contains("-open-panel-on-launch") {
