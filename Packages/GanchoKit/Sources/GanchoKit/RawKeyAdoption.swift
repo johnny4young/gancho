@@ -134,9 +134,10 @@ import GRDB
             // COUNT(*) yields a row even for an empty schema, so a right key
             // can never be misread as wrong; the read still touches the first
             // page, which is where a wrong key fails.
-            return (try? queue.read { db in
+            let probe = try? queue.read { db in
                 try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sqlite_master")
-            }) != nil
+            }
+            return probe != nil
         }
 
         /// One-time, in-place migration: KDF-derived key → raw key, on the SAME
