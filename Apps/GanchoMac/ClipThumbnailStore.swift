@@ -8,10 +8,14 @@ import UniformTypeIdentifiers
 /// (and the peek) can show a real preview without re-reading the blob on every
 /// render or navigation. Each image is decoded once — off the main actor, via
 /// ImageIO so only a downscaled thumbnail is produced — and cached by clip id.
+/// The cache is FIFO-capped: a menu-bar agent lives for weeks, and an unbounded
+/// [UUID: Image] would grow monotonically while browsing image-heavy history.
 @Observable
 @MainActor
 final class ClipThumbnailStore {
     private var cache: [UUID: Image] = [:]
+    @ObservationIgnored private var cacheOrder: [UUID] = []
+    @ObservationIgnored private let maxCached = 64
     @ObservationIgnored private var loading: Set<UUID> = []
     @ObservationIgnored private let imageData: (UUID) async -> Data?
 
@@ -41,6 +45,14 @@ final class ClipThumbnailStore {
         }.value
         if let thumbnail, let image = NSImage(data: thumbnail) {
             cache[item.id] = Image(nsImage: image)
+            // FIFO cap (mirrors the keyboard extension's pattern): evict the
+            // oldest entry so a long-lived agent session stays bounded. An
+            // evicted-then-revisited row simply reloads via `ensureLoaded`.
+            cacheOrder.append(item.id)
+            if cacheOrder.count > maxCached {
+                let evicted = cacheOrder.removeFirst()
+                if evicted != item.id { cache[evicted] = nil }
+            }
         }
     }
 
