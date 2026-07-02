@@ -1,6 +1,63 @@
 # 06 — SQLCipher raw-key adoption (kill the per-connection PBKDF2)
 
-**STATUS: SPECIFICATION + TESTS ONLY. NOTHING IN THIS DOSSIER IS APPLIED.**
+**STATUS: IMPLEMENTED AS AN UNWIRED PARALLEL PATH — see §0. Production open
+paths are unchanged; §3's inline-init rewiring has NOT been applied.**
+
+## 0. Implemented (unwired) — what landed on this branch
+
+The §3 design now exists in the tree as a parallel code path that **no
+production caller invokes**:
+
+- `Packages/GanchoKit/Sources/GanchoKit/RawKeyAdoption.swift` (new, all inside
+  `#if SQLITE_HAS_CODEC`): an extension on `GRDBClipboardStore` holding
+  - `public static func encryptedRawKeyAdopting(directory:passphrase:
+    allowingRawKeyMigration:)` — the full probe → derived fallback →
+    checkpoint(.truncate) → `changePassphrase(raw)` → checkpoint(.truncate) →
+    verified-reopen open, then the same pool/blob/migrate sequence as
+    `init(directory:passphrase:)`. Blob key: ALWAYS
+    `BlobStore.encryptionKeyData(for: passphrase)` (plain hex, never `x'…'`).
+  - `rawKeyLiteral(for:)`, `resolvedSQLCipherKey(at:passphrase:
+    allowingRawKeyMigration:)`, `opensWithKey(path:key:)` (internal so the
+    tests probe with the engine's own primitive), and private
+    `rekeyToRawKey(at:passphrase:rawKey:)` — verbatim §3.1 semantics.
+- `Packages/GanchoKit/Tests/GanchoKitTests/GRDBRawKeyAdoptionTests.swift`
+  (new): §6 adapted to the unwired reality — the legacy fixture is built via
+  the UNCHANGED production `init(directory:passphrase:)` (today's KDF path),
+  so the tests need no `import GRDB` and Package.swift is untouched (§5.2's
+  test-dependency line becomes necessary only if a future test drives GRDB
+  directly). Covers: literal validation; derived→raw rekey with zero data
+  loss; steady-state direct raw open (asserted by opening with the `x'…'`
+  literal through the PLAIN init — no fallback machinery involved); wrong key
+  fails closed with no rekey and the original key still opening; fresh
+  directory creates raw-keyed; blob round-trip across the migration and after
+  reopen; `allowingRawKeyMigration: false` leaves the derived key;
+  plaintext store converging on raw in one open.
+- `GRDBClipboardStore.swift`: doc-comment note on
+  `encrypted(directory:keychainAccessGroup:)` pointing here — the ONLY touch
+  to that file; its behavior (and the plain init's) is byte-for-byte intact.
+
+Deviations from §3, deliberate:
+
+- A **static factory instead of rewiring the init** (§3.2): the mission for
+  this pass is an unwired parallel path, so `init(directory:passphrase:)`
+  keeps keying via the KDF. Wiring per §5.3/§5.4 later means swapping the
+  factory's body into the init (or pointing `encrypted(...)` at the factory)
+  — the §3.2 diff remains the blueprint for that flip.
+- `encryptPlaintextStoreIfNeeded` is **unchanged** (§3.3 not applied), so a
+  legacy plaintext store opened through the adopting path converges
+  plaintext → derived (existing export) → raw (in-place rekey) within the
+  same open — one extra rekey pass on a store class that is nearly extinct,
+  in exchange for zero modification to the shipped migration. §3.3 can land
+  with the production flip.
+
+Everything else in this dossier (design §2, choreography §4, rollout §5,
+risks §7) still governs the eventual production flip. The on-device
+verification matrix in §5.6 — especially the WAL-mode `sqlite3_rekey`
+round-trip (R1) — remains a hard gate before any call site changes.
+
+---
+
+**PRIOR STATUS: SPECIFICATION + TESTS ONLY. NOTHING IN THIS DOSSIER IS APPLIED.**
 The encryption path is the single most dangerous surface in the app — a wrong
 key or migration change makes every user's store unreadable, which is
 irreversible data loss. Everything below is written to be pasted in *after*
