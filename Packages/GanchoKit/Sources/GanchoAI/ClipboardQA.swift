@@ -26,7 +26,7 @@ public struct ClipboardQA: Sendable {
     /// else FTS, with sensitive clips removed. Pure retrieval (no model), so the
     /// "never ground on a secret" contract is unit-testable on its own.
     public static func retrieve(
-        question: String, store: GRDBClipboardStore, useSemantic: Bool
+        question: String, store: any ClipReading & ClipSearching, useSemantic: Bool
     ) async -> [ClipItem] {
         let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
@@ -38,7 +38,9 @@ public struct ClipboardQA: Sendable {
         if useSemantic, let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
             let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
         {
-            clips = ((try? await store.semanticSearch(queryVector: vector, topK: 6)) ?? [])
+            clips =
+                ((try? await store.semanticSearch(
+                    queryVector: vector, topK: 6, snippetsOnly: false)) ?? [])
                 .filter { !$0.isSensitive }
         }
         if clips.isEmpty {
@@ -53,7 +55,7 @@ public struct ClipboardQA: Sendable {
     /// Retrieve, ground, and answer. The caller maps `Outcome` to its own
     /// localized copy (the app's answer card, the intent's dialog).
     public func answer(
-        question: String, store: GRDBClipboardStore, useSemantic: Bool
+        question: String, store: any ClipReading & ClipSearching, useSemantic: Bool
     ) async -> Outcome {
         let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard Self.isAvailable, !trimmed.isEmpty else { return .unavailable }

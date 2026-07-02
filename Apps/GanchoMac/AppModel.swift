@@ -45,7 +45,15 @@ final class AppModel {
     /// Durable store under Application Support; falls back to in-memory if
     /// the disk store cannot open (never block launch on a storage error).
     let store: any ClipboardStore
-    let grdbStore: GRDBClipboardStore?
+    /// Full first-party store surface, downcast once from `store`; nil on the
+    /// in-memory fallback. Feature code (this model and the views) reaches every
+    /// capability through it instead of downcasting to the concrete class.
+    let grdbStore: (any FullClipStore)?
+    /// Narrow concrete handle kept ONLY to construct in-module engines
+    /// (`RetentionEngine`, `TierEnforcement`, `GanchoArchive`), to feed
+    /// `SyncEngineFactory`, and to reach the MCP access log / sync-internal
+    /// tombstone list — none of which belong in a client facet.
+    let grdbForEngines: GRDBClipboardStore?
     /// Cached image thumbnails for the history rows and the peek.
     let thumbnails: ClipThumbnailStore
 
@@ -167,6 +175,7 @@ final class AppModel {
         let forceEphemeral = ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store")
         let grdb = forceEphemeral ? nil : (try? GRDBClipboardStore.encrypted(directory: directory))
         self.grdbStore = grdb
+        self.grdbForEngines = grdb
         self.store = grdb ?? InMemoryClipboardStore()
         let resolvedStore = self.store
         self.thumbnails = ClipThumbnailStore(imageData: { id in
@@ -634,7 +643,9 @@ final class AppModel {
             embedder.hasAvailableAssets,
             let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
         {
-            clips = (try? await grdbStore.semanticSearch(queryVector: vector, topK: 6)) ?? []
+            clips =
+                (try? await grdbStore.semanticSearch(
+                    queryVector: vector, topK: 6, snippetsOnly: false)) ?? []
         }
         if clips.isEmpty {
             clips = (try? await grdbStore.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? []
@@ -750,7 +761,7 @@ final class AppModel {
         guard pendingDeletionIDs.contains(item.id) else { return }
         deletionTasks[item.id] = nil
         if syncEnabled, let grdbStore {
-            _ = try? await grdbStore.deleteForSync(id: item.id)
+            _ = try? await grdbStore.deleteForSync(id: item.id, now: .now)
             await sync.enqueueDeletion(ids: [item.id])
         } else {
             _ = try? await store.delete(id: item.id)
@@ -795,9 +806,9 @@ final class AppModel {
     private func applyTier(_ newTier: UserTier) {
         tier = newTier
         configureSync()
-        guard let grdbStore else { return }
+        guard let grdbForEngines else { return }
         Task {
-            _ = try? await TierEnforcement(store: grdbStore).enforce(tier: newTier)
+            _ = try? await TierEnforcement(store: grdbForEngines).enforce(tier: newTier)
             await refreshRecents()
         }
     }
@@ -808,7 +819,7 @@ final class AppModel {
     /// rebuilds when the enablement decision flips, so it is safe to call on
     /// launch and on every tier change.
     private func configureSync() {
-        guard let grdbStore else { return }
+        guard let grdbForEngines else { return }
         let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
         let cloudKitEntitled = CloudKitEntitlements.currentTaskAllowsSync()
         let enable = SyncEnablement.shouldEnable(
@@ -824,7 +835,7 @@ final class AppModel {
             .appendingPathComponent("Gancho", isDirectory: true)
             .appendingPathComponent("sync-state.plist")
         sync = SyncEngineFactory.make(
-            store: grdbStore, tier: tier, iCloudAvailable: iCloudAvailable,
+            store: grdbForEngines, tier: tier, iCloudAvailable: iCloudAvailable,
             hasCloudKitEntitlement: cloudKitEntitled,
             stateStore: .file(at: stateURL),
             onStatus: { [weak self] status in
@@ -925,8 +936,8 @@ final class AppModel {
 
     /// Recent MCP/CLI accesses for the Privacy Center (metadata only).
     func recentMCPAccesses(limit: Int = 20) async -> [MCPAccessEvent] {
-        guard let grdbStore else { return [] }
-        return (try? await grdbStore.recentMCPAccesses(limit: limit)) ?? []
+        guard let grdbForEngines else { return [] }
+        return (try? await grdbForEngines.recentMCPAccesses(limit: limit)) ?? []
     }
 
     func buyPlan(_ plan: ProProduct.Plan) {
@@ -1005,7 +1016,7 @@ final class AppModel {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
                 return
             }
-            _ = try? await grdbStore.promoteToSnippet(id: item.id)
+            _ = try? await grdbStore.promoteToSnippet(id: item.id, title: nil)
             toasts.show(GanchoToast(message: "Saved as snippet"))
             await refreshRecents()
         }
@@ -1074,7 +1085,9 @@ final class AppModel {
             let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
             let vector = try? embedder.vector(for: String(text.prefix(1_000)))
         else { return nil }
-        let neighbors = ((try? await grdbStore.semanticSearch(queryVector: vector, topK: 8)) ?? [])
+        let neighbors =
+            ((try? await grdbStore.semanticSearch(
+                queryVector: vector, topK: 8, snippetsOnly: false)) ?? [])
             .filter { $0.id != item.id }
         guard !neighbors.isEmpty else { return nil }
 
@@ -1102,7 +1115,8 @@ final class AppModel {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
                 return
             }
-            if let board = try? await grdbStore.createPinboard(name: name) {
+            if let board = try? await grdbStore.createPinboard(name: name, sfSymbol: "square.stack")
+            {
                 await sync.enqueue(boards: [board])
                 if let item {
                     try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
@@ -1133,7 +1147,7 @@ final class AppModel {
             // When sync is on, tombstone the deletion so it reaches the other
             // devices; otherwise a plain local delete is enough.
             if syncEnabled {
-                try? await grdbStore.deletePinboardForSync(id: board.id)
+                try? await grdbStore.deletePinboardForSync(id: board.id, now: .now)
                 await sync.enqueueBoardDeletion(ids: [board.id])
             } else {
                 try? await grdbStore.deletePinboard(id: board.id)
@@ -1243,21 +1257,21 @@ final class AppModel {
     }
 
     private func runRetention() {
-        guard let grdbStore else { return }
+        guard let grdbForEngines else { return }
         let policy = retentionPolicy
         let tier = tier
         Task {
-            _ = try? await RetentionEngine(store: grdbStore).runPurge(policy: policy)
+            _ = try? await RetentionEngine(store: grdbForEngines).runPurge(policy: policy)
             // The purge tombstoned any synced victims; enqueue those deletions
             // now so they propagate immediately rather than at the next sync
             // start(). Re-adding an already-pending deletion is a no-op in the
             // engine, so sweeping the whole tombstone table is safe.
             if syncEnabled {
-                let recordIDs = (try? await grdbStore.pendingDeletionRecordIDs()) ?? []
+                let recordIDs = (try? await grdbForEngines.pendingDeletionRecordIDs()) ?? []
                 let ids = recordIDs.compactMap { UUID(uuidString: $0) }
                 if !ids.isEmpty { await sync.enqueueDeletion(ids: ids) }
             }
-            _ = try? await TierEnforcement(store: grdbStore).enforce(tier: tier)
+            _ = try? await TierEnforcement(store: grdbForEngines).enforce(tier: tier)
             await refreshRecents()
         }
     }

@@ -44,8 +44,8 @@ struct GanchoiOSApp: App {
             // moved off the synchronous store open (it scanned image rows on
             // every cold launch); run it once the first frame is up.
             .task {
-                guard let grdb = model.store as? GRDBClipboardStore else { return }
-                try? await grdb.backfillLegacyPreviews()
+                guard let full = model.full else { return }
+                try? await full.backfillLegacyPreviews()
             }
             // Widget deep links (`gancho://clip/<id>`) open the right clip.
             .onOpenURL { model.handleDeepLink($0) }
@@ -273,6 +273,10 @@ final class IOSAppModel {
 
     init() {
         intelligence = IntelligencePreferences.load(from: defaults)
+        // Resolve the capability handles once: feature code holds the facet
+        // surface, only engine construction sees the concrete class.
+        full = store as? any FullClipStore
+        grdbForEngines = store as? GRDBClipboardStore
         thumbnails = ClipThumbnailStore(store: store)
         purchases.onTierChange = { [weak self] tier in
             guard let self else { return }
@@ -297,7 +301,7 @@ final class IOSAppModel {
     /// Universal Purchase entitles the iPhone too, so a Pro Mac purchase
     /// turns sync on here after the next entitlement refresh.
     private func configureSync() {
-        guard let grdb = store as? GRDBClipboardStore else { return }
+        guard let syncStore = store as? any SyncLocalStore else { return }
         let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
         let cloudKitEntitled = CloudKitEntitlements.currentTaskAllowsSync()
         let enable = SyncEnablement.shouldEnable(
@@ -312,7 +316,7 @@ final class IOSAppModel {
         let stateURL = SharedStorageLocation.storeDirectory(appGroupID: SharedInbox.appGroupID)
             .appendingPathComponent("sync-state.plist")
         syncEngine = SyncEngineFactory.make(
-            store: grdb, tier: tier, iCloudAvailable: iCloudAvailable,
+            store: syncStore, tier: tier, iCloudAvailable: iCloudAvailable,
             hasCloudKitEntitlement: cloudKitEntitled,
             stateStore: .file(at: stateURL),
             onStatus: { [weak self] status in
@@ -417,7 +421,7 @@ final class IOSAppModel {
     private static let lastMaintenanceKey = "ios-last-maintenance-at"
 
     func runMaintenance() async {
-        guard let grdb = store as? GRDBClipboardStore else { return }
+        guard let grdb = grdbForEngines else { return }
         if let last = defaults.object(forKey: Self.lastMaintenanceKey) as? Date,
             Date().timeIntervalSince(last) < Self.maintenanceInterval
         {
@@ -446,7 +450,7 @@ final class IOSAppModel {
         guard let id = WidgetClips.clipID(fromDeepLink: url) else { return }
         Task {
             if !captures.contains(where: { $0.id == id }),
-                let item = try? await (store as? GRDBClipboardStore)?.item(id: id)
+                let item = try? await full?.item(id: id)
             {
                 captures.insert(item, at: 0)
             }
@@ -460,8 +464,8 @@ final class IOSAppModel {
     }
 
     func refreshBoards() async {
-        guard let grdb = store as? GRDBClipboardStore else { return }
-        boards = (try? await grdb.pinboards()) ?? []
+        guard let full else { return }
+        boards = (try? await full.pinboards()) ?? []
     }
 
     /// Scope the history list to a board (or back to All clips) and refresh —
@@ -473,26 +477,26 @@ final class IOSAppModel {
 
     /// Total non-archived clips — the "All clips" count on the boards home.
     func clipCount() async -> Int {
-        guard let grdb = store as? GRDBClipboardStore else { return 0 }
-        return (try? await grdb.count()) ?? 0
+        guard let full else { return 0 }
+        return (try? await full.count()) ?? 0
     }
 
     /// How many clips a board holds — its count on the boards home.
     func clipCount(in board: Pinboard) async -> Int {
-        guard let grdb = store as? GRDBClipboardStore else { return 0 }
-        return (try? await grdb.count(inBoard: board.id)) ?? 0
+        guard let full else { return 0 }
+        return (try? await full.count(inBoard: board.id)) ?? 0
     }
 
     /// Promote a clip to a reusable snippet — the peek's "Save as snippet".
     /// Honors the free-tier snippet limit and surfaces a note either way.
     func saveAsSnippet(_ item: ClipItem) async {
-        guard let grdb = store as? GRDBClipboardStore else { return }
-        let count = (try? await grdb.snippetCount()) ?? 0
+        guard let full else { return }
+        let count = (try? await full.snippetCount()) ?? 0
         guard SnippetLimits.canPromote(currentSnippetCount: count, isPro: tier == .pro) else {
             flashNote(String(localized: "Upgrade to Pro for more snippets"))
             return
         }
-        try? await grdb.promoteToSnippet(id: item.id)
+        try? await full.promoteToSnippet(id: item.id, title: nil)
         flashNote(String(localized: "Saved as snippet"))
         await search()
     }
@@ -502,15 +506,15 @@ final class IOSAppModel {
     /// the free limit.
     func createBoard(named name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let grdb = store as? GRDBClipboardStore else { return }
+        guard !trimmed.isEmpty, let full else { return }
         Task {
-            let count = (try? await grdb.pinboards().filter { !$0.isSystem }.count) ?? 0
+            let count = (try? await full.pinboards().filter { !$0.isSystem }.count) ?? 0
             guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro) else {
                 // Don't dead-end on a vanishing note: surface the Pro screen.
                 proGateTick += 1
                 return
             }
-            if let board = try? await grdb.createPinboard(name: trimmed) {
+            if let board = try? await full.createPinboard(name: trimmed, sfSymbol: "square.stack") {
                 await syncEngine.enqueue(boards: [board])
             }
             await refreshBoards()
@@ -524,15 +528,16 @@ final class IOSAppModel {
     @discardableResult
     func createBoard(named name: String, filing item: ClipItem) async -> UUID? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let grdb = store as? GRDBClipboardStore else { return nil }
-        let count = (try? await grdb.pinboards().filter { !$0.isSystem }.count) ?? 0
+        guard !trimmed.isEmpty, let full else { return nil }
+        let count = (try? await full.pinboards().filter { !$0.isSystem }.count) ?? 0
         guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro) else {
             flashNote(String(localized: "Upgrade to Pro for more boards"))
             return nil
         }
-        guard let board = try? await grdb.createPinboard(name: trimmed) else { return nil }
+        guard let board = try? await full.createPinboard(name: trimmed, sfSymbol: "square.stack")
+        else { return nil }
         await syncEngine.enqueue(boards: [board])
-        try? await grdb.assign(clipID: item.id, toBoard: board.id)
+        try? await full.assign(clipID: item.id, toBoard: board.id)
         await refreshBoards()
         await search()
         return board.id
@@ -540,8 +545,8 @@ final class IOSAppModel {
 
     /// The boards a clip belongs to — drives the detail screen's checkmarks.
     func boardMembership(for item: ClipItem) async -> Set<UUID> {
-        guard let grdb = store as? GRDBClipboardStore else { return [] }
-        return (try? await grdb.boardIDs(forClip: item.id)) ?? []
+        guard let full else { return [] }
+        return (try? await full.boardIDs(forClip: item.id)) ?? []
     }
 
     /// Suggest the board this clip probably belongs to, by a semantic k-NN vote
@@ -549,26 +554,27 @@ final class IOSAppModel {
     /// nil when the toggle is off, the clip is sensitive, there are no eligible
     /// user boards, or the neighborhood shows no clear home. 100% on-device.
     func suggestedBoard(for item: ClipItem) async -> Pinboard? {
-        guard intelligence.autoBoard, !item.isSensitive,
-            let grdb = store as? GRDBClipboardStore
+        guard intelligence.autoBoard, !item.isSensitive, let full
         else { return nil }
-        let userBoards = ((try? await grdb.pinboards()) ?? []).filter { !$0.isSystem }
+        let userBoards = ((try? await full.pinboards()) ?? []).filter { !$0.isSystem }
         guard !userBoards.isEmpty else { return nil }
-        let current = (try? await grdb.boardIDs(forClip: item.id)) ?? []
+        let current = (try? await full.boardIDs(forClip: item.id)) ?? []
         let candidates = Set(userBoards.map(\.id)).subtracting(current)
         guard !candidates.isEmpty else { return nil }
 
-        guard case .text(let text)? = try? await grdb.content(for: item.id),
+        guard case .text(let text)? = try? await full.content(for: item.id),
             let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
             let vector = try? embedder.vector(for: String(text.prefix(1_000)))
         else { return nil }
-        let neighbors = ((try? await grdb.semanticSearch(queryVector: vector, topK: 8)) ?? [])
+        let neighbors =
+            ((try? await full.semanticSearch(
+                queryVector: vector, topK: 8, snippetsOnly: false)) ?? [])
             .filter { $0.id != item.id }
         guard !neighbors.isEmpty else { return nil }
 
         var neighborBoards: [Set<UUID>] = []
         for neighbor in neighbors {
-            neighborBoards.append((try? await grdb.boardIDs(forClip: neighbor.id)) ?? [])
+            neighborBoards.append((try? await full.boardIDs(forClip: neighbor.id)) ?? [])
         }
         guard
             let vote = BoardSuggester.suggest(
@@ -580,11 +586,11 @@ final class IOSAppModel {
     /// Add or remove a clip from one board. Membership rides the clip's sync
     /// record, so the change propagates to other devices on the next cycle.
     func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
-        guard let grdb = store as? GRDBClipboardStore else { return }
+        guard let full else { return }
         if member {
-            try? await grdb.assign(clipID: item.id, toBoard: board.id)
+            try? await full.assign(clipID: item.id, toBoard: board.id)
         } else {
-            try? await grdb.unassign(clipID: item.id, fromBoard: board.id)
+            try? await full.unassign(clipID: item.id, fromBoard: board.id)
         }
         await search()
     }
@@ -593,9 +599,9 @@ final class IOSAppModel {
     /// store guards `isSystem`).
     func renameBoard(_ board: Pinboard, name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let grdb = store as? GRDBClipboardStore else { return }
+        guard !trimmed.isEmpty, let full else { return }
         Task {
-            try? await grdb.renameBoard(id: board.id, name: trimmed)
+            try? await full.renameBoard(id: board.id, name: trimmed)
             var renamed = board
             renamed.name = trimmed
             await syncEngine.enqueue(boards: [renamed])
@@ -606,13 +612,13 @@ final class IOSAppModel {
     /// Delete a user board. When sync is on, tombstone it so the removal reaches
     /// the other devices; otherwise a plain local delete. Favorites is protected.
     func deleteBoard(_ board: Pinboard) {
-        guard !board.isSystem, let grdb = store as? GRDBClipboardStore else { return }
+        guard !board.isSystem, let full else { return }
         Task {
             if syncEnabled {
-                try? await grdb.deletePinboardForSync(id: board.id)
+                try? await full.deletePinboardForSync(id: board.id, now: .now)
                 await syncEngine.enqueueBoardDeletion(ids: [board.id])
             } else {
-                try? await grdb.deletePinboard(id: board.id)
+                try? await full.deletePinboard(id: board.id)
             }
             if selectedBoardID == board.id { selectedBoardID = nil }
             await refreshBoards()
@@ -631,10 +637,9 @@ final class IOSAppModel {
     }
 
     func search() async {
-        let grdb = store as? GRDBClipboardStore
         if query.isEmpty {
-            if let board = selectedBoardID, let grdb {
-                captures = (try? await grdb.items(inBoard: board)) ?? []
+            if let board = selectedBoardID, let full {
+                captures = (try? await full.items(inBoard: board)) ?? []
                 reachedEnd = true
             } else {
                 captures = await loadRecentPage(offset: 0)
@@ -643,7 +648,7 @@ final class IOSAppModel {
         } else {
             let kinds: Set<ClipContentKind>? = kindFilter.map { [$0] }
             captures =
-                (try? await grdb?.search(
+                (try? await full?.search(
                     ClipSearchQuery(text: query, kinds: kinds, boardID: selectedBoardID),
                     limit: 50)) ?? []
             reachedEnd = true
@@ -653,8 +658,8 @@ final class IOSAppModel {
 
     /// Pinned-first then capture-time order, so the date buckets stay contiguous.
     private func loadRecentPage(offset: Int) async -> [ClipItem] {
-        if let grdb = store as? GRDBClipboardStore {
-            return (try? await grdb.recentForBrowse(offset: offset, limit: Self.pageSize)) ?? []
+        if let full {
+            return (try? await full.recentForBrowse(offset: offset, limit: Self.pageSize)) ?? []
         }
         return (try? await store.items(offset: offset, limit: Self.pageSize)) ?? []
     }
@@ -746,9 +751,9 @@ final class IOSAppModel {
     /// live there, not forked here). This layer only maps the outcome to the
     /// answer card's copy.
     func askClipboard(_ question: String) async -> ClipboardAnswer? {
-        guard let grdb = store as? GRDBClipboardStore else { return nil }
+        guard let full else { return nil }
         switch await ClipboardQA().answer(
-            question: question, store: grdb, useSemantic: intelligence.semanticSearch)
+            question: question, store: full, useSemantic: intelligence.semanticSearch)
         {
         case .unavailable:
             return nil
@@ -764,8 +769,8 @@ final class IOSAppModel {
     }
 
     func togglePin(_ item: ClipItem) async {
-        guard let grdb = store as? GRDBClipboardStore else { return }
-        try? await grdb.setPinned(id: item.id, !item.isPinned)
+        guard let full else { return }
+        try? await full.setPinned(id: item.id, !item.isPinned)
         // setPinned flagged the row for upload; enqueue pushes it now instead
         // of at the next sync start(). The engine builds the record from the
         // stored row, so only the id matters here.
@@ -774,8 +779,8 @@ final class IOSAppModel {
     }
 
     func delete(_ item: ClipItem) async {
-        if syncEnabled, let grdb = store as? GRDBClipboardStore {
-            try? await grdb.deleteForSync(id: item.id)
+        if syncEnabled, let full {
+            try? await full.deleteForSync(id: item.id, now: .now)
             await syncEngine.enqueueDeletion(ids: [item.id])
         } else {
             try? await store.delete(id: item.id)
@@ -803,6 +808,17 @@ final class IOSAppModel {
             ?? InMemoryClipboardStore()
     }()
 
+    /// Full first-party store surface, downcast once from `store`; nil on the
+    /// in-memory fallback, in which case boards/search/snippets degrade to
+    /// no-ops VISIBLY (`storageIsEphemeral` already drives the warning banner).
+    /// Feature code reaches every capability through this instead of downcasting
+    /// to the concrete class at each call site.
+    let full: (any FullClipStore)?
+    /// Narrow concrete handle kept ONLY to construct in-module engines
+    /// (`GanchoArchive`, `RetentionEngine`, `TierEnforcement`) and to reach the
+    /// sync-internal tombstone list — none of which belong in a client facet.
+    private let grdbForEngines: GRDBClipboardStore?
+
     /// True when the durable store failed to open and the app fell back to
     /// memory — captures won't survive relaunch, so the list warns the user.
     var storageIsEphemeral: Bool { !store.isDurable }
@@ -826,7 +842,7 @@ final class IOSAppModel {
     /// Files. Same format macOS reads/writes — device-to-device migration, no
     /// lock-in, never auto-uploaded.
     func makeBackupArchive() async -> URL? {
-        guard let grdb = store as? GRDBClipboardStore else { return nil }
+        guard let grdb = grdbForEngines else { return nil }
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("gancho-backup.ganchoarchive", isDirectory: true)
         try? FileManager.default.removeItem(at: dir)
@@ -844,7 +860,7 @@ final class IOSAppModel {
     /// transactional). Returns the summary; refreshes the list on success.
     @discardableResult
     func restoreBackup(from url: URL) async -> GanchoArchive.RestoreSummary? {
-        guard let grdb = store as? GRDBClipboardStore else { return nil }
+        guard let grdb = grdbForEngines else { return nil }
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         guard let summary = try? await GanchoArchive.restore(from: url, into: grdb) else {
@@ -957,24 +973,24 @@ final class IOSAppModel {
         let plan = EnrichmentPlan(
             content: content, kind: item.kind, isSensitive: item.isSensitive,
             hasTitle: !item.title.isEmpty, isPro: tier == .pro, preferences: intelligence)
-        guard !plan.isEmpty, let grdb = store as? GRDBClipboardStore else { return }
+        guard !plan.isEmpty, let full else { return }
         Task(priority: .utility) {
             if plan.runs(.ocr), case .binary(let data, _)? = content,
                 let text = try? await ImageTextExtractor().extractText(from: data)
             {
-                _ = try? await grdb.attachExtractedText(id: item.id, text: text)
+                _ = try? await full.attachExtractedText(id: item.id, text: text)
             }
             if plan.runs(.title), case .text(let text)? = content,
                 let annotation = try? await TieredClipAnnotator().annotate(text)
             {
-                _ = try? await grdb.updateTitle(id: item.id, title: annotation.title)
+                _ = try? await full.updateTitle(id: item.id, title: annotation.title)
                 await search()  // surface the new title without a manual refresh
             }
             if plan.runs(.embedding), case .text(let text)? = content,
                 let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
                 let vector = try? embedder.vector(for: String(text.prefix(1_000)))
             {
-                _ = try? await grdb.saveEmbedding(clipID: item.id, vector: vector)
+                _ = try? await full.saveEmbedding(clipID: item.id, vector: vector)
             }
         }
     }
@@ -2668,11 +2684,11 @@ struct IOSPrivacyCenterView: View {
     /// Every counter is a local query against the on-device store. No network.
     private func refresh() async {
         captured = (try? await model.store.count()) ?? 0
-        guard let grdb = model.store as? GRDBClipboardStore else { return }
-        synced = (try? await grdb.syncedCount()) ?? 0
-        expired = (try? await grdb.purgedItemCount(since: weekAgo)) ?? 0
+        guard let full = model.full else { return }
+        synced = (try? await full.syncedCount()) ?? 0
+        expired = (try? await full.purgedItemCount(since: weekAgo)) ?? 0
         masked =
-            (try? await grdb.search(
+            (try? await full.search(
                 ClipSearchQuery(text: "●●●●", mode: .exact), limit: 500
             ).count) ?? 0
     }
