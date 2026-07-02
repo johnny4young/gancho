@@ -292,3 +292,69 @@ B-8 (streaming export).
 
 **Top 5 by leverage:** A-1 (plaintext content leak) · B-1 (decrypt-to-count on every sync) ·
 A-2 (regex DoS) · B-4 (per-foreground purge storm) · B-3 (vectorize semantic scan).
+
+---
+
+## Addenda — second review (expanded findings)
+
+### A-8 [NEW] SharedInbox stores plaintext clipboard content in the App Group container — P2 / M / ⚠️
+
+`SharedInbox.deposit` (`ClipboardCore/SharedInbox.swift:53-57`) writes each captured
+`PreparedCapture` — which embeds the full `PasteboardCapture` payload (text, RTF, **image
+bytes**) — as **plaintext JSON** into `<AppGroup>/inbox/<uuid>.json`, and `drainPrepared`
+(`:69-100`) reads+deletes them app-side. Between the extension's deposit and the app's next
+activation, clipboard content sits **unencrypted on disk**, outside the SQLCipher/AES-GCM
+boundary the rest of the store maintains.
+
+- **Mechanism / exposure window:** iOS Data Protection encrypts the file at rest tied to the
+  passcode (mitigation), but (1) it is plaintext relative to Gancho's own sealed layer; (2) if
+  the app is never reopened after shares, files **accumulate indefinitely** in plaintext; (3) a
+  user can share a secret via the share sheet — the on-device sensitive detector runs app-side
+  on drain, so a sensitive capture lives plaintext in the inbox until then; (4) it is a fifth
+  content location not listed in `docs/SECURITY-MODEL.md` ("Content exists in exactly four
+  places").
+- **Fix (⚠️):** seal the envelope with the same key the store uses. The extension already reads
+  the shared-keychain SQLCipher key (it opens the encrypted DB path), so it can `AES.GCM.seal`
+  the JSON before writing and the app unseals on drain — reuse `BlobStore`'s
+  `encodeForDisk`/`decodeFromDisk` (extract them into a small shared `SealedEnvelope` helper).
+  At minimum, set explicit `FileProtectionType.completeUntilFirstUserAuthentication` on the
+  write and cap inbox age/size with an eager background drain. Add a test that a deposited file
+  is not readable as plaintext once sealing lands.
+
+### Cross-cutting theme: content escapes the sealed store through handoff/temp paths
+
+A-1 (CKAsset tmp), A-8 (SharedInbox), and — verify — any Share/keyboard scratch files form a
+pattern: **the encryption-at-rest guarantee is airtight for the DB and blobs but leaks at the
+process-boundary handoffs.** Architectural recommendation: introduce ONE `SealedEnvelope`
+primitive (seal/open with the store key, reusing `BlobStore`'s AES-GCM path) and route every
+cross-process/temp write through it — CKAsset staging, the share inbox, any future desktop
+extension inbox. Then the "content exists in exactly four places" claim becomes enforceable by
+construction, and `docs/SECURITY-MODEL.md` can assert it truthfully. Single S–M primitive,
+several call sites; sequence it right after A-1/A-8 land.
+
+### B-9 [DEEPENED] FTS write-amplification grows with the sync-correctness fixes — P3 / S / observe
+
+`clip_fts` is external-content FTS5 synchronized by triggers on `clip` (migration v2). The B-1..
+B-5 sync fixes legitimately UPDATE `title`/`preview`/`contentText` more often (remote upserts,
+membership churn bumping `updatedAt`), and every such write re-indexes the row in FTS. This is
+correct behavior, not a bug, but at 100k rows under active sync it is measurable write cost.
+- **Action:** none required now; just **measure** FTS write cost during the on-hardware sync
+  verification (it shares the same test window as the raw-key rekey). If it dominates, batching
+  remote upserts in fewer transactions is the lever.
+
+### B-10 [NEW] Default-bounded reader pool can contend under concurrent load — P3 / S / ✅
+
+`GRDBClipboardStore` opens a `DatabasePool` with default configuration
+(`GRDBClipboardStore.swift:60`); GRDB pools bound concurrent readers (default `maximumReaderCount`).
+Under a burst — list refresh + several thumbnail decrypts + a semantic scan + a sync fetch — read
+tasks can queue behind the cap. Combined with the (now-fixed) blocking-read and the still-present
+regex full-scan (A-2), a single slow reader (a big regex or semantic scan) can head-of-line-block
+interactive reads.
+- **Fix (blind-safe, tune-only):** set `configuration.maximumReaderCount` explicitly (e.g. 8–10)
+  to match the interactive read fan-out, and keep heavy scans (regex, export) off the interactive
+  pool by bounding them (A-2/B-8). Measure before/after; do not over-provision (each reader is a
+  connection + cache).
+
+**Revised top-5 (post-addenda):** A-1 + A-8 as a pair (plaintext-escape via a shared
+`SealedEnvelope`) · B-1 (decrypt-to-count) · A-2 (regex DoS) · B-4 (per-foreground purge) ·
+B-3 (vectorize semantic).
