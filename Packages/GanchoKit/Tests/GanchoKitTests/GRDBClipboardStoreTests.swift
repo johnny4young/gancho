@@ -193,6 +193,51 @@ struct GRDBClipboardStoreTests {
         #expect(csv.contains("\"line one\nline two\""))
     }
 
+    @Test("CSV export neutralizes leading formula characters (CSV injection)")
+    func csvFormulaInjectionGuard() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try await store.insert(
+            ClipItem(preview: "=SUM(A1:A9)", contentHash: "h1"),
+            content: .text("=HYPERLINK(\"https://evil.example\",\"click\")"))
+        let csv = String(decoding: try await store.exportCSV(), as: UTF8.self)
+
+        // A leading = + - @ (or tab/CR) is prefixed with a single apostrophe
+        // BEFORE the normal RFC-4180 quoting, so spreadsheets render it as
+        // literal text instead of executing it as a formula.
+        #expect(csv.contains("'=SUM(A1:A9)"))
+        #expect(csv.contains("\"'=HYPERLINK(\"\"https://evil.example\"\",\"\"click\"\")\""))
+        #expect(!csv.contains(",=SUM"), "no field may start with a raw =")
+    }
+
+    @Test("Exports can exclude detector-flagged sensitive clips")
+    func exportExcludesSensitive() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try await store.insert(
+            ClipItem(preview: "●●●● 6789", contentHash: "hs", isSensitive: true),
+            content: .text("ghp_notARealTokenJustAShapeForTesting01"))
+        try await store.insert(
+            ClipItem(preview: "plain", contentHash: "hp"), content: .text("plain body"))
+
+        let json = String(
+            decoding: try await store.exportJSON(excludeSensitive: true), as: UTF8.self)
+        #expect(!json.contains("ghp_notARealTokenJustAShapeForTesting01"))
+        #expect(json.contains("plain body"))
+
+        let csv = String(
+            decoding: try await store.exportCSV(excludeSensitive: true), as: UTF8.self)
+        #expect(!csv.contains("ghp_notARealTokenJustAShapeForTesting01"))
+        #expect(csv.contains("plain body"))
+
+        // The default (protocol) form still includes everything — no silent
+        // behavior change for existing callers.
+        let full = String(decoding: try await store.exportJSON(), as: UTF8.self)
+        #expect(full.contains("ghp_notARealTokenJustAShapeForTesting01"))
+    }
+
     @Test("Migrations are idempotent across re-opens")
     func migrationIdempotent() async throws {
         let dir = FileManager.default.temporaryDirectory

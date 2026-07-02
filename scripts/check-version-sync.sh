@@ -34,10 +34,33 @@ formula_version="$(sed -nE 's/^[[:space:]]*version "([0-9]+\.[0-9]+\.[0-9]+)"[[:
 [ "$formula_version" = "$marketing_version" ] || fail "$formula version ($formula_version) != MARKETING_VERSION ($marketing_version)"
 grep -q 'archive/refs/tags/v#{version}.tar.gz' "$formula" || fail "$formula must build from the versioned GitHub tag tarball"
 
+# Read a plist string value. Prefers PlistBuddy (macOS); falls back to a
+# portable parser (the <string> immediately following the matching <key>) so the
+# gate also runs on Linux dev boxes and minimal CI images that lack PlistBuddy.
+plist_string() {
+	local key="$1" file="$2"
+	if [ -x /usr/libexec/PlistBuddy ]; then
+		/usr/libexec/PlistBuddy -c "Print :$key" "$file" 2>/dev/null || true
+		return
+	fi
+	awk -v key="$key" '
+		match($0, "<key>" key "</key>") { getline; found = 1 }
+		found {
+			if (match($0, /<string>.*<\/string>/)) {
+				line = $0
+				sub(/.*<string>/, "", line)
+				sub(/<\/string>.*/, "", line)
+				print line
+			}
+			exit
+		}
+	' "$file"
+}
+
 for plist in Apps/GanchoMac/Info.plist Apps/GanchoiOS/Info.plist Apps/GanchoShare/Info.plist Apps/GanchoKeyboard/Info.plist Apps/GanchoWidgets/Info.plist; do
 	[ -f "$plist" ] || fail "$plist is missing"
-	short_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist" 2>/dev/null || true)"
-	bundle_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist" 2>/dev/null || true)"
+	short_version="$(plist_string CFBundleShortVersionString "$plist")"
+	bundle_version="$(plist_string CFBundleVersion "$plist")"
 	expected_marketing='$(MARKETING_VERSION)'
 	expected_build='$(CURRENT_PROJECT_VERSION)'
 	[ "$short_version" = "$expected_marketing" ] || fail "$plist must use \$(MARKETING_VERSION), got '$short_version'"

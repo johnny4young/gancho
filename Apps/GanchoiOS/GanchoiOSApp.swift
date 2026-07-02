@@ -768,15 +768,22 @@ final class IOSAppModel {
             String(localized: "Couldn’t open secure storage — running in memory."))
     }
 
-    /// Export a portable `.ganchoarchive` of the whole history to a temp dir for
-    /// the system exporter to move into Files. Same format macOS reads/writes —
-    /// device-to-device migration, no lock-in, never auto-uploaded.
+    /// Export a portable `.ganchoarchive` of the history (minus detector-flagged
+    /// sensitive clips) to a temp dir for the system exporter to move into
+    /// Files. Same format macOS reads/writes — device-to-device migration, no
+    /// lock-in, never auto-uploaded.
     func makeBackupArchive() async -> URL? {
         guard let grdb = store as? GRDBClipboardStore else { return nil }
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("gancho-backup.ganchoarchive", isDirectory: true)
         try? FileManager.default.removeItem(at: dir)
-        guard (try? await GanchoArchive.export(from: grdb, to: dir)) != nil else { return nil }
+        // Detector-flagged secrets never leave the encrypted store via backup:
+        // they carry a short expiry precisely so they don't persist, and an
+        // archive in Files is permanent plaintext.
+        guard
+            (try? await GanchoArchive.export(
+                from: grdb, to: dir, options: .init(excludeSensitive: true))) != nil
+        else { return nil }
         return dir
     }
 
