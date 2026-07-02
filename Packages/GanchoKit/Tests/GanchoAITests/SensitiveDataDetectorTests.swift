@@ -104,6 +104,10 @@ struct SensitiveDataDetectorTests {
         ("Xk9#mP2$vL5@qR8w", .probablePassword),
         ("J7!nF4&hT1*sW6^zB3%", .probablePassword),
         ("aB3$dE6&gH9(kM2)", .probablePassword),
+        // Long single-class high-entropy secret (32-char base32 TOTP seed
+        // shape). Split mid-literal so no contiguous secret-shaped token sits
+        // in the source.
+        ("Q2W3E4R5T6Y7UABC" + "DFGHIJKLMNOPSVXZ", .probablePassword),
     ]
 
     @Test("Detects sanitized secret shapes", arguments: Self.secrets)
@@ -128,6 +132,8 @@ struct SensitiveDataDetectorTests {
         "sk-learn is my favorite python package",  // sk- prefix, token too short
         "-----BEGIN PGP PUBLIC KEY BLOCK-----\nmQENBGXk",  // public block is public
         "https://hooks.slack.com/services/about",  // webhook docs URL, no T/B/token path
+        "the quick brown fox jumps over the lazy dog by the river",  // long prose, spaces
+        "aaaabbbbccccddddeeeeffffgggg",  // long single-class token, low entropy
     ]
 
     @Test("Everyday clips stay clean", arguments: Self.cleanInputs)
@@ -143,6 +149,13 @@ struct SensitiveMaskingTests {
         let masked = SensitiveMasking.maskedPreview(for: "sk_live_4eC39HqLyjWDarjtT1zdp7dc")
         #expect(masked == "●●●● p7dc")
         #expect(!masked.contains("sk_live"))
+    }
+
+    @Test("Short secrets mask entirely — no last-4 reveal of an OTP or PIN")
+    func shortSecretsMaskFully() {
+        #expect(SensitiveMasking.maskedPreview(for: "483921") == "●●●●")
+        #expect(SensitiveMasking.maskedPreview(for: "483 921") == "●●●●")
+        #expect(SensitiveMasking.maskedPreview(for: "Sup3r$e!") == "●●●●")
     }
 
     @Test("Multiline secrets (PEM) mask entirely")
