@@ -294,11 +294,22 @@
         /// "Ask" pasteboard permission). Cancellation is checked before the
         /// read starts; a read already in flight runs to completion but its
         /// result is dropped by the caller's cancellation guard.
+        ///
+        /// TOCTOU guard: `pollOnce` vetoed on the types observed at poll time,
+        /// but this read returns whatever is on the pasteboard NOW. A fast
+        /// A→B swap could slip vetoed content under the old change's clean
+        /// types, so the CURRENT types are re-checked immediately before the
+        /// payload read and a now-vetoed change is dropped silently — like a
+        /// cancelled read; the next poll re-vetoes the new change anyway.
         private nonisolated static func readDetached(
             _ reader: any PasteboardReading
         ) async -> PasteboardCapture.Payload? {
             await Task.detached(priority: .utility) {
                 guard !Task.isCancelled else { return nil }
+                let typesNow = reader.currentTypes()
+                guard !typesNow.contains(Self.selfWriteMarker.rawValue),
+                    SensitivePasteboardTypes.captureVeto.isDisjoint(with: typesNow)
+                else { return nil }
                 return reader.readPayload()
             }.value
         }

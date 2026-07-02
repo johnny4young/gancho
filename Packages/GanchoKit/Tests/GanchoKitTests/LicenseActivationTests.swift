@@ -85,6 +85,31 @@ struct LicenseActivationTests {
         #expect(verified == LicenseToken(licenseID: "7", issuedAt: Date(timeIntervalSince1970: 1)))
     }
 
+    @Test("Issuance can opt into expiry and install binding when minting")
+    func serviceMintsConstrainedToken() async {
+        let key = Curve25519.Signing.PrivateKey()
+        let json = #"{"activated":true,"license_key":{"id":9,"status":"active"}}"#
+        let issued = Date(timeIntervalSince1970: 1_000)
+        let service = LicenseActivationService(
+            validator: LemonSqueezyValidator(transport: Self.transport(json)),
+            signingKey: key, now: { issued },
+            tokenLifetime: 3_600, fingerprintProvider: { "fp-alpha" })
+        guard
+            case .activated(let signed) =
+                await service.activate(licenseKey: "K", instanceName: "Mac")
+        else {
+            Issue.record("expected activated")
+            return
+        }
+        let verifier = LicenseVerifier(publicKey: key.publicKey)
+        let expected = LicenseToken(
+            licenseID: "9", issuedAt: issued,
+            expiresAt: issued + 3_600, boundFingerprint: "fp-alpha")
+        #expect(verifier.verify(signed, now: issued, fingerprint: "fp-alpha") == expected)
+        #expect(verifier.verify(signed, now: issued + 3_601, fingerprint: "fp-alpha") == nil)
+        #expect(verifier.verify(signed, now: issued, fingerprint: "fp-other") == nil)
+    }
+
     @Test("A build with no signing key is not licensable")
     func notLicensable() async {
         let json = #"{"activated":true,"license_key":{"id":1}}"#

@@ -7,6 +7,44 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **18 new Dev Actions** on text and code clips, all offline and deterministic:
+  SHA-256/SHA-1/MD5 hashes, URL encode/decode, HTML-entity encode/decode,
+  JSON-string escape/unescape, case conversion (camel/snake/kebab/title),
+  slugify, epoch ↔ ISO-8601 date conversion, number-base conversion
+  (dec/hex/bin/oct), sort/dedupe/reverse lines, and line/word/character counts.
+- The `gancho` CLI grew **`boards`, `pin`, and `unpin`**: list your boards
+  (`--json` for scripts) and pin or unpin a clip by id without leaving the
+  terminal. Detector-flagged sensitive clips refuse to pin, so a secret can't
+  be exempted from the short "Sensitive items" retention window by accident.
+
+### Changed
+
+- **Faster launch**: the one-time preview backfill for clips saved by older
+  versions now runs in the background after your history opens, instead of
+  holding up the open itself.
+- The built-in "Never capture from these apps" suggestions now also cover
+  Strongbox, KeePassium, MacPass, NordPass, Venmo, and Cash App out of the box.
+
+### Security
+
+- **Backups and exports now leave detector-flagged sensitive clips out by
+  default** — the macOS and iPhone/iPad "Back up history" archives and
+  `gancho export` alike. A secret the detector gave a 10-minute expiry no
+  longer becomes permanent plaintext the moment you export; pass
+  `--include-sensitive` to the CLI when you really want a full dump.
+- CSV exports now guard against **spreadsheet formula injection**: a clip
+  starting with `=`, `+`, `-`, or `@` can no longer run as a formula when the
+  export is opened in Excel, Numbers, or Sheets.
+- The secret detector recognizes **eight more credential shapes**: Slack
+  webhooks, Google API keys, GCP service-account JSON, OpenAI keys, npm
+  tokens, Azure connection strings, `Authorization: Bearer` headers, and PGP
+  private-key blocks.
+- The database-encryption dependency (the SQLCipher-enabled GRDB fork) is now
+  **pinned to an exact revision**, so the encryption layer can never silently
+  change under a dependency re-resolve.
+
 ## [0.3.2] - 2026-06-28
 
 ### Added

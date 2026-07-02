@@ -14,9 +14,9 @@ public struct BlobStore: Sendable {
     public let directory: URL
     let encryptionKeyData: Data?
 
-    static let encryptedMagic = Data([
-        0x47, 0x61, 0x6e, 0x63, 0x68, 0x6f, 0x42, 0x6c, 0x6f, 0x62, 0x01,
-    ])
+    /// Sealed-file header. Owned by `SealedEnvelope` (the shared primitive
+    /// this framing was extracted into); aliased here for the header checks.
+    static let encryptedMagic = SealedEnvelope.magic
 
     /// Sentinel (hidden, so directory scans skip it) written once the blobs +
     /// thumbnails have been migrated to the sealed format, so later opens don't
@@ -29,6 +29,12 @@ public struct BlobStore: Sendable {
 
     /// Thumbnail bounding box in pixels. 256 covers list rows on Retina.
     public static let thumbnailMaxPixelSize = 256
+
+    /// Byte ceiling for warm-at-write thumbnail generation. Payloads above
+    /// this build their thumbnail lazily on first request (the cold-cache
+    /// path in `thumbnailData(for:)`), so a burst of large image captures
+    /// never gates the store write on an ImageIO decode/encode.
+    static let thumbnailWarmMaxBytes = 8 << 20
 
     public init(directory: URL, encryptionKeyData: Data? = nil) {
         self.directory = directory
@@ -61,8 +67,12 @@ public struct BlobStore: Sendable {
             try encodeForDisk(data).write(to: file, options: .atomic)
         }
         // Warm the thumbnail from the in-memory data so memory-tight readers
-        // (the keyboard) never load the full blob just to build it.
-        try cacheThumbnail(for: hash, from: data)
+        // (the keyboard) never load the full blob just to build it. Large
+        // payloads skip the warm pass — their ImageIO work would gate the
+        // capture write — and warm lazily on first request instead.
+        if data.count <= Self.thumbnailWarmMaxBytes {
+            try cacheThumbnail(for: hash, from: data)
+        }
         return hash
     }
 
@@ -194,25 +204,13 @@ public struct BlobStore: Sendable {
 
     private func encodeForDisk(_ data: Data) throws -> Data {
         guard let encryptionKeyData else { return data }
-        let key = SymmetricKey(data: encryptionKeyData)
-        let sealed = try AES.GCM.seal(data, using: key)
-        guard let combined = sealed.combined else { throw BlobStoreError.malformedEncryptedBlob }
-        var payload = Self.encryptedMagic
-        payload.append(combined)
-        return payload
+        return try SealedEnvelope.seal(data, key: encryptionKeyData)
     }
 
     private func decodeFromDisk(_ data: Data) throws -> Data {
-        guard Self.isEncryptedOnDisk(data) else { return data }
+        guard SealedEnvelope.isSealed(data) else { return data }
         guard let encryptionKeyData else { throw BlobStoreError.missingEncryptionKey }
-        let payload = Data(data.dropFirst(Self.encryptedMagic.count))
-        let box = try AES.GCM.SealedBox(combined: payload)
-        return try AES.GCM.open(box, using: SymmetricKey(data: encryptionKeyData))
-    }
-
-    private static func isEncryptedOnDisk(_ data: Data) -> Bool {
-        data.count >= encryptedMagic.count
-            && data.prefix(encryptedMagic.count).elementsEqual(encryptedMagic)
+        return try SealedEnvelope.open(data, key: encryptionKeyData)
     }
 
     /// Header-only magic check — reads `encryptedMagic.count` bytes, not the
@@ -250,7 +248,6 @@ public struct BlobStore: Sendable {
 }
 
 private enum BlobStoreError: Error {
-    case malformedEncryptedBlob
     case missingEncryptionKey
 }
 

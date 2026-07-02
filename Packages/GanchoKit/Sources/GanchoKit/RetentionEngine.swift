@@ -6,8 +6,12 @@ import GRDB
 /// timer or on launch without touching UI latency.
 ///
 /// Order of evaluation (most specific first): per-item `expiresAt` →
-/// sensitive lifetime → per-kind window → global window. `isPinned = 1`
-/// rows are exempt from every clause, including their own `expiresAt`.
+/// sensitive lifetime → per-kind window → global window. Pinned rows and
+/// board members are exempt from every clause EXCEPT the sensitive
+/// lifetime: a detected secret always follows the shorter sensitive limit
+/// — favoriting or filing it must not make it permanent (the CHANGELOG
+/// promise). Snippets are exempt from everything, including the sensitive
+/// clause: promotion is explicit, permanent curation.
 public struct RetentionEngine: Sendable {
     private let store: GRDBClipboardStore
 
@@ -19,65 +23,115 @@ public struct RetentionEngine: Sendable {
     /// Privacy Center can show counters without content.
     @discardableResult
     public func runPurge(policy: RetentionPolicy, now: Date = .now) async throws -> PurgeSummary {
-        var summary = PurgeSummary()
-
-        summary = try await store.writer.write { db in
+        let (purged, blobCandidates) = try await store.writer.write {
+            db -> (PurgeSummary, Set<String>) in
             var partial = PurgeSummary()
+            var candidates: Set<String> = []
+
+            // Every clause tombstones its synced victims BEFORE deleting them,
+            // so the deletion propagates to iCloud instead of the record
+            // resurrecting on the next fetch (an expired secret must not live
+            // on in the cloud forever). Same predicate for both statements so
+            // they cover exactly the same rows; unsynced rows (no system
+            // fields) have no cloud record, so they need no tombstone. The
+            // victims' blob hashes are captured BEFORE the delete so orphan
+            // cleanup after the transaction is O(deleted), not a full sweep.
+            func purge(where predicate: String, arguments: StatementArguments) throws -> Int {
+                try candidates.formUnion(
+                    String.fetchSet(
+                        db,
+                        sql: "SELECT DISTINCT contentBlobHash FROM clip "
+                            + "WHERE contentBlobHash IS NOT NULL AND " + predicate,
+                        arguments: arguments))
+                try db.execute(
+                    sql: "INSERT OR REPLACE INTO sync_tombstone (recordID, deletedAt) "
+                        + "SELECT id, ? FROM clip "
+                        + "WHERE syncSystemFields IS NOT NULL AND " + predicate,
+                    arguments: StatementArguments([now]) + arguments)
+                try db.execute(
+                    sql: "DELETE FROM clip WHERE " + predicate, arguments: arguments)
+                return db.changesCount
+            }
 
             // 1. Per-item explicit expiry.
-            try db.execute(
-                sql:
-                    "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND expiresAt IS NOT NULL AND expiresAt <= ?",
+            partial.expiredByOwnDate = try purge(
+                where:
+                    "isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND expiresAt IS NOT NULL AND expiresAt <= ?",
                 arguments: [now])
-            partial.expiredByOwnDate = db.changesCount
 
-            // 2. Sensitive lifetime.
-            try db.execute(
-                sql:
-                    "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND isSensitive = 1 AND createdAt <= ?",
+            // 2. Sensitive lifetime. Deliberately IGNORES `isPinned` and
+            // board membership (unlike every other clause): a detected
+            // secret must not become permanent by being favorited or filed
+            // onto a board. Snippets are the one exemption — promoting is an
+            // explicit, deliberate act of permanent curation.
+            partial.sensitiveExpired = try purge(
+                where: "isSnippet = 0 AND isSensitive = 1 AND createdAt <= ?",
                 arguments: [now.addingTimeInterval(-policy.sensitiveLifetime)])
-            partial.sensitiveExpired = db.changesCount
 
             // 3. Per-kind windows (override the global for their kind).
             for (kind, window) in policy.perKind.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
                 guard let lifetime = window.lifetime else { continue }
-                try db.execute(
-                    sql:
-                        "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND kind = ? AND createdAt <= ?",
+                partial.byKindWindow += try purge(
+                    where:
+                        "isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND kind = ? AND createdAt <= ?",
                     arguments: [kind.rawValue, now.addingTimeInterval(-lifetime)])
-                partial.byKindWindow += db.changesCount
             }
 
             // 4. Global window for every kind WITHOUT an override.
             if let lifetime = policy.global.lifetime {
                 let overridden = policy.perKind.keys.map(\.rawValue)
-                var sql =
-                    "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND createdAt <= ?"
+                var predicate =
+                    "isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND createdAt <= ?"
                 var arguments: [any DatabaseValueConvertible] = [
                     now.addingTimeInterval(-lifetime)
                 ]
                 if !overridden.isEmpty {
                     let placeholders = Array(repeating: "?", count: overridden.count)
                         .joined(separator: ",")
-                    sql += " AND kind NOT IN (\(placeholders))"
+                    predicate += " AND kind NOT IN (\(placeholders))"
                     arguments.append(contentsOf: overridden.sorted())
                 }
-                try db.execute(sql: sql, arguments: StatementArguments(arguments))
-                partial.byGlobalWindow = db.changesCount
+                partial.byGlobalWindow = try purge(
+                    where: predicate, arguments: StatementArguments(arguments))
             }
 
-            return partial
+            return (partial, candidates)
         }
 
-        summary.orphanedBlobsRemoved = try await store.removeOrphanedBlobs()
+        // Blobs are files, not rows — they are cleaned OUTSIDE the write
+        // transaction, precisely (only the deleted rows' hashes, each
+        // ref-checked), mirroring the per-row `delete(id:)` path.
+        var summary = purged
+        summary.orphanedBlobsRemoved = try await store.removeBlobsIfOrphaned(blobCandidates)
         try await store.logPurge(summary, at: now)
         return summary
     }
 }
 
 extension GRDBClipboardStore {
-    /// Deletes blob files no row references anymore (mass purges bypass the
-    /// per-row delete path, so orphans are swept here).
+    /// Deletes the given candidate blob hashes — the hashes of rows a mass
+    /// delete just removed — when no surviving row still references them.
+    /// Content-addressed blobs are shared, so each candidate is ref-checked
+    /// before its file goes; a blob still referenced is never deleted. The
+    /// precise counterpart to the full-sweep ``removeOrphanedBlobs()``:
+    /// O(deleted) instead of O(table + files).
+    func removeBlobsIfOrphaned(_ candidates: Set<String>) async throws -> Int {
+        guard !candidates.isEmpty else { return 0 }
+        let orphaned = try await writer.read { db in
+            try candidates.filter { hash in
+                try ClipRow.filter(Column("contentBlobHash") == hash).fetchCount(db) == 0
+            }
+        }
+        for hash in orphaned {
+            blobsForMaintenance.delete(hash: hash)
+        }
+        return orphaned.count
+    }
+
+    /// Full-sweep fallback: deletes every blob file no row references. The
+    /// steady-state mass-delete paths (retention purge, panic delete) use
+    /// the precise ``removeBlobsIfOrphaned(_:)`` instead; keep this as the
+    /// explicit garbage-collection entry point for repair/maintenance.
     func removeOrphanedBlobs() async throws -> Int {
         let referenced = try await writer.read { db in
             try String.fetchSet(

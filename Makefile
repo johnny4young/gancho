@@ -110,7 +110,7 @@ qa-release: ## QA the newest dist/Gancho-*.zip or a provided ARTIFACT=/path/to/G
 site-check: ## Verify the static GitHub Pages site structure
 	./scripts/check-site.sh
 
-hooks: ## Install the versioned git hooks (pre-commit lint)
+hooks: ## Install the versioned git hooks (pre-commit lint; pre-push lint+tests, skipped without a Swift toolchain)
 	git config core.hooksPath scripts/githooks
 	chmod +x scripts/githooks/*
 

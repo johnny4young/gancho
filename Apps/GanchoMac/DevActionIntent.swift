@@ -25,6 +25,10 @@ struct DevActionIntent: AppIntent {
 enum DevActionChoice: String, AppEnum {
     case decodeJWT, jsonPretty, jsonMinify, base64Encode, base64Decode
     case parseURL, convertColor, uuidFormats
+    case sha256Hex, sha1Hex, md5Hex, urlEncode, urlDecode, caseConvert
+    case epochToDate, dateToEpoch, sortLines, dedupeLines, reverseLines
+    case countStats, htmlEntityEncode, htmlEntityDecode, slugify
+    case numberBaseConvert, jsonEscape, jsonUnescape
 
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Dev Action"
     static let caseDisplayRepresentations: [DevActionChoice: DisplayRepresentation] = [
@@ -36,6 +40,24 @@ enum DevActionChoice: String, AppEnum {
         .parseURL: "Parse URL",
         .convertColor: "Convert color",
         .uuidFormats: "UUID formats",
+        .sha256Hex: "SHA-256 hash",
+        .sha1Hex: "SHA-1 hash",
+        .md5Hex: "MD5 hash",
+        .urlEncode: "URL encode",
+        .urlDecode: "URL decode",
+        .caseConvert: "Convert case",
+        .epochToDate: "Epoch to date",
+        .dateToEpoch: "Date to epoch",
+        .sortLines: "Sort lines",
+        .dedupeLines: "Dedupe lines",
+        .reverseLines: "Reverse lines",
+        .countStats: "Count stats",
+        .htmlEntityEncode: "HTML-entity encode",
+        .htmlEntityDecode: "HTML-entity decode",
+        .slugify: "Slugify",
+        .numberBaseConvert: "Convert number base",
+        .jsonEscape: "JSON-escape string",
+        .jsonUnescape: "JSON-unescape string",
     ]
 
     var id: DevActions.ActionID {

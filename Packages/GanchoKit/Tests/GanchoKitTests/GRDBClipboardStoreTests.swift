@@ -162,6 +162,36 @@ struct GRDBClipboardStoreTests {
         #expect(blobFiles.filter { $0 != "thumbnails" }.isEmpty, "orphaned blob must be removed")
     }
 
+    @Test("deleteAllSensitive removes orphaned blobs but never a shared one")
+    func deleteAllSensitiveKeepsSharedBlobs() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // Same bytes → one content-addressed blob file, referenced by a
+        // sensitive row AND a plain row (distinct contentHash keeps two rows).
+        let sensitive = ClipItem(
+            kind: .image, preview: "secret shot", contentHash: "h-secret", isSensitive: true)
+        let plain = ClipItem(kind: .image, preview: "plain shot", contentHash: "h-plain")
+        for item in [sensitive, plain] {
+            try await store.insert(
+                item, content: .binary(data: tinyPNG, typeIdentifier: "public.png"))
+        }
+
+        #expect(try await store.deleteAllSensitive() == 1)
+        let blobFiles = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { $0 != "thumbnails" }
+        #expect(blobFiles.count == 1, "the plain row still references the blob")
+        #expect(
+            try await store.content(for: plain.id)
+                == .binary(data: tinyPNG, typeIdentifier: "public.png"))
+
+        // With the last reference gone the blob file goes too.
+        try await store.delete(id: plain.id)
+        let leftover = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { $0 != "thumbnails" }
+        #expect(leftover.isEmpty)
+    }
+
     @Test("JSON export is versioned and carries content text")
     func jsonExport() async throws {
         let (store, dir) = try makeStore()
@@ -191,6 +221,116 @@ struct GRDBClipboardStoreTests {
 
         #expect(csv.contains("\"he said \"\"hi\"\", twice\""))
         #expect(csv.contains("\"line one\nline two\""))
+    }
+
+    @Test("Streamed CSV keeps createdAt order, with sensitive rows skipped in place")
+    func csvStreamedOrder() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        try await store.insert(
+            ClipItem(createdAt: base, preview: "first", contentHash: "h1"),
+            content: .text("first"))
+        try await store.insert(
+            ClipItem(
+                createdAt: base.addingTimeInterval(60), preview: "middle secret",
+                contentHash: "h2", isSensitive: true),
+            content: .text("middle secret"))
+        try await store.insert(
+            ClipItem(createdAt: base.addingTimeInterval(120), preview: "last", contentHash: "h3"),
+            content: .text("last"))
+
+        let lines = String(
+            decoding: try await store.exportCSV(excludeSensitive: true), as: UTF8.self
+        ).split(separator: "\n")
+        #expect(lines.count == 3, "header + the two non-sensitive rows")
+        #expect(lines[1].contains("first"))
+        #expect(lines[2].contains("last"))
+        #expect(!lines.contains { $0.contains("middle secret") })
+    }
+
+    @Test("CSV export neutralizes leading formula characters (CSV injection)")
+    func csvFormulaInjectionGuard() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try await store.insert(
+            ClipItem(preview: "=SUM(A1:A9)", contentHash: "h1"),
+            content: .text("=HYPERLINK(\"https://evil.example\",\"click\")"))
+        let csv = String(decoding: try await store.exportCSV(), as: UTF8.self)
+
+        // A leading = + - @ (or tab/CR) is prefixed with a single apostrophe
+        // BEFORE the normal RFC-4180 quoting, so spreadsheets render it as
+        // literal text instead of executing it as a formula.
+        #expect(csv.contains("'=SUM(A1:A9)"))
+        #expect(csv.contains("\"'=HYPERLINK(\"\"https://evil.example\"\",\"\"click\"\")\""))
+        #expect(!csv.contains(",=SUM"), "no field may start with a raw =")
+    }
+
+    @Test("Exports can exclude detector-flagged sensitive clips")
+    func exportExcludesSensitive() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try await store.insert(
+            ClipItem(preview: "●●●● 6789", contentHash: "hs", isSensitive: true),
+            content: .text("ghp_notARealTokenJustAShapeForTesting01"))
+        try await store.insert(
+            ClipItem(preview: "plain", contentHash: "hp"), content: .text("plain body"))
+
+        let json = String(
+            decoding: try await store.exportJSON(excludeSensitive: true), as: UTF8.self)
+        #expect(!json.contains("ghp_notARealTokenJustAShapeForTesting01"))
+        #expect(json.contains("plain body"))
+
+        let csv = String(
+            decoding: try await store.exportCSV(excludeSensitive: true), as: UTF8.self)
+        #expect(!csv.contains("ghp_notARealTokenJustAShapeForTesting01"))
+        #expect(csv.contains("plain body"))
+
+        // The default (protocol) form still includes everything — no silent
+        // behavior change for existing callers.
+        let full = String(decoding: try await store.exportJSON(), as: UTF8.self)
+        #expect(full.contains("ghp_notARealTokenJustAShapeForTesting01"))
+    }
+
+    @Test("Raw-key adoption is env-gated (GANCHO_RAWKEY_ADOPT=1) and OFF by default")
+    func rawKeyAdoptionFlag() {
+        // `encrypted(directory:keychainAccessGroup:)` branches on exactly this
+        // gate; only the literal "1" opts in (rollout: `.audit/06` §5).
+        #expect(!GRDBClipboardStore.rawKeyAdoptionEnabled(environment: [:]))
+        #expect(
+            !GRDBClipboardStore.rawKeyAdoptionEnabled(
+                environment: ["GANCHO_RAWKEY_ADOPT": "0"]))
+        #expect(
+            !GRDBClipboardStore.rawKeyAdoptionEnabled(
+                environment: ["GANCHO_RAWKEY_ADOPT": "true"]))
+        #expect(
+            GRDBClipboardStore.rawKeyAdoptionEnabled(
+                environment: ["GANCHO_RAWKEY_ADOPT": "1"]))
+    }
+
+    @Test("v16 creates the hot-query indexes")
+    func hotQueryIndexes() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // The migration is raw SQL, so a typo would only surface at migrate
+        // time — assert the indexes actually landed on their tables. (Whether
+        // the planner picks them is checked with EXPLAIN QUERY PLAN on a Mac;
+        // an unused index is a perf regression, never a correctness one.)
+        let clipIndexes = try await store.writer.read { db in
+            try String.fetchAll(db, sql: "SELECT name FROM pragma_index_list('clip')")
+        }
+        #expect(clipIndexes.contains("idx_clip_recent_activity"))
+        #expect(clipIndexes.contains("idx_clip_browse"))
+        #expect(clipIndexes.contains("idx_clip_sensitive"))
+
+        let junctionIndexes = try await store.writer.read { db in
+            try String.fetchAll(db, sql: "SELECT name FROM pragma_index_list('clip_board')")
+        }
+        #expect(junctionIndexes.contains("idx_clip_board_board"))
     }
 
     @Test("Migrations are idempotent across re-opens")

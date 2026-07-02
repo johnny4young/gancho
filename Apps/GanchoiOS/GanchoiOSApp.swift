@@ -40,6 +40,13 @@ struct GanchoiOSApp: App {
                 }
             }
             .environment(model)
+            // Post-launch maintenance: the cosmetic legacy-preview backfill
+            // moved off the synchronous store open (it scanned image rows on
+            // every cold launch); run it once the first frame is up.
+            .task {
+                guard let grdb = model.store as? GRDBClipboardStore else { return }
+                try? await grdb.backfillLegacyPreviews()
+            }
             // Widget deep links (`gancho://clip/<id>`) open the right clip.
             .onOpenURL { model.handleDeepLink($0) }
             // Brand-green accent (iOS has no per-app OS accent picker, so green
@@ -58,7 +65,13 @@ struct GanchoiOSApp: App {
             // process (avoids 0xDEAD10CC), and resume on return to foreground.
             switch phase {
             case .background: DatabaseSuspension.suspend()
-            case .active: DatabaseSuspension.resume()
+            case .active:
+                DatabaseSuspension.resume()
+                // With the store resumed, run the retention/tier pass the Mac
+                // does on a timer — iOS gets it on return to foreground,
+                // throttled inside runMaintenance() so frequent app switches
+                // don't repeat the full purge + blob sweep.
+                Task { await model.runMaintenance() }
             default: break
             }
         }
@@ -390,6 +403,42 @@ final class IOSAppModel {
         Task { try? await engine.start() }
     }
 
+    /// Foreground maintenance: purge expired history (the "auto-expires after
+    /// 10 minutes" promise for secrets) and apply free-tier ceilings, then
+    /// refresh the visible list. Mirrors the Mac's timer-driven pass — iOS has
+    /// no retention-policy UI yet, so the policy loads its defaults until a
+    /// settings surface exists.
+    ///
+    /// Throttled: foregrounding is frequent but the purge + tier pass (with
+    /// its orphan-blob directory sweep) is not launch-critical, so it runs at
+    /// most once per interval. The timestamp persists in UserDefaults so a
+    /// relaunch doesn't reset the clock.
+    private static let maintenanceInterval: TimeInterval = 10 * 60
+    private static let lastMaintenanceKey = "ios-last-maintenance-at"
+
+    func runMaintenance() async {
+        guard let grdb = store as? GRDBClipboardStore else { return }
+        if let last = defaults.object(forKey: Self.lastMaintenanceKey) as? Date,
+            Date().timeIntervalSince(last) < Self.maintenanceInterval
+        {
+            return
+        }
+        let policy = RetentionPolicy.load(from: defaults)
+        _ = try? await RetentionEngine(store: grdb).runPurge(policy: policy)
+        // The purge tombstoned any synced victims; enqueue those deletions now
+        // so they propagate immediately rather than at the next sync start().
+        // Re-adding an already-pending deletion is a no-op in the engine, so
+        // sweeping the whole tombstone table is safe.
+        if syncEnabled {
+            let recordIDs = (try? await grdb.pendingDeletionRecordIDs()) ?? []
+            let ids = recordIDs.compactMap { UUID(uuidString: $0) }
+            if !ids.isEmpty { await syncEngine.enqueueDeletion(ids: ids) }
+        }
+        _ = try? await TierEnforcement(store: grdb).enforce(tier: tier)
+        defaults.set(Date(), forKey: Self.lastMaintenanceKey)
+        await search()
+    }
+
     /// Resolves a `gancho://clip/<id>` widget link: make sure the clip is in
     /// the list (so the detail destination finds it), then signal the view to
     /// navigate. A foreign or unknown link is ignored.
@@ -717,6 +766,10 @@ final class IOSAppModel {
     func togglePin(_ item: ClipItem) async {
         guard let grdb = store as? GRDBClipboardStore else { return }
         try? await grdb.setPinned(id: item.id, !item.isPinned)
+        // setPinned flagged the row for upload; enqueue pushes it now instead
+        // of at the next sync start(). The engine builds the record from the
+        // stored row, so only the id matters here.
+        await syncEngine.enqueue([item])
         await search()
     }
 
@@ -768,15 +821,22 @@ final class IOSAppModel {
             String(localized: "Couldn’t open secure storage — running in memory."))
     }
 
-    /// Export a portable `.ganchoarchive` of the whole history to a temp dir for
-    /// the system exporter to move into Files. Same format macOS reads/writes —
-    /// device-to-device migration, no lock-in, never auto-uploaded.
+    /// Export a portable `.ganchoarchive` of the history (minus detector-flagged
+    /// sensitive clips) to a temp dir for the system exporter to move into
+    /// Files. Same format macOS reads/writes — device-to-device migration, no
+    /// lock-in, never auto-uploaded.
     func makeBackupArchive() async -> URL? {
         guard let grdb = store as? GRDBClipboardStore else { return nil }
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("gancho-backup.ganchoarchive", isDirectory: true)
         try? FileManager.default.removeItem(at: dir)
-        guard (try? await GanchoArchive.export(from: grdb, to: dir)) != nil else { return nil }
+        // Detector-flagged secrets never leave the encrypted store via backup:
+        // they carry a short expiry precisely so they don't persist, and an
+        // archive in Files is permanent plaintext.
+        guard
+            (try? await GanchoArchive.export(
+                from: grdb, to: dir, options: .init(excludeSensitive: true))) != nil
+        else { return nil }
         return dir
     }
 

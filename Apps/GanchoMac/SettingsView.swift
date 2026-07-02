@@ -197,7 +197,13 @@ private struct GeneralSettingsTab: View {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "gancho-backup.ganchoarchive"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        Task { try? await GanchoArchive.export(from: store, to: url) }
+        // Detector-flagged secrets never leave the encrypted store via backup:
+        // they carry a short expiry precisely so they don't persist, and an
+        // archive on disk is permanent plaintext.
+        Task {
+            try? await GanchoArchive.export(
+                from: store, to: url, options: .init(excludeSensitive: true))
+        }
     }
 
     private func restoreHistory() {

@@ -182,6 +182,41 @@ struct MCPToolRunnerTests {
         #expect(await sink.events.last?.wasDenied == true)
     }
 
+    // MARK: - list_boards
+
+    @Test("list_boards returns board metadata and is allowed under metadata scope")
+    func listBoardsMetadataScope() async throws {
+        let sink = EventSink()
+        let store = try MCPTestStore.make()
+        try await store.seedFixtures()
+        try await store.createPinboard(name: "Work", sfSymbol: "briefcase")
+        let runner = MCPToolRunner(store: store, scope: .metadata) { await sink.record($0) }
+
+        let result = await runner.call(tool: "list_boards", arguments: .object([:]))
+        #expect(result.isError == false)
+        let json = try resultJSON(result)
+        // The migration-seeded Favorites board plus the one created above.
+        #expect(json["count"]?.intValue == 2)
+        let boards = json["boards"]?.arrayValue ?? []
+        let names = boards.compactMap { $0["name"]?.stringValue }
+        #expect(names.contains("Favorites"))
+        #expect(names.contains("Work"))
+        let symbols = boards.compactMap { $0["sfSymbol"]?.stringValue }
+        #expect(symbols.contains("briefcase"))
+    }
+
+    @Test("list_boards is logged with tool, scope, and board count")
+    func listBoardsLogged() async throws {
+        let sink = EventSink()
+        let runner = try await runner(.boards, sink: sink)
+        _ = await runner.call(tool: "list_boards", arguments: .object([:]))
+        let event = await sink.events.last
+        #expect(event?.tool == .listBoards)
+        #expect(event?.scope == .boards)
+        #expect(event?.resultCount == 1)  // just the seeded Favorites board
+        #expect(event?.wasDenied == false)
+    }
+
     // MARK: - logging + dispatch
 
     @Test("every call is logged with tool and scope")

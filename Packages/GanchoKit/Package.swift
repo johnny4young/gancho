@@ -1,10 +1,14 @@
 // swift-tools-version: 6.2
 // GanchoKit — the engine room. All feature/core code lives here; the app
-// targets in Apps/ are thin shells. Four library products:
+// targets in Apps/ are thin shells. Seven library products plus a CLI:
 //   GanchoKit      — models, store protocols, sync boundary
 //   ClipboardCore  — platform pasteboard adapters (macOS capture, iOS intent-based)
 //   GanchoAI       — on-device intelligence (tier-0 classifier today)
 //   GanchoDesign   — design tokens shared across platforms
+//   GanchoTelemetry — bucket-only analytics transport (kept outside the core)
+//   GanchoSync     — CloudKit sync adapter (the only CloudKit importer)
+//   GanchoMCP      — local MCP server protocol + tools
+//   gancho         — executable: the CLI + stdio MCP server (Homebrew)
 
 import PackageDescription
 
@@ -38,8 +42,13 @@ let package = Package(
         // (package traits need Xcode-UI support it still lacks); the fork only
         // uncomments the marked `// GRDB+SQLCipher:` lines on the v7.11.0 tag,
         // pulling Zetetic's official SQLCipher.swift. Rationale: docs/ARCHITECTURE.md.
+        // Pinned to an exact revision (not the moving `sqlcipher-7.11.0` branch)
+        // so the encryption layer can never silently change under a re-resolve.
+        // When rebasing the fork onto an upstream GRDB/SQLCipher security
+        // release, update this revision hash deliberately in the same commit.
         .package(
-            url: "https://github.com/johnny4young/GRDB.swift.git", branch: "sqlcipher-7.11.0"),
+            url: "https://github.com/johnny4young/GRDB.swift.git",
+            revision: "77e27afdf29bc298a14d2b19e2bb5bcf466df632"),
         // Layout-aware keycodes for the synthetic ⌘V (covers Dvorak-QWERTY⌘).
         // Inherited practice from years of Maccy/community plumbing (MIT).
         .package(url: "https://github.com/Clipy/Sauce.git", from: "2.4.0"),

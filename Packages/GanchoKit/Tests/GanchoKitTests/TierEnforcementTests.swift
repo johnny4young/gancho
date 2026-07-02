@@ -74,6 +74,78 @@ struct TierEnforcementTests {
         #expect(try await store.items().map(\.preview).contains("pinned"))
     }
 
+    @Test("A clip filed on a board (junction membership, v10+) never archives")
+    func junctionBoardMembersExempt() async throws {
+        let store = try makeStore()
+        let windowDays = FreeTierLimits.historyDays / 86_400
+        let filed = ClipItem(
+            createdAt: now.addingTimeInterval(-(windowDays + 30) * 86_400), preview: "filed",
+            contentHash: "hb")
+        try await store.insert(filed, content: .text("filed"))
+        let board = try await store.createPinboard(name: "Work")
+        try await store.assign(clipID: filed.id, toBoard: board.id)
+        try await seed(store, count: 3, ageDays: windowDays + 3)
+
+        let summary = try await TierEnforcement(store: store).enforce(tier: .free, now: now)
+
+        #expect(summary.archived == 3)
+        #expect(try await store.items().map(\.preview).contains("filed"))
+    }
+
+    @Test("Sensitive clips never archive — retention owns their lifecycle")
+    func sensitiveExempt() async throws {
+        let store = try makeStore()
+        let windowDays = FreeTierLimits.historyDays / 86_400
+        let secret = ClipItem(
+            createdAt: now.addingTimeInterval(-(windowDays + 3) * 86_400), preview: "secret",
+            contentHash: "hs", isSensitive: true)
+        try await store.insert(secret, content: .text("secret"))
+        try await seed(store, count: 3, ageDays: windowDays + 3)
+
+        let summary = try await TierEnforcement(store: store).enforce(tier: .free, now: now)
+
+        #expect(summary.archived == 3)
+        #expect(try await store.items().map(\.preview).contains("secret"))
+        #expect(try await store.sensitiveCount() == 1)
+    }
+
+    @Test("The item ceiling also skips sensitive and board-member clips")
+    func countCeilingSkipsExemptRows() async throws {
+        let store = try makeStore()
+        let secret = ClipItem(
+            createdAt: now.addingTimeInterval(-86_400), preview: "old secret",
+            contentHash: "hs2", isSensitive: true)
+        try await store.insert(secret, content: .text("old secret"))
+        let filed = ClipItem(
+            createdAt: now.addingTimeInterval(-86_400 + 1), preview: "old filed",
+            contentHash: "hb2")
+        try await store.insert(filed, content: .text("old filed"))
+        let board = try await store.createPinboard(name: "Work")
+        try await store.assign(clipID: filed.id, toBoard: board.id)
+        try await seed(store, count: FreeTierLimits.historyItems)  // fills the ceiling
+
+        let summary = try await TierEnforcement(store: store).enforce(tier: .free, now: now)
+
+        #expect(summary.archived == 0)
+        #expect(try await store.archivedCount() == 0)
+    }
+
+    @Test("Re-copying archived content revives the row into visible history")
+    func dedupeRevivesArchivedRow() async throws {
+        let store = try makeStore()
+        try await seed(store, count: FreeTierLimits.historyItems + 1)
+        try await TierEnforcement(store: store).enforce(tier: .free, now: now)
+        #expect(try await store.archivedCount() == 1)
+
+        // The archived row is the oldest seed. Re-copying its content must
+        // surface the existing row, not swallow the copy into the hidden set.
+        let recopy = ClipItem(preview: "clip 0", contentHash: "h-0.0-0")
+        let stored = try await store.insert(recopy, content: .text("clip 0"))
+
+        #expect(try await store.archivedCount() == 0)
+        #expect(try await store.items().map(\.id).contains(stored.id))
+    }
+
     @Test("Upgrading to Pro releases every archived clip")
     func proReleases() async throws {
         let store = try makeStore()

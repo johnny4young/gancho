@@ -1,7 +1,7 @@
 import Foundation
 import GanchoKit
 
-/// Runs the four MCP tools against the store under a fixed access scope,
+/// Runs the five MCP tools against the store under a fixed access scope,
 /// enforcing the privacy rules in ONE place:
 ///
 /// - Sensitive clips (`isSensitive`) are NEVER exposed or mutated, in any
@@ -47,6 +47,8 @@ public struct MCPToolRunner: Sendable {
                 return try await createPin(arguments.decoded(as: CreatePinArgs.self))
             case .pasteStack:
                 return try await pasteStack(arguments.decoded(as: PasteStackArgs.self))
+            case .listBoards:
+                return try await listBoards()
             }
         } catch is DecodingError {
             return MCPToolResult(
@@ -147,6 +149,14 @@ public struct MCPToolRunner: Sendable {
             PasteStackResult(
                 clips: clips, combinedText: clips.map(\.text).joined(separator: "\n\n"),
                 count: clips.count))
+    }
+
+    private func listBoards() async throws -> MCPToolResult {
+        // Board names/glyphs are organization, not clip content, so every
+        // scope may see them — but the call is still logged like the rest.
+        let boards = try await store.pinboards().map(BoardSummary.init)
+        await record(.listBoards, count: boards.count)
+        return ok(ListBoardsResult(boards: boards, count: boards.count))
     }
 
     // MARK: - Helpers

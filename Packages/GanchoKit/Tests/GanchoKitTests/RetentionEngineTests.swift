@@ -107,12 +107,10 @@ struct RetentionEngineTests {
         #expect(try await store.count() == 0)
     }
 
-    @Test("Pins never expire — not by window, lifetime, or own date")
+    @Test("Pins never expire by window or own date (the sensitive lifetime is the exception)")
     func pinsAreExempt() async throws {
         let (store, _) = try makeStore()
         try await insert(store, preview: "pinned old", age: 400 * 86_400, pinned: true)
-        try await insert(
-            store, preview: "pinned secret", age: 9_000, pinned: true, sensitive: true)
         try await insert(
             store, preview: "pinned timed", age: 60, pinned: true,
             expiresAt: now.addingTimeInterval(-1))
@@ -121,7 +119,40 @@ struct RetentionEngineTests {
         let summary = try await RetentionEngine(store: store).runPurge(policy: policy, now: now)
 
         #expect(summary.totalRowsPurged == 0)
-        #expect(try await store.count() == 3)
+        #expect(try await store.count() == 2)
+    }
+
+    @Test("Sensitive lifetime overrides pins and boards — filing a secret never preserves it")
+    func sensitiveExpiryOverridesPinsAndBoards() async throws {
+        let (store, _) = try makeStore()
+        // A stale secret that is pinned AND on a board: still purged on the
+        // sensitive schedule (the CHANGELOG promise — detected secrets always
+        // follow the shorter Sensitive items limit).
+        let filedSecret = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "filed secret",
+            contentHash: "h-fs", isPinned: true, isSensitive: true)
+        // Same curation, NOT sensitive: exempt from every clause, as before.
+        let filedPlain = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "filed plain",
+            contentHash: "h-fp", isPinned: true)
+        // A sensitive SNIPPET survives: promotion is explicit curation.
+        let snippetSecret = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "snippet secret",
+            contentHash: "h-sn", isSensitive: true)
+        for item in [filedSecret, filedPlain, snippetSecret] {
+            try await store.insert(item, content: .text(item.preview))
+        }
+        try await store.assign(clipID: filedSecret.id, toBoard: Pinboard.favoritesID)
+        try await store.assign(clipID: filedPlain.id, toBoard: Pinboard.favoritesID)
+        try await store.promoteToSnippet(id: snippetSecret.id)
+
+        let summary = try await RetentionEngine(store: store)
+            .runPurge(policy: RetentionPolicy(), now: now)
+
+        #expect(summary.sensitiveExpired == 1)
+        #expect(
+            try await store.items().map(\.preview).sorted()
+                == ["filed plain", "snippet secret"])
     }
 
     @Test("Purges sweep orphaned blobs and log counters")
@@ -148,6 +179,99 @@ struct RetentionEngineTests {
         let counted = try await store.purgedItemCount(
             since: now.addingTimeInterval(-7 * 86_400))
         #expect(counted == 1)
+    }
+
+    @Test("Purges never delete a blob a surviving clip still shares")
+    func purgeKeepsSharedBlobs() async throws {
+        let (store, dir) = try makeStore()
+        let png = Data(
+            base64Encoded:
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        )!
+        // Same bytes → one content-addressed blob file shared by both rows
+        // (distinct contentHash values keep the rows separate).
+        try await insert(
+            store, preview: "old copy", age: 40 * 86_400, kind: .image,
+            content: .binary(data: png, typeIdentifier: "public.png"))
+        try await insert(
+            store, preview: "fresh copy", age: 86_400, kind: .image,
+            content: .binary(data: png, typeIdentifier: "public.png"))
+
+        let engine = RetentionEngine(store: store)
+        let first = try await engine.runPurge(policy: RetentionPolicy(global: .month), now: now)
+
+        // The old row went, but the fresh row still references the blob.
+        #expect(first.byGlobalWindow == 1)
+        #expect(first.orphanedBlobsRemoved == 0, "a shared blob must survive")
+        let afterFirst = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? [])
+            .filter { $0 != "thumbnails" }
+        #expect(afterFirst.count == 1)
+
+        // Once the LAST referencing row is purged the blob goes too.
+        let later = now.addingTimeInterval(40 * 86_400)
+        let second = try await engine.runPurge(policy: RetentionPolicy(global: .month), now: later)
+        #expect(second.byGlobalWindow == 1)
+        #expect(second.orphanedBlobsRemoved == 1)
+        let afterSecond = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? [])
+            .filter { $0 != "thumbnails" }
+        #expect(afterSecond.isEmpty)
+    }
+
+    @Test("Purges tombstone synced rows so deletions propagate; unsynced rows leave none")
+    func purgeTombstonesSyncedRows() async throws {
+        let (store, _) = try makeStore()
+        let syncedSecret = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "synced secret",
+            contentHash: "h-ss", isSensitive: true)
+        let unsyncedSecret = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "local secret",
+            contentHash: "h-us", isSensitive: true)
+        let survivor = ClipItem(
+            createdAt: now.addingTimeInterval(-60), preview: "fresh", contentHash: "h-f")
+        try await store.insert(syncedSecret, content: .text("synced secret"))
+        try await store.insert(unsyncedSecret, content: .text("local secret"))
+        try await store.insert(survivor, content: .text("fresh"))
+        try await store.markUploaded(id: syncedSecret.id, systemFields: Data([1]))
+
+        let summary = try await RetentionEngine(store: store)
+            .runPurge(policy: RetentionPolicy(), now: now)
+
+        #expect(summary.sensitiveExpired == 2)
+        #expect(try await store.items().map(\.preview) == ["fresh"])
+        #expect(
+            try await store.pendingDeletionRecordIDs() == [syncedSecret.id.uuidString],
+            "only rows with a cloud record need a tombstone")
+    }
+
+    @Test("Every purge clause tombstones its synced victims")
+    func allPurgeClausesTombstone() async throws {
+        let (store, _) = try makeStore()
+        // One synced victim per clause: own expiry date, sensitive lifetime,
+        // per-kind window, global window.
+        let byOwnDate = ClipItem(
+            createdAt: now.addingTimeInterval(-60), preview: "timed", contentHash: "h-t",
+            expiresAt: now.addingTimeInterval(-1))
+        let sensitive = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "secret", contentHash: "h-s",
+            isSensitive: true)
+        let oldImage = ClipItem(
+            createdAt: now.addingTimeInterval(-10 * 86_400), kind: .image, preview: "img",
+            contentHash: "h-i")
+        let oldText = ClipItem(
+            createdAt: now.addingTimeInterval(-40 * 86_400), preview: "old", contentHash: "h-o")
+        for item in [byOwnDate, sensitive, oldImage, oldText] {
+            try await store.insert(item, content: .text(item.preview))
+            try await store.markUploaded(id: item.id, systemFields: Data([1]))
+        }
+
+        let policy = RetentionPolicy(global: .month, perKind: [.image: .week])
+        let summary = try await RetentionEngine(store: store).runPurge(policy: policy, now: now)
+
+        #expect(summary.totalRowsPurged == 4)
+        #expect(try await store.count() == 0)
+        let tombstones = Set(try await store.pendingDeletionRecordIDs())
+        let expected = Set([byOwnDate, sensitive, oldImage, oldText].map(\.id.uuidString))
+        #expect(tombstones == expected)
     }
 
     @Test("Retention policy persists through UserDefaults")

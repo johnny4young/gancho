@@ -118,6 +118,71 @@ struct ClipSearchTests {
         }
     }
 
+    @Test("Regex scan honors the row ceiling — best-effort over recent items")
+    func regexScanCeiling() async throws {
+        let store = try makeStore()
+        let ceiling = GRDBClipboardStore.regexScanCeiling
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        var entries: [(item: ClipItem, content: ClipContent?)] = []
+        entries.reserveCapacity(ceiling + 2)
+        // The oldest row is the ONLY "ancient-marker" match — and it sits
+        // beyond the scan ceiling, so a regex pass must never reach it.
+        entries.append(
+            (
+                item: ClipItem(
+                    createdAt: base.addingTimeInterval(-1), preview: "ancient-marker",
+                    contentHash: "h-ancient"),
+                content: .text("ancient-marker")
+            ))
+        for index in 0..<ceiling {
+            entries.append(
+                (
+                    item: ClipItem(
+                        createdAt: base.addingTimeInterval(Double(index)),
+                        preview: "filler \(index)", contentHash: "h-\(index)"),
+                    content: .text("filler \(index)")
+                ))
+        }
+        entries.append(
+            (
+                item: ClipItem(
+                    createdAt: base.addingTimeInterval(Double(ceiling)),
+                    preview: "newest-marker", contentHash: "h-newest"),
+                content: .text("newest-marker")
+            ))
+        try await store.importBatch(entries)
+
+        // The newest row is inside the scan window even though the table
+        // exceeds the ceiling.
+        let newest = try await store.search(
+            ClipSearchQuery(text: "newest-marker", mode: .regex))
+        #expect(newest.count == 1)
+
+        // A pattern matching only the row PAST the ceiling comes back empty:
+        // the scan stopped instead of walking the whole table.
+        let ancient = try await store.search(
+            ClipSearchQuery(text: "ancient-marker", mode: .regex))
+        #expect(ancient.isEmpty, "rows beyond the scan ceiling are not examined")
+    }
+
+    @Test("Regex matches oversized contentText on a bounded prefix only")
+    func regexOversizedHaystack() async throws {
+        let store = try makeStore()
+        let padding = String(
+            repeating: "x", count: GRDBClipboardStore.regexHaystackLimit + 50_000)
+        try await store.insert(
+            ClipItem(preview: "huge clip", contentHash: "h-huge"),
+            content: .text("prefix-marker " + padding + " tail-marker"))
+
+        let inPrefix = try await store.search(
+            ClipSearchQuery(text: "prefix-marker", mode: .regex))
+        #expect(inPrefix.count == 1, "matches inside the bounded prefix still hit")
+
+        let inTail = try await store.search(
+            ClipSearchQuery(text: "tail-marker", mode: .regex))
+        #expect(inTail.isEmpty, "content beyond the haystack cap is not scanned")
+    }
+
     @Test("Filters narrow by kind, source app, and date")
     func filters() async throws {
         let store = try makeStore()
