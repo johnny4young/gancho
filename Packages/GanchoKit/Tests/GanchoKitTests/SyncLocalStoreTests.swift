@@ -324,4 +324,50 @@ struct SyncLocalStoreTests {
             try await store.pendingDeletionRecordIDs() == [synced.id.uuidString],
             "only the synced secret has a cloud record to delete")
     }
+
+    @Test("Count and id projections agree with the full pending-upload fetch")
+    func pendingUploadProjections() async throws {
+        let store = try makeStore()
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let synced = ClipItem(createdAt: base, preview: "synced", contentHash: "hs")
+        let redirtied = ClipItem(
+            createdAt: base.addingTimeInterval(1), preview: "edited", contentHash: "he")
+        let fresh = ClipItem(
+            createdAt: base.addingTimeInterval(2), preview: "fresh", contentHash: "hf")
+        try await store.insert(synced, content: .text("synced"))
+        try await store.insert(redirtied, content: .text("edited"))
+        try await store.insert(fresh, content: .text("fresh"))
+        try await store.markUploaded(id: synced.id, systemFields: Data([1]))
+        try await store.markUploaded(id: redirtied.id, systemFields: Data([2]))
+        try await store.markNeedsUpload(id: redirtied.id)
+
+        // The content-free projections must see exactly what the hydrating
+        // fetch sees, in the same createdAt order.
+        let full = try await store.pendingUploads()
+        #expect(full.map(\.item.id) == [redirtied.id, fresh.id])
+        #expect(try await store.pendingUploadCount() == full.count)
+        #expect(try await store.pendingUploadIDs() == full.map(\.item.id))
+    }
+
+    @Test("Per-id pending fetch hydrates content for dirty rows only")
+    func pendingUploadByID() async throws {
+        let store = try makeStore()
+        let item = ClipItem(preview: "hi", contentHash: "h")
+        try await store.insert(item, content: .text("hi"))
+
+        let pending = try await store.pendingUpload(id: item.id)
+        let entry = try #require(pending)
+        #expect(entry.item.id == item.id)
+        #expect(entry.content == .text("hi"))
+        let unknown = try await store.pendingUpload(id: UUID())
+        #expect(unknown == nil, "unknown id is nil")
+
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))
+        let clean = try await store.pendingUpload(id: item.id)
+        #expect(clean == nil, "clean rows are not pending")
+
+        try await store.markNeedsUpload(id: item.id)
+        let redirtied = try await store.pendingUpload(id: item.id)
+        #expect(redirtied?.item.id == item.id, "an edit makes the row pending again")
+    }
 }
