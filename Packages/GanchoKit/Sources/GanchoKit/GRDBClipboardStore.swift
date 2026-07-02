@@ -528,6 +528,10 @@ public final class GRDBClipboardStore: ClipboardStore {
             {
                 existing.lastUsedAt = Date()
                 existing.updatedAt = Date()
+                // A fresh copy is fresh activity: if tier enforcement had
+                // archived this row, re-copying it must surface it again —
+                // otherwise the capture silently lands in the hidden set.
+                existing.isArchived = false
                 try existing.update(db)
                 return existing
             }
@@ -617,6 +621,14 @@ public final class GRDBClipboardStore: ClipboardStore {
     @discardableResult
     public func deleteAllSensitive() async throws -> Int {
         let removed = try await writer.write { db in
+            // Synced rows leave tombstones first so the panic delete also
+            // removes the records from iCloud (via the pending-deletion queue)
+            // instead of the secrets resurrecting on the next fetch.
+            try db.execute(
+                sql: "INSERT OR REPLACE INTO sync_tombstone (recordID, deletedAt) "
+                    + "SELECT id, ? FROM clip "
+                    + "WHERE isSensitive = 1 AND syncSystemFields IS NOT NULL",
+                arguments: [Date()])
             try db.execute(sql: "DELETE FROM clip WHERE isSensitive = 1")
             return db.changesCount
         }

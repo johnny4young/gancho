@@ -24,46 +24,60 @@ public struct RetentionEngine: Sendable {
         summary = try await store.writer.write { db in
             var partial = PurgeSummary()
 
+            // Every clause tombstones its synced victims BEFORE deleting them,
+            // so the deletion propagates to iCloud instead of the record
+            // resurrecting on the next fetch (an expired secret must not live
+            // on in the cloud forever). Same predicate for both statements so
+            // they cover exactly the same rows; unsynced rows (no system
+            // fields) have no cloud record, so they need no tombstone.
+            func purge(where predicate: String, arguments: StatementArguments) throws -> Int {
+                try db.execute(
+                    sql: "INSERT OR REPLACE INTO sync_tombstone (recordID, deletedAt) "
+                        + "SELECT id, ? FROM clip "
+                        + "WHERE syncSystemFields IS NOT NULL AND " + predicate,
+                    arguments: StatementArguments([now]) + arguments)
+                try db.execute(
+                    sql: "DELETE FROM clip WHERE " + predicate, arguments: arguments)
+                return db.changesCount
+            }
+
             // 1. Per-item explicit expiry.
-            try db.execute(
-                sql:
-                    "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND expiresAt IS NOT NULL AND expiresAt <= ?",
+            partial.expiredByOwnDate = try purge(
+                where:
+                    "isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND expiresAt IS NOT NULL AND expiresAt <= ?",
                 arguments: [now])
-            partial.expiredByOwnDate = db.changesCount
 
             // 2. Sensitive lifetime.
-            try db.execute(
-                sql:
-                    "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND isSensitive = 1 AND createdAt <= ?",
+            partial.sensitiveExpired = try purge(
+                where:
+                    "isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND isSensitive = 1 AND createdAt <= ?",
                 arguments: [now.addingTimeInterval(-policy.sensitiveLifetime)])
-            partial.sensitiveExpired = db.changesCount
 
             // 3. Per-kind windows (override the global for their kind).
             for (kind, window) in policy.perKind.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
                 guard let lifetime = window.lifetime else { continue }
-                try db.execute(
-                    sql:
-                        "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND kind = ? AND createdAt <= ?",
+                partial.byKindWindow += try purge(
+                    where:
+                        "isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND kind = ? AND createdAt <= ?",
                     arguments: [kind.rawValue, now.addingTimeInterval(-lifetime)])
-                partial.byKindWindow += db.changesCount
             }
 
             // 4. Global window for every kind WITHOUT an override.
             if let lifetime = policy.global.lifetime {
                 let overridden = policy.perKind.keys.map(\.rawValue)
-                var sql =
-                    "DELETE FROM clip WHERE isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND createdAt <= ?"
+                var predicate =
+                    "isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND createdAt <= ?"
                 var arguments: [any DatabaseValueConvertible] = [
                     now.addingTimeInterval(-lifetime)
                 ]
                 if !overridden.isEmpty {
                     let placeholders = Array(repeating: "?", count: overridden.count)
                         .joined(separator: ",")
-                    sql += " AND kind NOT IN (\(placeholders))"
+                    predicate += " AND kind NOT IN (\(placeholders))"
                     arguments.append(contentsOf: overridden.sorted())
                 }
-                try db.execute(sql: sql, arguments: StatementArguments(arguments))
-                partial.byGlobalWindow = db.changesCount
+                partial.byGlobalWindow = try purge(
+                    where: predicate, arguments: StatementArguments(arguments))
             }
 
             return partial

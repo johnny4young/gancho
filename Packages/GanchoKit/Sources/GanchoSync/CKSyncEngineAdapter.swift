@@ -342,11 +342,18 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                 continue
             }
             guard let decoded = ClipRecordMapper.decode(record) else { continue }
-            try? await store.applyRemoteUpsert(
-                decoded.item, content: decoded.content,
-                systemFields: ClipRecordMapper.encodeSystemFields(record))
-            try? await store.setBoardMembership(
-                clipID: decoded.item.id, boardIDs: Set(ClipRecordMapper.boardIDs(from: record)))
+            // Membership rides the clip record, so it follows the same
+            // last-writer-wins decision: a stale remote must not overwrite a
+            // newer local board set (the store returns whether it applied).
+            let applied =
+                (try? await store.applyRemoteUpsert(
+                    decoded.item, content: decoded.content,
+                    systemFields: ClipRecordMapper.encodeSystemFields(record))) ?? false
+            if applied {
+                try? await store.setBoardMembership(
+                    clipID: decoded.item.id,
+                    boardIDs: Set(ClipRecordMapper.boardIDs(from: record)))
+            }
         }
         for deletion in event.deletions {
             if deletion.recordID.zoneID.zoneName == boardZoneID.zoneName {
@@ -398,12 +405,17 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                         board, systemFields: BoardRecordMapper.encodeSystemFields(serverRecord))
                 }
             } else if let decoded = ClipRecordMapper.decode(serverRecord) {
-                try? await store.applyRemoteUpsert(
-                    decoded.item, content: decoded.content,
-                    systemFields: ClipRecordMapper.encodeSystemFields(serverRecord))
-                try? await store.setBoardMembership(
-                    clipID: decoded.item.id,
-                    boardIDs: Set(ClipRecordMapper.boardIDs(from: serverRecord)))
+                // Same LWW gate as the fetch path: only take the server's
+                // board membership when the server copy actually won.
+                let applied =
+                    (try? await store.applyRemoteUpsert(
+                        decoded.item, content: decoded.content,
+                        systemFields: ClipRecordMapper.encodeSystemFields(serverRecord))) ?? false
+                if applied {
+                    try? await store.setBoardMembership(
+                        clipID: decoded.item.id,
+                        boardIDs: Set(ClipRecordMapper.boardIDs(from: serverRecord)))
+                }
             }
         case .zoneNotFound, .userDeletedZone:
             // Recreate the failed record's own zone, then retry it.

@@ -150,6 +150,63 @@ struct RetentionEngineTests {
         #expect(counted == 1)
     }
 
+    @Test("Purges tombstone synced rows so deletions propagate; unsynced rows leave none")
+    func purgeTombstonesSyncedRows() async throws {
+        let (store, _) = try makeStore()
+        let syncedSecret = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "synced secret",
+            contentHash: "h-ss", isSensitive: true)
+        let unsyncedSecret = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "local secret",
+            contentHash: "h-us", isSensitive: true)
+        let survivor = ClipItem(
+            createdAt: now.addingTimeInterval(-60), preview: "fresh", contentHash: "h-f")
+        try await store.insert(syncedSecret, content: .text("synced secret"))
+        try await store.insert(unsyncedSecret, content: .text("local secret"))
+        try await store.insert(survivor, content: .text("fresh"))
+        try await store.markUploaded(id: syncedSecret.id, systemFields: Data([1]))
+
+        let summary = try await RetentionEngine(store: store)
+            .runPurge(policy: RetentionPolicy(), now: now)
+
+        #expect(summary.sensitiveExpired == 2)
+        #expect(try await store.items().map(\.preview) == ["fresh"])
+        #expect(
+            try await store.pendingDeletionRecordIDs() == [syncedSecret.id.uuidString],
+            "only rows with a cloud record need a tombstone")
+    }
+
+    @Test("Every purge clause tombstones its synced victims")
+    func allPurgeClausesTombstone() async throws {
+        let (store, _) = try makeStore()
+        // One synced victim per clause: own expiry date, sensitive lifetime,
+        // per-kind window, global window.
+        let byOwnDate = ClipItem(
+            createdAt: now.addingTimeInterval(-60), preview: "timed", contentHash: "h-t",
+            expiresAt: now.addingTimeInterval(-1))
+        let sensitive = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "secret", contentHash: "h-s",
+            isSensitive: true)
+        let oldImage = ClipItem(
+            createdAt: now.addingTimeInterval(-10 * 86_400), kind: .image, preview: "img",
+            contentHash: "h-i")
+        let oldText = ClipItem(
+            createdAt: now.addingTimeInterval(-40 * 86_400), preview: "old", contentHash: "h-o")
+        for item in [byOwnDate, sensitive, oldImage, oldText] {
+            try await store.insert(item, content: .text(item.preview))
+            try await store.markUploaded(id: item.id, systemFields: Data([1]))
+        }
+
+        let policy = RetentionPolicy(global: .month, perKind: [.image: .week])
+        let summary = try await RetentionEngine(store: store).runPurge(policy: policy, now: now)
+
+        #expect(summary.totalRowsPurged == 4)
+        #expect(try await store.count() == 0)
+        let tombstones = Set(try await store.pendingDeletionRecordIDs())
+        let expected = Set([byOwnDate, sensitive, oldImage, oldText].map(\.id.uuidString))
+        #expect(tombstones == expected)
+    }
+
     @Test("Retention policy persists through UserDefaults")
     func policyRoundTrip() throws {
         let suite = "retention-test-\(UUID().uuidString)"
