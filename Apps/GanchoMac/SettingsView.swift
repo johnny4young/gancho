@@ -193,7 +193,7 @@ private struct GeneralSettingsTab: View {
     }
 
     private func backupHistory() {
-        guard let store = model.grdbStore else { return }
+        guard let store = model.grdbForEngines else { return }
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "gancho-backup.ganchoarchive"
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -207,7 +207,7 @@ private struct GeneralSettingsTab: View {
     }
 
     private func restoreHistory() {
-        guard let store = model.grdbStore else { return }
+        guard let store = model.grdbForEngines else { return }
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -432,7 +432,7 @@ private struct PrivacySettingsTab: View {
 
 extension PrivacySettingsTab {
     fileprivate func saveSupportBundle() {
-        guard let store = model.grdbStore else { return }
+        guard let store = model.grdbForEngines else { return }
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "gancho-support.json"
         guard panel.runModal() == .OK, let url = panel.url else { return }

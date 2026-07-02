@@ -46,6 +46,20 @@ struct ClientContractTests {
         _ = client
     }
 
+    /// Guards the init-time downcast the apps now rely on: a store handed around
+    /// as `any ClipboardStore` (its declared type in both app models) must
+    /// recover the full first-party surface via `as? any FullClipStore`, so the
+    /// single composition-root downcast replacing the old per-call-site
+    /// `store as? GRDBClipboardStore` never silently degrades to nil.
+    @Test("A ClipboardStore-typed GRDBClipboardStore recovers FullClipStore")
+    func fullClipStoreDowncast() throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let erased: any ClipboardStore = store
+        #expect(erased is any FullClipStore)
+    }
+
     /// Dynamic dispatch through the facets reaches the same store: write via
     /// `ClipMutating`, observe via `ClipReading`/`StoreStatsProviding` — a
     /// cheap runtime smoke over the conformances, not a storage test
