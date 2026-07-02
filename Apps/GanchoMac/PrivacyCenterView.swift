@@ -240,6 +240,7 @@ struct PrivacyCenterView: View {
         case .getClip: "doc.text"
         case .createPin: "pin"
         case .pasteStack: "square.stack"
+        case .listBoards: "rectangle.stack"
         }
     }
 
