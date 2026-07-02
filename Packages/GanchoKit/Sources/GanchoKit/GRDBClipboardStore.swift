@@ -83,6 +83,12 @@ public final class GRDBClipboardStore: ClipboardStore {
     /// - Parameter keychainAccessGroup: shared keychain group for iOS
     ///   database-reading extensions; `nil` for the macOS app, the CLI, and the
     ///   iOS main app (which use their default keychain).
+    ///
+    /// - Note: An UNWIRED raw-key variant exists in RawKeyAdoption.swift
+    ///   (`encryptedRawKeyAdopting(directory:passphrase:allowingRawKeyMigration:)`)
+    ///   that skips SQLCipher's per-connection PBKDF2 for our random 256-bit
+    ///   keys. Flip this call site only per the on-device rollout checklist in
+    ///   `.audit/06-sqlcipher-rawkey-rekey.md` §5.
     public static func encrypted(
         directory: URL,
         keychainAccessGroup: String? = nil
