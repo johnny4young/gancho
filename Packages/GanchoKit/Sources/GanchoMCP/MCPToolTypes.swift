@@ -83,10 +83,29 @@ struct PasteStackResult: Encodable {
     let count: Int
 }
 
+/// Board metadata — the only shape `list_boards` returns. Names and glyphs
+/// are organization, never clip content, so every scope may see them.
+struct BoardSummary: Encodable {
+    let id: String
+    let name: String
+    let sfSymbol: String
+
+    init(board: Pinboard) {
+        id = board.id.uuidString
+        name = board.name
+        sfSymbol = board.sfSymbol
+    }
+}
+
+struct ListBoardsResult: Encodable {
+    let boards: [BoardSummary]
+    let count: Int
+}
+
 // MARK: - Tool catalog (advertised by `tools/list`)
 
 extension MCPToolRunner {
-    /// The four tools, with JSON Schemas for their arguments. Static metadata
+    /// The five tools, with JSON Schemas for their arguments. Static metadata
     /// — independent of scope; the scope governs what each call returns.
     public static let toolDescriptors: [MCPToolDescriptor] = [
         MCPToolDescriptor(
@@ -127,6 +146,11 @@ extension MCPToolRunner {
                         "description": .string("Clip ids in paste order."),
                     ])
                 ], required: ["ids"])),
+        MCPToolDescriptor(
+            name: MCPToolName.listBoards.rawValue,
+            description:
+                "List the pinboards clips can be organized onto. Returns board metadata only (id, name, sfSymbol), so it works under every scope.",
+            inputSchema: schema(properties: [:], required: [])),
     ]
 
     private static func schema(properties: [String: JSONValue], required: [String]) -> JSONValue {

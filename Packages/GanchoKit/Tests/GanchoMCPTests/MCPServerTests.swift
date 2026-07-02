@@ -47,12 +47,15 @@ struct MCPServerTests {
         #expect(response?.error?.code == -32601)
     }
 
-    @Test("enabled server advertises all four tools")
+    @Test("enabled server advertises all five tools")
     func toolsListEnabled() async throws {
         let server = try await server(enabled: true)
         let response = await server.handle(
             JSONRPCRequest(id: .int(4), method: "tools/list", params: nil))
-        #expect(response?.result?["tools"]?.arrayValue?.count == 4)
+        let tools = response?.result?["tools"]?.arrayValue
+        #expect(tools?.count == 5)
+        let names = (tools ?? []).compactMap { $0["name"]?.stringValue }
+        #expect(names.contains("list_boards"))
     }
 
     @Test("tools/call routes to the runner and returns content")
