@@ -161,3 +161,39 @@ macOS.
 Not compile-verified (no Swift toolchain on this box): the two Swift file
 edits and the manifest comment. All are literals/comments/`#expect` lines in
 existing style, ≤100-char lines per `.swift-format`.
+
+## 5b. Localization-sweep widening — LANDED (follow-up pass, 2026-07-02)
+
+The task-5 follow-up sequence is done, plus the MCPAccessView `list_boards`
+row from 08's follow-up 1:
+
+- `Apps/GanchoMac/Localizable.xcstrings`: added `Get Gancho Pro`
+  (es: `Obtener Gancho Pro`) and `List your boards by name.`
+  (es: `Enumera sus tableros por nombre.`, the new tool row's description).
+  Catalog convention followed (key-as-English, es-only stringUnit); JSON
+  re-validated after the edit.
+- `LocalizationTests.swift`: three new patterns in the `regexes` array — the
+  two unanchored patterns proposed above, plus an explicit
+  `ActionButton\(\s*"([^"\\]+)"` (redundant with unanchored `Button\(` by
+  design: it documents the wrapper that hid the gap and keeps coverage if the
+  container pattern is ever `\b`-anchored later).
+- `Apps/GanchoMac/MCPAccessView.swift`: `list_boards` row added
+  (`rectangle.stack`, matching PrivacyCenterView); header copy "four tools" →
+  "five". The `reads: Bool` badge was a two-way (content-or-write) and both
+  labels would have lied about `list_boards` (names in every scope, never a
+  content body), so it became a private three-case `Exposure` enum —
+  `.content` / `.metadata` / `.write` — reusing the existing badge strings.
+
+Sweep re-run on this box (same Python-re replication as task 5, now with all
+12 patterns, per-bundle catalogs including the two new keys):
+
+```
+prose literals matched (incl. duplicates): 304
+missing: 0
+unique (file, literal) pairs, all 12 patterns: 267
+unique pairs hit by the 3 NEW patterns: 79
+```
+
+Zero missing per-bundle → the widened test should go green on macOS CI.
+Not compile-verified here (no toolchain): the MCPAccessView switch-expression
+badge and the two regex literal lines — all in existing file style, ≤100 cols.

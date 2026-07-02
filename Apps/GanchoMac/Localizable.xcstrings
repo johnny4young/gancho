@@ -1209,6 +1209,16 @@
         }
       }
     },
+    "Get Gancho Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obtener Gancho Pro"
+          }
+        }
+      }
+    },
     "Gancho sends no clipboard content anywhere. Verify it yourself with Little Snitch or any network monitor — this screen included.": {
       "localizations": {
         "es": {
@@ -1759,6 +1769,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Obtiene un clip por id."
+          }
+        }
+      }
+    },
+    "List your boards by name.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enumera sus tableros por nombre."
           }
         }
       }

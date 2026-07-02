@@ -133,8 +133,14 @@ struct LocalizationTests {
         }
 
         // Each pattern's first capture group is a user-facing prose literal.
+        // Container/control patterns are deliberately NOT word-boundary
+        // anchored: `Button(` must also match wrapper components such as
+        // `ActionButton(` — a wrapper is exactly where a gap once hid.
         let regexes = try [
             #"(?:Text|Label)\(\s*"([^"\\]+)""#,
+            #"(?:Button|Toggle|Menu|Section)\(\s*"([^"\\]+)""#,
+            #"ActionButton\(\s*"([^"\\]+)""#,
+            #"\.(?:navigationTitle|alert|confirmationDialog)\(\s*"([^"\\]+)""#,
             #"LocalizedStringResource\(\s*"([^"\\]+)""#,
             #"LocalizedStringResource\s*=\s*"([^"\\]+)""#,
             #"IntentDescription\(\s*"([^"\\]+)""#,
