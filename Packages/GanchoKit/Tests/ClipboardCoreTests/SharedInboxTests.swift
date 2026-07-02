@@ -106,6 +106,9 @@ struct SharedInboxTests {
     func keyedInboxDrainsLegacyPlaintext() throws {
         let (inbox, dir) = makeInbox(key: key)
         defer { try? FileManager.default.removeItem(at: dir) }
+        // No deposit() runs here to create the container, so make it before
+        // dropping legacy files directly — an atomic write needs its parent.
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         // Deposits written by a pre-sealing version: plaintext prepared
         // envelope and the even-older bare capture.
