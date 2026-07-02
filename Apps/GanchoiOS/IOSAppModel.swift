@@ -1,5 +1,6 @@
 import ClipboardCore
 import GanchoAI
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import GanchoSync
@@ -349,33 +350,8 @@ final class IOSAppModel {
     /// nil when the toggle is off, the clip is sensitive, there are no eligible
     /// user boards, or the neighborhood shows no clear home. 100% on-device.
     func suggestedBoard(for item: ClipItem) async -> Pinboard? {
-        guard intelligence.autoBoard, !item.isSensitive, let full
-        else { return nil }
-        let userBoards = ((try? await full.pinboards()) ?? []).filter { !$0.isSystem }
-        guard !userBoards.isEmpty else { return nil }
-        let current = (try? await full.boardIDs(forClip: item.id)) ?? []
-        let candidates = Set(userBoards.map(\.id)).subtracting(current)
-        guard !candidates.isEmpty else { return nil }
-
-        guard case .text(let text)? = try? await full.content(for: item.id),
-            let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
-            let vector = try? embedder.vector(for: String(text.prefix(1_000)))
-        else { return nil }
-        let neighbors =
-            ((try? await full.semanticSearch(
-                queryVector: vector, topK: 8, snippetsOnly: false)) ?? [])
-            .filter { $0.id != item.id }
-        guard !neighbors.isEmpty else { return nil }
-
-        var neighborBoards: [Set<UUID>] = []
-        for neighbor in neighbors {
-            neighborBoards.append((try? await full.boardIDs(forClip: neighbor.id)) ?? [])
-        }
-        guard
-            let vote = BoardSuggester.suggest(
-                neighborBoardIDs: neighborBoards, candidates: candidates)
-        else { return nil }
-        return userBoards.first { $0.id == vote.boardID }
+        guard intelligence.autoBoard, !item.isSensitive, let full else { return nil }
+        return await BoardSuggestionService().suggest(for: item, store: full)
     }
 
     /// Add or remove a clip from one board. Membership rides the clip's sync

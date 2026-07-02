@@ -99,6 +99,7 @@ targets:
           - GanchoDesign
           - GanchoTelemetry
           - GanchoSync
+          - GanchoAppCore
       - package: KeyboardShortcuts
       # Sparkle auto-updater for the direct-download build. Fetched into Vendor/
       # by scripts/fetch-sparkle.sh (git-ignored); used only behind
@@ -258,6 +259,7 @@ targets:
           - GanchoDesign
           - GanchoTelemetry
           - GanchoSync
+          - GanchoAppCore
       - target: GanchoShare
       - target: GanchoWidgets
       - target: GanchoKeyboard
