@@ -93,22 +93,36 @@ public struct LicenseActivationService: @unchecked Sendable {
     private let validator: LemonSqueezyValidator
     private let signingKey: Curve25519.Signing.PrivateKey?
     private let now: @Sendable () -> Date
+    private let tokenLifetime: TimeInterval?
+    private let fingerprintProvider: @Sendable () -> String?
 
+    /// `tokenLifetime` and `fingerprintProvider` are OPT-IN issuance
+    /// constraints (see `LicenseToken.expiresAt`/`boundFingerprint`). The
+    /// defaults mint today's lifetime, unbound token, so existing call sites
+    /// and existing activations are unchanged until issuance opts in.
     public init(
         validator: LemonSqueezyValidator,
         signingKey: Curve25519.Signing.PrivateKey?,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        tokenLifetime: TimeInterval? = nil,
+        fingerprintProvider: @escaping @Sendable () -> String? = { nil }
     ) {
         self.validator = validator
         self.signingKey = signingKey
         self.now = now
+        self.tokenLifetime = tokenLifetime
+        self.fingerprintProvider = fingerprintProvider
     }
 
     public func activate(licenseKey: String, instanceName: String) async -> Outcome {
         guard let signingKey else { return .notLicensable }
         switch await validator.activate(licenseKey: licenseKey, instanceName: instanceName) {
         case .activated(let licenseID):
-            let token = LicenseToken(licenseID: licenseID, issuedAt: now())
+            let issued = now()
+            let token = LicenseToken(
+                licenseID: licenseID, issuedAt: issued,
+                expiresAt: tokenLifetime.map { issued.addingTimeInterval($0) },
+                boundFingerprint: fingerprintProvider())
             guard let signed = try? LicenseSigner.sign(token, with: signingKey) else {
                 return .rejected(reason: "Could not sign the license token")
             }
