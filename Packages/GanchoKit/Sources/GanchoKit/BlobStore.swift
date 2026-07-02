@@ -30,6 +30,12 @@ public struct BlobStore: Sendable {
     /// Thumbnail bounding box in pixels. 256 covers list rows on Retina.
     public static let thumbnailMaxPixelSize = 256
 
+    /// Byte ceiling for warm-at-write thumbnail generation. Payloads above
+    /// this build their thumbnail lazily on first request (the cold-cache
+    /// path in `thumbnailData(for:)`), so a burst of large image captures
+    /// never gates the store write on an ImageIO decode/encode.
+    static let thumbnailWarmMaxBytes = 8 << 20
+
     public init(directory: URL, encryptionKeyData: Data? = nil) {
         self.directory = directory
         self.encryptionKeyData = encryptionKeyData
@@ -61,8 +67,12 @@ public struct BlobStore: Sendable {
             try encodeForDisk(data).write(to: file, options: .atomic)
         }
         // Warm the thumbnail from the in-memory data so memory-tight readers
-        // (the keyboard) never load the full blob just to build it.
-        try cacheThumbnail(for: hash, from: data)
+        // (the keyboard) never load the full blob just to build it. Large
+        // payloads skip the warm pass — their ImageIO work would gate the
+        // capture write — and warm lazily on first request instead.
+        if data.count <= Self.thumbnailWarmMaxBytes {
+            try cacheThumbnail(for: hash, from: data)
+        }
         return hash
     }
 

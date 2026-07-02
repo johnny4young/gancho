@@ -1,3 +1,4 @@
+import Accelerate
 import Foundation
 import GRDB
 
@@ -33,21 +34,28 @@ extension GRDBClipboardStore {
         }
         guard !rows.isEmpty else { return [] }
 
-        let queryNorm = sqrt(queryVector.reduce(0) { $0 + $1 * $1 })
+        let queryNorm = sqrt(vDSP.sumOfSquares(queryVector))
         guard queryNorm > 0 else { return [] }
 
+        // Same cosine (dot / (‖v‖·‖q‖)) as before, but the per-row dot and
+        // norm are vectorized via Accelerate — mirroring `EmbeddingIndex` —
+        // so scores and ranking are unchanged, only faster.
         var scored: [(id: String, score: Float)] = []
+        scored.reserveCapacity(rows.count)
         for row in rows {
             let id: String = row["clipID"]
             let data: Data = row["vector"]
             let vector = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+            guard vector.count == queryVector.count else { continue }
             var dot: Float = 0
-            var norm: Float = 0
-            for (a, b) in zip(vector, queryVector) {
-                dot += a * b
-                norm += a * a
+            vector.withUnsafeBufferPointer { v in
+                queryVector.withUnsafeBufferPointer { q in
+                    vDSP_dotpr(
+                        v.baseAddress!, 1, q.baseAddress!, 1, &dot,
+                        vDSP_Length(v.count))
+                }
             }
-            let denominator = sqrt(norm) * queryNorm
+            let denominator = sqrt(vDSP.sumOfSquares(vector)) * queryNorm
             guard denominator > 0 else { continue }
             scored.append((id, dot / denominator))
         }

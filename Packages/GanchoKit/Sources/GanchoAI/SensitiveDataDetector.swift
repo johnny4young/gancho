@@ -114,10 +114,12 @@ public struct SensitiveDataDetector: Sendable {
         return (13...19).contains(digits.count) ? String(digits) : nil
     }
 
-    /// Two routes, both conservative:
+    /// Three routes, all conservative:
     /// 1. Context: "password:"/"pwd ="/"contraseña:" followed by a token.
     /// 2. Shape: a single 12–64 char token using all four character classes
     ///    with high Shannon entropy — random generator output, not prose.
+    /// 3. Shape: a single ≥24 char all-alphanumeric token with very high
+    ///    entropy — base32 TOTP seeds, random generator output.
     private func isProbablePassword(_ text: String) -> Bool {
         if let range = text.range(
             of: #"(?i)(password|passwd|pwd|contraseña|passphrase)\s*[:=]\s*\S{8,}"#,
@@ -141,8 +143,18 @@ public struct SensitiveDataDetector: Sendable {
             token.contains(where: \.isNumber),
             token.contains { !$0.isLetter && !$0.isNumber },
         ]
-        guard classes.allSatisfy({ $0 }) else { return false }
-        return shannonEntropy(token) > 3.0
+        if classes.allSatisfy({ $0 }) {
+            return shannonEntropy(token) > 3.0
+        }
+        // 3. Shape: a long single-token alphanumeric with very high entropy —
+        //    base32 TOTP seeds, generator output. Fewer character classes, so
+        //    the bar is higher: ≥24 chars AND entropy > 4.0. Prose never
+        //    qualifies (whitespace fails the token guard above), and ordinary
+        //    long identifiers repeat characters, landing well below 4 bits.
+        guard token.count >= 24,
+            token.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) })
+        else { return false }
+        return shannonEntropy(token) > 4.0
     }
 
     /// Bits per character; random 4-class tokens land well above 3.
@@ -191,12 +203,13 @@ enum Luhn {
 /// content explicitly (optionally behind Touch ID, a UI concern).
 public enum SensitiveMasking {
     /// "●●●● 1111" — bullets plus the last 4 non-whitespace characters.
-    /// Multiline payloads (PEM blocks) mask entirely.
+    /// Multiline payloads (PEM blocks) and short values (an OTP, a PIN —
+    /// where 4 chars would reveal most of the secret) mask entirely.
     public static func maskedPreview(for text: String) -> String {
         guard !text.contains("\n") else { return "●●●●" }
-        let visible = text.filter { !$0.isWhitespace }.suffix(4)
-        guard visible.count == 4 else { return "●●●●" }
-        return "●●●● \(String(visible))"
+        let stripped = text.filter { !$0.isWhitespace }
+        guard stripped.count > 8 else { return "●●●●" }
+        return "●●●● \(String(stripped.suffix(4)))"
     }
 }
 
