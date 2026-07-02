@@ -317,17 +317,13 @@ public protocol StoreMaintaining: Sendable {
 /// transports) programs against: read, search, boards, and export — no local
 /// mutation, enrichment, or maintenance. This is the composition to keep
 /// stable; grow it by adding facets, not by widening existing ones.
-public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring &
-    ExportProviding
+public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring & ExportProviding
 
-/// Everything the first-party apps need from a fully-featured store — the
-/// type app models should hold instead of the concrete `GRDBClipboardStore`
-/// (which remains the only production conformer). The in-memory fallback can
-/// adopt facets incrementally; features degrade per-facet instead of
-/// silently no-oping behind a failed concrete downcast.
-public typealias FullClipStore = ClipboardStore & ClipReading & ClipSearching &
-    ClipMutating & ClipEnriching & BoardStoring & SnippetStoring &
-    StoreStatsProviding & ExportProviding & StoreMaintaining
+// The full first-party surface (ClipboardStore + all nine facets) that app
+// models should hold instead of the concrete GRDBClipboardStore is described in
+// .audit/09-architecture-refactor-plan.md. It is intentionally NOT aliased here
+// to avoid a fragile multi-line protocol composition; app models compose only
+// the facets they actually use.
 
 // MARK: - Production conformances
 
