@@ -159,6 +159,14 @@ public enum ClipRecordMapper {
     // directory, the sync adapter deletes each record's file the moment
     // CloudKit reports it sent, and a start-time sweep reaps stragglers from
     // crashed or failed sends.
+    //
+    // Staged files are deliberately NOT wrapped in `SealedEnvelope`: CloudKit
+    // uploads the staged file's bytes VERBATIM as the asset payload, so a
+    // sealed file would sync ciphertext — undecryptable on the receiving
+    // device — as the clip's content (and `decode` reads the fetched asset
+    // from CloudKit-managed storage, expecting the original bytes). CloudKit
+    // already encrypts CKAsset payloads in transit and at rest server-side;
+    // the local plaintext window is bounded by the lifecycle above.
 
     /// The directory `makeAsset` stages binary payloads in. Everything in it
     /// is plaintext clip content awaiting upload — transient by contract.
