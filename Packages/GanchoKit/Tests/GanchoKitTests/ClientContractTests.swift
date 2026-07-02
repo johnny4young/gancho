@@ -39,12 +39,11 @@ struct ClientContractTests {
         _ = (reading, searching, mutator, enriching, boards)
         _ = (snippets, stats, exporting, maintaining)
 
-        // The composed contracts bind too: the third-party client surface and
-        // the full first-party surface the app models will hold (refactor
-        // plan step — replaces the `store as? GRDBClipboardStore` casts).
+        // The composed third-party client contract binds too (the surface a
+        // future non-Apple client programs against; the refactor plan migrates
+        // the `store as? GRDBClipboardStore` casts onto these facets).
         let client: any GanchoClientStore = store
-        let full: any FullClipStore = store
-        _ = (client, full)
+        _ = client
     }
 
     /// Dynamic dispatch through the facets reaches the same store: write via
