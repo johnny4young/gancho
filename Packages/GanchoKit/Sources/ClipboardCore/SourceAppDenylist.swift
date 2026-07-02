@@ -23,11 +23,24 @@ public struct SourceAppDenylist: Sendable, Equatable, Codable {
         "org.keepassxc.keepassxc",
         "com.proton.pass",
         "com.enpass.Enpass-Desktop",
+        // Strongbox's Mac App Store build.
+        "com.markmcguill.strongbox.mac",
+        // KeePassium ships on macOS via universal purchase (Catalyst), which
+        // keeps the iOS bundle id.
+        "com.keepassium.ios",
+        // MacPass (open source; id from the project's Info.plist).
+        "com.hicknhacksoftware.MacPass",
+        // NordPass's macOS desktop app.
+        "com.nordpass.macos",
         // Banking (the common Mac wrappers)
         "com.apple.PassbookUIService",
         "com.paypal.PPClient",
         "com.wise.WiseMacOS",
         "com.revolut.osx",
+        // iPhone banking apps run unchanged on Apple-silicon Macs and keep
+        // their iOS bundle ids.
+        "com.venmo.TouchFree",
+        "com.squareup.cash",
     ]
 
     /// Bundle IDs the user added on top of the suggestions.

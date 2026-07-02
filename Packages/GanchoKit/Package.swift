@@ -1,10 +1,14 @@
 // swift-tools-version: 6.2
 // GanchoKit — the engine room. All feature/core code lives here; the app
-// targets in Apps/ are thin shells. Four library products:
+// targets in Apps/ are thin shells. Seven library products plus a CLI:
 //   GanchoKit      — models, store protocols, sync boundary
 //   ClipboardCore  — platform pasteboard adapters (macOS capture, iOS intent-based)
 //   GanchoAI       — on-device intelligence (tier-0 classifier today)
 //   GanchoDesign   — design tokens shared across platforms
+//   GanchoTelemetry — bucket-only analytics transport (kept outside the core)
+//   GanchoSync     — CloudKit sync adapter (the only CloudKit importer)
+//   GanchoMCP      — local MCP server protocol + tools
+//   gancho         — executable: the CLI + stdio MCP server (Homebrew)
 
 import PackageDescription
 
