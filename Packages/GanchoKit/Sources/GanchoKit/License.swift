@@ -2,17 +2,31 @@ import CryptoKit
 import Foundation
 
 /// The payload Gancho signs into a direct-download (non-App-Store) license
-/// token. It carries no secret — only the Lemon Squeezy license id and an
-/// issue date — so it is safe to store and inspect. A lifetime license never
-/// expires; an optional `expiresAt` can be added later without breaking older
-/// tokens.
+/// token. It carries no secret — only the Lemon Squeezy license id, an issue
+/// date, and optional constraints — so it is safe to store and inspect.
+///
+/// `expiresAt` and `boundFingerprint` are OPTIONAL: a missing field means "no
+/// constraint", so tokens signed before these fields existed (payloads without
+/// the keys) decode with nils and keep verifying — the signature covers each
+/// token's own payload bytes, never a re-encoding. A lifetime, unbound token
+/// simply carries neither field.
 public struct LicenseToken: Codable, Equatable, Sendable {
     public let licenseID: String
     public let issuedAt: Date
+    /// After this instant the token no longer unlocks Pro. `nil` = lifetime.
+    public let expiresAt: Date?
+    /// Install fingerprint (see `LicenseFingerprint`) this token is locked to.
+    /// `nil` = usable on any install.
+    public let boundFingerprint: String?
 
-    public init(licenseID: String, issuedAt: Date) {
+    public init(
+        licenseID: String, issuedAt: Date,
+        expiresAt: Date? = nil, boundFingerprint: String? = nil
+    ) {
         self.licenseID = licenseID
         self.issuedAt = issuedAt
+        self.expiresAt = expiresAt
+        self.boundFingerprint = boundFingerprint
     }
 }
 
@@ -50,7 +64,11 @@ public enum LicenseSigner {
 /// Verifies a license token OFFLINE against an embedded Ed25519 public key.
 /// Token format: `base64(payload) + "." + base64(signature)`. Verification
 /// checks the signature against the exact received payload bytes, then decodes
-/// them — so a tampered payload or a foreign signature is rejected.
+/// them — so a tampered payload or a foreign signature is rejected. After the
+/// signature holds, the token's own optional constraints are enforced: an
+/// `expiresAt` in the past or a `boundFingerprint` that does not match the
+/// caller's fingerprint rejects the token. Tokens without those fields (all
+/// tokens minted before they existed) carry no constraint and always pass.
 public struct LicenseVerifier: Sendable {
     public let publicKey: Curve25519.Signing.PublicKey
 
@@ -58,7 +76,14 @@ public struct LicenseVerifier: Sendable {
         self.publicKey = publicKey
     }
 
-    public func verify(_ token: String) -> LicenseToken? {
+    /// - Parameters:
+    ///   - now: the instant to evaluate `expiresAt` against.
+    ///   - fingerprint: this install's fingerprint. A `boundFingerprint` token
+    ///     is rejected unless it matches — including when the caller has none
+    ///     to offer (fail closed). Unbound tokens ignore it.
+    public func verify(
+        _ token: String, now: Date = Date(), fingerprint: String? = nil
+    ) -> LicenseToken? {
         let parts = token.split(
             separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
         guard parts.count == 2,
@@ -67,6 +92,8 @@ public struct LicenseVerifier: Sendable {
             publicKey.isValidSignature(signature, for: payload),
             let decoded = try? JSONDecoder.license.decode(LicenseToken.self, from: payload)
         else { return nil }
+        if let expiresAt = decoded.expiresAt, expiresAt < now { return nil }
+        if let bound = decoded.boundFingerprint, bound != fingerprint { return nil }
         return decoded
     }
 
