@@ -238,6 +238,28 @@ struct GRDBClipboardStoreTests {
         #expect(full.contains("ghp_notARealTokenJustAShapeForTesting01"))
     }
 
+    @Test("v16 creates the hot-query indexes")
+    func hotQueryIndexes() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // The migration is raw SQL, so a typo would only surface at migrate
+        // time — assert the indexes actually landed on their tables. (Whether
+        // the planner picks them is checked with EXPLAIN QUERY PLAN on a Mac;
+        // an unused index is a perf regression, never a correctness one.)
+        let clipIndexes = try await store.writer.read { db in
+            try String.fetchAll(db, sql: "SELECT name FROM pragma_index_list('clip')")
+        }
+        #expect(clipIndexes.contains("idx_clip_recent_activity"))
+        #expect(clipIndexes.contains("idx_clip_browse"))
+        #expect(clipIndexes.contains("idx_clip_sensitive"))
+
+        let junctionIndexes = try await store.writer.read { db in
+            try String.fetchAll(db, sql: "SELECT name FROM pragma_index_list('clip_board')")
+        }
+        #expect(junctionIndexes.contains("idx_clip_board_board"))
+    }
+
     @Test("Migrations are idempotent across re-opens")
     func migrationIdempotent() async throws {
         let dir = FileManager.default.temporaryDirectory

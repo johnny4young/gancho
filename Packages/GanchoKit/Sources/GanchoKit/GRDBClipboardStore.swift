@@ -374,6 +374,47 @@ public final class GRDBClipboardStore: ClipboardStore {
                 sql: "UPDATE clip SET needsUpload = 1 "
                     + "WHERE id IN (SELECT DISTINCT clipID FROM clip_board)")
         }
+        migrator.registerMigration("v16-hot-query-indexes") { db in
+            // Indexes for the hottest read paths. Additive and correctness-
+            // neutral: if the planner declines one, the query degrades to the
+            // previous full-scan-and-sort plan — never to different results.
+            //
+            // idx_clip_recent_activity serves `items(offset:limit:)` — the list
+            // refreshed after every capture, paste, pin, and sync settle. The
+            // ordering expression must render exactly as GRDB emits
+            // `(Column("lastUsedAt") ?? Column("createdAt")).desc`, i.e.
+            // IFNULL(lastUsedAt, createdAt); a textual mismatch just means the
+            // planner keeps the old full sort (see the graceful-degradation
+            // note above). IFNULL is deterministic, as expression indexes need.
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_recent_activity "
+                    + "ON clip (isPinned DESC, IFNULL(lastUsedAt, createdAt) DESC) "
+                    + "WHERE isArchived = 0")
+            // idx_clip_browse serves `recentForBrowse(offset:limit:)` — the
+            // panel's grouped history, the iOS recent list, and the keyboard
+            // extension (which sorts inside a hard memory/CPU budget).
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_browse "
+                    + "ON clip (isPinned DESC, createdAt DESC) WHERE isArchived = 0")
+            // idx_clip_board_board gives the junction a boardID-led COVERING
+            // path: the board-filter subquery (`SELECT clipID FROM clip_board
+            // WHERE boardID = ?`) and the retention engine's
+            // `id NOT IN (SELECT clipID FROM clip_board)` membership checks
+            // answer from the index alone. The v10 PK leads with clipID, and
+            // v10's single-column boardID index still needs a table hop per
+            // row to fetch clipID.
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_board_board "
+                    + "ON clip_board (boardID, clipID)")
+            // idx_clip_sensitive turns `sensitiveCount()` (Privacy Center),
+            // `deleteAllSensitive()` (panic actions), and the retention
+            // engine's sensitive-expiry clause into O(matches) index lookups —
+            // sensitive rows are a tiny slice of the table, so the partial
+            // index stays tiny too.
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_sensitive "
+                    + "ON clip (isSensitive) WHERE isSensitive = 1")
+        }
         return migrator
     }
 
