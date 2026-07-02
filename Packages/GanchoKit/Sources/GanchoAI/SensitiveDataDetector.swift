@@ -13,7 +13,15 @@ public struct SensitiveDataDetector: Sendable {
         case stripeSecretKey
         case githubToken
         case slackToken
+        case slackWebhookURL
+        case googleAPIKey
+        case gcpServiceAccount
+        case openAIKey
+        case npmToken
+        case azureConnectionString
+        case authorizationHeader
         case pemPrivateKey
+        case pgpPrivateKey
         case probablePassword
     }
 
@@ -24,6 +32,9 @@ public struct SensitiveDataDetector: Sendable {
     /// password heuristic runs last because it is the loosest.
     public func detect(_ text: String) -> Category? {
         if containsPEMPrivateKey(text) { return .pemPrivateKey }
+        if matches(#"-----BEGIN PGP PRIVATE KEY BLOCK-----"#, in: text) {
+            return .pgpPrivateKey
+        }
         if matches(#"\b(AKIA|ASIA)[0-9A-Z]{16}\b"#, in: text) { return .awsAccessKey }
         if matches(
             #"aws_secret_access_key\s*[=:]\s*[0-9A-Za-z/+=]{40}"#, in: text,
@@ -36,6 +47,34 @@ public struct SensitiveDataDetector: Sendable {
         }
         if matches(#"\bgh[pousr]_[0-9A-Za-z]{36,}\b"#, in: text) { return .githubToken }
         if matches(#"\bxox[baprs]-[0-9A-Za-z-]{10,}\b"#, in: text) { return .slackToken }
+        // Incoming-webhook URL: possession alone lets anyone post to the
+        // workspace, so the URL itself is the credential.
+        if matches(
+            #"hooks\.slack\.com/services/T[0-9A-Z]{5,}/B[0-9A-Z]{5,}/[0-9A-Za-z]{10,}"#,
+            in: text)
+        {
+            return .slackWebhookURL
+        }
+        // Google API key: fixed AIza prefix + 35 URL-safe chars.
+        if matches(#"\bAIza[0-9A-Za-z_-]{35}\b"#, in: text) { return .googleAPIKey }
+        // GCP service-account JSON — the credential FILE, even when the
+        // embedded PEM block was truncated away.
+        if matches(#""type"\s*:\s*"service_account""#, in: text) { return .gcpServiceAccount }
+        // OpenAI-style keys: `sk-` + optional project/service segment. Distinct
+        // from Stripe, which uses `sk_live_`/`sk_test_` (underscores).
+        if matches(#"\bsk-(proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}\b"#, in: text) {
+            return .openAIKey
+        }
+        if matches(#"\bnpm_[0-9A-Za-z]{36}\b"#, in: text) { return .npmToken }
+        // Azure storage / Service Bus connection strings — AccountKey and
+        // SharedAccessKey values are long base64 secrets.
+        if matches(
+            #"\b(AccountKey|SharedAccessKey)\s*=\s*[0-9A-Za-z+/=]{40,}"#, in: text,
+            caseInsensitive: true)
+        {
+            return .azureConnectionString
+        }
+        if containsAuthorizationSecret(text) { return .authorizationHeader }
         if let card = containedCardCandidate(text), Luhn.validates(card) {
             return .creditCard
         }
@@ -48,6 +87,20 @@ public struct SensitiveDataDetector: Sendable {
     private func containsPEMPrivateKey(_ text: String) -> Bool {
         matches(
             #"-----BEGIN (RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----"#, in: text)
+    }
+
+    /// HTTP credential material: an `Authorization:` header line with a
+    /// Bearer/Basic/Token credential, or a bare `Bearer <long opaque token>`
+    /// (curl snippets). The 20-char floor on the bare form keeps prose that
+    /// merely contains the word "bearer" out of the secret bucket.
+    private func containsAuthorizationSecret(_ text: String) -> Bool {
+        if matches(
+            #"(?i)\bauthorization\s*:\s*(bearer|basic|token)\s+[A-Za-z0-9\-._~+/=]{8,}"#,
+            in: text)
+        {
+            return true
+        }
+        return matches(#"(?i)\bbearer\s+[A-Za-z0-9\-._~+/]{20,}=*"#, in: text)
     }
 
     /// 13–19 digit run (spaces/dashes allowed) anywhere in the text.
