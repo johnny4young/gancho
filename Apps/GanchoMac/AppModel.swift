@@ -83,11 +83,12 @@ final class AppModel {
     #endif
     let telemetry: TelemetryPipeline
 
-    /// Encrypted iCloud sync, behind the boundary. A `NoopSyncEngine` until
-    /// the user is Pro on an iCloud-signed-in device; `configureSync()` swaps
-    /// in the real adapter and back as the tier or account changes.
-    private(set) var sync: any SyncEngine = NoopSyncEngine()
-    private var syncEnabled = false
+    /// Encrypted iCloud sync, behind the boundary. Owns the engine lifecycle
+    /// (make/start/stop/reset + the enabled flag); this model keeps only the
+    /// status state below and its UI mapping. A `NoopSyncEngine` until the user
+    /// is Pro on an iCloud-signed-in device; `syncController.configure(tier:)`
+    /// swaps in the real adapter and back as the tier or account changes.
+    let syncController: SyncController
 
     /// Current sync state for the UI (panel indicator + Privacy Center).
     private(set) var syncStatus: SyncStatus = .idle
@@ -178,6 +179,11 @@ final class AppModel {
         self.grdbStore = grdb
         self.grdbForEngines = grdb
         self.store = grdb ?? InMemoryClipboardStore()
+        self.syncController = SyncController(
+            store: grdb,
+            stateStoreURL: URL.applicationSupportDirectory
+                .appendingPathComponent("Gancho", isDirectory: true)
+                .appendingPathComponent("sync-state.plist"))
         let resolvedStore = self.store
         self.thumbnails = ClipThumbnailStore(imageData: { id in
             if case .binary(let data, _)? = try? await resolvedStore.content(for: id) {
@@ -235,6 +241,10 @@ final class AppModel {
             self?.pasteNextFromStack()
         }
 
+        // Sync status/idle mapping stays here (the views observe `syncStatus`);
+        // the controller only drives the engine lifecycle and calls back.
+        syncController.onStatus = { [weak self] status in self?.applySyncStatus(status) }
+        syncController.onIdle = { [weak self] in self?.syncStatus = .idle }
         // StoreKit drives the tier: the listener catches renewals/refunds,
         // and a launch refresh reconciles against current entitlements.
         // Only StoreKit has out-of-process tier changes (renewals, refunds);
@@ -248,7 +258,7 @@ final class AppModel {
             #if DEBUG
                 if DebugFlags.forcePro, tier != .pro { applyTier(.pro) }
             #endif
-            configureSync()
+            syncController.configure(tier: tier)
         }
         telemetry.record(.appLaunched)
         // A data-loss-level storage failure also lands in the support log (the
@@ -343,7 +353,7 @@ final class AppModel {
                 lengthBucket: .init(characterCount: length)))
         Task {
             _ = try? await store.insert(item, content: content)
-            await sync.enqueue([item])
+            await syncController.engine.enqueue([item])
             await refreshRecents()
             enrich(item, content: content)
         }
@@ -746,9 +756,9 @@ final class AppModel {
         // only commit if it's still pending.
         guard pendingDeletionIDs.contains(item.id) else { return }
         deletionTasks[item.id] = nil
-        if syncEnabled, let grdbStore {
+        if syncController.isEnabled, let grdbStore {
             _ = try? await grdbStore.deleteForSync(id: item.id, now: .now)
-            await sync.enqueueDeletion(ids: [item.id])
+            await syncController.engine.enqueueDeletion(ids: [item.id])
         } else {
             _ = try? await store.delete(id: item.id)
         }
@@ -791,7 +801,7 @@ final class AppModel {
     /// user becomes Pro (free-tier archiving is reversible — no data hostage).
     private func applyTier(_ newTier: UserTier) {
         tier = newTier
-        configureSync()
+        syncController.configure(tier: tier)
         guard let grdbForEngines else { return }
         Task {
             _ = try? await TierEnforcement(store: grdbForEngines).enforce(tier: newTier)
@@ -801,49 +811,13 @@ final class AppModel {
 
     // MARK: - Sync
 
-    /// Arms or disarms iCloud sync to match the current tier + account. Only
-    /// rebuilds when the enablement decision flips, so it is safe to call on
-    /// launch and on every tier change.
-    private func configureSync() {
-        guard let grdbForEngines else { return }
-        let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
-        let cloudKitEntitled = CloudKitEntitlements.currentTaskAllowsSync()
-        let enable = SyncEnablement.shouldEnable(
-            tier: tier,
-            iCloudAvailable: iCloudAvailable,
-            hasCloudKitEntitlement: cloudKitEntitled)
-        guard enable != syncEnabled else { return }
-        syncEnabled = enable
-
-        let previous = sync
-        Task { await previous.stop() }
-        let stateURL = URL.applicationSupportDirectory
-            .appendingPathComponent("Gancho", isDirectory: true)
-            .appendingPathComponent("sync-state.plist")
-        sync = SyncEngineFactory.make(
-            store: grdbForEngines, tier: tier, iCloudAvailable: iCloudAvailable,
-            hasCloudKitEntitlement: cloudKitEntitled,
-            stateStore: .file(at: stateURL),
-            onStatus: { [weak self] status in
-                Task { @MainActor in self?.applySyncStatus(status) }
-            })
-        if enable {
-            let engine = sync
-            Task { try? await engine.start() }
-        } else {
-            syncStatus = .idle
-        }
-    }
-
     /// Pull the latest from iCloud (and push anything pending). Called when the
     /// panel opens, so a clip captured on another device shows up without an app
     /// restart — the engine only fetches on `start()`, and a menu-bar agent gets
     /// no push to fetch on. The refresh-on-settle in `applySyncStatus` updates
     /// the panel once the fetch lands. A no-op when sync is off.
     func syncNow() {
-        guard syncEnabled else { return }
-        let engine = sync
-        Task { try? await engine.start() }
+        syncController.syncNow()
     }
 
     /// Drop the persisted CKSyncEngine state and re-arm sync, so it re-fetches
@@ -851,12 +825,7 @@ final class AppModel {
     /// of what it actually stored — older records never re-arrive on an
     /// incremental fetch. Local rows are kept; remote records re-upsert.
     func resetSyncAndRepull() {
-        let stateURL = URL.applicationSupportDirectory
-            .appendingPathComponent("Gancho", isDirectory: true)
-            .appendingPathComponent("sync-state.plist")
-        try? FileManager.default.removeItem(at: stateURL)
-        syncEnabled = false
-        configureSync()
+        syncController.reset(tier: tier)
     }
 
     /// Applies a status from the engine: updates the indicator and logs a
@@ -897,8 +866,7 @@ final class AppModel {
 
     /// User-triggered sync (the Privacy Center "Force sync" button).
     func forceSync() {
-        let engine = sync
-        Task { try? await engine.start() }
+        Task { await syncController.forceSync() }
     }
 
     // MARK: - Local MCP server
@@ -986,7 +954,7 @@ final class AppModel {
             // setPinned flagged the row for upload; enqueue pushes it now
             // instead of at the next sync start(). The engine builds the
             // record from the stored row, so only the id matters here.
-            await sync.enqueue([item])
+            await syncController.engine.enqueue([item])
             toasts.show(GanchoToast(message: item.isPinned ? "Unpinned" : "Pinned"))
             await refreshRecents()
         }
@@ -1079,7 +1047,7 @@ final class AppModel {
             }
             if let board = try? await grdbStore.createPinboard(name: name, sfSymbol: "square.stack")
             {
-                await sync.enqueue(boards: [board])
+                await syncController.engine.enqueue(boards: [board])
                 if let item {
                     try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
                     toasts.show(GanchoToast(message: "Added to board"))
@@ -1098,7 +1066,7 @@ final class AppModel {
             try? await grdbStore.renameBoard(id: board.id, name: name)
             var renamed = board
             renamed.name = name
-            await sync.enqueue(boards: [renamed])
+            await syncController.engine.enqueue(boards: [renamed])
             await refreshBoards()
         }
     }
@@ -1108,9 +1076,9 @@ final class AppModel {
         Task {
             // When sync is on, tombstone the deletion so it reaches the other
             // devices; otherwise a plain local delete is enough.
-            if syncEnabled {
+            if syncController.isEnabled {
                 try? await grdbStore.deletePinboardForSync(id: board.id, now: .now)
-                await sync.enqueueBoardDeletion(ids: [board.id])
+                await syncController.engine.enqueueBoardDeletion(ids: [board.id])
             } else {
                 try? await grdbStore.deletePinboard(id: board.id)
             }
@@ -1228,10 +1196,10 @@ final class AppModel {
             // now so they propagate immediately rather than at the next sync
             // start(). Re-adding an already-pending deletion is a no-op in the
             // engine, so sweeping the whole tombstone table is safe.
-            if syncEnabled {
+            if syncController.isEnabled {
                 let recordIDs = (try? await grdbForEngines.pendingDeletionRecordIDs()) ?? []
                 let ids = recordIDs.compactMap { UUID(uuidString: $0) }
-                if !ids.isEmpty { await sync.enqueueDeletion(ids: ids) }
+                if !ids.isEmpty { await syncController.engine.enqueueDeletion(ids: ids) }
             }
             _ = try? await TierEnforcement(store: grdbForEngines).enforce(tier: tier)
             await refreshRecents()

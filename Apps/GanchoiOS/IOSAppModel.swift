@@ -45,11 +45,12 @@ final class IOSAppModel {
     /// screen); a no-op when the user hasn't enabled Live Activities.
     let clipActivity = ClipActivityController()
 
-    /// Sync boundary: pull-to-refresh forces a cycle. A `NoopSyncEngine`
-    /// until the user is Pro on an iCloud-signed-in device; the adapter swaps
-    /// in transparently — the pull-to-refresh UI contract is identical.
-    private var syncEngine: any SyncEngine = NoopSyncEngine()
-    private var syncEnabled = false
+    /// Sync boundary: pull-to-refresh forces a cycle. The controller owns the
+    /// engine lifecycle (make/start/stop/reset + the enabled flag); this model
+    /// keeps only the status state below and its inline UI mapping. A
+    /// `NoopSyncEngine` until the user is Pro on an iCloud-signed-in device; the
+    /// adapter swaps in transparently — the pull-to-refresh contract is identical.
+    let syncController: SyncController
     private(set) var syncStatus: SyncStatus = .idle
     /// The entitlement tier — readable so the Pro screen can show "free vs Pro"
     /// state, set only here from the purchase handler / debug toggle.
@@ -74,67 +75,43 @@ final class IOSAppModel {
         full = store as? any FullClipStore
         grdbForEngines = store as? GRDBClipboardStore
         thumbnails = ClipThumbnailStore(store: store)
+        syncController = SyncController(
+            store: store as? any SyncLocalStore,
+            stateStoreURL: SharedStorageLocation.storeDirectory(
+                appGroupID: SharedInbox.appGroupID
+            ).appendingPathComponent("sync-state.plist"))
+        // Sync status/idle mapping stays here (the views observe `syncStatus`);
+        // the controller only drives the engine lifecycle and calls back.
+        syncController.onStatus = { [weak self] status in
+            guard let self else { return }
+            let wasSyncing = self.syncStatus == .syncing
+            self.syncStatus = status
+            // A finished cycle may have pulled new boards/clips from iCloud.
+            // Refresh the lists so they appear without having to background and
+            // reopen the app.
+            if wasSyncing, status != .syncing {
+                await self.refreshBoards()
+                await self.search()
+            }
+        }
+        syncController.onIdle = { [weak self] in self?.syncStatus = .idle }
         purchases.onTierChange = { [weak self] tier in
             guard let self else { return }
             self.tier = tier
-            self.configureSync()
+            self.syncController.configure(tier: self.tier)
         }
         Task {
             tier = await purchases.currentTier()
             #if DEBUG
                 if DebugFlags.forcePro { tier = .pro }
             #endif
-            configureSync()
+            syncController.configure(tier: tier)
         }
         // Log a data-loss-level storage failure eagerly (before any view reads
         // the diagnostics log), so the Privacy Center shows it the moment it
         // opens. The log isn't @Observable-tracked, so a later record wouldn't
         // refresh an open screen.
         recordStorageHealthIfNeeded()
-    }
-
-    /// Arms or disarms iCloud sync to match the current tier + account.
-    /// Universal Purchase entitles the iPhone too, so a Pro Mac purchase
-    /// turns sync on here after the next entitlement refresh.
-    private func configureSync() {
-        guard let syncStore = store as? any SyncLocalStore else { return }
-        let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
-        let cloudKitEntitled = CloudKitEntitlements.currentTaskAllowsSync()
-        let enable = SyncEnablement.shouldEnable(
-            tier: tier,
-            iCloudAvailable: iCloudAvailable,
-            hasCloudKitEntitlement: cloudKitEntitled)
-        guard enable != syncEnabled else { return }
-        syncEnabled = enable
-
-        let previous = syncEngine
-        Task { await previous.stop() }
-        let stateURL = SharedStorageLocation.storeDirectory(appGroupID: SharedInbox.appGroupID)
-            .appendingPathComponent("sync-state.plist")
-        syncEngine = SyncEngineFactory.make(
-            store: syncStore, tier: tier, iCloudAvailable: iCloudAvailable,
-            hasCloudKitEntitlement: cloudKitEntitled,
-            stateStore: .file(at: stateURL),
-            onStatus: { [weak self] status in
-                Task { @MainActor in
-                    guard let self else { return }
-                    let wasSyncing = self.syncStatus == .syncing
-                    self.syncStatus = status
-                    // A finished cycle may have pulled new boards/clips from
-                    // iCloud. Refresh the lists so they appear without having to
-                    // background and reopen the app.
-                    if wasSyncing, status != .syncing {
-                        await self.refreshBoards()
-                        await self.search()
-                    }
-                }
-            })
-        if enable {
-            let engine = syncEngine
-            Task { try? await engine.start() }
-        } else {
-            syncStatus = .idle
-        }
     }
 
     /// Restores a prior Pro purchase (Universal Purchase on this Apple ID) and
@@ -145,7 +122,7 @@ final class IOSAppModel {
     func restorePro() async -> Bool {
         let restored = (try? await purchases.restorePurchases()) ?? false
         tier = await purchases.currentTier()
-        configureSync()
+        syncController.configure(tier: tier)
         return restored
     }
 
@@ -157,7 +134,7 @@ final class IOSAppModel {
             UserDefaults.standard.set(on, forKey: "gancho-force-pro")
             Task {
                 tier = on ? .pro : await purchases.currentTier()
-                configureSync()
+                syncController.configure(tier: tier)
             }
         }
 
@@ -166,12 +143,7 @@ final class IOSAppModel {
         /// what it actually stored (older records never re-arrive on an
         /// incremental fetch). Local rows are kept; remote records re-upsert.
         func resetSyncAndRepull() {
-            let stateURL = SharedStorageLocation.storeDirectory(
-                appGroupID: SharedInbox.appGroupID
-            ).appendingPathComponent("sync-state.plist")
-            try? FileManager.default.removeItem(at: stateURL)
-            syncEnabled = false
-            configureSync()
+            syncController.reset(tier: tier)
         }
     #endif
 
@@ -189,7 +161,7 @@ final class IOSAppModel {
     func forceSync() async {
         // Start = "run a sync cycle now" on the boundary; the CloudKit
         // adapter gives it real semantics during on-device verification.
-        try? await syncEngine.start()
+        await syncController.forceSync()
         await refreshHints()
     }
 
@@ -198,9 +170,7 @@ final class IOSAppModel {
     /// refresh — the engine only fetches on `start()` and gets no push to fetch
     /// on. The sync-status observer refreshes the list on settle. No-op off.
     func syncNow() {
-        guard syncEnabled else { return }
-        let engine = syncEngine
-        Task { try? await engine.start() }
+        syncController.syncNow()
     }
 
     /// Foreground maintenance: purge expired history (the "auto-expires after
@@ -229,10 +199,10 @@ final class IOSAppModel {
         // so they propagate immediately rather than at the next sync start().
         // Re-adding an already-pending deletion is a no-op in the engine, so
         // sweeping the whole tombstone table is safe.
-        if syncEnabled {
+        if syncController.isEnabled {
             let recordIDs = (try? await grdb.pendingDeletionRecordIDs()) ?? []
             let ids = recordIDs.compactMap { UUID(uuidString: $0) }
-            if !ids.isEmpty { await syncEngine.enqueueDeletion(ids: ids) }
+            if !ids.isEmpty { await syncController.engine.enqueueDeletion(ids: ids) }
         }
         _ = try? await TierEnforcement(store: grdb).enforce(tier: tier)
         defaults.set(Date(), forKey: Self.lastMaintenanceKey)
@@ -311,7 +281,7 @@ final class IOSAppModel {
                 return
             }
             if let board = try? await full.createPinboard(name: trimmed, sfSymbol: "square.stack") {
-                await syncEngine.enqueue(boards: [board])
+                await syncController.engine.enqueue(boards: [board])
             }
             await refreshBoards()
         }
@@ -332,7 +302,7 @@ final class IOSAppModel {
         }
         guard let board = try? await full.createPinboard(name: trimmed, sfSymbol: "square.stack")
         else { return nil }
-        await syncEngine.enqueue(boards: [board])
+        await syncController.engine.enqueue(boards: [board])
         try? await full.assign(clipID: item.id, toBoard: board.id)
         await refreshBoards()
         await search()
@@ -375,7 +345,7 @@ final class IOSAppModel {
             try? await full.renameBoard(id: board.id, name: trimmed)
             var renamed = board
             renamed.name = trimmed
-            await syncEngine.enqueue(boards: [renamed])
+            await syncController.engine.enqueue(boards: [renamed])
             await refreshBoards()
         }
     }
@@ -385,9 +355,9 @@ final class IOSAppModel {
     func deleteBoard(_ board: Pinboard) {
         guard !board.isSystem, let full else { return }
         Task {
-            if syncEnabled {
+            if syncController.isEnabled {
                 try? await full.deletePinboardForSync(id: board.id, now: .now)
-                await syncEngine.enqueueBoardDeletion(ids: [board.id])
+                await syncController.engine.enqueueBoardDeletion(ids: [board.id])
             } else {
                 try? await full.deletePinboard(id: board.id)
             }
@@ -545,14 +515,14 @@ final class IOSAppModel {
         // setPinned flagged the row for upload; enqueue pushes it now instead
         // of at the next sync start(). The engine builds the record from the
         // stored row, so only the id matters here.
-        await syncEngine.enqueue([item])
+        await syncController.engine.enqueue([item])
         await search()
     }
 
     func delete(_ item: ClipItem) async {
-        if syncEnabled, let full {
+        if syncController.isEnabled, let full {
             try? await full.deleteForSync(id: item.id, now: .now)
-            await syncEngine.enqueueDeletion(ids: [item.id])
+            await syncController.engine.enqueueDeletion(ids: [item.id])
         } else {
             try? await store.delete(id: item.id)
         }
@@ -719,7 +689,7 @@ final class IOSAppModel {
         // Dedupe-aware feedback: the store returns the EXISTING item when
         // the content hash matches — warn subtly instead of duplicating.
         let stored = try? await store.insert(item, content: content)
-        if let stored { await syncEngine.enqueue([stored]) }
+        if let stored { await syncController.engine.enqueue([stored]) }
         let isNew = stored?.id == item.id
         flashNote(
             isNew ? String(localized: "Saved") : String(localized: "Already in your history"))
