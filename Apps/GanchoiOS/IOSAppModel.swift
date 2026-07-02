@@ -746,22 +746,11 @@ final class IOSAppModel {
             hasTitle: !item.title.isEmpty, isPro: tier == .pro, preferences: intelligence)
         guard !plan.isEmpty, let full else { return }
         Task(priority: .utility) {
-            if plan.runs(.ocr), case .binary(let data, _)? = content,
-                let text = try? await ImageTextExtractor().extractText(from: data)
-            {
-                _ = try? await full.attachExtractedText(id: item.id, text: text)
-            }
-            if plan.runs(.title), case .text(let text)? = content,
-                let annotation = try? await TieredClipAnnotator().annotate(text)
-            {
-                _ = try? await full.updateTitle(id: item.id, title: annotation.title)
-                await search()  // surface the new title without a manual refresh
-            }
-            if plan.runs(.embedding), case .text(let text)? = content,
-                let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
-                let vector = try? embedder.vector(for: String(text.prefix(1_000)))
-            {
-                _ = try? await full.saveEmbedding(clipID: item.id, vector: vector)
+            await EnrichmentService().enrich(
+                item, content: content, plan: plan, writeTitle: plan.runs(.title),
+                store: full
+            ) {
+                await self.search()  // surface the new title without a manual refresh
             }
         }
     }

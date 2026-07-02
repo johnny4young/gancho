@@ -367,17 +367,10 @@ final class AppModel {
             && freeAITitlesRemaining > 0
         guard !plan.isEmpty || tasteTitle, let grdbStore else { return }
         Task(priority: .utility) {
-            // Searchable screenshots (OCR).
-            if plan.runs(.ocr), case .binary(let data, _)? = content,
-                let text = try? await ImageTextExtractor().extractText(from: data)
-            {
-                _ = try? await grdbStore.attachExtractedText(id: item.id, text: text)
-            }
-            // Tier 1 — Apple Intelligence titles.
-            if plan.runs(.title) || tasteTitle, case .text(let text)? = content,
-                let annotation = try? await TieredClipAnnotator().annotate(text)
-            {
-                _ = try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
+            await EnrichmentService().enrich(
+                item, content: content, plan: plan,
+                writeTitle: plan.runs(.title) || tasteTitle, store: grdbStore
+            ) { @MainActor in
                 if tasteTitle {
                     consumeFreeAITitle()
                     // The moment the taste runs out is the conversion moment: a
@@ -385,14 +378,6 @@ final class AppModel {
                     if freeAITitlesRemaining == 0 { showAITasteEndedNudge() }
                 }
                 await refreshRecents()
-            }
-            // Semantic vector (the embedder caches its model after the first
-            // call — warm-up cost measured in the AI spike).
-            if plan.runs(.embedding), case .text(let text)? = content,
-                let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
-                let vector = try? embedder.vector(for: String(text.prefix(1_000)))
-            {
-                _ = try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
             }
         }
     }

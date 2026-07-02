@@ -82,7 +82,9 @@ let package = Package(
                 .product(name: "TelemetryDeck", package: "SwiftSDK"),
             ]),
         .target(name: "GanchoSync", dependencies: ["GanchoKit"]),
-        .target(name: "GanchoAppCore", dependencies: ["GanchoKit", "GanchoAI", "GanchoSync"]),
+        .target(
+            name: "GanchoAppCore",
+            dependencies: ["GanchoKit", "GanchoAI", "GanchoSync", "ClipboardCore"]),
         .target(name: "GanchoMCP", dependencies: ["GanchoKit"]),
         .executableTarget(name: "gancho", dependencies: ["GanchoKit", "GanchoMCP"]),
         .testTarget(
