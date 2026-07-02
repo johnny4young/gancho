@@ -30,8 +30,8 @@ public protocol SyncLocalStore: Sendable {
     /// any follow-up state from the record (e.g. board membership) either.
     @discardableResult
     func applyRemoteUpsert(
-        _ item: ClipItem, content: ClipContent?, systemFields: Data)
-        async throws -> Bool
+        _ item: ClipItem, content: ClipContent?, systemFields: Data
+    ) async throws -> Bool
     /// Applies a remote deletion by record id.
     func applyRemoteDeletion(recordID: String) async throws
     /// Forgets a tombstone once its deletion has propagated.
