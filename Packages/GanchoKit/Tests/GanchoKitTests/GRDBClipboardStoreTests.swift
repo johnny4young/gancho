@@ -162,6 +162,36 @@ struct GRDBClipboardStoreTests {
         #expect(blobFiles.filter { $0 != "thumbnails" }.isEmpty, "orphaned blob must be removed")
     }
 
+    @Test("deleteAllSensitive removes orphaned blobs but never a shared one")
+    func deleteAllSensitiveKeepsSharedBlobs() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // Same bytes → one content-addressed blob file, referenced by a
+        // sensitive row AND a plain row (distinct contentHash keeps two rows).
+        let sensitive = ClipItem(
+            kind: .image, preview: "secret shot", contentHash: "h-secret", isSensitive: true)
+        let plain = ClipItem(kind: .image, preview: "plain shot", contentHash: "h-plain")
+        for item in [sensitive, plain] {
+            try await store.insert(
+                item, content: .binary(data: tinyPNG, typeIdentifier: "public.png"))
+        }
+
+        #expect(try await store.deleteAllSensitive() == 1)
+        let blobFiles = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { $0 != "thumbnails" }
+        #expect(blobFiles.count == 1, "the plain row still references the blob")
+        #expect(
+            try await store.content(for: plain.id)
+                == .binary(data: tinyPNG, typeIdentifier: "public.png"))
+
+        // With the last reference gone the blob file goes too.
+        try await store.delete(id: plain.id)
+        let leftover = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { $0 != "thumbnails" }
+        #expect(leftover.isEmpty)
+    }
+
     @Test("JSON export is versioned and carries content text")
     func jsonExport() async throws {
         let (store, dir) = try makeStore()
@@ -191,6 +221,33 @@ struct GRDBClipboardStoreTests {
 
         #expect(csv.contains("\"he said \"\"hi\"\", twice\""))
         #expect(csv.contains("\"line one\nline two\""))
+    }
+
+    @Test("Streamed CSV keeps createdAt order, with sensitive rows skipped in place")
+    func csvStreamedOrder() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        try await store.insert(
+            ClipItem(createdAt: base, preview: "first", contentHash: "h1"),
+            content: .text("first"))
+        try await store.insert(
+            ClipItem(
+                createdAt: base.addingTimeInterval(60), preview: "middle secret",
+                contentHash: "h2", isSensitive: true),
+            content: .text("middle secret"))
+        try await store.insert(
+            ClipItem(createdAt: base.addingTimeInterval(120), preview: "last", contentHash: "h3"),
+            content: .text("last"))
+
+        let lines = String(
+            decoding: try await store.exportCSV(excludeSensitive: true), as: UTF8.self
+        ).split(separator: "\n")
+        #expect(lines.count == 3, "header + the two non-sensitive rows")
+        #expect(lines[1].contains("first"))
+        #expect(lines[2].contains("last"))
+        #expect(!lines.contains { $0.contains("middle secret") })
     }
 
     @Test("CSV export neutralizes leading formula characters (CSV injection)")

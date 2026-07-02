@@ -12,6 +12,16 @@ public protocol SyncLocalStore: Sendable {
     /// Clips that still need uploading: never synced (no system fields) or
     /// edited since last upload.
     func pendingUploads() async throws -> [(item: ClipItem, content: ClipContent?)]
+    /// How many clips still need uploading — a bare COUNT, so status
+    /// refreshes never hydrate (and decrypt) content just to show a number.
+    func pendingUploadCount() async throws -> Int
+    /// The ids of clips still needing upload, oldest first — content-free,
+    /// for callers that only register record ids with the engine.
+    func pendingUploadIDs() async throws -> [UUID]
+    /// One clip still needing upload, with its content — nil when the clip
+    /// is gone or already synced. Lets the batch provider hydrate exactly
+    /// the records a send batch references instead of the whole backlog.
+    func pendingUpload(id: UUID) async throws -> (item: ClipItem, content: ClipContent?)?
     /// Record IDs of deletions waiting to propagate (tombstones).
     func pendingDeletionRecordIDs() async throws -> [String]
 
@@ -83,6 +93,44 @@ extension GRDBClipboardStore: SyncLocalStore {
             result.append((row.item, try await content(for: row.item.id)))
         }
         return result
+    }
+
+    public func pendingUploadCount() async throws -> Int {
+        try await writer.read { db in
+            try Int.fetchOne(
+                db,
+                sql: """
+                    SELECT COUNT(*) FROM clip
+                    WHERE syncSystemFields IS NULL OR needsUpload = 1
+                    """) ?? 0
+        }
+    }
+
+    public func pendingUploadIDs() async throws -> [UUID] {
+        let names = try await writer.read { db in
+            try String.fetchAll(
+                db,
+                sql: """
+                    SELECT id FROM clip
+                    WHERE syncSystemFields IS NULL OR needsUpload = 1
+                    ORDER BY createdAt ASC
+                    """)
+        }
+        return names.compactMap { UUID(uuidString: $0) }
+    }
+
+    public func pendingUpload(id: UUID) async throws -> (item: ClipItem, content: ClipContent?)? {
+        let row = try await writer.read { db in
+            try ClipRow.fetchOne(
+                db,
+                sql: """
+                    SELECT * FROM clip
+                    WHERE id = ? AND (syncSystemFields IS NULL OR needsUpload = 1)
+                    """,
+                arguments: [id.uuidString])
+        }
+        guard let row else { return nil }
+        return (row.item, try await content(for: row.item.id))
     }
 
     public func pendingDeletionRecordIDs() async throws -> [String] {

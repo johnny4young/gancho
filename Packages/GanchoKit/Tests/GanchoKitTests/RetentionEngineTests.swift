@@ -150,6 +150,42 @@ struct RetentionEngineTests {
         #expect(counted == 1)
     }
 
+    @Test("Purges never delete a blob a surviving clip still shares")
+    func purgeKeepsSharedBlobs() async throws {
+        let (store, dir) = try makeStore()
+        let png = Data(
+            base64Encoded:
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        )!
+        // Same bytes → one content-addressed blob file shared by both rows
+        // (distinct contentHash values keep the rows separate).
+        try await insert(
+            store, preview: "old copy", age: 40 * 86_400, kind: .image,
+            content: .binary(data: png, typeIdentifier: "public.png"))
+        try await insert(
+            store, preview: "fresh copy", age: 86_400, kind: .image,
+            content: .binary(data: png, typeIdentifier: "public.png"))
+
+        let engine = RetentionEngine(store: store)
+        let first = try await engine.runPurge(policy: RetentionPolicy(global: .month), now: now)
+
+        // The old row went, but the fresh row still references the blob.
+        #expect(first.byGlobalWindow == 1)
+        #expect(first.orphanedBlobsRemoved == 0, "a shared blob must survive")
+        let afterFirst = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? [])
+            .filter { $0 != "thumbnails" }
+        #expect(afterFirst.count == 1)
+
+        // Once the LAST referencing row is purged the blob goes too.
+        let later = now.addingTimeInterval(40 * 86_400)
+        let second = try await engine.runPurge(policy: RetentionPolicy(global: .month), now: later)
+        #expect(second.byGlobalWindow == 1)
+        #expect(second.orphanedBlobsRemoved == 1)
+        let afterSecond = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? [])
+            .filter { $0 != "thumbnails" }
+        #expect(afterSecond.isEmpty)
+    }
+
     @Test("Purges tombstone synced rows so deletions propagate; unsynced rows leave none")
     func purgeTombstonesSyncedRows() async throws {
         let (store, _) = try makeStore()

@@ -54,6 +54,11 @@ public actor CKSyncEngineAdapter: SyncEngine {
 
     public func start() async throws {
         isPaused = false
+        // Staged CKAsset files are plaintext clip content; each is deleted the
+        // moment its record is reported sent. Sweep the stragglers a crash or
+        // a failed send left behind — age-gated, so files a not-yet-sent batch
+        // still needs are untouched.
+        ClipRecordMapper.sweepStagedAssets()
         let engine = ensureEngine()
         engine.state.add(pendingDatabaseChanges: [
             .saveZone(CKRecordZone(zoneID: zoneID)),
@@ -158,7 +163,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
             emit(.paused(.iCloudFull))
             return
         }
-        let uploads = (try? await store.pendingUploads().count) ?? 0
+        let uploads = (try? await store.pendingUploadCount()) ?? 0
         let deletions = (try? await store.pendingDeletionRecordIDs().count) ?? 0
         let boardUploads = (try? await store.pendingBoardUploads().count) ?? 0
         let boardDeletions = (try? await store.pendingBoardDeletionRecordIDs().count) ?? 0
@@ -180,9 +185,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
     /// Re-registers everything the local store still considers unsynced — used
     /// on a fresh start, after sign-in, and after a server zone reset.
     private func reenqueuePendingWork(into engine: CKSyncEngine) async {
-        if let pending = try? await store.pendingUploads() {
+        if let pending = try? await store.pendingUploadIDs() {
             engine.state.add(
-                pendingRecordZoneChanges: pending.map { .saveRecord(recordID(for: $0.item.id)) })
+                pendingRecordZoneChanges: pending.map { .saveRecord(recordID(for: $0)) })
         }
         if let deletions = try? await store.pendingDeletionRecordIDs() {
             engine.state.add(
@@ -211,7 +216,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
     /// their record names are tombstones tracked separately from the clip rows.
     private func reconcilePendingChanges(in engine: CKSyncEngine) async {
         let validClipIDs = Set(
-            ((try? await store.pendingUploads()) ?? []).map { recordID(for: $0.item.id) })
+            ((try? await store.pendingUploadIDs()) ?? []).map { recordID(for: $0) })
         let validBoardIDs = Set(
             ((try? await store.pendingBoardUploads()) ?? []).map { boardRecordID(for: $0.id) })
         let stale = engine.state.pendingRecordZoneChanges.filter { change in
@@ -235,29 +240,44 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         guard !pendingChanges.isEmpty else { return nil }
 
         // The record provider is synchronous, but our store is async: build
-        // every record up front, then hand the closure a plain dictionary
-        // lookup. CKRecord is not Sendable, so the prefetched map crosses into
-        // the closure inside an unchecked box — safe, as it is read-only.
+        // records up front, then hand the closure a plain dictionary lookup —
+        // but ONLY the records this batch's pending changes actually
+        // reference, so a large backlog is hydrated (and decrypted) one batch
+        // at a time, never in full. CKRecord is not Sendable, so the
+        // prefetched map crosses into the closure inside an unchecked box —
+        // safe, as it is read-only.
+        let saveIDs = pendingChanges.compactMap { change -> CKRecord.ID? in
+            guard case .saveRecord(let id) = change else { return nil }
+            return id
+        }
+        var boardsByID: [UUID: Pinboard] = [:]
+        if saveIDs.contains(where: { $0.zoneID.zoneName == boardZoneID.zoneName }),
+            let pendingBoards = try? await store.pendingBoardUploads()
+        {
+            for board in pendingBoards { boardsByID[board.id] = board }
+        }
         var built: [CKRecord.ID: CKRecord] = [:]
-        if let pending = try? await store.pendingUploads() {
-            for entry in pending {
-                let systemFields = (try? await store.systemFields(for: entry.item.id)) ?? nil
-                let boardIDs = (try? await store.boardIDs(forClip: entry.item.id)) ?? []
+        for changeID in saveIDs {
+            guard let id = UUID(uuidString: changeID.recordName) else { continue }
+            if changeID.zoneID.zoneName == boardZoneID.zoneName {
+                guard let board = boardsByID[id] else { continue }
+                let systemFields = (try? await store.boardSystemFields(for: id)) ?? nil
+                if let record = BoardRecordMapper.record(
+                    for: board, systemFields: systemFields, zoneID: boardZoneID)
+                {
+                    built[changeID] = record
+                }
+            } else if changeID.zoneID.zoneName == zoneID.zoneName {
+                guard let entry = (try? await store.pendingUpload(id: id)) ?? nil else {
+                    continue
+                }
+                let systemFields = (try? await store.systemFields(for: id)) ?? nil
+                let boardIDs = (try? await store.boardIDs(forClip: id)) ?? []
                 if let record = ClipRecordMapper.record(
                     for: entry.item, content: entry.content, systemFields: systemFields,
                     zoneID: zoneID, maxAssetBytes: maxAssetBytes, boardIDs: Array(boardIDs))
                 {
-                    built[recordID(for: entry.item.id)] = record
-                }
-            }
-        }
-        if let pendingBoards = try? await store.pendingBoardUploads() {
-            for board in pendingBoards {
-                let systemFields = (try? await store.boardSystemFields(for: board.id)) ?? nil
-                if let record = BoardRecordMapper.record(
-                    for: board, systemFields: systemFields, zoneID: boardZoneID)
-                {
-                    built[boardRecordID(for: board.id)] = record
+                    built[changeID] = record
                 }
             }
         }
@@ -373,6 +393,11 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                 try? await store.markBoardUploaded(
                     id: id, systemFields: BoardRecordMapper.encodeSystemFields(record))
             } else {
+                // The upload is done — CloudKit no longer reads the staged
+                // asset file, so its plaintext copy must go now. Failed saves
+                // are NOT cleaned here: a retry rebuilds the batch (and stages
+                // a fresh file), and the start() sweep reaps the leftovers.
+                ClipRecordMapper.removeStagedAsset(for: record)
                 try? await store.markUploaded(
                     id: id, systemFields: ClipRecordMapper.encodeSystemFields(record))
             }

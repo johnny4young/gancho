@@ -19,18 +19,26 @@ public struct RetentionEngine: Sendable {
     /// Privacy Center can show counters without content.
     @discardableResult
     public func runPurge(policy: RetentionPolicy, now: Date = .now) async throws -> PurgeSummary {
-        var summary = PurgeSummary()
-
-        summary = try await store.writer.write { db in
+        let (purged, blobCandidates) = try await store.writer.write {
+            db -> (PurgeSummary, Set<String>) in
             var partial = PurgeSummary()
+            var candidates: Set<String> = []
 
             // Every clause tombstones its synced victims BEFORE deleting them,
             // so the deletion propagates to iCloud instead of the record
             // resurrecting on the next fetch (an expired secret must not live
             // on in the cloud forever). Same predicate for both statements so
             // they cover exactly the same rows; unsynced rows (no system
-            // fields) have no cloud record, so they need no tombstone.
+            // fields) have no cloud record, so they need no tombstone. The
+            // victims' blob hashes are captured BEFORE the delete so orphan
+            // cleanup after the transaction is O(deleted), not a full sweep.
             func purge(where predicate: String, arguments: StatementArguments) throws -> Int {
+                try candidates.formUnion(
+                    String.fetchSet(
+                        db,
+                        sql: "SELECT DISTINCT contentBlobHash FROM clip "
+                            + "WHERE contentBlobHash IS NOT NULL AND " + predicate,
+                        arguments: arguments))
                 try db.execute(
                     sql: "INSERT OR REPLACE INTO sync_tombstone (recordID, deletedAt) "
                         + "SELECT id, ? FROM clip "
@@ -80,18 +88,43 @@ public struct RetentionEngine: Sendable {
                     where: predicate, arguments: StatementArguments(arguments))
             }
 
-            return partial
+            return (partial, candidates)
         }
 
-        summary.orphanedBlobsRemoved = try await store.removeOrphanedBlobs()
+        // Blobs are files, not rows — they are cleaned OUTSIDE the write
+        // transaction, precisely (only the deleted rows' hashes, each
+        // ref-checked), mirroring the per-row `delete(id:)` path.
+        var summary = purged
+        summary.orphanedBlobsRemoved = try await store.removeBlobsIfOrphaned(blobCandidates)
         try await store.logPurge(summary, at: now)
         return summary
     }
 }
 
 extension GRDBClipboardStore {
-    /// Deletes blob files no row references anymore (mass purges bypass the
-    /// per-row delete path, so orphans are swept here).
+    /// Deletes the given candidate blob hashes — the hashes of rows a mass
+    /// delete just removed — when no surviving row still references them.
+    /// Content-addressed blobs are shared, so each candidate is ref-checked
+    /// before its file goes; a blob still referenced is never deleted. The
+    /// precise counterpart to the full-sweep ``removeOrphanedBlobs()``:
+    /// O(deleted) instead of O(table + files).
+    func removeBlobsIfOrphaned(_ candidates: Set<String>) async throws -> Int {
+        guard !candidates.isEmpty else { return 0 }
+        let orphaned = try await writer.read { db in
+            try candidates.filter { hash in
+                try ClipRow.filter(Column("contentBlobHash") == hash).fetchCount(db) == 0
+            }
+        }
+        for hash in orphaned {
+            blobsForMaintenance.delete(hash: hash)
+        }
+        return orphaned.count
+    }
+
+    /// Full-sweep fallback: deletes every blob file no row references. The
+    /// steady-state mass-delete paths (retention purge, panic delete) use
+    /// the precise ``removeBlobsIfOrphaned(_:)`` instead; keep this as the
+    /// explicit garbage-collection entry point for repair/maintenance.
     func removeOrphanedBlobs() async throws -> Int {
         let referenced = try await writer.read { db in
             try String.fetchSet(

@@ -450,6 +450,22 @@ public final class GRDBClipboardStore: ClipboardStore {
         }
     }
 
+    /// Regex mode examines at most this many rows per search. ICU's
+    /// `NSRegularExpression` backtracks with no timeout, so a pathological
+    /// pattern that matches nothing must not walk the whole table on the
+    /// reader queue — the scan is bounded structurally instead.
+    static let regexScanCeiling = 5000
+
+    /// Regex mode matches at most this many characters of `contentText` per
+    /// row (title/preview always match in full) — a bounded haystack caps the
+    /// cost of catastrophic backtracking on a single giant clip.
+    static let regexHaystackLimit = 100_000
+
+    /// Regex search is BEST-EFFORT over recent items: the filtered scan stops
+    /// after ``regexScanCeiling`` rows (newest first), and each row's
+    /// `contentText` is matched only up to ``regexHaystackLimit`` characters.
+    /// Both bounds keep a hostile pattern (ReDoS) from wedging the reader
+    /// queue; narrowing filters (kind/app/date/board) extend the reach.
     private func regexSearch(_ query: ClipSearchQuery, limit: Int) async throws -> [ClipItem] {
         guard
             let regex = try? NSRegularExpression(
@@ -460,13 +476,15 @@ public final class GRDBClipboardStore: ClipboardStore {
             var sql = "SELECT clip.* FROM clip WHERE clip.isArchived = 0"
             var arguments: [any DatabaseValueConvertible] = []
             Self.appendFilters(for: query, to: &sql, arguments: &arguments)
-            sql += " ORDER BY createdAt DESC"
+            sql += " ORDER BY createdAt DESC LIMIT ?"
+            arguments.append(Self.regexScanCeiling)
 
             var results: [ClipItem] = []
             let cursor = try ClipRow.fetchCursor(
                 db, sql: sql, arguments: StatementArguments(arguments))
             while let row = try cursor.next(), results.count < limit {
-                let haystacks = [row.title, row.preview, row.contentText ?? ""]
+                let content = String((row.contentText ?? "").prefix(Self.regexHaystackLimit))
+                let haystacks = [row.title, row.preview, content]
                 let matches = haystacks.contains { text in
                     regex.firstMatch(
                         in: text, range: NSRange(text.startIndex..., in: text)) != nil
@@ -626,7 +644,13 @@ public final class GRDBClipboardStore: ClipboardStore {
     /// and panic actions). Returns how many were removed.
     @discardableResult
     public func deleteAllSensitive() async throws -> Int {
-        let removed = try await writer.write { db in
+        let (removed, blobCandidates) = try await writer.write { db -> (Int, Set<String>) in
+            // Capture the doomed rows' blob hashes BEFORE the delete so the
+            // cleanup below is precise — O(deleted), not a directory sweep.
+            let candidates = try String.fetchSet(
+                db,
+                sql: "SELECT DISTINCT contentBlobHash FROM clip "
+                    + "WHERE isSensitive = 1 AND contentBlobHash IS NOT NULL")
             // Synced rows leave tombstones first so the panic delete also
             // removes the records from iCloud (via the pending-deletion queue)
             // instead of the secrets resurrecting on the next fetch.
@@ -636,9 +660,9 @@ public final class GRDBClipboardStore: ClipboardStore {
                     + "WHERE isSensitive = 1 AND syncSystemFields IS NOT NULL",
                 arguments: [Date()])
             try db.execute(sql: "DELETE FROM clip WHERE isSensitive = 1")
-            return db.changesCount
+            return (db.changesCount, candidates)
         }
-        _ = try await removeOrphanedBlobs()
+        _ = try await removeBlobsIfOrphaned(blobCandidates)
         return removed
     }
 
@@ -697,6 +721,11 @@ public final class GRDBClipboardStore: ClipboardStore {
     /// clips — an export must not turn a short-expiry secret into permanent
     /// plaintext unless the caller explicitly opts in. (The zero-argument
     /// form keeps the `ClipboardStore` protocol contract unchanged.)
+    ///
+    /// Deliberately NOT streamed (unlike ``exportCSV(excludeSensitive:)``):
+    /// hand-assembling the array would have to reproduce the encoder's
+    /// `.prettyPrinted`/`.sortedKeys` layout byte-for-byte, which is
+    /// implementation-defined. Follow-up in `.audit/16-store-cluster-fixes.md`.
     public func exportJSON(excludeSensitive: Bool) async throws -> Data {
         var rows = try await writer.read { db in
             try ClipRow.order(Column("createdAt").asc).fetchAll(db)
@@ -718,26 +747,29 @@ public final class GRDBClipboardStore: ClipboardStore {
 
     /// As ``exportCSV()``, optionally dropping detector-flagged sensitive
     /// clips (see ``exportJSON(excludeSensitive:)``).
+    ///
+    /// Streams rows through a cursor instead of `fetchAll` so a 100k-row
+    /// export never materializes every `ClipRow` at once — only the output
+    /// text accumulates. Same bytes as before: same order, same escaping.
     public func exportCSV(excludeSensitive: Bool) async throws -> Data {
-        var rows = try await writer.read { db in
-            try ClipRow.order(Column("createdAt").asc).fetchAll(db)
-        }
-        if excludeSensitive {
-            rows.removeAll(where: \.isSensitive)
-        }
-        let formatter = ISO8601DateFormatter()
-        var csv =
+        let header =
             "id,createdAt,kind,title,preview,contentHash,sourceApp,isPinned,contentText,contentBlobHash\n"
-        for row in rows {
-            let fields = [
-                row.id, formatter.string(from: row.createdAt), row.kind, row.title,
-                row.preview, row.contentHash, row.sourceAppBundleID ?? "",
-                row.isPinned ? "true" : "false", row.contentText ?? "",
-                row.contentBlobHash ?? "",
-            ]
-            csv += fields.map(Self.csvEscape).joined(separator: ",") + "\n"
+        return try await writer.read { db -> Data in
+            let formatter = ISO8601DateFormatter()
+            var csv = header
+            let cursor = try ClipRow.order(Column("createdAt").asc).fetchCursor(db)
+            while let row = try cursor.next() {
+                if excludeSensitive && row.isSensitive { continue }
+                let fields = [
+                    row.id, formatter.string(from: row.createdAt), row.kind, row.title,
+                    row.preview, row.contentHash, row.sourceAppBundleID ?? "",
+                    row.isPinned ? "true" : "false", row.contentText ?? "",
+                    row.contentBlobHash ?? "",
+                ]
+                csv += fields.map(Self.csvEscape).joined(separator: ",") + "\n"
+            }
+            return Data(csv.utf8)
         }
-        return Data(csv.utf8)
     }
 
     private static func csvEscape(_ field: String) -> String {
@@ -761,6 +793,13 @@ public final class GRDBClipboardStore: ClipboardStore {
 /// detail; everything outside speaks `ClipItem` + `ClipContent`.
 struct ClipRow: Codable, FetchableRecord, PersistableRecord {
     static let databaseTableName = "clip"
+
+    /// Shared coders for the `tags` JSON column (default options, so the
+    /// stored bytes are unchanged). Hoisted because bulk import/read paths
+    /// map thousands of rows — one coder each, not one per row; encode and
+    /// decode calls are safe to share across threads.
+    static let tagsEncoder = JSONEncoder()
+    static let tagsDecoder = JSONDecoder()
 
     var id: String
     var createdAt: Date
@@ -799,7 +838,8 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
         isSensitive = item.isSensitive
         expiresAt = item.expiresAt
         tags =
-            (try? String(data: JSONEncoder().encode(item.tags), encoding: .utf8) ?? "[]") ?? "[]"
+            (try? String(data: Self.tagsEncoder.encode(item.tags), encoding: .utf8) ?? "[]")
+            ?? "[]"
         contentText = nil
         contentBlobHash = nil
         contentTypeIdentifier = nil
@@ -822,7 +862,7 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
             isPinned: isPinned,
             isSensitive: isSensitive,
             expiresAt: expiresAt,
-            tags: (try? JSONDecoder().decode([String].self, from: Data(tags.utf8))) ?? [],
+            tags: (try? Self.tagsDecoder.decode([String].self, from: Data(tags.utf8))) ?? [],
             keyword: keyword,
             uses: uses
         )
