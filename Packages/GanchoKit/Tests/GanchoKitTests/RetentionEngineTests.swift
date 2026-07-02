@@ -107,12 +107,10 @@ struct RetentionEngineTests {
         #expect(try await store.count() == 0)
     }
 
-    @Test("Pins never expire — not by window, lifetime, or own date")
+    @Test("Pins never expire by window or own date (the sensitive lifetime is the exception)")
     func pinsAreExempt() async throws {
         let (store, _) = try makeStore()
         try await insert(store, preview: "pinned old", age: 400 * 86_400, pinned: true)
-        try await insert(
-            store, preview: "pinned secret", age: 9_000, pinned: true, sensitive: true)
         try await insert(
             store, preview: "pinned timed", age: 60, pinned: true,
             expiresAt: now.addingTimeInterval(-1))
@@ -121,7 +119,40 @@ struct RetentionEngineTests {
         let summary = try await RetentionEngine(store: store).runPurge(policy: policy, now: now)
 
         #expect(summary.totalRowsPurged == 0)
-        #expect(try await store.count() == 3)
+        #expect(try await store.count() == 2)
+    }
+
+    @Test("Sensitive lifetime overrides pins and boards — filing a secret never preserves it")
+    func sensitiveExpiryOverridesPinsAndBoards() async throws {
+        let (store, _) = try makeStore()
+        // A stale secret that is pinned AND on a board: still purged on the
+        // sensitive schedule (the CHANGELOG promise — detected secrets always
+        // follow the shorter Sensitive items limit).
+        let filedSecret = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "filed secret",
+            contentHash: "h-fs", isPinned: true, isSensitive: true)
+        // Same curation, NOT sensitive: exempt from every clause, as before.
+        let filedPlain = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "filed plain",
+            contentHash: "h-fp", isPinned: true)
+        // A sensitive SNIPPET survives: promotion is explicit curation.
+        let snippetSecret = ClipItem(
+            createdAt: now.addingTimeInterval(-900), preview: "snippet secret",
+            contentHash: "h-sn", isSensitive: true)
+        for item in [filedSecret, filedPlain, snippetSecret] {
+            try await store.insert(item, content: .text(item.preview))
+        }
+        try await store.assign(clipID: filedSecret.id, toBoard: Pinboard.favoritesID)
+        try await store.assign(clipID: filedPlain.id, toBoard: Pinboard.favoritesID)
+        try await store.promoteToSnippet(id: snippetSecret.id)
+
+        let summary = try await RetentionEngine(store: store)
+            .runPurge(policy: RetentionPolicy(), now: now)
+
+        #expect(summary.sensitiveExpired == 1)
+        #expect(
+            try await store.items().map(\.preview).sorted()
+                == ["filed plain", "snippet secret"])
     }
 
     @Test("Purges sweep orphaned blobs and log counters")

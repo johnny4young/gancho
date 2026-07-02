@@ -6,8 +6,12 @@ import GRDB
 /// timer or on launch without touching UI latency.
 ///
 /// Order of evaluation (most specific first): per-item `expiresAt` →
-/// sensitive lifetime → per-kind window → global window. `isPinned = 1`
-/// rows are exempt from every clause, including their own `expiresAt`.
+/// sensitive lifetime → per-kind window → global window. Pinned rows and
+/// board members are exempt from every clause EXCEPT the sensitive
+/// lifetime: a detected secret always follows the shorter sensitive limit
+/// — favoriting or filing it must not make it permanent (the CHANGELOG
+/// promise). Snippets are exempt from everything, including the sensitive
+/// clause: promotion is explicit, permanent curation.
 public struct RetentionEngine: Sendable {
     private let store: GRDBClipboardStore
 
@@ -55,10 +59,13 @@ public struct RetentionEngine: Sendable {
                     "isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND expiresAt IS NOT NULL AND expiresAt <= ?",
                 arguments: [now])
 
-            // 2. Sensitive lifetime.
+            // 2. Sensitive lifetime. Deliberately IGNORES `isPinned` and
+            // board membership (unlike every other clause): a detected
+            // secret must not become permanent by being favorited or filed
+            // onto a board. Snippets are the one exemption — promoting is an
+            // explicit, deliberate act of permanent curation.
             partial.sensitiveExpired = try purge(
-                where:
-                    "isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND isSensitive = 1 AND createdAt <= ?",
+                where: "isSnippet = 0 AND isSensitive = 1 AND createdAt <= ?",
                 arguments: [now.addingTimeInterval(-policy.sensitiveLifetime)])
 
             // 3. Per-kind windows (override the global for their kind).

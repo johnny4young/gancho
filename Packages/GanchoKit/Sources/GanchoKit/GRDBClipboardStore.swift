@@ -42,6 +42,14 @@ public final class GRDBClipboardStore: ClipboardStore {
             // background/foreground boundary. No-op on macOS (nothing suspends).
             configuration.observesSuspensionNotifications = true
         #endif
+        // Interactive reads fan out — list page + thumbnail decrypts + search
+        // + the sync feed — and GRDB's default reader cap (5) lets one slow
+        // reader head-of-line-block the rest. 8 matches that fan-out without
+        // over-provisioning (each reader is a connection + page cache). Heavy
+        // scans stay off the interactive budget by their own bounds: regex
+        // sweeps run under the A-2 ceiling and exports stream through a
+        // single read (`.audit/14` B-10).
+        configuration.maximumReaderCount = 8
         let blobEncryptionKeyData: Data?
         #if SQLITE_HAS_CODEC
             if let passphrase {
@@ -84,17 +92,34 @@ public final class GRDBClipboardStore: ClipboardStore {
     ///   database-reading extensions; `nil` for the macOS app, the CLI, and the
     ///   iOS main app (which use their default keychain).
     ///
-    /// - Note: An UNWIRED raw-key variant exists in RawKeyAdoption.swift
-    ///   (`encryptedRawKeyAdopting(directory:passphrase:allowingRawKeyMigration:)`)
-    ///   that skips SQLCipher's per-connection PBKDF2 for our random 256-bit
-    ///   keys. Flip this call site only per the on-device rollout checklist in
+    /// - Note: Setting `GANCHO_RAWKEY_ADOPT=1` in the launch environment routes
+    ///   this open through the raw-key variant in RawKeyAdoption.swift
+    ///   (`encryptedRawKeyAdopting(directory:passphrase:allowingRawKeyMigration:)`),
+    ///   which skips SQLCipher's per-connection PBKDF2 for our random 256-bit
+    ///   keys and migrates the file to the raw key form in place. OFF by
+    ///   default; flip it only per the on-device rollout checklist in
     ///   `.audit/06-sqlcipher-rawkey-rekey.md` §5.
     public static func encrypted(
         directory: URL,
         keychainAccessGroup: String? = nil
     ) throws -> GRDBClipboardStore {
         let key = try KeychainPassphraseStore(accessGroup: keychainAccessGroup).loadOrCreateKey()
+        #if SQLITE_HAS_CODEC
+            if rawKeyAdoptionEnabled() {
+                return try encryptedRawKeyAdopting(directory: directory, passphrase: key)
+            }
+        #endif
         return try GRDBClipboardStore(directory: directory, passphrase: key)
+    }
+
+    /// True when the launch environment opts this process into the raw-key
+    /// open path (`GANCHO_RAWKEY_ADOPT=1`; every other value — or absence —
+    /// keeps today's derived-key open). Parameterized on the environment so
+    /// tests can pin both sides of the gate without mutating the process.
+    static func rawKeyAdoptionEnabled(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        environment["GANCHO_RAWKEY_ADOPT"] == "1"
     }
 
     #if SQLITE_HAS_CODEC
@@ -722,16 +747,25 @@ public final class GRDBClipboardStore: ClipboardStore {
     /// plaintext unless the caller explicitly opts in. (The zero-argument
     /// form keeps the `ClipboardStore` protocol contract unchanged.)
     ///
-    /// Deliberately NOT streamed (unlike ``exportCSV(excludeSensitive:)``):
-    /// hand-assembling the array would have to reproduce the encoder's
-    /// `.prettyPrinted`/`.sortedKeys` layout byte-for-byte, which is
-    /// implementation-defined. Follow-up in `.audit/16-store-cluster-fixes.md`.
+    /// Rows are gathered through a cursor into ONE exactly-sized array
+    /// (capacity reserved from a COUNT in the same read), with sensitive rows
+    /// skipped during the walk — no `fetchAll` growth over-allocation and no
+    /// second filtered pass, so excluded rows never materialize at all. The
+    /// document is still encoded in ONE shot, deliberately: streaming the
+    /// encoder would mean hand-assembling the `.prettyPrinted`/`.sortedKeys`
+    /// layout byte-for-byte, which is implementation-defined and would break
+    /// existing exports' byte-compat (see `.audit/21-store-finish.md`).
+    /// ``exportCSV(excludeSensitive:)`` is the fully streamed format.
     public func exportJSON(excludeSensitive: Bool) async throws -> Data {
-        var rows = try await writer.read { db in
-            try ClipRow.order(Column("createdAt").asc).fetchAll(db)
-        }
-        if excludeSensitive {
-            rows.removeAll(where: \.isSensitive)
+        let rows = try await writer.read { db -> [ClipRow] in
+            var rows: [ClipRow] = []
+            rows.reserveCapacity(try ClipRow.fetchCount(db))
+            let cursor = try ClipRow.order(Column("createdAt").asc).fetchCursor(db)
+            while let row = try cursor.next() {
+                if excludeSensitive && row.isSensitive { continue }
+                rows.append(row)
+            }
+            return rows
         }
         let payload = ExportDocument(version: 1, exportedAt: .now, clips: rows)
         let encoder = JSONEncoder()
