@@ -616,16 +616,11 @@ struct PanelView: View {
     /// fight the ordering.
     private var isGroupedView: Bool { query.isEmpty && selectedBoardID == nil }
 
-    /// A history section: the pinned clips (always first), or one semantic date
-    /// bucket for the rest. Named to avoid colliding with SwiftUI's `Section`.
-    private enum HistorySection: Hashable {
-        case pinned
-        case date(DateBucket)
-    }
-
-    /// A contiguous run of clips in one section.
+    /// A contiguous run of clips in one section, tagged with the shared
+    /// `ClipSection` grouping (Pinned first, then date buckets) that the iOS
+    /// list already uses — the rule lives once in `ClipSections`.
     private struct DateGroup: Identifiable {
-        let section: HistorySection
+        let section: ClipSection
         let rows: [(index: Int, item: ClipItem)]
         // The first clip's id — unique per run, so the section `ForEach` never
         // collides on ids.
@@ -644,10 +639,10 @@ struct PanelView: View {
         }
         let now = Date()
         var built: [DateGroup] = []
-        var section: HistorySection?
+        var section: ClipSection?
         var rows: [(index: Int, item: ClipItem)] = []
         for (index, item) in filtered.enumerated() {
-            let itemSection: HistorySection =
+            let itemSection: ClipSection =
                 item.isPinned ? .pinned : .date(DateBucket.of(item.createdAt, now: now))
             if itemSection != section {
                 if let section { built.append(DateGroup(section: section, rows: rows)) }
@@ -679,7 +674,7 @@ struct PanelView: View {
 
     /// A sticky section header — "Pinned" (with a pin glyph) or a semantic date
     /// (Today, Yesterday, This month, …) — with the section's clip count.
-    private func sectionHeader(_ section: HistorySection, count: Int) -> some View {
+    private func sectionHeader(_ section: ClipSection, count: Int) -> some View {
         HStack(spacing: 4) {
             if section == .pinned {
                 Image(systemName: "pin.fill").font(.system(size: 8))
@@ -696,7 +691,7 @@ struct PanelView: View {
         .background(.ultraThinMaterial)
     }
 
-    private func sectionTitle(_ section: HistorySection) -> LocalizedStringKey {
+    private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
         switch section {
         case .pinned: "Pinned"
         case .date(let bucket): bucketTitle(bucket)
