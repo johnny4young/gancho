@@ -274,15 +274,13 @@ final class IOSAppModel {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let full else { return }
         Task {
-            let count = (try? await full.pinboards().filter { !$0.isSystem }.count) ?? 0
-            guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro) else {
+            let outcome = await BoardsController().createBoard(
+                name: trimmed, filing: nil, store: full, engine: syncController.engine,
+                isPro: tier == .pro,
                 // Don't dead-end on a vanishing note: surface the Pro screen.
-                proGateTick += 1
-                return
-            }
-            if let board = try? await full.createPinboard(name: trimmed, sfSymbol: "square.stack") {
-                await syncController.engine.enqueue(boards: [board])
-            }
+                onFreeLimit: { self.proGateTick += 1 },
+                onAssigned: {})
+            guard outcome != .blocked else { return }
             await refreshBoards()
         }
     }
@@ -295,18 +293,15 @@ final class IOSAppModel {
     func createBoard(named name: String, filing item: ClipItem) async -> UUID? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let full else { return nil }
-        let count = (try? await full.pinboards().filter { !$0.isSystem }.count) ?? 0
-        guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro) else {
-            flashNote(String(localized: "Upgrade to Pro for more boards"))
-            return nil
-        }
-        guard let board = try? await full.createPinboard(name: trimmed, sfSymbol: "square.stack")
-        else { return nil }
-        await syncController.engine.enqueue(boards: [board])
-        try? await full.assign(clipID: item.id, toBoard: board.id)
+        let outcome = await BoardsController().createBoard(
+            name: trimmed, filing: item, store: full, engine: syncController.engine,
+            isPro: tier == .pro,
+            onFreeLimit: { self.flashNote(String(localized: "Upgrade to Pro for more boards")) },
+            onAssigned: {})
+        guard case .created(let boardID) = outcome else { return nil }
         await refreshBoards()
         await search()
-        return board.id
+        return boardID
     }
 
     /// The boards a clip belongs to — drives the detail screen's checkmarks.
@@ -328,11 +323,8 @@ final class IOSAppModel {
     /// record, so the change propagates to other devices on the next cycle.
     func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
         guard let full else { return }
-        if member {
-            try? await full.assign(clipID: item.id, toBoard: board.id)
-        } else {
-            try? await full.unassign(clipID: item.id, fromBoard: board.id)
-        }
+        await BoardsController().setBoardMembership(
+            item, board: board, member: member, store: full)
         await search()
     }
 
@@ -342,10 +334,8 @@ final class IOSAppModel {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let full else { return }
         Task {
-            try? await full.renameBoard(id: board.id, name: trimmed)
-            var renamed = board
-            renamed.name = trimmed
-            await syncController.engine.enqueue(boards: [renamed])
+            await BoardsController().renameBoard(
+                board, name: trimmed, store: full, engine: syncController.engine)
             await refreshBoards()
         }
     }
@@ -355,12 +345,9 @@ final class IOSAppModel {
     func deleteBoard(_ board: Pinboard) {
         guard !board.isSystem, let full else { return }
         Task {
-            if syncController.isEnabled {
-                try? await full.deletePinboardForSync(id: board.id, now: .now)
-                await syncController.engine.enqueueBoardDeletion(ids: [board.id])
-            } else {
-                try? await full.deletePinboard(id: board.id)
-            }
+            await BoardsController().deleteBoard(
+                board, store: full, engine: syncController.engine,
+                syncEnabled: syncController.isEnabled)
             if selectedBoardID == board.id { selectedBoardID = nil }
             await refreshBoards()
             await search()
