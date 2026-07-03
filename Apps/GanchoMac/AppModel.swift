@@ -269,6 +269,7 @@ final class AppModel {
                 String(localized: "Couldn’t open secure storage — running in memory."))
         }
         Task { await refreshRecents() }
+        seedSampleClipsIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
         // launch); run it at utility priority once the UI is wired up.
@@ -356,6 +357,23 @@ final class AppModel {
             await syncController.engine.enqueue([item])
             await refreshRecents()
             enrich(item, content: content)
+        }
+    }
+
+    /// UI-test hook: seed a few KNOWN synthetic clips through the normal capture
+    /// pipeline so the panel/history is deterministic for the automated flows.
+    /// Strictly gated on BOTH the launch arg and the ephemeral store, so a real
+    /// user's durable history is never touched and a normal launch (no arg) is a
+    /// byte-for-byte no-op. The seed content is synthetic and non-secret.
+    private func seedSampleClipsIfRequested() {
+        guard CommandLine.arguments.contains("-seed-sample-clips"), storageIsEphemeral
+        else { return }
+        for capture in [
+            PasteboardCapture(text: "seed alpha"),
+            PasteboardCapture(text: "https://seed.example/one"),
+            PasteboardCapture(text: "seed beta"),
+        ] {
+            ingest(capture)
         }
     }
 
@@ -686,7 +704,8 @@ final class AppModel {
         toasts.show(
             GanchoToast(
                 message: "Deleted",
-                action: ToastAction(title: "Undo") { [weak self] in
+                action: ToastAction(title: "Undo", accessibilityIdentifier: "toast-undo") {
+                    [weak self] in
                     self?.undoDelete(item)
                 }))
     }

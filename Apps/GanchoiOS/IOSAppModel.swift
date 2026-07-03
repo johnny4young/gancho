@@ -112,6 +112,27 @@ final class IOSAppModel {
         // opens. The log isn't @Observable-tracked, so a later record wouldn't
         // refresh an open screen.
         recordStorageHealthIfNeeded()
+        seedSampleClipsIfRequested()
+    }
+
+    /// UI-test hook: seed a few KNOWN synthetic clips through the normal capture
+    /// pipeline so the history list is deterministic for the automated flows.
+    /// Strictly gated on BOTH the launch arg and the ephemeral store, so a real
+    /// user's durable history is never touched and a normal launch (no arg) is a
+    /// byte-for-byte no-op. The seed content is synthetic and non-secret.
+    private func seedSampleClipsIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-seed-sample-clips"),
+            storageIsEphemeral
+        else { return }
+        Task {
+            for capture in [
+                PasteboardCapture(text: "seed alpha"),
+                PasteboardCapture(text: "https://seed.example/one"),
+                PasteboardCapture(text: "seed beta"),
+            ] {
+                await ingest(capture)
+            }
+        }
     }
 
     /// Restores a prior Pro purchase (Universal Purchase on this Apple ID) and

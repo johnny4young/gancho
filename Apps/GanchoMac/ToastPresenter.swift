@@ -37,6 +37,10 @@ struct GanchoToast {
 
 struct ToastAction {
     let title: LocalizedStringKey
+    /// Accessibility id for the action button, so UI tests can target a
+    /// specific action (e.g. the delete Undo). Defaults to the shared id, so
+    /// every existing toast keeps its previous identifier unchanged.
+    var accessibilityIdentifier: String = "toast-action"
     let handler: @MainActor () -> Void
 }
 
@@ -58,7 +62,7 @@ private struct ToastView: View {
                     onDismiss()
                 }
                 .buttonStyle(.borderless)
-                .accessibilityIdentifier("toast-action")
+                .accessibilityIdentifier(action.accessibilityIdentifier)
                 .foregroundStyle(GanchoTokens.Palette.accent)
             }
         }
