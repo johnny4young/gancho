@@ -1038,21 +1038,12 @@ final class AppModel {
     func createBoard(named name: String, assigning item: ClipItem? = nil) {
         guard let grdbStore else { return }
         Task {
-            // The built-in Favorites board never counts against the free limit.
-            let count = (try? await grdbStore.pinboards().filter { !$0.isSystem }.count) ?? 0
-            guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro)
-            else {
-                paywallWindow.show(trigger: .freeLimitReached, model: self)
-                return
-            }
-            if let board = try? await grdbStore.createPinboard(name: name, sfSymbol: "square.stack")
-            {
-                await syncController.engine.enqueue(boards: [board])
-                if let item {
-                    try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
-                    toasts.show(GanchoToast(message: "Added to board"))
-                }
-            }
+            let outcome = await BoardsController().createBoard(
+                name: name, filing: item, store: grdbStore, engine: syncController.engine,
+                isPro: tier == .pro,
+                onFreeLimit: { self.paywallWindow.show(trigger: .freeLimitReached, model: self) },
+                onAssigned: { self.toasts.show(GanchoToast(message: "Added to board")) })
+            guard outcome != .blocked else { return }
             await refreshBoards()
             if item != nil { await refreshRecents() }
         }
@@ -1063,10 +1054,8 @@ final class AppModel {
     func renameBoard(_ board: Pinboard, name: String) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.renameBoard(id: board.id, name: name)
-            var renamed = board
-            renamed.name = name
-            await syncController.engine.enqueue(boards: [renamed])
+            await BoardsController().renameBoard(
+                board, name: name, store: grdbStore, engine: syncController.engine)
             await refreshBoards()
         }
     }
@@ -1074,14 +1063,9 @@ final class AppModel {
     func deleteBoard(_ board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            // When sync is on, tombstone the deletion so it reaches the other
-            // devices; otherwise a plain local delete is enough.
-            if syncController.isEnabled {
-                try? await grdbStore.deletePinboardForSync(id: board.id, now: .now)
-                await syncController.engine.enqueueBoardDeletion(ids: [board.id])
-            } else {
-                try? await grdbStore.deletePinboard(id: board.id)
-            }
+            await BoardsController().deleteBoard(
+                board, store: grdbStore, engine: syncController.engine,
+                syncEnabled: syncController.isEnabled)
             await refreshBoards()
             await refreshRecents()
         }
@@ -1096,11 +1080,8 @@ final class AppModel {
     /// Add or remove a clip from one board (the peek's per-board toggle).
     func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
         guard let grdbStore else { return }
-        if member {
-            try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
-        } else {
-            try? await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
-        }
+        await BoardsController().setBoardMembership(
+            item, board: board, member: member, store: grdbStore)
         await refreshRecents()
     }
 
