@@ -144,7 +144,7 @@ final class AppModel {
     }
 
     /// On-device intelligence toggles (the Intelligence screen). Each gates a
-    /// real enrichment stage in `enrich`/`makeItem`.
+    /// real enrichment stage in `enrich`/`ClipItemFactory.make`.
     var intelligence: IntelligencePreferences {
         didSet { intelligence.save(to: defaults) }
     }
@@ -336,7 +336,7 @@ final class AppModel {
         // this also keeps cross-device capture consistent with iOS's consensual
         // model (the origin device decides, the rest receive via sync).
         guard !capture.isFromUniversalClipboard else { return }
-        let (item, content) = Self.makeItem(
+        let (item, content) = ClipItemFactory.make(
             from: capture, classifier: classifier, detector: sensitiveDetector,
             sensitiveLifetime: retentionPolicy.sensitiveLifetime,
             detectSecrets: intelligence.detectSecrets)
@@ -412,69 +412,6 @@ final class AppModel {
         GanchoMenuBarBridge.writeLastCopied(
             preview: top.isSensitive ? "•••" : top.preview,
             label: String(localized: "Last copied"), at: top.createdAt)
-    }
-
-    /// Capture payload → classified, normalized, sensitivity-decorated clip
-    /// plus its full content for the store.
-    static func makeItem(
-        from capture: PasteboardCapture,
-        classifier: RuleClassifier,
-        detector: SensitiveDataDetector,
-        sensitiveLifetime: TimeInterval,
-        detectSecrets: Bool = true
-    ) -> (ClipItem, ClipContent?) {
-        switch capture.payload {
-        case .image(let data, let typeIdentifier):
-            let item = ClipItem(
-                kind: .image,
-                preview: "Image (\(ByteSize.formatted(data.count)))",
-                contentHash: ClipItem.hash(of: data, kind: .image),
-                sourceAppBundleID: capture.sourceAppBundleID)
-            return (item, .binary(data: data, typeIdentifier: typeIdentifier))
-        case .fileReferences(let urls):
-            let paths = urls.map(\.path)
-            let item = ClipItem(
-                kind: .fileReference,
-                preview: urls.map(\.lastPathComponent).joined(separator: ", "),
-                contentHash: ClipItem.hash(of: paths.joined(separator: "\n"), kind: .fileReference),
-                sourceAppBundleID: capture.sourceAppBundleID)
-            return (item, .fileReferences(paths))
-        case .richText(let rtf, let plain):
-            let text = plain ?? ""
-            let item = decoratedTextItem(
-                text: text, capture: capture, classifier: classifier, detector: detector,
-                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets)
-            return (
-                item,
-                item.isSensitive ? .text(text) : .binary(data: rtf, typeIdentifier: "public.rtf")
-            )
-        default:
-            let text = capture.textRepresentation ?? ""
-            let item = decoratedTextItem(
-                text: text, capture: capture, classifier: classifier, detector: detector,
-                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets)
-            return (item, .text(ContentNormalizer.canonicalText(text, kind: item.kind)))
-        }
-    }
-
-    private static func decoratedTextItem(
-        text: String, capture: PasteboardCapture, classifier: RuleClassifier,
-        detector: SensitiveDataDetector, sensitiveLifetime: TimeInterval,
-        detectSecrets: Bool = true
-    ) -> ClipItem {
-        let kind = classifier.classify(text)
-        let canonical = ContentNormalizer.canonicalText(text, kind: kind)
-        let item = ClipItem(
-            kind: kind,
-            preview: String(canonical.prefix(120)),
-            contentHash: ClipItem.hash(of: canonical, kind: kind),
-            sourceAppBundleID: capture.sourceAppBundleID)
-        // Intelligence toggle off ⇒ skip secret detection/masking. The
-        // password-manager veto (ConcealedType, pre-read) is separate and stays.
-        guard detectSecrets else { return item }
-        return SensitiveIngestionPolicy.decorate(
-            item, finding: detector.detect(canonical), originalText: canonical,
-            sensitiveLifetime: sensitiveLifetime)
     }
 
     // MARK: - Actions
