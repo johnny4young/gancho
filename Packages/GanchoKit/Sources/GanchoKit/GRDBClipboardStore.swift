@@ -767,11 +767,7 @@ public final class GRDBClipboardStore: ClipboardStore {
             }
             return rows
         }
-        let payload = ExportDocument(version: 1, exportedAt: .now, clips: rows)
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try encoder.encode(payload)
+        return try ClipExporter.json(rows: rows, exportedAt: .now)
     }
 
     /// RFC-4180 CSV: metadata + text content (binaries listed by reference).
@@ -786,40 +782,17 @@ public final class GRDBClipboardStore: ClipboardStore {
     /// export never materializes every `ClipRow` at once — only the output
     /// text accumulates. Same bytes as before: same order, same escaping.
     public func exportCSV(excludeSensitive: Bool) async throws -> Data {
-        let header =
-            "id,createdAt,kind,title,preview,contentHash,sourceApp,isPinned,contentText,contentBlobHash\n"
-        return try await writer.read { db -> Data in
-            let formatter = ISO8601DateFormatter()
-            var csv = header
+        // Field escaping/assembly is centralized in ``ClipExporter``; the cursor
+        // walk stays here so streaming is preserved. Byte-identical to before.
+        try await writer.read { db -> Data in
+            var csv = ClipExporter.csvHeader
             let cursor = try ClipRow.order(Column("createdAt").asc).fetchCursor(db)
             while let row = try cursor.next() {
                 if excludeSensitive && row.isSensitive { continue }
-                let fields = [
-                    row.id, formatter.string(from: row.createdAt), row.kind, row.title,
-                    row.preview, row.contentHash, row.sourceAppBundleID ?? "",
-                    row.isPinned ? "true" : "false", row.contentText ?? "",
-                    row.contentBlobHash ?? "",
-                ]
-                csv += fields.map(Self.csvEscape).joined(separator: ",") + "\n"
+                csv += ClipExporter.csvLine(for: row)
             }
             return Data(csv.utf8)
         }
-    }
-
-    private static func csvEscape(_ field: String) -> String {
-        // Formula-injection guard (OWASP CSV injection): clipboard text is
-        // attacker-influenced by nature, and a field starting with = + - @
-        // (or a leading tab/CR) executes as a formula when the CSV is opened
-        // in Excel/Numbers/Sheets. Neutralize with a leading apostrophe —
-        // spreadsheets then render the field as literal text.
-        var field = field
-        if let first = field.first, "=+-@\t\r".contains(first) {
-            field = "'" + field
-        }
-        guard field.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else {
-            return field
-        }
-        return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
     }
 }
 
@@ -901,11 +874,4 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
             uses: uses
         )
     }
-}
-
-/// Export envelope — versioned so future schema changes stay importable.
-private struct ExportDocument: Codable {
-    var version: Int
-    var exportedAt: Date
-    var clips: [ClipRow]
 }

@@ -42,7 +42,10 @@ final class KeyboardModel: ObservableObject {
     var onModeChange: ((Bool) -> Void)?
 
     private let onInsert: (String) -> Void
-    private let store: GRDBClipboardStore?
+    /// The store surface the keyboard needs: read + search the history, list a
+    /// board's members, and sync-delete an entry. Held as facets so the keyboard
+    /// depends on capabilities, not the concrete store.
+    private let store: (any ClipReading & ClipSearching & BoardStoring & ClipMutating)?
     private var noteTask: Task<Void, Never>?
 
     init(
@@ -218,7 +221,7 @@ final class KeyboardModel: ObservableObject {
     func delete(_ entry: WidgetClipEntry) {
         guard let store else { return }
         Task {
-            try? await store.deleteForSync(id: entry.id)
+            try? await store.deleteForSync(id: entry.id, now: .now)
             await reloadCurrent()
         }
     }

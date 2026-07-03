@@ -3,6 +3,7 @@ import AppKit
 import ApplicationServices
 import ClipboardCore
 import GanchoAI
+import GanchoAppCore
 import GanchoKit
 import GanchoSync
 import GanchoTelemetry
@@ -32,10 +33,10 @@ enum AppearancePreference: String, CaseIterable {
 @MainActor
 final class AppModel {
     private(set) var recentItems: [ClipItem] = []
-    /// Clips hidden from the list while their delete is in the undo window — kept
-    /// out of `recentItems` even across a refresh until the deletion commits.
-    private var pendingDeletionIDs: Set<UUID> = []
-    private var deletionTasks: [UUID: Task<Void, Never>] = [:]
+    /// Owns the undo-window deletion state machine (pending set + grace timer +
+    /// commit-only-if-still-pending). Clips in their window stay out of
+    /// `recentItems` even across a refresh until the deletion commits.
+    let deletionCoordinator = DeletionCoordinator()
     var monitorStatus: MonitorStatus { monitor.status }
 
     /// True when the durable store failed to open and the app is running on the
@@ -45,7 +46,15 @@ final class AppModel {
     /// Durable store under Application Support; falls back to in-memory if
     /// the disk store cannot open (never block launch on a storage error).
     let store: any ClipboardStore
-    let grdbStore: GRDBClipboardStore?
+    /// Full first-party store surface, downcast once from `store`; nil on the
+    /// in-memory fallback. Feature code (this model and the views) reaches every
+    /// capability through it instead of downcasting to the concrete class.
+    let grdbStore: (any FullClipStore)?
+    /// Narrow concrete handle kept ONLY to construct in-module engines
+    /// (`RetentionEngine`, `TierEnforcement`, `GanchoArchive`), to feed
+    /// `SyncEngineFactory`, and to reach the MCP access log / sync-internal
+    /// tombstone list — none of which belong in a client facet.
+    let grdbForEngines: GRDBClipboardStore?
     /// Cached image thumbnails for the history rows and the peek.
     let thumbnails: ClipThumbnailStore
 
@@ -74,11 +83,12 @@ final class AppModel {
     #endif
     let telemetry: TelemetryPipeline
 
-    /// Encrypted iCloud sync, behind the boundary. A `NoopSyncEngine` until
-    /// the user is Pro on an iCloud-signed-in device; `configureSync()` swaps
-    /// in the real adapter and back as the tier or account changes.
-    private(set) var sync: any SyncEngine = NoopSyncEngine()
-    private var syncEnabled = false
+    /// Encrypted iCloud sync, behind the boundary. Owns the engine lifecycle
+    /// (make/start/stop/reset + the enabled flag); this model keeps only the
+    /// status state below and its UI mapping. A `NoopSyncEngine` until the user
+    /// is Pro on an iCloud-signed-in device; `syncController.configure(tier:)`
+    /// swaps in the real adapter and back as the tier or account changes.
+    let syncController: SyncController
 
     /// Current sync state for the UI (panel indicator + Privacy Center).
     private(set) var syncStatus: SyncStatus = .idle
@@ -134,7 +144,7 @@ final class AppModel {
     }
 
     /// On-device intelligence toggles (the Intelligence screen). Each gates a
-    /// real enrichment stage in `enrich`/`makeItem`.
+    /// real enrichment stage in `enrich`/`ClipItemFactory.make`.
     var intelligence: IntelligencePreferences {
         didSet { intelligence.save(to: defaults) }
     }
@@ -167,7 +177,13 @@ final class AppModel {
         let forceEphemeral = ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store")
         let grdb = forceEphemeral ? nil : (try? GRDBClipboardStore.encrypted(directory: directory))
         self.grdbStore = grdb
+        self.grdbForEngines = grdb
         self.store = grdb ?? InMemoryClipboardStore()
+        self.syncController = SyncController(
+            store: grdb,
+            stateStoreURL: URL.applicationSupportDirectory
+                .appendingPathComponent("Gancho", isDirectory: true)
+                .appendingPathComponent("sync-state.plist"))
         let resolvedStore = self.store
         self.thumbnails = ClipThumbnailStore(imageData: { id in
             if case .binary(let data, _)? = try? await resolvedStore.content(for: id) {
@@ -225,6 +241,10 @@ final class AppModel {
             self?.pasteNextFromStack()
         }
 
+        // Sync status/idle mapping stays here (the views observe `syncStatus`);
+        // the controller only drives the engine lifecycle and calls back.
+        syncController.onStatus = { [weak self] status in self?.applySyncStatus(status) }
+        syncController.onIdle = { [weak self] in self?.syncStatus = .idle }
         // StoreKit drives the tier: the listener catches renewals/refunds,
         // and a launch refresh reconciles against current entitlements.
         // Only StoreKit has out-of-process tier changes (renewals, refunds);
@@ -238,7 +258,7 @@ final class AppModel {
             #if DEBUG
                 if DebugFlags.forcePro, tier != .pro { applyTier(.pro) }
             #endif
-            configureSync()
+            syncController.configure(tier: tier)
         }
         telemetry.record(.appLaunched)
         // A data-loss-level storage failure also lands in the support log (the
@@ -316,7 +336,7 @@ final class AppModel {
         // this also keeps cross-device capture consistent with iOS's consensual
         // model (the origin device decides, the rest receive via sync).
         guard !capture.isFromUniversalClipboard else { return }
-        let (item, content) = Self.makeItem(
+        let (item, content) = ClipItemFactory.make(
             from: capture, classifier: classifier, detector: sensitiveDetector,
             sensitiveLifetime: retentionPolicy.sensitiveLifetime,
             detectSecrets: intelligence.detectSecrets)
@@ -333,7 +353,7 @@ final class AppModel {
                 lengthBucket: .init(characterCount: length)))
         Task {
             _ = try? await store.insert(item, content: content)
-            await sync.enqueue([item])
+            await syncController.engine.enqueue([item])
             await refreshRecents()
             enrich(item, content: content)
         }
@@ -357,17 +377,10 @@ final class AppModel {
             && freeAITitlesRemaining > 0
         guard !plan.isEmpty || tasteTitle, let grdbStore else { return }
         Task(priority: .utility) {
-            // Searchable screenshots (OCR).
-            if plan.runs(.ocr), case .binary(let data, _)? = content,
-                let text = try? await ImageTextExtractor().extractText(from: data)
-            {
-                _ = try? await grdbStore.attachExtractedText(id: item.id, text: text)
-            }
-            // Tier 1 — Apple Intelligence titles.
-            if plan.runs(.title) || tasteTitle, case .text(let text)? = content,
-                let annotation = try? await TieredClipAnnotator().annotate(text)
-            {
-                _ = try? await grdbStore.updateTitle(id: item.id, title: annotation.title)
+            await EnrichmentService().enrich(
+                item, content: content, plan: plan,
+                writeTitle: plan.runs(.title) || tasteTitle, store: grdbStore
+            ) { @MainActor in
                 if tasteTitle {
                     consumeFreeAITitle()
                     // The moment the taste runs out is the conversion moment: a
@@ -376,14 +389,6 @@ final class AppModel {
                 }
                 await refreshRecents()
             }
-            // Semantic vector (the embedder caches its model after the first
-            // call — warm-up cost measured in the AI spike).
-            if plan.runs(.embedding), case .text(let text)? = content,
-                let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
-                let vector = try? embedder.vector(for: String(text.prefix(1_000)))
-            {
-                _ = try? await grdbStore.saveEmbedding(clipID: item.id, vector: vector)
-            }
         }
     }
 
@@ -391,8 +396,8 @@ final class AppModel {
         let items = (try? await store.items(offset: 0, limit: 50)) ?? []
         // Keep clips in their undo window hidden even if a capture refreshes the list.
         recentItems =
-            pendingDeletionIDs.isEmpty
-            ? items : items.filter { !pendingDeletionIDs.contains($0.id) }
+            deletionCoordinator.hasPending
+            ? items.filter { !deletionCoordinator.isPending($0.id) } : items
         publishLastCopied()
     }
 
@@ -407,69 +412,6 @@ final class AppModel {
         GanchoMenuBarBridge.writeLastCopied(
             preview: top.isSensitive ? "•••" : top.preview,
             label: String(localized: "Last copied"), at: top.createdAt)
-    }
-
-    /// Capture payload → classified, normalized, sensitivity-decorated clip
-    /// plus its full content for the store.
-    static func makeItem(
-        from capture: PasteboardCapture,
-        classifier: RuleClassifier,
-        detector: SensitiveDataDetector,
-        sensitiveLifetime: TimeInterval,
-        detectSecrets: Bool = true
-    ) -> (ClipItem, ClipContent?) {
-        switch capture.payload {
-        case .image(let data, let typeIdentifier):
-            let item = ClipItem(
-                kind: .image,
-                preview: "Image (\(ByteSize.formatted(data.count)))",
-                contentHash: ClipItem.hash(of: data, kind: .image),
-                sourceAppBundleID: capture.sourceAppBundleID)
-            return (item, .binary(data: data, typeIdentifier: typeIdentifier))
-        case .fileReferences(let urls):
-            let paths = urls.map(\.path)
-            let item = ClipItem(
-                kind: .fileReference,
-                preview: urls.map(\.lastPathComponent).joined(separator: ", "),
-                contentHash: ClipItem.hash(of: paths.joined(separator: "\n"), kind: .fileReference),
-                sourceAppBundleID: capture.sourceAppBundleID)
-            return (item, .fileReferences(paths))
-        case .richText(let rtf, let plain):
-            let text = plain ?? ""
-            let item = decoratedTextItem(
-                text: text, capture: capture, classifier: classifier, detector: detector,
-                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets)
-            return (
-                item,
-                item.isSensitive ? .text(text) : .binary(data: rtf, typeIdentifier: "public.rtf")
-            )
-        default:
-            let text = capture.textRepresentation ?? ""
-            let item = decoratedTextItem(
-                text: text, capture: capture, classifier: classifier, detector: detector,
-                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets)
-            return (item, .text(ContentNormalizer.canonicalText(text, kind: item.kind)))
-        }
-    }
-
-    private static func decoratedTextItem(
-        text: String, capture: PasteboardCapture, classifier: RuleClassifier,
-        detector: SensitiveDataDetector, sensitiveLifetime: TimeInterval,
-        detectSecrets: Bool = true
-    ) -> ClipItem {
-        let kind = classifier.classify(text)
-        let canonical = ContentNormalizer.canonicalText(text, kind: kind)
-        let item = ClipItem(
-            kind: kind,
-            preview: String(canonical.prefix(120)),
-            contentHash: ClipItem.hash(of: canonical, kind: kind),
-            sourceAppBundleID: capture.sourceAppBundleID)
-        // Intelligence toggle off ⇒ skip secret detection/masking. The
-        // password-manager veto (ConcealedType, pre-read) is separate and stays.
-        guard detectSecrets else { return item }
-        return SensitiveIngestionPolicy.decorate(
-            item, finding: detector.detect(canonical), originalText: canonical,
-            sensitiveLifetime: sensitiveLifetime)
     }
 
     // MARK: - Actions
@@ -634,7 +576,9 @@ final class AppModel {
             embedder.hasAvailableAssets,
             let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
         {
-            clips = (try? await grdbStore.semanticSearch(queryVector: vector, topK: 6)) ?? []
+            clips =
+                (try? await grdbStore.semanticSearch(
+                    queryVector: vector, topK: 6, snippetsOnly: false)) ?? []
         }
         if clips.isEmpty {
             clips = (try? await grdbStore.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? []
@@ -717,18 +661,28 @@ final class AppModel {
     /// loses history, and pins/boards/timestamps survive an Undo intact. If the
     /// app quits mid-window the commit never runs, so the clip is kept (safe).
     func delete(_ item: ClipItem) {
-        pendingDeletionIDs.insert(item.id)
         recentItems.removeAll { $0.id == item.id }
         // The deleted clip may have been the most-recent one — re-publish so the
         // menu-bar helper's "Last copied" preview doesn't point at it until the
         // next refresh.
         publishLastCopied()
-        deletionTasks[item.id]?.cancel()
-        deletionTasks[item.id] = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(6))
-            guard !Task.isCancelled else { return }
-            await self?.commitDeletion(item)
-        }
+        deletionCoordinator.beginDeletion(
+            item.id,
+            performDelete: { [weak self] _ in
+                guard let self else { return }
+                if syncController.isEnabled, let grdbStore {
+                    _ = try? await grdbStore.deleteForSync(id: item.id, now: .now)
+                    await syncController.engine.enqueueDeletion(ids: [item.id])
+                } else {
+                    _ = try? await store.delete(id: item.id)
+                }
+            },
+            // Reconcile from the store of record only AFTER the delete lands: a
+            // refresh mid-commit can't flash the clip back (it stays filtered
+            // until the coordinator clears the hold), and a failed delete
+            // honestly reappears — the list and "Last copied" are both re-derived
+            // from what's actually stored.
+            didFinish: { [weak self] _ in await self?.refreshRecents() })
         toasts.show(
             GanchoToast(
                 message: "Deleted",
@@ -738,29 +692,8 @@ final class AppModel {
     }
 
     private func undoDelete(_ item: ClipItem) {
-        deletionTasks[item.id]?.cancel()
-        deletionTasks[item.id] = nil
-        pendingDeletionIDs.remove(item.id)
-        Task { await refreshRecents() }  // still in the store → reappears in place
-    }
-
-    private func commitDeletion(_ item: ClipItem) async {
-        // A late Undo may have reclaimed the clip right at the window boundary —
-        // only commit if it's still pending.
-        guard pendingDeletionIDs.contains(item.id) else { return }
-        deletionTasks[item.id] = nil
-        if syncEnabled, let grdbStore {
-            _ = try? await grdbStore.deleteForSync(id: item.id)
-            await sync.enqueueDeletion(ids: [item.id])
-        } else {
-            _ = try? await store.delete(id: item.id)
-        }
-        // Clear the hold and reconcile from the store of record only AFTER the
-        // delete lands: a refresh mid-commit can't flash the clip back (it stays
-        // filtered until now), and a failed delete honestly reappears — the list
-        // and "Last copied" are both re-derived from what's actually stored.
-        pendingDeletionIDs.remove(item.id)
-        await refreshRecents()
+        // Still in the store → reappears in place once the list refreshes.
+        deletionCoordinator.undo(item.id) { [weak self] _ in await self?.refreshRecents() }
     }
 
     func togglePause() {
@@ -794,49 +727,15 @@ final class AppModel {
     /// user becomes Pro (free-tier archiving is reversible — no data hostage).
     private func applyTier(_ newTier: UserTier) {
         tier = newTier
-        configureSync()
-        guard let grdbStore else { return }
+        syncController.configure(tier: tier)
+        guard let grdbForEngines else { return }
         Task {
-            _ = try? await TierEnforcement(store: grdbStore).enforce(tier: newTier)
+            _ = try? await TierEnforcement(store: grdbForEngines).enforce(tier: newTier)
             await refreshRecents()
         }
     }
 
     // MARK: - Sync
-
-    /// Arms or disarms iCloud sync to match the current tier + account. Only
-    /// rebuilds when the enablement decision flips, so it is safe to call on
-    /// launch and on every tier change.
-    private func configureSync() {
-        guard let grdbStore else { return }
-        let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
-        let cloudKitEntitled = CloudKitEntitlements.currentTaskAllowsSync()
-        let enable = SyncEnablement.shouldEnable(
-            tier: tier,
-            iCloudAvailable: iCloudAvailable,
-            hasCloudKitEntitlement: cloudKitEntitled)
-        guard enable != syncEnabled else { return }
-        syncEnabled = enable
-
-        let previous = sync
-        Task { await previous.stop() }
-        let stateURL = URL.applicationSupportDirectory
-            .appendingPathComponent("Gancho", isDirectory: true)
-            .appendingPathComponent("sync-state.plist")
-        sync = SyncEngineFactory.make(
-            store: grdbStore, tier: tier, iCloudAvailable: iCloudAvailable,
-            hasCloudKitEntitlement: cloudKitEntitled,
-            stateStore: .file(at: stateURL),
-            onStatus: { [weak self] status in
-                Task { @MainActor in self?.applySyncStatus(status) }
-            })
-        if enable {
-            let engine = sync
-            Task { try? await engine.start() }
-        } else {
-            syncStatus = .idle
-        }
-    }
 
     /// Pull the latest from iCloud (and push anything pending). Called when the
     /// panel opens, so a clip captured on another device shows up without an app
@@ -844,9 +743,7 @@ final class AppModel {
     /// no push to fetch on. The refresh-on-settle in `applySyncStatus` updates
     /// the panel once the fetch lands. A no-op when sync is off.
     func syncNow() {
-        guard syncEnabled else { return }
-        let engine = sync
-        Task { try? await engine.start() }
+        syncController.syncNow()
     }
 
     /// Drop the persisted CKSyncEngine state and re-arm sync, so it re-fetches
@@ -854,12 +751,7 @@ final class AppModel {
     /// of what it actually stored — older records never re-arrive on an
     /// incremental fetch. Local rows are kept; remote records re-upsert.
     func resetSyncAndRepull() {
-        let stateURL = URL.applicationSupportDirectory
-            .appendingPathComponent("Gancho", isDirectory: true)
-            .appendingPathComponent("sync-state.plist")
-        try? FileManager.default.removeItem(at: stateURL)
-        syncEnabled = false
-        configureSync()
+        syncController.reset(tier: tier)
     }
 
     /// Applies a status from the engine: updates the indicator and logs a
@@ -900,8 +792,7 @@ final class AppModel {
 
     /// User-triggered sync (the Privacy Center "Force sync" button).
     func forceSync() {
-        let engine = sync
-        Task { try? await engine.start() }
+        Task { await syncController.forceSync() }
     }
 
     // MARK: - Local MCP server
@@ -925,8 +816,8 @@ final class AppModel {
 
     /// Recent MCP/CLI accesses for the Privacy Center (metadata only).
     func recentMCPAccesses(limit: Int = 20) async -> [MCPAccessEvent] {
-        guard let grdbStore else { return [] }
-        return (try? await grdbStore.recentMCPAccesses(limit: limit)) ?? []
+        guard let grdbForEngines else { return [] }
+        return (try? await grdbForEngines.recentMCPAccesses(limit: limit)) ?? []
     }
 
     func buyPlan(_ plan: ProProduct.Plan) {
@@ -989,7 +880,7 @@ final class AppModel {
             // setPinned flagged the row for upload; enqueue pushes it now
             // instead of at the next sync start(). The engine builds the
             // record from the stored row, so only the id matters here.
-            await sync.enqueue([item])
+            await syncController.engine.enqueue([item])
             toasts.show(GanchoToast(message: item.isPinned ? "Unpinned" : "Pinned"))
             await refreshRecents()
         }
@@ -1005,7 +896,7 @@ final class AppModel {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
                 return
             }
-            _ = try? await grdbStore.promoteToSnippet(id: item.id)
+            _ = try? await grdbStore.promoteToSnippet(id: item.id, title: nil)
             toasts.show(GanchoToast(message: "Saved as snippet"))
             await refreshRecents()
         }
@@ -1064,29 +955,7 @@ final class AppModel {
     /// user boards, or the neighborhood shows no clear home. 100% on-device.
     func suggestedBoard(for item: ClipItem) async -> Pinboard? {
         guard intelligence.autoBoard, !item.isSensitive, let grdbStore else { return nil }
-        let userBoards = ((try? await grdbStore.pinboards()) ?? []).filter { !$0.isSystem }
-        guard !userBoards.isEmpty else { return nil }
-        let current = (try? await grdbStore.boardIDs(forClip: item.id)) ?? []
-        let candidates = Set(userBoards.map(\.id)).subtracting(current)
-        guard !candidates.isEmpty else { return nil }
-
-        guard case .text(let text)? = try? await grdbStore.content(for: item.id),
-            let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
-            let vector = try? embedder.vector(for: String(text.prefix(1_000)))
-        else { return nil }
-        let neighbors = ((try? await grdbStore.semanticSearch(queryVector: vector, topK: 8)) ?? [])
-            .filter { $0.id != item.id }
-        guard !neighbors.isEmpty else { return nil }
-
-        var neighborBoards: [Set<UUID>] = []
-        for neighbor in neighbors {
-            neighborBoards.append((try? await grdbStore.boardIDs(forClip: neighbor.id)) ?? [])
-        }
-        guard
-            let vote = BoardSuggester.suggest(
-                neighborBoardIDs: neighborBoards, candidates: candidates)
-        else { return nil }
-        return userBoards.first { $0.id == vote.boardID }
+        return await BoardSuggestionService().suggest(for: item, store: grdbStore)
     }
 
     /// Creates a board and, when `assigning` is set, files that clip into it —
@@ -1095,20 +964,12 @@ final class AppModel {
     func createBoard(named name: String, assigning item: ClipItem? = nil) {
         guard let grdbStore else { return }
         Task {
-            // The built-in Favorites board never counts against the free limit.
-            let count = (try? await grdbStore.pinboards().filter { !$0.isSystem }.count) ?? 0
-            guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: tier == .pro)
-            else {
-                paywallWindow.show(trigger: .freeLimitReached, model: self)
-                return
-            }
-            if let board = try? await grdbStore.createPinboard(name: name) {
-                await sync.enqueue(boards: [board])
-                if let item {
-                    try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
-                    toasts.show(GanchoToast(message: "Added to board"))
-                }
-            }
+            let outcome = await BoardsController().createBoard(
+                name: name, filing: item, store: grdbStore, engine: syncController.engine,
+                isPro: tier == .pro,
+                onFreeLimit: { self.paywallWindow.show(trigger: .freeLimitReached, model: self) },
+                onAssigned: { self.toasts.show(GanchoToast(message: "Added to board")) })
+            guard outcome != .blocked else { return }
             await refreshBoards()
             if item != nil { await refreshRecents() }
         }
@@ -1119,10 +980,8 @@ final class AppModel {
     func renameBoard(_ board: Pinboard, name: String) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.renameBoard(id: board.id, name: name)
-            var renamed = board
-            renamed.name = name
-            await sync.enqueue(boards: [renamed])
+            await BoardsController().renameBoard(
+                board, name: name, store: grdbStore, engine: syncController.engine)
             await refreshBoards()
         }
     }
@@ -1130,14 +989,9 @@ final class AppModel {
     func deleteBoard(_ board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            // When sync is on, tombstone the deletion so it reaches the other
-            // devices; otherwise a plain local delete is enough.
-            if syncEnabled {
-                try? await grdbStore.deletePinboardForSync(id: board.id)
-                await sync.enqueueBoardDeletion(ids: [board.id])
-            } else {
-                try? await grdbStore.deletePinboard(id: board.id)
-            }
+            await BoardsController().deleteBoard(
+                board, store: grdbStore, engine: syncController.engine,
+                syncEnabled: syncController.isEnabled)
             await refreshBoards()
             await refreshRecents()
         }
@@ -1152,11 +1006,8 @@ final class AppModel {
     /// Add or remove a clip from one board (the peek's per-board toggle).
     func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
         guard let grdbStore else { return }
-        if member {
-            try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
-        } else {
-            try? await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
-        }
+        await BoardsController().setBoardMembership(
+            item, board: board, member: member, store: grdbStore)
         await refreshRecents()
     }
 
@@ -1243,21 +1094,21 @@ final class AppModel {
     }
 
     private func runRetention() {
-        guard let grdbStore else { return }
+        guard let grdbForEngines else { return }
         let policy = retentionPolicy
         let tier = tier
         Task {
-            _ = try? await RetentionEngine(store: grdbStore).runPurge(policy: policy)
+            _ = try? await RetentionEngine(store: grdbForEngines).runPurge(policy: policy)
             // The purge tombstoned any synced victims; enqueue those deletions
             // now so they propagate immediately rather than at the next sync
             // start(). Re-adding an already-pending deletion is a no-op in the
             // engine, so sweeping the whole tombstone table is safe.
-            if syncEnabled {
-                let recordIDs = (try? await grdbStore.pendingDeletionRecordIDs()) ?? []
+            if syncController.isEnabled {
+                let recordIDs = (try? await grdbForEngines.pendingDeletionRecordIDs()) ?? []
                 let ids = recordIDs.compactMap { UUID(uuidString: $0) }
-                if !ids.isEmpty { await sync.enqueueDeletion(ids: ids) }
+                if !ids.isEmpty { await syncController.engine.enqueueDeletion(ids: ids) }
             }
-            _ = try? await TierEnforcement(store: grdbStore).enforce(tier: tier)
+            _ = try? await TierEnforcement(store: grdbForEngines).enforce(tier: tier)
             await refreshRecents()
         }
     }

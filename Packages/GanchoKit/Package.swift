@@ -1,12 +1,13 @@
 // swift-tools-version: 6.2
 // GanchoKit — the engine room. All feature/core code lives here; the app
-// targets in Apps/ are thin shells. Seven library products plus a CLI:
+// targets in Apps/ are thin shells. Eight library products plus a CLI:
 //   GanchoKit      — models, store protocols, sync boundary
 //   ClipboardCore  — platform pasteboard adapters (macOS capture, iOS intent-based)
 //   GanchoAI       — on-device intelligence (tier-0 classifier today)
 //   GanchoDesign   — design tokens shared across platforms
 //   GanchoTelemetry — bucket-only analytics transport (kept outside the core)
 //   GanchoSync     — CloudKit sync adapter (the only CloudKit importer)
+//   GanchoAppCore  — platform-neutral app-layer coordinators shared by both shells
 //   GanchoMCP      — local MCP server protocol + tools
 //   gancho         — executable: the CLI + stdio MCP server (Homebrew)
 
@@ -29,6 +30,9 @@ let package = Package(
         // CloudKit sync adapter — the ONLY target allowed to import
         // CloudKit; the core stays behind the `SyncEngine` boundary.
         .library(name: "GanchoSync", targets: ["GanchoSync"]),
+        // Platform-neutral app-layer coordinators shared by the Mac and iOS
+        // shells. May be @MainActor; must NOT import AppKit/UIKit/SwiftUI/CloudKit.
+        .library(name: "GanchoAppCore", targets: ["GanchoAppCore"]),
         // Local MCP server protocol + tools. Pure logic over the store
         // boundary; the `gancho` executable wires it to stdio. The apps do
         // NOT link it — they only need the model types in GanchoKit.
@@ -78,6 +82,9 @@ let package = Package(
                 .product(name: "TelemetryDeck", package: "SwiftSDK"),
             ]),
         .target(name: "GanchoSync", dependencies: ["GanchoKit"]),
+        .target(
+            name: "GanchoAppCore",
+            dependencies: ["GanchoKit", "GanchoAI", "GanchoSync", "ClipboardCore"]),
         .target(name: "GanchoMCP", dependencies: ["GanchoKit"]),
         .executableTarget(name: "gancho", dependencies: ["GanchoKit", "GanchoMCP"]),
         .testTarget(
@@ -87,6 +94,7 @@ let package = Package(
             swiftSettings: [.define("SQLITE_HAS_CODEC")]),
         .testTarget(name: "GanchoMCPTests", dependencies: ["GanchoMCP", "GanchoKit"]),
         .testTarget(name: "GanchoSyncTests", dependencies: ["GanchoSync", "GanchoKit"]),
+        .testTarget(name: "GanchoAppCoreTests", dependencies: ["GanchoAppCore"]),
         .testTarget(name: "ClipboardCoreTests", dependencies: ["ClipboardCore"]),
         .testTarget(name: "GanchoAITests", dependencies: ["GanchoAI"]),
         .testTarget(name: "GanchoDesignTests", dependencies: ["GanchoDesign"]),
