@@ -557,7 +557,6 @@ struct CaptureView: View {
                     Spacer(minLength: 8)
                     PasteControlView { providers in model.ingest(providers: providers) }
                         .frame(width: 108, height: 34)
-                        .accessibilityIdentifier("paste-control")
                 }
                 .padding(.vertical, 10)
                 Divider()
@@ -732,6 +731,11 @@ struct PasteControlView: UIViewRepresentable {
         config.baseForegroundColor = .white
         let control = UIPasteControl(configuration: config)
         control.target = context.coordinator.target
+        // Set the identifier on the system UIView itself: SwiftUI's
+        // `.accessibilityIdentifier` modifier does not propagate onto a
+        // `UIViewRepresentable`'s underlying view, so XCUITest could not find the
+        // control by id. Setting it here makes `paste-control` queryable.
+        control.accessibilityIdentifier = "paste-control"
         return control
     }
 

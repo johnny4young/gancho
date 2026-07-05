@@ -175,7 +175,18 @@ final class AppModel {
         // saved" warning path is drivable by a UI test (mirrors a real failure
         // to open the encrypted store).
         let forceEphemeral = ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store")
-        let grdb = forceEphemeral ? nil : (try? GRDBClipboardStore.encrypted(directory: directory))
+        // Test hook: a THROWAWAY durable store in a unique temp directory — a real
+        // `GRDBClipboardStore` (so `grdbStore` is non-nil and board creation / the
+        // free-tier paywall are reachable, unlike the ephemeral store) that never
+        // touches the user's data. Takes precedence over `-force-ephemeral-store`.
+        let grdb: GRDBClipboardStore?
+        if let tempDir = Self.temporaryDurableStoreDirectory() {
+            grdb = try? GRDBClipboardStore.encrypted(directory: tempDir)
+        } else if forceEphemeral {
+            grdb = nil
+        } else {
+            grdb = try? GRDBClipboardStore.encrypted(directory: directory)
+        }
         self.grdbStore = grdb
         self.grdbForEngines = grdb
         self.store = grdb ?? InMemoryClipboardStore()
@@ -206,7 +217,11 @@ final class AppModel {
             AppearancePreference(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .auto
         autoPauseOnScreenShare =
             defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
-        tier = UserTier.load(from: defaults)
+        // Test hook: pin the FREE tier so the paywall flow is deterministic even
+        // when `gancho-force-pro` is set in the environment (which would otherwise
+        // force Pro and make `PaywallGatekeeper` suppress every trigger).
+        let forceFreeTier = CommandLine.arguments.contains("-force-free-tier")
+        tier = forceFreeTier ? .free : UserTier.load(from: defaults)
 
         // Telemetry: no sender is built when opted out, so the SDK never
         // initializes and nothing leaves the device. Buckets only either way.
@@ -253,11 +268,15 @@ final class AppModel {
             self?.applyTier(tier)
         }
         Task {
-            let entitled = await purchases.currentTier()
-            if entitled != tier { applyTier(entitled) }
-            #if DEBUG
-                if DebugFlags.forcePro, tier != .pro { applyTier(.pro) }
-            #endif
+            if forceFreeTier {
+                applyTier(.free)  // deterministic free tier: skip StoreKit + forcePro
+            } else {
+                let entitled = await purchases.currentTier()
+                if entitled != tier { applyTier(entitled) }
+                #if DEBUG
+                    if DebugFlags.forcePro, tier != .pro { applyTier(.pro) }
+                #endif
+            }
             syncController.configure(tier: tier)
         }
         telemetry.record(.appLaunched)
@@ -270,6 +289,7 @@ final class AppModel {
         }
         Task { await refreshRecents() }
         seedSampleClipsIfRequested()
+        seedSampleBoardsIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
         // launch); run it at utility priority once the UI is wired up.
@@ -374,6 +394,39 @@ final class AppModel {
             PasteboardCapture(text: "seed beta"),
         ] {
             ingest(capture)
+        }
+    }
+
+    /// The throwaway store directory for `-use-temp-durable-store`, or nil when
+    /// the arg is absent. Lives under the OS temp directory (system-cleaned), so
+    /// the UI-test paywall flow gets a REAL durable store — board creation works
+    /// and the free-tier gate is reachable — without touching the user's data.
+    private static func temporaryDurableStoreDirectory() -> URL? {
+        guard ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store")
+        else { return nil }
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gancho-uitest-store-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// UI-test hook: seed exactly `PinLimits.freeMaxPinboards` known boards into a
+    /// THROWAWAY durable store so an automated flow can create ONE more and hit
+    /// the free-tier paywall deterministically. Gated on BOTH `-seed-sample-boards`
+    /// and `-use-temp-durable-store` (never a real store), so a normal launch is a
+    /// no-op and the user's boards are never touched. Seeds sequentially so the
+    /// board count is exact when the test creates the next one.
+    private func seedSampleBoardsIfRequested() {
+        guard CommandLine.arguments.contains("-seed-sample-boards"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let grdbStore
+        else { return }
+        Task {
+            for i in 1...PinLimits.freeMaxPinboards {
+                _ = try? await grdbStore.createPinboard(
+                    name: "Seed board \(i)", sfSymbol: "square.stack")
+            }
+            await refreshBoards()
         }
     }
 

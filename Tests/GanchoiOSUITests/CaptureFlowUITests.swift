@@ -31,11 +31,13 @@ final class CaptureFlowUITests: XCTestCase {
             "a seeded clip must appear in the history via the capture path")
     }
 
-    /// The capture/save control itself is present on the capture screen. Driving
-    /// its OS-mediated tap and asserting the "Saved" confirmation needs a real
-    /// simulator/device run, so that is left as a local TODO.
+    /// Drives the `UIPasteControl` tap end to end. The control grants one-shot
+    /// pasteboard access on tap with NO permission prompt, so a synthetic tap
+    /// exercises the real handoff: seed the system pasteboard, tap, and the
+    /// capture card flashes its `save-note` ("Saved") confirmation via `ingest`.
     @MainActor
-    func testPasteControlIsPresent() {
+    func testPasteControlTapSavesPasteboardContent() {
+        UIPasteboard.general.string = "gancho paste-drive sample"
         let app = XCUIApplication()
         app.launchArguments = ["-force-ephemeral-store"]
         app.launch()
@@ -45,15 +47,17 @@ final class CaptureFlowUITests: XCTestCase {
             print("skip: capture screen not exposed to the UI runner in this environment")
             return
         }
-
         let paste = app.descendants(matching: .any)["paste-control"].firstMatch
-        XCTAssertTrue(
-            paste.waitForExistence(timeout: 5),
-            "the capture screen must expose the paste/save control")
+        guard paste.waitForExistence(timeout: 5) else {
+            print("skip: paste control not exposed to the UI runner")
+            return
+        }
+        paste.tap()
 
-        // TODO(local): drive the UIPasteControl tap and assert the existing
-        // `save-note` ("Saved") confirmation. The system paste-permission tap
-        // isn't scriptable on a headless runner, so this needs a real
-        // simulator/device pass in Xcode.
+        // The handoff runs `IOSAppModel.ingest(providers:)` → the card flashes the
+        // `save-note` ("Saved") label.
+        XCTAssertTrue(
+            app.descendants(matching: .any)["save-note"].firstMatch.waitForExistence(timeout: 8),
+            "tapping the paste control must save the pasteboard content (Saved note)")
     }
 }

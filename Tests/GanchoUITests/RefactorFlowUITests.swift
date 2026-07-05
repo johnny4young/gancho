@@ -118,13 +118,65 @@ final class RefactorFlowUITests: XCTestCase {
         XCTAssertTrue(
             app.buttons["Create"].firstMatch.waitForExistence(timeout: 2),
             "the New board prompt must offer a Create action")
-        app.buttons["Cancel"].firstMatch.click()
+        // The affordance + prompt ARE the assertion; dismiss with Escape. (Clicking
+        // the alert's "Cancel" can misfire on a hosted runner that maps the button
+        // to a Touch Bar element; the deferred terminate is the real cleanup.)
+        app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
+    }
 
-        // TODO(local): extend to the paywall threshold. Board creation needs a
-        // durable grdbStore (nil under -force-ephemeral-store), so exercising
-        // create → free limit (PinLimits.freeMaxPinboards) → the `paywall`
-        // surface must run in Xcode against a throwaway DURABLE store, not the
-        // ephemeral UI-test store. Assert `app.descendants["paywall"]` appears
-        // after creating freeMaxPinboards + 1 boards.
+    /// BoardsController free-tier paywall, end to end — the local follow-up to the
+    /// affordance test above. A THROWAWAY durable store (`-use-temp-durable-store`)
+    /// makes board creation real (it is a silent no-op under the ephemeral UI-test
+    /// store, whose `grdbStore` is nil), `-seed-sample-boards` pre-creates exactly
+    /// the free limit (`PinLimits.freeMaxPinboards`) into it, and
+    /// `-first-pasteback-at 1` satisfies `PaywallGatekeeper.shouldShow`. Creating
+    /// ONE more board then trips `onFreeLimit` → the `paywall` surface. The store
+    /// is a unique temp directory, so the user's real boards are never touched.
+    @MainActor
+    func testCreatingBoardBeyondFreeLimitShowsPaywall() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item",
+            "-use-temp-durable-store", "-seed-sample-boards",
+            "-force-free-tier", "-first-pasteback-at", "1",
+        ]
+        app.launch()
+        _ = app.wait(for: .runningForeground, timeout: 5)
+
+        XCTAssertTrue(
+            app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8),
+            "the panel must open on launch")
+
+        let newBoard = app.buttons["board-new"].firstMatch
+        guard newBoard.waitForExistence(timeout: 8) else {
+            print("skip: New board affordance not exposed to the UI runner")
+            return
+        }
+        newBoard.click()
+
+        // The free-tier gate is checked when the name is submitted (createBoard),
+        // so the prompt still opens; it is the Create that trips the paywall.
+        let field = app.textFields["Board name"].firstMatch
+        let alertField = field.exists ? field : app.dialogs.textFields.firstMatch
+        guard alertField.waitForExistence(timeout: 3) else {
+            print("skip: New board prompt not reachable on this runner")
+            return
+        }
+        alertField.click()
+        alertField.typeText("One past the limit")
+        guard app.buttons["Create"].firstMatch.waitForExistence(timeout: 2) else {
+            print("skip: Create action not reachable on this runner")
+            return
+        }
+        // Submit with Return (the alert's default action) rather than clicking the
+        // "Create" button: clicking an alert button can misfire on a hosted runner
+        // that maps it to a Touch Bar element. Return trips the same createBoard.
+        app.typeKey(XCUIKeyboardKey.return, modifierFlags: [])
+
+        // Seeded boards == freeMaxPinboards, so this is the (limit + 1)th create:
+        // the gate blocks it and opens the paywall.
+        XCTAssertTrue(
+            app.descendants(matching: .any)["paywall"].firstMatch.waitForExistence(timeout: 6),
+            "creating a board past the free limit must open the paywall")
     }
 }
