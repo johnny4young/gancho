@@ -69,7 +69,12 @@ private struct ToastView: View {
         .padding(.horizontal, GanchoTokens.Spacing.md)
         .padding(.vertical, GanchoTokens.Spacing.sm)
         .ganchoSurface(radius: GanchoTokens.Radius.md)
-        .accessibilityElement(children: .combine)
+        // `.contain` (not `.combine`): the toast is an accessibility CONTAINER,
+        // so its action button (e.g. the delete Undo, id `toast-undo`) stays a
+        // separately reachable element — VoiceOver can navigate to it, and a UI
+        // test can target it. `.combine` merged the button into the parent, hiding
+        // it. The explicit announcement below still voices the message.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("gancho-toast")
     }
 }
