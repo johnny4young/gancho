@@ -106,7 +106,8 @@ public actor CKSyncEngineAdapter: SyncEngine {
 
     /// True when a change fetch failed only because the zone doesn't exist yet
     /// (fresh account / first launch) — including inside a partial failure.
-    private static func isMissingZone(_ error: Error) -> Bool {
+    /// Internal (not private) so the unit tests can pin the classification.
+    static func isMissingZone(_ error: Error) -> Bool {
         guard let ckError = error as? CKError else { return false }
         switch ckError.code {
         case .zoneNotFound, .userDeletedZone:
