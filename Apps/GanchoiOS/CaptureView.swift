@@ -477,7 +477,6 @@ struct CaptureView: View {
         } label: {
             Image(systemName: "line.3.horizontal.decrease.circle")
         }
-        .onChange(of: model.kindFilter) { _, _ in Task { await model.search() } }
         .accessibilityLabel(Text("Filter by type"))
     }
 

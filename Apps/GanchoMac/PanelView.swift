@@ -2,16 +2,15 @@ import AppKit
 import ClipboardCore
 import Combine
 import GanchoAI
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-/// The history's type-filter rail (the design's All / Links / Code / Colors /
-/// Images / Secrets pills).
-enum ClipKindFilter: String, CaseIterable, Identifiable {
-    case all, links, code, colors, images, secrets
-    var id: String { rawValue }
-
+/// The localized pill labels for the type-filter rail. `ClipKindFilter` itself
+/// (cases + `matches`/`tintKind`) lives in `GanchoAppCore` so `PanelSearchModel`
+/// can narrow results without importing SwiftUI.
+extension ClipKindFilter {
     var title: LocalizedStringKey {
         switch self {
         case .all: "All"
@@ -20,29 +19,6 @@ enum ClipKindFilter: String, CaseIterable, Identifiable {
         case .colors: "Colors"
         case .images: "Images"
         case .secrets: "Secrets"
-        }
-    }
-
-    /// The clip kind whose tint colours the pill's dot (nil for All).
-    var tintKind: ClipContentKind? {
-        switch self {
-        case .all: nil
-        case .links: .url
-        case .code: .code
-        case .colors: .color
-        case .images: .image
-        case .secrets: .secret
-        }
-    }
-
-    func matches(_ kind: ClipContentKind) -> Bool {
-        switch self {
-        case .all: true
-        case .links: kind == .url
-        case .code: kind == .code || kind == .json || kind == .uuid
-        case .colors: kind == .color
-        case .images: kind == .image
-        case .secrets: kind == .secret || kind == .jwt || kind == .creditCard
         }
     }
 }
@@ -68,44 +44,23 @@ private enum BoardSheet: Identifiable {
 /// peek (its action list). → moves focus into the peek, ← returns to the list.
 enum PanelFocus: Hashable { case search, peek }
 
-/// When the keyboard is "up" in the rails above the list: which rail and which
-/// chip. ↑ from the first list row enters `.filters`, ↑ again `.boards`; ←→ move
-/// within a rail, Space/Enter toggles. `nil` means the keyboard is in the list.
-private enum RailFocus: Hashable {
-    case boards(Int)  // 0 = "All clips", 1…n = model.boards[i-1]
-    case filters(Int)  // index into ClipKindFilter.allCases
-}
-
 /// The floating history panel: compact, keyboard-first (the explicit design
 /// decision vs Paste's full-width drawer). Every interaction works without
 /// a mouse: type-to-search, ↑↓ to navigate, → into the peek, Enter to paste.
 struct PanelView: View {
     @Environment(AppModel.self) private var model
     @FocusState private var focus: PanelFocus?
-    @State private var query = ""
-    @State private var results: [ClipItem] = []
-    @State private var selectedIndex = 0
+    /// The search + list state (query, results, filters, selection, paging,
+    /// grouping) — lifted into `PanelSearchModel` so it is `@Observable` and
+    /// unit-testable; the view keeps presentation only.
+    @State private var search: PanelSearchModel
     /// Non-nil when the keyboard moved up into the filter/board rails.
     @State private var railFocus: RailFocus?
-    /// Date-bucketed rows for the recent list, cached so the bucket math runs
-    /// once per data change, never on the scroll/arrow path.
-    @State private var groups: [DateGroup] = []
-    /// Incremental paging of the recent list: a page in flight, and whether the
-    /// store has no more rows to append.
-    @State private var isLoadingMore = false
-    @State private var reachedEnd = false
     @State private var previewText = ""
-    @State private var kindFilter: ClipKindFilter = .all
-    /// nil = "All clips"; otherwise the selected board's id. Boards are a
-    /// higher axis than the kind filter and sit above it in the rail.
-    @State private var selectedBoardID: UUID?
     @State private var boardSheet: BoardSheet?
     @State private var boardNameField = ""
     /// The board a destructive "Delete board" is awaiting confirmation on.
     @State private var boardPendingDeletion: Pinboard?
-    /// The snippet whose keyword the query matches exactly — typing it surfaces
-    /// a one-keystroke insert banner above the list (the in-app expansion path).
-    @State private var snippetMatch: ClipItem?
     /// Set when invoking a template snippet ({fields}) — drives the fill sheet.
     @State private var fillRequest: SnippetFillRequest?
     /// "Ask your clipboard": the grounded answer + its source clips, and whether
@@ -117,25 +72,9 @@ struct PanelView: View {
     /// power shortcuts (⌘P/⌘S/⌥⏎/⌘1-9) that the footer hints can't fit.
     @State private var showShortcuts = false
 
-    /// The rows actually shown: `results` narrowed by the active filter pill,
-    /// then DE-DUPED by id. Pagination overlap (or a capture landing mid-scroll)
-    /// can put the same clip in `results` twice; duplicate `ForEach`/`.id` keys
-    /// make SwiftUI's selection highlight land on several rows or none, so the
-    /// list must never carry a repeated id.
-    private var filtered: [ClipItem] {
-        let base = kindFilter == .all ? results : results.filter { kindFilter.matches($0.kind) }
-        var seen = Set<UUID>()
-        // Drop de-dupes AND hides clips whose delete is in the undo window, so a
-        // deleted row disappears immediately (Undo brings it back) instead of
-        // lingering and reading as "not deleted".
-        return base.filter {
-            seen.insert($0.id).inserted && !model.deletionCoordinator.isPending($0.id)
-        }
+    init(model: AppModel) {
+        _search = State(wrappedValue: PanelSearchModel(source: model))
     }
-
-    /// A type or board filter is narrowing the list — drives the no-results
-    /// "Clear filters" affordance.
-    private var hasActiveFilter: Bool { kindFilter != .all || selectedBoardID != nil }
 
     /// Zero-size buttons that claim ⌘V / ⌥⌘V as keyboard shortcuts. The search
     /// field is the first responder for type-to-search, so a plain key handler
@@ -144,10 +83,12 @@ struct PanelView: View {
     /// (ahead of the field editor), so ⌘V pastes the SELECTED clip like Enter.
     private var pasteShortcutButtons: some View {
         Group {
-            Button("") { if let item = selectedItem { model.paste(item) } }
+            Button("") { if let item = search.selectedItem { model.paste(item) } }
                 .keyboardShortcut("v", modifiers: .command)
-            Button("") { if let item = selectedItem { model.paste(item, asPlainText: true) } }
-                .keyboardShortcut("v", modifiers: [.command, .option])
+            Button("") {
+                if let item = search.selectedItem { model.paste(item, asPlainText: true) }
+            }
+            .keyboardShortcut("v", modifiers: [.command, .option])
         }
         .opacity(0)
         .frame(width: 0, height: 0)
@@ -160,7 +101,7 @@ struct PanelView: View {
                 .frame(width: 440)
             // The peek opens BESIDE the list (not a modal) and follows the
             // hovered / selected clip — Quick-Look-style.
-            if let selected = selectedItem {
+            if let selected = search.selectedItem {
                 ClipPeek(item: selected, text: previewText, focus: $focus)
                     .frame(width: 400)
                     .ganchoSurface(radius: GanchoTokens.Radius.lg)
@@ -168,13 +109,13 @@ struct PanelView: View {
             }
         }
         .padding(GanchoTokens.Spacing.sm)
-        .frame(minWidth: selectedItem == nil ? 472 : 864, minHeight: 520)
+        .frame(minWidth: search.selectedItem == nil ? 472 : 864, minHeight: 520)
         .overlay { shortcutsOverlay }
         .background { pasteShortcutButtons }
         .animation(.snappy(duration: 0.12), value: showShortcuts)
-        .task { await refresh() }
+        .task { await search.refresh() }
         .task { await model.refreshBoards() }
-        .onChange(of: query) { _, _ in
+        .onChange(of: search.query) { _, _ in
             // A new query invalidates a previous answer and drops rail focus
             // (you're typing in the search field again).
             askTask?.cancel()
@@ -182,16 +123,16 @@ struct PanelView: View {
             isAsking = false
             answer = nil
             railFocus = nil
-            Task { await refresh() }
+            Task { await search.refresh() }
         }
         .onChange(of: model.recentItems) { _, _ in
-            Task { await refresh() }
+            Task { await search.refresh() }
         }
-        .onChange(of: selectedBoardID) { _, _ in
-            Task { await refresh() }
+        .onChange(of: search.selectedBoardID) { _, _ in
+            Task { await search.refresh() }
         }
         // The kind filter narrows client-side, so regroup without a re-query.
-        .onChange(of: kindFilter) { _, _ in rebuildGroups() }
+        .onChange(of: search.kindFilter) { _, _ in search.rebuildGroups() }
         .alert(boardSheetTitle, isPresented: boardSheetPresented) {
             TextField("Board name", text: $boardNameField)
             Button("Cancel", role: .cancel) {}
@@ -205,7 +146,7 @@ struct PanelView: View {
             presenting: boardPendingDeletion
         ) { board in
             Button("Delete board", role: .destructive) {
-                if selectedBoardID == board.id { selectedBoardID = nil }
+                if search.selectedBoardID == board.id { search.selectedBoardID = nil }
                 model.deleteBoard(board)
             }
             Button("Cancel", role: .cancel) {}
@@ -223,7 +164,7 @@ struct PanelView: View {
         // Load the peek for the selected clip, keyed on its id and debounced:
         // arrowing fast cancels the in-flight load, so only the clip you land on
         // is read and rendered — keeps navigation responsive.
-        .task(id: selectedItem?.id) {
+        .task(id: search.selectedItem?.id) {
             try? await Task.sleep(for: .milliseconds(60))
             guard !Task.isCancelled else { return }
             await loadSelectedText()
@@ -244,29 +185,26 @@ struct PanelView: View {
     /// The history list: search, rows, and the sync footer. The peek lives in a
     /// sibling column (see `body`).
     private var listColumn: some View {
-        VStack(spacing: GanchoTokens.Spacing.xs) {
-            SearchField("Search your clipboard", text: $query)
+        @Bindable var search = search
+        return VStack(spacing: GanchoTokens.Spacing.xs) {
+            SearchField("Search your clipboard", text: $search.query)
                 .focused($focus, equals: .search)
-                .onKeyPress(.downArrow) { navigateDown() }
-                .onKeyPress(.upArrow) { navigateUp() }
-                .onKeyPress(.leftArrow) { navigateLeft() }
-                .onKeyPress(.rightArrow) { navigateRight() }
+                .onKeyPress(.downArrow) { handleNav(.down) }
+                .onKeyPress(.upArrow) { handleNav(.up) }
+                .onKeyPress(.leftArrow) { handleNav(.left) }
+                .onKeyPress(.rightArrow) { handleNav(.right) }
                 .onKeyPress(.space, phases: .down) { _ in
                     // In a rail, Space toggles the focused chip (and won't type a
                     // space); in the list it falls through to the search field.
                     guard railFocus != nil else { return .ignored }
-                    _ = toggleFocusedRail()
-                    return .handled
+                    return handleNav(.toggle)
                 }
                 .onKeyPress(.return, phases: .down) { press in
                     // In a rail, Enter toggles the focused chip. Otherwise an exact
                     // keyword match takes Enter (you typed the snippet shortcut on
                     // purpose); else Enter pastes the selection.
-                    if railFocus != nil {
-                        _ = toggleFocusedRail()
-                        return .handled
-                    }
-                    if let match = snippetMatch {
+                    if railFocus != nil { return handleNav(.toggle) }
+                    if let match = search.snippetMatch {
                         invokeSnippet(match)
                     } else {
                         pasteSelected(plain: press.modifiers.contains(.option))
@@ -299,20 +237,20 @@ struct PanelView: View {
                 .onKeyPress(characters: .decimalDigits, phases: .down) { press in
                     guard press.modifiers.contains(.command),
                         let digit = Int(press.characters), (1...9).contains(digit),
-                        filtered.indices.contains(digit - 1)
+                        search.filtered.indices.contains(digit - 1)
                     else { return .ignored }
-                    model.paste(filtered[digit - 1])
+                    model.paste(search.filtered[digit - 1])
                     return .handled
                 }
                 .onKeyPress(characters: CharacterSet(charactersIn: "p"), phases: .down) { press in
-                    guard press.modifiers.contains(.command), let item = selectedItem else {
+                    guard press.modifiers.contains(.command), let item = search.selectedItem else {
                         return .ignored
                     }
                     model.togglePin(item)
                     return .handled
                 }
                 .onKeyPress(characters: CharacterSet(charactersIn: "s"), phases: .down) { press in
-                    guard press.modifiers.contains(.command), let item = selectedItem else {
+                    guard press.modifiers.contains(.command), let item = search.selectedItem else {
                         return .ignored
                     }
                     model.promoteToSnippet(item)
@@ -327,29 +265,29 @@ struct PanelView: View {
                 captureBanner(captureNotice)
             }
 
-            if let snippetMatch {
+            if let snippetMatch = search.snippetMatch {
                 snippetBanner(snippetMatch)
             }
 
-            if model.askAvailable, !query.isEmpty {
+            if model.askAvailable, !search.query.isEmpty {
                 askRow
             }
 
-            if filtered.isEmpty {
+            if search.filtered.isEmpty {
                 emptyState
             } else {
                 // The chronological recent list groups under sticky date headers;
                 // search (ranked) and a board (curated) keep a flat list under the
                 // single "Recent" header.
-                if !isGroupedView { recentHeader }
+                if !search.isGroupedView { recentHeader }
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(
                             spacing: GanchoTokens.Spacing.xxs,
-                            pinnedViews: isGroupedView ? [.sectionHeaders] : []
+                            pinnedViews: search.isGroupedView ? [.sectionHeaders] : []
                         ) {
-                            if isGroupedView {
-                                ForEach(groups) { group in
+                            if search.isGroupedView {
+                                ForEach(search.groups) { group in
                                     Section {
                                         ForEach(group.rows, id: \.item.id) { entry in
                                             clipRow(index: entry.index, item: entry.item)
@@ -359,7 +297,7 @@ struct PanelView: View {
                                     }
                                 }
                             } else {
-                                ForEach(Array(filtered.enumerated()), id: \.element.id) {
+                                ForEach(Array(search.filtered.enumerated()), id: \.element.id) {
                                     index, item in
                                     clipRow(index: index, item: item)
                                 }
@@ -367,9 +305,9 @@ struct PanelView: View {
                         }
                         .padding(.horizontal, GanchoTokens.Spacing.xxs)
                     }
-                    .onChange(of: selectedIndex) { _, index in
-                        guard filtered.indices.contains(index) else { return }
-                        proxy.scrollTo(filtered[index].id)
+                    .onChange(of: search.selectedIndex) { _, index in
+                        guard search.filtered.indices.contains(index) else { return }
+                        proxy.scrollTo(search.filtered[index].id)
                     }
                 }
             }
@@ -392,11 +330,11 @@ struct PanelView: View {
     }
 
     private func filterPill(_ filter: ClipKindFilter) -> some View {
-        let isActive = filter == kindFilter
+        let isActive = filter == search.kindFilter
         let isFocused = railFocus == .filters(ClipKindFilter.allCases.firstIndex(of: filter) ?? -1)
         return Button {
-            kindFilter = filter
-            selectedIndex = 0
+            search.kindFilter = filter
+            search.selectedIndex = 0
         } label: {
             HStack(spacing: 4) {
                 // A checkmark marks the active pill so the selection reads
@@ -445,20 +383,20 @@ struct PanelView: View {
             HStack(spacing: GanchoTokens.Spacing.xxs) {
                 boardChip(
                     label: Text("All clips"), systemImage: "tray.full",
-                    isActive: selectedBoardID == nil, isFocused: railFocus == .boards(0),
+                    isActive: search.selectedBoardID == nil, isFocused: railFocus == .boards(0),
                     identifier: "board-all"
                 ) {
-                    selectedBoardID = nil
+                    search.selectedBoardID = nil
                 }
                 ForEach(Array(model.boards.enumerated()), id: \.element.id) { index, board in
                     boardChip(
                         label: board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
                         systemImage: board.sfSymbol,
-                        isActive: selectedBoardID == board.id,
+                        isActive: search.selectedBoardID == board.id,
                         isFocused: railFocus == .boards(index + 1),
                         identifier: "board-\(board.id.uuidString)"
                     ) {
-                        selectedBoardID = board.id
+                        search.selectedBoardID = board.id
                     }
                     .contextMenu {
                         if !board.isSystem {
@@ -622,13 +560,13 @@ struct PanelView: View {
     }
 
     private func runAsk() {
-        let question = query
+        let question = search.query
         askTask?.cancel()
         answer = nil
         isAsking = true
         askTask = Task { @MainActor in
             let result = await model.askClipboard(question)
-            guard !Task.isCancelled, query == question else { return }
+            guard !Task.isCancelled, search.query == question else { return }
             isAsking = false
             answer = result
             askTask = nil
@@ -639,56 +577,12 @@ struct PanelView: View {
         HStack {
             Text("Recent")
             Spacer()
-            Text("\(filtered.count) clips")
+            Text("\(search.filtered.count) clips")
         }
         .font(.caption2.weight(.semibold))
         .foregroundStyle(.tertiary)
         .textCase(.uppercase)
         .padding(.horizontal, GanchoTokens.Spacing.xs)
-    }
-
-    /// Date grouping applies to the chronological recent list only — search is
-    /// relevance-ranked and a board is a curated set, where date headers would
-    /// fight the ordering.
-    private var isGroupedView: Bool { query.isEmpty && selectedBoardID == nil }
-
-    /// A contiguous run of clips in one section, tagged with the shared
-    /// `ClipSection` grouping (Pinned first, then date buckets) that the iOS
-    /// list already uses — the rule lives once in `ClipSections`.
-    private struct DateGroup: Identifiable {
-        let section: ClipSection
-        let rows: [(index: Int, item: ClipItem)]
-        // The first clip's id — unique per run, so the section `ForEach` never
-        // collides on ids.
-        var id: UUID { rows.first?.item.id ?? UUID() }
-    }
-
-    /// Recompute the sections for the recent list — pinned first, then date
-    /// buckets. Called when the data or the kind filter changes (NOT per render),
-    /// so the Calendar math over thousands of rows never lands on the scroll
-    /// path. The query orders pinned-first then by capture time, so the sections
-    /// come out contiguous in one linear pass.
-    private func rebuildGroups() {
-        guard isGroupedView else {
-            if !groups.isEmpty { groups = [] }
-            return
-        }
-        let now = Date()
-        var built: [DateGroup] = []
-        var section: ClipSection?
-        var rows: [(index: Int, item: ClipItem)] = []
-        for (index, item) in filtered.enumerated() {
-            let itemSection: ClipSection =
-                item.isPinned ? .pinned : .date(DateBucket.of(item.createdAt, now: now))
-            if itemSection != section {
-                if let section { built.append(DateGroup(section: section, rows: rows)) }
-                section = itemSection
-                rows = []
-            }
-            rows.append((index: index, item: item))
-        }
-        if let section { built.append(DateGroup(section: section, rows: rows)) }
-        groups = built
     }
 
     /// One clip row with its shared interactions — used by both the flat
@@ -700,7 +594,7 @@ struct PanelView: View {
             // builds only visible rows — the view-level virtual scrolling).
             .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
             // Pull the next page when this row is near the end (infinite scroll).
-            .onAppear { Task { await loadMoreIfNeeded(index) } }
+            .onAppear { Task { await search.loadMoreIfNeeded(index) } }
             // Single click SELECTS, double-click PASTES; hover no longer moves
             // the selection (arrows + click only). The select tap is a
             // `simultaneousGesture` so it fires on the FIRST click without waiting
@@ -963,7 +857,7 @@ struct PanelView: View {
     @ViewBuilder
     private var emptyState: some View {
         VStack(spacing: GanchoTokens.Spacing.xs) {
-            if query.isEmpty {
+            if search.query.isEmpty {
                 Image(systemName: "doc.on.clipboard.fill")
                     .font(.system(size: 28, weight: .medium))
                     .foregroundStyle(.white)
@@ -999,16 +893,16 @@ struct PanelView: View {
                     .padding(.bottom, GanchoTokens.Spacing.xs)
                 Text("No matches")
                     .font(.headline)
-                Text("No clips for “\(query)”.")
+                Text("No clips for “\(search.query)”.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                if hasActiveFilter {
+                if search.hasActiveFilter {
                     // esc hides the panel, so the old "press esc" hint was wrong;
                     // a real button clears the type/board filter narrowing the list.
                     Button("Clear filters") {
-                        kindFilter = .all
-                        selectedBoardID = nil
+                        search.kindFilter = .all
+                        search.selectedBoardID = nil
                     }
                     .buttonStyle(.borderless)
                     .padding(.top, GanchoTokens.Spacing.xxs)
@@ -1024,7 +918,8 @@ struct PanelView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, GanchoTokens.Spacing.lg)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(query.isEmpty ? "panel-empty-firstrun" : "panel-empty-noresults")
+        .accessibilityIdentifier(
+            search.query.isEmpty ? "panel-empty-firstrun" : "panel-empty-noresults")
     }
 
     private func row(for item: ClipItem, index: Int) -> some View {
@@ -1032,7 +927,7 @@ struct PanelView: View {
         // title/preview, pin / Universal-Clipboard markers, and the ⌘N
         // quick-paste badge for the first nine rows.
         ClipCard(
-            item: item, isSelected: index == selectedIndex,
+            item: item, isSelected: index == search.selectedIndex,
             previewsHidden: model.preferences.isPrivateModePaused,
             shortcutNumber: index < 9 ? index + 1 : nil,
             thumbnail: model.thumbnails.cached(for: item.id))
@@ -1074,23 +969,8 @@ struct PanelView: View {
         }
     }
 
-    private var selectedItem: ClipItem? {
-        filtered.indices.contains(selectedIndex) ? filtered[selectedIndex] : nil
-    }
-
-    private func move(_ delta: Int) -> KeyPress.Result {
-        // Always consume arrows so focus never leaves the search field — with
-        // no results there is simply nothing to move (Spotlight behavior).
-        // Returning .ignored here let the arrow propagate and steal focus.
-        guard !filtered.isEmpty else { return .handled }
-        selectedIndex = (selectedIndex + delta + filtered.count) % filtered.count
-        // Arrowing down toward the end pulls the next page ahead of the cursor.
-        if delta > 0 { Task { await loadMoreIfNeeded(selectedIndex) } }
-        return .handled
-    }
-
     private func pasteSelected(plain: Bool) {
-        guard let item = selectedItem else { return }
+        guard let item = search.selectedItem else { return }
         model.paste(item, asPlainText: plain)
     }
 
@@ -1098,95 +978,44 @@ struct PanelView: View {
     /// search focus so type-to-search and Enter-to-paste keep working after a
     /// click lands focus on the row.
     private func select(_ index: Int) {
-        selectedIndex = index
+        search.select(index)
         railFocus = nil
         focus = .search
     }
 
     // MARK: - Rail keyboard navigation (filters + boards above the list)
 
-    private var currentFilterIndex: Int {
-        ClipKindFilter.allCases.firstIndex(of: kindFilter) ?? 0
-    }
-    /// 0 = "All clips"; otherwise the selected board's slot (1-based).
-    private var currentBoardIndex: Int {
-        guard let id = selectedBoardID else { return 0 }
-        return (model.boards.firstIndex { $0.id == id }).map { $0 + 1 } ?? 0
-    }
-
-    /// ↑: out of the list at row 0 into the filters, then up to the boards.
-    private func navigateUp() -> KeyPress.Result {
-        switch railFocus {
-        case nil:
-            guard selectedIndex == 0 else { return move(-1) }
-            railFocus = .filters(currentFilterIndex)
-        case .filters:
-            railFocus = .boards(currentBoardIndex)
-        case .boards:
-            break  // top of the stack
+    /// Resolve an arrow / Space / Enter keypress through the pure
+    /// `PanelNavigation` reducer, then apply the next state back onto the search
+    /// model + view and run the two effects the reducer can't be pure about:
+    /// moving SwiftUI focus into the peek, and pulling the next page. Returns
+    /// `.ignored` only when the reducer did not consume the key.
+    private func handleNav(_ key: PanelNavigationKey) -> KeyPress.Result {
+        let context = PanelNavigationContext(
+            rowCount: search.filtered.count,
+            boardIDs: model.boards.map(\.id),
+            hasSelection: search.selectedItem != nil)
+        let state = PanelNavigationState(
+            railFocus: railFocus,
+            selectedIndex: search.selectedIndex,
+            kindFilter: search.kindFilter,
+            selectedBoardID: search.selectedBoardID)
+        let result = PanelNavigation.reduce(key, state: state, context: context)
+        // Write back only what changed — avoids spurious `@State`/`@Observable`
+        // invalidations (and a no-op `onChange`) on a plain arrow keypress.
+        if railFocus != result.state.railFocus { railFocus = result.state.railFocus }
+        if search.selectedIndex != result.state.selectedIndex {
+            search.selectedIndex = result.state.selectedIndex
         }
-        return .handled
-    }
-
-    /// ↓: boards → filters → back into the list.
-    private func navigateDown() -> KeyPress.Result {
-        switch railFocus {
-        case nil:
-            return move(1)
-        case .filters:
-            railFocus = nil
-            selectedIndex = 0
-        case .boards:
-            railFocus = .filters(currentFilterIndex)
+        if search.kindFilter != result.state.kindFilter {
+            search.kindFilter = result.state.kindFilter
         }
-        return .handled
-    }
-
-    /// ← moves within the focused rail; in the list it is the search cursor.
-    private func navigateLeft() -> KeyPress.Result {
-        switch railFocus {
-        case .filters(let i): railFocus = .filters(max(0, i - 1))
-        case .boards(let i): railFocus = .boards(max(0, i - 1))
-        case nil: return .ignored
+        if search.selectedBoardID != result.state.selectedBoardID {
+            search.selectedBoardID = result.state.selectedBoardID
         }
-        return .handled
-    }
-
-    /// → moves within the focused rail; in the list it hands off to the peek.
-    private func navigateRight() -> KeyPress.Result {
-        switch railFocus {
-        case .filters(let i):
-            railFocus = .filters(min(ClipKindFilter.allCases.count - 1, i + 1))
-        case .boards(let i):
-            railFocus = .boards(min(model.boards.count, i + 1))
-        case nil:
-            guard selectedItem != nil else { return .ignored }
-            focus = .peek
-        }
-        return .handled
-    }
-
-    /// Space / Enter on a focused chip: select it, or deselect (back to All) if
-    /// it is already active. Returns false when the keyboard is not in a rail.
-    @discardableResult
-    private func toggleFocusedRail() -> Bool {
-        switch railFocus {
-        case .filters(let i):
-            let filter = ClipKindFilter.allCases[i]
-            kindFilter = (kindFilter == filter) ? .all : filter
-            selectedIndex = 0
-            return true
-        case .boards(let i):
-            if i == 0 {
-                selectedBoardID = nil
-            } else if model.boards.indices.contains(i - 1) {
-                let board = model.boards[i - 1]
-                selectedBoardID = (selectedBoardID == board.id) ? nil : board.id
-            }
-            return true
-        case nil:
-            return false
-        }
+        if result.focusPeek { focus = .peek }
+        if let index = result.loadMoreAt { Task { await search.loadMoreIfNeeded(index) } }
+        return result.handled ? .handled : .ignored
     }
 
     /// Load the selected clip's full text for the peek beside the list. Only
@@ -1194,7 +1023,7 @@ struct PanelView: View {
     /// disk on every selection change would lag navigation, so those fall back
     /// to the cheap stored preview.
     private func loadSelectedText() async {
-        guard let item = selectedItem else {
+        guard let item = search.selectedItem else {
             previewText = ""
             return
         }
@@ -1207,73 +1036,6 @@ struct PanelView: View {
         } else {
             previewText = item.preview
         }
-    }
-
-    /// Type-to-search: first keystroke already narrows; empty query shows
-    /// recents (pins first, store order).
-    /// Recent list paginates on demand: one page up front, more appended as the
-    /// user nears the end (scroll or arrow). Metadata only — blobs/thumbnails
-    /// stay lazy per visible row — so memory tracks the loaded prefix, not the
-    /// whole store, and browsing is unbounded.
-    private static let pageSize = 100
-    private static let prefetchThreshold = 20
-
-    private func refresh() async {
-        let board = selectedBoardID
-        if query.isEmpty {
-            if let board, let grdb = model.grdbStore {
-                results = (try? await grdb.items(inBoard: board)) ?? []
-                reachedEnd = true  // a board is a curated set — loaded whole
-            } else {
-                results = await loadRecentPage(offset: 0)
-                reachedEnd = results.count < Self.pageSize
-            }
-        } else if let grdb = model.grdbStore {
-            results =
-                (try? await grdb.search(ClipSearchQuery(text: query, boardID: board), limit: 100))
-                ?? []
-            reachedEnd = true  // ranked top results, not a scroll-through
-        } else {
-            let all = (try? await model.store.items(offset: 0, limit: 200)) ?? []
-            results = all.filter { $0.preview.localizedCaseInsensitiveContains(query) }
-            reachedEnd = true
-        }
-        // A query that exactly matches a snippet's keyword offers a one-keystroke
-        // insert (filling {fields} first if it's a template).
-        snippetMatch = query.isEmpty ? nil : await model.snippet(matchingKeyword: query)
-        selectedIndex = 0
-        rebuildGroups()
-    }
-
-    /// One page of the recent list, ordered by capture time so the date buckets
-    /// stay contiguous (and the keyboard cursor matches the visual order). Falls
-    /// back to the protocol ordering when no GRDB store is available (tests).
-    private func loadRecentPage(offset: Int) async -> [ClipItem] {
-        if let grdb = model.grdbStore {
-            return (try? await grdb.recentForBrowse(offset: offset, limit: Self.pageSize)) ?? []
-        }
-        return (try? await model.store.items(offset: offset, limit: Self.pageSize)) ?? []
-    }
-
-    /// Append the next page when the displayed cursor/scroll nears the end. Safe
-    /// to call often — it no-ops unless the recent list has more to load.
-    private func loadMoreIfNeeded(_ index: Int) async {
-        guard index >= filtered.count - Self.prefetchThreshold else { return }
-        await loadMore()
-    }
-
-    private func loadMore() async {
-        guard isGroupedView, !isLoadingMore, !reachedEnd else { return }
-        let offset = results.count
-        isLoadingMore = true
-        defer { isLoadingMore = false }
-        let next = await loadRecentPage(offset: offset)
-        // The view may have changed during the await (query typed, board picked,
-        // a fresh refresh); only append if still extending the same list.
-        guard isGroupedView, results.count == offset else { return }
-        results.append(contentsOf: next)
-        if next.count < Self.pageSize { reachedEnd = true }
-        rebuildGroups()
     }
 
     /// The keyword-match banner above the list: ⏎ inserts the snippet (a

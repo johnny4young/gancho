@@ -174,7 +174,10 @@ public final class GRDBClipboardStore: ClipboardStore {
     }
 
     /// Tests call this for in-memory databases; the directory initializer
-    /// migrates automatically.
+    /// migrates automatically. GRDB-shaped and NOT part of the frozen client
+    /// contract — behind `@_spi(GanchoInternal)` so it leaves the app-facing and
+    /// third-party public surface; opt in with `@_spi(GanchoInternal) import`.
+    @_spi(GanchoInternal)
     public func migrate() throws {
         try migrator.migrate(writer)
     }
@@ -726,6 +729,9 @@ public final class GRDBClipboardStore: ClipboardStore {
     /// text clips or encrypted stores, whose cache must stay sealed on disk.
     /// Prefer `thumbnailData(for:)` for rendering; this is the file-based path
     /// (and the seal-safety contract: a non-nil URL means the file is plaintext).
+    /// Plaintext-only and NOT a client-contract facet requirement — behind
+    /// `@_spi(GanchoInternal)` so it stays off the frozen public surface.
+    @_spi(GanchoInternal)
     public func thumbnailURL(for id: UUID) async throws -> URL? {
         let blobHash = try await writer.read { db in
             try ClipRow.filter(key: id.uuidString).fetchOne(db)?.contentBlobHash

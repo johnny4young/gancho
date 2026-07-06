@@ -58,14 +58,19 @@ private enum FakeBoardError: Error { case create }
 /// the sync side effects (upsert on create/rename, deletion on sync-on delete)
 /// happen exactly once and carry the right ids.
 private actor FakeBoardEngine: SyncEngine {
+    private(set) var enqueueItemsCalls = 0
     private(set) var enqueueBoardsCalls = 0
     private(set) var enqueueBoardDeletionCalls = 0
+    private(set) var lastEnqueuedItemIDs: [UUID] = []
     private(set) var lastEnqueuedBoardIDs: [UUID] = []
     private(set) var lastDeletedBoardIDs: [UUID] = []
 
     func start() async throws {}
     func stop() async {}
-    func enqueue(_ items: [ClipItem]) async {}
+    func enqueue(_ items: [ClipItem]) async {
+        enqueueItemsCalls += 1
+        lastEnqueuedItemIDs = items.map(\.id)
+    }
     func enqueueDeletion(ids: [UUID]) async {}
     func enqueue(boards: [Pinboard]) async {
         enqueueBoardsCalls += 1
@@ -132,6 +137,8 @@ struct BoardsControllerTests {
 
         #expect(outcome == .created(created.id))
         #expect(await engine.enqueueBoardsCalls == 1)
+        #expect(await engine.enqueueItemsCalls == 1)
+        #expect(await engine.lastEnqueuedItemIDs == [item.id])
         #expect(await store.assignCalls == 1)
         #expect(assignedFired)
     }
@@ -218,23 +225,31 @@ struct BoardsControllerTests {
     @Test("Membership assign routes to assign, not unassign")
     func membershipAssignRoutes() async {
         let store = FakeBoardStore(boards: [])
+        let engine = FakeBoardEngine()
+        let item = ClipItem(title: "x")
 
         await BoardsController().setBoardMembership(
-            ClipItem(title: "x"), board: Pinboard(name: "Docs"), member: true, store: store)
+            item, board: Pinboard(name: "Docs"), member: true, store: store, engine: engine)
 
         #expect(await store.assignCalls == 1)
         #expect(await store.unassignCalls == 0)
+        #expect(await engine.enqueueItemsCalls == 1)
+        #expect(await engine.lastEnqueuedItemIDs == [item.id])
     }
 
     @Test("Membership unassign routes to unassign, not assign")
     func membershipUnassignRoutes() async {
         let store = FakeBoardStore(boards: [])
+        let engine = FakeBoardEngine()
+        let item = ClipItem(title: "x")
 
         await BoardsController().setBoardMembership(
-            ClipItem(title: "x"), board: Pinboard(name: "Docs"), member: false, store: store)
+            item, board: Pinboard(name: "Docs"), member: false, store: store, engine: engine)
 
         #expect(await store.unassignCalls == 1)
         #expect(await store.assignCalls == 0)
+        #expect(await engine.enqueueItemsCalls == 1)
+        #expect(await engine.lastEnqueuedItemIDs == [item.id])
     }
 
     @Test("Rename writes the name and enqueues the updated board once")

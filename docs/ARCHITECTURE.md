@@ -52,6 +52,13 @@ Shared engine-room targets (nonisolated + Sendable)
   ├─ GanchoTelemetry: metadata-only analytics transport (network-isolated)
   └─ GanchoMCP: local MCP tools over the store boundary (driven by the `gancho` CLI)
 
+App-layer models and coordinators (@MainActor; NO AppKit/UIKit/SwiftUI/CloudKit)
+  └─ GanchoAppCore: the testable app logic both shells share and forward to —
+       PanelSearchModel + PanelNavigation (macOS panel), HistoryListViewModel (iOS
+       list), SyncController, BoardsController, EnrichmentService, DeletionCoordinator,
+       BoardSuggestionService, ClipItemFactory. Store access is facet-typed, so
+       each unit runs against an in-memory fake in GanchoAppCoreTests.
+
 Persistence and sync implementations
   ├─ GRDB / SQLite / FTS5 local store with content-addressed disk blobs
   ├─ iCloud-side content encryption via CKRecord `encryptedValues`
@@ -71,6 +78,12 @@ it probably lives in the wrong layer.
 | visionOS | iPad-compatible app first; Universal Clipboard and sync viewer workflows | Native spatial UI before usage data justifies the extra surface |
 | watchOS | Viewer, pins, complications/widgets, handoff to iPhone | Capture or pasteboard writes that watchOS APIs do not support |
 | Android / Windows / Linux | Analysis only for now: capability matrix, data envelope, and stack options | Implementation commitments, capture adapters, or backend work before an explicit post-PMF decision |
+
+## Frozen client contract
+
+The store is not one wide class to everyone. `Packages/GanchoKit/Sources/GanchoKit/ClientContract.swift` splits it into nine capability **facets** — `ClipReading`, `ClipSearching`, `ClipMutating`, `ClipEnriching`, `BoardStoring`, `SnippetStoring`, `StoreStatsProviding`, `ExportProviding`, `StoreMaintaining` — plus two compositions: `GanchoClientStore` (the read/search/board/export surface a third-party or cross-target client may depend on) and `FullClipStore` (everything the first-party apps hold). Feature code takes the narrowest facet it needs; only the composition root sees the concrete `GRDBClipboardStore`.
+
+That surface is **frozen**: it is the supported API, so changes to it are deliberate, documented, and reviewed. GRDB-shaped members that are not facet witnesses (`migrate()`, `thumbnailURL(for:)`) live behind `@_spi(GanchoInternal)` so they stay off the ambient app-facing and external surface; the few internal call sites (tests, the perf harness) opt in with `@_spi(GanchoInternal) import GanchoKit`. `ContractFreezeTests` enforces this in CI: every frozen facet stays declared, every requirement stays documented, and the SPI-gated members stay gated.
 
 ## Privacy invariants
 
@@ -159,6 +172,24 @@ iCloud database. It must persist engine state, system fields, tombstones, quota
 errors, offline recovery, and reset handling explicitly. The same boundary is
 what later permits LAN peer-to-peer, a self-hosted transport, or non-Apple
 clients without rewriting capture, search, or the snippet model.
+
+Inbound delivery is **push where push works, explicit pull where it doesn't**.
+CKSyncEngine auto-fetches ONLY zones it believes changed, and that belief is fed
+exclusively by push — `fetchChanges()` (even scoped to explicit zone IDs) never
+asks the server otherwise; it logs "no zone IDs needing to be fetched" and skips.
+Push needs the right entitlement key per platform (`aps-environment` on iOS,
+`com.apple.developer.aps-environment` on macOS — the wrong one is silently
+dropped at signing) plus an explicit `registerForRemoteNotifications()` at
+launch on both shells. That works for the foreground iPhone app; the macOS
+menu-bar **agent** (`.accessory`, resident, no key window) is not a reliable
+APNs target, so the adapter's `pollRemoteChanges()` asks the server directly —
+one `databaseChanges` round-trip when idle, incremental `recordZoneChanges`
+pulls (own tokens, persisted beside the engine blob) only when the server
+reports news — and applies through the SAME code path as the engine's push-fed
+fetches. Every `start()` runs it (panel open, wake, the Mac's poll timer, iOS
+foreground). The adapter reports fetch/apply/save trouble content-free to the
+`DiagnosticLog` ("Recent issues"), so a sync break is diagnosed from the log,
+not by guesswork.
 
 ## Intelligence tiers
 

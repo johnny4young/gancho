@@ -76,11 +76,14 @@ targets:
       properties:
         # Encrypted iCloud history sync (Pro). The container mirrors the
         # bundle id; CKSyncEngine needs push to learn about remote changes.
+        # On macOS the push entitlement key is `com.apple.developer.aps-environment`
+        # — NOT iOS's bare `aps-environment`, which codesign drops here (the app
+        # then never hears about remote changes and inbound sync goes silent).
         com.apple.developer.icloud-container-identifiers:
           - iCloud.com.johnny4young.gancho
         com.apple.developer.icloud-services:
           - CloudKit
-        aps-environment: development
+        com.apple.developer.aps-environment: development
         # NOTE: the menu-bar helper bridge (status, localized titles, nonce) is
         # content-free and runs over a shared `UserDefaults(suiteName:)`. In
         # Debug / Developer ID that resolves to a shared preferences domain (no
@@ -316,6 +319,33 @@ targets:
     dependencies:
       - target: Gancho
 
+  # Live sync-pipeline harness: TWO CKSyncEngineAdapters in one process against
+  # the REAL development container — capture on "device A", pull on "device B",
+  # assert the clip, its enrichment title, and its deletion all cross. HOSTED
+  # in Gancho.app (TEST_HOST) so the test code runs inside the signed,
+  # CloudKit-entitled process with the owner's Keychain + iCloud session.
+  # Owner-gated: runs only via `make test-sync-e2e` (which forwards the
+  # GANCHO_SYNC_E2E gate into the host via the TEST_RUNNER_ prefix) and
+  # self-skips without an iCloud account; CI never invokes it.
+  GanchoSyncE2ETests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Gancho.app/Contents/MacOS/Gancho
+        BUNDLE_LOADER: $(TEST_HOST)
+    sources:
+      - path: Tests/GanchoSyncE2ETests
+    dependencies:
+      - target: Gancho
+      - package: GanchoKit
+        products:
+          - GanchoKit
+          - GanchoSync
+
   # iOS UI smoke harness — the iOS sibling of GanchoUITests. XCTest is allowed
   # ONLY in UI-test targets; unit tests stay Swift Testing in the package.
   GanchoiOSUITests:
@@ -460,6 +490,7 @@ schemes:
       targets:
         Gancho: all
         GanchoUITests: [test]
+        GanchoSyncE2ETests: [test]
     run:
       config: Debug
       # Local IAP testing without an App Store account (Xcode StoreKit
@@ -469,6 +500,7 @@ schemes:
       config: Debug
       targets:
         - GanchoUITests
+        - GanchoSyncE2ETests
 
   GanchoiOS:
     build:

@@ -33,6 +33,18 @@ public actor CKSyncEngineAdapter: SyncEngine {
     /// values only — state and counts, never clip content.
     private let onStatus: (@Sendable (SyncStatus) -> Void)?
 
+    /// Content-free trail of sync trouble for the Privacy Center's "Recent
+    /// issues" (categories + fixed messages + counts, never clip content).
+    /// Without it a fetched record that fails to decode or apply vanishes
+    /// silently — the failure mode that makes sync bugs undiagnosable.
+    private let diagnostics: DiagnosticLog?
+
+    /// Persistence for the explicit pull's change tokens (`pollRemoteChanges`)
+    /// — a SEPARATE blob from the engine's opaque state. nil disables
+    /// persistence: the poll then re-scans once per process, still correct
+    /// (upserts are idempotent), just less efficient.
+    private let pollStateStore: SyncStateStore?
+
     private let stateEncoder = PropertyListEncoder()
     private let stateDecoder = PropertyListDecoder()
 
@@ -41,13 +53,17 @@ public actor CKSyncEngineAdapter: SyncEngine {
         containerIdentifier: String,
         stateStore: SyncStateStore,
         maxAssetBytes: Int = ClipRecordMapper.defaultMaxAssetBytes,
-        onStatus: (@Sendable (SyncStatus) -> Void)? = nil
+        onStatus: (@Sendable (SyncStatus) -> Void)? = nil,
+        diagnostics: DiagnosticLog? = nil,
+        pollStateStore: SyncStateStore? = nil
     ) {
         self.store = store
         self.containerIdentifier = containerIdentifier
         self.stateStore = stateStore
         self.maxAssetBytes = maxAssetBytes
         self.onStatus = onStatus
+        self.diagnostics = diagnostics
+        self.pollStateStore = pollStateStore
     }
 
     // MARK: - SyncEngine boundary
@@ -68,6 +84,17 @@ public actor CKSyncEngineAdapter: SyncEngine {
         await reconcilePendingChanges(in: engine)
         emit(.syncing)
         do {
+            // A REAL server check, then the engine's own cycle. The engine's
+            // `fetchChanges()` only fetches zones IT believes have news — a
+            // belief fed exclusively by push (verified: an explicit
+            // `FetchChangesOptions(scope: .zoneIDs)` is a filter over that same
+            // list, and the engine logs "no zone IDs needing to be fetched" and
+            // skips the server). On a host that receives no push — the macOS
+            // menu-bar agent — that list is permanently empty and remote clips
+            // never arrive. `pollRemoteChanges()` asks the server directly
+            // (one tiny database-changes call when idle) and applies through
+            // the same code path as the engine's fetch events.
+            try await pollRemoteChanges()
             try await engine.fetchChanges()
             try await engine.sendChanges()
         } catch {
@@ -75,6 +102,143 @@ public actor CKSyncEngineAdapter: SyncEngine {
             throw error
         }
         await emitCurrentStatus()
+    }
+
+    /// True when a change fetch failed only because the zone doesn't exist yet
+    /// (fresh account / first launch) — including inside a partial failure.
+    /// Internal (not private) so the unit tests can pin the classification.
+    static func isMissingZone(_ error: Error) -> Bool {
+        guard let ckError = error as? CKError else { return false }
+        switch ckError.code {
+        case .zoneNotFound, .userDeletedZone:
+            return true
+        case .partialFailure:
+            let partial = ckError.partialErrorsByItemID?.values.compactMap { $0 as? CKError }
+            return partial?.allSatisfy {
+                $0.code == .zoneNotFound || $0.code == .userDeletedZone
+            } ?? false
+        default:
+            return false
+        }
+    }
+
+    // MARK: - Explicit pull (hosts that receive no push)
+
+    /// Change tokens for the explicit pull, persisted SEPARATELY from the
+    /// engine's opaque state blob (piggybacking on it would corrupt the
+    /// engine's serialization). Losing this file is harmless — the next poll
+    /// re-scans the zones and the upserts are idempotent (last-writer-wins).
+    private struct PollTokens: Codable {
+        var database: Data?
+        var zones: [String: Data] = [:]
+    }
+
+    private var pollTokens: PollTokens?
+
+    private func loadPollTokens() -> PollTokens {
+        if let pollTokens { return pollTokens }
+        let loaded =
+            pollStateStore?.load().flatMap {
+                try? PropertyListDecoder().decode(PollTokens.self, from: $0)
+            }
+            ?? PollTokens()
+        pollTokens = loaded
+        return loaded
+    }
+
+    private func savePollTokens(_ tokens: PollTokens) {
+        pollTokens = tokens
+        if let data = try? PropertyListEncoder().encode(tokens) {
+            pollStateStore?.save(data)
+        }
+    }
+
+    private static func archive(_ token: CKServerChangeToken) -> Data? {
+        try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true)
+    }
+
+    private static func unarchive(_ data: Data?) -> CKServerChangeToken? {
+        data.flatMap {
+            try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKServerChangeToken.self, from: $0)
+        }
+    }
+
+    /// Asks the SERVER whether our zones changed, and pulls + applies what did.
+    /// One `databaseChanges` round-trip when idle; zone pulls only when the
+    /// server reports news. Fetched batches flow through `applyFetched` — the
+    /// exact code path the engine's own push-fed fetches use — so the two
+    /// delivery mechanisms can never disagree on semantics. Zone-not-found is
+    /// first-run (sendChanges creates the zones) and skips silently; an expired
+    /// token drops to a full re-scan, which the LWW upserts make idempotent.
+    private func pollRemoteChanges() async throws {
+        let database = CKContainer(identifier: containerIdentifier).privateCloudDatabase
+        var tokens = loadPollTokens()
+        var changedZones: Set<CKRecordZone.ID> = []
+        do {
+            var token = Self.unarchive(tokens.database)
+            var moreComing = true
+            while moreComing {
+                let page = try await database.databaseChanges(since: token)
+                for modification in page.modifications {
+                    changedZones.insert(modification.zoneID)
+                }
+                for deletion in page.deletions {
+                    // Zone gone server-side: our per-zone token is meaningless.
+                    // The engine's own machinery recreates the zone on demand.
+                    tokens.zones[deletion.zoneID.zoneName] = nil
+                }
+                token = page.changeToken
+                moreComing = page.moreComing
+            }
+            // The loop always runs at least once and every page carries a
+            // token, so `token` is non-nil here.
+            if let token { tokens.database = Self.archive(token) }
+        } catch let error as CKError where error.code == .changeTokenExpired {
+            // Stale database token: forget everything and re-scan next cycle.
+            savePollTokens(PollTokens())
+            return
+        }
+        for zone in [zoneID, boardZoneID] where changedZones.contains(zone) {
+            do {
+                let token = try await fetchZoneChanges(
+                    from: database, in: zone,
+                    since: Self.unarchive(tokens.zones[zone.zoneName]))
+                tokens.zones[zone.zoneName] = token.flatMap(Self.archive)
+            } catch let error as CKError where error.code == .changeTokenExpired {
+                // The database token was already advanced by the time the
+                // per-zone token proved stale, so "try again next cycle" would
+                // NOT see this zone as changed again. Re-scan the zone now
+                // from nil and persist the fresh zone token from that pass.
+                do {
+                    let token = try await fetchZoneChanges(from: database, in: zone, since: nil)
+                    tokens.zones[zone.zoneName] = token.flatMap(Self.archive)
+                } catch {
+                    guard Self.isMissingZone(error) else { throw error }
+                }
+            } catch {
+                guard Self.isMissingZone(error) else { throw error }
+            }
+        }
+        savePollTokens(tokens)
+    }
+
+    private func fetchZoneChanges(
+        from database: CKDatabase,
+        in zone: CKRecordZone.ID,
+        since startingToken: CKServerChangeToken?
+    ) async throws -> CKServerChangeToken? {
+        var token = startingToken
+        var moreComing = true
+        while moreComing {
+            let page = try await database.recordZoneChanges(inZoneWith: zone, since: token)
+            let records = page.modificationResultsByID.values.compactMap {
+                try? $0.get().record
+            }
+            await applyFetched(records: records, deletions: page.deletions.map(\.recordID))
+            token = page.changeToken
+            moreComing = page.moreComing
+        }
+        return token
     }
 
     public func stop() async {
@@ -281,6 +445,16 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                 }
             }
         }
+        // A pending save with no buildable record is DROPPED by CKSyncEngine
+        // when the provider returns nil — count it so the loss is visible
+        // ("Recent issues"), not silent. `reenqueuePendingWork` re-adds any row
+        // the store still flags on the next cycle.
+        let missing = saveIDs.count(where: { built[$0] == nil })
+        if missing > 0 {
+            diagnostics?.record(
+                "Sync",
+                "\(missing) pending upload(s) had no sendable local row; retrying next cycle.")
+        }
         let records = UncheckedSendableBox(built)
         return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: pendingChanges) {
             recordID in records.value[recordID]
@@ -352,35 +526,65 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
     private func handleFetchedRecordZoneChanges(
         _ event: CKSyncEngine.Event.FetchedRecordZoneChanges
     ) async {
-        for modification in event.modifications {
-            let record = modification.record
+        await applyFetched(
+            records: event.modifications.map(\.record),
+            deletions: event.deletions.map(\.recordID))
+    }
+
+    /// Applies a batch of fetched changes to the local store — shared by the
+    /// engine's event handler (push-fed fetches) and `pollRemoteChanges()` (the
+    /// explicit pull for hosts that receive no push). Counts the records the
+    /// batch LOSES: a fetched change that fails to decode or apply used to
+    /// vanish without a trace, which is exactly what makes "device A never sees
+    /// device B's clips" undiagnosable. Counts only, never content.
+    func applyFetched(records: [CKRecord], deletions: [CKRecord.ID]) async {
+        var decodeFailures = 0
+        var applyFailures = 0
+        for record in records {
             if record.recordType == BoardRecordMapper.recordType {
                 if let board = BoardRecordMapper.decode(record) {
-                    try? await store.applyRemoteBoardUpsert(
-                        board, systemFields: BoardRecordMapper.encodeSystemFields(record))
+                    do {
+                        try await store.applyRemoteBoardUpsert(
+                            board, systemFields: BoardRecordMapper.encodeSystemFields(record))
+                    } catch { applyFailures += 1 }
+                } else {
+                    decodeFailures += 1
                 }
                 continue
             }
-            guard let decoded = ClipRecordMapper.decode(record) else { continue }
+            guard let decoded = ClipRecordMapper.decode(record) else {
+                decodeFailures += 1
+                continue
+            }
             // Membership rides the clip record, so it follows the same
             // last-writer-wins decision: a stale remote must not overwrite a
-            // newer local board set (the store returns whether it applied).
-            let applied =
-                (try? await store.applyRemoteUpsert(
+            // newer local board set. `applied == false` is the NORMAL stale-remote
+            // skip; only a thrown store error counts as a failure.
+            do {
+                let applied = try await store.applyRemoteUpsert(
                     decoded.item, content: decoded.content,
-                    systemFields: ClipRecordMapper.encodeSystemFields(record))) ?? false
-            if applied {
-                try? await store.setBoardMembership(
-                    clipID: decoded.item.id,
-                    boardIDs: Set(ClipRecordMapper.boardIDs(from: record)))
-            }
+                    systemFields: ClipRecordMapper.encodeSystemFields(record))
+                if applied {
+                    try? await store.setBoardMembership(
+                        clipID: decoded.item.id,
+                        boardIDs: Set(ClipRecordMapper.boardIDs(from: record)))
+                }
+            } catch { applyFailures += 1 }
         }
-        for deletion in event.deletions {
-            if deletion.recordID.zoneID.zoneName == boardZoneID.zoneName {
-                try? await store.applyRemoteBoardDeletion(recordID: deletion.recordID.recordName)
-            } else {
-                try? await store.applyRemoteDeletion(recordID: deletion.recordID.recordName)
-            }
+        for recordID in deletions {
+            do {
+                if recordID.zoneID.zoneName == boardZoneID.zoneName {
+                    try await store.applyRemoteBoardDeletion(recordID: recordID.recordName)
+                } else {
+                    try await store.applyRemoteDeletion(recordID: recordID.recordName)
+                }
+            } catch { applyFailures += 1 }
+        }
+        if decodeFailures + applyFailures > 0 {
+            diagnostics?.record(
+                "Sync",
+                "Fetched \(records.count + deletions.count) changes; "
+                    + "\(decodeFailures) failed to decode, \(applyFailures) failed to apply.")
         }
     }
 
@@ -440,14 +644,30 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                     try? await store.setBoardMembership(
                         clipID: decoded.item.id,
                         boardIDs: Set(ClipRecordMapper.boardIDs(from: serverRecord)))
+                } else {
+                    // The LOCAL copy won the conflict (e.g. an enrichment title
+                    // written moments after the first upload, racing that
+                    // upload's system-fields save). CKSyncEngine drops a failed
+                    // pending change — the delegate must RE-QUEUE it after
+                    // resolving, or the local edit only retries at the next
+                    // start()'s reenqueue (a silent, laggy hole for the second
+                    // save of a fresh record). The apply above stored the
+                    // server's system fields, so the retry builds a record with
+                    // a current change tag and succeeds.
+                    syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
                 }
             }
         case .zoneNotFound, .userDeletedZone:
             // Recreate the failed record's own zone, then retry it.
+            diagnostics?.record(
+                "Sync",
+                "Sync zone was missing (CKError \(failure.error.code.rawValue)); recreating and retrying."
+            )
             syncEngine.state.add(
                 pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: recordID.zoneID))])
             syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
         case .quotaExceeded:
+            diagnostics?.record("Sync", "iCloud storage is full — uploads paused.")
             isPaused = true
             emit(.paused(.iCloudFull))
         default:

@@ -85,8 +85,10 @@ public struct BoardsController {
         else { return .failed }
         await engine.enqueue(boards: [board])
         if let item {
-            try? await store.assign(clipID: item.id, toBoard: board.id)
-            onAssigned()
+            if (try? await store.assign(clipID: item.id, toBoard: board.id)) != nil {
+                await engine.enqueue([item])
+                onAssigned()
+            }
         }
         return .created(board.id)
     }
@@ -128,18 +130,24 @@ public struct BoardsController {
 
     /// Adds or removes a clip's membership in one board, mirroring both shells:
     /// `assign` when `member`, `unassign` otherwise. Membership rides the clip's
-    /// sync record (no engine call here), so nothing is enqueued; the shell owns
-    /// the follow-up refresh (`refreshRecents`/`search`).
+    /// sync record, so enqueue the clip after the store flags it for upload; the
+    /// shell owns the follow-up refresh (`refreshRecents`/`search`).
     public func setBoardMembership(
         _ item: ClipItem,
         board: Pinboard,
         member: Bool,
-        store: any BoardStoring
+        store: any BoardStoring,
+        engine: any SyncEngine
     ) async {
+        let succeeded: Bool
         if member {
-            try? await store.assign(clipID: item.id, toBoard: board.id)
+            succeeded = (try? await store.assign(clipID: item.id, toBoard: board.id)) != nil
         } else {
-            try? await store.unassign(clipID: item.id, fromBoard: board.id)
+            succeeded =
+                (try? await store.unassign(clipID: item.id, fromBoard: board.id)) != nil
+        }
+        if succeeded {
+            await engine.enqueue([item])
         }
     }
 }

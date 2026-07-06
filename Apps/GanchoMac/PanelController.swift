@@ -78,7 +78,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         // Opening the panel is "I want to see my clips" — pull the latest from
         // iCloud (and push pending) so another device's recent clips appear.
         // Non-blocking: the local list shows instantly; synced clips land on
-        // settle. (The engine has no push to fetch on by itself.)
+        // settle. The engine is push-driven on its own; this is the latency
+        // belt-and-braces for the moment the user is actually looking.
         model.syncNow()
         // Latency telemetry for the <100ms budget (debug builds only).
         #if DEBUG
@@ -104,7 +105,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private func ensurePanel(model: AppModel) -> KeyPanel {
         if let panel { return panel }
         let hosting = NSHostingView(
-            rootView: PanelView()
+            rootView: PanelView(model: model)
                 .environment(model)
                 .ganchoTinted())
         let styleMask: NSWindow.StyleMask =

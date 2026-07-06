@@ -3,8 +3,9 @@ import GRDB
 
 /// A user-made collection ("board") for grouping clips. A distinct axis from
 /// the type filters and from the Library: a clip can belong to many boards
-/// (the `clip_board` junction), and membership — unlike pinning — does not sync
-/// (it stays device-local). Board members survive history retention.
+/// (the `clip_board` junction), and membership syncs with the clip record so the
+/// same board set follows that clip across devices. Board members survive
+/// history retention.
 public struct Pinboard: Identifiable, Sendable, Equatable, Codable {
     public var id: UUID
     public var name: String

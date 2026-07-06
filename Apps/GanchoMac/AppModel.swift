@@ -117,9 +117,13 @@ final class AppModel {
     private let sensitiveDetector = SensitiveDataDetector()
     private let defaults = UserDefaults.standard
     private var retentionTimer: Timer?
+    /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
+    private var syncPollTimer: Timer?
     private let screenShareDetector = ScreenShareDetector()
     private var screenShareTimer: Timer?
     private var uiTestPanelObserver: NSObjectProtocol?
+    /// Wake-from-sleep sync catch-up (see the `didWakeNotification` observer).
+    private var wakeObserver: NSObjectProtocol?
 
     /// Free AI-title "taste": how many of `FreeTierLimits.freeAITitleTaste` have
     /// been spent, and the consume step. Persisted so the budget survives relaunch.
@@ -242,6 +246,7 @@ final class AppModel {
         monitor.start()
         scheduleRetention()
         scheduleScreenShareWatch()
+        scheduleSyncPoll()
         panel.attach(model: self)
         applyActivationPolicy()
         // Intents resolve the SAME model instance the UI uses.
@@ -260,6 +265,17 @@ final class AppModel {
         // the controller only drives the engine lifecycle and calls back.
         syncController.onStatus = { [weak self] status in self?.applySyncStatus(status) }
         syncController.onIdle = { [weak self] in self?.syncStatus = .idle }
+        // Content-free sync-trouble trail → the Privacy Center's "Recent issues"
+        // (fetched records that fail to decode/apply, non-transient save errors).
+        syncController.diagnostics = diagnostics
+        // The engine is push-driven while awake, but a sleeping Mac misses the
+        // pushes for clips copied on other devices in the meantime — catch up
+        // the moment the machine wakes. (Panel-open does the same for latency.)
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.syncController.syncNow() }
+        }
         // StoreKit drives the tier: the listener catches renewals/refunds,
         // and a launch refresh reconciles against current entitlements.
         // Only StoreKit has out-of-process tier changes (renewals, refunds);
@@ -290,6 +306,7 @@ final class AppModel {
         Task { await refreshRecents() }
         seedSampleClipsIfRequested()
         let uiTestBoardSeedTask = seedSampleBoardsIfRequested()
+        let uiTestPanelReproTask = seedPanelReproIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
         // launch); run it at utility priority once the UI is wired up.
@@ -308,6 +325,7 @@ final class AppModel {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     await uiTestBoardSeedTask?.value
+                    await uiTestPanelReproTask?.value
                     panel.show(model: self)
                     _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
                     try? await Task.sleep(for: .milliseconds(250))
@@ -317,6 +335,7 @@ final class AppModel {
             }
             Task { @MainActor in
                 await uiTestBoardSeedTask?.value
+                await uiTestPanelReproTask?.value
                 try? await Task.sleep(for: .seconds(1))
                 if !panel.isVisible { panel.show(model: self) }
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
@@ -435,6 +454,42 @@ final class AppModel {
                     name: "Seed board \(i)", sfSymbol: "square.stack")
             }
             await refreshBoards()
+        }
+    }
+
+    /// UI-test hook: seed a THROWAWAY durable store with a few PINNED clips plus
+    /// several same-day clips, so a UI test can assert the grouped panel render
+    /// keeps exactly one row selected and hands each row a DISTINCT ⌘N shortcut —
+    /// the pinned-first + date-bucket global-index math `PanelSearchModel` owns.
+    /// Gated on BOTH `-seed-panel-repro` and `-use-temp-durable-store` (never a
+    /// real store), so a normal launch is a no-op.
+    private func seedPanelReproIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-panel-repro"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let grdbStore
+        else { return nil }
+        // Fire-and-forget: AFTER the panel is on screen, capture several same-day
+        // clips one at a time through the REAL ingest path, so each triggers a
+        // live refresh while the grouped list is visible — the reported scenario
+        // (a static seed rendered before open does NOT reproduce it).
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(900))
+            for text in ["repro today A", "repro today B", "repro today C", "repro today D"] {
+                ingest(PasteboardCapture(text: text))
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+        }
+        // Awaited before the panel opens: the pinned section it sits above.
+        return Task {
+            var ids: [UUID] = []
+            for text in ["repro pinned 1", "repro pinned 2", "repro pinned 3"] {
+                let item = ClipItem(kind: .text, preview: text, contentHash: text)
+                if let stored = try? await grdbStore.insert(item, content: .text(text)) {
+                    ids.append(stored.id)
+                }
+            }
+            for id in ids { _ = try? await grdbStore.setPinned(id: id, true) }
+            await refreshRecents()
         }
     }
 
@@ -647,48 +702,29 @@ final class AppModel {
         let sources: [ClipItem]
     }
 
-    private let qaService = ClipboardQAService()
     var askAvailable: Bool { ClipboardQAService.isAvailable }
 
     /// Retrieve the most relevant clips (semantic when the embeddings are ready,
-    /// else full-text) and have the on-device model answer grounded ONLY in
-    /// them. Sensitive clips are filtered out before anything reaches the model.
+    /// else full-text) and have the on-device model answer grounded ONLY in them.
+    /// Routes through the shared `ClipboardQA` coordinator — the SAME retrieval +
+    /// sensitivity-filtering path iOS uses. macOS previously hand-rolled its own,
+    /// which drifted from iOS; unifying them means a fix reaches both platforms.
     func askClipboard(_ question: String) async -> ClipboardAnswer? {
-        let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let grdbStore, ClipboardQAService.isAvailable, !trimmed.isEmpty else { return nil }
-
-        var clips: [ClipItem] = []
-        if intelligence.semanticSearch, let embedder = ContextualSentenceEmbedder(),
-            embedder.hasAvailableAssets,
-            let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
+        guard let grdbStore else { return nil }
+        switch await ClipboardQA().answer(
+            question: question, store: grdbStore, useSemantic: intelligence.semanticSearch)
         {
-            clips =
-                (try? await grdbStore.semanticSearch(
-                    queryVector: vector, topK: 6, snippetsOnly: false)) ?? []
-        }
-        if clips.isEmpty {
-            clips = (try? await grdbStore.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? []
-        }
-        let safe = clips.filter { !$0.isSensitive }
-        guard !safe.isEmpty else {
+        case .unavailable:
+            return nil
+        case .noMatch:
             return ClipboardAnswer(
                 answer: String(localized: "Nothing in your clipboard matches that."), sources: [])
+        case .failed(let safe):
+            return ClipboardAnswer(
+                answer: String(localized: "Couldn’t answer that — try again."), sources: safe)
+        case .answered(let text, let safe):
+            return ClipboardAnswer(answer: text, sources: safe)
         }
-
-        var sources: [String] = []
-        for clip in safe {
-            let body: String
-            if case .text(let text)? = try? await store.content(for: clip.id) {
-                body = text
-            } else {
-                body = clip.preview
-            }
-            sources.append(clip.title.isEmpty ? body : "\(clip.title): \(body)")
-        }
-        let answer = try? await qaService.answer(question: trimmed, sources: sources)
-        return ClipboardAnswer(
-            answer: answer ?? String(localized: "Couldn’t answer that — try again."),
-            sources: safe)
     }
 
     /// Pastes arbitrary text (a Smart Paste or filled-snippet result) into the
@@ -952,6 +988,25 @@ final class AppModel {
 
     private(set) var boards: [Pinboard] = []
 
+    /// Runs a store mutation and reports whether it succeeded. A thrown error is
+    /// logged content-free (a category + a fixed message, never the clip) so a
+    /// success toast never fires on a silent write failure (A3-3.2b): the
+    /// `try? … then show(toast)` pattern used to confirm "Pinned"/"Saved" even
+    /// when the write threw.
+    @discardableResult
+    func withDiagnostics(
+        _ category: String.LocalizationValue, _ failure: String.LocalizationValue,
+        _ operation: () async throws -> Void
+    ) async -> Bool {
+        do {
+            try await operation()
+            return true
+        } catch {
+            diagnostics.record(String(localized: category), String(localized: failure))
+            return false
+        }
+    }
+
     func togglePin(_ item: ClipItem) {
         guard let grdbStore else { return }
         Task {
@@ -963,7 +1018,13 @@ final class AppModel {
                     return
                 }
             }
-            _ = try? await grdbStore.setPinned(id: item.id, !item.isPinned)
+            guard
+                await withDiagnostics(
+                    "Pins", "Couldn’t update the pin.",
+                    {
+                        _ = try await grdbStore.setPinned(id: item.id, !item.isPinned)
+                    })
+            else { return }
             // setPinned flagged the row for upload; enqueue pushes it now
             // instead of at the next sync start(). The engine builds the
             // record from the stored row, so only the id matters here.
@@ -983,7 +1044,13 @@ final class AppModel {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
                 return
             }
-            _ = try? await grdbStore.promoteToSnippet(id: item.id, title: nil)
+            guard
+                await withDiagnostics(
+                    "Snippets", "Couldn’t save the snippet.",
+                    {
+                        _ = try await grdbStore.promoteToSnippet(id: item.id, title: nil)
+                    })
+            else { return }
             toasts.show(GanchoToast(message: "Saved as snippet"))
             await refreshRecents()
         }
@@ -997,7 +1064,14 @@ final class AppModel {
     func assign(_ item: ClipItem, toBoard board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
+            guard
+                await withDiagnostics(
+                    "Boards", "Couldn’t add the clip to the board.",
+                    {
+                        try await grdbStore.assign(clipID: item.id, toBoard: board.id)
+                    })
+            else { return }
+            await syncController.engine.enqueue([item])
             toasts.show(GanchoToast(message: "Added to board"))
             await refreshRecents()
         }
@@ -1009,7 +1083,14 @@ final class AppModel {
     func assignWithUndo(_ item: ClipItem, toBoard board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
+            guard
+                await withDiagnostics(
+                    "Boards", "Couldn’t add the clip to the board.",
+                    {
+                        try await grdbStore.assign(clipID: item.id, toBoard: board.id)
+                    })
+            else { return }
+            await syncController.engine.enqueue([item])
             await refreshRecents()
             toasts.show(
                 GanchoToast(
@@ -1023,7 +1104,14 @@ final class AppModel {
     func unassign(_ item: ClipItem, fromBoard board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
+            guard
+                await withDiagnostics(
+                    "Boards", "Couldn’t remove the clip from the board.",
+                    {
+                        try await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
+                    })
+            else { return }
+            await syncController.engine.enqueue([item])
             await refreshRecents()
         }
     }
@@ -1031,7 +1119,14 @@ final class AppModel {
     func removeFromAllBoards(_ item: ClipItem) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.removeFromAllBoards(clipID: item.id)
+            guard
+                await withDiagnostics(
+                    "Boards", "Couldn’t remove the clip from its boards.",
+                    {
+                        try await grdbStore.removeFromAllBoards(clipID: item.id)
+                    })
+            else { return }
+            await syncController.engine.enqueue([item])
             await refreshRecents()
         }
     }
@@ -1094,7 +1189,7 @@ final class AppModel {
     func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
         guard let grdbStore else { return }
         await BoardsController().setBoardMembership(
-            item, board: board, member: member, store: grdbStore)
+            item, board: board, member: member, store: grdbStore, engine: syncController.engine)
         await refreshRecents()
     }
 
@@ -1177,6 +1272,21 @@ final class AppModel {
         retentionTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) {
             [weak self] _ in
             Task { @MainActor in self?.runRetention() }
+        }
+    }
+
+    /// Periodic pull (and push of anything pending) for the Mac. CloudKit push
+    /// drives sync while awake, but a menu-bar AGENT (`.accessory`, no key
+    /// window, resident in the background) is not a reliable push target the way
+    /// the foreground iPhone app is — so it also polls on a light cadence to pull
+    /// clips copied on other devices and flush its own pending uploads (e.g. an
+    /// AI title that landed a beat after the clip). `syncNow()` is a no-op when
+    /// sync is off and cheap when the change token is already current, so an idle
+    /// tick is just one small round-trip.
+    private func scheduleSyncPoll() {
+        syncPollTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) {
+            [weak self] _ in
+            Task { @MainActor in self?.syncController.syncNow() }
         }
     }
 

@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 import Testing
 
-@testable import GanchoKit
+@_spi(GanchoInternal) @testable import GanchoKit
 
 @Suite("SyncLocalStore bridge — uploads, remote apply, tombstones")
 struct SyncLocalStoreTests {
@@ -75,6 +75,59 @@ struct SyncLocalStoreTests {
         #expect(newerApplied)
         #expect(try await store.items().first?.preview == "newer remote")
         #expect(try await store.content(for: local.id) == .text("newer"))
+    }
+
+    @Test("An enrichment-title update (v2) applies over the untitled first sync (v1)")
+    func enrichmentFruitSecondSaveApplies() async throws {
+        // The receiving side of the fruit pipeline: a clip arrives untitled
+        // (the capture's first save), then the SAME record arrives again with
+        // the AI title the origin device wrote moments later. The second apply
+        // must land — this is the macOS→iOS smart-title path.
+        let store = try makeStore()
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let id = UUID()
+        let v1 = ClipItem(id: id, updatedAt: base, title: "", preview: "body", contentHash: "h")
+        #expect(
+            try await store.applyRemoteUpsert(v1, content: .text("body"), systemFields: Data([1])))
+        #expect(try await store.item(id: id)?.title == "")
+
+        // `updateTitle` on the origin bumps updatedAt, so v2 is strictly newer.
+        let v2 = ClipItem(
+            id: id, updatedAt: base.addingTimeInterval(2), title: "Rotate the credentials",
+            preview: "body", contentHash: "h")
+        #expect(
+            try await store.applyRemoteUpsert(v2, content: .text("body"), systemFields: Data([2])))
+        #expect(try await store.item(id: id)?.title == "Rotate the credentials")
+    }
+
+    @Test("A newer local title survives a stale remote and stays flagged for upload")
+    func localFruitSurvivesConflictAndStaysPending() async throws {
+        // The conflict-resolution invariant the adapter's serverRecordChanged
+        // re-queue depends on: when the LOCAL copy (fresh title) beats a stale
+        // server record, the title stays, the server's system fields are
+        // recorded (so the retry builds with a current change tag), and the row
+        // REMAINS pending upload — the fruit must still reach the other devices.
+        let store = try makeStore()
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let item = ClipItem(id: UUID(), updatedAt: base, preview: "body", contentHash: "h")
+        try await store.insert(item, content: .text("body"))
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))
+        try await store.updateTitle(id: item.id, title: "Fresh local title")
+        #expect(try await store.pendingUploads().map(\.item.id) == [item.id])
+
+        // The stale server copy (the untitled v1) loses last-writer-wins.
+        let stale = ClipItem(
+            id: item.id, updatedAt: base, title: "", preview: "body", contentHash: "h")
+        let applied = try await store.applyRemoteUpsert(
+            stale, content: .text("body"), systemFields: Data([9]))
+        #expect(!applied, "the stale remote must lose to the newer local title")
+        #expect(try await store.item(id: item.id)?.title == "Fresh local title")
+        #expect(
+            try await store.systemFields(for: item.id) == Data([9]),
+            "the server tag must be recorded so the retry builds a current record")
+        #expect(
+            try await store.pendingUploads().map(\.item.id) == [item.id],
+            "the local fruit must STAY pending — it still has to reach the other devices")
     }
 
     @Test("Remote upsert of an unseen clip inserts it, not pending re-upload")
