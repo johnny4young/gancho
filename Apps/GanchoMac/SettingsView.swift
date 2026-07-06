@@ -36,7 +36,113 @@ struct SettingsView: View {
         case .privacy: PrivacySettingsTab()
         case .integrations: IntegrationsSettingsTab()
         case .pro: ProSettingsTab()
+        case .about: AboutSettingsTab()
         }
+    }
+}
+
+/// The About screen: a centered app hero, a details card (version, author,
+/// license), and the project links — with a manual update check on the
+/// direct-download build. Scrolls so nothing is clipped in the short window.
+private struct AboutSettingsTab: View {
+    @Environment(AppModel.self) private var model
+
+    private var versionLine: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String ?? "—"
+        return "\(short) (\(build))"
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: GanchoTokens.Spacing.lg) {
+                hero
+                detailsCard
+                links
+                #if GANCHO_DIRECT_DOWNLOAD
+                    Button("Check for Updates…") { model.updater.checkForUpdates() }
+                        .buttonStyle(.bordered)
+                #endif
+            }
+            .padding(GanchoTokens.Spacing.lg)
+            .frame(maxWidth: .infinity)
+        }
+        .accessibilityIdentifier("settings-about")
+    }
+
+    private var hero: some View {
+        VStack(spacing: GanchoTokens.Spacing.xs) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 72, height: 72)
+                .accessibilityHidden(true)
+            Text(verbatim: "Gancho").font(.title2.bold())
+            Text("Your clipboard, private by design.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var detailsCard: some View {
+        VStack(spacing: 0) {
+            detailRow("Version", versionLine, id: "about-version")
+            Divider()
+            detailRow("Author", "Johnny IV Young Ospino")
+            Divider()
+            detailRow("License", "MIT")
+        }
+        .ganchoSurface(radius: GanchoTokens.Radius.md)
+    }
+
+    private func detailRow(
+        _ label: LocalizedStringKey, _ value: String, id: String? = nil
+    ) -> some View {
+        HStack {
+            Text(label).foregroundStyle(.secondary)
+            Spacer(minLength: GanchoTokens.Spacing.md)
+            Text(value)
+                .textSelection(.enabled)
+                .accessibilityIdentifier(id ?? "")
+        }
+        .font(.callout)
+        .padding(.horizontal, GanchoTokens.Spacing.md)
+        .padding(.vertical, GanchoTokens.Spacing.sm)
+    }
+
+    private var links: some View {
+        VStack(spacing: GanchoTokens.Spacing.xxs) {
+            aboutLink("Website", systemImage: "safari", url: "https://gancho.app")
+            aboutLink(
+                "Source code on GitHub", systemImage: "chevron.left.forwardslash.chevron.right",
+                url: "https://github.com/johnny4young/gancho")
+            aboutLink(
+                "Report an issue", systemImage: "exclamationmark.bubble",
+                url: "https://github.com/johnny4young/gancho/issues")
+        }
+    }
+
+    private func aboutLink(
+        _ title: LocalizedStringKey, systemImage: String, url: String
+    ) -> some View {
+        Link(destination: URL(string: url)!) {
+            HStack(spacing: GanchoTokens.Spacing.sm) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(GanchoTokens.Palette.accent)
+                    .frame(width: 18)
+                Text(title)
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .font(.callout)
+            .padding(.horizontal, GanchoTokens.Spacing.md)
+            .padding(.vertical, GanchoTokens.Spacing.sm)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .ganchoSurface(radius: GanchoTokens.Radius.sm)
     }
 }
 
@@ -44,7 +150,7 @@ struct SettingsView: View {
 /// thin dividers, the active one a solid accent pill (accent follows the OS
 /// accent — brand green by default), the rest quiet gray.
 private enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, capture, retention, privacy, integrations, pro
+    case general, capture, retention, privacy, integrations, pro, about
 
     var id: String { rawValue }
 
@@ -56,6 +162,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .privacy: "Privacy"
         case .integrations: "Integrations"
         case .pro: "Pro"
+        case .about: "About"
         }
     }
 }
@@ -64,15 +171,27 @@ private struct SettingsTabBar: View {
     @Binding var selection: SettingsTab
 
     var body: some View {
-        HStack(spacing: GanchoTokens.Spacing.xs) {
-            ForEach(Array(SettingsTab.allCases.enumerated()), id: \.element.id) { index, tab in
-                if index > 0 {
-                    Divider().frame(height: 14)
+        // Horizontal scroll so every tab keeps its FULL label (with seven tabs
+        // the fixed-width bar squeezed them to "Ge…", "Cap…", …). The selected
+        // tab scrolls into view so a hidden one is never silently omitted.
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: GanchoTokens.Spacing.xs) {
+                    ForEach(Array(SettingsTab.allCases.enumerated()), id: \.element.id) {
+                        index, tab in
+                        if index > 0 {
+                            Divider().frame(height: 14)
+                        }
+                        tabButton(tab).id(tab)
+                    }
                 }
-                tabButton(tab)
+                .padding(.horizontal, 2)
+            }
+            .scrollClipDisabled()
+            .onChange(of: selection) { _, new in
+                withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(new, anchor: .center) }
             }
         }
-        .frame(maxWidth: .infinity)
     }
 
     private func tabButton(_ tab: SettingsTab) -> some View {
