@@ -52,6 +52,13 @@ Shared engine-room targets (nonisolated + Sendable)
   ├─ GanchoTelemetry: metadata-only analytics transport (network-isolated)
   └─ GanchoMCP: local MCP tools over the store boundary (driven by the `gancho` CLI)
 
+App-layer models and coordinators (@MainActor; NO AppKit/UIKit/SwiftUI/CloudKit)
+  └─ GanchoAppCore: the testable app logic both shells share and forward to —
+       PanelSearchModel + PanelNavigation (macOS panel), HistoryListViewModel (iOS
+       list), SyncController, BoardsController, EnrichmentService, DeletionCoordinator,
+       BoardSuggestionService, ClipItemFactory. Store access is facet-typed, so
+       each unit runs against an in-memory fake in GanchoAppCoreTests.
+
 Persistence and sync implementations
   ├─ GRDB / SQLite / FTS5 local store with content-addressed disk blobs
   ├─ iCloud-side content encryption via CKRecord `encryptedValues`
