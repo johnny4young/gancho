@@ -114,6 +114,9 @@ final class IOSAppModel {
             }
         }
         syncController.onIdle = { [weak self] in self?.syncStatus = .idle }
+        // Content-free sync-trouble trail → the Privacy Center's "Recent issues"
+        // (fetched records that fail to decode/apply, non-transient save errors).
+        syncController.diagnostics = diagnostics
         purchases.onTierChange = { [weak self] tier in
             guard let self else { return }
             self.tier = tier
@@ -207,8 +210,9 @@ final class IOSAppModel {
 
     /// Pull the latest from iCloud (and push pending) when the app comes
     /// forward, so another device's recent clips appear without a pull-to-
-    /// refresh — the engine only fetches on `start()` and gets no push to fetch
-    /// on. The sync-status observer refreshes the list on settle. No-op off.
+    /// refresh. The engine is push-driven on its own; this is the latency
+    /// belt-and-braces for foregrounding (and pushes iOS coalesced while the
+    /// app was suspended). The status observer refreshes the list on settle.
     func syncNow() {
         syncController.syncNow()
     }

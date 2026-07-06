@@ -120,6 +120,8 @@ final class AppModel {
     private let screenShareDetector = ScreenShareDetector()
     private var screenShareTimer: Timer?
     private var uiTestPanelObserver: NSObjectProtocol?
+    /// Wake-from-sleep sync catch-up (see the `didWakeNotification` observer).
+    private var wakeObserver: NSObjectProtocol?
 
     /// Free AI-title "taste": how many of `FreeTierLimits.freeAITitleTaste` have
     /// been spent, and the consume step. Persisted so the budget survives relaunch.
@@ -260,6 +262,17 @@ final class AppModel {
         // the controller only drives the engine lifecycle and calls back.
         syncController.onStatus = { [weak self] status in self?.applySyncStatus(status) }
         syncController.onIdle = { [weak self] in self?.syncStatus = .idle }
+        // Content-free sync-trouble trail → the Privacy Center's "Recent issues"
+        // (fetched records that fail to decode/apply, non-transient save errors).
+        syncController.diagnostics = diagnostics
+        // The engine is push-driven while awake, but a sleeping Mac misses the
+        // pushes for clips copied on other devices in the meantime — catch up
+        // the moment the machine wakes. (Panel-open does the same for latency.)
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.syncController.syncNow() }
+        }
         // StoreKit drives the tier: the listener catches renewals/refunds,
         // and a launch refresh reconciles against current entitlements.
         // Only StoreKit has out-of-process tier changes (renewals, refunds);

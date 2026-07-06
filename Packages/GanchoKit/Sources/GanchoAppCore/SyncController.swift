@@ -60,6 +60,13 @@ public final class SyncController {
     /// refresh-on-settle) — routing it through `onStatus` would change behavior.
     public var onIdle: (@MainActor () -> Void)?
 
+    /// Content-free sync-trouble sink handed to the live adapter, so fetch/apply
+    /// failures surface in the shells' "Recent issues" log instead of vanishing.
+    /// Set by the shell before the first `configure(tier:)`, like `onStatus`
+    /// (Swift init ordering forbids referencing the shell's own stored log in
+    /// its stored-property init).
+    public var diagnostics: DiagnosticLog?
+
     /// Builds the engine `configure(tier:)` installs. Injected so tests can
     /// substitute a fake engine; the default is the production factory, so the
     /// live behavior is unchanged.
@@ -70,7 +77,8 @@ public final class SyncController {
             _ iCloudAvailable: Bool,
             _ hasCloudKitEntitlement: Bool,
             _ stateStore: SyncStateStore,
-            _ onStatus: @escaping @Sendable (SyncStatus) -> Void
+            _ onStatus: @escaping @Sendable (SyncStatus) -> Void,
+            _ diagnostics: DiagnosticLog?
         ) -> any SyncEngine
 
     public init(
@@ -84,10 +92,12 @@ public final class SyncController {
         },
         onStatus: (@MainActor (SyncStatus) async -> Void)? = nil,
         onIdle: (@MainActor () -> Void)? = nil,
-        makeEngine: @escaping EngineFactory = { store, tier, iCloud, entitled, state, onStatus in
+        makeEngine: @escaping EngineFactory = {
+            store, tier, iCloud, entitled, state, onStatus, diagnostics in
             SyncEngineFactory.make(
                 store: store, tier: tier, iCloudAvailable: iCloud,
-                hasCloudKitEntitlement: entitled, stateStore: state, onStatus: onStatus)
+                hasCloudKitEntitlement: entitled, stateStore: state, onStatus: onStatus,
+                diagnostics: diagnostics)
         }
     ) {
         self.store = store
@@ -118,7 +128,7 @@ public final class SyncController {
             .file(at: stateStoreURL),
             { [weak self] status in
                 Task { @MainActor in await self?.onStatus?(status) }
-            })
+            }, diagnostics)
         if enable {
             let engine = engine
             Task { try? await engine.start() }
@@ -127,9 +137,11 @@ public final class SyncController {
         }
     }
 
-    /// Pull the latest from iCloud (and push pending). The shells call this when
-    /// a surface comes forward — the engine only fetches on `start()`. A no-op
-    /// when sync is off, matching both shells' `syncNow`.
+    /// Pull the latest from iCloud (and push pending) RIGHT NOW. The engine is
+    /// push-driven on its own (`CKSyncEngine` auto-fetches when CloudKit
+    /// notifies it of remote changes); the shells call this when a surface
+    /// comes forward as a latency belt-and-braces — instant freshness, and
+    /// catch-up for pushes missed while asleep. A no-op when sync is off.
     public func syncNow() {
         guard enabled else { return }
         let engine = engine

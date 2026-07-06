@@ -78,7 +78,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         // Opening the panel is "I want to see my clips" — pull the latest from
         // iCloud (and push pending) so another device's recent clips appear.
         // Non-blocking: the local list shows instantly; synced clips land on
-        // settle. (The engine has no push to fetch on by itself.)
+        // settle. The engine is push-driven on its own; this is the latency
+        // belt-and-braces for the moment the user is actually looking.
         model.syncNow()
         // Latency telemetry for the <100ms budget (debug builds only).
         #if DEBUG

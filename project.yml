@@ -76,11 +76,14 @@ targets:
       properties:
         # Encrypted iCloud history sync (Pro). The container mirrors the
         # bundle id; CKSyncEngine needs push to learn about remote changes.
+        # On macOS the push entitlement key is `com.apple.developer.aps-environment`
+        # — NOT iOS's bare `aps-environment`, which codesign drops here (the app
+        # then never hears about remote changes and inbound sync goes silent).
         com.apple.developer.icloud-container-identifiers:
           - iCloud.com.johnny4young.gancho
         com.apple.developer.icloud-services:
           - CloudKit
-        aps-environment: development
+        com.apple.developer.aps-environment: development
         # NOTE: the menu-bar helper bridge (status, localized titles, nonce) is
         # content-free and runs over a shared `UserDefaults(suiteName:)`. In
         # Debug / Developer ID that resolves to a shared preferences domain (no

@@ -23,7 +23,7 @@ struct SyncControllerTests {
             stateStoreURL: Self.tempURL(),
             iCloudAvailable: { true },
             hasCloudKitEntitlement: { true },
-            makeEngine: { _, _, _, _, _, _ in fake })
+            makeEngine: { _, _, _, _, _, _, _ in fake })
 
         controller.configure(tier: .free)
 
@@ -44,7 +44,7 @@ struct SyncControllerTests {
             iCloudAvailable: { true },
             hasCloudKitEntitlement: { true },
             onIdle: { idleFired = true },
-            makeEngine: { _, _, _, _, _, _ in fake })
+            makeEngine: { _, _, _, _, _, _, _ in fake })
 
         controller.configure(tier: .pro)
 
@@ -68,7 +68,7 @@ struct SyncControllerTests {
             iCloudAvailable: { true },
             hasCloudKitEntitlement: { true },
             onIdle: { idleCount += 1 },
-            makeEngine: { _, _, _, _, _, _ in fake })
+            makeEngine: { _, _, _, _, _, _, _ in fake })
 
         controller.configure(tier: .pro)  // arm
         controller.configure(tier: .free)  // disarm
@@ -91,7 +91,7 @@ struct SyncControllerTests {
             stateStoreURL: Self.tempURL(),
             iCloudAvailable: { true },
             hasCloudKitEntitlement: { true },
-            makeEngine: { _, _, _, _, _, onStatus in
+            makeEngine: { _, _, _, _, _, onStatus, _ in
                 sink = onStatus
                 return fake
             })
@@ -107,6 +107,30 @@ struct SyncControllerTests {
         #expect(received == [.upToDate(at: nil)])
     }
 
+    @Test("The shell's diagnostics log is handed to the engine factory")
+    func diagnosticsThreadThroughToTheFactory() async {
+        let fake = FakeSyncEngine()
+        let log = DiagnosticLog()
+        var receivedLog: DiagnosticLog?
+        let controller = SyncController(
+            store: FakeSyncLocalStore(),
+            stateStoreURL: Self.tempURL(),
+            iCloudAvailable: { true },
+            hasCloudKitEntitlement: { true },
+            makeEngine: { _, _, _, _, _, _, diagnostics in
+                receivedLog = diagnostics
+                return fake
+            })
+        // Set post-init, exactly like the shells wire it (beside onStatus).
+        controller.diagnostics = log
+
+        controller.configure(tier: .pro)
+
+        // The factory received the SAME log instance the shell surfaces in its
+        // Privacy Center — the adapter's content-free entries land there.
+        #expect(receivedLog === log)
+    }
+
     @Test("reset() deletes the persisted state file and re-arms sync")
     func resetDeletesStateAndReconfigures() async {
         let fake = FakeSyncEngine()
@@ -119,7 +143,7 @@ struct SyncControllerTests {
             stateStoreURL: url,
             iCloudAvailable: { true },
             hasCloudKitEntitlement: { true },
-            makeEngine: { _, _, _, _, _, _ in fake })
+            makeEngine: { _, _, _, _, _, _, _ in fake })
         controller.configure(tier: .pro)  // arm over the existing file
 
         controller.reset(tier: .pro)

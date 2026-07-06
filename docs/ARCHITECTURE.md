@@ -173,6 +173,15 @@ errors, offline recovery, and reset handling explicitly. The same boundary is
 what later permits LAN peer-to-peer, a self-hosted transport, or non-Apple
 clients without rewriting capture, search, or the snippet model.
 
+Delivery is **push-driven**: CKSyncEngine auto-fetches when CloudKit notifies it
+of remote changes, which requires the push entitlement on BOTH platforms — and
+the key differs (`aps-environment` on iOS, `com.apple.developer.aps-environment`
+on macOS; the wrong one is silently dropped at signing and inbound sync goes
+quiet). Manual `syncNow()` calls (panel open, iOS foreground, wake-from-sleep)
+are latency belt-and-braces, not the delivery mechanism. The adapter reports
+fetch/apply/save trouble content-free to the `DiagnosticLog` ("Recent issues"),
+so a sync break is diagnosed from the log, not by guesswork.
+
 ## Intelligence tiers
 
 1. **Tier 0 — deterministic and universal.** `RuleClassifier`, data detectors,

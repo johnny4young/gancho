@@ -33,6 +33,12 @@ public actor CKSyncEngineAdapter: SyncEngine {
     /// values only — state and counts, never clip content.
     private let onStatus: (@Sendable (SyncStatus) -> Void)?
 
+    /// Content-free trail of sync trouble for the Privacy Center's "Recent
+    /// issues" (categories + fixed messages + counts, never clip content).
+    /// Without it a fetched record that fails to decode or apply vanishes
+    /// silently — the failure mode that makes sync bugs undiagnosable.
+    private let diagnostics: DiagnosticLog?
+
     private let stateEncoder = PropertyListEncoder()
     private let stateDecoder = PropertyListDecoder()
 
@@ -41,13 +47,15 @@ public actor CKSyncEngineAdapter: SyncEngine {
         containerIdentifier: String,
         stateStore: SyncStateStore,
         maxAssetBytes: Int = ClipRecordMapper.defaultMaxAssetBytes,
-        onStatus: (@Sendable (SyncStatus) -> Void)? = nil
+        onStatus: (@Sendable (SyncStatus) -> Void)? = nil,
+        diagnostics: DiagnosticLog? = nil
     ) {
         self.store = store
         self.containerIdentifier = containerIdentifier
         self.stateStore = stateStore
         self.maxAssetBytes = maxAssetBytes
         self.onStatus = onStatus
+        self.diagnostics = diagnostics
     }
 
     // MARK: - SyncEngine boundary
@@ -352,35 +360,59 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
     private func handleFetchedRecordZoneChanges(
         _ event: CKSyncEngine.Event.FetchedRecordZoneChanges
     ) async {
+        // Count the records this event LOSES — a fetched change that fails to
+        // decode or apply used to vanish without a trace, which is exactly what
+        // makes "device A never sees device B's clips" undiagnosable. Counts
+        // only, never content.
+        var decodeFailures = 0
+        var applyFailures = 0
         for modification in event.modifications {
             let record = modification.record
             if record.recordType == BoardRecordMapper.recordType {
                 if let board = BoardRecordMapper.decode(record) {
-                    try? await store.applyRemoteBoardUpsert(
-                        board, systemFields: BoardRecordMapper.encodeSystemFields(record))
+                    do {
+                        try await store.applyRemoteBoardUpsert(
+                            board, systemFields: BoardRecordMapper.encodeSystemFields(record))
+                    } catch { applyFailures += 1 }
+                } else {
+                    decodeFailures += 1
                 }
                 continue
             }
-            guard let decoded = ClipRecordMapper.decode(record) else { continue }
+            guard let decoded = ClipRecordMapper.decode(record) else {
+                decodeFailures += 1
+                continue
+            }
             // Membership rides the clip record, so it follows the same
             // last-writer-wins decision: a stale remote must not overwrite a
-            // newer local board set (the store returns whether it applied).
-            let applied =
-                (try? await store.applyRemoteUpsert(
+            // newer local board set. `applied == false` is the NORMAL stale-remote
+            // skip; only a thrown store error counts as a failure.
+            do {
+                let applied = try await store.applyRemoteUpsert(
                     decoded.item, content: decoded.content,
-                    systemFields: ClipRecordMapper.encodeSystemFields(record))) ?? false
-            if applied {
-                try? await store.setBoardMembership(
-                    clipID: decoded.item.id,
-                    boardIDs: Set(ClipRecordMapper.boardIDs(from: record)))
-            }
+                    systemFields: ClipRecordMapper.encodeSystemFields(record))
+                if applied {
+                    try? await store.setBoardMembership(
+                        clipID: decoded.item.id,
+                        boardIDs: Set(ClipRecordMapper.boardIDs(from: record)))
+                }
+            } catch { applyFailures += 1 }
         }
         for deletion in event.deletions {
-            if deletion.recordID.zoneID.zoneName == boardZoneID.zoneName {
-                try? await store.applyRemoteBoardDeletion(recordID: deletion.recordID.recordName)
-            } else {
-                try? await store.applyRemoteDeletion(recordID: deletion.recordID.recordName)
-            }
+            do {
+                if deletion.recordID.zoneID.zoneName == boardZoneID.zoneName {
+                    try await store.applyRemoteBoardDeletion(
+                        recordID: deletion.recordID.recordName)
+                } else {
+                    try await store.applyRemoteDeletion(recordID: deletion.recordID.recordName)
+                }
+            } catch { applyFailures += 1 }
+        }
+        if decodeFailures + applyFailures > 0 {
+            diagnostics?.record(
+                "Sync",
+                "Fetched \(event.modifications.count + event.deletions.count) changes; "
+                    + "\(decodeFailures) failed to decode, \(applyFailures) failed to apply.")
         }
     }
 
@@ -444,10 +476,15 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             }
         case .zoneNotFound, .userDeletedZone:
             // Recreate the failed record's own zone, then retry it.
+            diagnostics?.record(
+                "Sync",
+                "Sync zone was missing (CKError \(failure.error.code.rawValue)); recreating and retrying."
+            )
             syncEngine.state.add(
                 pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: recordID.zoneID))])
             syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
         case .quotaExceeded:
+            diagnostics?.record("Sync", "iCloud storage is full — uploads paused.")
             isPaused = true
             emit(.paused(.iCloudFull))
         default:
