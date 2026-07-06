@@ -460,6 +460,13 @@ final class AppModel {
                 }
                 await refreshRecents()
             }
+            // Enrichment runs per-device, but its FRUITS sync: the title/OCR
+            // writes flagged the row for upload; push it now (like a pin toggle)
+            // so the other device sees the smart title instead of the raw clip,
+            // rather than waiting for the next sync start().
+            if syncController.isEnabled {
+                await syncController.engine.enqueue([item])
+            }
         }
     }
 

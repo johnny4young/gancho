@@ -52,33 +52,38 @@ extension GRDBClipboardStore {
         }
     }
 
-    /// Tier-1 enrichment: sets the title without touching content.
+    /// Tier-1 enrichment: sets the title without touching content. Flags
+    /// `needsUpload` so the on-device smart title reaches the other devices —
+    /// enrichment runs per-device, but its FRUITS (title/OCR) sync.
     public func updateTitle(id: UUID, title: String) async throws {
         try await writer.write { db in
             try db.execute(
-                sql: "UPDATE clip SET title = ?, updatedAt = ? WHERE id = ?",
+                sql: "UPDATE clip SET title = ?, updatedAt = ?, needsUpload = 1 WHERE id = ?",
                 arguments: [title, Date(), id.uuidString])
         }
     }
 
     /// OCR enrichment for image clips: extracted text lands in contentText
     /// (FTS-indexed → screenshots become searchable) without altering the
-    /// preview or the blob.
+    /// preview or the blob. Flags `needsUpload` so the OCR fruit syncs.
     public func attachExtractedText(id: UUID, text: String) async throws {
         try await writer.write { db in
             try db.execute(
-                sql: "UPDATE clip SET contentText = ?, updatedAt = ? WHERE id = ?",
+                sql: "UPDATE clip SET contentText = ?, updatedAt = ?, needsUpload = 1 WHERE id = ?",
                 arguments: [text, Date(), id.uuidString])
         }
     }
 
     /// Edits ANY text clip's content (Quick Look editing); recomputes the
     /// preview. The hash is left as-is on purpose: edits are curation, and
-    /// re-copying the original must still dedupe against this row.
+    /// re-copying the original must still dedupe against this row. Flags
+    /// `needsUpload` so the edit propagates to the other devices.
     public func updateClipText(id: UUID, text: String) async throws {
         try await writer.write { db in
             try db.execute(
-                sql: "UPDATE clip SET contentText = ?, preview = ?, updatedAt = ? WHERE id = ?",
+                sql:
+                    "UPDATE clip SET contentText = ?, preview = ?, updatedAt = ?, needsUpload = 1 "
+                    + "WHERE id = ?",
                 arguments: [text, String(text.prefix(120)), Date(), id.uuidString])
         }
     }

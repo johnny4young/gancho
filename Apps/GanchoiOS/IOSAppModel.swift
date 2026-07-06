@@ -730,6 +730,11 @@ final class IOSAppModel {
             ) {
                 await self.search()  // surface the new title without a manual refresh
             }
+            // The title/OCR writes flagged the row for upload; push it now so the
+            // fruit reaches the other devices, not only at the next sync start().
+            if syncController.isEnabled {
+                await syncController.engine.enqueue([item])
+            }
         }
     }
 
