@@ -319,6 +319,32 @@ targets:
     dependencies:
       - target: Gancho
 
+  # Live sync-pipeline harness: TWO CKSyncEngineAdapters in one process against
+  # the REAL development container — capture on "device A", pull on "device B",
+  # assert the clip, its enrichment title, and its deletion all cross. HOSTED
+  # in Gancho.app (TEST_HOST) so the test code runs inside the signed,
+  # CloudKit-entitled process with the owner's Keychain + iCloud session.
+  # Owner-gated: runs only via `make test-sync-e2e` (TEST_RUNNER_ env gate) and
+  # self-skips without an iCloud account; CI never invokes it.
+  GanchoSyncE2ETests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Gancho.app/Contents/MacOS/Gancho
+        BUNDLE_LOADER: $(TEST_HOST)
+    sources:
+      - path: Tests/GanchoSyncE2ETests
+    dependencies:
+      - target: Gancho
+      - package: GanchoKit
+        products:
+          - GanchoKit
+          - GanchoSync
+
   # iOS UI smoke harness — the iOS sibling of GanchoUITests. XCTest is allowed
   # ONLY in UI-test targets; unit tests stay Swift Testing in the package.
   GanchoiOSUITests:
@@ -463,6 +489,7 @@ schemes:
       targets:
         Gancho: all
         GanchoUITests: [test]
+        GanchoSyncE2ETests: [test]
     run:
       config: Debug
       # Local IAP testing without an App Store account (Xcode StoreKit
@@ -472,6 +499,7 @@ schemes:
       config: Debug
       targets:
         - GanchoUITests
+        - GanchoSyncE2ETests
 
   GanchoiOS:
     build:

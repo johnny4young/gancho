@@ -79,6 +79,11 @@ test-ui: project ## Run the XCUITest smoke suite (drives the real app; signed ru
 	xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
 		-only-testing:GanchoUITests $(TEST_UI_SIGNING_FLAGS)
 
+test-sync-e2e: project ## Live two-engine sync harness vs the REAL dev container (owner-gated; signed host + iCloud)
+	TEST_RUNNER_GANCHO_SYNC_E2E=1 xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
+		-only-testing:GanchoSyncE2ETests \
+		CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=$(DEVELOPMENT_TEAM)
+
 # Override the simulator with: make test-ui-ios IOS_SIM_DEST='platform=iOS Simulator,name=iPhone 17'
 IOS_SIM_DEST ?= platform=iOS Simulator,name=iPhone 17
 test-ui-ios: project ## Run the iOS XCUITest smoke suite on a simulator
