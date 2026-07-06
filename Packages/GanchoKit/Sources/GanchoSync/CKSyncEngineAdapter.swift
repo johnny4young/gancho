@@ -424,6 +424,16 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                 }
             }
         }
+        // A pending save with no buildable record is DROPPED by CKSyncEngine
+        // when the provider returns nil — count it so the loss is visible
+        // ("Recent issues"), not silent. `reenqueuePendingWork` re-adds any row
+        // the store still flags on the next cycle.
+        let missing = saveIDs.count(where: { built[$0] == nil })
+        if missing > 0 {
+            diagnostics?.record(
+                "Sync",
+                "\(missing) pending upload(s) had no sendable local row; retrying next cycle.")
+        }
         let records = UncheckedSendableBox(built)
         return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: pendingChanges) {
             recordID in records.value[recordID]
@@ -613,6 +623,17 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                     try? await store.setBoardMembership(
                         clipID: decoded.item.id,
                         boardIDs: Set(ClipRecordMapper.boardIDs(from: serverRecord)))
+                } else {
+                    // The LOCAL copy won the conflict (e.g. an enrichment title
+                    // written moments after the first upload, racing that
+                    // upload's system-fields save). CKSyncEngine drops a failed
+                    // pending change — the delegate must RE-QUEUE it after
+                    // resolving, or the local edit only retries at the next
+                    // start()'s reenqueue (a silent, laggy hole for the second
+                    // save of a fresh record). The apply above stored the
+                    // server's system fields, so the retry builds a record with
+                    // a current change tag and succeeds.
+                    syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
                 }
             }
         case .zoneNotFound, .userDeletedZone:
