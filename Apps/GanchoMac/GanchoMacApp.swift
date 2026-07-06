@@ -116,6 +116,16 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
         ProcessInfo.processInfo.disableAutomaticTermination(
             "Gancho runs as a resident menu-bar agent")
 
+        // CKSyncEngine delivers remote changes over APNs push and observes them
+        // itself — but only if the process is registered with APNs. A window app
+        // gets registered through the normal activation path; a menu-bar AGENT
+        // (`.accessory`, no key window) does not, so it must ask explicitly or it
+        // never hears about clips copied on other devices and inbound sync only
+        // catches up on a manual cycle. AppKit's guidance is to register at
+        // launch; the push entitlement authorizes it, this activates it. Free /
+        // signed-out users simply get a benign failure (logged content-free).
+        NSApp.registerForRemoteNotifications()
+
         // Publish the content-free side channel BEFORE the helper paints: the
         // command nonce (#5), the localized menu titles (#4), and the current
         // status presentation (#3). No clipboard data ever crosses it.
@@ -136,6 +146,27 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         GanchoMenuBarHelperLauncher.stop()
+    }
+
+    // CKSyncEngine subscribes to and consumes CloudKit's change pushes on its
+    // own — the app only needs to BE registered (hold a device token), never to
+    // forward the payload — so the success callback has nothing to do.
+    func application(
+        _ application: NSApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {}
+
+    func application(
+        _ application: NSApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        // Without push, inbound sync degrades to manual catch-up (panel open,
+        // wake) — surface it content-free so it's diagnosable, never fatal.
+        GanchoRuntime.model?.diagnostics.record(
+            String(localized: "Sync"),
+            String(
+                localized:
+                    "Couldn’t subscribe to iCloud change notifications; inbound sync may lag."))
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
