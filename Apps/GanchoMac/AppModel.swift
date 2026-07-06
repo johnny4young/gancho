@@ -117,6 +117,8 @@ final class AppModel {
     private let sensitiveDetector = SensitiveDataDetector()
     private let defaults = UserDefaults.standard
     private var retentionTimer: Timer?
+    /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
+    private var syncPollTimer: Timer?
     private let screenShareDetector = ScreenShareDetector()
     private var screenShareTimer: Timer?
     private var uiTestPanelObserver: NSObjectProtocol?
@@ -244,6 +246,7 @@ final class AppModel {
         monitor.start()
         scheduleRetention()
         scheduleScreenShareWatch()
+        scheduleSyncPoll()
         panel.attach(model: self)
         applyActivationPolicy()
         // Intents resolve the SAME model instance the UI uses.
@@ -1253,6 +1256,21 @@ final class AppModel {
         retentionTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) {
             [weak self] _ in
             Task { @MainActor in self?.runRetention() }
+        }
+    }
+
+    /// Periodic pull (and push of anything pending) for the Mac. CloudKit push
+    /// drives sync while awake, but a menu-bar AGENT (`.accessory`, no key
+    /// window, resident in the background) is not a reliable push target the way
+    /// the foreground iPhone app is — so it also polls on a light cadence to pull
+    /// clips copied on other devices and flush its own pending uploads (e.g. an
+    /// AI title that landed a beat after the clip). `syncNow()` is a no-op when
+    /// sync is off and cheap when the change token is already current, so an idle
+    /// tick is just one small round-trip.
+    private func scheduleSyncPoll() {
+        syncPollTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) {
+            [weak self] _ in
+            Task { @MainActor in self?.syncController.syncNow() }
         }
     }
 
