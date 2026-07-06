@@ -32,9 +32,13 @@ import Observation
 public struct PanelDateGroup: Identifiable, Sendable {
     public let section: ClipSection
     public let rows: [(index: Int, item: ClipItem)]
-    /// The first clip's id — unique per run, so the section `ForEach` never
-    /// collides on ids.
-    public var id: UUID { rows.first?.item.id ?? UUID() }
+    /// Identity is the SECTION, which is stable and unique per run (each section
+    /// appears once, contiguously). Keying on the first clip's id instead made
+    /// the group's identity change every time a new clip landed at the top —
+    /// SwiftUI then reused the nested rows across the "new" group and never
+    /// refreshed their global index, so several clips shared one ⌘N badge and
+    /// the selection highlight landed on more than one row.
+    public var id: ClipSection { section }
 }
 
 /// The macOS history panel's search + list state, lifted off the `PanelView`

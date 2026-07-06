@@ -19,10 +19,12 @@ public struct ClipSectionGroup: Identifiable, Sendable {
         self.clips = clips
     }
 
-    /// Stable and unique per run — the first clip's id. Two sections never share
-    /// a first clip, so a SwiftUI `ForEach` over groups never collides on ids
-    /// even if a bucket somehow recurs out of order.
-    public var id: UUID { clips.first?.id ?? UUID() }
+    /// Identity is the SECTION, which is stable and unique per run (each section
+    /// appears once, contiguously). Keying on the first clip's id instead made a
+    /// section's identity change every time a new clip landed at its top, so
+    /// SwiftUI reused the nested rows across the "new" section and left their
+    /// per-row state (selection, quick-paste index) stale.
+    public var id: ClipSection { section }
 }
 
 public enum ClipSections {

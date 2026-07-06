@@ -155,6 +155,12 @@ public struct ClipCard: View {
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
+        // Surface the ⌘N quick-paste badge (VoiceOver reads it as the value) and
+        // the selection state as a trait — both are otherwise invisible to
+        // assistive tech and to UI tests asserting one-row-selected / distinct
+        // shortcuts.
+        .accessibilityValue(shortcutNumber.map { Text(verbatim: "⌘\($0)") } ?? Text(verbatim: ""))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("clip-row")
     }
 

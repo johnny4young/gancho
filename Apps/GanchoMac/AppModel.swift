@@ -290,6 +290,7 @@ final class AppModel {
         Task { await refreshRecents() }
         seedSampleClipsIfRequested()
         let uiTestBoardSeedTask = seedSampleBoardsIfRequested()
+        let uiTestPanelReproTask = seedPanelReproIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
         // launch); run it at utility priority once the UI is wired up.
@@ -308,6 +309,7 @@ final class AppModel {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     await uiTestBoardSeedTask?.value
+                    await uiTestPanelReproTask?.value
                     panel.show(model: self)
                     _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
                     try? await Task.sleep(for: .milliseconds(250))
@@ -317,6 +319,7 @@ final class AppModel {
             }
             Task { @MainActor in
                 await uiTestBoardSeedTask?.value
+                await uiTestPanelReproTask?.value
                 try? await Task.sleep(for: .seconds(1))
                 if !panel.isVisible { panel.show(model: self) }
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
@@ -435,6 +438,42 @@ final class AppModel {
                     name: "Seed board \(i)", sfSymbol: "square.stack")
             }
             await refreshBoards()
+        }
+    }
+
+    /// UI-test hook: seed a THROWAWAY durable store with a few PINNED clips plus
+    /// several same-day clips, so a UI test can assert the grouped panel render
+    /// keeps exactly one row selected and hands each row a DISTINCT ⌘N shortcut —
+    /// the pinned-first + date-bucket global-index math `PanelSearchModel` owns.
+    /// Gated on BOTH `-seed-panel-repro` and `-use-temp-durable-store` (never a
+    /// real store), so a normal launch is a no-op.
+    private func seedPanelReproIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-panel-repro"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let grdbStore
+        else { return nil }
+        // Fire-and-forget: AFTER the panel is on screen, capture several same-day
+        // clips one at a time through the REAL ingest path, so each triggers a
+        // live refresh while the grouped list is visible — the reported scenario
+        // (a static seed rendered before open does NOT reproduce it).
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(900))
+            for text in ["repro today A", "repro today B", "repro today C", "repro today D"] {
+                ingest(PasteboardCapture(text: text))
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+        }
+        // Awaited before the panel opens: the pinned section it sits above.
+        return Task {
+            var ids: [UUID] = []
+            for text in ["repro pinned 1", "repro pinned 2", "repro pinned 3"] {
+                let item = ClipItem(kind: .text, preview: text, contentHash: text)
+                if let stored = try? await grdbStore.insert(item, content: .text(text)) {
+                    ids.append(stored.id)
+                }
+            }
+            for id in ids { _ = try? await grdbStore.setPinned(id: id, true) }
+            await refreshRecents()
         }
     }
 
