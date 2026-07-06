@@ -14,7 +14,7 @@ final class PanelReproUITests: XCTestCase {
     /// same-day clips (`-seed-panel-repro`), opens the panel, and asserts the two
     /// invariants the report violated.
     @MainActor
-    func testGroupedPanelKeepsOneSelectionAndDistinctShortcuts() {
+    func testGroupedPanelKeepsOneSelectionAndDistinctShortcuts() throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
@@ -29,10 +29,9 @@ final class PanelReproUITests: XCTestCase {
             "the seeded panel must open on launch")
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        guard rows.firstMatch.waitForExistence(timeout: 8) else {
-            print("skip: seeded clip rows not exposed to the UI runner in this environment")
-            return
-        }
+        try XCTSkipUnless(
+            rows.firstMatch.waitForExistence(timeout: 8),
+            "seeded clip rows not exposed to the UI runner in this environment")
         // The seed captures four same-day clips one at a time AFTER the panel
         // opens (~0.9s + 4×0.2s), each a live refresh; wait for them to land so
         // the assertions see the full pinned-3 + today-4 list.
@@ -42,10 +41,7 @@ final class PanelReproUITests: XCTestCase {
         }
 
         let all = rows.allElementsBoundByIndex
-        guard all.count >= 4 else {
-            print("skip: not enough seeded rows exposed (\(all.count))")
-            return
-        }
+        try XCTSkipUnless(all.count >= 4, "not enough seeded rows exposed (\(all.count))")
 
         // Invariant 1 — exactly ONE row is selected. The report showed several
         // rows highlighted together (`selectedIndex` matched more than one row).
