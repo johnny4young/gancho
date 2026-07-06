@@ -104,7 +104,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private func ensurePanel(model: AppModel) -> KeyPanel {
         if let panel { return panel }
         let hosting = NSHostingView(
-            rootView: PanelView()
+            rootView: PanelView(model: model)
                 .environment(model)
                 .ganchoTinted())
         let styleMask: NSWindow.StyleMask =
