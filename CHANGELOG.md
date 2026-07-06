@@ -7,6 +7,32 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-06
+
+### Fixed
+
+- **Reactive iCloud sync between your devices.** A clip copied on one device now
+  arrives on the others on its own, both directions — the Mac no longer needs a
+  nudge to pull. Root causes: the macOS push entitlement used the wrong
+  per-platform key (silently dropped at signing), neither app requested its push
+  token at launch, and `CKSyncEngine` only auto-fetches zones a push flagged —
+  so the menu-bar agent, which isn't a reliable push target, now also pulls from
+  the server directly on a light cadence.
+- **AI titles and OCR text sync across devices reliably.** The enrichment a clip
+  earns a moment after capture is a second save that could lose a race with the
+  first and get silently dropped; the conflict is now resolved and the update
+  re-queued, so the title/searchable-text always follows the clip.
+- **Board membership syncs.** Filing a clip into a board (or removing it) now
+  propagates to your other devices, so the same board set follows each clip.
+- The type filter no longer stalls infinite scroll: a narrow filter keeps
+  loading more history as you reach the end of the visible list.
+
+### Changed
+
+- The Privacy Center's **"Recent issues"** now records content-free sync trouble
+  (a change that couldn't be applied, a failed upload, an out-of-storage pause),
+  so a sync hiccup is diagnosable at a glance — still never any clip content.
+
 ## [0.4.0] - 2026-07-05
 
 ### Added
