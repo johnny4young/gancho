@@ -101,9 +101,14 @@ private struct AboutSettingsTab: View {
         HStack {
             Text(label).foregroundStyle(.secondary)
             Spacer(minLength: GanchoTokens.Spacing.md)
-            Text(value)
-                .textSelection(.enabled)
-                .accessibilityIdentifier(id ?? "")
+            let valueText = Text(value).textSelection(.enabled)
+            // Only set an identifier when one is given — a blank id is a
+            // meaningless, collision-prone query target for UI tests.
+            if let id {
+                valueText.accessibilityIdentifier(id)
+            } else {
+                valueText
+            }
         }
         .font(.callout)
         .padding(.horizontal, GanchoTokens.Spacing.md)

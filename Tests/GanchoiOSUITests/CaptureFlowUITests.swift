@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 /// iOS UI coverage for the capture→enrich path the GanchoAppCore refactor
