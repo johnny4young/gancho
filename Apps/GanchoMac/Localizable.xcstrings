@@ -5095,6 +5095,26 @@
           }
         }
       }
+    },
+    "Pro unlocks unlimited history, pins, boards, and encrypted iCloud sync across your devices.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro desbloquea historial, pines y boards ilimitados, y sync cifrado por iCloud entre tus dispositivos."
+          }
+        }
+      }
+    },
+    "Language": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idioma"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

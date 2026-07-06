@@ -33,12 +33,13 @@ struct PaywallGatekeeperTests {
         }
     }
 
-    @Test("Standard Pro copy separates shipped benefits from upcoming sync")
-    func standardCopyIsHonestAboutSync() {
+    @Test("Standard Pro copy lists encrypted iCloud sync as a shipped benefit")
+    func standardCopyIncludesSync() {
         let copy = PaywallCopy.standard
 
         #expect(copy.proPoints.contains("Unlimited history, pins, and boards"))
-        #expect(copy.proPoints.contains("iCloud sync (coming soon)"))
-        #expect(!copy.proPoints.contains("iCloud sync across your devices"))
+        #expect(copy.proPoints.contains("Encrypted iCloud sync"))
+        // Sync ships now — the copy must not still hedge it as "coming soon".
+        #expect(!copy.proPoints.contains { $0.localizedCaseInsensitiveContains("coming soon") })
     }
 }

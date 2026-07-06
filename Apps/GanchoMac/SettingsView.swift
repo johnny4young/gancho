@@ -219,6 +219,7 @@ private struct GeneralSettingsTab: View {
     @Environment(AppModel.self) private var model
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var shortcutWarning: String?
+    @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
 
     var body: some View {
         @Bindable var model = model
@@ -269,6 +270,12 @@ private struct GeneralSettingsTab: View {
                 Text("Dark").tag(AppearancePreference.dark)
             }
             .pickerStyle(.segmented)
+
+            Picker("Language", selection: $appLanguage) {
+                ForEach(AppLanguage.allCases) { language in
+                    Text(verbatim: language.displayName).tag(language.rawValue)
+                }
+            }
 
             Section {
                 HStack {
@@ -657,7 +664,7 @@ private struct ProSettingsTab: View {
                 model.paywallWindow.show(trigger: .settingsPro, model: model)
             }
             Text(
-                "Pro unlocks unlimited history, pins, and boards today. iCloud sync arrives with launch."
+                "Pro unlocks unlimited history, pins, boards, and encrypted iCloud sync across your devices."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)

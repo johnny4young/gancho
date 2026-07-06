@@ -2481,6 +2481,16 @@
           }
         }
       }
+    },
+    "Language": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idioma"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

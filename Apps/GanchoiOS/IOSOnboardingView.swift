@@ -14,6 +14,7 @@ import WidgetKit
 /// is no background clipboard watching, the save paths are the whole model.
 struct IOSOnboardingView: View {
     let onDone: () -> Void
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -59,8 +60,15 @@ struct IOSOnboardingView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Get started") { onDone() }
-                        .accessibilityIdentifier("onboarding-done")
+                    Button("Get started") {
+                        // Persist the flag AND dismiss the sheet directly: the
+                        // isPresented binding is derived from `hasSeenWelcome`, but
+                        // dismissing explicitly guarantees the sheet closes even if
+                        // the derived binding does not re-drive presentation.
+                        onDone()
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("onboarding-done")
                 }
             }
         }
