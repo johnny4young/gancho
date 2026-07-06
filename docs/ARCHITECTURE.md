@@ -173,18 +173,23 @@ errors, offline recovery, and reset handling explicitly. The same boundary is
 what later permits LAN peer-to-peer, a self-hosted transport, or non-Apple
 clients without rewriting capture, search, or the snippet model.
 
-Delivery is **push-driven**: CKSyncEngine auto-fetches when CloudKit notifies it
-of remote changes, which requires the push entitlement on BOTH platforms — and
-the key differs (`aps-environment` on iOS, `com.apple.developer.aps-environment`
-on macOS; the wrong one is silently dropped at signing and inbound sync goes
-quiet). And because the Mac app is a menu-bar **agent** (`.accessory`, no key
-window), it never registers with APNs through the normal activation path the way
-a window app does — so `GanchoAppDelegate` calls `NSApp.registerForRemoteNotifications()`
-at launch explicitly, or the entitlement is present but no push is ever
-delivered. Manual `syncNow()` calls (panel open, iOS foreground, wake-from-sleep)
-are latency belt-and-braces, not the delivery mechanism. The adapter reports
-fetch/apply/save trouble content-free to the `DiagnosticLog` ("Recent issues"),
-so a sync break is diagnosed from the log, not by guesswork.
+Inbound delivery is **push where push works, explicit pull where it doesn't**.
+CKSyncEngine auto-fetches ONLY zones it believes changed, and that belief is fed
+exclusively by push — `fetchChanges()` (even scoped to explicit zone IDs) never
+asks the server otherwise; it logs "no zone IDs needing to be fetched" and skips.
+Push needs the right entitlement key per platform (`aps-environment` on iOS,
+`com.apple.developer.aps-environment` on macOS — the wrong one is silently
+dropped at signing) plus an explicit `registerForRemoteNotifications()` at
+launch on both shells. That works for the foreground iPhone app; the macOS
+menu-bar **agent** (`.accessory`, resident, no key window) is not a reliable
+APNs target, so the adapter's `pollRemoteChanges()` asks the server directly —
+one `databaseChanges` round-trip when idle, incremental `recordZoneChanges`
+pulls (own tokens, persisted beside the engine blob) only when the server
+reports news — and applies through the SAME code path as the engine's push-fed
+fetches. Every `start()` runs it (panel open, wake, the Mac's poll timer, iOS
+foreground). The adapter reports fetch/apply/save trouble content-free to the
+`DiagnosticLog` ("Recent issues"), so a sync break is diagnosed from the log,
+not by guesswork.
 
 ## Intelligence tiers
 

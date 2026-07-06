@@ -78,7 +78,8 @@ public final class SyncController {
             _ hasCloudKitEntitlement: Bool,
             _ stateStore: SyncStateStore,
             _ onStatus: @escaping @Sendable (SyncStatus) -> Void,
-            _ diagnostics: DiagnosticLog?
+            _ diagnostics: DiagnosticLog?,
+            _ pollStateStore: SyncStateStore?
         ) -> any SyncEngine
 
     public init(
@@ -93,11 +94,11 @@ public final class SyncController {
         onStatus: (@MainActor (SyncStatus) async -> Void)? = nil,
         onIdle: (@MainActor () -> Void)? = nil,
         makeEngine: @escaping EngineFactory = {
-            store, tier, iCloud, entitled, state, onStatus, diagnostics in
+            store, tier, iCloud, entitled, state, onStatus, diagnostics, pollState in
             SyncEngineFactory.make(
                 store: store, tier: tier, iCloudAvailable: iCloud,
                 hasCloudKitEntitlement: entitled, stateStore: state, onStatus: onStatus,
-                diagnostics: diagnostics)
+                diagnostics: diagnostics, pollStateStore: pollState)
         }
     ) {
         self.store = store
@@ -128,7 +129,10 @@ public final class SyncController {
             .file(at: stateStoreURL),
             { [weak self] status in
                 Task { @MainActor in await self?.onStatus?(status) }
-            }, diagnostics)
+            }, diagnostics,
+            // The explicit pull's change tokens live BESIDE the engine blob
+            // (same directory, `.poll` suffix), so reset(tier:) wipes both.
+            .file(at: stateStoreURL.appendingPathExtension("poll")))
         if enable {
             let engine = engine
             Task { try? await engine.start() }
@@ -163,6 +167,7 @@ public final class SyncController {
     /// flip rebuilds the engine over a fresh state file.
     public func reset(tier: UserTier) {
         try? FileManager.default.removeItem(at: stateStoreURL)
+        try? FileManager.default.removeItem(at: stateStoreURL.appendingPathExtension("poll"))
         enabled = false
         configure(tier: tier)
     }

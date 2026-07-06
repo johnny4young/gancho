@@ -23,7 +23,7 @@ struct SyncControllerTests {
             stateStoreURL: Self.tempURL(),
             iCloudAvailable: { true },
             hasCloudKitEntitlement: { true },
-            makeEngine: { _, _, _, _, _, _, _ in fake })
+            makeEngine: { _, _, _, _, _, _, _, _ in fake })
 
         controller.configure(tier: .free)
 
@@ -44,7 +44,7 @@ struct SyncControllerTests {
             iCloudAvailable: { true },
             hasCloudKitEntitlement: { true },
             onIdle: { idleFired = true },
-            makeEngine: { _, _, _, _, _, _, _ in fake })
+            makeEngine: { _, _, _, _, _, _, _, _ in fake })
 
         controller.configure(tier: .pro)
 
@@ -68,7 +68,7 @@ struct SyncControllerTests {
             iCloudAvailable: { true },
             hasCloudKitEntitlement: { true },
             onIdle: { idleCount += 1 },
-            makeEngine: { _, _, _, _, _, _, _ in fake })
+            makeEngine: { _, _, _, _, _, _, _, _ in fake })
 
         controller.configure(tier: .pro)  // arm
         controller.configure(tier: .free)  // disarm
@@ -91,7 +91,7 @@ struct SyncControllerTests {
             stateStoreURL: Self.tempURL(),
             iCloudAvailable: { true },
             hasCloudKitEntitlement: { true },
-            makeEngine: { _, _, _, _, _, onStatus, _ in
+            makeEngine: { _, _, _, _, _, onStatus, _, _ in
                 sink = onStatus
                 return fake
             })
@@ -117,7 +117,7 @@ struct SyncControllerTests {
             stateStoreURL: Self.tempURL(),
             iCloudAvailable: { true },
             hasCloudKitEntitlement: { true },
-            makeEngine: { _, _, _, _, _, _, diagnostics in
+            makeEngine: { _, _, _, _, _, _, diagnostics, _ in
                 receivedLog = diagnostics
                 return fake
             })
@@ -143,7 +143,7 @@ struct SyncControllerTests {
             stateStoreURL: url,
             iCloudAvailable: { true },
             hasCloudKitEntitlement: { true },
-            makeEngine: { _, _, _, _, _, _, _ in fake })
+            makeEngine: { _, _, _, _, _, _, _, _ in fake })
         controller.configure(tier: .pro)  // arm over the existing file
 
         controller.reset(tier: .pro)

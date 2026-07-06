@@ -87,7 +87,8 @@ public enum SyncEngineFactory {
         containerIdentifier: String = SyncEnablement.defaultContainerIdentifier,
         stateStore: SyncStateStore,
         onStatus: (@Sendable (SyncStatus) -> Void)? = nil,
-        diagnostics: DiagnosticLog? = nil
+        diagnostics: DiagnosticLog? = nil,
+        pollStateStore: SyncStateStore? = nil
     ) -> any SyncEngine {
         guard
             SyncEnablement.shouldEnable(
@@ -98,7 +99,7 @@ public enum SyncEngineFactory {
         }
         return CKSyncEngineAdapter(
             store: store, containerIdentifier: containerIdentifier, stateStore: stateStore,
-            onStatus: onStatus, diagnostics: diagnostics)
+            onStatus: onStatus, diagnostics: diagnostics, pollStateStore: pollStateStore)
     }
 }
 
