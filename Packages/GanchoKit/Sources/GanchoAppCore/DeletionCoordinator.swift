@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// Owns the macOS undo-window deletion STATE MACHINE that used to be inlined in
 /// `AppModel` (`pendingDeletionIDs`/`deletionTasks` plus `delete`/`undoDelete`/
@@ -21,15 +22,19 @@ import Foundation
 /// targets do. Annotating it preserves the execution context — and the ordering
 /// against the shell's own main-actor state — exactly as it was, without an
 /// AppKit/UIKit import.
+@Observable
 @MainActor
 public final class DeletionCoordinator {
     /// Clips whose delete is in the undo window: still on disk, but held out of
     /// the list until the grace commits (or an Undo reclaims them). Mirrors the
-    /// shell's former `pendingDeletionIDs`.
+    /// shell's former `pendingDeletionIDs`. Observable so a list can hide a clip
+    /// the instant its delete begins (and show it again on Undo) — reading
+    /// `isPending`/`hasPending` from a SwiftUI body tracks this set.
     private var pending: Set<UUID> = []
     /// The per-id grace timers, so a repeated delete or an Undo can cancel the
-    /// prior one. Mirrors the shell's former `deletionTasks`.
-    private var tasks: [UUID: Task<Void, Never>] = [:]
+    /// prior one. Mirrors the shell's former `deletionTasks`. Not observed — it
+    /// is bookkeeping, and Tasks are not a view input.
+    @ObservationIgnored private var tasks: [UUID: Task<Void, Never>] = [:]
 
     /// The undo window length. Injectable so tests need not wait real seconds;
     /// the default is the shell's production value.
