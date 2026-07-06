@@ -15,8 +15,20 @@ import WidgetKit
 /// the App Review notes promise exactly this behavior.
 @main
 struct GanchoiOSApp: App {
-    @State private var model = IOSAppModel()
+    // Registers the app with APNs at launch (see `GanchoiOSAppDelegate`):
+    // CKSyncEngine only auto-fetches remote changes when the process holds a
+    // push token, and a fresh install starts without one until it asks.
+    @UIApplicationDelegateAdaptor(GanchoiOSAppDelegate.self) private var appDelegate
+    @State private var model: IOSAppModel
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let model = IOSAppModel()
+        _model = State(initialValue: model)
+        // Expose the model's content-free diagnostics log to the app delegate,
+        // so a push-registration failure lands in "Recent issues" like macOS.
+        GanchoiOSRuntime.model = model
+    }
     /// One-time welcome: iOS's intent-based capture is novel, so first launch
     /// explains the save paths before dropping the user on an empty list.
     @AppStorage("ios-has-seen-welcome") private var hasSeenWelcome = false
@@ -80,6 +92,48 @@ struct GanchoiOSApp: App {
                 Task { await model.runMaintenance() }
             default: break
             }
+        }
+    }
+}
+
+/// Weak handle to the live model so the UIKit app delegate — which SwiftUI
+/// constructs separately from the `@State` model — can reach its content-free
+/// diagnostics log. Mirrors macOS's `GanchoRuntime.model`.
+@MainActor
+enum GanchoiOSRuntime {
+    weak static var model: IOSAppModel?
+}
+
+/// Registers the app with APNs at launch. CKSyncEngine subscribes to and
+/// consumes CloudKit's change pushes itself, but only once the process holds a
+/// device token — which a window app requests here (a fresh install has none,
+/// so inbound sync goes quiet until it asks). The success callback is a no-op
+/// (the app only needs to BE registered, not to forward the payload); the
+/// failure callback logs content-free so a lost subscription is diagnosable.
+final class GanchoiOSAppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        application.registerForRemoteNotifications()
+        return true
+    }
+
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {}
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        Task { @MainActor in
+            GanchoiOSRuntime.model?.diagnostics.record(
+                String(localized: "Sync"),
+                String(
+                    localized:
+                        "Couldn’t subscribe to iCloud change notifications; inbound sync may lag."))
         }
     }
 }
