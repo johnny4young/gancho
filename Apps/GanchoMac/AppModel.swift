@@ -647,48 +647,29 @@ final class AppModel {
         let sources: [ClipItem]
     }
 
-    private let qaService = ClipboardQAService()
     var askAvailable: Bool { ClipboardQAService.isAvailable }
 
     /// Retrieve the most relevant clips (semantic when the embeddings are ready,
-    /// else full-text) and have the on-device model answer grounded ONLY in
-    /// them. Sensitive clips are filtered out before anything reaches the model.
+    /// else full-text) and have the on-device model answer grounded ONLY in them.
+    /// Routes through the shared `ClipboardQA` coordinator — the SAME retrieval +
+    /// sensitivity-filtering path iOS uses. macOS previously hand-rolled its own,
+    /// which drifted from iOS; unifying them means a fix reaches both platforms.
     func askClipboard(_ question: String) async -> ClipboardAnswer? {
-        let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let grdbStore, ClipboardQAService.isAvailable, !trimmed.isEmpty else { return nil }
-
-        var clips: [ClipItem] = []
-        if intelligence.semanticSearch, let embedder = ContextualSentenceEmbedder(),
-            embedder.hasAvailableAssets,
-            let vector = try? embedder.vector(for: String(trimmed.prefix(1_000)))
+        guard let grdbStore else { return nil }
+        switch await ClipboardQA().answer(
+            question: question, store: grdbStore, useSemantic: intelligence.semanticSearch)
         {
-            clips =
-                (try? await grdbStore.semanticSearch(
-                    queryVector: vector, topK: 6, snippetsOnly: false)) ?? []
-        }
-        if clips.isEmpty {
-            clips = (try? await grdbStore.search(ClipSearchQuery(text: trimmed), limit: 6)) ?? []
-        }
-        let safe = clips.filter { !$0.isSensitive }
-        guard !safe.isEmpty else {
+        case .unavailable:
+            return nil
+        case .noMatch:
             return ClipboardAnswer(
                 answer: String(localized: "Nothing in your clipboard matches that."), sources: [])
+        case .failed(let safe):
+            return ClipboardAnswer(
+                answer: String(localized: "Couldn’t answer that — try again."), sources: safe)
+        case .answered(let text, let safe):
+            return ClipboardAnswer(answer: text, sources: safe)
         }
-
-        var sources: [String] = []
-        for clip in safe {
-            let body: String
-            if case .text(let text)? = try? await store.content(for: clip.id) {
-                body = text
-            } else {
-                body = clip.preview
-            }
-            sources.append(clip.title.isEmpty ? body : "\(clip.title): \(body)")
-        }
-        let answer = try? await qaService.answer(question: trimmed, sources: sources)
-        return ClipboardAnswer(
-            answer: answer ?? String(localized: "Couldn’t answer that — try again."),
-            sources: safe)
     }
 
     /// Pastes arbitrary text (a Smart Paste or filled-snippet result) into the
@@ -952,6 +933,25 @@ final class AppModel {
 
     private(set) var boards: [Pinboard] = []
 
+    /// Runs a store mutation and reports whether it succeeded. A thrown error is
+    /// logged content-free (a category + a fixed message, never the clip) so a
+    /// success toast never fires on a silent write failure (A3-3.2b): the
+    /// `try? … then show(toast)` pattern used to confirm "Pinned"/"Saved" even
+    /// when the write threw.
+    @discardableResult
+    func withDiagnostics(
+        _ category: String.LocalizationValue, _ failure: String.LocalizationValue,
+        _ operation: () async throws -> Void
+    ) async -> Bool {
+        do {
+            try await operation()
+            return true
+        } catch {
+            diagnostics.record(String(localized: category), String(localized: failure))
+            return false
+        }
+    }
+
     func togglePin(_ item: ClipItem) {
         guard let grdbStore else { return }
         Task {
@@ -963,7 +963,13 @@ final class AppModel {
                     return
                 }
             }
-            _ = try? await grdbStore.setPinned(id: item.id, !item.isPinned)
+            guard
+                await withDiagnostics(
+                    "Pins", "Couldn’t update the pin.",
+                    {
+                        _ = try await grdbStore.setPinned(id: item.id, !item.isPinned)
+                    })
+            else { return }
             // setPinned flagged the row for upload; enqueue pushes it now
             // instead of at the next sync start(). The engine builds the
             // record from the stored row, so only the id matters here.
@@ -983,7 +989,13 @@ final class AppModel {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
                 return
             }
-            _ = try? await grdbStore.promoteToSnippet(id: item.id, title: nil)
+            guard
+                await withDiagnostics(
+                    "Snippets", "Couldn’t save the snippet.",
+                    {
+                        _ = try await grdbStore.promoteToSnippet(id: item.id, title: nil)
+                    })
+            else { return }
             toasts.show(GanchoToast(message: "Saved as snippet"))
             await refreshRecents()
         }
@@ -997,7 +1009,13 @@ final class AppModel {
     func assign(_ item: ClipItem, toBoard board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
+            guard
+                await withDiagnostics(
+                    "Boards", "Couldn’t add the clip to the board.",
+                    {
+                        try await grdbStore.assign(clipID: item.id, toBoard: board.id)
+                    })
+            else { return }
             toasts.show(GanchoToast(message: "Added to board"))
             await refreshRecents()
         }
@@ -1009,7 +1027,13 @@ final class AppModel {
     func assignWithUndo(_ item: ClipItem, toBoard board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.assign(clipID: item.id, toBoard: board.id)
+            guard
+                await withDiagnostics(
+                    "Boards", "Couldn’t add the clip to the board.",
+                    {
+                        try await grdbStore.assign(clipID: item.id, toBoard: board.id)
+                    })
+            else { return }
             await refreshRecents()
             toasts.show(
                 GanchoToast(
