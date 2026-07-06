@@ -259,12 +259,18 @@ public struct SearchField: View {
     }
 
     public var body: some View {
-        HStack(spacing: GanchoTokens.Spacing.xxs) {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
+                .frame(width: 16, alignment: .center)
                 .accessibilityHidden(true)
             TextField(promptKey, text: $text)
                 .textFieldStyle(.plain)
+                // Take the row and left-align: a bare `.plain` TextField on macOS
+                // lets the field's intrinsic width shrink to the value, which with
+                // the tight spacing clipped the first characters of the prompt
+                // ("Se" of "Search…") behind the icon.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("search-field")
             if !text.isEmpty {
                 Button {

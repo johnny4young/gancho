@@ -145,7 +145,18 @@ final class ToastPresenter {
     }
 
     private func positionTopCenter(_ panel: NSPanel, size: NSSize) {
-        guard let screen = NSScreen.main else { return }
+        // Show on the screen the user is actually looking at — the one under the
+        // pointer (where the panel was just used), then the key window's screen —
+        // not always `NSScreen.main`, which on a multi-display Mac is the screen
+        // with the menu bar and can be a different display entirely (the toast
+        // then flashes off where the user isn't looking, reading as "no toast").
+        let mouse = NSEvent.mouseLocation
+        let screen =
+            NSScreen.screens.first { $0.frame.contains(mouse) }
+            ?? NSApp.keyWindow?.screen
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
+        guard let screen else { return }
         let visible = screen.visibleFrame
         panel.setFrameOrigin(
             NSPoint(
