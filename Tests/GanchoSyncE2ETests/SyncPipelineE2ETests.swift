@@ -1,7 +1,8 @@
 import CloudKit
+import Foundation
 import GanchoKit
 import GanchoSync
-import XCTest
+import Testing
 
 /// The live sync-pipeline harness: two independent `CKSyncEngineAdapter`s in
 /// this one (entitled, signed, iCloud-signed-in) process play "device A" and
@@ -13,10 +14,17 @@ import XCTest
 ///
 /// OWNER-GATED: talks to the real dev container and briefly writes a probe
 /// clip there (real devices polling meanwhile may see it flash before the
-/// cleanup tombstone removes it). Run with `make test-sync-e2e`; skips without
-/// the env gate, an iCloud account, or CloudKit entitlements — so CI and a
-/// stray full-scheme test run stay inert.
-final class SyncPipelineE2ETests: XCTestCase {
+/// cleanup tombstone removes it). Run with `make test-sync-e2e`; skips unless
+/// the env gate, an iCloud account, and CloudKit entitlements are present — so
+/// CI and a stray full-scheme test run stay inert.
+@Suite(
+    "Sync pipeline E2E — live CloudKit",
+    .enabled(
+        if: ProcessInfo.processInfo.environment["GANCHO_SYNC_E2E"] == "1"
+            && FileManager.default.ubiquityIdentityToken != nil
+            && CloudKitEntitlements.currentTaskAllowsSync()),
+    .serialized)
+struct SyncPipelineE2ETests {
     /// One simulated device: its own encrypted store and adapter, with engine
     /// and poll state isolated in a throwaway directory.
     private struct Device {
@@ -37,6 +45,11 @@ final class SyncPipelineE2ETests: XCTestCase {
         }
     }
 
+    private struct Timeout: Error, CustomStringConvertible {
+        let what: String
+        var description: String { "timed out waiting for: \(what)" }
+    }
+
     /// Bounded retry: server-side propagation is fast but not synchronous.
     private func eventually(
         _ what: String, tries: Int = 12, delay: Duration = .seconds(5),
@@ -46,20 +59,11 @@ final class SyncPipelineE2ETests: XCTestCase {
             if try await condition() { return }
             if attempt < tries { try await Task.sleep(for: delay) }
         }
-        XCTFail("timed out waiting for: \(what)")
+        throw Timeout(what: what)
     }
 
-    func testClipFruitAndDeletionCrossBetweenTwoLiveEngines() async throws {
-        try XCTSkipUnless(
-            ProcessInfo.processInfo.environment["GANCHO_SYNC_E2E"] == "1",
-            "owner-gated: talks to the real development container (make test-sync-e2e)")
-        try XCTSkipUnless(
-            FileManager.default.ubiquityIdentityToken != nil,
-            "needs a signed-in iCloud account")
-        try XCTSkipUnless(
-            CloudKitEntitlements.currentTaskAllowsSync(),
-            "host process lacks CloudKit entitlements — run via make test-sync-e2e")
-
+    @Test("Clip, enrichment fruit, and deletion cross between two live engines")
+    func clipFruitAndDeletionCrossBetweenTwoLiveEngines() async throws {
         let a = try Device(name: "a")
         let b = try Device(name: "b")
 
@@ -77,7 +81,7 @@ final class SyncPipelineE2ETests: XCTestCase {
             return try await b.store.item(id: item.id) != nil
         }
         let received = try await b.store.item(id: item.id)
-        XCTAssertEqual(received?.preview, marker)
+        #expect(received?.preview == marker)
 
         // Device A writes the enrichment fruit — the SECOND save of the same
         // record (the exact shape of the smart-title race, conflict re-queue

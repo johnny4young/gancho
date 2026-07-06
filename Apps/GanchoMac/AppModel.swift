@@ -1071,6 +1071,7 @@ final class AppModel {
                         try await grdbStore.assign(clipID: item.id, toBoard: board.id)
                     })
             else { return }
+            await syncController.engine.enqueue([item])
             toasts.show(GanchoToast(message: "Added to board"))
             await refreshRecents()
         }
@@ -1089,6 +1090,7 @@ final class AppModel {
                         try await grdbStore.assign(clipID: item.id, toBoard: board.id)
                     })
             else { return }
+            await syncController.engine.enqueue([item])
             await refreshRecents()
             toasts.show(
                 GanchoToast(
@@ -1102,7 +1104,14 @@ final class AppModel {
     func unassign(_ item: ClipItem, fromBoard board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
+            guard
+                await withDiagnostics(
+                    "Boards", "Couldn’t remove the clip from the board.",
+                    {
+                        try await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
+                    })
+            else { return }
+            await syncController.engine.enqueue([item])
             await refreshRecents()
         }
     }
@@ -1110,7 +1119,14 @@ final class AppModel {
     func removeFromAllBoards(_ item: ClipItem) {
         guard let grdbStore else { return }
         Task {
-            try? await grdbStore.removeFromAllBoards(clipID: item.id)
+            guard
+                await withDiagnostics(
+                    "Boards", "Couldn’t remove the clip from its boards.",
+                    {
+                        try await grdbStore.removeFromAllBoards(clipID: item.id)
+                    })
+            else { return }
+            await syncController.engine.enqueue([item])
             await refreshRecents()
         }
     }
@@ -1173,7 +1189,7 @@ final class AppModel {
     func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
         guard let grdbStore else { return }
         await BoardsController().setBoardMembership(
-            item, board: board, member: member, store: grdbStore)
+            item, board: board, member: member, store: grdbStore, engine: syncController.engine)
         await refreshRecents()
     }
 

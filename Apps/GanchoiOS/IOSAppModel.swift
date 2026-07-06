@@ -364,11 +364,11 @@ final class IOSAppModel {
     }
 
     /// Add or remove a clip from one board. Membership rides the clip's sync
-    /// record, so the change propagates to other devices on the next cycle.
+    /// record, so enqueue the changed clip immediately after the local write.
     func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
         guard let full else { return }
         await BoardsController().setBoardMembership(
-            item, board: board, member: member, store: full)
+            item, board: board, member: member, store: full, engine: syncController.engine)
         await search()
     }
 

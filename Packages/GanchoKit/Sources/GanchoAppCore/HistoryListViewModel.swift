@@ -86,9 +86,10 @@ import Observation
     /// Append the next page as the list nears its end (infinite scroll). No-ops
     /// unless the grouped recent view has more to load.
     public func loadMoreIfNeeded(_ item: ClipItem) async {
+        let visible = visibleClips
         guard isGroupedView, !isLoadingMore, !reachedEnd,
-            let index = captures.firstIndex(where: { $0.id == item.id }),
-            index >= captures.count - 20
+            let index = visible.firstIndex(where: { $0.id == item.id }),
+            index >= visible.count - 20
         else { return }
         isLoadingMore = true
         defer { isLoadingMore = false }

@@ -5115,6 +5115,36 @@
           }
         }
       }
+    },
+    "Couldn’t add the clip to the board.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo añadir el clip al tablero."
+          }
+        }
+      }
+    },
+    "Couldn’t remove the clip from the board.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo quitar el clip del tablero."
+          }
+        }
+      }
+    },
+    "Couldn’t remove the clip from its boards.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo quitar el clip de sus tableros."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

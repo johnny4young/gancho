@@ -82,6 +82,24 @@ struct HistoryListViewModelTests {
         #expect(model.visibleClips.count == 2)  // the filter applies on top
     }
 
+    @Test func filteredInfiniteScrollUsesTheVisibleTail() async {
+        let source = FakeSource()
+        source.recent =
+            [ClipItem(kind: .url, preview: "https://first")]
+            + items(99, kind: .text)
+            + items(50, kind: .url)
+        let model = HistoryListViewModel(source: source)
+        await model.search()
+        model.kindFilter = .url
+        #expect(model.captures.count == 100)
+        #expect(model.visibleClips.count == 1)
+
+        await model.loadMoreIfNeeded(model.visibleClips[0])
+
+        #expect(model.captures.count == 150)
+        #expect(model.visibleClips.count == 51)
+    }
+
     @Test func aQueryTakesTheRankedSearchPathAndIsNotGrouped() async {
         let source = FakeSource()
         source.searchResults = items(5)

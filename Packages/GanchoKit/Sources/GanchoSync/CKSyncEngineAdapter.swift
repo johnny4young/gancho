@@ -200,25 +200,45 @@ public actor CKSyncEngineAdapter: SyncEngine {
         }
         for zone in [zoneID, boardZoneID] where changedZones.contains(zone) {
             do {
-                var token = Self.unarchive(tokens.zones[zone.zoneName])
-                var moreComing = true
-                while moreComing {
-                    let page = try await database.recordZoneChanges(inZoneWith: zone, since: token)
-                    let records = page.modificationResultsByID.values.compactMap {
-                        try? $0.get().record
-                    }
-                    await applyFetched(records: records, deletions: page.deletions.map(\.recordID))
-                    token = page.changeToken
-                    moreComing = page.moreComing
-                }
+                let token = try await fetchZoneChanges(
+                    from: database, in: zone,
+                    since: Self.unarchive(tokens.zones[zone.zoneName]))
                 tokens.zones[zone.zoneName] = token.flatMap(Self.archive)
             } catch let error as CKError where error.code == .changeTokenExpired {
-                tokens.zones[zone.zoneName] = nil  // full re-scan of this zone next cycle
+                // The database token was already advanced by the time the
+                // per-zone token proved stale, so "try again next cycle" would
+                // NOT see this zone as changed again. Re-scan the zone now
+                // from nil and persist the fresh zone token from that pass.
+                do {
+                    let token = try await fetchZoneChanges(from: database, in: zone, since: nil)
+                    tokens.zones[zone.zoneName] = token.flatMap(Self.archive)
+                } catch {
+                    guard Self.isMissingZone(error) else { throw error }
+                }
             } catch {
                 guard Self.isMissingZone(error) else { throw error }
             }
         }
         savePollTokens(tokens)
+    }
+
+    private func fetchZoneChanges(
+        from database: CKDatabase,
+        in zone: CKRecordZone.ID,
+        since startingToken: CKServerChangeToken?
+    ) async throws -> CKServerChangeToken? {
+        var token = startingToken
+        var moreComing = true
+        while moreComing {
+            let page = try await database.recordZoneChanges(inZoneWith: zone, since: token)
+            let records = page.modificationResultsByID.values.compactMap {
+                try? $0.get().record
+            }
+            await applyFetched(records: records, deletions: page.deletions.map(\.recordID))
+            token = page.changeToken
+            moreComing = page.moreComing
+        }
+        return token
     }
 
     public func stop() async {

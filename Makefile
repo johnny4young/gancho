@@ -80,6 +80,10 @@ test-ui: project ## Run the XCUITest smoke suite (drives the real app; signed ru
 		-only-testing:GanchoUITests $(TEST_UI_SIGNING_FLAGS)
 
 test-sync-e2e: project ## Live two-engine sync harness vs the REAL dev container (owner-gated; signed host + iCloud)
+	# The TEST_RUNNER_ prefix is how xcodebuild forwards an env var INTO the test
+	# host process (it strips the prefix). Setting a bare GANCHO_SYNC_E2E only
+	# reaches xcodebuild itself — the suite's `.enabled(if:)` gate then reads
+	# nothing and SILENTLY SKIPS while still reporting success.
 	TEST_RUNNER_GANCHO_SYNC_E2E=1 xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
 		-only-testing:GanchoSyncE2ETests \
 		CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=$(DEVELOPMENT_TEAM)
