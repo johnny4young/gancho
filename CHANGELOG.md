@@ -7,8 +7,18 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-05
+
 ### Added
 
+- **Encrypted iCloud sync** now carries a clip's on-device enrichment with it:
+  the AI title and searchable OCR text a clip earns on one device show up on
+  your other devices, not just the raw clip. A Pro feature, end-to-end
+  encrypted.
+- An **About** screen in Settings — version and build, author, MIT license, and
+  links to the website and source.
+- A manual **Language** picker (System / English / Español) in Settings, applied
+  live without a relaunch.
 - **18 new Dev Actions** on text and code clips, all offline and deterministic:
   SHA-256/SHA-1/MD5 hashes, URL encode/decode, HTML-entity encode/decode,
   JSON-string escape/unescape, case conversion (camel/snake/kebab/title),
@@ -26,6 +36,20 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   holding up the open itself.
 - The built-in "Never capture from these apps" suggestions now also cover
   Strongbox, KeePassium, MacPass, NordPass, Venmo, and Cash App out of the box.
+
+### Fixed
+
+- **⌘V pastes the selected clip** from the panel (like Enter), instead of the
+  keystroke landing in the search field.
+- Selecting a clip with the mouse is instant now, and the list never leaves
+  several rows — or none — highlighted at once.
+- The detail peek no longer clips its action list or crowds out the text
+  preview on clips with many available transforms; the search-field placeholder
+  no longer cuts off its first characters.
+- Deleting a clip hides it immediately with a working **Undo**, and the Undo
+  toast now appears on the display you're actually using.
+- A clip you re-copy earns its smart title even when its first capture predated
+  on-device titling.
 
 ### Security
 

@@ -1,5 +1,5 @@
 {
-  "originHash" : "6a6ce696aa3bbaaa89925d1e4a67b8b08ab613f89234280063fdbef6f9b3e14d",
+  "originHash" : "58c1587720f17bc1756f484953b567059b0a3d05ba17dcdb3520c2afd91227a5",
   "pins" : [
     {
       "identity" : "grdb.swift",
@@ -8,15 +8,6 @@
       "state" : {
         "branch" : "sqlcipher-7.11.0",
         "revision" : "77e27afdf29bc298a14d2b19e2bb5bcf466df632"
-      }
-    },
-    {
-      "identity" : "keyboardshortcuts",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/sindresorhus/KeyboardShortcuts",
-      "state" : {
-        "revision" : "1aef85578fdd4f9eaeeb8d53b7b4fc31bf08fe27",
-        "version" : "2.4.0"
       }
     },
     {
