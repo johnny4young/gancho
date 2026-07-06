@@ -373,10 +373,16 @@ final class AppModel {
                 type: item.kind.rawValue,
                 lengthBucket: .init(characterCount: length)))
         Task {
-            _ = try? await store.insert(item, content: content)
-            await syncController.engine.enqueue([item])
+            // Use the row `insert` returns: on a dedupe it is the EXISTING clip
+            // (moved to top), which may still be untitled from a capture that
+            // predates enrichment. Enriching the NEW item's id would target a row
+            // that was deduped away — so a re-copied clip never got its title.
+            // Enriching the stored row re-titles it when it has none, and
+            // `EnrichmentPlan`'s hasTitle guard skips it when it already does.
+            let stored = (try? await store.insert(item, content: content)) ?? item
+            await syncController.engine.enqueue([stored])
             await refreshRecents()
-            enrich(item, content: content)
+            enrich(stored, content: content)
         }
     }
 

@@ -707,9 +707,13 @@ final class IOSAppModel {
         // Surface the just-captured clip as "ready to paste" (masked if
         // sensitive) on the Dynamic Island / lock screen.
         if let stored { clipActivity.show(stored, sync: ClipSyncBadge(syncStatus)) }
-        // Enrich only a genuinely new clip — a re-copy already carries its
-        // title/OCR/embedding from the first capture.
-        if isNew { enrich(item, content: content) }
+        // Enrich a genuinely new clip — OR a re-copy that predates enrichment and
+        // is still untitled (its first capture never got a title). Enrich the
+        // STORED row so a dedupe re-titles the real clip, not the deduped-away id;
+        // the plan's hasTitle guard skips a re-copy that already carries its title.
+        if let stored, isNew || stored.title.isEmpty {
+            enrich(stored, content: content)
+        }
     }
 
     /// On-device enrichment of a clip captured ON this iPhone — Apple
