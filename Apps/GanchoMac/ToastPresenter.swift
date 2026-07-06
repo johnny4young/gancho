@@ -37,6 +37,10 @@ struct GanchoToast {
 
 struct ToastAction {
     let title: LocalizedStringKey
+    /// Accessibility id for the action button, so UI tests can target a
+    /// specific action (e.g. the delete Undo). Defaults to the shared id, so
+    /// every existing toast keeps its previous identifier unchanged.
+    var accessibilityIdentifier: String = "toast-action"
     let handler: @MainActor () -> Void
 }
 
@@ -58,14 +62,19 @@ private struct ToastView: View {
                     onDismiss()
                 }
                 .buttonStyle(.borderless)
-                .accessibilityIdentifier("toast-action")
+                .accessibilityIdentifier(action.accessibilityIdentifier)
                 .foregroundStyle(GanchoTokens.Palette.accent)
             }
         }
         .padding(.horizontal, GanchoTokens.Spacing.md)
         .padding(.vertical, GanchoTokens.Spacing.sm)
         .ganchoSurface(radius: GanchoTokens.Radius.md)
-        .accessibilityElement(children: .combine)
+        // `.contain` (not `.combine`): the toast is an accessibility CONTAINER,
+        // so its action button (e.g. the delete Undo, id `toast-undo`) stays a
+        // separately reachable element — VoiceOver can navigate to it, and a UI
+        // test can target it. `.combine` merged the button into the parent, hiding
+        // it. The explicit announcement below still voices the message.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("gancho-toast")
     }
 }
@@ -136,7 +145,18 @@ final class ToastPresenter {
     }
 
     private func positionTopCenter(_ panel: NSPanel, size: NSSize) {
-        guard let screen = NSScreen.main else { return }
+        // Show on the screen the user is actually looking at — the one under the
+        // pointer (where the panel was just used), then the key window's screen —
+        // not always `NSScreen.main`, which on a multi-display Mac is the screen
+        // with the menu bar and can be a different display entirely (the toast
+        // then flashes off where the user isn't looking, reading as "no toast").
+        let mouse = NSEvent.mouseLocation
+        let screen =
+            NSScreen.screens.first { $0.frame.contains(mouse) }
+            ?? NSApp.keyWindow?.screen
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
+        guard let screen else { return }
         let visible = screen.visibleFrame
         panel.setFrameOrigin(
             NSPoint(

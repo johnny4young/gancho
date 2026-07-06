@@ -16,6 +16,7 @@ struct IOSSettingsView: View {
     @State private var showExporter = false
     @State private var showImporter = false
     @State private var transferNote: String?
+    @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
 
     var body: some View {
         NavigationStack {
@@ -39,6 +40,14 @@ struct IOSSettingsView: View {
                         Label("Privacy Center", systemImage: "lock.shield")
                     }
                     .accessibilityIdentifier("open-privacy-center")
+                }
+                Section("Language") {
+                    Picker("Language", selection: $appLanguage) {
+                        ForEach(AppLanguage.allCases) { language in
+                            Text(verbatim: language.displayName).tag(language.rawValue)
+                        }
+                    }
+                    .accessibilityIdentifier("language-picker")
                 }
                 Section("Capture on iPhone") {
                     Text(

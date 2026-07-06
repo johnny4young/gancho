@@ -27,6 +27,12 @@ struct GanchoiOSApp: App {
         ProcessInfo.processInfo.arguments.contains("-open-privacy-center-on-launch")
     }
 
+    /// UI-test hook: land directly on the capture UI without mutating the user's
+    /// first-run flag. Capture-flow tests should not depend on simulator defaults.
+    private var skipWelcomeOnLaunch: Bool {
+        ProcessInfo.processInfo.arguments.contains("-skip-welcome-on-launch")
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -54,7 +60,7 @@ struct GanchoiOSApp: App {
             .ganchoTinted()
             .sheet(
                 isPresented: Binding(
-                    get: { !hasSeenWelcome && !routeToPrivacyCenter },
+                    get: { !hasSeenWelcome && !routeToPrivacyCenter && !skipWelcomeOnLaunch },
                     set: { showing in if !showing { hasSeenWelcome = true } })
             ) {
                 IOSOnboardingView { hasSeenWelcome = true }

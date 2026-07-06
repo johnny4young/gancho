@@ -47,7 +47,7 @@ public struct PaywallCopy: Sendable, Equatable, Codable {
         ],
         proPoints: [
             "Unlimited history, pins, and boards", "On-device AI titles and search",
-            "iCloud sync (coming soon)",
+            "Encrypted iCloud sync",
         ])
 }
 

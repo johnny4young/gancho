@@ -280,29 +280,46 @@ struct ClipPeek: View {
     /// highlighted only while the peek owns the keyboard (focus == .peek), so the
     /// list and the peek never look "both selected".
     private var actionsList: some View {
-        VStack(spacing: 2) {
-            ForEach(Array(navActions.enumerated()), id: \.element.id) { index, action in
-                let isFocused = focus.wrappedValue == .peek && index == actionIndex
-                HStack(spacing: GanchoTokens.Spacing.xs) {
-                    Image(systemName: action.symbol).frame(width: 16)
-                    Text(action.title).lineLimit(1)
-                    Spacer(minLength: 0)
+        // Bounded + scrollable: for code clips the per-kind Dev Actions make this
+        // list long enough to push the whole peek past the fixed panel height and
+        // clip the bottom (and crowd out the text preview). Cap it and let it
+        // scroll internally — the preview above always stays visible; the keyboard
+        // focus scrolls into view.
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(Array(navActions.enumerated()), id: \.element.id) { index, action in
+                        let isFocused = focus.wrappedValue == .peek && index == actionIndex
+                        HStack(spacing: GanchoTokens.Spacing.xs) {
+                            Image(systemName: action.symbol).frame(width: 16)
+                            Text(action.title).lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .font(.body)
+                        .padding(.horizontal, GanchoTokens.Spacing.sm)
+                        .padding(.vertical, 6)
+                        .background(
+                            isFocused
+                                ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.18))
+                                : AnyShapeStyle(.clear),
+                            in: RoundedRectangle(
+                                cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            actionIndex = index
+                            action.run()
+                        }
+                        .accessibilityIdentifier(action.id)
+                    }
                 }
-                .font(.body)
-                .padding(.horizontal, GanchoTokens.Spacing.sm)
-                .padding(.vertical, 6)
-                .background(
-                    isFocused
-                        ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.18))
-                        : AnyShapeStyle(.clear),
-                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-                )
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    actionIndex = index
-                    action.run()
+            }
+            .frame(maxHeight: 180)
+            .onChange(of: actionIndex) { _, new in
+                guard navActions.indices.contains(new) else { return }
+                withAnimation(.easeOut(duration: 0.1)) {
+                    proxy.scrollTo(navActions[new].id, anchor: .center)
                 }
-                .accessibilityIdentifier(action.id)
             }
         }
     }

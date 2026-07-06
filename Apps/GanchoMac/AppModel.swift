@@ -175,7 +175,18 @@ final class AppModel {
         // saved" warning path is drivable by a UI test (mirrors a real failure
         // to open the encrypted store).
         let forceEphemeral = ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store")
-        let grdb = forceEphemeral ? nil : (try? GRDBClipboardStore.encrypted(directory: directory))
+        // Test hook: a THROWAWAY durable store in a unique temp directory — a real
+        // `GRDBClipboardStore` (so `grdbStore` is non-nil and board creation / the
+        // free-tier paywall are reachable, unlike the ephemeral store) that never
+        // touches the user's data. Takes precedence over `-force-ephemeral-store`.
+        let grdb: GRDBClipboardStore?
+        if let tempDir = Self.temporaryDurableStoreDirectory() {
+            grdb = try? GRDBClipboardStore.encrypted(directory: tempDir)
+        } else if forceEphemeral {
+            grdb = nil
+        } else {
+            grdb = try? GRDBClipboardStore.encrypted(directory: directory)
+        }
         self.grdbStore = grdb
         self.grdbForEngines = grdb
         self.store = grdb ?? InMemoryClipboardStore()
@@ -206,7 +217,11 @@ final class AppModel {
             AppearancePreference(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .auto
         autoPauseOnScreenShare =
             defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
-        tier = UserTier.load(from: defaults)
+        // Test hook: pin the FREE tier so the paywall flow is deterministic even
+        // when `gancho-force-pro` is set in the environment (which would otherwise
+        // force Pro and make `PaywallGatekeeper` suppress every trigger).
+        let forceFreeTier = CommandLine.arguments.contains("-force-free-tier")
+        tier = forceFreeTier ? .free : UserTier.load(from: defaults)
 
         // Telemetry: no sender is built when opted out, so the SDK never
         // initializes and nothing leaves the device. Buckets only either way.
@@ -253,11 +268,15 @@ final class AppModel {
             self?.applyTier(tier)
         }
         Task {
-            let entitled = await purchases.currentTier()
-            if entitled != tier { applyTier(entitled) }
-            #if DEBUG
-                if DebugFlags.forcePro, tier != .pro { applyTier(.pro) }
-            #endif
+            if forceFreeTier {
+                applyTier(.free)  // deterministic free tier: skip StoreKit + forcePro
+            } else {
+                let entitled = await purchases.currentTier()
+                if entitled != tier { applyTier(entitled) }
+                #if DEBUG
+                    if DebugFlags.forcePro, tier != .pro { applyTier(.pro) }
+                #endif
+            }
             syncController.configure(tier: tier)
         }
         telemetry.record(.appLaunched)
@@ -269,6 +288,8 @@ final class AppModel {
                 String(localized: "Couldn’t open secure storage — running in memory."))
         }
         Task { await refreshRecents() }
+        seedSampleClipsIfRequested()
+        let uiTestBoardSeedTask = seedSampleBoardsIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
         // launch); run it at utility priority once the UI is wired up.
@@ -286,6 +307,7 @@ final class AppModel {
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
+                    await uiTestBoardSeedTask?.value
                     panel.show(model: self)
                     _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
                     try? await Task.sleep(for: .milliseconds(250))
@@ -294,6 +316,7 @@ final class AppModel {
                 }
             }
             Task { @MainActor in
+                await uiTestBoardSeedTask?.value
                 try? await Task.sleep(for: .seconds(1))
                 if !panel.isVisible { panel.show(model: self) }
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
@@ -352,10 +375,66 @@ final class AppModel {
                 type: item.kind.rawValue,
                 lengthBucket: .init(characterCount: length)))
         Task {
-            _ = try? await store.insert(item, content: content)
-            await syncController.engine.enqueue([item])
+            // Use the row `insert` returns: on a dedupe it is the EXISTING clip
+            // (moved to top), which may still be untitled from a capture that
+            // predates enrichment. Enriching the NEW item's id would target a row
+            // that was deduped away — so a re-copied clip never got its title.
+            // Enriching the stored row re-titles it when it has none, and
+            // `EnrichmentPlan`'s hasTitle guard skips it when it already does.
+            let stored = (try? await store.insert(item, content: content)) ?? item
+            await syncController.engine.enqueue([stored])
             await refreshRecents()
-            enrich(item, content: content)
+            enrich(stored, content: content)
+        }
+    }
+
+    /// UI-test hook: seed a few KNOWN synthetic clips through the normal capture
+    /// pipeline so the panel/history is deterministic for the automated flows.
+    /// Strictly gated on BOTH the launch arg and the ephemeral store, so a real
+    /// user's durable history is never touched and a normal launch (no arg) is a
+    /// byte-for-byte no-op. The seed content is synthetic and non-secret.
+    private func seedSampleClipsIfRequested() {
+        guard CommandLine.arguments.contains("-seed-sample-clips"), storageIsEphemeral
+        else { return }
+        for capture in [
+            PasteboardCapture(text: "seed alpha"),
+            PasteboardCapture(text: "https://seed.example/one"),
+            PasteboardCapture(text: "seed beta"),
+        ] {
+            ingest(capture)
+        }
+    }
+
+    /// The throwaway store directory for `-use-temp-durable-store`, or nil when
+    /// the arg is absent. Lives under the OS temp directory (system-cleaned), so
+    /// the UI-test paywall flow gets a REAL durable store — board creation works
+    /// and the free-tier gate is reachable — without touching the user's data.
+    private static func temporaryDurableStoreDirectory() -> URL? {
+        guard ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store")
+        else { return nil }
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gancho-uitest-store-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// UI-test hook: seed exactly `PinLimits.freeMaxPinboards` known boards into a
+    /// THROWAWAY durable store so an automated flow can create ONE more and hit
+    /// the free-tier paywall deterministically. Gated on BOTH `-seed-sample-boards`
+    /// and `-use-temp-durable-store` (never a real store), so a normal launch is a
+    /// no-op and the user's boards are never touched. Seeds sequentially so the
+    /// board count is exact when the test creates the next one.
+    private func seedSampleBoardsIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-sample-boards"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let grdbStore
+        else { return nil }
+        return Task {
+            for i in 1...PinLimits.freeMaxPinboards {
+                _ = try? await grdbStore.createPinboard(
+                    name: "Seed board \(i)", sfSymbol: "square.stack")
+            }
+            await refreshBoards()
         }
     }
 
@@ -388,6 +467,13 @@ final class AppModel {
                     if freeAITitlesRemaining == 0 { showAITasteEndedNudge() }
                 }
                 await refreshRecents()
+            }
+            // Enrichment runs per-device, but its FRUITS sync: the title/OCR
+            // writes flagged the row for upload; push it now (like a pin toggle)
+            // so the other device sees the smart title instead of the raw clip,
+            // rather than waiting for the next sync start().
+            if syncController.isEnabled {
+                await syncController.engine.enqueue([item])
             }
         }
     }
@@ -686,7 +772,8 @@ final class AppModel {
         toasts.show(
             GanchoToast(
                 message: "Deleted",
-                action: ToastAction(title: "Undo") { [weak self] in
+                action: ToastAction(title: "Undo", accessibilityIdentifier: "toast-undo") {
+                    [weak self] in
                     self?.undoDelete(item)
                 }))
     }

@@ -112,18 +112,47 @@ struct PanelView: View {
     /// the on-device model is currently answering.
     @State private var answer: AppModel.ClipboardAnswer?
     @State private var isAsking = false
+    @State private var askTask: Task<Void, Never>?
     /// The keyboard cheat-sheet overlay (⌘/ or the footer "?"): surfaces the
     /// power shortcuts (⌘P/⌘S/⌥⏎/⌘1-9) that the footer hints can't fit.
     @State private var showShortcuts = false
 
-    /// The rows actually shown: `results` narrowed by the active filter pill.
+    /// The rows actually shown: `results` narrowed by the active filter pill,
+    /// then DE-DUPED by id. Pagination overlap (or a capture landing mid-scroll)
+    /// can put the same clip in `results` twice; duplicate `ForEach`/`.id` keys
+    /// make SwiftUI's selection highlight land on several rows or none, so the
+    /// list must never carry a repeated id.
     private var filtered: [ClipItem] {
-        kindFilter == .all ? results : results.filter { kindFilter.matches($0.kind) }
+        let base = kindFilter == .all ? results : results.filter { kindFilter.matches($0.kind) }
+        var seen = Set<UUID>()
+        // Drop de-dupes AND hides clips whose delete is in the undo window, so a
+        // deleted row disappears immediately (Undo brings it back) instead of
+        // lingering and reading as "not deleted".
+        return base.filter {
+            seen.insert($0.id).inserted && !model.deletionCoordinator.isPending($0.id)
+        }
     }
 
     /// A type or board filter is narrowing the list — drives the no-results
     /// "Clear filters" affordance.
     private var hasActiveFilter: Bool { kindFilter != .all || selectedBoardID != nil }
+
+    /// Zero-size buttons that claim ⌘V / ⌥⌘V as keyboard shortcuts. The search
+    /// field is the first responder for type-to-search, so a plain key handler
+    /// never sees ⌘V — the field editor consumes it as native "paste" and dumps
+    /// the clipboard into the query. A keyboardShortcut is resolved as a command
+    /// (ahead of the field editor), so ⌘V pastes the SELECTED clip like Enter.
+    private var pasteShortcutButtons: some View {
+        Group {
+            Button("") { if let item = selectedItem { model.paste(item) } }
+                .keyboardShortcut("v", modifiers: .command)
+            Button("") { if let item = selectedItem { model.paste(item, asPlainText: true) } }
+                .keyboardShortcut("v", modifiers: [.command, .option])
+        }
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .accessibilityHidden(true)
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
@@ -141,12 +170,16 @@ struct PanelView: View {
         .padding(GanchoTokens.Spacing.sm)
         .frame(minWidth: selectedItem == nil ? 472 : 864, minHeight: 520)
         .overlay { shortcutsOverlay }
+        .background { pasteShortcutButtons }
         .animation(.snappy(duration: 0.12), value: showShortcuts)
         .task { await refresh() }
         .task { await model.refreshBoards() }
         .onChange(of: query) { _, _ in
             // A new query invalidates a previous answer and drops rail focus
             // (you're typing in the search field again).
+            askTask?.cancel()
+            askTask = nil
+            isAsking = false
             answer = nil
             railFocus = nil
             Task { await refresh() }
@@ -590,12 +623,15 @@ struct PanelView: View {
 
     private func runAsk() {
         let question = query
+        askTask?.cancel()
         answer = nil
         isAsking = true
-        Task {
+        askTask = Task { @MainActor in
             let result = await model.askClipboard(question)
+            guard !Task.isCancelled, query == question else { return }
             isAsking = false
             answer = result
+            askTask = nil
         }
     }
 
@@ -666,9 +702,13 @@ struct PanelView: View {
             // Pull the next page when this row is near the end (infinite scroll).
             .onAppear { Task { await loadMoreIfNeeded(index) } }
             // Single click SELECTS, double-click PASTES; hover no longer moves
-            // the selection (arrows + click only).
+            // the selection (arrows + click only). The select tap is a
+            // `simultaneousGesture` so it fires on the FIRST click without waiting
+            // to see whether a double-click follows — a plain `.onTapGesture`
+            // beside `count: 2` makes SwiftUI delay every single click to
+            // disambiguate, which is what made selection feel laggy.
             .onTapGesture(count: 2) { model.paste(item) }
-            .onTapGesture { select(index) }
+            .simultaneousGesture(TapGesture().onEnded { select(index) })
             .contextMenu { contextMenu(for: item) }
     }
 

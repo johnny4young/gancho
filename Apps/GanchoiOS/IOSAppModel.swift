@@ -31,6 +31,7 @@ final class IOSAppModel {
     var lastCapturedChangeCount: Int?
     /// Transient feedback ("Saved" / "Already in your history").
     var saveNote: String?
+    @ObservationIgnored private var saveNoteTask: Task<Void, Never>?
     var query = ""
     var kindFilter: ClipContentKind?
     /// nil = "All clips"; otherwise the selected board (a higher axis than the
@@ -112,6 +113,27 @@ final class IOSAppModel {
         // opens. The log isn't @Observable-tracked, so a later record wouldn't
         // refresh an open screen.
         recordStorageHealthIfNeeded()
+        seedSampleClipsIfRequested()
+    }
+
+    /// UI-test hook: seed a few KNOWN synthetic clips through the normal capture
+    /// pipeline so the history list is deterministic for the automated flows.
+    /// Strictly gated on BOTH the launch arg and the ephemeral store, so a real
+    /// user's durable history is never touched and a normal launch (no arg) is a
+    /// byte-for-byte no-op. The seed content is synthetic and non-secret.
+    private func seedSampleClipsIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-seed-sample-clips"),
+            storageIsEphemeral
+        else { return }
+        Task {
+            for capture in [
+                PasteboardCapture(text: "seed alpha"),
+                PasteboardCapture(text: "https://seed.example/one"),
+                PasteboardCapture(text: "seed beta"),
+            ] {
+                await ingest(capture)
+            }
+        }
     }
 
     /// Restores a prior Pro purchase (Universal Purchase on this Apple ID) and
@@ -613,13 +635,16 @@ final class IOSAppModel {
     }
 
     private func flashNote(_ text: String) {
+        saveNoteTask?.cancel()
         saveNote = text
         // The note is a transient overlay VoiceOver won't focus on its own; speak
         // it so a blind user gets the same confirmation a sighted one sees.
         UIAccessibility.post(notification: .announcement, argument: text)
-        Task {
+        saveNoteTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
             saveNote = nil
+            saveNoteTask = nil
         }
     }
 
@@ -686,9 +711,13 @@ final class IOSAppModel {
         // Surface the just-captured clip as "ready to paste" (masked if
         // sensitive) on the Dynamic Island / lock screen.
         if let stored { clipActivity.show(stored, sync: ClipSyncBadge(syncStatus)) }
-        // Enrich only a genuinely new clip — a re-copy already carries its
-        // title/OCR/embedding from the first capture.
-        if isNew { enrich(item, content: content) }
+        // Enrich a genuinely new clip — OR a re-copy that predates enrichment and
+        // is still untitled (its first capture never got a title). Enrich the
+        // STORED row so a dedupe re-titles the real clip, not the deduped-away id;
+        // the plan's hasTitle guard skips a re-copy that already carries its title.
+        if let stored, isNew || stored.title.isEmpty {
+            enrich(stored, content: content)
+        }
     }
 
     /// On-device enrichment of a clip captured ON this iPhone — Apple
@@ -708,6 +737,11 @@ final class IOSAppModel {
                 store: full
             ) {
                 await self.search()  // surface the new title without a manual refresh
+            }
+            // The title/OCR writes flagged the row for upload; push it now so the
+            // fruit reaches the other devices, not only at the next sync start().
+            if syncController.isEnabled {
+                await syncController.engine.enqueue([item])
             }
         }
     }

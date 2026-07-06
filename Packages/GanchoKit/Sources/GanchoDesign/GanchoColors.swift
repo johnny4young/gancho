@@ -163,6 +163,7 @@ extension View {
     /// "Multicolor". Applied at every SwiftUI root (windows, panel, settings).
     public func ganchoTinted() -> some View {
         tint(GanchoTokens.Palette.accent)
+            .modifier(AppLocaleModifier())
     }
 }
 
