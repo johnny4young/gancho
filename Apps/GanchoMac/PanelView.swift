@@ -112,6 +112,7 @@ struct PanelView: View {
     /// the on-device model is currently answering.
     @State private var answer: AppModel.ClipboardAnswer?
     @State private var isAsking = false
+    @State private var askTask: Task<Void, Never>?
     /// The keyboard cheat-sheet overlay (⌘/ or the footer "?"): surfaces the
     /// power shortcuts (⌘P/⌘S/⌥⏎/⌘1-9) that the footer hints can't fit.
     @State private var showShortcuts = false
@@ -176,6 +177,9 @@ struct PanelView: View {
         .onChange(of: query) { _, _ in
             // A new query invalidates a previous answer and drops rail focus
             // (you're typing in the search field again).
+            askTask?.cancel()
+            askTask = nil
+            isAsking = false
             answer = nil
             railFocus = nil
             Task { await refresh() }
@@ -619,12 +623,15 @@ struct PanelView: View {
 
     private func runAsk() {
         let question = query
+        askTask?.cancel()
         answer = nil
         isAsking = true
-        Task {
+        askTask = Task { @MainActor in
             let result = await model.askClipboard(question)
+            guard !Task.isCancelled, query == question else { return }
             isAsking = false
             answer = result
+            askTask = nil
         }
     }
 

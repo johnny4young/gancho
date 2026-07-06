@@ -141,6 +141,7 @@ final class RefactorFlowUITests: XCTestCase {
             "-force-free-tier", "-first-pasteback-at", "1",
         ]
         app.launch()
+        defer { app.terminate() }
         _ = app.wait(for: .runningForeground, timeout: 5)
 
         XCTAssertTrue(

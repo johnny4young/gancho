@@ -14,8 +14,11 @@ final class CaptureFlowUITests: XCTestCase {
     @MainActor
     func testSeededCaptureAppearsInHistory() {
         let app = XCUIApplication()
-        app.launchArguments = ["-force-ephemeral-store", "-seed-sample-clips"]
+        app.launchArguments = [
+            "-skip-welcome-on-launch", "-force-ephemeral-store", "-seed-sample-clips",
+        ]
         app.launch()
+        defer { app.terminate() }
 
         let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
         guard capture.waitForExistence(timeout: 10) else {
@@ -39,8 +42,9 @@ final class CaptureFlowUITests: XCTestCase {
     func testPasteControlTapSavesPasteboardContent() {
         UIPasteboard.general.string = "gancho paste-drive sample"
         let app = XCUIApplication()
-        app.launchArguments = ["-force-ephemeral-store"]
+        app.launchArguments = ["-skip-welcome-on-launch", "-force-ephemeral-store"]
         app.launch()
+        defer { app.terminate() }
 
         let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
         guard capture.waitForExistence(timeout: 10) else {

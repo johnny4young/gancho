@@ -43,6 +43,7 @@ struct CaptureView: View {
     @State private var path: [UUID] = []
     @State private var answer: IOSAppModel.ClipboardAnswer?
     @State private var isAsking = false
+    @State private var askTask: Task<Void, Never>?
 
     var body: some View {
         @Bindable var model = model
@@ -77,6 +78,9 @@ struct CaptureView: View {
                 }
                 .searchable(text: $model.query, prompt: Text("Search your clipboard"))
                 .onChange(of: model.query) { _, _ in
+                    askTask?.cancel()
+                    askTask = nil
+                    isAsking = false
                     answer = nil
                     Task { await model.search() }
                 }
@@ -254,12 +258,15 @@ struct CaptureView: View {
 
     private func runAsk() {
         let question = model.query
+        askTask?.cancel()
         answer = nil
         isAsking = true
-        Task {
+        askTask = Task { @MainActor in
             let result = await model.askClipboard(question)
+            guard !Task.isCancelled, model.query == question else { return }
             isAsking = false
             answer = result
+            askTask = nil
         }
     }
 
@@ -734,8 +741,13 @@ struct PasteControlView: UIViewRepresentable {
         // Set the identifier on the system UIView itself: SwiftUI's
         // `.accessibilityIdentifier` modifier does not propagate onto a
         // `UIViewRepresentable`'s underlying view, so XCUITest could not find the
-        // control by id. Setting it here makes `paste-control` queryable.
+        // control by id. Make the wrapper element explicit too: on simulator
+        // runners `UIPasteControl` can keep its internal label accessible while
+        // leaving the outer control unqueryable by identifier.
+        control.isAccessibilityElement = true
         control.accessibilityIdentifier = "paste-control"
+        control.accessibilityLabel = String(localized: "Save clipboard")
+        control.accessibilityTraits.insert(.button)
         return control
     }
 

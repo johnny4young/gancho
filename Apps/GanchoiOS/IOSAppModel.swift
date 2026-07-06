@@ -31,6 +31,7 @@ final class IOSAppModel {
     var lastCapturedChangeCount: Int?
     /// Transient feedback ("Saved" / "Already in your history").
     var saveNote: String?
+    @ObservationIgnored private var saveNoteTask: Task<Void, Never>?
     var query = ""
     var kindFilter: ClipContentKind?
     /// nil = "All clips"; otherwise the selected board (a higher axis than the
@@ -634,13 +635,16 @@ final class IOSAppModel {
     }
 
     private func flashNote(_ text: String) {
+        saveNoteTask?.cancel()
         saveNote = text
         // The note is a transient overlay VoiceOver won't focus on its own; speak
         // it so a blind user gets the same confirmation a sighted one sees.
         UIAccessibility.post(notification: .announcement, argument: text)
-        Task {
+        saveNoteTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
             saveNote = nil
+            saveNoteTask = nil
         }
     }
 

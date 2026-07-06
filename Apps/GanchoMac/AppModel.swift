@@ -289,7 +289,7 @@ final class AppModel {
         }
         Task { await refreshRecents() }
         seedSampleClipsIfRequested()
-        seedSampleBoardsIfRequested()
+        let uiTestBoardSeedTask = seedSampleBoardsIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
         // launch); run it at utility priority once the UI is wired up.
@@ -307,6 +307,7 @@ final class AppModel {
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
+                    await uiTestBoardSeedTask?.value
                     panel.show(model: self)
                     _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
                     try? await Task.sleep(for: .milliseconds(250))
@@ -315,6 +316,7 @@ final class AppModel {
                 }
             }
             Task { @MainActor in
+                await uiTestBoardSeedTask?.value
                 try? await Task.sleep(for: .seconds(1))
                 if !panel.isVisible { panel.show(model: self) }
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
@@ -422,12 +424,12 @@ final class AppModel {
     /// and `-use-temp-durable-store` (never a real store), so a normal launch is a
     /// no-op and the user's boards are never touched. Seeds sequentially so the
     /// board count is exact when the test creates the next one.
-    private func seedSampleBoardsIfRequested() {
+    private func seedSampleBoardsIfRequested() -> Task<Void, Never>? {
         guard CommandLine.arguments.contains("-seed-sample-boards"),
             CommandLine.arguments.contains("-use-temp-durable-store"),
             let grdbStore
-        else { return }
-        Task {
+        else { return nil }
+        return Task {
             for i in 1...PinLimits.freeMaxPinboards {
                 _ = try? await grdbStore.createPinboard(
                     name: "Seed board \(i)", sfSymbol: "square.stack")
