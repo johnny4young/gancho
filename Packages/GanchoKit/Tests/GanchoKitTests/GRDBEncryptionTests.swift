@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import GanchoKit
+@_spi(GanchoInternal) @testable import GanchoKit
 
 // The whole suite only makes sense when the build links SQLCipher; on a
 // plaintext build the encrypted path compiles out and there is nothing to assert.

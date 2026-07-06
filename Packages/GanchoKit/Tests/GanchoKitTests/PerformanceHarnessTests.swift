@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 import Testing
 
-@testable import GanchoKit
+@_spi(GanchoInternal) @testable import GanchoKit
 
 /// Deterministic synthetic clip fixtures with a realistic shape. NEVER real
 /// clipboard content — distribution and sizes are what matter for perf.

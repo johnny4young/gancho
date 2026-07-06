@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 import Testing
 
-@testable import GanchoKit
+@_spi(GanchoInternal) @testable import GanchoKit
 
 @Suite("Boards & pins")
 struct PinboardTests {

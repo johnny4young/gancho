@@ -72,6 +72,12 @@ it probably lives in the wrong layer.
 | watchOS | Viewer, pins, complications/widgets, handoff to iPhone | Capture or pasteboard writes that watchOS APIs do not support |
 | Android / Windows / Linux | Analysis only for now: capability matrix, data envelope, and stack options | Implementation commitments, capture adapters, or backend work before an explicit post-PMF decision |
 
+## Frozen client contract
+
+The store is not one wide class to everyone. `Packages/GanchoKit/Sources/GanchoKit/ClientContract.swift` splits it into nine capability **facets** — `ClipReading`, `ClipSearching`, `ClipMutating`, `ClipEnriching`, `BoardStoring`, `SnippetStoring`, `StoreStatsProviding`, `ExportProviding`, `StoreMaintaining` — plus two compositions: `GanchoClientStore` (the read/search/board/export surface a third-party or cross-target client may depend on) and `FullClipStore` (everything the first-party apps hold). Feature code takes the narrowest facet it needs; only the composition root sees the concrete `GRDBClipboardStore`.
+
+That surface is **frozen**: it is the supported API, so changes to it are deliberate, documented, and reviewed. GRDB-shaped members that are not facet witnesses (`migrate()`, `thumbnailURL(for:)`) live behind `@_spi(GanchoInternal)` so they stay off the ambient app-facing and external surface; the few internal call sites (tests, the perf harness) opt in with `@_spi(GanchoInternal) import GanchoKit`. `ContractFreezeTests` enforces this in CI: every frozen facet stays declared, every requirement stays documented, and the SPI-gated members stay gated.
+
 ## Privacy invariants
 
 1. **Veto before read.** `ConcealedType`, `TransientType`, and
