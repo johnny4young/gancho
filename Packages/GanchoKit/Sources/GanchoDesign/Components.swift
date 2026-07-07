@@ -93,6 +93,15 @@ public struct ClipCard: View {
         self.thumbnail = thumbnail
     }
 
+    /// Whether a clip is close enough to expiry to earn the row countdown:
+    /// within the next hour and not already past. Pure so the threshold is
+    /// unit-tested (the view just reads it).
+    public static func showsExpiryCountdown(expiresAt: Date?, now: Date = .now) -> Bool {
+        guard let expiresAt else { return false }
+        let remaining = expiresAt.timeIntervalSince(now)
+        return remaining > 0 && remaining < 3600
+    }
+
     public var body: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             leadingTile
@@ -110,6 +119,18 @@ public struct ClipCard: View {
                 sourceTimeLine
             }
             Spacer(minLength: 0)
+            if let expiresAt = item.expiresAt, Self.showsExpiryCountdown(expiresAt: expiresAt) {
+                // A live "expires in mm:ss" on rows about to age out — sensitive
+                // clips especially get a short lifetime, and the peek only warns
+                // once you open it. Orange, compact, self-updating.
+                HStack(spacing: 2) {
+                    Image(systemName: "timer")
+                    Text(expiresAt, style: .timer)
+                }
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.orange)
+                .accessibilityLabel(Text("Expires soon"))
+            }
             if item.tags.contains("universal-clipboard") {
                 Image(systemName: "icloud.and.arrow.down")
                     .font(.caption2)
