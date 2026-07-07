@@ -22,15 +22,35 @@
         }
 
         /// Reads by descending fidelity: file references > image > RTF >
-        /// HTML > plain text. Rich-text payloads carry the plain companion
-        /// so classification and search never parse the rich format.
+        /// HTML > plain text. A rich payload carries the pasteboard's plain
+        /// string as its companion — passed through as-is, and `nil` when the
+        /// pasteboard offered none — so downstream classification and search
+        /// read that (falling back to empty text), never the RTF/HTML source.
         public func readPayload() -> PasteboardCapture.Payload? {
             let pasteboard = NSPasteboard.general
-
             let fileURLs = (pasteboard.pasteboardItems ?? []).compactMap { item -> URL? in
                 guard let raw = item.string(forType: .fileURL) else { return nil }
                 return URL(string: raw)
             }
+            return Self.selectPayload(
+                fileURLs: fileURLs,
+                png: pasteboard.data(forType: .png),
+                tiff: pasteboard.data(forType: .tiff),
+                rtf: pasteboard.data(forType: .rtf),
+                html: pasteboard.string(forType: .html),
+                plain: pasteboard.string(forType: .string))
+        }
+
+        /// The fidelity-negotiation decision, pure so the ordering is unit-tested
+        /// without touching `NSPasteboard.general`. `readPayload()` gathers the
+        /// raw representations and defers the choice here. The order is the
+        /// pinned contract (a reorder must fail a test); the plain companion on a
+        /// rich payload is the pasteboard's plain string passed through as-is —
+        /// it may be `nil`/empty, and downstream tolerates that (`plainText ?? ""`)
+        /// rather than ever parsing the RTF/HTML source.
+        static func selectPayload(
+            fileURLs: [URL], png: Data?, tiff: Data?, rtf: Data?, html: String?, plain: String?
+        ) -> PasteboardCapture.Payload? {
             if !fileURLs.isEmpty {
                 // A single image file under the ceiling is inlined as bytes so
                 // it syncs and pastes as the real image cross-device; a path
@@ -41,19 +61,16 @@
                 }
                 return .fileReferences(fileURLs)
             }
-
-            if let png = pasteboard.data(forType: .png) {
+            if let png {
                 return .image(data: png, typeIdentifier: "public.png")
             }
-            if let tiff = pasteboard.data(forType: .tiff) {
+            if let tiff {
                 return .image(data: tiff, typeIdentifier: "public.tiff")
             }
-
-            let plain = pasteboard.string(forType: .string)
-            if let rtf = pasteboard.data(forType: .rtf) {
+            if let rtf {
                 return .richText(rtf: rtf, plainText: plain)
             }
-            if let html = pasteboard.string(forType: .html) {
+            if let html {
                 return .html(source: html, plainText: plain)
             }
             if let plain, !plain.isEmpty {

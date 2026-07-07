@@ -333,6 +333,57 @@ struct GRDBClipboardStoreTests {
         #expect(junctionIndexes.contains("idx_clip_board_board"))
     }
 
+    @Test("v17 lands its indexes, columns, and local-only tables")
+    func v17SchemaLanded() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try await store.writer.read { db in
+            let clipIndexes = try String.fetchAll(
+                db, sql: "SELECT name FROM pragma_index_list('clip')")
+            #expect(clipIndexes.contains("idx_clip_keyword"))
+            #expect(clipIndexes.contains("idx_clip_dedupe"))
+            #expect(clipIndexes.contains("idx_clip_frecency"))
+
+            let boardColumns = try String.fetchAll(
+                db, sql: "SELECT name FROM pragma_table_info('pinboard')")
+            #expect(boardColumns.contains("colorHex"))
+            #expect(boardColumns.contains("emoji"))
+
+            let embeddingColumns = try String.fetchAll(
+                db, sql: "SELECT name FROM pragma_table_info('clip_embedding')")
+            #expect(embeddingColumns.contains("modelVersion"))
+
+            let tables = try String.fetchAll(
+                db, sql: "SELECT name FROM sqlite_master WHERE type = 'table'")
+            #expect(tables.contains("search_history"))
+            #expect(tables.contains("clip_app_stats"))
+        }
+    }
+
+    @Test("A board's color and emoji round-trip through the store")
+    func boardIdentityPersists() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // UX-07 ships the setter; here we prove the column mapping persists what
+        // the migration added, independent of that UI.
+        let board = Pinboard(
+            name: "Design", sfSymbol: "paintbrush", colorHex: "#34C759", emoji: "🎨")
+        try await store.writer.write { db in try PinboardRow(board: board).insert(db) }
+
+        let fetched = try #require(try await store.pinboards().first { $0.id == board.id })
+        #expect(fetched.colorHex == "#34C759")
+        #expect(fetched.emoji == "🎨")
+
+        // A board without identity stays nil (old boards decode cleanly).
+        let plain = Pinboard(name: "Plain")
+        try await store.writer.write { db in try PinboardRow(board: plain).insert(db) }
+        let fetchedPlain = try #require(try await store.pinboards().first { $0.id == plain.id })
+        #expect(fetchedPlain.colorHex == nil)
+        #expect(fetchedPlain.emoji == nil)
+    }
+
     @Test("Migrations are idempotent across re-opens")
     func migrationIdempotent() async throws {
         let dir = FileManager.default.temporaryDirectory

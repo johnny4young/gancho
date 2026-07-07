@@ -200,10 +200,17 @@ struct PanelView: View {
                     return handleNav(.toggle)
                 }
                 .onKeyPress(.return, phases: .down) { press in
-                    // In a rail, Enter toggles the focused chip. Otherwise an exact
+                    // In a rail, Enter toggles the focused chip. ⌥⌘Return enqueues
+                    // the selection onto the paste stack (UX-01). Otherwise an exact
                     // keyword match takes Enter (you typed the snippet shortcut on
-                    // purpose); else Enter pastes the selection.
+                    // purpose); else Enter pastes the selection (⌥Return = plain).
                     if railFocus != nil { return handleNav(.toggle) }
+                    if press.modifiers.contains(.command), press.modifiers.contains(.option),
+                        let item = search.selectedItem
+                    {
+                        model.pushToStack(item)
+                        return .handled
+                    }
                     if let match = search.snippetMatch {
                         invokeSnippet(match)
                     } else {
@@ -649,6 +656,7 @@ struct PanelView: View {
     private var panelFooter: some View {
         HStack(spacing: GanchoTokens.Spacing.md) {
             SyncStatusView(status: model.syncStatus)
+            PasteStackStrip()
             Spacer(minLength: 0)
             hint("navigate", keys: ["arrow.up", "arrow.down"])
             hint("actions", keys: ["arrow.right"])

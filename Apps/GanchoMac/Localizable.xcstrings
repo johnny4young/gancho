@@ -3234,6 +3234,76 @@
         }
       }
     },
+    "Paste stack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pila de pegado"
+          }
+        }
+      }
+    },
+    "Paste stack finished": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pila de pegado completada"
+          }
+        }
+      }
+    },
+    "Paste next": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar siguiente"
+          }
+        }
+      }
+    },
+    "Clear": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaciar"
+          }
+        }
+      }
+    },
+    "Pastes front to back — one per keypress.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega del primero al último, uno por tecla."
+          }
+        }
+      }
+    },
+    "Paste stack — click to reorder or paste in order": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pila de pegado: haz clic para reordenar o pegar en orden"
+          }
+        }
+      }
+    },
+    "Remove from stack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar de la pila"
+          }
+        }
+      }
+    },
     "Copied": {
       "localizations": {
         "es": {
@@ -4356,12 +4426,12 @@
         }
       }
     },
-    "30-day history, 2,000 items": {
+    "1-year history, 10,000 items": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Historial de 30 días, 2.000 ítems"
+            "value": "Historial de 1 año, 10.000 ítems"
           }
         }
       }
