@@ -18,11 +18,13 @@ public enum UserTier: String, Sendable, Equatable, Codable {
     }
 }
 
-/// Free-plan ceilings. Deliberately generous (the distribution engine):
-/// everything works — history depth and pin counts are the gates.
+/// Free-plan ceilings. Deliberately generous (the distribution engine): the
+/// local basics must beat the free open-source alternatives outright, so the
+/// gates are the differentiators (sync, full AI, boards/snippets) — never
+/// history depth a free user would actually hit.
 public enum FreeTierLimits {
-    public static let historyDays: TimeInterval = 30 * 86_400
-    public static let historyItems = 2_000
+    public static let historyDays: TimeInterval = 365 * 86_400
+    public static let historyItems = 10_000
     /// Pin/board ceilings live in `PinLimits`; snippet ceilings arrive with
     /// the library table.
 
