@@ -69,6 +69,36 @@ struct ClipRecordMapperTests {
         #expect(record.recordType == BoardRecordMapper.recordType)
     }
 
+    @Test("Board color rides plain fields, emoji rides encryptedValues (v17)")
+    func boardIdentityRoundTrips() throws {
+        let boardsZone = CKRecordZone.ID(
+            zoneName: BoardRecordMapper.zoneName, ownerName: CKCurrentUserDefaultName)
+        let board = Pinboard(name: "Design", colorHex: "#34C759", emoji: "🎨")
+        let record = try #require(
+            BoardRecordMapper.record(for: board, systemFields: nil, zoneID: boardsZone))
+        // colorHex is a fixed-palette token — plain; emoji is a user choice —
+        // encrypted alongside the name.
+        #expect(record["colorHex"] as? String == "#34C759")
+        #expect(record["emoji"] == nil)
+        #expect(record.encryptedValues["emoji"] as? String == "🎨")
+
+        let decoded = try #require(BoardRecordMapper.decode(record))
+        #expect(decoded.colorHex == "#34C759")
+        #expect(decoded.emoji == "🎨")
+    }
+
+    @Test("A pre-v17 board record (no color/emoji) decodes cleanly")
+    func boardWithoutIdentityDecodes() throws {
+        let boardsZone = CKRecordZone.ID(
+            zoneName: BoardRecordMapper.zoneName, ownerName: CKCurrentUserDefaultName)
+        let board = Pinboard(name: "Legacy")
+        let record = try #require(
+            BoardRecordMapper.record(for: board, systemFields: nil, zoneID: boardsZone))
+        let decoded = try #require(BoardRecordMapper.decode(record))
+        #expect(decoded.colorHex == nil)
+        #expect(decoded.emoji == nil)
+    }
+
     @Test("Content and preview live in encryptedValues, never plain fields")
     func contentIsEncrypted() throws {
         let item = ClipItem(preview: "secret preview", contentHash: "h")
