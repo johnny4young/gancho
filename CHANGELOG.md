@@ -7,6 +7,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The paste stack is now visible (macOS).** Queue several clips and paste them
+  in order — the queue shows as a compact strip in the panel footer with the
+  next items at a glance. Click it to reorder (drag), remove an item, or clear
+  it; press **⌥⌘Return** on a selected clip to add it to the stack, and your
+  paste-stack shortcut pastes the front item each time. The queue is
+  session-local and never leaves your Mac.
+
 ### Changed
 
 - **A far more generous free tier.** The free history window grows from

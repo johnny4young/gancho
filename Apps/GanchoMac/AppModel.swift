@@ -757,22 +757,37 @@ final class AppModel {
 
     /// FIFO queue: load several clips, then paste them in order — each
     /// stack-paste pops the front. Survives only the session (by design:
-    /// a stack is a working set, not history).
-    private(set) var pasteStack: [ClipItem] = []
+    /// a stack is a working set, not history). Ordering logic lives in the
+    /// `PasteStack` value (unit-tested); this owns the paste-back side effect.
+    private var stack = PasteStack()
+
+    /// Queue entries (each with a stable id independent of the clip), so the UI
+    /// can render and address duplicates without ClipItem.id collisions.
+    var pasteStackEntries: [PasteStack.Entry] { stack.entries }
 
     func pushToStack(_ item: ClipItem) {
-        pasteStack.append(item)
+        stack.push(item)
         toasts.show(GanchoToast(message: "Added to paste stack"))
     }
 
     func clearStack() {
-        pasteStack.removeAll()
+        stack.clear()
+    }
+
+    func removeFromStack(entryID: Int) {
+        stack.remove(entryID: entryID)
+    }
+
+    func moveInStack(fromOffsets source: IndexSet, toOffset destination: Int) {
+        stack.move(fromOffsets: source, toOffset: destination)
     }
 
     func pasteNextFromStack() {
-        guard !pasteStack.isEmpty else { return }
-        let item = pasteStack.removeFirst()
+        guard let item = stack.popFirst() else { return }
         paste(item)
+        if stack.isEmpty {
+            toasts.show(GanchoToast(message: "Paste stack finished"))
+        }
     }
 
     /// Sync-aware delete: when iCloud sync is active, leave a tombstone and
