@@ -1,5 +1,4 @@
 import Foundation
-import GanchoKit
 import Testing
 
 @testable import GanchoDesign
