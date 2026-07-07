@@ -1,33 +1,38 @@
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import KeyboardShortcuts
 import SwiftUI
 
-/// The paste queue made visible. `AppModel.pasteStack` already worked, but it
+/// The paste queue made visible. `AppModel`'s paste stack already worked, but it
 /// only lived behind a context menu — a hidden power feature. This footer strip
 /// surfaces it: a compact row when the queue is non-empty, a popover to
 /// reorder / remove / paste. The queue is session-local and never syncs.
+///
+/// Iterates over queue *entries* (each with a stable id independent of the
+/// clip), so the same clip enqueued twice never collides as a SwiftUI list
+/// identity and "remove this one" removes exactly one.
 struct PasteStackStrip: View {
     @Environment(AppModel.self) private var model
     @State private var showQueue = false
 
     var body: some View {
-        if !model.pasteStack.isEmpty {
+        if !model.pasteStackEntries.isEmpty {
             Button {
                 showQueue.toggle()
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "square.stack.3d.up.fill")
-                    Text("\(model.pasteStack.count)")
+                    Text("\(model.pasteStackEntries.count)")
                         .font(.caption2.weight(.semibold))
                         .monospacedDigit()
-                    ForEach(model.pasteStack.prefix(3)) { item in
-                        Image(systemName: item.kind.symbolName)
+                    ForEach(model.pasteStackEntries.prefix(3)) { entry in
+                        Image(systemName: entry.clip.kind.symbolName)
                             .font(.system(size: 9))
                             .foregroundStyle(.secondary)
                     }
-                    if model.pasteStack.count > 3 {
-                        Text("+\(model.pasteStack.count - 3)")
+                    if model.pasteStackEntries.count > 3 {
+                        Text("+\(model.pasteStackEntries.count - 3)")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -40,7 +45,7 @@ struct PasteStackStrip: View {
             .buttonStyle(.plain)
             .help("Paste stack — click to reorder or paste in order")
             .accessibilityIdentifier("paste-stack-strip")
-            .accessibilityLabel("Paste stack, \(model.pasteStack.count) items")
+            .accessibilityLabel("Paste stack, \(model.pasteStackEntries.count) items")
             .popover(isPresented: $showQueue, arrowEdge: .top) {
                 queuePopover
             }
@@ -63,20 +68,21 @@ struct PasteStackStrip: View {
                 .foregroundStyle(.secondary)
 
             List {
-                ForEach(Array(model.pasteStack.enumerated()), id: \.element.id) { index, item in
+                ForEach(Array(model.pasteStackEntries.enumerated()), id: \.element.id) {
+                    index, entry in
                     HStack(spacing: 8) {
                         Text("\(index + 1)")
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(.secondary)
                             .frame(width: 16, alignment: .trailing)
-                        Image(systemName: item.kind.symbolName)
+                        Image(systemName: entry.clip.kind.symbolName)
                             .foregroundStyle(.secondary)
-                        Text(displayText(item))
+                        Text(displayText(entry.clip))
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Spacer(minLength: 0)
                         Button {
-                            model.removeFromStack(id: item.id)
+                            model.removeFromStack(entryID: entry.id)
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(.tertiary)
@@ -95,9 +101,9 @@ struct PasteStackStrip: View {
             HStack {
                 Button("Paste next") {
                     model.pasteNextFromStack()
-                    if model.pasteStack.isEmpty { showQueue = false }
+                    if model.pasteStackEntries.isEmpty { showQueue = false }
                 }
-                .disabled(model.pasteStack.isEmpty)
+                .disabled(model.pasteStackEntries.isEmpty)
                 Spacer()
                 Button("Clear") {
                     model.clearStack()

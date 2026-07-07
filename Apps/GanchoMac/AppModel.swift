@@ -761,7 +761,9 @@ final class AppModel {
     /// `PasteStack` value (unit-tested); this owns the paste-back side effect.
     private var stack = PasteStack()
 
-    var pasteStack: [ClipItem] { stack.items }
+    /// Queue entries (each with a stable id independent of the clip), so the UI
+    /// can render and address duplicates without ClipItem.id collisions.
+    var pasteStackEntries: [PasteStack.Entry] { stack.entries }
 
     func pushToStack(_ item: ClipItem) {
         stack.push(item)
@@ -772,8 +774,8 @@ final class AppModel {
         stack.clear()
     }
 
-    func removeFromStack(id: UUID) {
-        stack.remove(id: id)
+    func removeFromStack(entryID: Int) {
+        stack.remove(entryID: entryID)
     }
 
     func moveInStack(fromOffsets source: IndexSet, toOffset destination: Int) {
