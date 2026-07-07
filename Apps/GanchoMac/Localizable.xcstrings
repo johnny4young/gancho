@@ -3234,6 +3234,66 @@
         }
       }
     },
+    "Paste stack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pila de pegado"
+          }
+        }
+      }
+    },
+    "Paste stack finished": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pila de pegado completada"
+          }
+        }
+      }
+    },
+    "Paste next": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar siguiente"
+          }
+        }
+      }
+    },
+    "Pastes front to back — one per keypress.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega del primero al último, uno por tecla."
+          }
+        }
+      }
+    },
+    "Paste stack — click to reorder or paste in order": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pila de pegado: haz clic para reordenar o pegar en orden"
+          }
+        }
+      }
+    },
+    "Remove from stack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar de la pila"
+          }
+        }
+      }
+    },
     "Copied": {
       "localizations": {
         "es": {
