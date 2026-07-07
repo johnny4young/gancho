@@ -17,10 +17,15 @@ public struct Pinboard: Identifiable, Sendable, Equatable, Codable {
     /// Built-in boards (Favorites) can't be renamed or deleted and always sort
     /// first; user boards are fully editable.
     public var isSystem: Bool
+    /// Optional visual identity (v17). `colorHex` is a fixed-palette token; both
+    /// sync with the board's record so a board looks the same on every device.
+    public var colorHex: String?
+    public var emoji: String?
 
     public init(
         id: UUID = UUID(), name: String, sfSymbol: String = "square.stack",
-        sortIndex: Int = 0, createdAt: Date = .now, isSystem: Bool = false
+        sortIndex: Int = 0, createdAt: Date = .now, isSystem: Bool = false,
+        colorHex: String? = nil, emoji: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -28,6 +33,8 @@ public struct Pinboard: Identifiable, Sendable, Equatable, Codable {
         self.sortIndex = sortIndex
         self.createdAt = createdAt
         self.isSystem = isSystem
+        self.colorHex = colorHex
+        self.emoji = emoji
     }
 
     /// The always-present, non-deletable Favorites board (seeded by migration).
@@ -294,6 +301,8 @@ struct PinboardRow: Codable, FetchableRecord, PersistableRecord {
     var sortIndex: Int
     var createdAt: Date
     var isSystem: Bool
+    var colorHex: String?
+    var emoji: String?
 
     init(board: Pinboard) {
         id = board.id.uuidString
@@ -302,11 +311,14 @@ struct PinboardRow: Codable, FetchableRecord, PersistableRecord {
         sortIndex = board.sortIndex
         createdAt = board.createdAt
         isSystem = board.isSystem
+        colorHex = board.colorHex
+        emoji = board.emoji
     }
 
     var board: Pinboard {
         Pinboard(
             id: UUID(uuidString: id) ?? UUID(), name: name, sfSymbol: sfSymbol,
-            sortIndex: sortIndex, createdAt: createdAt, isSystem: isSystem)
+            sortIndex: sortIndex, createdAt: createdAt, isSystem: isSystem,
+            colorHex: colorHex, emoji: emoji)
     }
 }

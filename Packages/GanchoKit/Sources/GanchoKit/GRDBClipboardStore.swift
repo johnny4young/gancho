@@ -449,6 +449,69 @@ public final class GRDBClipboardStore: ClipboardStore {
                 sql: "CREATE INDEX IF NOT EXISTS idx_clip_sensitive "
                     + "ON clip (isSensitive) WHERE isSensitive = 1")
         }
+        migrator.registerMigration("v17-frecency-boards-insights") { db in
+            // Frecency ranking, board identity, embedding versioning, and two
+            // local-only tables (search history, per-app counters). All
+            // additive; the indexes degrade gracefully like v16's.
+
+            // Snippet keyword lookup runs `keyword = ? COLLATE NOCASE` filtered
+            // by `isSnippet = 1` (SnippetLibrary) — today a filtered scan.
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_keyword "
+                    + "ON clip (keyword COLLATE NOCASE) WHERE isSnippet = 1")
+            // Capture dedup looks up `(contentHash, sourceDeviceName)` on every
+            // insert; the v1 single-column contentHash index needs a table hop.
+            // Full (not partial) on purpose: the dedup query filters
+            // `sourceDeviceName = ?`, which becomes `IS NULL` for locally
+            // captured clips with no device name — a `WHERE ... IS NOT NULL`
+            // partial index would exclude exactly those rows and force the NULL
+            // case back onto the v1 contentHash index. contentHash leads, so the
+            // full index serves both the `= value` and the `IS NULL` lookups.
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_dedupe "
+                    + "ON clip (contentHash, sourceDeviceName)")
+            // Frecency (pinned first, then use count, then recency) backs the
+            // search re-rank and a future "Frequent" rail.
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_frecency "
+                    + "ON clip (isPinned DESC, uses DESC, IFNULL(lastUsedAt, createdAt) DESC) "
+                    + "WHERE isArchived = 0")
+            // Board identity. colorHex is a fixed-palette token (plain, no
+            // content); emoji is a user choice (rides encryptedValues in sync,
+            // like the board name). Both sync — a change must mark the board
+            // needsUpload and enqueue it.
+            try db.alter(table: "pinboard") { t in
+                t.add(column: "colorHex", .text)
+                t.add(column: "emoji", .text)
+            }
+            // Embedding model version so a model upgrade can re-embed selectively
+            // (DB-02); existing vectors are version 1.
+            try db.alter(table: "clip_embedding") { t in
+                t.add(column: "modelVersion", .integer).notNull().defaults(to: 1)
+            }
+            // Search history — LOCAL ONLY, never synced. Capped in code (50 rows).
+            // `query` is UNIQUE with the default ABORT policy (NOT ON CONFLICT
+            // REPLACE): the recall API (UX-05) upserts explicitly
+            // (`ON CONFLICT(query) DO UPDATE SET uses = uses + 1, lastUsedAt = ?`)
+            // so re-searching a term BUMPS its counter. A schema-level REPLACE
+            // would instead DELETE+INSERT a duplicate, silently resetting `uses`
+            // to 1 — a footgun for any caller that forgets the upsert clause.
+            try db.create(table: "search_history") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("query", .text).notNull().unique()
+                t.column("uses", .integer).notNull().defaults(to: 1)
+                t.column("lastUsedAt", .datetime).notNull()
+            }
+            // Per-app capture/paste counters for Insights — bundle id + counts
+            // only, ZERO content. The column set has no room for clip text.
+            try db.create(table: "clip_app_stats") { t in
+                t.column("bundleID", .text).notNull()
+                t.column("day", .text).notNull()
+                t.column("captures", .integer).notNull().defaults(to: 0)
+                t.column("pastes", .integer).notNull().defaults(to: 0)
+                t.primaryKey(["bundleID", "day"])
+            }
+        }
         return migrator
     }
 

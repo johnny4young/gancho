@@ -16,6 +16,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   paste-stack shortcut pastes the front item each time. The queue is
   session-local and never leaves your Mac.
 
+### Changed
+
+- **A far more generous free tier.** The free history window grows from
+  30 days / 2,000 items to **1 year / 10,000 items**. The local basics —
+  capture, search, paste-back — should never be the wall; Pro keeps unlimited
+  history, unlimited pins/boards/snippets, full on-device AI, and encrypted
+  iCloud sync. As before, nothing is deleted at the ceiling: overflow is
+  archived and comes back instantly with Pro.
+
 ## [0.4.1] - 2026-07-06
 
 ### Fixed

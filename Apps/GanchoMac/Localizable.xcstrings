@@ -4416,12 +4416,12 @@
         }
       }
     },
-    "30-day history, 2,000 items": {
+    "1-year history, 10,000 items": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Historial de 30 días, 2.000 ítems"
+            "value": "Historial de 1 año, 10.000 ítems"
           }
         }
       }
