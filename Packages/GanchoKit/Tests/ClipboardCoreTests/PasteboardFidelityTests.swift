@@ -5,9 +5,11 @@
     @testable import ClipboardCore
 
     /// The format-negotiation order in `NSPasteboardReader.selectPayload` is a
-    /// correctness contract: file refs > image (png > tiff) > RTF > HTML > text,
-    /// and every rich payload must carry its plain-text companion so nothing
-    /// downstream parses RTF/HTML. These pin the order so a reorder fails here.
+    /// correctness contract: file refs > image (png > tiff) > RTF > HTML > text.
+    /// A rich payload carries the pasteboard's plain string as-is — including
+    /// `nil`/empty when none was offered; downstream reads that companion
+    /// (never the RTF/HTML source), falling back to empty text. These pin both
+    /// the order and the plain-companion pass-through so a regression fails here.
     @Suite("Pasteboard fidelity negotiation")
     struct PasteboardFidelityTests {
         private let png = Data([0x89, 0x50, 0x4E, 0x47])
@@ -49,6 +51,33 @@
             let payload = NSPasteboardReader.selectPayload(
                 fileURLs: [], png: nil, tiff: nil, rtf: nil, html: "<b>hi</b>", plain: "hi")
             #expect(payload == .html(source: "<b>hi</b>", plainText: "hi"))
+        }
+
+        @Test("A rich payload still wins with no plain companion — carried through as nil/empty")
+        func richWithoutPlainCompanion() {
+            // RTF/HTML present but the pasteboard offered no plain string, or an
+            // empty one. The rich format still wins (it beats the absent text),
+            // and the companion is passed through verbatim (nil stays nil, ""
+            // stays "") — never synthesized by parsing the rich source.
+            // Downstream (ClipItemFactory) reads `plainText ?? ""`, so nil and ""
+            // are equivalent there; these pin that the reader doesn't drop or
+            // fabricate the companion.
+            #expect(
+                NSPasteboardReader.selectPayload(
+                    fileURLs: [], png: nil, tiff: nil, rtf: rtf, html: nil, plain: nil)
+                    == .richText(rtf: rtf, plainText: nil))
+            #expect(
+                NSPasteboardReader.selectPayload(
+                    fileURLs: [], png: nil, tiff: nil, rtf: rtf, html: nil, plain: "")
+                    == .richText(rtf: rtf, plainText: ""))
+            #expect(
+                NSPasteboardReader.selectPayload(
+                    fileURLs: [], png: nil, tiff: nil, rtf: nil, html: "<b>x</b>", plain: nil)
+                    == .html(source: "<b>x</b>", plainText: nil))
+            #expect(
+                NSPasteboardReader.selectPayload(
+                    fileURLs: [], png: nil, tiff: nil, rtf: nil, html: "<b>x</b>", plain: "")
+                    == .html(source: "<b>x</b>", plainText: ""))
         }
 
         @Test("Plain text alone becomes a text payload")

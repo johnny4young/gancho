@@ -22,8 +22,10 @@
         }
 
         /// Reads by descending fidelity: file references > image > RTF >
-        /// HTML > plain text. Rich-text payloads carry the plain companion
-        /// so classification and search never parse the rich format.
+        /// HTML > plain text. A rich payload carries the pasteboard's plain
+        /// string as its companion — passed through as-is, and `nil` when the
+        /// pasteboard offered none — so downstream classification and search
+        /// read that (falling back to empty text), never the RTF/HTML source.
         public func readPayload() -> PasteboardCapture.Payload? {
             let pasteboard = NSPasteboard.general
             let fileURLs = (pasteboard.pasteboardItems ?? []).compactMap { item -> URL? in
@@ -41,9 +43,11 @@
 
         /// The fidelity-negotiation decision, pure so the ordering is unit-tested
         /// without touching `NSPasteboard.general`. `readPayload()` gathers the
-        /// raw representations and defers the choice here — the order is a
-        /// correctness contract (rich formats must carry their plain companion so
-        /// nothing downstream parses RTF/HTML), so a reorder must fail a test.
+        /// raw representations and defers the choice here. The order is the
+        /// pinned contract (a reorder must fail a test); the plain companion on a
+        /// rich payload is the pasteboard's plain string passed through as-is —
+        /// it may be `nil`/empty, and downstream tolerates that (`plainText ?? ""`)
+        /// rather than ever parsing the RTF/HTML source.
         static func selectPayload(
             fileURLs: [URL], png: Data?, tiff: Data?, rtf: Data?, html: String?, plain: String?
         ) -> PasteboardCapture.Payload? {
