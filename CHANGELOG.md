@@ -9,6 +9,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A live expiry countdown on clips about to age out.** When a clip is within
+  an hour of expiring — sensitive clips especially, which get a short lifetime —
+  its row now shows a small orange "expires in" timer, so you can act before it
+  goes. Appears on both Mac and iPhone/iPad rows.
 - **The paste stack is now visible (macOS).** Queue several clips and paste them
   in order — the queue shows as a compact strip in the panel footer with the
   next items at a glance. Click it to reorder (drag), remove an item, or clear

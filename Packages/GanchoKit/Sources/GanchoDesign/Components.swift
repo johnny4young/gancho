@@ -93,6 +93,15 @@ public struct ClipCard: View {
         self.thumbnail = thumbnail
     }
 
+    /// Whether a clip is close enough to expiry to earn the row countdown:
+    /// within the next hour and not already past. Pure so the threshold is
+    /// unit-tested (the view just reads it).
+    public static func showsExpiryCountdown(expiresAt: Date?, now: Date = .now) -> Bool {
+        guard let expiresAt else { return false }
+        let remaining = expiresAt.timeIntervalSince(now)
+        return remaining > 0 && remaining < 3600
+    }
+
     public var body: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             leadingTile
@@ -110,6 +119,29 @@ public struct ClipCard: View {
                 sourceTimeLine
             }
             Spacer(minLength: 0)
+            if item.expiresAt != nil {
+                // A live "expires in mm:ss" on rows about to age out — sensitive
+                // clips especially get a short lifetime, and the peek only warns
+                // once you open it. The TimelineView re-evaluates the SHOW/HIDE
+                // decision on a coarse tick (the inner Text self-updates every
+                // second on its own), so the badge appears when a clip crosses
+                // into the window and disappears once it expires — without
+                // waiting for an unrelated view update. Rows without an expiry
+                // never mount the timeline.
+                TimelineView(.periodic(from: .now, by: 15)) { context in
+                    if let expiresAt = item.expiresAt,
+                        Self.showsExpiryCountdown(expiresAt: expiresAt, now: context.date)
+                    {
+                        HStack(spacing: 2) {
+                            Image(systemName: "timer")
+                            Text(expiresAt, style: .timer)
+                        }
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(GanchoTokens.Palette.warning)
+                        .accessibilityLabel(Text("Expires soon"))
+                    }
+                }
+            }
             if item.tags.contains("universal-clipboard") {
                 Image(systemName: "icloud.and.arrow.down")
                     .font(.caption2)
@@ -218,7 +250,14 @@ public struct ClipCard: View {
     /// Single interpolated `Text` — concatenating with `+` is deprecated in 26.
     private var accessibilityDescription: Text {
         let preview = previewsHidden ? "•••" : ByteSize.humanizedPreview(item.preview)
-        return Text("\(Text(LocalizedStringKey(item.kind.rawValue))), \(preview)")
+        let base = Text("\(Text(LocalizedStringKey(item.kind.rawValue))), \(preview)")
+        // The row is ONE combined accessibility element with an explicit label,
+        // which supersedes the children's labels — so the countdown badge's own
+        // label is never announced. Surface expiry here instead (state, not the
+        // exact remaining time: the description is computed at render, so a
+        // minute count would read stale).
+        guard Self.showsExpiryCountdown(expiresAt: item.expiresAt) else { return base }
+        return Text("\(base), \(Text("Expires soon"))")
     }
 }
 
