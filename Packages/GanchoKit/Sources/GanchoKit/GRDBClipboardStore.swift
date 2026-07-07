@@ -461,10 +461,15 @@ public final class GRDBClipboardStore: ClipboardStore {
                     + "ON clip (keyword COLLATE NOCASE) WHERE isSnippet = 1")
             // Capture dedup looks up `(contentHash, sourceDeviceName)` on every
             // insert; the v1 single-column contentHash index needs a table hop.
+            // Full (not partial) on purpose: the dedup query filters
+            // `sourceDeviceName = ?`, which becomes `IS NULL` for locally
+            // captured clips with no device name — a `WHERE ... IS NOT NULL`
+            // partial index would exclude exactly those rows and force the NULL
+            // case back onto the v1 contentHash index. contentHash leads, so the
+            // full index serves both the `= value` and the `IS NULL` lookups.
             try db.execute(
                 sql: "CREATE INDEX IF NOT EXISTS idx_clip_dedupe "
-                    + "ON clip (contentHash, sourceDeviceName) "
-                    + "WHERE sourceDeviceName IS NOT NULL")
+                    + "ON clip (contentHash, sourceDeviceName)")
             // Frecency (pinned first, then use count, then recency) backs the
             // search re-rank and a future "Frequent" rail.
             try db.execute(
@@ -485,9 +490,15 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.add(column: "modelVersion", .integer).notNull().defaults(to: 1)
             }
             // Search history — LOCAL ONLY, never synced. Capped in code (50 rows).
+            // `query` is UNIQUE with the default ABORT policy (NOT ON CONFLICT
+            // REPLACE): the recall API (UX-05) upserts explicitly
+            // (`ON CONFLICT(query) DO UPDATE SET uses = uses + 1, lastUsedAt = ?`)
+            // so re-searching a term BUMPS its counter. A schema-level REPLACE
+            // would instead DELETE+INSERT a duplicate, silently resetting `uses`
+            // to 1 — a footgun for any caller that forgets the upsert clause.
             try db.create(table: "search_history") { t in
                 t.autoIncrementedPrimaryKey("id")
-                t.column("query", .text).notNull().unique(onConflict: .replace)
+                t.column("query", .text).notNull().unique()
                 t.column("uses", .integer).notNull().defaults(to: 1)
                 t.column("lastUsedAt", .datetime).notNull()
             }
