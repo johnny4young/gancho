@@ -449,6 +449,58 @@ public final class GRDBClipboardStore: ClipboardStore {
                 sql: "CREATE INDEX IF NOT EXISTS idx_clip_sensitive "
                     + "ON clip (isSensitive) WHERE isSensitive = 1")
         }
+        migrator.registerMigration("v17-frecency-boards-insights") { db in
+            // Frecency ranking, board identity, embedding versioning, and two
+            // local-only tables (search history, per-app counters). All
+            // additive; the indexes degrade gracefully like v16's.
+
+            // Snippet keyword lookup runs `keyword = ? COLLATE NOCASE` filtered
+            // by `isSnippet = 1` (SnippetLibrary) — today a filtered scan.
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_keyword "
+                    + "ON clip (keyword COLLATE NOCASE) WHERE isSnippet = 1")
+            // Capture dedup looks up `(contentHash, sourceDeviceName)` on every
+            // insert; the v1 single-column contentHash index needs a table hop.
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_dedupe "
+                    + "ON clip (contentHash, sourceDeviceName) "
+                    + "WHERE sourceDeviceName IS NOT NULL")
+            // Frecency (pinned first, then use count, then recency) backs the
+            // search re-rank and a future "Frequent" rail.
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_frecency "
+                    + "ON clip (isPinned DESC, uses DESC, IFNULL(lastUsedAt, createdAt) DESC) "
+                    + "WHERE isArchived = 0")
+            // Board identity. colorHex is a fixed-palette token (plain, no
+            // content); emoji is a user choice (rides encryptedValues in sync,
+            // like the board name). Both sync — a change must mark the board
+            // needsUpload and enqueue it.
+            try db.alter(table: "pinboard") { t in
+                t.add(column: "colorHex", .text)
+                t.add(column: "emoji", .text)
+            }
+            // Embedding model version so a model upgrade can re-embed selectively
+            // (DB-02); existing vectors are version 1.
+            try db.alter(table: "clip_embedding") { t in
+                t.add(column: "modelVersion", .integer).notNull().defaults(to: 1)
+            }
+            // Search history — LOCAL ONLY, never synced. Capped in code (50 rows).
+            try db.create(table: "search_history") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("query", .text).notNull().unique(onConflict: .replace)
+                t.column("uses", .integer).notNull().defaults(to: 1)
+                t.column("lastUsedAt", .datetime).notNull()
+            }
+            // Per-app capture/paste counters for Insights — bundle id + counts
+            // only, ZERO content. The column set has no room for clip text.
+            try db.create(table: "clip_app_stats") { t in
+                t.column("bundleID", .text).notNull()
+                t.column("day", .text).notNull()
+                t.column("captures", .integer).notNull().defaults(to: 0)
+                t.column("pastes", .integer).notNull().defaults(to: 0)
+                t.primaryKey(["bundleID", "day"])
+            }
+        }
         return migrator
     }
 

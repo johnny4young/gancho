@@ -29,6 +29,11 @@ public enum BoardRecordMapper {
         record["sortIndex"] = board.sortIndex
         record["isSystem"] = board.isSystem ? 1 : 0
         record["createdAt"] = board.createdAt
+        // Board identity (v17). colorHex is a fixed-palette token with no
+        // content, so it travels plain; emoji is a user choice and rides
+        // encryptedValues alongside the name. Absent for boards predating v17.
+        record["colorHex"] = board.colorHex
+        record.encryptedValues["emoji"] = board.emoji
         return record
     }
 
@@ -40,7 +45,9 @@ public enum BoardRecordMapper {
             sfSymbol: record["sfSymbol"] as? String ?? "square.stack",
             sortIndex: record["sortIndex"] as? Int ?? 0,
             createdAt: record["createdAt"] as? Date ?? .now,
-            isSystem: (record["isSystem"] as? Int ?? 0) == 1)
+            isSystem: (record["isSystem"] as? Int ?? 0) == 1,
+            colorHex: record["colorHex"] as? String,
+            emoji: record.encryptedValues["emoji"] as? String)
     }
 
     public static func encodeSystemFields(_ record: CKRecord) -> Data {
