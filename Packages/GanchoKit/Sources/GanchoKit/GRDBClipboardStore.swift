@@ -103,13 +103,60 @@ public final class GRDBClipboardStore: ClipboardStore {
         directory: URL,
         keychainAccessGroup: String? = nil
     ) throws -> GRDBClipboardStore {
-        let key = try KeychainPassphraseStore(accessGroup: keychainAccessGroup).loadOrCreateKey()
+        let resolved = try KeychainPassphraseStore(accessGroup: keychainAccessGroup)
+            .loadOrCreateKeyReportingFreshness()
         #if SQLITE_HAS_CODEC
             if rawKeyAdoptionEnabled() {
-                return try encryptedRawKeyAdopting(directory: directory, passphrase: key)
+                return try encryptedRawKeyAdopting(directory: directory, passphrase: resolved.key)
             }
         #endif
-        return try GRDBClipboardStore(directory: directory, passphrase: key)
+        return try openEncrypted(
+            directory: directory, key: resolved.key, keyIsFresh: resolved.isFresh)
+    }
+
+    /// Opens the encrypted store, recovering from a store that was keyed by an
+    /// unreachable key. This happens when a build can't reach the key that
+    /// encrypted an existing database — e.g. the direct-download build, whose
+    /// slim entitlements can't read a synchronizable (iCloud Keychain) key that
+    /// a differently-signed build created. A brand-new key can never decrypt
+    /// such a file, so — and ONLY when the key is freshly generated AND the open
+    /// fails specifically because the file won't decrypt — the unreadable
+    /// database is moved aside (never deleted: an entitled build could still
+    /// recover it) and a fresh one is created. A reachable-key corruption or a
+    /// transient error is re-thrown untouched, never silently reset.
+    static func openEncrypted(
+        directory: URL, key: String, keyIsFresh: Bool
+    ) throws -> GRDBClipboardStore {
+        do {
+            return try GRDBClipboardStore(directory: directory, passphrase: key)
+        } catch {
+            guard keyIsFresh, isDecryptionFailure(error) else { throw error }
+            try archiveUnreadableStore(in: directory)
+            return try GRDBClipboardStore(directory: directory, passphrase: key)
+        }
+    }
+
+    /// Whether an open failure is SQLCipher rejecting the key (the first read of
+    /// a wrong-keyed database returns `SQLITE_NOTADB`), as opposed to a transient
+    /// I/O or busy error that a reset would wrongly destroy data over.
+    static func isDecryptionFailure(_ error: Error) -> Bool {
+        guard let dbError = error as? DatabaseError else { return false }
+        return dbError.resultCode == .SQLITE_NOTADB
+    }
+
+    /// Moves an unreadable encrypted database (and its WAL/SHM siblings) aside to
+    /// a timestamped `.unreadable-*` name so a fresh store can take its place.
+    /// Content-addressed blobs are left in place — the fresh database won't
+    /// reference them, and an orphan sweep reclaims them later.
+    static func archiveUnreadableStore(in directory: URL) throws {
+        let fileManager = FileManager.default
+        let stamp = Int(Date().timeIntervalSince1970)
+        for name in ["gancho.sqlite", "gancho.sqlite-wal", "gancho.sqlite-shm"] {
+            let source = directory.appendingPathComponent(name)
+            guard fileManager.fileExists(atPath: source.path) else { continue }
+            let destination = directory.appendingPathComponent("\(name).unreadable-\(stamp)")
+            try fileManager.moveItem(at: source, to: destination)
+        }
     }
 
     /// True when the launch environment opts this process into the raw-key

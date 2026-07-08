@@ -155,6 +155,60 @@ import Testing
             }
         }
 
+        @Test("A fresh key recovers a store keyed by an unreachable key (archived, not deleted)")
+        func recoversStoreKeyedByUnreachableKey() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+
+            // A store encrypted by a key this build can no longer reach — the
+            // real-world case is the direct-download build meeting a store keyed
+            // by a synchronizable (iCloud Keychain) key it can't read.
+            var store: GRDBClipboardStore? = try GRDBClipboardStore(
+                directory: dir, passphrase: try testKey())
+            try await store?.insert(
+                ClipItem(
+                    kind: .text, preview: "stranded",
+                    contentHash: ClipItem.hash(of: Self.needle, kind: .text)),
+                content: .text(Self.needle))
+            store = nil  // release so the pool closes before the reopen
+
+            // A DIFFERENT, freshly generated key can't decrypt it. With
+            // keyIsFresh = true, the unreadable file is archived aside and a
+            // fresh store takes its place.
+            let recovered = try GRDBClipboardStore.openEncrypted(
+                directory: dir, key: try testKey(), keyIsFresh: true)
+            #expect(try await recovered.count() == 0, "the recovered store starts empty")
+
+            let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            #expect(
+                names.contains { $0.hasPrefix("gancho.sqlite.unreadable-") },
+                "the unreadable database is moved aside, never deleted")
+        }
+
+        @Test("A non-fresh key never resets — a reachable-key mismatch surfaces")
+        func nonFreshKeyNeverResets() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+
+            var store: GRDBClipboardStore? = try GRDBClipboardStore(
+                directory: dir, passphrase: try testKey())
+            try await store?.insert(
+                ClipItem(kind: .text, preview: "x", contentHash: "h"), content: .text("x"))
+            store = nil
+
+            // keyIsFresh = false means the key was read from the keychain, so a
+            // failure to open is real corruption (or a reachable-key mismatch),
+            // never silently reset.
+            #expect(throws: (any Error).self) {
+                _ = try GRDBClipboardStore.openEncrypted(
+                    directory: dir, key: try testKey(), keyIsFresh: false)
+            }
+            let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            #expect(
+                !names.contains { $0.hasPrefix("gancho.sqlite.unreadable-") },
+                "a non-fresh failure must leave the store untouched")
+        }
+
         @Test("A pre-encryption plaintext store migrates in place without losing clips")
         func migratesPlaintextStore() async throws {
             let dir = tempDir()

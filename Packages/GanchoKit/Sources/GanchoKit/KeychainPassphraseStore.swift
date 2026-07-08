@@ -7,9 +7,14 @@ import Security
 /// once with `SecRandomCopyBytes` and thereafter protected by the Keychain. Its
 /// attributes encode the product's constraints (see docs/ARCHITECTURE.md):
 ///
-/// - `kSecAttrSynchronizable` — iCloud Keychain replicates the key across the
-///   user's devices, so a database restored from backup onto another device of
-///   the same Apple Account stays readable. (Acceptance: multi-device key.)
+/// - `kSecAttrSynchronizable` — when the build can use iCloud Keychain, the key
+///   is stored synchronizable so it replicates across the user's devices and a
+///   database restored from backup onto another device of the same Apple Account
+///   stays readable. Builds with slim entitlements (the direct-download flavor,
+///   whose empty entitlements can't participate in iCloud Keychain — the add
+///   returns `errSecMissingEntitlement`) fall back to a DEVICE-LOCAL key
+///   (`…ThisDeviceOnly`), which needs no entitlement and never leaves the device.
+///   The read matches either (`kSecAttrSynchronizableAny`).
 /// - `kSecAttrAccessibleAfterFirstUnlock` — the menu-bar agent and the deferred
 ///   importer open the database while the device is locked, but never before
 ///   the first unlock after boot. Required for background capture, and the
@@ -66,16 +71,24 @@ public struct KeychainPassphraseStore: Sendable {
     /// `errSecDuplicateItem` and re-reads the winner's key, so every caller
     /// converges on a single key for the database.
     public func loadOrCreateKey() throws -> String {
+        try loadOrCreateKeyReportingFreshness().key
+    }
+
+    /// Like ``loadOrCreateKey()`` but reports whether the key was just generated.
+    /// A freshly generated key can't decrypt a pre-existing encrypted database
+    /// (it was keyed by a different, unreachable key), so the store-open recovery
+    /// path keys on this to know when it may safely start fresh.
+    public func loadOrCreateKeyReportingFreshness() throws -> (key: String, isFresh: Bool) {
         if let existing = try readKey() {
-            return existing
+            return (existing, false)
         }
         let key = try Self.generateKey()
         do {
             try storeKey(key)
-            return key
+            return (key, true)
         } catch Failure.keychain(errSecDuplicateItem) {
             if let winner = try readKey() {
-                return winner
+                return (winner, false)
             }
             throw Failure.keychain(errSecDuplicateItem)
         }
@@ -128,21 +141,56 @@ public struct KeychainPassphraseStore: Sendable {
             return key
         case errSecItemNotFound:
             return nil
+        case let status where Self.synchronizableUnavailable(status):
+            // A build without the iCloud-Keychain entitlement (the slim
+            // direct-download entitlements) can't even query the synchronizable
+            // scope. Treat "not permitted" as "no key here" so the caller falls
+            // through to creating a device-local one.
+            return nil
         default:
             throw Failure.keychain(status)
         }
     }
 
     private func storeKey(_ key: String) throws {
+        do {
+            try addKey(key, synchronizable: true)
+        } catch Failure.keychain(let status) where Self.synchronizableUnavailable(status) {
+            // This build can't store a synchronizable (iCloud Keychain) item: it
+            // lacks the application-identifier / keychain-access-groups entitlement
+            // (the direct-download build ships intentionally slim entitlements, so
+            // the synchronizable add returns errSecMissingEntitlement, -34018). A
+            // device-local key needs no entitlement and, for a local-first store,
+            // is an equal-or-better privacy trade — the key never leaves the
+            // device. `errSecDuplicateItem` is NOT in this set, so a first-launch
+            // race still surfaces to `loadOrCreateKey`'s re-read.
+            try addKey(key, synchronizable: false)
+        }
+    }
+
+    private func addKey(_ key: String, synchronizable: Bool) throws {
         var query = baseQuery()
-        query[kSecAttrSynchronizable as String] = kCFBooleanTrue!
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        query[kSecAttrSynchronizable as String] =
+            synchronizable ? kCFBooleanTrue! : kCFBooleanFalse!
+        // Synchronizable items must use a device-agnostic accessibility;
+        // device-local ones take the more-protective `…ThisDeviceOnly`.
+        query[kSecAttrAccessible as String] =
+            synchronizable
+            ? kSecAttrAccessibleAfterFirstUnlock
+            : kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         query[kSecValueData as String] = Data(key.utf8)
 
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else {
             throw Failure.keychain(status)
         }
+    }
+
+    /// Keychain statuses that mean "this build may not use synchronizable /
+    /// iCloud-Keychain items" — the signal to fall back to a device-local key.
+    static func synchronizableUnavailable(_ status: OSStatus) -> Bool {
+        status == errSecMissingEntitlement || status == errSecParam
+            || status == errSecNotAvailable
     }
 
     // MARK: - Key generation

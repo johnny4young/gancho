@@ -151,8 +151,17 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
         NSWorkspace.shared.open(command.deepLinkURL(token: token))
 
         if command == .quit {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                NSApp.terminate(nil)
+            // The deep link asks the main app to quit cleanly. But a dropped open
+            // event (or a nonce mismatch) must NEVER strand it as a live,
+            // icon-less agent, so terminate it directly too — belt and suspenders.
+            // We do NOT self-terminate on a timer here (the old behavior): the
+            // watchdog exits us the moment the main app is actually gone, so if
+            // the main app somehow refuses to quit we stay resident with the icon
+            // present (the user can retry) instead of orphaning it.
+            for app in NSRunningApplication.runningApplications(
+                withBundleIdentifier: Self.mainAppBundleID)
+            {
+                app.terminate()
             }
         }
     }
