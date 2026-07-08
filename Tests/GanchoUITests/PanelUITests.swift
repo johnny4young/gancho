@@ -149,13 +149,18 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchWithPanel() -> XCUIApplication {
+    private func launchWithPanel(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-open-panel-on-launch", "-use-in-process-status-item"]
+        app.launchArguments += extraArguments
         app.launch()
         waitForAppToStart(app)
         _ = app.wait(for: .runningForeground, timeout: 5)
         return app
+    }
+
+    private func captureIndicatorValue(_ value: String) -> NSPredicate {
+        NSPredicate(format: "label == %@ OR value == %@", value, value)
     }
 
     @MainActor
@@ -265,10 +270,54 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
+    func testCaptureIndicatorResumesFromThePanelNotice() {
+        let app = launchWithPanel(
+            extraArguments: [
+                "-use-temp-durable-store", "-force-capture-active",
+                "-force-pasteboard-access-allowed", "-disable-screen-share-auto-pause",
+                "-start-capture-paused",
+            ])
+        defer { app.terminate() }
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
+
+        let indicator = app.descendants(matching: .any)["capture-indicator"].firstMatch
+        XCTAssertTrue(indicator.waitForExistence(timeout: 5), "capture status must be visible")
+        XCTAssertEqual(
+            XCTWaiter().wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: captureIndicatorValue("Capture paused"), object: indicator)
+                ],
+                timeout: 5), .completed,
+            "manual pause must update the footer status")
+        XCTAssertTrue(
+            app.staticTexts["Capture is paused"].firstMatch.waitForExistence(timeout: 3),
+            "manual pause must explain the cause in the panel")
+        XCTAssertTrue(
+            app.staticTexts["Resume capture to save new copies."].firstMatch.waitForExistence(
+                timeout: 3),
+            "manual pause must explain how to resume capture")
+
+        let resume = app.buttons["Resume"].firstMatch
+        XCTAssertTrue(resume.waitForExistence(timeout: 3), "paused notice must be actionable")
+        resume.click()
+        XCTAssertEqual(
+            XCTWaiter().wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: captureIndicatorValue("Capturing"), object: indicator)
+                ],
+                timeout: 5), .completed,
+            "the notice action must resume capture")
+    }
+
+    @MainActor
     func testEphemeralStorageShowsWarningBanner() {
         let app = XCUIApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-force-ephemeral-store",
+            "-force-capture-active", "-force-pasteboard-access-allowed",
+            "-disable-screen-share-auto-pause",
         ]
         app.launch()
         waitForAppToStart(app)
@@ -282,6 +331,17 @@ final class PanelUITests: XCTestCase {
         XCTAssertTrue(
             notice.waitForExistence(timeout: 3),
             "ephemeral storage must surface the capture-notice warning banner")
+
+        let indicator = app.descendants(matching: .any)["capture-indicator"].firstMatch
+        XCTAssertTrue(indicator.waitForExistence(timeout: 3), "capture status must be visible")
+        XCTAssertEqual(
+            XCTWaiter().wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: captureIndicatorValue("Capturing"), object: indicator)
+                ],
+                timeout: 3), .completed,
+            "ephemeral storage still captures; it must not display as paused")
     }
 
     @MainActor

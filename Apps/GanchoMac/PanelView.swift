@@ -656,6 +656,7 @@ struct PanelView: View {
     private var panelFooter: some View {
         HStack(spacing: GanchoTokens.Spacing.md) {
             SyncStatusView(status: model.syncStatus)
+            captureIndicator
             PasteStackStrip()
             Spacer(minLength: 0)
             hint("navigate", keys: ["arrow.up", "arrow.down"])
@@ -758,7 +759,9 @@ struct PanelView: View {
     /// Why capture isn't recording right now — surfaced IN the panel so a copy
     /// that doesn't show up reads as "paused", not "broken". Private mode is the
     /// reactive common case; denied/screen-share are read when the panel opens.
-    private enum CaptureNotice { case storageEphemeral, privateMode, denied, screenShare }
+    private enum CaptureNotice {
+        case storageEphemeral, privateMode, denied, screenShare, paused
+    }
 
     private var captureNotice: CaptureNotice? {
         // Data loss outranks everything: the user must know nothing is persisting.
@@ -766,7 +769,32 @@ struct PanelView: View {
         if model.monitorStatus == .deniedByPrivacySettings { return .denied }
         if model.preferences.isPrivateModePaused { return .privateMode }
         if model.monitorStatus == .pausedByScreenShare { return .screenShare }
+        if model.monitorStatus == .stopped { return .paused }
         return nil
+    }
+
+    /// True only when Gancho is actively watching the clipboard. Note that
+    /// `.storageEphemeral` still captures (copies just don't persist), so it
+    /// doesn't flip this — the banner covers that case. Do not derive this from
+    /// `captureNotice`: that value intentionally prioritizes the most important
+    /// banner when multiple conditions are true.
+    private var isCapturing: Bool {
+        model.monitorStatus == .running && !model.preferences.isPrivateModePaused
+    }
+
+    /// A positive "yes, capturing" signal in the footer (or a muted "paused"
+    /// when it isn't) so a user who copies something and doesn't see it can tell
+    /// at a glance whether Gancho is even watching. The WHY lives in the banner.
+    private var captureIndicator: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(isCapturing ? GanchoTokens.Palette.success : Color.secondary)
+                .frame(width: 6, height: 6)
+            Text(isCapturing ? "Capturing" : "Paused")
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(isCapturing ? Text("Capturing") : Text("Capture paused"))
+        .accessibilityIdentifier("capture-indicator")
     }
 
     @ViewBuilder private func captureBanner(_ notice: CaptureNotice) -> some View {
@@ -800,12 +828,13 @@ struct PanelView: View {
         case .privateMode: "eye.slash"
         case .denied: "exclamationmark.triangle.fill"
         case .screenShare: "rectangle.on.rectangle"
+        case .paused: "pause.circle"
         }
     }
 
     private func captureTint(_ notice: CaptureNotice) -> Color {
         switch notice {
-        case .privateMode, .screenShare: GanchoTokens.Palette.warning
+        case .privateMode, .screenShare, .paused: GanchoTokens.Palette.warning
         case .denied, .storageEphemeral: GanchoTokens.Palette.danger
         }
     }
@@ -816,6 +845,7 @@ struct PanelView: View {
         case .privateMode: "Private Mode is on"
         case .denied: "Clipboard access is off"
         case .screenShare: "Paused while screen sharing"
+        case .paused: "Capture is paused"
         }
     }
 
@@ -826,12 +856,13 @@ struct PanelView: View {
         case .privateMode: "New copies aren't being saved."
         case .denied: "Gancho can't see what you copy."
         case .screenShare: "Capture resumes when you stop sharing."
+        case .paused: "Resume capture to save new copies."
         }
     }
 
     private func captureAction(_ notice: CaptureNotice) -> LocalizedStringKey? {
         switch notice {
-        case .privateMode: "Resume"
+        case .privateMode, .paused: "Resume"
         case .denied: "Fix"
         case .storageEphemeral, .screenShare: nil
         }
@@ -840,8 +871,22 @@ struct PanelView: View {
     private func handleCaptureAction(_ notice: CaptureNotice) {
         switch notice {
         case .privateMode: model.togglePrivateMode()
+        case .paused: model.togglePause()
         case .denied: model.permissionWindow.show(model: model)
         case .storageEphemeral, .screenShare: break
+        }
+    }
+
+    /// The first-run empty-state hint. Normally "⌘C to start", but when capture
+    /// is actually blocked it names the cause instead of misleading the user into
+    /// thinking a copy will land (the banner above offers the one-tap fix).
+    private var firstRunCaptureHint: LocalizedStringKey {
+        switch captureNotice {
+        case .privateMode: "Private Mode is on — resume it above to start saving."
+        case .denied: "Clipboard access is off — turn it on above to start."
+        case .screenShare: "Capture is paused while sharing your screen."
+        case .paused: "Capture is paused — resume it above to start saving."
+        default: "⌘C in any app to start"
         }
     }
 
@@ -884,9 +929,10 @@ struct PanelView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                Text("⌘C in any app to start")
+                Text(firstRunCaptureHint)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
                     .padding(.top, GanchoTokens.Spacing.xxs)
             } else {
                 Image(systemName: "magnifyingglass")
