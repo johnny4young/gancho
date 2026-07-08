@@ -497,8 +497,10 @@ struct PanelView: View {
         let name = boardNameField.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
         switch boardSheet {
-        case .new: model.createBoard(named: name)
-        case .newForClip(let clip): model.createBoard(named: name, assigning: clip)
+        case .new:
+            Task { await model.createBoard(named: name) }
+        case .newForClip(let clip):
+            Task { await model.createBoard(named: name, assigning: clip) }
         case .rename(let board): model.renameBoard(board, name: name)
         case nil: break
         }

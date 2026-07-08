@@ -13,6 +13,8 @@ private actor FakeBoardStore: BoardStoring {
     let boards: [Pinboard]
     let createdBoard: Pinboard
     let createShouldFail: Bool
+    let assignShouldFail: Bool
+    let unassignShouldFail: Bool
 
     private(set) var pinboardsCalls = 0
     private(set) var createPinboardCalls = 0
@@ -24,11 +26,15 @@ private actor FakeBoardStore: BoardStoring {
 
     init(
         boards: [Pinboard], createdBoard: Pinboard = Pinboard(name: "New"),
-        createShouldFail: Bool = false
+        createShouldFail: Bool = false,
+        assignShouldFail: Bool = false,
+        unassignShouldFail: Bool = false
     ) {
         self.boards = boards
         self.createdBoard = createdBoard
         self.createShouldFail = createShouldFail
+        self.assignShouldFail = assignShouldFail
+        self.unassignShouldFail = unassignShouldFail
     }
 
     func pinboards() async throws -> [Pinboard] {
@@ -43,8 +49,14 @@ private actor FakeBoardStore: BoardStoring {
     func renameBoard(id: UUID, name: String) async throws { renameCalls += 1 }
     func deletePinboard(id: UUID) async throws { deletePinboardCalls += 1 }
     func deletePinboardForSync(id: UUID, now: Date) async throws { deletePinboardForSyncCalls += 1 }
-    func assign(clipID: UUID, toBoard boardID: UUID) async throws { assignCalls += 1 }
-    func unassign(clipID: UUID, fromBoard boardID: UUID) async throws { unassignCalls += 1 }
+    func assign(clipID: UUID, toBoard boardID: UUID) async throws {
+        assignCalls += 1
+        if assignShouldFail { throw FakeBoardError.assign }
+    }
+    func unassign(clipID: UUID, fromBoard boardID: UUID) async throws {
+        unassignCalls += 1
+        if unassignShouldFail { throw FakeBoardError.unassign }
+    }
     func removeFromAllBoards(clipID: UUID) async throws {}
     func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> { [] }
     func items(inBoard boardID: UUID) async throws -> [ClipItem] { [] }
@@ -52,7 +64,7 @@ private actor FakeBoardStore: BoardStoring {
     func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws {}
 }
 
-private enum FakeBoardError: Error { case create }
+private enum FakeBoardError: Error { case create, assign, unassign }
 
 /// Records the board-metadata enqueues the controller fires, so a test proves
 /// the sync side effects (upsert on create/rename, deletion on sync-on delete)
@@ -115,7 +127,7 @@ struct BoardsControllerTests {
             name: "New", filing: nil, store: store, engine: engine, isPro: false,
             onFreeLimit: { freeLimitFired = true }, onAssigned: {})
 
-        #expect(outcome == .created(created.id))
+        #expect(outcome == .created(created.id, filedClip: false))
         #expect(!freeLimitFired)
         #expect(await store.createPinboardCalls == 1)
         #expect(await engine.enqueueBoardsCalls == 1)
@@ -135,12 +147,31 @@ struct BoardsControllerTests {
             name: "New", filing: item, store: store, engine: engine, isPro: false,
             onFreeLimit: {}, onAssigned: { assignedFired = true })
 
-        #expect(outcome == .created(created.id))
+        #expect(outcome == .created(created.id, filedClip: true))
         #expect(await engine.enqueueBoardsCalls == 1)
         #expect(await engine.enqueueItemsCalls == 1)
         #expect(await engine.lastEnqueuedItemIDs == [item.id])
         #expect(await store.assignCalls == 1)
         #expect(assignedFired)
+    }
+
+    @Test("Filing failure still creates the board but reports no filed clip")
+    func filingFailureDoesNotFireAssignedOrEnqueueItem() async {
+        let created = Pinboard(name: "New")
+        let store = FakeBoardStore(boards: [], createdBoard: created, assignShouldFail: true)
+        let engine = FakeBoardEngine()
+        var assignedFired = false
+        let item = ClipItem(title: "hello")
+
+        let outcome = await BoardsController().createBoard(
+            name: "New", filing: item, store: store, engine: engine, isPro: false,
+            onFreeLimit: {}, onAssigned: { assignedFired = true })
+
+        #expect(outcome == .created(created.id, filedClip: false))
+        #expect(await engine.enqueueBoardsCalls == 1)
+        #expect(await engine.enqueueItemsCalls == 0)
+        #expect(await store.assignCalls == 1)
+        #expect(!assignedFired)
     }
 
     @Test("System boards do not count against the free limit")
@@ -228,9 +259,10 @@ struct BoardsControllerTests {
         let engine = FakeBoardEngine()
         let item = ClipItem(title: "x")
 
-        await BoardsController().setBoardMembership(
+        let succeeded = await BoardsController().setBoardMembership(
             item, board: Pinboard(name: "Docs"), member: true, store: store, engine: engine)
 
+        #expect(succeeded)
         #expect(await store.assignCalls == 1)
         #expect(await store.unassignCalls == 0)
         #expect(await engine.enqueueItemsCalls == 1)
@@ -243,13 +275,28 @@ struct BoardsControllerTests {
         let engine = FakeBoardEngine()
         let item = ClipItem(title: "x")
 
-        await BoardsController().setBoardMembership(
+        let succeeded = await BoardsController().setBoardMembership(
             item, board: Pinboard(name: "Docs"), member: false, store: store, engine: engine)
 
+        #expect(succeeded)
         #expect(await store.unassignCalls == 1)
         #expect(await store.assignCalls == 0)
         #expect(await engine.enqueueItemsCalls == 1)
         #expect(await engine.lastEnqueuedItemIDs == [item.id])
+    }
+
+    @Test("Membership write failures return false and never enqueue")
+    func membershipFailureReturnsFalse() async {
+        let store = FakeBoardStore(boards: [], assignShouldFail: true)
+        let engine = FakeBoardEngine()
+        let item = ClipItem(title: "x")
+
+        let succeeded = await BoardsController().setBoardMembership(
+            item, board: Pinboard(name: "Docs"), member: true, store: store, engine: engine)
+
+        #expect(!succeeded)
+        #expect(await store.assignCalls == 1)
+        #expect(await engine.enqueueItemsCalls == 0)
     }
 
     @Test("Rename writes the name and enqueues the updated board once")

@@ -300,7 +300,8 @@ struct ClipDetailView: View {
                     Spacer(minLength: 0)
                     Button("Add") {
                         Task {
-                            await model.setBoardMembership(item, board: board, member: true)
+                            guard await model.setBoardMembership(item, board: board, member: true)
+                            else { return }
                             boardIDs = await model.boardMembership(for: item)
                             suggestedBoard = nil
                         }

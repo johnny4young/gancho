@@ -2731,6 +2731,16 @@
         }
       }
     },
+    "Creating board…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creando tablero…"
+          }
+        }
+      }
+    },
     "Delete board": {
       "localizations": {
         "es": {

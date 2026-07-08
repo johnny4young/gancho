@@ -16,6 +16,7 @@ struct PanelBoardPicker: View {
     @State private var filter = ""
     @State private var memberIDs: Set<UUID> = []
     @State private var selection = 0
+    @State private var isCreating = false
     @FocusState private var fieldFocused: Bool
 
     private var matches: [Pinboard] { BoardPickerFilter.matches(model.boards, query: filter) }
@@ -42,6 +43,7 @@ struct PanelBoardPicker: View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             Text("Add to board").font(.headline)
             TextField("Filter or new board name", text: $filter)
+                .accessibilityIdentifier("board-picker-filter")
                 .textFieldStyle(.roundedBorder)
                 .focused($fieldFocused)
                 .onKeyPress(.downArrow) { move(1) }
@@ -59,6 +61,9 @@ struct PanelBoardPicker: View {
                     return .handled
                 }
                 .onChange(of: filter) { _, _ in selection = 0 }
+                .onChange(of: rowCount) { _, count in
+                    selection = count == 0 ? 0 : min(selection, count - 1)
+                }
 
             ScrollView {
                 VStack(spacing: 2) {
@@ -87,6 +92,7 @@ struct PanelBoardPicker: View {
         .frame(width: 320)
         .ganchoSurface(radius: GanchoTokens.Radius.lg)
         .onAppear { fieldFocused = true }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("board-picker")
     }
 
@@ -108,12 +114,15 @@ struct PanelBoardPicker: View {
         )
         .contentShape(Rectangle())
         .onTapGesture { toggle(board) }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(isMember ? Text("Selected") : Text("Not selected"))
+        .accessibilityIdentifier("board-picker-board-row")
     }
 
     private func createRow(index: Int) -> some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: "plus.circle.fill").foregroundStyle(GanchoTokens.Palette.accent)
-            Text("New board")
+            Text(isCreating ? "Creating board…" : "New board")
             Text(verbatim: "“\(trimmedFilter)”").foregroundStyle(.secondary)
             Spacer(minLength: 0)
         }
@@ -127,6 +136,8 @@ struct PanelBoardPicker: View {
         )
         .contentShape(Rectangle())
         .onTapGesture { createIfPossible() }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("board-picker-create-row")
     }
 
     // MARK: - Actions
@@ -140,6 +151,7 @@ struct PanelBoardPicker: View {
     /// Return: toggle the highlighted board, or create if the highlight is the
     /// create row.
     private func commitSelection() {
+        guard rowCount > 0 else { return }
         if selection < matches.count {
             toggle(matches[selection])
         } else if canCreate {
@@ -156,8 +168,15 @@ struct PanelBoardPicker: View {
     }
 
     private func createIfPossible() {
-        guard canCreate else { return }
-        model.createBoard(named: trimmedFilter, assigning: item)
-        onClose()
+        guard canCreate, !isCreating else { return }
+        let name = trimmedFilter
+        isCreating = true
+        Task { @MainActor in
+            defer { isCreating = false }
+            let outcome = await model.createBoard(named: name, assigning: item)
+            if case .created(_, filedClip: true) = outcome {
+                onClose()
+            }
+        }
     }
 }

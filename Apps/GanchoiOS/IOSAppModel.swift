@@ -342,9 +342,9 @@ final class IOSAppModel {
             isPro: tier == .pro,
             onFreeLimit: { self.flashNote(String(localized: "Upgrade to Pro for more boards")) },
             onAssigned: {})
-        guard case .created(let boardID) = outcome else { return nil }
         await refreshBoards()
         await search()
+        guard case .created(let boardID, filedClip: true) = outcome else { return nil }
         return boardID
     }
 
@@ -365,11 +365,14 @@ final class IOSAppModel {
 
     /// Add or remove a clip from one board. Membership rides the clip's sync
     /// record, so enqueue the changed clip immediately after the local write.
-    func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
-        guard let full else { return }
-        await BoardsController().setBoardMembership(
+    @discardableResult
+    func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async -> Bool {
+        guard let full else { return false }
+        let succeeded = await BoardsController().setBoardMembership(
             item, board: board, member: member, store: full, engine: syncController.engine)
+        guard succeeded else { return false }
         await search()
+        return true
     }
 
     /// Rename a user board and propagate the new name (no-op on Favorites — the
