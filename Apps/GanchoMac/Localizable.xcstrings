@@ -3304,6 +3304,56 @@
         }
       }
     },
+    "Capture paused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Captura en pausa"
+          }
+        }
+      }
+    },
+    "Capturing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturando"
+          }
+        }
+      }
+    },
+    "Paused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa"
+          }
+        }
+      }
+    },
+    "Private Mode is on — resume it above to start saving.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El modo privado está activo — reanúdalo arriba para empezar a guardar."
+          }
+        }
+      }
+    },
+    "Clipboard access is off — turn it on above to start.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El acceso al portapapeles está desactivado — actívalo arriba para empezar."
+          }
+        }
+      }
+    },
     "Copied": {
       "localizations": {
         "es": {

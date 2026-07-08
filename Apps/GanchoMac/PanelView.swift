@@ -656,6 +656,7 @@ struct PanelView: View {
     private var panelFooter: some View {
         HStack(spacing: GanchoTokens.Spacing.md) {
             SyncStatusView(status: model.syncStatus)
+            captureIndicator
             PasteStackStrip()
             Spacer(minLength: 0)
             hint("navigate", keys: ["arrow.up", "arrow.down"])
@@ -769,6 +770,30 @@ struct PanelView: View {
         return nil
     }
 
+    /// True only when Gancho is actively watching the clipboard. Note that
+    /// `.storageEphemeral` still captures (copies just don't persist), so it
+    /// doesn't flip this — the banner covers that case.
+    private var isCapturing: Bool {
+        model.monitorStatus == .running
+            && captureNotice != .privateMode && captureNotice != .denied
+            && captureNotice != .screenShare
+    }
+
+    /// A positive "yes, capturing" signal in the footer (or a muted "paused"
+    /// when it isn't) so a user who copies something and doesn't see it can tell
+    /// at a glance whether Gancho is even watching. The WHY lives in the banner.
+    private var captureIndicator: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(isCapturing ? GanchoTokens.Palette.success : Color.secondary)
+                .frame(width: 6, height: 6)
+            Text(isCapturing ? "Capturing" : "Paused")
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(isCapturing ? Text("Capturing") : Text("Capture paused"))
+        .accessibilityIdentifier("capture-indicator")
+    }
+
     @ViewBuilder private func captureBanner(_ notice: CaptureNotice) -> some View {
         let tint = captureTint(notice)
         HStack(spacing: GanchoTokens.Spacing.xs) {
@@ -845,6 +870,17 @@ struct PanelView: View {
         }
     }
 
+    /// The first-run empty-state hint. Normally "⌘C to start", but when capture
+    /// is actually blocked it names the cause instead of misleading the user into
+    /// thinking a copy will land (the banner above offers the one-tap fix).
+    private var firstRunCaptureHint: LocalizedStringKey {
+        switch captureNotice {
+        case .privateMode: "Private Mode is on — resume it above to start saving."
+        case .denied: "Clipboard access is off — turn it on above to start."
+        default: "⌘C in any app to start"
+        }
+    }
+
     /// A keyboard hint: one or more keycaps followed by what they do.
     private func hint(_ label: LocalizedStringKey, keys: [String]) -> some View {
         HStack(spacing: GanchoTokens.Spacing.xxs) {
@@ -884,9 +920,10 @@ struct PanelView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                Text("⌘C in any app to start")
+                Text(firstRunCaptureHint)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
                     .padding(.top, GanchoTokens.Spacing.xxs)
             } else {
                 Image(systemName: "magnifyingglass")
