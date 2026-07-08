@@ -15,6 +15,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   is paused — manually, by Private Mode, while screen sharing, or because
   clipboard access is off — the empty-state names the reason and points to the
   one-tap fix in the notice above, instead of an unhelpful "⌘C to start."
+- **File clips into boards without the mouse (macOS).** Press **⌘B** on the
+  selected clip to open a board picker: type to filter, ↑↓ to move, Return to
+  toggle membership, ⌘Return (or the "New board" row) to create a board and file
+  the clip into it, Esc to close. **⇧⌘B** repeats the last board you used, so
+  curating many clips into one board is a keystroke each.
 
 ## [0.5.0] - 2026-07-08
 

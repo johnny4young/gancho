@@ -3404,6 +3404,46 @@
         }
       }
     },
+    "Filter or new board name": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtra o escribe un tablero nuevo"
+          }
+        }
+      }
+    },
+    "No boards yet — type a name to create one.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay tableros — escribe un nombre para crear uno."
+          }
+        }
+      }
+    },
+    "↑↓ move · ↩ toggle · ⌘↩ new board · esc close": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↑↓ mover · ↩ alternar · ⌘↩ tablero nuevo · esc cerrar"
+          }
+        }
+      }
+    },
+    "Pick a board with ⌘B first": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige un tablero con ⌘B primero"
+          }
+        }
+      }
+    },
     "Pasted as plain text": {
       "localizations": {
         "es": {

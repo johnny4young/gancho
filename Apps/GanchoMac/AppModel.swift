@@ -1242,12 +1242,32 @@ final class AppModel {
         return (try? await grdbStore.boardIDs(forClip: item.id)) ?? []
     }
 
-    /// Add or remove a clip from one board (the peek's per-board toggle).
+    /// Add or remove a clip from one board (the peek's per-board toggle and the
+    /// ⌘B picker). Remembers the board so ⇧⌘B can repeat it on the next clip.
     func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
         guard let grdbStore else { return }
         await BoardsController().setBoardMembership(
             item, board: board, member: member, store: grdbStore, engine: syncController.engine)
+        if member { lastAssignedBoardID = board.id }
         await refreshRecents()
+    }
+
+    /// The last board a clip was filed into, for the ⇧⌘B "repeat" shortcut.
+    /// Persisted (UserDefaults) so it survives relaunch, like the panel position.
+    var lastAssignedBoardID: UUID? {
+        get { defaults.string(forKey: "last-assigned-board").flatMap(UUID.init) }
+        set { defaults.set(newValue?.uuidString, forKey: "last-assigned-board") }
+    }
+
+    /// ⇧⌘B: file the clip into the last board used, so curating many clips into
+    /// the same board is one keystroke each. A no-op (with a nudge) when there is
+    /// no remembered board or it has since been deleted.
+    func assignToLastBoard(_ item: ClipItem) {
+        guard let id = lastAssignedBoardID, let board = boards.first(where: { $0.id == id }) else {
+            toasts.show(GanchoToast(message: "Pick a board with ⌘B first"))
+            return
+        }
+        assign(item, toBoard: board)
     }
 
     // MARK: - Denylist & settings portability
