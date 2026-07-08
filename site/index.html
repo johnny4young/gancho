@@ -881,6 +881,15 @@
     </div>
     <div class="log">
       <div class="log-row">
+        <div class="log-meta"><span class="ver">0.5.0</span><span class="dt" data-i18n="log.7.d">Jul 2026 · pre-lanzamiento</span></div>
+        <div class="log-body"><h3 data-i18n="log.7.t">Pila de pegado visible, cuenta atrás de expiración y plan gratis más generoso</h3><ul>
+          <li data-i18n="log.7.1"><b>La pila de pegado es visible</b> (macOS): encola varios clips y pégalos en orden desde una tira compacta en el pie del panel — reordena, quita o vacía; <b>⌥⌘Return</b> añade el clip seleccionado. La cola es local a la sesión y nunca sale de tu Mac.</li>
+          <li data-i18n="log.7.2"><b>Cuenta atrás de expiración</b>: los clips a punto de caducar — los sensibles sobre todo — muestran un temporizador «expira en» en su fila, en Mac y en iPhone/iPad.</li>
+          <li data-i18n="log.7.3"><b>Plan gratis mucho más generoso</b>: la ventana de historial pasa de 30 días / 2.000 ítems a <b>1 año / 10.000 ítems</b>. Lo básico local nunca debería ser el muro; Pro sigue siendo ilimitado.</li>
+          <li data-i18n="log.7.4"><b>La app de descarga directa ya guarda el historial</b>: la clave de cifrado se guarda local al dispositivo cuando el build no puede usar iCloud Keychain, y «Salir de Gancho» ahora cierra del todo y reabrir trae el ícono de vuelta.</li>
+        </ul></div>
+      </div>
+      <div class="log-row">
         <div class="log-meta"><span class="ver">0.4.1</span><span class="dt" data-i18n="log.0.d">Jul 2026 · pre-lanzamiento</span></div>
         <div class="log-body"><h3 data-i18n="log.0.t">Sincronización reactiva entre tus dispositivos</h3><ul>
           <li data-i18n="log.0.1"><b>Sync de iCloud reactivo en ambos sentidos</b>: un clip copiado en un dispositivo llega solo a los demás, sin empujar nada. Se corrigieron la clave de push de macOS (se descartaba al firmar), el registro con APNs en ambas apps, y que el agente de la barra de menú no es un destino de push fiable — ahora también jala del servidor por su cuenta.</li>
@@ -1040,6 +1049,11 @@
       "int.lede": "The gancho CLI and local MCP server expose user-approved context to local agents and editors. Opt-in, scope-limited, and sensitive clips always excluded.",
       "log.kicker": "Changelog", "log.title": "Versioned like a product, even before public launch.",
       "log.lede": "Each release's metadata is verified in CI: project.yml, CHANGELOG.md, GitHub tags, and artifacts all move together.",
+      "log.7.d": "Jul 2026 · pre-release", "log.7.t": "Visible paste stack, expiry countdown, and a more generous free tier",
+      "log.7.1": "<b>The paste stack is visible</b> (macOS): queue several clips and paste them in order from a compact strip in the panel footer — reorder, remove, or clear; <b>⌥⌘Return</b> adds the selected clip. The queue is session-local and never leaves your Mac.",
+      "log.7.2": "<b>Expiry countdown</b>: clips about to age out — sensitive ones especially — show an \"expires in\" timer on their row, on Mac and iPhone/iPad.",
+      "log.7.3": "<b>A far more generous free tier</b>: the history window grows from 30 days / 2,000 items to <b>1 year / 10,000 items</b>. The local basics should never be the wall; Pro stays unlimited.",
+      "log.7.4": "<b>The direct-download app now saves your history</b>: the encryption key is stored device-local when a build can't use iCloud Keychain, and \"Quit Gancho\" now fully quits while reopening brings the icon back.",
       "log.0.d": "Jul 2026 · pre-release", "log.0.t": "Reactive sync across your devices",
       "log.0.1": "<b>Reactive iCloud sync, both directions</b>: a clip copied on one device arrives on the others on its own, no nudge needed. Fixed macOS's push key (silently dropped at signing), APNs registration in both apps, and the menu-bar agent not being a reliable push target — it now also pulls from the server itself.",
       "log.0.2": "<b>AI titles and OCR text cross reliably</b>: the enrichment a clip earns a moment after capture no longer loses a race with its first upload — the conflict is resolved and the update re-queued.",
