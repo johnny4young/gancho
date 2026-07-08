@@ -60,11 +60,13 @@ struct KeychainPassphraseStoreTests {
         // The statuses a build without the iCloud-Keychain entitlement returns
         // when it can't use a synchronizable item — the signal to fall back.
         #expect(KeychainPassphraseStore.synchronizableUnavailable(errSecMissingEntitlement))
-        #expect(KeychainPassphraseStore.synchronizableUnavailable(errSecParam))
         #expect(KeychainPassphraseStore.synchronizableUnavailable(errSecNotAvailable))
-        // A duplicate must NOT fall back — it belongs to the first-launch-race
-        // re-read path; success is obviously not a failure.
+        // Duplicates belong to the first-launch-race re-read path, and parameter
+        // errors usually mean a malformed query or access-group bug — neither
+        // should rotate the key by falling back. Success is obviously not a
+        // failure.
         #expect(!KeychainPassphraseStore.synchronizableUnavailable(errSecDuplicateItem))
+        #expect(!KeychainPassphraseStore.synchronizableUnavailable(errSecParam))
         #expect(!KeychainPassphraseStore.synchronizableUnavailable(errSecSuccess))
     }
 }

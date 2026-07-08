@@ -185,6 +185,20 @@ import Testing
                 "the unreadable database is moved aside, never deleted")
         }
 
+        @Test("Unreadable archive suffixes are collision-resistant within one second")
+        func unreadableArchiveSuffixIsCollisionResistant() throws {
+            let now = Date(timeIntervalSince1970: 1_785_000_000)
+            let firstID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
+            let secondID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))
+
+            let first = GRDBClipboardStore.unreadableStoreArchiveSuffix(now: now, uuid: firstID)
+            let second = GRDBClipboardStore.unreadableStoreArchiveSuffix(now: now, uuid: secondID)
+
+            #expect(first == "1785000000-00000000-0000-0000-0000-000000000001")
+            #expect(second == "1785000000-00000000-0000-0000-0000-000000000002")
+            #expect(first != second)
+        }
+
         @Test("A non-fresh key never resets — a reachable-key mismatch surfaces")
         func nonFreshKeyNeverResets() async throws {
             let dir = tempDir()

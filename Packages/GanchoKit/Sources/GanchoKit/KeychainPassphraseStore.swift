@@ -14,7 +14,8 @@ import Security
 ///   whose empty entitlements can't participate in iCloud Keychain — the add
 ///   returns `errSecMissingEntitlement`) fall back to a DEVICE-LOCAL key
 ///   (`…ThisDeviceOnly`), which needs no entitlement and never leaves the device.
-///   The read matches either (`kSecAttrSynchronizableAny`).
+///   Reads prefer that device-local key when both forms exist, then fall back to
+///   the synchronizable key for restores that only have the iCloud Keychain copy.
 /// - `kSecAttrAccessibleAfterFirstUnlock` — the menu-bar agent and the deferred
 ///   importer open the database while the device is locked, but never before
 ///   the first unlock after boot. Required for background capture, and the
@@ -120,10 +121,20 @@ public struct KeychainPassphraseStore: Sendable {
     }
 
     private func readKey() throws -> String? {
+        // Prefer the device-local key. A direct-download build may create one
+        // beside an older synchronizable key it could not read; preferring local
+        // keeps later entitled builds opening the database the user is now using
+        // instead of nondeterministically selecting the stale iCloud copy.
+        if let localKey = try readKey(synchronizable: false) {
+            return localKey
+        }
+        return try readKey(synchronizable: true)
+    }
+
+    private func readKey(synchronizable: Bool) throws -> String? {
         var query = baseQuery()
-        // Match whether the item was stored synchronizable or not, so a key
-        // that predates iCloud Keychain replication is still found.
-        query[kSecAttrSynchronizable as String] = kSecAttrSynchronizableAny
+        query[kSecAttrSynchronizable as String] =
+            synchronizable ? kCFBooleanTrue! : kCFBooleanFalse!
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -141,9 +152,9 @@ public struct KeychainPassphraseStore: Sendable {
             return key
         case errSecItemNotFound:
             return nil
-        case let status where Self.synchronizableUnavailable(status):
+        case let status where synchronizable && Self.synchronizableUnavailable(status):
             // A build without the iCloud-Keychain entitlement (the slim
-            // direct-download entitlements) can't even query the synchronizable
+            // direct-download entitlements) can't query the synchronizable
             // scope. Treat "not permitted" as "no key here" so the caller falls
             // through to creating a device-local one.
             return nil
@@ -188,9 +199,10 @@ public struct KeychainPassphraseStore: Sendable {
 
     /// Keychain statuses that mean "this build may not use synchronizable /
     /// iCloud-Keychain items" — the signal to fall back to a device-local key.
+    /// Parameter errors stay fatal: they usually mean a malformed query or
+    /// misconfigured access group, not an entitlement-limited release flavor.
     static func synchronizableUnavailable(_ status: OSStatus) -> Bool {
-        status == errSecMissingEntitlement || status == errSecParam
-            || status == errSecNotAvailable
+        status == errSecMissingEntitlement || status == errSecNotAvailable
     }
 
     // MARK: - Key generation

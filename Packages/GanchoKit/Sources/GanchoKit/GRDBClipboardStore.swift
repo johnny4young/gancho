@@ -107,7 +107,8 @@ public final class GRDBClipboardStore: ClipboardStore {
             .loadOrCreateKeyReportingFreshness()
         #if SQLITE_HAS_CODEC
             if rawKeyAdoptionEnabled() {
-                return try encryptedRawKeyAdopting(directory: directory, passphrase: resolved.key)
+                return try openEncryptedRawKeyAdopting(
+                    directory: directory, key: resolved.key, keyIsFresh: resolved.isFresh)
             }
         #endif
         return try openEncrypted(
@@ -145,19 +146,40 @@ public final class GRDBClipboardStore: ClipboardStore {
     }
 
     /// Moves an unreadable encrypted database (and its WAL/SHM siblings) aside to
-    /// a timestamped `.unreadable-*` name so a fresh store can take its place.
+    /// a timestamped, collision-resistant `.unreadable-*` name so a fresh store
+    /// can take its place.
     /// Content-addressed blobs are left in place — the fresh database won't
     /// reference them, and an orphan sweep reclaims them later.
     static func archiveUnreadableStore(in directory: URL) throws {
         let fileManager = FileManager.default
-        let stamp = Int(Date().timeIntervalSince1970)
+        let suffix = unreadableStoreArchiveSuffix()
         for name in ["gancho.sqlite", "gancho.sqlite-wal", "gancho.sqlite-shm"] {
             let source = directory.appendingPathComponent(name)
             guard fileManager.fileExists(atPath: source.path) else { continue }
-            let destination = directory.appendingPathComponent("\(name).unreadable-\(stamp)")
+            let destination = directory.appendingPathComponent("\(name).unreadable-\(suffix)")
             try fileManager.moveItem(at: source, to: destination)
         }
     }
+
+    static func unreadableStoreArchiveSuffix(
+        now: Date = Date(), uuid: UUID = UUID()
+    ) -> String {
+        "\(Int(now.timeIntervalSince1970))-\(uuid.uuidString)"
+    }
+
+    #if SQLITE_HAS_CODEC
+        static func openEncryptedRawKeyAdopting(
+            directory: URL, key: String, keyIsFresh: Bool
+        ) throws -> GRDBClipboardStore {
+            do {
+                return try encryptedRawKeyAdopting(directory: directory, passphrase: key)
+            } catch {
+                guard keyIsFresh, isDecryptionFailure(error) else { throw error }
+                try archiveUnreadableStore(in: directory)
+                return try encryptedRawKeyAdopting(directory: directory, passphrase: key)
+            }
+        }
+    #endif
 
     /// True when the launch environment opts this process into the raw-key
     /// open path (`GANCHO_RAWKEY_ADOPT=1`; every other value — or absence —
