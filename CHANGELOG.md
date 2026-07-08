@@ -7,6 +7,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-08
+
 ### Fixed
 
 - **The direct-download Mac app now saves your history.** On the Developer ID
