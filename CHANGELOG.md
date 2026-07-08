@@ -7,6 +7,20 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The direct-download Mac app now saves your history.** On the Developer ID
+  build, the encrypted store's key was stored in iCloud Keychain, which that
+  build isn't entitled to use — so it silently fell back to in-memory and showed
+  "History isn't being saved," losing everything on quit. The key is now stored
+  device-local when a build can't use iCloud Keychain (it never leaves the Mac,
+  which is arguably more private), and a store left keyed by an unreachable key
+  is safely re-initialized instead of stranding the app.
+- **Quitting Gancho fully quits it, and reopening brings the icon back.**
+  "Quit Gancho" no longer leaves the agent running headless after the menu-bar
+  icon disappears, and clicking Gancho again re-launches the menu-bar helper if
+  it went away — no more needing to kill the process by hand.
+
 ### Added
 
 - **A live expiry countdown on clips about to age out.** When a clip is within

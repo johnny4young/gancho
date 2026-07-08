@@ -138,13 +138,19 @@ inside the decrypted database.
   fork (SQLite.swift ships its own `SQLiteCipher.swift` variant; shareup/sqlite
   wraps GRDB; Realm is end-of-life).
 - **Key.** A random 256-bit key, never derived from user input, lives in the
-  Keychain (`KeychainPassphraseStore`): `kSecAttrSynchronizable` for multi-device
-  restore and `kSecAttrAccessibleAfterFirstUnlock` so background capture can open
-  the store while the device is locked. The key is never logged. On iOS the app
-  writes it to a shared keychain access group (`…gancho.keys`) so the keyboard
-  and widget extensions — which open the same App Group database — can read it.
-  The macOS app uses its default keychain; the Homebrew CLI needs signing to
-  reach the key (a known gap, tracked separately).
+  Keychain (`KeychainPassphraseStore`). Entitled builds use
+  `kSecAttrSynchronizable` for multi-device restore plus
+  `kSecAttrAccessibleAfterFirstUnlock` so background capture can open the store
+  while the device is locked. The direct-download Developer ID build has
+  intentionally slim entitlements, so when iCloud Keychain access is unavailable
+  it falls back to a device-local (`…ThisDeviceOnly`) key that needs no
+  entitlement and never leaves the Mac. Reads prefer that device-local key when
+  both forms exist, then fall back to the synchronizable key for restores that
+  only have the iCloud copy. The key is never logged. On iOS the app writes it
+  to a shared keychain access group (`…gancho.keys`) so the keyboard and widget
+  extensions — which open the same App Group database — can read it. The macOS
+  app uses its default keychain; the Homebrew CLI needs signing to reach the key
+  (a known gap, tracked separately).
 - **Wiring.** `GRDBClipboardStore.encrypted(directory:)` loads the key and opens
   the pool with `Configuration.prepareDatabase { try db.usePassphrase(key) }`.
   In-memory test stores and the perf harness stay plaintext.

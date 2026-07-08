@@ -48,6 +48,11 @@ private enum GanchoRuntime {
     }()
     static let menuBarPublisher = GanchoMenuBarStatusPublisher()
 
+    /// Whether launch spawned the external helper (vs. the in-process status
+    /// item fallback). A reopen only re-launches the helper when this is true,
+    /// so the in-process path never ends up with two icons.
+    static var launchedHelper = false
+
     static var usesInProcessStatusItem: Bool {
         CommandLine.arguments.contains("-use-in-process-status-item")
     }
@@ -138,10 +143,26 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
             GanchoRuntime.usesInProcessStatusItem
             ? false
             : GanchoMenuBarHelperLauncher.launch()
+        GanchoRuntime.launchedHelper = launchedHelper
 
         if !launchedHelper, let model = GanchoRuntime.model {
             GanchoRuntime.statusItem.attach(model: model)
         }
+    }
+
+    /// A menu-bar agent has no windows, so clicking Gancho in Finder or the Dock
+    /// sends a reopen with nothing to show. If the helper died — after a Quit
+    /// that didn't fully take, or a crash — the icon is gone with no way back
+    /// short of killing the process. Re-launch it here: `launch()` is idempotent
+    /// (it no-ops when a helper is already running), so this only revives a dead
+    /// one. Skipped on the in-process status-item path, which never had a helper.
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication, hasVisibleWindows flag: Bool
+    ) -> Bool {
+        if GanchoRuntime.launchedHelper {
+            GanchoMenuBarHelperLauncher.launch()
+        }
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {

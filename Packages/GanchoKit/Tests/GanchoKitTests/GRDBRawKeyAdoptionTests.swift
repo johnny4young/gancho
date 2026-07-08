@@ -164,6 +164,23 @@ import Testing
             #expect(try await store.count() == items.count)
         }
 
+        @Test("A fresh key recovery also applies to raw-key adoption")
+        func freshKeyRecoveryAppliesToRawKeyAdoption() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let key = try testKey()
+            try await makeDerivedKeyStore(at: dir, key: key, items: Self.fixtureItems())
+
+            let recovered = try GRDBClipboardStore.openEncryptedRawKeyAdopting(
+                directory: dir, key: try testKey(), keyIsFresh: true)
+            #expect(try await recovered.count() == 0, "the recovered store starts empty")
+
+            let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            #expect(
+                names.contains { $0.hasPrefix("gancho.sqlite.unreadable-") },
+                "raw-key adoption must archive the unreachable store before starting fresh")
+        }
+
         @Test("A fresh directory creates a raw-keyed store from the start")
         func freshStoreIsRawKeyed() async throws {
             let dir = tempDir()
