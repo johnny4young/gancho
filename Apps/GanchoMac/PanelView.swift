@@ -759,7 +759,9 @@ struct PanelView: View {
     /// Why capture isn't recording right now — surfaced IN the panel so a copy
     /// that doesn't show up reads as "paused", not "broken". Private mode is the
     /// reactive common case; denied/screen-share are read when the panel opens.
-    private enum CaptureNotice { case storageEphemeral, privateMode, denied, screenShare }
+    private enum CaptureNotice {
+        case storageEphemeral, privateMode, denied, screenShare, paused
+    }
 
     private var captureNotice: CaptureNotice? {
         // Data loss outranks everything: the user must know nothing is persisting.
@@ -767,16 +769,17 @@ struct PanelView: View {
         if model.monitorStatus == .deniedByPrivacySettings { return .denied }
         if model.preferences.isPrivateModePaused { return .privateMode }
         if model.monitorStatus == .pausedByScreenShare { return .screenShare }
+        if model.monitorStatus == .stopped { return .paused }
         return nil
     }
 
     /// True only when Gancho is actively watching the clipboard. Note that
     /// `.storageEphemeral` still captures (copies just don't persist), so it
-    /// doesn't flip this — the banner covers that case.
+    /// doesn't flip this — the banner covers that case. Do not derive this from
+    /// `captureNotice`: that value intentionally prioritizes the most important
+    /// banner when multiple conditions are true.
     private var isCapturing: Bool {
-        model.monitorStatus == .running
-            && captureNotice != .privateMode && captureNotice != .denied
-            && captureNotice != .screenShare
+        model.monitorStatus == .running && !model.preferences.isPrivateModePaused
     }
 
     /// A positive "yes, capturing" signal in the footer (or a muted "paused"
@@ -825,12 +828,13 @@ struct PanelView: View {
         case .privateMode: "eye.slash"
         case .denied: "exclamationmark.triangle.fill"
         case .screenShare: "rectangle.on.rectangle"
+        case .paused: "pause.circle"
         }
     }
 
     private func captureTint(_ notice: CaptureNotice) -> Color {
         switch notice {
-        case .privateMode, .screenShare: GanchoTokens.Palette.warning
+        case .privateMode, .screenShare, .paused: GanchoTokens.Palette.warning
         case .denied, .storageEphemeral: GanchoTokens.Palette.danger
         }
     }
@@ -841,6 +845,7 @@ struct PanelView: View {
         case .privateMode: "Private Mode is on"
         case .denied: "Clipboard access is off"
         case .screenShare: "Paused while screen sharing"
+        case .paused: "Capture is paused"
         }
     }
 
@@ -851,12 +856,13 @@ struct PanelView: View {
         case .privateMode: "New copies aren't being saved."
         case .denied: "Gancho can't see what you copy."
         case .screenShare: "Capture resumes when you stop sharing."
+        case .paused: "Resume capture to save new copies."
         }
     }
 
     private func captureAction(_ notice: CaptureNotice) -> LocalizedStringKey? {
         switch notice {
-        case .privateMode: "Resume"
+        case .privateMode, .paused: "Resume"
         case .denied: "Fix"
         case .storageEphemeral, .screenShare: nil
         }
@@ -865,6 +871,7 @@ struct PanelView: View {
     private func handleCaptureAction(_ notice: CaptureNotice) {
         switch notice {
         case .privateMode: model.togglePrivateMode()
+        case .paused: model.togglePause()
         case .denied: model.permissionWindow.show(model: model)
         case .storageEphemeral, .screenShare: break
         }
@@ -877,6 +884,8 @@ struct PanelView: View {
         switch captureNotice {
         case .privateMode: "Private Mode is on — resume it above to start saving."
         case .denied: "Clipboard access is off — turn it on above to start."
+        case .screenShare: "Capture is paused while sharing your screen."
+        case .paused: "Capture is paused — resume it above to start saving."
         default: "⌘C in any app to start"
         }
     }

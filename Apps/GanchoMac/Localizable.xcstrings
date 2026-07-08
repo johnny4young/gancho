@@ -3314,6 +3314,36 @@
         }
       }
     },
+    "Capture is paused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La captura está en pausa"
+          }
+        }
+      }
+    },
+    "Capture is paused — resume it above to start saving.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La captura está en pausa — reanúdala arriba para empezar a guardar."
+          }
+        }
+      }
+    },
+    "Capture is paused while sharing your screen.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La captura está en pausa mientras compartes la pantalla."
+          }
+        }
+      }
+    },
     "Capturing": {
       "localizations": {
         "es": {
@@ -3340,6 +3370,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "El modo privado está activo — reanúdalo arriba para empezar a guardar."
+          }
+        }
+      }
+    },
+    "Resume capture to save new copies.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reanuda la captura para guardar copias nuevas."
           }
         }
       }

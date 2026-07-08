@@ -10,6 +10,14 @@ import GanchoTelemetry
 import KeyboardShortcuts
 import SwiftUI
 
+#if DEBUG
+    /// Test-only policy for deterministic UI tests on machines where macOS pasteboard
+    /// privacy is set to Ask or Deny. Opted in by launch argument only.
+    private struct UITestAllowedPasteboardAccessPolicy: PasteboardAccessPolicy {
+        func currentVerdict() -> PasteboardAccessVerdict { .allowed }
+    }
+#endif
+
 /// The app's appearance override — Auto follows the system, Light/Dark force
 /// it. Mirrors the design's Auto/Light/Dark control.
 enum AppearancePreference: String, CaseIterable {
@@ -37,8 +45,6 @@ final class AppModel {
     /// commit-only-if-still-pending). Clips in their window stay out of
     /// `recentItems` even across a refresh until the deletion commits.
     let deletionCoordinator = DeletionCoordinator()
-    var monitorStatus: MonitorStatus { monitor.status }
-
     /// True when the durable store failed to open and the app is running on the
     /// in-memory fallback — history won't survive a relaunch, so the panel warns.
     var storageIsEphemeral: Bool { !store.isDurable }
@@ -59,6 +65,7 @@ final class AppModel {
     let thumbnails: ClipThumbnailStore
 
     let monitor: MacPasteboardMonitor
+    private(set) var monitorStatus: MonitorStatus = .stopped
     let pasteBack = PasteBackService()
     let privacyEvents = InMemoryPrivacyEventRecorder()
     /// Content-free log of recent operational issues (storage that wouldn't
@@ -121,6 +128,7 @@ final class AppModel {
     private var syncPollTimer: Timer?
     private let screenShareDetector = ScreenShareDetector()
     private var screenShareTimer: Timer?
+    private var monitorStatusTimer: Timer?
     private var uiTestPanelObserver: NSObjectProtocol?
     /// Wake-from-sleep sync catch-up (see the `didWakeNotification` observer).
     private var wakeObserver: NSObjectProtocol?
@@ -208,7 +216,14 @@ final class AppModel {
         })
         self.mcpConfig = MCPServerConfig.load(fromStoreDirectory: directory)
 
-        let loadedPreferences = CapturePreferences.load(from: defaults)
+        var loadedPreferences = CapturePreferences.load(from: defaults)
+        #if DEBUG
+            // UI tests must not inherit a developer's persisted Private Mode state.
+            // Keep the override in-memory so the real preference is untouched.
+            if CommandLine.arguments.contains("-force-capture-active") {
+                loadedPreferences.isPrivateModePaused = false
+            }
+        #endif
         preferences = loadedPreferences
         intelligence = IntelligencePreferences.load(from: defaults)
         retentionPolicy = RetentionPolicy.load(from: defaults)
@@ -219,8 +234,15 @@ final class AppModel {
         showInDock = defaults.bool(forKey: "show-in-dock")
         appearance =
             AppearancePreference(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .auto
+        #if DEBUG
+            let disableScreenShareAutoPause = CommandLine.arguments.contains(
+                "-disable-screen-share-auto-pause")
+        #else
+            let disableScreenShareAutoPause = false
+        #endif
         autoPauseOnScreenShare =
-            defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
+            disableScreenShareAutoPause
+            ? false : defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
         // Test hook: pin the FREE tier so the paywall flow is deterministic even
         // when `gancho-force-pro` is set in the environment (which would otherwise
         // force Pro and make `PaywallGatekeeper` suppress every trigger).
@@ -235,7 +257,19 @@ final class AppModel {
             optedOut ? nil : TelemetryDeckSender(appID: GanchoTelemetryConfig.appID)
         telemetry = TelemetryPipeline(sender: sender, optedOut: optedOut)
 
-        monitor = MacPasteboardMonitor(preferences: loadedPreferences)
+        let pasteboardAccessPolicy: any PasteboardAccessPolicy
+        #if DEBUG
+            if CommandLine.arguments.contains("-force-pasteboard-access-allowed") {
+                pasteboardAccessPolicy = UITestAllowedPasteboardAccessPolicy()
+            } else {
+                pasteboardAccessPolicy = SystemPasteboardAccessPolicy()
+            }
+        #else
+            pasteboardAccessPolicy = SystemPasteboardAccessPolicy()
+        #endif
+        monitor = MacPasteboardMonitor(
+            accessPolicy: pasteboardAccessPolicy,
+            preferences: loadedPreferences)
         monitor.denylist = SourceAppDenylist.load(from: defaults)
         monitor.onCapture = { [weak self] capture in
             self?.ingest(capture)
@@ -244,6 +278,13 @@ final class AppModel {
             self?.privacyEvents.record(IgnoredCaptureEvent(reason: reason))
         }
         monitor.start()
+        #if DEBUG
+            if CommandLine.arguments.contains("-start-capture-paused") {
+                monitor.stop()
+            }
+        #endif
+        syncMonitorStatus()
+        scheduleMonitorStatusMirror()
         scheduleRetention()
         scheduleScreenShareWatch()
         scheduleSyncPoll()
@@ -840,6 +881,7 @@ final class AppModel {
         } else {
             monitor.start()
         }
+        syncMonitorStatus()
     }
 
     func togglePrivateMode() {
@@ -1262,6 +1304,22 @@ final class AppModel {
             let value = AppearancePreference(rawValue: raw)
         {
             appearance = value
+        }
+    }
+
+    private func scheduleMonitorStatusMirror() {
+        monitorStatusTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) {
+            [weak self] _ in
+            Task { @MainActor in
+                self?.syncMonitorStatus()
+            }
+        }
+    }
+
+    private func syncMonitorStatus() {
+        let status = monitor.status
+        if monitorStatus != status {
+            monitorStatus = status
         }
     }
 

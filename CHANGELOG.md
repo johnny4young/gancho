@@ -12,9 +12,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The panel shows whether Gancho is capturing.** A small "Capturing" indicator
   in the panel footer (and "Paused" when it isn't), so if you copy something and
   don't see it you can tell at a glance whether Gancho is watching. When capture
-  is paused — Private Mode or clipboard access off — the empty-state names the
-  reason and points to the one-tap fix in the notice above, instead of an
-  unhelpful "⌘C to start."
+  is paused — manually, by Private Mode, while screen sharing, or because
+  clipboard access is off — the empty-state names the reason and points to the
+  one-tap fix in the notice above, instead of an unhelpful "⌘C to start."
 
 ## [0.5.0] - 2026-07-08
 
