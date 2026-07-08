@@ -92,7 +92,9 @@ struct MoveToBoardSheet: View {
     private func toggle(_ board: Pinboard) {
         let isMember = memberIDs.contains(board.id)
         Task {
-            await model.setBoardMembership(item, board: board, member: !isMember)
+            guard await model.setBoardMembership(item, board: board, member: !isMember) else {
+                return
+            }
             memberIDs = await model.boardMembership(for: item)
             UISelectionFeedbackGenerator().selectionChanged()
         }

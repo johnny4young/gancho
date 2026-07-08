@@ -1128,6 +1128,7 @@ final class AppModel {
                         try await grdbStore.assign(clipID: item.id, toBoard: board.id)
                     })
             else { return }
+            lastAssignedBoardID = board.id
             await syncController.engine.enqueue([item])
             toasts.show(GanchoToast(message: "Added to board"))
             await refreshRecents()
@@ -1147,6 +1148,7 @@ final class AppModel {
                         try await grdbStore.assign(clipID: item.id, toBoard: board.id)
                     })
             else { return }
+            lastAssignedBoardID = board.id
             await syncController.engine.enqueue([item])
             await refreshRecents()
             toasts.show(
@@ -1200,18 +1202,23 @@ final class AppModel {
     /// Creates a board and, when `assigning` is set, files that clip into it —
     /// the per-clip "Add to board → New board…" path expects the clip to land in
     /// the board it just named.
-    func createBoard(named name: String, assigning item: ClipItem? = nil) {
-        guard let grdbStore else { return }
-        Task {
-            let outcome = await BoardsController().createBoard(
-                name: name, filing: item, store: grdbStore, engine: syncController.engine,
-                isPro: tier == .pro,
-                onFreeLimit: { self.paywallWindow.show(trigger: .freeLimitReached, model: self) },
-                onAssigned: { self.toasts.show(GanchoToast(message: "Added to board")) })
-            guard outcome != .blocked else { return }
-            await refreshBoards()
-            if item != nil { await refreshRecents() }
+    @discardableResult
+    func createBoard(
+        named name: String, assigning item: ClipItem? = nil
+    ) async -> BoardsController.BoardCreateOutcome {
+        guard let grdbStore else { return .failed }
+        let outcome = await BoardsController().createBoard(
+            name: name, filing: item, store: grdbStore, engine: syncController.engine,
+            isPro: tier == .pro,
+            onFreeLimit: { self.paywallWindow.show(trigger: .freeLimitReached, model: self) },
+            onAssigned: { self.toasts.show(GanchoToast(message: "Added to board")) })
+        guard outcome != .blocked else { return outcome }
+        await refreshBoards()
+        if case .created(let boardID, filedClip: true) = outcome {
+            lastAssignedBoardID = boardID
         }
+        if item != nil { await refreshRecents() }
+        return outcome
     }
 
     /// Rename / delete are no-ops on the built-in Favorites board (the store
@@ -1242,12 +1249,35 @@ final class AppModel {
         return (try? await grdbStore.boardIDs(forClip: item.id)) ?? []
     }
 
-    /// Add or remove a clip from one board (the peek's per-board toggle).
-    func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async {
-        guard let grdbStore else { return }
-        await BoardsController().setBoardMembership(
+    /// Add or remove a clip from one board (the peek's per-board toggle and the
+    /// ⌘B picker). Remembers the board so ⇧⌘B can repeat it on the next clip.
+    @discardableResult
+    func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async -> Bool {
+        guard let grdbStore else { return false }
+        let succeeded = await BoardsController().setBoardMembership(
             item, board: board, member: member, store: grdbStore, engine: syncController.engine)
+        guard succeeded else { return false }
+        if member { lastAssignedBoardID = board.id }
         await refreshRecents()
+        return true
+    }
+
+    /// The last board a clip was filed into, for the ⇧⌘B "repeat" shortcut.
+    /// Persisted (UserDefaults) so it survives relaunch, like the panel position.
+    var lastAssignedBoardID: UUID? {
+        get { defaults.string(forKey: "last-assigned-board").flatMap(UUID.init) }
+        set { defaults.set(newValue?.uuidString, forKey: "last-assigned-board") }
+    }
+
+    /// ⇧⌘B: file the clip into the last board used, so curating many clips into
+    /// the same board is one keystroke each. A no-op (with a nudge) when there is
+    /// no remembered board or it has since been deleted.
+    func assignToLastBoard(_ item: ClipItem) {
+        guard let id = lastAssignedBoardID, let board = boards.first(where: { $0.id == id }) else {
+            toasts.show(GanchoToast(message: "Pick a board with ⌘B first"))
+            return
+        }
+        assign(item, toBoard: board)
     }
 
     // MARK: - Denylist & settings portability

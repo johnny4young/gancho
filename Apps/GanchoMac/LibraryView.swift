@@ -658,15 +658,22 @@ struct LibraryView: View {
     private func commitBoardSheet() {
         let name = boardNameField.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
-        switch boardSheet {
-        case .new: model.createBoard(named: name)
-        case .rename(let board): model.renameBoard(board, name: name)
-        case nil: break
-        }
+        let sheet = boardSheet
         boardSheet = nil
-        Task {
-            try? await Task.sleep(for: .milliseconds(140))
-            await refreshAll()
+        switch sheet {
+        case .new:
+            Task {
+                await model.createBoard(named: name)
+                try? await Task.sleep(for: .milliseconds(140))
+                await refreshAll()
+            }
+        case .rename(let board):
+            model.renameBoard(board, name: name)
+            Task {
+                try? await Task.sleep(for: .milliseconds(140))
+                await refreshAll()
+            }
+        case nil: break
         }
     }
 }

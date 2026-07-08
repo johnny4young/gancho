@@ -71,6 +71,8 @@ struct PanelView: View {
     /// The keyboard cheat-sheet overlay (⌘/ or the footer "?"): surfaces the
     /// power shortcuts (⌘P/⌘S/⌥⏎/⌘1-9) that the footer hints can't fit.
     @State private var showShortcuts = false
+    /// The ⌘B board picker overlay for the selected clip.
+    @State private var showBoardPicker = false
 
     init(model: AppModel) {
         _search = State(wrappedValue: PanelSearchModel(source: model))
@@ -111,6 +113,7 @@ struct PanelView: View {
         .padding(GanchoTokens.Spacing.sm)
         .frame(minWidth: search.selectedItem == nil ? 472 : 864, minHeight: 520)
         .overlay { shortcutsOverlay }
+        .overlay { boardPickerOverlay }
         .background { pasteShortcutButtons }
         .animation(.snappy(duration: 0.12), value: showShortcuts)
         .task { await search.refresh() }
@@ -261,6 +264,19 @@ struct PanelView: View {
                         return .ignored
                     }
                     model.promoteToSnippet(item)
+                    return .handled
+                }
+                .onKeyPress(characters: CharacterSet(charactersIn: "bB"), phases: .down) { press in
+                    // ⌘B opens the board picker for the selection; ⇧⌘B repeats
+                    // the last board (curate many clips into one board fast).
+                    guard press.modifiers.contains(.command), let item = search.selectedItem else {
+                        return .ignored
+                    }
+                    if press.modifiers.contains(.shift) {
+                        model.assignToLastBoard(item)
+                    } else {
+                        showBoardPicker = true
+                    }
                     return .handled
                 }
 
@@ -481,8 +497,10 @@ struct PanelView: View {
         let name = boardNameField.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
         switch boardSheet {
-        case .new: model.createBoard(named: name)
-        case .newForClip(let clip): model.createBoard(named: name, assigning: clip)
+        case .new:
+            Task { await model.createBoard(named: name) }
+        case .newForClip(let clip):
+            Task { await model.createBoard(named: name, assigning: clip) }
         case .rename(let board): model.renameBoard(board, name: name)
         case nil: break
         }
@@ -685,6 +703,13 @@ struct PanelView: View {
 
     /// A dimmed scrim + a card listing every panel shortcut. Toggled by ⌘/ or
     /// the footer "?"; esc and a scrim tap dismiss it.
+    @ViewBuilder private var boardPickerOverlay: some View {
+        if showBoardPicker, let item = search.selectedItem {
+            PanelBoardPicker(item: item) { showBoardPicker = false }
+                .transition(.opacity)
+        }
+    }
+
     @ViewBuilder private var shortcutsOverlay: some View {
         if showShortcuts {
             ZStack {

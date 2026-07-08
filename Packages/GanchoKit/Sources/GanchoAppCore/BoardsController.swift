@@ -39,12 +39,13 @@ public struct BoardsController {
     /// shell's `boards`/`refreshRecents`/`search`:
     /// - `blocked`: the free-tier gate stopped it (`onFreeLimit` already fired);
     /// - `failed`: `createPinboard` did not return a board;
-    /// - `created`: success, carrying the new board's id (the iOS filing path
-    ///   returns it so the move-to-board sheet can refresh its checkmarks).
+    /// - `created`: success, carrying the new board's id and whether an
+    ///   optional filing write also succeeded (the shells use that to update
+    ///   checkmarks / repeat-last state only after a real membership write).
     public enum BoardCreateOutcome: Sendable, Equatable {
         case blocked
         case failed
-        case created(UUID)
+        case created(UUID, filedClip: Bool)
     }
 
     /// Creates a board, honoring the free-tier gate, and — when `item` is set —
@@ -84,13 +85,15 @@ public struct BoardsController {
         guard let board = try? await store.createPinboard(name: name, sfSymbol: "square.stack")
         else { return .failed }
         await engine.enqueue(boards: [board])
+        var filedClip = false
         if let item {
             if (try? await store.assign(clipID: item.id, toBoard: board.id)) != nil {
+                filedClip = true
                 await engine.enqueue([item])
                 onAssigned()
             }
         }
-        return .created(board.id)
+        return .created(board.id, filedClip: filedClip)
     }
 
     /// Renames a user board and queues its new metadata for sync, mirroring both
@@ -138,7 +141,7 @@ public struct BoardsController {
         member: Bool,
         store: any BoardStoring,
         engine: any SyncEngine
-    ) async {
+    ) async -> Bool {
         let succeeded: Bool
         if member {
             succeeded = (try? await store.assign(clipID: item.id, toBoard: board.id)) != nil
@@ -149,5 +152,6 @@ public struct BoardsController {
         if succeeded {
             await engine.enqueue([item])
         }
+        return succeeded
     }
 }

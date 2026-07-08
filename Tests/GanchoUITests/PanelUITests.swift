@@ -164,6 +164,34 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
+    private func typeBoardPickerFilter(
+        _ text: String,
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let identifiedField = app.textFields["board-picker-filter"].firstMatch
+        if identifiedField.waitForExistence(timeout: 2) {
+            if identifiedField.isHittable {
+                identifiedField.click()
+            }
+            identifiedField.typeText(text)
+            return
+        }
+
+        let labelledField = app.textFields["Filter or new board name"].firstMatch
+        guard labelledField.waitForExistence(timeout: 2) else {
+            XCTFail("the picker filter must exist before typing", file: file, line: line)
+            return
+        }
+
+        if labelledField.isHittable {
+            labelledField.click()
+        }
+        labelledField.typeText(text)
+    }
+
+    @MainActor
     private func waitForAppToStart(_ app: XCUIApplication) {
         let deadline = Date().addingTimeInterval(5)
         while app.state == .notRunning && Date() < deadline {
@@ -267,6 +295,65 @@ final class PanelUITests: XCTestCase {
         let card = app.descendants(matching: .any)["panel-shortcuts"].firstMatch
         XCTAssertTrue(
             card.waitForExistence(timeout: 3), "the ? button must open the keyboard cheat-sheet")
+    }
+
+    @MainActor
+    func testBoardPickerCreatesBoardAndRepeatLastShortcutFilesAnotherClip() throws {
+        let app = launchWithPanel(
+            extraArguments: ["-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier"])
+        defer { app.terminate() }
+        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8))
+
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        try XCTSkipUnless(
+            rows.firstMatch.waitForExistence(timeout: 8),
+            "seeded clip rows not exposed to the UI runner in this environment")
+        let settle = Date().addingTimeInterval(3)
+        while rows.count < 2 && Date() < settle {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        let allRows = rows.allElementsBoundByIndex
+        try XCTSkipUnless(allRows.count >= 2, "not enough seeded rows exposed (\(allRows.count))")
+
+        app.typeKey("b", modifierFlags: .command)
+        let picker = app.descendants(matching: .any)["board-picker"].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 5), "⌘B must open the board picker")
+        typeBoardPickerFilter("Review queue", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["board-picker-create-row"].firstMatch
+                .waitForExistence(timeout: 3),
+            "typing a new board name must offer a create row")
+
+        app.typeKey(.return, modifierFlags: .command)
+        XCTAssertEqual(
+            XCTWaiter().wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "exists == false"), object: picker)
+                ],
+                timeout: 6), .completed,
+            "⌘↩ must create, file, remember the board, and close the picker")
+
+        allRows[1].click()
+        app.typeKey("b", modifierFlags: [.command, .shift])
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+
+        app.typeKey("b", modifierFlags: .command)
+        let reopenedPicker = app.descendants(matching: .any)["board-picker"].firstMatch
+        XCTAssertTrue(
+            reopenedPicker.waitForExistence(timeout: 5), "⌘B must reopen the board picker")
+        typeBoardPickerFilter("Review queue", in: app)
+        let createdBoardRow = app.descendants(matching: .any)["board-picker-board-row"].firstMatch
+        XCTAssertTrue(createdBoardRow.waitForExistence(timeout: 3))
+        XCTAssertEqual(
+            XCTWaiter().wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "value == %@", "Selected"),
+                        object: createdBoardRow)
+                ],
+                timeout: 3), .completed,
+            "⇧⌘B must repeat the newly created board on the next selected clip")
     }
 
     @MainActor
