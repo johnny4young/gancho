@@ -90,9 +90,47 @@ struct PerformanceHarnessTests {
         }
         let fixtures = ClipFixtures.make(count: Self.scale)
         let start = ContinuousClock.now
-        try await store.importBatch(fixtures)
+        if migration != nil {
+            // Partial-schema seeding: `importBatch` writes the full current
+            // `ClipRow` (isArchived v5, sync fields v8, keyword/uses v13…),
+            // which a v1-only table rejects — so seed with an INSERT that names
+            // v1 columns only. Test-side on purpose: production never inserts
+            // into a half-migrated store.
+            try await seedAtV1(store, fixtures: fixtures)
+        } else {
+            try await store.importBatch(fixtures)
+        }
         print("perf: seeded \(Self.scale) clips in \(ContinuousClock.now - start)")
         return store
+    }
+
+    /// Bulk insert naming ONLY the v1 columns. `ClipRow` does the field mapping
+    /// (kind rawValue, tags JSON) so the stored format matches production; the
+    /// raw SQL just narrows the column list to what the v1 schema has.
+    private func seedAtV1(
+        _ store: GRDBClipboardStore,
+        fixtures: [(item: ClipItem, content: ClipContent?)]
+    ) async throws {
+        try await store.writer.write { db in
+            for entry in fixtures {
+                var row = ClipRow(item: entry.item)
+                if case .text(let text)? = entry.content { row.contentText = text }
+                try db.execute(
+                    sql: """
+                        INSERT INTO clip
+                          (id, createdAt, updatedAt, lastUsedAt, kind, title, preview,
+                           contentHash, sourceAppBundleID, sourceDeviceName, isPinned,
+                           isSensitive, expiresAt, tags, contentText)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                    arguments: [
+                        row.id, row.createdAt, row.updatedAt, row.lastUsedAt, row.kind,
+                        row.title, row.preview, row.contentHash, row.sourceAppBundleID,
+                        row.sourceDeviceName, row.isPinned, row.isSensitive,
+                        row.expiresAt, row.tags, row.contentText
+                    ])
+            }
+        }
     }
 
     @Test("FTS5 fuzzy search p95 stays under 50ms over 100k clips")

@@ -36,11 +36,19 @@ jobs:
           key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift') }}
 
       - name: Run performance harness
+        # GitHub's default `run:` shell is bash WITHOUT pipefail, so
+        # `make bench | tee` used to exit with tee's 0 and a failing harness
+        # kept the job green (this masked a broken budget test for weeks).
+        # Capture the status explicitly so the summary still gets the perf
+        # trend lines even when the harness fails, THEN propagate the failure.
         run: |
-          make bench 2>&1 | tee bench.log
+          set -o pipefail
+          status=0
+          make bench 2>&1 | tee bench.log || status=$?
           {
             echo "### Performance trends"
             echo '```'
             grep '^perf:' bench.log || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
