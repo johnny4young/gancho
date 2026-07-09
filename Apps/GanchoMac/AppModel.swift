@@ -633,6 +633,10 @@ final class AppModel {
             telemetry.record(
                 .itemPastedBack(
                     ageBucket: .init(age: Date().timeIntervalSince(item.createdAt))))
+            // Frecency signal: every paste bumps uses/lastUsedAt (local only —
+            // recordUse never flags a re-upload). The single choke point for
+            // Enter, ⌘1-9, ⌘V, the paste stack, and the peek actions.
+            try? await grdbStore?.recordUse(id: item.id, now: .now)
             _ = try? await store.insert(item, content: nil)  // move-to-top
             await refreshRecents()
         }
@@ -650,6 +654,7 @@ final class AppModel {
             if pasteBack.paste(.text(transform.apply(to: text)), asPlainText: true) == .copiedOnly {
                 showCopyOnlyToast()
             }
+            try? await grdbStore?.recordUse(id: item.id, now: .now)
             _ = try? await store.insert(item, content: nil)
             await refreshRecents()
         }

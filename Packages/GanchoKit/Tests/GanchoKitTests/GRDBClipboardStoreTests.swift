@@ -361,6 +361,33 @@ struct GRDBClipboardStoreTests {
         }
     }
 
+    @Test("recordUse bumps uses and lastUsedAt without flagging a re-upload")
+    func recordUseBumpsWithoutSyncFlag() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let item = ClipItem(preview: "pasted", contentHash: "h-use")
+        try await store.insert(item, content: .text("pasted"))
+        // Whatever the insert left as pending-upload state is the baseline;
+        // recordUse must not change it (no sync storm per paste).
+        let pendingBefore = try await store.pendingUploadIDs()
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try await store.recordUse(id: item.id, now: now)
+        try await store.recordUse(id: item.id, now: now.addingTimeInterval(60))
+
+        let fetched = try #require(try await store.items().first { $0.id == item.id })
+        #expect(fetched.uses == 2, "every use bumps the counter")
+        #expect(
+            abs(
+                (fetched.lastUsedAt ?? .distantPast).timeIntervalSince1970
+                    - (now.timeIntervalSince1970 + 60)) < 0.01,
+            "lastUsedAt freshens to the latest use")
+        #expect(
+            try await store.pendingUploadIDs() == pendingBefore,
+            "recordUse must never flag the clip for re-upload")
+    }
+
     @Test("A board's color and emoji round-trip through the store")
     func boardIdentityPersists() async throws {
         let (store, dir) = try makeStore()

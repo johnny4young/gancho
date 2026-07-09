@@ -442,6 +442,9 @@ final class IOSAppModel {
             UIPasteboard.general.string = paths.joined(separator: "\n")
         }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+        // Frecency signal: iOS's "use" is the Copy tap (there's no paste-back).
+        // Local only — recordUse never flags a re-upload.
+        try? await full?.recordUse(id: item.id, now: .now)
         // Copying a clip is the truest "ready to paste" moment — it's on the
         // pasteboard now — so surface it on the Live Activity too.
         clipActivity.show(item, sync: ClipSyncBadge(syncStatus))

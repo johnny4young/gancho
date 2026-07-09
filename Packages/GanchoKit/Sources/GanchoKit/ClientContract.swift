@@ -124,6 +124,13 @@ public protocol ClipMutating: Sendable {
     /// Pins/unpins a clip. Pins float to the top of every list and are exempt
     /// from retention; pin state syncs (unlike board membership).
     func setPinned(id: UUID, _ pinned: Bool) async throws
+
+    /// Records that a clip was used (pasted/copied): bumps its use counter and
+    /// `lastUsedAt` — the signal frecency ranking reads. Deliberately does NOT
+    /// flag the clip for re-upload: a sync cycle per paste would be a storm, so
+    /// the freshened `lastUsedAt` rides along with the clip's next real change
+    /// (accepted, documented drift).
+    func recordUse(id: UUID, now: Date) async throws
 }
 
 // MARK: - Enriching

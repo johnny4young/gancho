@@ -142,6 +142,19 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// Records a paste/copy of any clip: bumps `uses` and freshens `lastUsedAt`
+    /// (what the frecency re-rank reads; `idx_clip_frecency` covers the pair).
+    /// Deliberately does NOT set `needsUpload` — one sync cycle per paste would
+    /// be a storm; the freshened `lastUsedAt` rides along with the clip's next
+    /// real change instead (accepted, documented drift).
+    public func recordUse(id: UUID, now: Date = .now) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET uses = uses + 1, lastUsedAt = ? WHERE id = ?",
+                arguments: [now, id.uuidString])
+        }
+    }
+
     /// The snippet invoked by an exact keyword (case-insensitive), if any — the
     /// in-app keyword expansion path.
     public func snippet(matchingKeyword keyword: String) async throws -> ClipItem? {
