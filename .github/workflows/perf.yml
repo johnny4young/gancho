@@ -42,6 +42,7 @@ jobs:
         # Capture the status explicitly so the summary still gets the perf
         # trend lines even when the harness fails, THEN propagate the failure.
         run: |
+          set -o pipefail
           status=0
           make bench 2>&1 | tee bench.log || status=$?
           {
