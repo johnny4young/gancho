@@ -43,11 +43,11 @@ public struct PaywallCopy: Sendable, Equatable, Codable {
         freeForeverPoints: [
             "1-year history, 10,000 items", "Smart AI titles to try",
             "Full search and paste-back", "15 pins, 3 boards, 20 snippets",
-            "Developer actions", "All privacy features",
+            "Developer actions", "All privacy features"
         ],
         proPoints: [
             "Unlimited history, pins, and boards", "On-device AI titles and search",
-            "Encrypted iCloud sync",
+            "Encrypted iCloud sync"
         ])
 }
 

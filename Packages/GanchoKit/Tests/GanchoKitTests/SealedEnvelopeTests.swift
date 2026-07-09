@@ -14,7 +14,7 @@ struct SealedEnvelopeTests {
         let sealed = try SealedEnvelope.seal(plaintext, key: key)
 
         #expect(SealedEnvelope.isSealed(sealed))
-        #expect(sealed.range(of: plaintext) == nil, "plaintext must not appear in sealed bytes")
+        #expect(!sealed.contains(plaintext), "plaintext must not appear in sealed bytes")
         #expect(try SealedEnvelope.open(sealed, key: key) == plaintext)
     }
 

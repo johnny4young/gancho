@@ -27,7 +27,7 @@ struct SupportBundleTests {
             settings: SettingsSnapshot(
                 retention: RetentionPolicy(), capturePreferencesJSON: Data()),
             statistics: stats, telemetryCounts: ["app_launched": 3])
-        let json = String(decoding: try bundle.encoded(), as: UTF8.self)
+        let json = try #require(String(bytes: try bundle.encoded(), encoding: .utf8))
 
         #expect(!json.contains("the actual clipboard content"))
         #expect(!json.contains("secret-ish body"))

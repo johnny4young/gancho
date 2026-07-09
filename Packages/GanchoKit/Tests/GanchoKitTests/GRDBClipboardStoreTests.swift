@@ -159,7 +159,7 @@ struct GRDBClipboardStoreTests {
         #expect(try await store.count() == 0)
         let blobFiles =
             (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
-        #expect(blobFiles.filter { $0 != "thumbnails" }.isEmpty, "orphaned blob must be removed")
+        #expect(!blobFiles.contains { $0 != "thumbnails" }, "orphaned blob must be removed")
     }
 
     @Test("deleteAllSensitive removes orphaned blobs but never a shared one")
@@ -217,7 +217,7 @@ struct GRDBClipboardStoreTests {
         try await store.insert(
             ClipItem(preview: "he said \"hi\", twice", contentHash: "h1"),
             content: .text("line one\nline two"))
-        let csv = String(decoding: try await store.exportCSV(), as: UTF8.self)
+        let csv = try #require(String(bytes: try await store.exportCSV(), encoding: .utf8))
 
         #expect(csv.contains("\"he said \"\"hi\"\", twice\""))
         #expect(csv.contains("\"line one\nline two\""))
@@ -241,9 +241,9 @@ struct GRDBClipboardStoreTests {
             ClipItem(createdAt: base.addingTimeInterval(120), preview: "last", contentHash: "h3"),
             content: .text("last"))
 
-        let lines = String(
-            decoding: try await store.exportCSV(excludeSensitive: true), as: UTF8.self
-        ).split(separator: "\n")
+        let filteredCSV = try #require(
+            String(bytes: try await store.exportCSV(excludeSensitive: true), encoding: .utf8))
+        let lines = filteredCSV.split(separator: "\n")
         #expect(lines.count == 3, "header + the two non-sensitive rows")
         #expect(lines[1].contains("first"))
         #expect(lines[2].contains("last"))
@@ -258,7 +258,7 @@ struct GRDBClipboardStoreTests {
         try await store.insert(
             ClipItem(preview: "=SUM(A1:A9)", contentHash: "h1"),
             content: .text("=HYPERLINK(\"https://evil.example\",\"click\")"))
-        let csv = String(decoding: try await store.exportCSV(), as: UTF8.self)
+        let csv = try #require(String(bytes: try await store.exportCSV(), encoding: .utf8))
 
         // A leading = + - @ (or tab/CR) is prefixed with a single apostrophe
         // BEFORE the normal RFC-4180 quoting, so spreadsheets render it as
@@ -279,19 +279,19 @@ struct GRDBClipboardStoreTests {
         try await store.insert(
             ClipItem(preview: "plain", contentHash: "hp"), content: .text("plain body"))
 
-        let json = String(
-            decoding: try await store.exportJSON(excludeSensitive: true), as: UTF8.self)
+        let json = try #require(
+            String(bytes: try await store.exportJSON(excludeSensitive: true), encoding: .utf8))
         #expect(!json.contains("ghp_notARealTokenJustAShapeForTesting01"))
         #expect(json.contains("plain body"))
 
-        let csv = String(
-            decoding: try await store.exportCSV(excludeSensitive: true), as: UTF8.self)
+        let csv = try #require(
+            String(bytes: try await store.exportCSV(excludeSensitive: true), encoding: .utf8))
         #expect(!csv.contains("ghp_notARealTokenJustAShapeForTesting01"))
         #expect(csv.contains("plain body"))
 
         // The default (protocol) form still includes everything — no silent
         // behavior change for existing callers.
-        let full = String(decoding: try await store.exportJSON(), as: UTF8.self)
+        let full = try #require(String(bytes: try await store.exportJSON(), encoding: .utf8))
         #expect(full.contains("ghp_notARealTokenJustAShapeForTesting01"))
     }
 

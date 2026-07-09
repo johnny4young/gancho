@@ -134,7 +134,7 @@ public struct BlobStore: Sendable {
                 [
                     kCGImageSourceCreateThumbnailFromImageAlways: true,
                     kCGImageSourceThumbnailMaxPixelSize: Self.thumbnailMaxPixelSize,
-                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true
                 ] as CFDictionary)
         else { return nil }
 
@@ -232,7 +232,7 @@ public struct BlobStore: Sendable {
                 [
                     kCGImageSourceCreateThumbnailFromImageAlways: true,
                     kCGImageSourceThumbnailMaxPixelSize: Self.thumbnailMaxPixelSize,
-                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true
                 ] as CFDictionary)
         else { return nil }
 

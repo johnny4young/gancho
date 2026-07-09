@@ -36,6 +36,7 @@ struct PrivacyCenterView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("History isn't being saved").font(.body.weight(.semibold))
                         Text(
+                            // swiftlint:disable:next line_length
                             "Gancho is on a temporary store, so these numbers reset on quit and your clips won't persist."
                         )
                         .font(.footnote).foregroundStyle(.secondary)
@@ -181,6 +182,7 @@ struct PrivacyCenterView: View {
 
                 Section("Network") {
                     Text(
+                        // swiftlint:disable:next line_length
                         "Gancho sends no clipboard content anywhere. Verify it yourself with Little Snitch or any network monitor — this screen included."
                     )
                     .font(.footnote)

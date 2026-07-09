@@ -105,7 +105,7 @@ struct PanelSearchModelTests {
         source.recent = [
             ClipItem(kind: .url, preview: "https://x"),
             ClipItem(kind: .text, preview: "plain"),
-            ClipItem(kind: .url, preview: "https://y"),
+            ClipItem(kind: .url, preview: "https://y")
         ]
         let model = PanelSearchModel(source: source)
         await model.refresh()
@@ -160,7 +160,7 @@ struct PanelSearchModelTests {
         source.recent = [
             ClipItem(kind: .text, preview: "pinned", isPinned: true),
             ClipItem(kind: .text, preview: "recent 1"),
-            ClipItem(kind: .text, preview: "recent 2"),
+            ClipItem(kind: .text, preview: "recent 2")
         ]
         let model = PanelSearchModel(source: source)
         await model.refresh()
@@ -187,7 +187,7 @@ struct PanelSearchModelTests {
         let source = FakeSource()
         source.isDurable = false
         source.recent = [
-            ClipItem(preview: "alpha"), ClipItem(preview: "beta"), ClipItem(preview: "ALPHAbet"),
+            ClipItem(preview: "alpha"), ClipItem(preview: "beta"), ClipItem(preview: "ALPHAbet")
         ]
         let model = PanelSearchModel(source: source)
         model.query = "alpha"

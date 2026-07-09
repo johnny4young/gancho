@@ -24,6 +24,9 @@ import GanchoMCP
 /// every access to the Privacy Center.
 @main
 struct GanchoCLI {
+    // Keep the top-level command dispatch centralized; subcommands remain small
+    // private helpers below.
+    // swiftlint:disable:next cyclomatic_complexity
     static func main() async {
         var args = Array(CommandLine.arguments.dropFirst())
         guard let command = args.first else {

@@ -111,7 +111,7 @@ final class ToastPresenter {
             notification: .announcementRequested,
             userInfo: [
                 .announcement: String(localized: toast.message),
-                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue
             ])
 
         dismissTask?.cancel()

@@ -259,7 +259,7 @@ struct ClipPeek: View {
             },
             PeekAction(id: "preview-paste-plain", title: "Paste plain", symbol: "doc.plaintext") {
                 model.paste(item, asPlainText: true)
-            },
+            }
         ]
         for action in DevActions.actions(for: item.kind) {
             actions.append(
@@ -398,7 +398,7 @@ struct ClipPeek: View {
     /// Common targets for Smart Paste translation. Names render in the user's
     /// language (via `Locale`); the prompt gets the English name for clarity.
     private static let translateLanguageCodes = [
-        "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh",
+        "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh"
     ]
     private static func localizedLanguageName(_ code: String) -> String {
         Locale.current.localizedString(forLanguageCode: code) ?? code

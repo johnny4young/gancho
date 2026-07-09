@@ -1,6 +1,10 @@
 import Foundation
 import GRDB
 
+// This class owns the schema, query surface, and migration boundary. Split
+// storage responsibilities in a dedicated database refactor, not in lint setup.
+// swiftlint:disable type_body_length
+
 /// SQLite-backed source of truth for clip history (GRDB).
 ///
 /// Layout decisions (see docs/ARCHITECTURE.md):
@@ -13,6 +17,7 @@ import GRDB
 /// - The store never imports CloudKit: sync goes through the `SyncEngine`
 ///   boundary, fed by the same records.
 public final class GRDBClipboardStore: ClipboardStore {
+    // swiftlint:enable type_body_length
     /// Internal (not private) so same-module engines (retention, sync feed)
     /// and the test harness can run statements without widening the API.
     let writer: any DatabaseWriter
@@ -436,7 +441,7 @@ public final class GRDBClipboardStore: ClipboardStore {
                     + "VALUES (?, ?, ?, ?, ?, 1)",
                 arguments: [
                     Pinboard.favoritesID.uuidString, "Favorites", "star", -1,
-                    Date(timeIntervalSince1970: 0),
+                    Date(timeIntervalSince1970: 0)
                 ])
         }
         migrator.registerMigration("v12-board-sync") { db in

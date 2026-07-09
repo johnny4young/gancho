@@ -325,8 +325,11 @@ struct ClipDetailView: View {
                         ForEach(currentBoards) { board in
                             HStack(spacing: 5) {
                                 BoardDot(board: board, size: 9)
-                                board.isSystem
-                                    ? Text("Favorites") : Text(verbatim: board.name)
+                                if board.isSystem {
+                                    Text("Favorites")
+                                } else {
+                                    Text(verbatim: board.name)
+                                }
                             }
                             .font(.caption)
                             .padding(.horizontal, GanchoTokens.Spacing.sm)
@@ -416,7 +419,7 @@ struct ClipDetailView: View {
     }
 
     private static let translateLanguageCodes = [
-        "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh",
+        "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh"
     ]
     private static func localizedLanguageName(_ code: String) -> String {
         Locale.current.localizedString(forLanguageCode: code) ?? code

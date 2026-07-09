@@ -110,9 +110,9 @@ public struct EmbeddingIndex: Sendable {
         }
 
         return
-            scores.enumerated()
-            .sorted { $0.element > $1.element }
+            zip(ids, scores)
+            .sorted { $0.1 > $1.1 }
             .prefix(topK)
-            .map { (id: ids[$0.offset], score: $0.element) }
+            .map { (id: $0.0, score: $0.1) }
     }
 }

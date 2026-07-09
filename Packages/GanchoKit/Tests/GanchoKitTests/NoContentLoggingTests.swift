@@ -31,7 +31,7 @@ struct NoContentLoggingTests {
         ("Apps/GanchoMac/PanelController.swift", "print(\"panel: open took"),
         // Status-item placement diagnostics (DEBUG only): screen name + frame
         // geometry, never clipboard content.
-        ("Apps/GanchoMac/StatusItemController.swift", "print(\"status-item:"),
+        ("Apps/GanchoMac/StatusItemController.swift", "print(\"status-item:")
     ]
 
     @Test("Engine modules contain no logging calls")

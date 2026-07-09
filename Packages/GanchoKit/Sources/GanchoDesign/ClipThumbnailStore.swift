@@ -119,7 +119,7 @@ public final class ClipThumbnailStore {
             [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixel
             ] as CFDictionary
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else {
             return nil

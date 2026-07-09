@@ -182,7 +182,7 @@ final class KeyboardModel: ObservableObject {
             [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixel
             ] as CFDictionary
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else {
             return nil

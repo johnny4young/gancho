@@ -18,7 +18,7 @@
             (text as NSString).draw(
                 at: NSPoint(x: 20, y: 24),
                 withAttributes: [
-                    .font: NSFont.systemFont(ofSize: 28), .foregroundColor: NSColor.black,
+                    .font: NSFont.systemFont(ofSize: 28), .foregroundColor: NSColor.black
                 ])
             image.unlockFocus()
             let tiff = image.tiffRepresentation!

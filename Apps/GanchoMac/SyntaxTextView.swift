@@ -153,7 +153,7 @@ final class LineNumberRulerView: NSRulerView {
         let inset = textView.textContainerInset.height
         let yOffset = convert(NSPoint.zero, from: textView).y
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: Self.font, .foregroundColor: GanchoTokens.Syntax.editorGutterText,
+            .font: Self.font, .foregroundColor: GanchoTokens.Syntax.editorGutterText
         ]
 
         func draw(_ number: Int, atFragment fragment: NSRect) {

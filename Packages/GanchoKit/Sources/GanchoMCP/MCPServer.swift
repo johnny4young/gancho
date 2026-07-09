@@ -53,12 +53,12 @@ public struct MCPServer: Sendable {
             "capabilities": .object(["tools": .object([:])]),
             "serverInfo": .object([
                 "name": .string("gancho"),
-                "version": .string(serverVersion),
+                "version": .string(serverVersion)
             ]),
             "instructions": .string(
                 isEnabled
                     ? "Gancho exposes your clipboard history. Scope: \(runner.scope.rawValue)."
-                    : "Gancho MCP access is currently OFF. Enable it in Gancho → Settings."),
+                    : "Gancho MCP access is currently OFF. Enable it in Gancho → Settings.")
         ])
     }
 

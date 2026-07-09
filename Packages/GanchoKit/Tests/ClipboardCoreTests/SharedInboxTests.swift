@@ -92,7 +92,7 @@ struct SharedInboxTests {
         let raw = try Data(contentsOf: files[0])
         #expect(SealedEnvelope.isSealed(raw))
         #expect(
-            raw.range(of: Data("top secret content".utf8)) == nil,
+            !raw.contains(Data("top secret content".utf8)),
             "clipboard content must not appear as plaintext in the inbox")
         #expect(
             (try? JSONDecoder().decode(SharedInbox.PreparedCapture.self, from: raw)) == nil,

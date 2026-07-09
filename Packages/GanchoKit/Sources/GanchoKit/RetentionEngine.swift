@@ -56,6 +56,7 @@ public struct RetentionEngine: Sendable {
             // 1. Per-item explicit expiry.
             partial.expiredByOwnDate = try purge(
                 where:
+                    // swiftlint:disable:next line_length
                     "isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND expiresAt IS NOT NULL AND expiresAt <= ?",
                 arguments: [now])
 
@@ -73,6 +74,7 @@ public struct RetentionEngine: Sendable {
                 guard let lifetime = window.lifetime else { continue }
                 partial.byKindWindow += try purge(
                     where:
+                        // swiftlint:disable:next line_length
                         "isPinned = 0 AND isSnippet = 0 AND id NOT IN (SELECT clipID FROM clip_board) AND kind = ? AND createdAt <= ?",
                     arguments: [kind.rawValue, now.addingTimeInterval(-lifetime)])
             }
@@ -144,8 +146,10 @@ extension GRDBClipboardStore {
 
     /// Appends one purge run to the log (Privacy Center counters).
     func logPurge(_ summary: PurgeSummary, at date: Date) async throws {
-        let payload = String(
-            decoding: try JSONEncoder().encode(summary), as: UTF8.self)
+        let encoded = try JSONEncoder().encode(summary)
+        guard let payload = String(bytes: encoded, encoding: .utf8) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
         try await writer.write { db in
             try db.execute(
                 sql: "INSERT INTO purge_log (runAt, totalRowsPurged, summary) VALUES (?, ?, ?)",

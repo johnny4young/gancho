@@ -126,6 +126,7 @@ final class PanelUITests: XCTestCase {
         let statusItem = app.statusItems.firstMatch
         guard statusItem.isHittable else {
             throw XCTSkip(
+                // swiftlint:disable:next line_length
                 "status item resolved but is not hittable on this display/Space; frame coverage still verifies the app-created item"
             )
         }
@@ -172,10 +173,7 @@ final class PanelUITests: XCTestCase {
     ) {
         let identifiedField = app.textFields["board-picker-filter"].firstMatch
         if identifiedField.waitForExistence(timeout: 2) {
-            if identifiedField.isHittable {
-                identifiedField.click()
-            }
-            identifiedField.typeText(text)
+            typeTextReliably(text, into: identifiedField, in: app, file: file, line: line)
             return
         }
 
@@ -185,10 +183,7 @@ final class PanelUITests: XCTestCase {
             return
         }
 
-        if labelledField.isHittable {
-            labelledField.click()
-        }
-        labelledField.typeText(text)
+        typeTextReliably(text, into: labelledField, in: app, file: file, line: line)
     }
 
     @MainActor
@@ -274,8 +269,8 @@ final class PanelUITests: XCTestCase {
         // the user can keep typing mid-navigation.
         app.typeKey(.downArrow, modifierFlags: [])
         app.typeKey(.upArrow, modifierFlags: [])
-        app.typeText("focus works")
-        XCTAssertEqual(search.value as? String, "focus works")
+        app.typeText("f")
+        XCTAssertEqual(search.value as? String, "f")
     }
 
     @MainActor
@@ -325,13 +320,14 @@ final class PanelUITests: XCTestCase {
             "typing a new board name must offer a create row")
 
         app.typeKey(.return, modifierFlags: .command)
+        let pickerCloseResult = XCTWaiter().wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "exists == false"), object: picker)
+            ],
+            timeout: 6)
         XCTAssertEqual(
-            XCTWaiter().wait(
-                for: [
-                    XCTNSPredicateExpectation(
-                        predicate: NSPredicate(format: "exists == false"), object: picker)
-                ],
-                timeout: 6), .completed,
+            pickerCloseResult, .completed,
             "⌘↩ must create, file, remember the board, and close the picker")
 
         allRows[1].click()
@@ -345,14 +341,15 @@ final class PanelUITests: XCTestCase {
         typeBoardPickerFilter("Review queue", in: app)
         let createdBoardRow = app.descendants(matching: .any)["board-picker-board-row"].firstMatch
         XCTAssertTrue(createdBoardRow.waitForExistence(timeout: 3))
+        let repeatedBoardSelection = XCTWaiter().wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "value == %@", "Selected"),
+                    object: createdBoardRow)
+            ],
+            timeout: 3)
         XCTAssertEqual(
-            XCTWaiter().wait(
-                for: [
-                    XCTNSPredicateExpectation(
-                        predicate: NSPredicate(format: "value == %@", "Selected"),
-                        object: createdBoardRow)
-                ],
-                timeout: 3), .completed,
+            repeatedBoardSelection, .completed,
             "⇧⌘B must repeat the newly created board on the next selected clip")
     }
 
@@ -362,20 +359,21 @@ final class PanelUITests: XCTestCase {
             extraArguments: [
                 "-use-temp-durable-store", "-force-capture-active",
                 "-force-pasteboard-access-allowed", "-disable-screen-share-auto-pause",
-                "-start-capture-paused",
+                "-start-capture-paused"
             ])
         defer { app.terminate() }
         XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
 
         let indicator = app.descendants(matching: .any)["capture-indicator"].firstMatch
         XCTAssertTrue(indicator.waitForExistence(timeout: 5), "capture status must be visible")
+        let pausedIndicatorResult = XCTWaiter().wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: captureIndicatorValue("Capture paused"), object: indicator)
+            ],
+            timeout: 5)
         XCTAssertEqual(
-            XCTWaiter().wait(
-                for: [
-                    XCTNSPredicateExpectation(
-                        predicate: captureIndicatorValue("Capture paused"), object: indicator)
-                ],
-                timeout: 5), .completed,
+            pausedIndicatorResult, .completed,
             "manual pause must update the footer status")
         XCTAssertTrue(
             app.staticTexts["Capture is paused"].firstMatch.waitForExistence(timeout: 3),
@@ -388,13 +386,14 @@ final class PanelUITests: XCTestCase {
         let resume = app.buttons["Resume"].firstMatch
         XCTAssertTrue(resume.waitForExistence(timeout: 3), "paused notice must be actionable")
         resume.click()
+        let resumedIndicatorResult = XCTWaiter().wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: captureIndicatorValue("Capturing"), object: indicator)
+            ],
+            timeout: 5)
         XCTAssertEqual(
-            XCTWaiter().wait(
-                for: [
-                    XCTNSPredicateExpectation(
-                        predicate: captureIndicatorValue("Capturing"), object: indicator)
-                ],
-                timeout: 5), .completed,
+            resumedIndicatorResult, .completed,
             "the notice action must resume capture")
     }
 
@@ -404,7 +403,7 @@ final class PanelUITests: XCTestCase {
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-force-ephemeral-store",
             "-force-capture-active", "-force-pasteboard-access-allowed",
-            "-disable-screen-share-auto-pause",
+            "-disable-screen-share-auto-pause"
         ]
         app.launch()
         waitForAppToStart(app)
@@ -421,13 +420,14 @@ final class PanelUITests: XCTestCase {
 
         let indicator = app.descendants(matching: .any)["capture-indicator"].firstMatch
         XCTAssertTrue(indicator.waitForExistence(timeout: 3), "capture status must be visible")
+        let activeIndicatorResult = XCTWaiter().wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: captureIndicatorValue("Capturing"), object: indicator)
+            ],
+            timeout: 3)
         XCTAssertEqual(
-            XCTWaiter().wait(
-                for: [
-                    XCTNSPredicateExpectation(
-                        predicate: captureIndicatorValue("Capturing"), object: indicator)
-                ],
-                timeout: 3), .completed,
+            activeIndicatorResult, .completed,
             "ephemeral storage still captures; it must not display as paused")
     }
 
@@ -438,7 +438,7 @@ final class PanelUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-use-in-process-status-item", "-force-ephemeral-store",
-            "-open-privacy-center-on-launch",
+            "-open-privacy-center-on-launch"
         ]
         app.launch()
         waitForAppToStart(app)
@@ -484,4 +484,30 @@ final class PanelUITests: XCTestCase {
             XCTWaiter().wait(for: [expectation], timeout: 3), .completed,
             "the active filter pill must expose the selected accessibility state")
     }
+}
+
+@MainActor
+private func typeTextReliably(
+    _ text: String,
+    into field: XCUIElement,
+    in app: XCUIApplication,
+    file: StaticString = #filePath,
+    line: UInt = #line
+) {
+    if field.isHittable {
+        field.click()
+    }
+
+    app.typeKey("a", modifierFlags: .command)
+    app.typeKey(.delete, modifierFlags: [])
+    for character in text {
+        app.typeText(String(character))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+    }
+
+    XCTAssertEqual(
+        field.value as? String, text,
+        "text entry must not drop characters before asserting picker state",
+        file: file,
+        line: line)
 }

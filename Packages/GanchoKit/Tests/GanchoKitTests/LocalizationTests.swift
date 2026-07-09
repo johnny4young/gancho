@@ -18,7 +18,7 @@ struct LocalizationTests {
         // The widget extension is its own bundle with its own catalog.
         "Apps/GanchoWidgets/Localizable.xcstrings",
         // The keyboard extension, likewise.
-        "Apps/GanchoKeyboard/Localizable.xcstrings",
+        "Apps/GanchoKeyboard/Localizable.xcstrings"
     ]
 
     struct Catalog {
@@ -88,6 +88,9 @@ struct LocalizationTests {
         }
     }
 
+    // The sweep keeps catalog loading, literal discovery, and assertion context
+    // together so localization failures point at the offending string.
+    // swiftlint:disable function_body_length
     /// Sweep: every user-facing prose literal in app code must be a catalog key
     /// — and not merely *somewhere*, but in the catalog of EACH bundle that
     /// ships the file. Beyond SwiftUI `Text` / `Label`, it covers the
@@ -109,6 +112,7 @@ struct LocalizationTests {
     /// and literals with interpolation resolve at runtime.
     @Test("No hardcoded user-facing prose outside the catalogs")
     func hardcodedSweep() throws {
+        // swiftlint:enable function_body_length
         let catalogs = try Self.loadCatalogs()
         let keysByCatalog = Dictionary(
             uniqueKeysWithValues: catalogs.map { ($0.path, Set($0.strings.keys)) })
@@ -126,7 +130,7 @@ struct LocalizationTests {
             if file.hasPrefix("GanchoShared/") {
                 return [
                     "Apps/GanchoiOS/Localizable.xcstrings",
-                    "Apps/GanchoWidgets/Localizable.xcstrings",
+                    "Apps/GanchoWidgets/Localizable.xcstrings"
                 ]
             }
             return []  // No dedicated catalog → fall back to "any catalog".
@@ -147,7 +151,7 @@ struct LocalizationTests {
             #"IntentDialog\(\s*"([^"\\]+)""#,
             #"\bdialog:\s*"([^"\\]+)""#,
             #"\.configurationDisplayName\(\s*"([^"\\]+)""#,
-            #"\.description\(\s*"([^"\\]+)""#,
+            #"\.description\(\s*"([^"\\]+)""#
         ].map { try NSRegularExpression(pattern: $0) }
 
         let appsDir = Self.repoRoot.appendingPathComponent("Apps")

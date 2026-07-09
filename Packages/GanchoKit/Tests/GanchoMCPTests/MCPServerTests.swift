@@ -66,7 +66,7 @@ struct MCPServerTests {
                 id: .int(5), method: "tools/call",
                 params: .object([
                     "name": .string("search_clips"),
-                    "arguments": .object(["query": .string("alpha")]),
+                    "arguments": .object(["query": .string("alpha")])
                 ])))
         #expect(response?.result?["isError"]?.boolValue == false)
         let text = response?.result?["content"]?.arrayValue?.first?["text"]?.stringValue ?? "{}"
@@ -81,7 +81,7 @@ struct MCPServerTests {
         let server = try await server(enabled: false)
         let response = await server.handle(
             JSONRPCRequest(id: .int(1), method: "tools/list", params: nil))
-        #expect(response?.result?["tools"]?.arrayValue?.count == 0)
+        #expect(response?.result?["tools"]?.arrayValue?.isEmpty == true)
     }
 
     @Test("disabled server refuses tools/call")
@@ -92,7 +92,7 @@ struct MCPServerTests {
                 id: .int(2), method: "tools/call",
                 params: .object([
                     "name": .string("search_clips"),
-                    "arguments": .object(["query": .string("alpha")]),
+                    "arguments": .object(["query": .string("alpha")])
                 ])))
         #expect(response?.result?["isError"]?.boolValue == true)
     }

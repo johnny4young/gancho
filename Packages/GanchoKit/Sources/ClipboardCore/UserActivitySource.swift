@@ -22,7 +22,7 @@ public protocol UserActivitySource: Sendable {
         /// because Quartz has no public "any input" sentinel in Swift.
         private static let presenceEvents: [CGEventType] = [
             .keyDown, .mouseMoved, .leftMouseDown, .rightMouseDown,
-            .otherMouseDown, .scrollWheel,
+            .otherMouseDown, .scrollWheel
         ]
 
         public init() {}

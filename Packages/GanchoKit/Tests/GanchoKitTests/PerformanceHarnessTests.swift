@@ -20,7 +20,7 @@ enum ClipFixtures {
     static let words = [
         "meeting", "deploy", "invoice", "ticket", "review", "draft", "agenda",
         "release", "branch", "staging", "credentials", "rotate", "quarterly",
-        "dentist", "groceries", "flight", "tracking", "snippet", "shortcut",
+        "dentist", "groceries", "flight", "tracking", "snippet", "shortcut"
     ]
 
     /// Realistic mix: mostly text of varied length, some URLs/code/JSON,
@@ -102,7 +102,7 @@ struct PerformanceHarnessTests {
             "deploy", "quarterly inv", "dent", "stag", "rotate cred", "tick",
             "release bran", "flight track", "agen", "snip short", "meeting",
             "func handle", "example", "groc", "draft rev", "invoice quart",
-            "branch stag", "credentials", "review", "json name",
+            "branch stag", "credentials", "review", "json name"
         ]
 
         var latencies: [Duration] = []
@@ -127,7 +127,7 @@ struct PerformanceHarnessTests {
         print("perf: v2 FTS build over \(Self.scale) rows: \(elapsed)")
         #expect(elapsed < .seconds(10), "FTS migration \(elapsed) blew the 10s budget")
         // Sanity: the freshly built index actually answers.
-        #expect(try await store.search(ClipSearchQuery(text: "deploy")).count > 0)
+        #expect(try await !store.search(ClipSearchQuery(text: "deploy")).isEmpty)
     }
 
     @Test("Cold paging through 100k rows stays under the boot budget")

@@ -45,12 +45,16 @@ public enum GanchoSyntax {
         "echo", "fi", "then", "done",
         // SQL (uppercase by convention)
         "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET",
-        "DELETE", "JOIN", "ORDER", "GROUP", "BY", "LIMIT",
+        "DELETE", "JOIN", "ORDER", "GROUP", "BY", "LIMIT"
     ]
 
+    // The tokenizer is a single-pass scanner where branch order determines
+    // precedence, so keep the local complexity exception tied to this function.
+    // swiftlint:disable cyclomatic_complexity function_body_length
     /// Tokenize `source` once, left to right; earlier matches win, so a keyword
     /// inside a comment or a number inside a string is not double-classified.
     public static func tokens(in source: String) -> [Token] {
+        // swiftlint:enable cyclomatic_complexity function_body_length
         var tokens: [Token] = []
         var i = source.startIndex
         let end = source.endIndex

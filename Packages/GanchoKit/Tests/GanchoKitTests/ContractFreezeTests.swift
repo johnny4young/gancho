@@ -14,7 +14,7 @@ struct ContractFreezeTests {
     static let facets = [
         "ClipReading", "ClipSearching", "ClipMutating", "ClipEnriching",
         "BoardStoring", "SnippetStoring", "StoreStatsProviding", "ExportProviding",
-        "StoreMaintaining",
+        "StoreMaintaining"
     ]
     static let compositions = ["GanchoClientStore", "FullClipStore"]
 

@@ -19,7 +19,7 @@ final class RefactorFlowUITests: XCTestCase {
         app.launchArguments =
             [
                 "-open-panel-on-launch", "-use-in-process-status-item",
-                "-force-ephemeral-store", "-seed-sample-clips",
+                "-force-ephemeral-store", "-seed-sample-clips"
             ] + extraArguments
         app.launch()
         let deadline = Date().addingTimeInterval(5)
@@ -138,7 +138,7 @@ final class RefactorFlowUITests: XCTestCase {
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-sample-boards",
-            "-force-free-tier", "-first-pasteback-at", "1",
+            "-force-free-tier", "-first-pasteback-at", "1"
         ]
         app.launch()
         defer { app.terminate() }

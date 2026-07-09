@@ -39,7 +39,7 @@
         /// Private marker type for Gancho's own pasteboard writes.
         /// Nonisolated: an immutable constant the (nonisolated) paste-back
         /// writer also stamps onto every write.
-        public nonisolated static let selfWriteMarker = NSPasteboard.PasteboardType(
+        nonisolated public static let selfWriteMarker = NSPasteboard.PasteboardType(
             "com.johnny4young.gancho.self-write")
 
         public var onCapture: ((PasteboardCapture) -> Void)?
@@ -301,7 +301,7 @@
         /// types, so the CURRENT types are re-checked immediately before the
         /// payload read and a now-vetoed change is dropped silently — like a
         /// cancelled read; the next poll re-vetoes the new change anyway.
-        private nonisolated static func readDetached(
+        nonisolated private static func readDetached(
             _ reader: any PasteboardReading
         ) async -> PasteboardCapture.Payload? {
             await Task.detached(priority: .utility) {

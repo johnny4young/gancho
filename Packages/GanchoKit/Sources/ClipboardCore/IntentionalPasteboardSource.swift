@@ -49,7 +49,7 @@
             guard hints.hasContent else { return hints }
 
             let patterns = try? await pasteboard.detectedPatterns(for: [
-                \.probableWebURL, \.probableWebSearch, \.number,
+                \.probableWebURL, \.probableWebSearch, \.number
             ])
             hints.probableWebURL = patterns?.contains(\.probableWebURL) ?? false
             hints.probableWebSearch = patterns?.contains(\.probableWebSearch) ?? false

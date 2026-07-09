@@ -44,8 +44,14 @@ jobs:
       - name: Website structure
         run: make site-check
 
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
       - name: Lint (swift-format)
-        run: swift format lint --strict --recursive Apps Packages/GanchoKit/Sources Packages/GanchoKit/Tests
+        run: swift format lint --strict --recursive Apps Packages/GanchoKit/Sources Packages/GanchoKit/Tests Tests
+
+      - name: Lint (SwiftLint)
+        run: swiftlint lint --strict --reporter github-actions-logging
 
       - name: Unit tests (Swift Testing, coverage on)
         run: swift test --package-path Packages/GanchoKit --enable-code-coverage

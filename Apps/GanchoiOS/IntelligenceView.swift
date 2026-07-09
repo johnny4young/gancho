@@ -34,13 +34,13 @@ struct IOSIntelligenceView: View {
                 title: "Sensitive check", sub: "Mask + expire"),
             .init(
                 symbol: "magnifyingglass", tint: GanchoTokens.Palette.kindTint(for: .url),
-                title: "Indexed", sub: "FTS + embeddings"),
+                title: "Indexed", sub: "FTS + embeddings")
         ]
     }
 
     private let secrets: [LocalizedStringKey] = [
         "AWS keys", "Stripe keys", "GitHub tokens", "Slack tokens", "PEM private keys",
-        "Credit cards", "High-entropy passwords",
+        "Credit cards", "High-entropy passwords"
     ]
 
     var body: some View {
@@ -56,29 +56,35 @@ struct IOSIntelligenceView: View {
                 featureRow(
                     "wand.and.stars", GanchoTokens.Palette.kindTint(for: .uuid),
                     "Smart classification",
+                    // swiftlint:disable:next line_length
                     "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, Smart Actions, and masking.",
                     alwaysOn: true)
                 toggleRow(
                     "sparkles", GanchoTokens.Palette.accent, "Smarter titles",
+                    // swiftlint:disable:next line_length
                     "Apple Intelligence writes a short, specific title on-device, falling back to heuristics on any failure — and never puts a secret in a title.",
                     isOn: $model.intelligence.intelligentTitles)
                 toggleRow(
                     "magnifyingglass", GanchoTokens.Palette.kindTint(for: .url),
                     "Semantic search",
+                    // swiftlint:disable:next line_length
                     "Find a clip by meaning, not just exact words. A 512-dim embedding indexes history on-device; the model assets stay local.",
                     isOn: $model.intelligence.semanticSearch)
                 toggleRow(
                     "photo", GanchoTokens.Palette.kindTint(for: .image),
                     "Searchable screenshots",
+                    // swiftlint:disable:next line_length
                     "On-device OCR reads text out of image clips and adds it to the full-text index, so a screenshot is findable by the words inside it.",
                     isOn: $model.intelligence.searchableScreenshots)
                 toggleRow(
                     "sparkles", GanchoTokens.Palette.accent, "Smart paste",
+                    // swiftlint:disable:next line_length
                     "Rewrite a clip before pasting — summarize, fix grammar, change tone, pull key points, or redact PII. Model-backed rewrites use Apple Intelligence on-device; deterministic redaction needs no model.",
                     isOn: $model.intelligence.smartPaste)
                 toggleRow(
                     "square.stack", GanchoTokens.Palette.kindTint(for: .fileReference),
                     "Suggest boards",
+                    // swiftlint:disable:next line_length
                     "When a clip looks like ones you've filed before, gancho suggests the board it probably belongs to — one tap to file it. On-device, never automatic.",
                     isOn: $model.intelligence.autoBoard)
             } header: {
@@ -89,6 +95,7 @@ struct IOSIntelligenceView: View {
                 toggleRow(
                     "lock", GanchoTokens.Palette.kindTint(for: .secret),
                     "Detect & mask secrets",
+                    // swiftlint:disable:next line_length
                     "If you copy a key by accident, gancho masks the preview (●●●● + last 4) and auto-expires it after 10 minutes. Deterministic, on-device.",
                     isOn: $model.intelligence.detectSecrets)
                 if model.intelligence.detectSecrets {

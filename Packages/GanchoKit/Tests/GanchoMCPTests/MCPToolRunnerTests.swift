@@ -123,7 +123,7 @@ struct MCPToolRunnerTests {
         let result = await runner.call(
             tool: "create_pin",
             arguments: .object([
-                "id": .string(Fixture.plain.uuidString), "board": .string("Work"),
+                "id": .string(Fixture.plain.uuidString), "board": .string("Work")
             ]))
         #expect(try resultJSON(result)["board"]?.stringValue == "Work")
         #expect(try await store.pinboards().contains { $0.name == "Work" })
@@ -149,7 +149,7 @@ struct MCPToolRunnerTests {
             tool: "paste_stack",
             arguments: .object([
                 "ids": .array([
-                    .string(Fixture.pinned.uuidString), .string(Fixture.plain.uuidString),
+                    .string(Fixture.pinned.uuidString), .string(Fixture.plain.uuidString)
                 ])
             ]))
         let json = try resultJSON(result)
@@ -165,7 +165,7 @@ struct MCPToolRunnerTests {
             tool: "paste_stack",
             arguments: .object([
                 "ids": .array([
-                    .string(Fixture.plain.uuidString), .string(Fixture.secret.uuidString),
+                    .string(Fixture.plain.uuidString), .string(Fixture.secret.uuidString)
                 ])
             ]))
         #expect(try resultJSON(result)["count"]?.intValue == 1)

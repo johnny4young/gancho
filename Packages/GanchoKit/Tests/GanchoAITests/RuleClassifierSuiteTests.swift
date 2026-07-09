@@ -80,7 +80,7 @@ struct RuleClassifierSuiteTests {
         ("deadbeef", .text),  // bare hex run without # is a word/hash
         ("the function should return early", .text),  // 'function' alone ≠ code
         ("rgb(300, banana, 12)", .text),  // malformed color args
-        ("#GGGGGG", .text),  // not hex digits
+        ("#GGGGGG", .text)  // not hex digits
     ]
 
     @Test("Classifies the full suite", arguments: Self.cases)

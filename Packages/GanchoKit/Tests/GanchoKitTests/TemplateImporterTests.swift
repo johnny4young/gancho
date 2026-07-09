@@ -78,7 +78,7 @@ struct ClipImporterTests {
                 sql: "CREATE TABLE ZHISTORYITEMCONTENT (ZTYPE TEXT, ZVALUE BLOB)")
             try db.execute(
                 sql: "INSERT INTO ZHISTORYITEMCONTENT VALUES ('public.utf8-plain-text', ?)",
-                arguments: ["from maccy".data(using: .utf8)])
+                arguments: [Data("from maccy".utf8)])
             try db.execute(
                 sql: "INSERT INTO ZHISTORYITEMCONTENT VALUES ('public.tiff', ?)",
                 arguments: [Data([1, 2])])

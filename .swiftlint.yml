@@ -1,0 +1,140 @@
+# SwiftLint for Gancho — strict, Portavoz-compatible project hygiene.
+#
+# CI runs `swiftlint lint --strict`, so any warning or error fails the build.
+# Keep SwiftLint focused on correctness, clarity, and maintainability rules while
+# `swift-format` remains the canonical formatter. Prefer narrow inline disables
+# with a justification for unavoidable domain exceptions instead of relaxing a
+# rule globally.
+
+strict: true
+
+included:
+  - Apps
+  - Packages/GanchoKit/Sources
+  - Packages/GanchoKit/Tests
+  - Tests
+
+excluded:
+  - .build
+  - Gancho.xcodeproj
+  - dist
+  - Vendor
+
+# Formatting remains owned by swift-format. These SwiftLint defaults disagree
+# with the Apple formatter on multi-line declarations and closure parameter
+# wrapping, so keeping them enabled would make `make format` and `make lint`
+# contradict each other.
+disabled_rules:
+  - closure_parameter_position
+  - opening_brace
+
+opt_in_rules:
+  - array_init
+  - closure_end_indentation
+  - closure_spacing
+  - collection_alignment
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - contains_over_first_not_nil
+  - contains_over_range_nil_comparison
+  - empty_collection_literal
+  - empty_count
+  - empty_string
+  - explicit_init
+  - fatal_error_message
+  - first_where
+  - flatmap_over_map_reduce
+  - identical_operands
+  - joined_default_parameter
+  - last_where
+  - legacy_multiple
+  - lower_acl_than_parent
+  - modifier_order
+  - operator_usage_whitespace
+  - overridden_super_call
+  - prefer_self_type_over_type_of_self
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - sorted_first_last
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+  - vertical_parameter_alignment_on_call
+  - yoda_condition
+
+# Industry thresholds: SwiftUI and storage/sync code legitimately produce some
+# larger bodies, but files should still be split before they become unreviewable.
+line_length:
+  warning: 120
+  error: 200
+  ignores_urls: true
+  ignores_comments: true
+  ignores_interpolated_strings: true
+
+function_body_length:
+  warning: 60
+  error: 100
+
+type_body_length:
+  warning: 400
+  error: 600
+
+file_length:
+  warning: 700
+  error: 1000
+  ignore_comment_only_lines: true
+
+cyclomatic_complexity:
+  warning: 12
+  error: 20
+
+function_parameter_count:
+  warning: 6
+  error: 8
+
+large_tuple:
+  warning: 3
+  error: 4
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 0
+  max_length:
+    warning: 50
+    error: 80
+  excluded:
+    - id
+    - db
+    - t
+    - a
+    - b
+    - c
+    - i
+    - j
+    - k
+    - m
+    - n
+    - p
+    - q
+    - r
+    - s
+    - u
+    - v
+    - x
+    - y
+    - z
+    - dx
+    - dy
+    - ok
+    - me
+    - lhs
+    - rhs
+    - h1
+    - h2
+    - h3
+    - html_url
+    - meeting_id
+    - parameter_size
+    - whisperLargeV3_626MB
+
+reporter: "xcode"

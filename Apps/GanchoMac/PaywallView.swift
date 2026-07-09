@@ -135,7 +135,7 @@ struct PaywallView: View {
                     element: NSApp as Any, notification: .announcementRequested,
                     userInfo: [
                         .announcement: String(localized: "Welcome to Pro. Everything is unlocked."),
-                        .priority: NSAccessibilityPriorityLevel.high.rawValue,
+                        .priority: NSAccessibilityPriorityLevel.high.rawValue
                     ])
                 didActivate = true
             case .invalidKey:
@@ -146,7 +146,8 @@ struct PaywallView: View {
                     "Couldn’t reach the license server. Check your connection and try again."
             case .storageUnavailable:
                 licenseError =
-                    "Your key is valid, but the license couldn’t be saved on this Mac. Check Keychain access and try again."
+                    "Your key is valid, but the license couldn’t be saved on this Mac. "
+                    + "Check Keychain access and try again."
             case .notLicensable:
                 licenseError = "Purchases aren’t open in this build yet."
             }

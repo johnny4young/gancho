@@ -53,7 +53,7 @@ public struct RuleClassifier: Sendable {
             segment
             .replacingOccurrences(of: "-", with: "+")
             .replacingOccurrences(of: "_", with: "/")
-        while base64.count % 4 != 0 { base64.append("=") }
+        while !base64.count.isMultiple(of: 4) { base64.append("=") }
         return Data(base64Encoded: base64)
     }
 
@@ -124,7 +124,7 @@ public struct RuleClassifier: Sendable {
     /// the match covers the whole string (a link inside a sentence is text).
     private func dataDetectorKind(_ text: String) -> ClipContentKind? {
         let types: NSTextCheckingResult.CheckingType = [
-            .link, .phoneNumber, .address, .date,
+            .link, .phoneNumber, .address, .date
         ]
         guard let detector = try? NSDataDetector(types: types.rawValue) else { return nil }
         let fullRange = NSRange(text.startIndex..., in: text)
@@ -181,7 +181,7 @@ public enum CodeLanguageDetector {
                 .javascript,
                 ["const ", "=> ", "function ", "console.log", "async ", "await ", "let "]
             ),
-            (.shell, ["$(", "echo ", "| grep", "&& ", "fi\n", "exit 1"]),
+            (.shell, ["$(", "echo ", "| grep", "&& ", "fi\n", "exit 1"])
         ]
         var best: (Language, Int)?
         for (language, markers) in scores {

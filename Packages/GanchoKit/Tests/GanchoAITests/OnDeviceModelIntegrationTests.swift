@@ -37,7 +37,7 @@ struct OnDeviceModelIntegrationTests {
         "git rebase -i HEAD~3 && git push --force-with-lease",
         "Flight AA1234 SFO→JFK departs 8:45am gate B22",
         "Total: $1,284.50 (includes 8.5% tax)",
-        "La reunión se movió para el jueves a las 10am, avísale al equipo",
+        "La reunión se movió para el jueves a las 10am, avísale al equipo"
     ]
 
     @Test("20 sample clips annotate with guaranteed structured output")
@@ -151,7 +151,7 @@ struct OnDeviceModelIntegrationTests {
         let sources = [
             "Flight AA1234 SFO->JFK departs 8:45am gate B22",
             "Total: $1,284.50 (includes 8.5% tax)",
-            "La reunion se movio para el jueves a las 10am",
+            "La reunion se movio para el jueves a las 10am"
         ]
         let answer = try await ClipboardQAService().answer(
             question: "What time does my flight leave?", sources: sources)

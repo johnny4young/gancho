@@ -6,6 +6,13 @@ import Testing
 
 @Suite("FTS5 search — modes, sanitization, filters")
 struct ClipSearchTests {
+    private struct SeedClip {
+        let text: String
+        let kind: ClipContentKind
+        let app: String?
+        let createdAt: Date
+    }
+
     private func makeStore() throws -> GRDBClipboardStore {
         let store = GRDBClipboardStore(
             writer: try DatabaseQueue(),
@@ -17,31 +24,36 @@ struct ClipSearchTests {
     }
 
     private func seed(_ store: GRDBClipboardStore) async throws {
-        let clips: [(String, ClipContentKind, String?, Date)] = [
-            (
-                "call the dentist about the appointment", .text, "com.apple.Notes",
-                Date(timeIntervalSince1970: 1_700_000_000)
-            ),
-            (
-                "https://example.com/dental-plans", .url, "com.apple.Safari",
-                Date(timeIntervalSince1970: 1_700_100_000)
-            ),
-            (
-                "SELECT * FROM appointments WHERE day = 'tuesday'", .code, "com.apple.dt.Xcode",
-                Date(timeIntervalSince1970: 1_700_200_000)
-            ),
-            (
-                "the quarterly dental report is ready", .text, "com.tinyspeck.slackmacgap",
-                Date(timeIntervalSince1970: 1_700_300_000)
-            ),
+        let clips: [SeedClip] = [
+            SeedClip(
+                text: "call the dentist about the appointment",
+                kind: .text,
+                app: "com.apple.Notes",
+                createdAt: Date(timeIntervalSince1970: 1_700_000_000)),
+            SeedClip(
+                text: "https://example.com/dental-plans",
+                kind: .url,
+                app: "com.apple.Safari",
+                createdAt: Date(timeIntervalSince1970: 1_700_100_000)),
+            SeedClip(
+                text: "SELECT * FROM appointments WHERE day = 'tuesday'",
+                kind: .code,
+                app: "com.apple.dt.Xcode",
+                createdAt: Date(timeIntervalSince1970: 1_700_200_000)),
+            SeedClip(
+                text: "the quarterly dental report is ready",
+                kind: .text,
+                app: "com.tinyspeck.slackmacgap",
+                createdAt: Date(timeIntervalSince1970: 1_700_300_000))
         ]
-        for (text, kind, app, date) in clips {
+        for clip in clips {
             try await store.insert(
                 ClipItem(
-                    createdAt: date, kind: kind, preview: String(text.prefix(120)),
-                    contentHash: ClipItem.hash(of: text, kind: kind),
-                    sourceAppBundleID: app),
-                content: .text(text))
+                    createdAt: clip.createdAt, kind: clip.kind,
+                    preview: String(clip.text.prefix(120)),
+                    contentHash: ClipItem.hash(of: clip.text, kind: clip.kind),
+                    sourceAppBundleID: clip.app),
+                content: .text(clip.text))
         }
     }
 
@@ -76,7 +88,7 @@ struct ClipSearchTests {
         "Hostile input never breaks the query",
         arguments: [
             "\"unclosed quote", "AND OR NOT", "wild*card", "(paren", "col:filter",
-            "^caret", "semi;colon", "emoji 🪝 search", "-", "\"\"\"",
+            "^caret", "semi;colon", "emoji 🪝 search", "-", "\"\"\""
         ])
     func sanitization(hostile: String) async throws {
         let store = try makeStore()

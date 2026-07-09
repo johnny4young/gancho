@@ -107,7 +107,7 @@
             }
             #expect(
                 writer.writes.map(\.content) == [
-                    .text("new content"), .text("what was there before"),
+                    .text("new content"), .text("what was there before")
                 ])
         }
 

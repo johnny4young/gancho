@@ -89,7 +89,7 @@ struct SyncLocalStoreTests {
         let v1 = ClipItem(id: id, updatedAt: base, title: "", preview: "body", contentHash: "h")
         #expect(
             try await store.applyRemoteUpsert(v1, content: .text("body"), systemFields: Data([1])))
-        #expect(try await store.item(id: id)?.title == "")
+        #expect(try await store.item(id: id)?.title.isEmpty == true)
 
         // `updateTitle` on the origin bumps updatedAt, so v2 is strictly newer.
         let v2 = ClipItem(
@@ -175,7 +175,7 @@ struct SyncLocalStoreTests {
         #expect(try await store.pendingDeletionRecordIDs() == [item.id.uuidString])
         let remaining = (try? FileManager.default.contentsOfDirectory(atPath: blobDir.path)) ?? []
         #expect(
-            remaining.filter { $0 != "thumbnails" }.isEmpty,
+            !remaining.contains { $0 != "thumbnails" },
             "sync delete should mirror direct delete's orphan blob cleanup")
     }
 

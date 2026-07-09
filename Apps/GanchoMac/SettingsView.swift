@@ -376,6 +376,7 @@ private struct CaptureSettingsTab: View {
                 Button("Open Intelligence…") { model.intelligenceWindow.show(model: model) }
                     .accessibilityIdentifier("open-intelligence")
                 Text(
+                    // swiftlint:disable:next line_length
                     "On-device titles, semantic search, screenshot OCR, and secret detection — each a toggle, all local."
                 )
                 .font(.footnote)
@@ -465,6 +466,7 @@ private struct RetentionSettingsTab: View {
                     "Text", selection: perKindBinding(.text)
                 ) { windowOptionsWithDefault }
                 Text(
+                    // swiftlint:disable:next line_length
                     "A per-type limit overrides the global window; leave a type on Use global to follow it. Pinned clips and boards never expire."
                 )
                 .font(.footnote)
@@ -481,6 +483,7 @@ private struct RetentionSettingsTab: View {
                     Text("30 minutes").tag(TimeInterval(1800))
                 }
                 Label(
+                    // swiftlint:disable:next line_length
                     "Detected secrets — passwords, keys, cards — always follow this limit, even when your history keeps everything longer. It's a safety guard you can shorten but not extend.",
                     systemImage: "lock.shield"
                 )
@@ -608,6 +611,7 @@ private struct IntegrationsSettingsTab: View {
                 }
                 .disabled(!model.mcpConfig.isEnabled)
                 Text(
+                    // swiftlint:disable:next line_length
                     "Lets local AI agents (Claude, Cursor) read your clipboard over a local connection — no network. Off by default."
                 )
                 .font(.footnote)
@@ -620,6 +624,7 @@ private struct IntegrationsSettingsTab: View {
                 Button("Open MCP Access…") { model.mcpAccessWindow.show(model: model) }
                     .accessibilityIdentifier("open-mcp-access")
                 Text(
+                    // swiftlint:disable:next line_length
                     "The exposed tools, the metadata-only access log, and the sensitive-veto guarantee live in MCP Access."
                 )
                 .font(.footnote)
@@ -629,6 +634,7 @@ private struct IntegrationsSettingsTab: View {
             if model.mcpConfig.isEnabled {
                 Section("Connect an agent") {
                     Text(
+                        // swiftlint:disable:next line_length
                         "Turning this on only allows access — your agent runs the server. Install the gancho CLI, then point your agent at it:"
                     )
                     .font(.footnote)

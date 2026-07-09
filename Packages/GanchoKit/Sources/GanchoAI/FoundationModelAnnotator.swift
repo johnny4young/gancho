@@ -18,6 +18,7 @@ private struct AnnotationDraft {
 
     @Guide(
         description:
+            // swiftlint:disable:next line_length
             "Best matching category: text, url, email, phoneNumber, color, jwt, json, uuid, code, creditCard, or secret."
     )
     var category: String

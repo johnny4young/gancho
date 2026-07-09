@@ -26,7 +26,7 @@ extension GRDBClipboardStore: MCPClipStore {
                     """,
                 arguments: [
                     event.occurredAt, event.tool.rawValue, event.scope.rawValue,
-                    event.resultCount, event.wasDenied,
+                    event.resultCount, event.wasDenied
                 ])
         }
     }

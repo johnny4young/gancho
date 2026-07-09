@@ -112,7 +112,7 @@ struct CKSyncEngineAdapterTests {
             records: [],
             deletions: [
                 CKRecord.ID(recordName: clipID, zoneID: clipZone),
-                CKRecord.ID(recordName: boardID, zoneID: boardZone),
+                CKRecord.ID(recordName: boardID, zoneID: boardZone)
             ])
 
         #expect(await store.clipDeletions == [clipID])
@@ -138,7 +138,7 @@ struct CKSyncEngineAdapterTests {
                     .partialFailure,
                     userInfo: [
                         CKPartialErrorsByItemIDKey: [
-                            "a": ck(.zoneNotFound), "b": ck(.networkFailure),
+                            "a": ck(.zoneNotFound), "b": ck(.networkFailure)
                         ]
                     ])),
             "a partial failure with any non-zone error must not read as first-run")

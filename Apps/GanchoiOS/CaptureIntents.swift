@@ -19,7 +19,7 @@ enum ClipKindFilterAppEnum: String, AppEnum {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Clip type"
     static let caseDisplayRepresentations: [ClipKindFilterAppEnum: DisplayRepresentation] = [
         .any: "Any", .text: "Text", .link: "Link", .code: "Code",
-        .color: "Color", .image: "Image", .secret: "Secret",
+        .color: "Color", .image: "Image", .secret: "Secret"
     ]
 
     /// The concrete kinds this filter matches (nil = no restriction).
@@ -170,7 +170,7 @@ struct GanchoShortcuts: AppShortcutsProvider {
             intent: SaveClipboardIntent(),
             phrases: [
                 "Save my clipboard in \(.applicationName)",
-                "Capture clipboard with \(.applicationName)",
+                "Capture clipboard with \(.applicationName)"
             ],
             shortTitle: "Save Clipboard",
             systemImageName: "square.and.arrow.down")
@@ -193,7 +193,7 @@ struct GanchoShortcuts: AppShortcutsProvider {
             intent: AskClipboardIntent(),
             phrases: [
                 "Ask \(.applicationName) about my clipboard",
-                "Ask my clipboard in \(.applicationName)",
+                "Ask my clipboard in \(.applicationName)"
             ],
             shortTitle: "Ask Clipboard",
             systemImageName: "sparkles")

@@ -378,6 +378,7 @@ private struct FullAccessPrompt: View {
             Text("Full Access needed")
                 .font(.headline)
             Text(
+                // swiftlint:disable:next line_length
                 "Turn on Full Access in Settings → General → Keyboard → Keyboards → Gancho. Nothing you copy or type ever leaves your device."
             )
             .font(.caption)

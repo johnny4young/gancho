@@ -10,8 +10,8 @@ struct ClipSectionsTests {
         c.timeZone = TimeZone(identifier: "UTC")!
         return c
     }
-    private func day(_ y: Int, _ m: Int, _ d: Int) -> Date {
-        calendar.date(from: DateComponents(year: y, month: m, day: d, hour: 12))!
+    private func day(_ year: Int, _ month: Int, _ day: Int) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))!
     }
     private func clip(_ created: Date, pinned: Bool = false) -> ClipItem {
         ClipItem(
@@ -28,7 +28,7 @@ struct ClipSectionsTests {
             clip(day(2026, 6, 15)),  // today
             clip(day(2026, 6, 15)),  // today
             clip(day(2026, 6, 14)),  // yesterday
-            clip(day(2023, 1, 1)),  // older
+            clip(day(2023, 1, 1))  // older
         ]
         let groups = ClipSections.grouped(clips, now: now, calendar: calendar)
         #expect(

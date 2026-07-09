@@ -13,7 +13,7 @@ public enum BoardColors {
         Color(red: 0.09, green: 0.60, blue: 0.62),  // teal
         Color(red: 0.83, green: 0.33, blue: 0.49),  // pink
         Color(red: 0.53, green: 0.29, blue: 0.72),  // purple
-        Color(red: 0.60, green: 0.40, blue: 0.20),  // brown
+        Color(red: 0.60, green: 0.40, blue: 0.20)  // brown
     ]
 
     /// Stable identity color. The built-in Favorites board keeps the warm

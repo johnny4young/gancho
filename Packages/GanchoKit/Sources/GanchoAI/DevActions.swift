@@ -2,11 +2,16 @@ import CryptoKit
 import Foundation
 import GanchoKit
 
+// DevActions is a compact registry plus pure transforms; splitting it would add
+// indirection without improving this SwiftLint adoption.
+// swiftlint:disable type_body_length
+
 /// Developer actions pack: pure, offline, zero-network transforms over clip
 /// text. The right actions surface automatically from the detected kind;
 /// every action is also exposable as an App Intent (same functions, no
 /// logic forks). Free tier on purpose — this is the word-of-mouth spear.
 public enum DevActions {
+    // swiftlint:enable type_body_length
     public enum ActionID: String, Sendable, CaseIterable {
         case decodeJWT
         case jsonPretty
@@ -55,12 +60,12 @@ public enum DevActions {
         case .json:
             [
                 action(.jsonPretty), action(.jsonMinify), action(.jsonEscape),
-                action(.base64Encode),
+                action(.base64Encode)
             ]
         case .url:
             [
                 action(.parseURL), action(.urlEncode), action(.urlDecode),
-                action(.base64Encode),
+                action(.base64Encode)
             ]
         case .color:
             [action(.convertColor)]
@@ -74,7 +79,7 @@ public enum DevActions {
                 action(.sortLines), action(.dedupeLines), action(.reverseLines),
                 action(.epochToDate), action(.numberBaseConvert),
                 action(.urlEncode), action(.htmlEntityEncode),
-                action(.base64Encode), action(.base64Decode), action(.sha256Hex),
+                action(.base64Encode), action(.base64Decode), action(.sha256Hex)
             ]
         case .code:
             [
@@ -84,13 +89,16 @@ public enum DevActions {
                 action(.caseConvert), action(.countStats),
                 action(.sortLines), action(.dedupeLines),
                 action(.base64Encode), action(.base64Decode),
-                action(.sha256Hex), action(.sha1Hex), action(.md5Hex),
+                action(.sha256Hex), action(.sha1Hex), action(.md5Hex)
             ]
         default:
             []
         }
     }
 
+    // The registry is one switch by design so App Intents and UI lists cannot
+    // drift from the transform definitions.
+    // swiftlint:disable:next cyclomatic_complexity
     public static func action(_ id: ActionID) -> Action {
         switch id {
         case .decodeJWT:
@@ -231,12 +239,12 @@ public enum DevActions {
         guard let rgb = parseColor(text) else {
             throw ActionError.notApplicable("not a parseable color")
         }
-        let (r, g, b) = rgb
-        let (h, s, l) = rgbToHSL(r: r, g: g, b: b)
+        let (red, green, blue) = rgb
+        let (hue, saturation, lightness) = rgbToHSL(red: red, green: green, blue: blue)
         return """
-            hex: #\(String(format: "%02X%02X%02X", r, g, b))
-            rgb: rgb(\(r), \(g), \(b))
-            hsl: hsl(\(h), \(s)%, \(l)%)
+            hex: #\(String(format: "%02X%02X%02X", red, green, blue))
+            rgb: rgb(\(red), \(green), \(blue))
+            hsl: hsl(\(hue), \(saturation)%, \(lightness)%)
             """
     }
 
@@ -453,8 +461,8 @@ public enum DevActions {
 
     static func jsonUnescape(_ text: String) throws -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let data = Data("[\(trimmed)]".utf8)
         guard trimmed.count >= 2, trimmed.hasPrefix("\""), trimmed.hasSuffix("\""),
-            let data = "[\(trimmed)]".data(using: .utf8),
             let strings = (try? JSONSerialization.jsonObject(with: data)) as? [String],
             strings.count == 1
         else { throw ActionError.notApplicable("not a JSON string literal") }
@@ -499,7 +507,7 @@ public enum DevActions {
     /// `body` is the text between `&` and `;` — named or numeric entity.
     private static func decodeEntity(_ body: String) -> Character? {
         let named: [String: Character] = [
-            "amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "nbsp": "\u{00A0}",
+            "amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "nbsp": "\u{00A0}"
         ]
         if body.hasPrefix("#x") || body.hasPrefix("#X") {
             guard let value = UInt32(body.dropFirst(2), radix: 16),
@@ -526,7 +534,7 @@ public enum DevActions {
             segment
             .replacingOccurrences(of: "-", with: "+")
             .replacingOccurrences(of: "_", with: "/")
-        while base64.count % 4 != 0 { base64.append("=") }
+        while !base64.count.isMultiple(of: 4) { base64.append("=") }
         guard let data = Data(base64Encoded: base64),
             let object = try? JSONSerialization.jsonObject(with: data),
             let pretty = try? JSONSerialization.data(
@@ -554,58 +562,71 @@ public enum DevActions {
         guard parts.count >= 3 else { return nil }
         switch function {
         case "rgb", "rgba":
-            guard let r = Int(parts[0]), let g = Int(parts[1]), let b = Int(parts[2]),
-                (0...255).contains(r), (0...255).contains(g), (0...255).contains(b)
+            guard
+                let red = Int(parts[0]),
+                let green = Int(parts[1]),
+                let blue = Int(parts[2]),
+                (0...255).contains(red),
+                (0...255).contains(green),
+                (0...255).contains(blue)
             else { return nil }
-            return (r, g, b)
+            return (red, green, blue)
         case "hsl", "hsla":
-            guard let h = Double(parts[0]), let s = Double(parts[1]), let l = Double(parts[2])
+            guard
+                let hue = Double(parts[0]),
+                let saturation = Double(parts[1]),
+                let lightness = Double(parts[2])
             else { return nil }
-            return hslToRGB(h: h, s: s / 100, l: l / 100)
+            return hslToRGB(hue: hue, saturation: saturation / 100, lightness: lightness / 100)
         default:
             return nil
         }
     }
 
-    private static func hslToRGB(h: Double, s: Double, l: Double) -> (Int, Int, Int) {
-        let c = (1 - abs(2 * l - 1)) * s
-        let hPrime = h.truncatingRemainder(dividingBy: 360) / 60
-        let x = c * (1 - abs(hPrime.truncatingRemainder(dividingBy: 2) - 1))
-        let (r1, g1, b1): (Double, Double, Double) =
-            switch Int(hPrime) {
-            case 0: (c, x, 0)
-            case 1: (x, c, 0)
-            case 2: (0, c, x)
-            case 3: (0, x, c)
-            case 4: (x, 0, c)
-            default: (c, 0, x)
+    private static func hslToRGB(
+        hue: Double, saturation: Double, lightness: Double
+    ) -> (Int, Int, Int) {
+        let chroma = (1 - abs(2 * lightness - 1)) * saturation
+        let huePrime = hue.truncatingRemainder(dividingBy: 360) / 60
+        let secondary = chroma * (1 - abs(huePrime.truncatingRemainder(dividingBy: 2) - 1))
+        let (redComponent, greenComponent, blueComponent): (Double, Double, Double) =
+            switch Int(huePrime) {
+            case 0: (chroma, secondary, 0)
+            case 1: (secondary, chroma, 0)
+            case 2: (0, chroma, secondary)
+            case 3: (0, secondary, chroma)
+            case 4: (secondary, 0, chroma)
+            default: (chroma, 0, secondary)
             }
-        let m = l - c / 2
+        let match = lightness - chroma / 2
         return (
-            Int(((r1 + m) * 255).rounded()),
-            Int(((g1 + m) * 255).rounded()),
-            Int(((b1 + m) * 255).rounded())
+            Int(((redComponent + match) * 255).rounded()),
+            Int(((greenComponent + match) * 255).rounded()),
+            Int(((blueComponent + match) * 255).rounded())
         )
     }
 
-    private static func rgbToHSL(r: Int, g: Int, b: Int) -> (Int, Int, Int) {
-        let rd = Double(r) / 255
-        let gd = Double(g) / 255
-        let bd = Double(b) / 255
-        let maxValue = max(rd, gd, bd)
-        let minValue = min(rd, gd, bd)
+    private static func rgbToHSL(red: Int, green: Int, blue: Int) -> (Int, Int, Int) {
+        let redDecimal = Double(red) / 255
+        let greenDecimal = Double(green) / 255
+        let blueDecimal = Double(blue) / 255
+        let maxValue = max(redDecimal, greenDecimal, blueDecimal)
+        let minValue = min(redDecimal, greenDecimal, blueDecimal)
         let delta = maxValue - minValue
-        let l = (maxValue + minValue) / 2
-        guard delta > 0 else { return (0, 0, Int((l * 100).rounded())) }
-        let s = delta / (1 - abs(2 * l - 1))
-        var h: Double =
+        let lightness = (maxValue + minValue) / 2
+        guard delta > 0 else { return (0, 0, Int((lightness * 100).rounded())) }
+        let saturation = delta / (1 - abs(2 * lightness - 1))
+        var hue: Double =
             switch maxValue {
-            case rd: ((gd - bd) / delta).truncatingRemainder(dividingBy: 6)
-            case gd: (bd - rd) / delta + 2
-            default: (rd - gd) / delta + 4
+            case redDecimal:
+                ((greenDecimal - blueDecimal) / delta).truncatingRemainder(dividingBy: 6)
+            case greenDecimal: (blueDecimal - redDecimal) / delta + 2
+            default: (redDecimal - greenDecimal) / delta + 4
             }
-        h *= 60
-        if h < 0 { h += 360 }
-        return (Int(h.rounded()), Int((s * 100).rounded()), Int((l * 100).rounded()))
+        hue *= 60
+        if hue < 0 { hue += 360 }
+        return (
+            Int(hue.rounded()), Int((saturation * 100).rounded()), Int((lightness * 100).rounded())
+        )
     }
 }

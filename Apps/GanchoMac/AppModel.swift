@@ -10,6 +10,10 @@ import GanchoTelemetry
 import KeyboardShortcuts
 import SwiftUI
 
+// AppModel is the macOS composition root; extracting startup wiring is a
+// behavior-sensitive refactor, so keep this file-length exception local.
+// swiftlint:disable file_length
+
 #if DEBUG
     /// Test-only policy for deterministic UI tests on machines where macOS pasteboard
     /// privacy is set to Ask or Deny. Opted in by launch argument only.
@@ -35,11 +39,16 @@ enum AppearancePreference: String, CaseIterable {
     }
 }
 
+// The composition root owns monitor, persistence, sync, and release/license
+// wiring. Split responsibilities in dedicated PRs rather than hiding this with
+// a baseline.
+// swiftlint:disable type_body_length
 /// Central app state: wires monitor → classifier → GRDB store, owns the
 /// paste-back service, preferences, retention, and the panel lifecycle.
 @Observable
 @MainActor
 final class AppModel {
+    // swiftlint:enable type_body_length
     private(set) var recentItems: [ClipItem] = []
     /// Owns the undo-window deletion state machine (pending set + grace timer +
     /// commit-only-if-still-pending). Clips in their window stay out of
@@ -181,6 +190,10 @@ final class AppModel {
         }
     }
 
+    // Startup wires storage, capture policy, sync, licensing, and UI test hooks
+    // in the same order as production launch; keep the exception local until a
+    // dedicated composition-root split lands.
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     init() {
         let directory = SharedStorageLocation.macAppStoreDirectory
         // Test hook: force the in-memory fallback so the "history isn't being
@@ -459,7 +472,7 @@ final class AppModel {
         for capture in [
             PasteboardCapture(text: "seed alpha"),
             PasteboardCapture(text: "https://seed.example/one"),
-            PasteboardCapture(text: "seed beta"),
+            PasteboardCapture(text: "seed beta")
         ] {
             ingest(capture)
         }
@@ -702,7 +715,7 @@ final class AppModel {
 
     /// The snippet invoked by an exact keyword, if any (the panel's expansion).
     func snippet(matchingKeyword keyword: String) async -> ClipItem? {
-        (try? await grdbStore?.snippet(matchingKeyword: keyword)) ?? nil
+        (try? await grdbStore?.snippet(matchingKeyword: keyword))
     }
 
     // MARK: - Smart paste (deterministic + on-device Apple Intelligence)
@@ -1311,7 +1324,7 @@ final class AppModel {
             appSettings: [
                 "panel-position": panel.position.rawValue,
                 "show-in-dock": showInDock ? "true" : "false",
-                "appearance": appearance.rawValue,
+                "appearance": appearance.rawValue
             ])
     }
 

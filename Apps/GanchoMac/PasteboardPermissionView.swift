@@ -35,6 +35,7 @@ struct PasteboardPermissionView: View {
                 Text("macOS will ask before Gancho reads")
                     .font(.title2.bold())
                 Text(
+                    // swiftlint:disable:next line_length
                     "Your Mac is set to confirm clipboard reads. To capture automatically, allow Gancho in System Settings → Privacy & Security → Paste from Other Apps, then relaunch Gancho (macOS applies the change on relaunch)."
                 )
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -45,6 +46,7 @@ struct PasteboardPermissionView: View {
                 Text("Clipboard access is off")
                     .font(.title2.bold())
                 Text(
+                    // swiftlint:disable:next line_length
                     "Gancho still works in manual mode: your history stays searchable and you can capture via the share sheet on iPhone. To re-enable automatic capture, allow Gancho in System Settings and relaunch."
                 )
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)

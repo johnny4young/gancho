@@ -16,7 +16,7 @@ final class CaptureFlowUITests: XCTestCase {
     func testSeededCaptureAppearsInHistory() {
         let app = XCUIApplication()
         app.launchArguments = [
-            "-skip-welcome-on-launch", "-force-ephemeral-store", "-seed-sample-clips",
+            "-skip-welcome-on-launch", "-force-ephemeral-store", "-seed-sample-clips"
         ]
         app.launch()
         defer { app.terminate() }

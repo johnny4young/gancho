@@ -103,12 +103,12 @@ struct IPadSplitView: View {
     /// so they never affect layout or VoiceOver.
     @ViewBuilder private var keyboardCommands: some View {
         Group {
-            Button(action: { searchFocused = true }) { Color.clear }
+            Button(action: { searchFocused = true }, label: { Color.clear })
                 .keyboardShortcut("f", modifiers: .command)
-            Button(action: copySelected) { Color.clear }
+            Button(action: copySelected, label: { Color.clear })
                 .keyboardShortcut(.return, modifiers: .command)
             ForEach(1...9, id: \.self) { n in
-                Button(action: { copyClip(at: n - 1) }) { Color.clear }
+                Button(action: { copyClip(at: n - 1) }, label: { Color.clear })
                     .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)
             }
         }

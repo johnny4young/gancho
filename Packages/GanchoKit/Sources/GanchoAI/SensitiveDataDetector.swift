@@ -27,10 +27,14 @@ public struct SensitiveDataDetector: Sendable {
 
     public init() {}
 
+    // Detection order is the policy: strongest structured signals first, then
+    // loose password heuristics last.
+    // swiftlint:disable cyclomatic_complexity
     /// First (highest-confidence) category found, or nil for clean text.
     /// Order matters: structured key formats are unambiguous; the entropy
     /// password heuristic runs last because it is the loosest.
     public func detect(_ text: String) -> Category? {
+        // swiftlint:enable cyclomatic_complexity
         if containsPEMPrivateKey(text) { return .pemPrivateKey }
         if matches(#"-----BEGIN PGP PRIVATE KEY BLOCK-----"#, in: text) {
             return .pgpPrivateKey
@@ -141,7 +145,7 @@ public struct SensitiveDataDetector: Sendable {
             token.contains(where: \.isUppercase),
             token.contains(where: \.isLowercase),
             token.contains(where: \.isNumber),
-            token.contains { !$0.isLetter && !$0.isNumber },
+            token.contains { !$0.isLetter && !$0.isNumber }
         ]
         if classes.allSatisfy({ $0 }) {
             return shannonEntropy(token) > 3.0
@@ -194,7 +198,7 @@ enum Luhn {
             }
             sum += digit
         }
-        return sum % 10 == 0
+        return sum.isMultiple(of: 10)
     }
 }
 

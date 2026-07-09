@@ -30,7 +30,7 @@ enum ClipExporter {
             row.id, formatter.string(from: row.createdAt), row.kind, row.title,
             row.preview, row.contentHash, row.sourceAppBundleID ?? "",
             row.isPinned ? "true" : "false", row.contentText ?? "",
-            row.contentBlobHash ?? "",
+            row.contentBlobHash ?? ""
         ]
         return fields.map(csvEscape).joined(separator: ",") + "\n"
     }

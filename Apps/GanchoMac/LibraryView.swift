@@ -5,6 +5,9 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
+// LibraryView intentionally keeps the sidebar, board scope, and snippet editor
+// together until the Library split can be reviewed as a dedicated UI refactor.
+// swiftlint:disable type_body_length
 /// The unified Library (the design's "Library + Pro"): a sidebar that navigates
 /// two worlds — BOARDS (All clips · Pinned · Favorites · your boards, each with
 /// a live count) and LIBRARY · SNIPPETS (keyword-triggered `{placeholder}`
@@ -12,6 +15,7 @@ import SwiftUI
 /// snippet opens the editor. Everything is local; the free ceiling gates
 /// creation, not browsing.
 struct LibraryView: View {
+    // swiftlint:enable type_body_length
     @Environment(AppModel.self) private var model
 
     /// What the sidebar has selected; `nil` is treated as "All clips".
@@ -84,7 +88,7 @@ struct LibraryView: View {
                     ForEach(boards) { board in
                         navRow(
                             .board(board.id),
-                            board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                            boardTitle(board),
                             systemImage: board.sfSymbol, count: boardCounts[board.id] ?? 0
                         )
                         .contextMenu {
@@ -144,6 +148,10 @@ struct LibraryView: View {
             }
         }
         .tag(selectionValue)
+    }
+
+    private func boardTitle(_ board: Pinboard) -> Text {
+        board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
     }
 
     private func snippetRow(_ snippet: ClipItem) -> some View {
@@ -291,7 +299,11 @@ struct LibraryView: View {
         case .pinned: Text("Pinned")
         case .board(let id):
             if let board = boards.first(where: { $0.id == id }) {
-                board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
+                if board.isSystem {
+                    Text("Favorites")
+                } else {
+                    Text(verbatim: board.name)
+                }
             } else {
                 Text("All clips")
             }
@@ -370,7 +382,11 @@ struct LibraryView: View {
                 Button {
                     mutate { model.assign(clip, toBoard: board) }
                 } label: {
-                    board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
+                    if board.isSystem {
+                        Text("Favorites")
+                    } else {
+                        Text(verbatim: board.name)
+                    }
                 }
             }
         }
@@ -409,6 +425,7 @@ struct LibraryView: View {
                     roundedCard.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
 
             Text(
+                // swiftlint:disable:next line_length
                 "Type the keyword in the panel to insert this snippet. Add {field} placeholders to fill in before pasting."
             )
             .font(.caption2)
