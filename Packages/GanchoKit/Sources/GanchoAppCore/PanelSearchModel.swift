@@ -81,19 +81,25 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// a slightly-better text match untouched for months.
     nonisolated static let frecencyWeight = 3.0
 
+    /// Frecency habit score. A usage count without a timestamp is not a
+    /// reliable recency signal, so it deliberately contributes nothing.
+    nonisolated static func frecencyScore(for item: ClipItem, now: Date = .now) -> Double {
+        guard let lastUsedAt = item.lastUsedAt else { return 0 }
+        let days = max(0, now.timeIntervalSince(lastUsedAt)) / 86_400
+        return log(1 + Double(item.uses)) * exp(-days / 30)
+    }
+
     /// Blends the store's BM25 order with per-clip frecency, in Swift — SQLite
     /// math functions (`ln`/`exp`) aren't guaranteed under the SQLCipher fork,
     /// and the store doesn't expose raw BM25 scores. The incoming position is
     /// the relevance proxy (`hits.count - index` preserves the FTS order among
-    /// unused clips); frecency = ln(1+uses) decayed by ~30-day half-life over
+    /// unused clips); frecency = ln(1+uses) decayed with a ~30-day time constant over
     /// `lastUsedAt`. Applied to search results only, never the recent list.
     nonisolated static func reranked(_ hits: [ClipItem], now: Date = .now) -> [ClipItem] {
         hits.enumerated()
             .map { index, item -> (item: ClipItem, score: Double) in
                 let bm25Proxy = Double(hits.count - index)
-                let days =
-                    item.lastUsedAt.map { max(0, now.timeIntervalSince($0)) / 86_400 } ?? 365
-                let frecency = log(1 + Double(item.uses)) * exp(-days / 30)
+                let frecency = Self.frecencyScore(for: item, now: now)
                 return (item, bm25Proxy + Self.frecencyWeight * frecency)
             }
             .sorted { $0.score > $1.score }

@@ -713,7 +713,7 @@ final class AppModel {
             if pasteBack.paste(.text(filled), asPlainText: false) == .copiedOnly {
                 showCopyOnlyToast()
             }
-            try? await grdbStore.incrementUses(id: snippet.id)
+            try? await grdbStore.recordUse(id: snippet.id, now: .now)
             await refreshRecents()
         }
     }

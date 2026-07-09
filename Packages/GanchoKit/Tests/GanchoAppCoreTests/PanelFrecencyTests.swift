@@ -53,11 +53,13 @@ struct PanelFrecencyTests {
 
     @Test("A never-used clip with a nil lastUsedAt gets no boost")
     func nilLastUsedGetsNoBoost() {
+        let undated = clip("counted-but-never-dated", uses: 5, lastUsedDaysAgo: nil)
+        #expect(PanelSearchModel.frecencyScore(for: undated, now: now) == 0)
+
         let hits = [
             clip("top-match", uses: 0),
-            clip("counted-but-never-dated", uses: 5, lastUsedDaysAgo: nil)
+            undated
         ]
-        // 365-day-old decay ≈ 0, so the store order holds.
         #expect(
             PanelSearchModel.reranked(hits, now: now).map(\.preview)
                 == ["top-match", "counted-but-never-dated"])

@@ -388,6 +388,23 @@ struct GRDBClipboardStoreTests {
             "recordUse must never flag the clip for re-upload")
     }
 
+    @Test("recordUse survives the move-to-top write after a macOS paste")
+    func recordUseSurvivesMoveToTop() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let item = ClipItem(preview: "pasted", contentHash: "h-use-move")
+        try await store.insert(item, content: .text("pasted"))
+
+        // AppModel records the use first, then calls insert(item, content: nil)
+        // to move the existing row back to the top of recents.
+        try await store.recordUse(id: item.id, now: .now)
+        _ = try await store.insert(item, content: nil)
+
+        let fetched = try #require(try await store.items().first { $0.id == item.id })
+        #expect(fetched.uses == 1, "the move-to-top write must preserve the use count")
+    }
+
     @Test("A board's color and emoji round-trip through the store")
     func boardIdentityPersists() async throws {
         let (store, dir) = try makeStore()
