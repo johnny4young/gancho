@@ -46,6 +46,9 @@ jobs:
 
       - name: Install SwiftLint
         run: brew install swiftlint
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
 
       - name: Lint (swift-format)
         run: swift format lint --strict --recursive Apps Packages/GanchoKit/Sources Packages/GanchoKit/Tests Tests

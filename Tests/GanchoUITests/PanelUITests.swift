@@ -496,6 +496,12 @@ private func typeTextReliably(
 ) {
     if field.isHittable {
         field.click()
+    } else {
+        // The field exists but isn't hittable (e.g. overlaid during a transition).
+        // Click its center coordinate so it's focused before we send app-level
+        // keys — otherwise ⌘A/delete/typing would land on whatever else has focus
+        // and could clear unrelated UI. Same fallback the help button uses above.
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
     }
 
     app.typeKey("a", modifierFlags: .command)
