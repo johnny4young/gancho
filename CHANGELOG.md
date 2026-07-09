@@ -9,6 +9,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Search learns your habits.** Results now blend text relevance with how
+  often — and how recently — you actually paste each clip, so the snippet you
+  use every day surfaces above a slightly-better text match you haven't touched
+  in months. The boost decays over ~a month, applies to search only (the
+  recent list stays chronological). Usage counts stay local; last-used
+  timestamps follow Gancho's existing sync metadata policy.
+
 - **The panel shows whether Gancho is capturing.** A small "Capturing" indicator
   in the panel footer (and "Paused" when it isn't), so if you copy something and
   don't see it you can tell at a glance whether Gancho is watching. When capture
