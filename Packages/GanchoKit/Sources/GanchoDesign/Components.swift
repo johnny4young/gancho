@@ -63,8 +63,8 @@ extension GanchoTokens.Palette {
         }
     }
 
-    private static func kindRGB(_ r: Int, _ g: Int, _ b: Int) -> Color {
-        Color(.sRGB, red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255)
+    private static func kindRGB(_ red: Int, _ green: Int, _ blue: Int) -> Color {
+        Color(.sRGB, red: Double(red) / 255, green: Double(green) / 255, blue: Double(blue) / 255)
     }
 }
 

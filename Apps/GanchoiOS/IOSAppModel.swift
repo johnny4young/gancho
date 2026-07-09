@@ -10,9 +10,14 @@ import UIKit
 import UniformTypeIdentifiers
 import WidgetKit
 
+// IOSAppModel mirrors the iOS composition root; split persistence/sync/history
+// wiring separately so this SwiftLint adoption stays behavior-preserving.
+// swiftlint:disable type_body_length
+
 @Observable
 @MainActor
 final class IOSAppModel {
+    // swiftlint:enable type_body_length
     /// The search + list state (captures, sections, query, filters, paging,
     /// grouping) lifted into `HistoryListViewModel` so its logic is unit-testable
     /// — the iOS analog of macOS's `PanelSearchModel`. This model owns one and
@@ -150,7 +155,7 @@ final class IOSAppModel {
             for capture in [
                 PasteboardCapture(text: "seed alpha"),
                 PasteboardCapture(text: "https://seed.example/one"),
-                PasteboardCapture(text: "seed beta"),
+                PasteboardCapture(text: "seed beta")
             ] {
                 await ingest(capture)
             }

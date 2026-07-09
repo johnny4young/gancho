@@ -13,7 +13,7 @@ struct PrivacyManifestTests {
     static let manifests = [
         "Apps/GanchoMac/PrivacyInfo.xcprivacy",
         "Apps/GanchoiOS/PrivacyInfo.xcprivacy",
-        "Apps/GanchoShare/PrivacyInfo.xcprivacy",
+        "Apps/GanchoShare/PrivacyInfo.xcprivacy"
     ]
 
     @Test(

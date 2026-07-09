@@ -101,7 +101,11 @@ struct PanelBoardPicker: View {
         return HStack(spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: isMember ? "checkmark.circle.fill" : board.sfSymbol)
                 .foregroundStyle(isMember ? GanchoTokens.Palette.accent : Color.secondary)
-            board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
+            if board.isSystem {
+                Text("Favorites")
+            } else {
+                Text(verbatim: board.name)
+            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, GanchoTokens.Spacing.xs)

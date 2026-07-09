@@ -37,6 +37,7 @@ struct IOSOnboardingView: View {
                             .font(.headline)
                         onboardingRow(
                             "hand.tap", "Tap to save",
+                            // swiftlint:disable:next line_length
                             "iOS can't watch the clipboard in the background — no app can. Use the Paste button to save what you copied."
                         )
                         onboardingRow(

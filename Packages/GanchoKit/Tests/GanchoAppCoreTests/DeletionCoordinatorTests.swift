@@ -18,11 +18,11 @@ private final class Recorder {
     var finishCount: Int { log.filter { $0.hasPrefix("finish") }.count }
 }
 
-/// Drives the undo-window deletion state machine deterministically: the grace is
-/// injected small so the commit fires promptly, and every wait is a BOUNDED poll
-/// on the observable state (never a fixed sleep sized to the grace, which would
-/// flake). The commit hooks are recorded so the tests pin ordering and counts,
-/// not merely "something happened".
+// Drives the undo-window deletion state machine deterministically: the grace is
+// injected small so the commit fires promptly, and every wait is a BOUNDED poll
+// on the observable state (never a fixed sleep sized to the grace, which would
+// flake). The commit hooks are recorded so the tests pin ordering and counts,
+// not merely "something happened".
 // Serialized: these tests each spin an unstructured main-actor timer task, and
 // under Swift Testing's default parallelism a post-`sleep` continuation can be
 // starved past a poll window on a loaded CI runner. Serializing removes the

@@ -34,6 +34,7 @@
             let png = try #require(
                 Data(
                     base64Encoded:
+                        // swiftlint:disable:next line_length
                         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
                 ))
             let pasteboard = NSPasteboard.general

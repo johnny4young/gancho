@@ -57,7 +57,7 @@ struct ReleaseMetadataTests {
             ["Apps", "GanchoiOS", "Info.plist"],
             ["Apps", "GanchoShare", "Info.plist"],
             ["Apps", "GanchoKeyboard", "Info.plist"],
-            ["Apps", "GanchoWidgets", "Info.plist"],
+            ["Apps", "GanchoWidgets", "Info.plist"]
         ] {
             let url = plistPath.reduce(Self.repositoryRoot) { $0.appendingPathComponent($1) }
             let plist = try String(contentsOf: url, encoding: .utf8)

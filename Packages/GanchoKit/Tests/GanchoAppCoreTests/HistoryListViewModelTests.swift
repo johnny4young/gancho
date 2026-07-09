@@ -73,7 +73,7 @@ struct HistoryListViewModelTests {
         source.recent = [
             ClipItem(kind: .url, preview: "https://x"),
             ClipItem(kind: .text, preview: "plain"),
-            ClipItem(kind: .url, preview: "https://y"),
+            ClipItem(kind: .url, preview: "https://y")
         ]
         let model = HistoryListViewModel(source: source)
         await model.search()
@@ -125,7 +125,7 @@ struct HistoryListViewModelTests {
         let source = FakeSource()
         source.recent = [
             ClipItem(kind: .text, preview: "pinned", isPinned: true),
-            ClipItem(kind: .text, preview: "recent 1"),
+            ClipItem(kind: .text, preview: "recent 1")
         ]
         let model = HistoryListViewModel(source: source)
         await model.search()

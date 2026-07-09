@@ -38,7 +38,7 @@ public final class StoreKitPurchaseHandler: PurchaseHandling {
         updatesListener?.cancel()
     }
 
-    public nonisolated var isPurchaseAvailable: Bool {
+    nonisolated public var isPurchaseAvailable: Bool {
         AppStore.canMakePayments
     }
 

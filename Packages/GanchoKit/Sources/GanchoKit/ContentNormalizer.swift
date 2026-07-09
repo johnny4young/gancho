@@ -11,7 +11,7 @@ public enum ContentNormalizer {
         "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
         "utm_id", "fbclid", "gclid", "dclid", "msclkid", "twclid", "yclid",
         "mc_cid", "mc_eid", "igshid", "igsh", "si", "_hsenc", "_hsmi",
-        "vero_id", "wickedid", "oly_anon_id", "oly_enc_id", "ref_src",
+        "vero_id", "wickedid", "oly_anon_id", "oly_enc_id", "ref_src"
     ]
 
     /// Strips tracking parameters from an absolute http(s) URL string.

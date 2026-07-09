@@ -101,7 +101,7 @@ struct GanchoiOSApp: App {
 /// diagnostics log. Mirrors macOS's `GanchoRuntime.model`.
 @MainActor
 enum GanchoiOSRuntime {
-    weak static var model: IOSAppModel?
+    static weak var model: IOSAppModel?
 }
 
 /// Registers the app with APNs at launch. CKSyncEngine subscribes to and

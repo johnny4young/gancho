@@ -78,7 +78,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
         let engine = ensureEngine()
         engine.state.add(pendingDatabaseChanges: [
             .saveZone(CKRecordZone(zoneID: zoneID)),
-            .saveZone(CKRecordZone(zoneID: boardZoneID)),
+            .saveZone(CKRecordZone(zoneID: boardZoneID))
         ])
         await reenqueuePendingWork(into: engine)
         await reconcilePendingChanges(in: engine)
@@ -397,6 +397,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
 // MARK: - CKSyncEngineDelegate
 
 extension CKSyncEngineAdapter: CKSyncEngineDelegate {
+    // CloudKit's batch builder is branchy by API shape: it chooses record
+    // source, tombstone cleanup, and per-zone send behavior together.
+    // swiftlint:disable:next cyclomatic_complexity
     public func nextRecordZoneChangeBatch(
         _ context: CKSyncEngine.SendChangesContext, syncEngine: CKSyncEngine
     ) async -> CKSyncEngine.RecordZoneChangeBatch? {
@@ -425,17 +428,17 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             guard let id = UUID(uuidString: changeID.recordName) else { continue }
             if changeID.zoneID.zoneName == boardZoneID.zoneName {
                 guard let board = boardsByID[id] else { continue }
-                let systemFields = (try? await store.boardSystemFields(for: id)) ?? nil
+                let systemFields = (try? await store.boardSystemFields(for: id))
                 if let record = BoardRecordMapper.record(
                     for: board, systemFields: systemFields, zoneID: boardZoneID)
                 {
                     built[changeID] = record
                 }
             } else if changeID.zoneID.zoneName == zoneID.zoneName {
-                guard let entry = (try? await store.pendingUpload(id: id)) ?? nil else {
+                guard let entry = (try? await store.pendingUpload(id: id)) else {
                     continue
                 }
-                let systemFields = (try? await store.systemFields(for: id)) ?? nil
+                let systemFields = (try? await store.systemFields(for: id))
                 let boardIDs = (try? await store.boardIDs(forClip: id)) ?? []
                 if let record = ClipRecordMapper.record(
                     for: entry.item, content: entry.content, systemFields: systemFields,
@@ -493,7 +496,7 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             emit(.syncing)
             syncEngine.state.add(pendingDatabaseChanges: [
                 .saveZone(CKRecordZone(zoneID: zoneID)),
-                .saveZone(CKRecordZone(zoneID: boardZoneID)),
+                .saveZone(CKRecordZone(zoneID: boardZoneID))
             ])
             await reenqueuePendingWork(into: syncEngine)
         case .signOut, .switchAccounts:
@@ -518,7 +521,7 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         if boardZoneReset { try? await store.forgetAllBoardSyncFields() }
         syncEngine.state.add(pendingDatabaseChanges: [
             .saveZone(CKRecordZone(zoneID: zoneID)),
-            .saveZone(CKRecordZone(zoneID: boardZoneID)),
+            .saveZone(CKRecordZone(zoneID: boardZoneID))
         ])
         await reenqueuePendingWork(into: syncEngine)
     }

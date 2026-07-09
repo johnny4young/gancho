@@ -13,7 +13,7 @@ struct WidgetClipsTests {
         let entry = WidgetClips.entries(from: [secret]).first
 
         #expect(entry?.displayText == WidgetClips.masked)
-        #expect(entry?.title == "")
+        #expect(entry?.title.isEmpty == true)
         #expect(entry?.isSensitive == true)
         // The raw secret must not leak through any field.
         #expect(entry?.displayText.contains("AKIA") == false)

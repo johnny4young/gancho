@@ -21,7 +21,7 @@
             "CptHost",  // Zoom screen-share host
             "caphost",  // Zoom variant
             "Microsoft Teams Helper (Renderer)",  // Teams share renderer
-            "ScreenSharingAgent",  // Apple Screen Sharing host agent
+            "ScreenSharingAgent"  // Apple Screen Sharing host agent
         ]
 
         private let runningProcessNames: @Sendable () -> [String]

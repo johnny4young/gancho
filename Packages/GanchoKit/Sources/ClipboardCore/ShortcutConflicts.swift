@@ -13,7 +13,7 @@
             "⌘Space": "Spotlight", "⌥⌘Space": "Finder Search",
             "⇧⌘3": "Screenshot", "⇧⌘4": "Screenshot Selection",
             "⇧⌘5": "Screenshot Toolbar", "⌃⌘Q": "Lock Screen",
-            "⌘Tab": "App Switcher", "⌃↑": "Mission Control",
+            "⌘Tab": "App Switcher", "⌃↑": "Mission Control"
         ]
 
         /// Lookup table with normalized keys (computed once).

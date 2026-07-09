@@ -53,28 +53,34 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
         switch self {
         case .summarize:
             return
+                // swiftlint:disable:next line_length
                 "Summarize the user's text in one to three clear sentences. Stay faithful to the meaning. Output only the summary, nothing else."
                 + guardrail
         case .proofread:
             return
+                // swiftlint:disable:next line_length
                 "Correct the spelling, grammar, and punctuation of the user's text. Preserve its meaning, tone, and line breaks. Output only the corrected text, nothing else."
                 + guardrail
         case .formal:
             return
+                // swiftlint:disable:next line_length
                 "Rewrite the user's text in a clear, professional, formal tone. Preserve its meaning. Output only the rewritten text, nothing else."
                 + guardrail
         case .friendly:
             return
+                // swiftlint:disable:next line_length
                 "Rewrite the user's text in a warm, friendly, conversational tone. Preserve its meaning. Output only the rewritten text, nothing else."
                 + guardrail
         case .keyPoints:
             return
+                // swiftlint:disable:next line_length
                 "Extract the key points from the user's text as a short bullet list, one point per line beginning with \"- \". Output only the list, nothing else."
                 + guardrail
         case .redactPII:
             // Primary path is the deterministic `PIIRedactor`; these instructions
             // describe the same intent and exist as a model fallback.
             return
+                // swiftlint:disable:next line_length
                 "Rewrite the user's text with every piece of personally identifiable information — names, emails, phone numbers, postal addresses, and account or ID numbers — replaced by a bracketed placeholder such as [name] or [email]. Preserve everything else exactly. Output only the redacted text, nothing else."
                 + guardrail
         }

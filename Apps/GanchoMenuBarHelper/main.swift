@@ -97,7 +97,7 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
                 string: "\(recent.label) · \(when)",
                 attributes: [
                     .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
-                    .foregroundColor: NSColor.secondaryLabelColor,
+                    .foregroundColor: NSColor.secondaryLabelColor
                 ]))
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byTruncatingTail

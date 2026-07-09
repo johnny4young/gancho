@@ -24,7 +24,7 @@ struct ContentNormalizerTests {
             // No query → untouched.
             ("https://example.com/plain", "https://example.com/plain"),
             // Non-URL text → untouched, even if it smells like one.
-            ("not a url utm_source=x", "not a url utm_source=x"),
+            ("not a url utm_source=x", "not a url utm_source=x")
         ])
     func stripsTracking(input: String, expected: String) {
         #expect(ContentNormalizer.normalizeURL(input) == expected)

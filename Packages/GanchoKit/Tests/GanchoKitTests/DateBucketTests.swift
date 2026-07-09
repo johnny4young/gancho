@@ -10,8 +10,8 @@ struct DateBucketTests {
         c.timeZone = TimeZone(identifier: "UTC")!
         return c
     }
-    private func day(_ year: Int, _ month: Int, _ d: Int) -> Date {
-        calendar.date(from: DateComponents(year: year, month: month, day: d, hour: 12))!
+    private func day(_ year: Int, _ month: Int, _ day: Int) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))!
     }
 
     @Test("Each date lands in the expected bucket (mid-month now)")
@@ -45,7 +45,7 @@ struct DateBucketTests {
             day(2026, 6, 14),  // yesterday
             day(2026, 6, 3),  // this month
             day(2026, 4, 1),  // this year
-            day(2023, 1, 1),  // older
+            day(2023, 1, 1)  // older
         ]
         let buckets = dates.map { DateBucket.of($0, now: now, calendar: calendar) }
         // Collapse to the sequence of runs; a contiguous grouping has no

@@ -58,7 +58,7 @@ struct PIIRedactorTests {
 
     @Test("Empty input stays empty")
     func empty() {
-        #expect(PIIRedactor.redact("") == "")
+        #expect(PIIRedactor.redact("").isEmpty)
     }
 
     @Test("A personal name is redacted")

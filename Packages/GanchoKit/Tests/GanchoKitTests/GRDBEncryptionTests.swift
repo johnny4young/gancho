@@ -65,7 +65,7 @@ import Testing
             let raw = try databaseBytes(in: dir)
             #expect(!raw.isEmpty, "the database file should exist")
             #expect(
-                raw.range(of: Data(Self.needle.utf8)) == nil,
+                !raw.contains(Data(Self.needle.utf8)),
                 "clip content/preview/title must not appear in cleartext on disk")
             let head = raw.prefix(16)
             #expect(
@@ -94,7 +94,7 @@ import Testing
                     BlobStore.encryptedMagic),
                 "blob file should use the sealed blob format")
             #expect(
-                rawBlob.range(of: Data(Self.needle.utf8)) == nil,
+                !rawBlob.contains(Data(Self.needle.utf8)),
                 "binary payload must not appear in cleartext on disk")
 
             let reopened = try GRDBClipboardStore(directory: dir, passphrase: key)
@@ -128,7 +128,7 @@ import Testing
                     BlobStore.encryptedMagic),
                 "thumbnail cache should use the sealed blob format")
             #expect(
-                rawThumbnail.range(of: pngHeader) == nil,
+                !rawThumbnail.contains(pngHeader),
                 "cached thumbnails must not remain as plaintext PNG files")
         }
 
@@ -241,7 +241,7 @@ import Testing
             let before = try databaseBytes(in: dir)
             #expect(before.prefix(16) == magicHeader, "seed store should be plaintext")
             #expect(
-                before.range(of: Data(Self.needle.utf8)) != nil, "seed content should be cleartext")
+                before.contains(Data(Self.needle.utf8)), "seed content should be cleartext")
 
             // 2. Reopen WITH a key ⇒ in-place re-encryption runs.
             let key = try testKey()
@@ -255,7 +255,7 @@ import Testing
             let after = try databaseBytes(in: dir)
             #expect(after.prefix(16) != magicHeader, "store should be encrypted after migration")
             #expect(
-                after.range(of: Data(Self.needle.utf8)) == nil,
+                !after.contains(Data(Self.needle.utf8)),
                 "migrated content must no longer be cleartext on disk")
         }
 
@@ -282,7 +282,7 @@ import Testing
             let beforeThumbnail = try #require(try fileBytes(in: thumbnailDir).first)
             #expect(beforeBlob == encryptedTinyPNG, "seed blob should be plaintext")
             #expect(
-                beforeThumbnail.range(of: pngHeader) != nil,
+                beforeThumbnail.contains(pngHeader),
                 "seed thumbnail should be a plaintext PNG")
 
             let key = try testKey()
@@ -304,10 +304,10 @@ import Testing
                     BlobStore.encryptedMagic),
                 "migrated thumbnail should be sealed")
             #expect(
-                afterBlob.range(of: encryptedTinyPNG) == nil,
+                !afterBlob.contains(encryptedTinyPNG),
                 "migrated binary payload must not remain cleartext")
             #expect(
-                afterThumbnail.range(of: pngHeader) == nil,
+                !afterThumbnail.contains(pngHeader),
                 "migrated thumbnail must not remain a plaintext PNG")
         }
     }

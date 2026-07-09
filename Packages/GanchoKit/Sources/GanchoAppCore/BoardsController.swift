@@ -48,6 +48,9 @@ public struct BoardsController {
         case created(UUID, filedClip: Bool)
     }
 
+    // Keep dependencies explicit at the platform boundary instead of hiding side
+    // effects in a broad options bag.
+    // swiftlint:disable function_parameter_count
     /// Creates a board, honoring the free-tier gate, and — when `item` is set —
     /// files that clip into it, mirroring both shells' create bodies exactly:
     /// count non-system boards, gate, `createPinboard(name:sfSymbol:"square.stack")`,
@@ -76,6 +79,7 @@ public struct BoardsController {
         onFreeLimit: () -> Void,
         onAssigned: () -> Void
     ) async -> BoardCreateOutcome {
+        // swiftlint:enable function_parameter_count
         // The built-in Favorites board never counts against the free limit.
         let count = (try? await store.pinboards().filter { !$0.isSystem }.count) ?? 0
         guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: isPro) else {

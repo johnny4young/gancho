@@ -18,7 +18,7 @@ final class PanelReproUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
-            "-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier",
+            "-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier"
         ]
         app.launch()
         defer { app.terminate() }

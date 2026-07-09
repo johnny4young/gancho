@@ -55,7 +55,7 @@ public enum BoardSuggester {
         // Deterministic tie-break: lowest UUID among the boards with the top count.
         guard
             let winner = votes.filter({ $0.value == topCount }).keys
-                .sorted(by: { $0.uuidString < $1.uuidString }).first
+                .min(by: { $0.uuidString < $1.uuidString })
         else { return nil }
 
         let confidence = Double(topCount) / Double(neighborBoardIDs.count)

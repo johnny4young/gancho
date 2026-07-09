@@ -90,7 +90,7 @@ struct ClipExporterTests {
             row(
                 id: "00000000-0000-0000-0000-000000000002",
                 createdAt: exportedAt.addingTimeInterval(60), preview: "second",
-                contentHash: "h2", contentText: "second body"),
+                contentHash: "h2", contentText: "second body")
         ]
 
         let data = try ClipExporter.json(rows: rows, exportedAt: exportedAt)
@@ -110,7 +110,7 @@ struct ClipExporterTests {
     func jsonSortsKeys() throws {
         let data = try ClipExporter.json(
             rows: [row()], exportedAt: Date(timeIntervalSince1970: 1_700_000_000))
-        let text = String(decoding: data, as: UTF8.self)
+        let text = try #require(String(bytes: data, encoding: .utf8))
 
         let clips = try #require(text.range(of: "\"clips\""))
         let exportedAt = try #require(text.range(of: "\"exportedAt\""))

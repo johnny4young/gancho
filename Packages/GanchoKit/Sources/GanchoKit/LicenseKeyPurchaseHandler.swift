@@ -24,7 +24,7 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
         self.instanceName = instanceName
     }
 
-    public nonisolated var isPurchaseAvailable: Bool { true }
+    nonisolated public var isPurchaseAvailable: Bool { true }
 
     public func availableProducts() async -> [ProProduct] { ProCatalog.all }
 

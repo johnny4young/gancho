@@ -40,7 +40,7 @@ public struct SourceAppDenylist: Sendable, Equatable, Codable {
         // iPhone banking apps run unchanged on Apple-silicon Macs and keep
         // their iOS bundle ids.
         "com.venmo.TouchFree",
-        "com.squareup.cash",
+        "com.squareup.cash"
     ]
 
     /// Bundle IDs the user added on top of the suggestions.

@@ -163,10 +163,14 @@ extension GRDBClipboardStore: SyncLocalStore {
         }
     }
 
+    // Remote upsert applies metadata, content, sync flags, and conflict
+    // bookkeeping atomically; keep the exception local to that transaction.
+    // swiftlint:disable function_body_length
     @discardableResult
     public func applyRemoteUpsert(
         _ item: ClipItem, content: ClipContent?, systemFields: Data
     ) async throws -> Bool {
+        // swiftlint:enable function_body_length
         var row = ClipRow(item: item)
         switch content {
         case .text(let text):
@@ -215,7 +219,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                         finalRow.contentHash, finalRow.sourceAppBundleID,
                         finalRow.sourceDeviceName, finalRow.isPinned,
                         finalRow.isSensitive, finalRow.expiresAt, finalRow.tags,
-                        systemFields, item.id.uuidString,
+                        systemFields, item.id.uuidString
                     ])
                 // Content columns move only when the remote carries content —
                 // nil (an asset over the size cap, or an undecodable payload)
@@ -232,7 +236,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                             """,
                         arguments: [
                             finalRow.contentText, finalRow.contentTypeIdentifier,
-                            item.id.uuidString,
+                            item.id.uuidString
                         ])
                 case .binary:
                     try db.execute(
@@ -242,7 +246,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                             """,
                         arguments: [
                             finalRow.contentBlobHash, finalRow.contentTypeIdentifier,
-                            item.id.uuidString,
+                            item.id.uuidString
                         ])
                 case nil:
                     break
@@ -333,7 +337,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                     """,
                 arguments: [
                     board.id.uuidString, board.name, board.sfSymbol, board.sortIndex,
-                    board.createdAt, board.isSystem, systemFields,
+                    board.createdAt, board.isSystem, systemFields
                 ])
         }
     }

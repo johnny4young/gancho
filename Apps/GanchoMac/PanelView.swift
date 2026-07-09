@@ -7,6 +7,10 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
+// PanelView is the main keyboard-first interaction surface; splitting it needs
+// a focused UI refactor so the current behavior stays reviewable in this PR.
+// swiftlint:disable file_length
+
 /// The localized pill labels for the type-filter rail. `ClipKindFilter` itself
 /// (cases + `matches`/`tintKind`) lives in `GanchoAppCore` so `PanelSearchModel`
 /// can narrow results without importing SwiftUI.
@@ -44,10 +48,14 @@ private enum BoardSheet: Identifiable {
 /// peek (its action list). → moves focus into the peek, ← returns to the list.
 enum PanelFocus: Hashable { case search, peek }
 
+// PanelView owns the coordinated search, rails, peek, and sheet state today;
+// keep the size exception local until those responsibilities are split.
+// swiftlint:disable type_body_length
 /// The floating history panel: compact, keyboard-first (the explicit design
 /// decision vs Paste's full-width drawer). Every interaction works without
 /// a mouse: type-to-search, ↑↓ to navigate, → into the peek, Enter to paste.
 struct PanelView: View {
+    // swiftlint:enable type_body_length
     @Environment(AppModel.self) private var model
     @FocusState private var focus: PanelFocus?
     /// The search + list state (query, results, filters, selection, paging,

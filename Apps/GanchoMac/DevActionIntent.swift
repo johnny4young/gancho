@@ -6,6 +6,7 @@ import GanchoAI
 struct DevActionIntent: AppIntent {
     static let title: LocalizedStringResource = "Transform Text"
     static let description = IntentDescription(
+        // swiftlint:disable:next line_length
         "Runs a Gancho developer action (decode JWT, pretty-print JSON, parse URL, convert color…) on the given text. Fully offline."
     )
 
@@ -57,7 +58,7 @@ enum DevActionChoice: String, AppEnum {
         .slugify: "Slugify",
         .numberBaseConvert: "Convert number base",
         .jsonEscape: "JSON-escape string",
-        .jsonUnescape: "JSON-unescape string",
+        .jsonUnescape: "JSON-unescape string"
     ]
 
     var id: DevActions.ActionID {

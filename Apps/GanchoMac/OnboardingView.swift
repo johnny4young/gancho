@@ -86,6 +86,7 @@ struct OnboardingView: View {
             Text("One permission for instant pasting")
                 .font(.title2.bold())
             Text(
+                // swiftlint:disable:next line_length
                 "To paste a clip directly into the app you're using, macOS requires the Accessibility permission. Gancho uses it ONLY to send the paste keystroke — never to read your screen."
             )
             .foregroundStyle(.secondary)
@@ -125,6 +126,7 @@ struct OnboardingView: View {
                 .font(.title2.bold())
             KeyboardShortcuts.Recorder("Panel shortcut:", name: .togglePanel)
             Text(
+                // swiftlint:disable:next line_length
                 "Press the shortcut, pick a clip with ↑↓, hit Enter — it pastes right where you were typing. That's the whole loop."
             )
             .foregroundStyle(.secondary)

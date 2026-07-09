@@ -18,6 +18,6 @@ struct SourceAppTests {
     func edges() {
         #expect(SourceApp.fallbackName(forBundleID: "Finder") == "Finder")
         #expect(SourceApp.fallbackName(forBundleID: "x") == "X")
-        #expect(SourceApp.fallbackName(forBundleID: "") == "")
+        #expect(SourceApp.fallbackName(forBundleID: "").isEmpty)
     }
 }

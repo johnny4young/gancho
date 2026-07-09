@@ -124,15 +124,22 @@ public final class SyncController {
 
         let previous = engine
         Task { await previous.stop() }
+        let stateStore = SyncStateStore.file(at: stateStoreURL)
+        let pollStateStore = SyncStateStore.file(
+            at: stateStoreURL.appendingPathExtension("poll"))
         engine = makeEngine(
-            store, tier, iCloudAvailable(), hasCloudKitEntitlement(),
-            .file(at: stateStoreURL),
+            store,
+            tier,
+            iCloudAvailable(),
+            hasCloudKitEntitlement(),
+            stateStore,
             { [weak self] status in
                 Task { @MainActor in await self?.onStatus?(status) }
-            }, diagnostics,
-            // The explicit pull's change tokens live BESIDE the engine blob
+            },
+            diagnostics,
+            // The explicit pull's change tokens live beside the engine blob
             // (same directory, `.poll` suffix), so reset(tier:) wipes both.
-            .file(at: stateStoreURL.appendingPathExtension("poll")))
+            pollStateStore)
         if enable {
             let engine = engine
             Task { try? await engine.start() }

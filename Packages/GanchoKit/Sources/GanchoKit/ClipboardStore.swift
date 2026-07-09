@@ -33,7 +33,7 @@ public protocol ClipboardStore: Sendable {
 
 extension ClipboardStore {
     /// Durable by default; the in-memory fallback overrides to `false`.
-    public nonisolated var isDurable: Bool { true }
+    nonisolated public var isDurable: Bool { true }
 }
 
 extension ClipboardStore {
@@ -58,7 +58,7 @@ public actor InMemoryClipboardStore: ClipboardStore {
     public init() {}
 
     /// The fallback store loses everything on relaunch — the UI surfaces this.
-    public nonisolated var isDurable: Bool { false }
+    nonisolated public var isDurable: Bool { false }
 
     @discardableResult
     public func insert(_ item: ClipItem, content: ClipContent?) async throws -> ClipItem {

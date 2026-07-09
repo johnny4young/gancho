@@ -28,7 +28,11 @@ enum CaptureSheet: Identifiable {
     }
 }
 
+// CaptureView coordinates the iOS capture surface, detail sheets, and history
+// list today; keep this local until the screen can be split safely.
+// swiftlint:disable type_body_length
 struct CaptureView: View {
+    // swiftlint:enable type_body_length
     @Environment(IOSAppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     /// One sheet at a time — Settings, the boards home, a clip peek, or the
@@ -270,6 +274,9 @@ struct CaptureView: View {
         }
     }
 
+    // The row body intentionally keeps gesture, navigation, and thumbnail
+    // wiring together so UI behavior remains obvious during this lint adoption.
+    // swiftlint:disable function_body_length
     /// Boards axis (above the type filter), as a horizontal rail of chips: All
     /// clips · Favorites · user boards · New board. The active chip takes the
     /// system accent; long-press a user board to rename or delete it.
@@ -278,6 +285,7 @@ struct CaptureView: View {
     /// page (infinite scroll).
     @ViewBuilder
     private func clipRow(_ item: ClipItem) -> some View {
+        // swiftlint:enable function_body_length
         Button {
             activeSheet = .peek(item)
         } label: {
@@ -515,6 +523,7 @@ struct CaptureView: View {
                 Text("Nothing captured yet.")
                     .foregroundStyle(.secondary)
                 Text(
+                    // swiftlint:disable:next line_length
                     "iOS apps can't watch the clipboard in the background — no app can. Capture with the button above, the share sheet from any app, or a Shortcut on your Action Button."
                 )
                 .font(.footnote)
@@ -772,7 +781,7 @@ struct PasteControlView: UIViewRepresentable {
             pasteConfiguration = UIPasteConfiguration(acceptableTypeIdentifiers: [
                 UTType.plainText.identifier,
                 UTType.url.identifier,
-                UTType.image.identifier,
+                UTType.image.identifier
             ])
         }
 

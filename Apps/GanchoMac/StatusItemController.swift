@@ -26,7 +26,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             "gancho-status-item",
             "Item-0",
             "Item-1",
-            "Item-2",
+            "Item-2"
         ]
     }
 

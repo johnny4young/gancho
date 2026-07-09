@@ -9,7 +9,7 @@ struct BoardPickerFilterTests {
     private let boards = [
         Pinboard(name: "Work"),
         Pinboard(name: "Design ideas"),
-        Pinboard(name: "Personal"),
+        Pinboard(name: "Personal")
     ]
 
     @Test("An empty query returns every board, in order")

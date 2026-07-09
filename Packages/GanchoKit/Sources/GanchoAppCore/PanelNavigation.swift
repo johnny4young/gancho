@@ -63,6 +63,9 @@ public struct PanelNavigationResult: Equatable, Sendable {
     public var loadMoreAt: Int?
 }
 
+// Keep the keyboard state machine in one reducer so wrap-around, rail, and peek
+// focus transitions stay auditable together.
+// swiftlint:disable cyclomatic_complexity function_body_length
 /// Pure list/rail keyboard navigation for the macOS history panel. Extracted
 /// verbatim from `PanelView`'s `move`/`navigate*`/`toggleFocusedRail` methods so
 /// the movement rules (wrap-around, rail entry/exit, chip toggling) can be unit
@@ -73,6 +76,7 @@ public enum PanelNavigation {
         state: PanelNavigationState,
         context: PanelNavigationContext
     ) -> PanelNavigationResult {
+        // swiftlint:enable cyclomatic_complexity function_body_length
         var state = state
         var handled = true
         var focusPeek = false

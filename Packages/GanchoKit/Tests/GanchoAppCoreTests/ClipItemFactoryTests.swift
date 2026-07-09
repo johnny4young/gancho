@@ -54,7 +54,7 @@ struct ClipItemFactoryTests {
     func fileReferencesPayload() {
         let urls = [
             URL(fileURLWithPath: "/tmp/report.pdf"),
-            URL(fileURLWithPath: "/tmp/notes.txt"),
+            URL(fileURLWithPath: "/tmp/notes.txt")
         ]
         let (item, content) = make(PasteboardCapture(payload: .fileReferences(urls)))
 

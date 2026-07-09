@@ -107,7 +107,7 @@ struct SensitiveDataDetectorTests {
         // Long single-class high-entropy secret (32-char base32 TOTP seed
         // shape). Split mid-literal so no contiguous secret-shaped token sits
         // in the source.
-        ("Q2W3E4R5T6Y7UABC" + "DFGHIJKLMNOPSVXZ", .probablePassword),
+        ("Q2W3E4R5T6Y7UABC" + "DFGHIJKLMNOPSVXZ", .probablePassword)
     ]
 
     @Test("Detects sanitized secret shapes", arguments: Self.secrets)
@@ -133,7 +133,7 @@ struct SensitiveDataDetectorTests {
         "-----BEGIN PGP PUBLIC KEY BLOCK-----\nmQENBGXk",  // public block is public
         "https://hooks.slack.com/services/about",  // webhook docs URL, no T/B/token path
         "the quick brown fox jumps over the lazy dog by the river",  // long prose, spaces
-        "aaaabbbbccccddddeeeeffffgggg",  // long single-class token, low entropy
+        "aaaabbbbccccddddeeeeffffgggg"  // long single-class token, low entropy
     ]
 
     @Test("Everyday clips stay clean", arguments: Self.cleanInputs)

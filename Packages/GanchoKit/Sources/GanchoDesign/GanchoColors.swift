@@ -38,12 +38,16 @@ extension GanchoTokens {
 
         // MARK: Accent — follows the OS Theme color, brand green by default
 
+        // Keep the accent source nested under Palette because callers treat it
+        // as part of the design-token namespace.
+        // swiftlint:disable nesting
         /// Where the accent comes from. Pure and testable: macOS writes
         /// `AppleAccentColor` to the global domain only when the user picks a
         /// specific accent in System Settings; under "Multicolor" (the default)
         /// the key is absent — and gancho uses its brand green rather than the
         /// system's default blue.
         public enum AccentSource: Sendable, Equatable { case system, brand }
+        // swiftlint:enable nesting
 
         /// - Parameter present: whether `AppleAccentColor` exists in the global
         ///   defaults domain (i.e. the user chose a specific accent).

@@ -100,8 +100,14 @@ public struct LicenseVerifier: Sendable {
     /// The public key baked into the app. Its matching private key is injected
     /// only at release time (see `LicenseSigningKey`); rotate the pair with
     /// `scripts/generate-license-keypair.swift` and replace the base64 below.
-    public static let embedded = LicenseVerifier(
-        publicKey: try! Curve25519.Signing.PublicKey(
-            rawRepresentation: Data(
-                base64Encoded: "J8LZORbLAEsr4ooyqQflmCmgfBhEAhcw5ncOXiotU9I=")!))
+    public static let embedded: LicenseVerifier = {
+        guard
+            let publicKeyData = Data(
+                base64Encoded: "J8LZORbLAEsr4ooyqQflmCmgfBhEAhcw5ncOXiotU9I="),
+            let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: publicKeyData)
+        else {
+            preconditionFailure("Invalid embedded license public key")
+        }
+        return LicenseVerifier(publicKey: publicKey)
+    }()
 }

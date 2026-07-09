@@ -39,7 +39,7 @@ enum GanchoMenuBarCommand: String, CaseIterable {
         [.openPanel, .library],
         [.toggleCapture, .togglePrivateMode, .ignoreNextCopy],
         [.settings, .privacyCenter, .welcome, .wrapped, .showInDock],
-        [.quit],
+        [.quit]
     ]
 
     var title: String {

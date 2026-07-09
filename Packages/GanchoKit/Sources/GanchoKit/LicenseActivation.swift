@@ -65,14 +65,15 @@ public struct LemonSqueezyValidator: Sendable {
     }
 
     private struct Response: Decodable {
-        struct LicenseKey: Decodable {
-            let id: Int
-            let status: String?
-        }
         let activated: Bool
         let error: String?
-        let licenseKey: LicenseKey?
+        let licenseKey: LemonSqueezyLicenseKey?
     }
+}
+
+private struct LemonSqueezyLicenseKey: Decodable {
+    let id: Int
+    let status: String?
 }
 
 /// Orchestrates activation: validate the Lemon Squeezy key online once, then

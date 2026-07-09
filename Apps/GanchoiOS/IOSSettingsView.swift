@@ -51,6 +51,7 @@ struct IOSSettingsView: View {
                 }
                 Section("Capture on iPhone") {
                     Text(
+                        // swiftlint:disable:next line_length
                         "Gancho never reads your pasteboard in the background. Capture happens only when you act: the save button, the share sheet, or a Shortcut."
                     )
                     .font(.footnote)

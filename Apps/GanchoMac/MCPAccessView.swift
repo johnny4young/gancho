@@ -42,7 +42,7 @@ struct MCPAccessView: View {
             descriptionKey: "Queue clips into the paste stack.", exposure: .content),
         .init(
             name: .listBoards, symbol: "rectangle.stack",
-            descriptionKey: "List your boards by name.", exposure: .metadata),
+            descriptionKey: "List your boards by name.", exposure: .metadata)
     ]
 
     private var enabled: Bool { model.mcpConfig.isEnabled }
@@ -65,6 +65,7 @@ struct MCPAccessView: View {
                         isOn: Binding(
                             get: { model.mcpConfig.isEnabled }, set: { model.setMCPEnabled($0) }))
                     Text(
+                        // swiftlint:disable:next line_length
                         "Lets local agents — Claude, Cursor, the gancho CLI — reach your clipboard over a loopback connection. No network, no cloud. Off by default."
                     )
                     .font(.footnote)
@@ -117,6 +118,7 @@ struct MCPAccessView: View {
                 Section {
                     Label {
                         Text(
+                            // swiftlint:disable:next line_length
                             "Sensitive clips are vetoed in every scope, including Everything — an agent never sees a secret the detector flagged."
                         )
                         .font(.footnote)
@@ -173,8 +175,10 @@ struct MCPAccessView: View {
     private var scopeDescription: LocalizedStringKey {
         switch model.mcpConfig.scope {
         case .metadata:
+            // swiftlint:disable:next line_length
             "Titles and sanitized previews only — never a content body. An agent can find clips and pin them, but cannot read what they hold."
         case .boards:
+            // swiftlint:disable:next line_length
             "Full content, but only for clips you have deliberately marked — pinned or on a board. Raw history stays invisible."
         case .all:
             "Full content of every non-sensitive clip. Sensitive clips remain vetoed, even here."
