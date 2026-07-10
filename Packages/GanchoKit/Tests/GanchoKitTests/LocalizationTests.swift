@@ -140,19 +140,28 @@ struct LocalizationTests {
         // Container/control patterns are deliberately NOT word-boundary
         // anchored: `Button(` must also match wrapper components such as
         // `ActionButton(` — a wrapper is exactly where a gap once hid.
-        let regexes = try [
-            #"(?:Text|Label)\(\s*"([^"\\]+)""#,
-            #"(?:Button|Toggle|Menu|Section)\(\s*"([^"\\]+)""#,
-            #"ActionButton\(\s*"([^"\\]+)""#,
-            #"\.(?:navigationTitle|alert|confirmationDialog)\(\s*"([^"\\]+)""#,
-            #"LocalizedStringResource\(\s*"([^"\\]+)""#,
-            #"LocalizedStringResource\s*=\s*"([^"\\]+)""#,
-            #"IntentDescription\(\s*"([^"\\]+)""#,
-            #"IntentDialog\(\s*"([^"\\]+)""#,
-            #"\bdialog:\s*"([^"\\]+)""#,
-            #"\.configurationDisplayName\(\s*"([^"\\]+)""#,
-            #"\.description\(\s*"([^"\\]+)""#
-        ].map { try NSRegularExpression(pattern: $0) }
+        //
+        // `requiresSpace: false` patterns are interactive-control labels, where
+        // even a ONE-word literal ("Clear", "Resume") is user-facing copy — the
+        // space heuristic alone let `Button("Clear")` ship untranslated once.
+        // Prose-ish contexts keep the space requirement so identifiers and
+        // symbol fragments don't false-positive.
+        let patterns: [(pattern: String, requiresSpace: Bool)] = [
+            (#"(?:Text|Label)\(\s*"([^"\\]+)""#, true),
+            (#"(?:Button|Toggle|Menu|Section)\(\s*"([^"\\]+)""#, false),
+            (#"ActionButton\(\s*"([^"\\]+)""#, false),
+            (#"\.(?:navigationTitle|alert|confirmationDialog)\(\s*"([^"\\]+)""#, false),
+            (#"LocalizedStringResource\(\s*"([^"\\]+)""#, true),
+            (#"LocalizedStringResource\s*=\s*"([^"\\]+)""#, true),
+            (#"IntentDescription\(\s*"([^"\\]+)""#, true),
+            (#"IntentDialog\(\s*"([^"\\]+)""#, true),
+            (#"\bdialog:\s*"([^"\\]+)""#, true),
+            (#"\.configurationDisplayName\(\s*"([^"\\]+)""#, false),
+            (#"\.description\(\s*"([^"\\]+)""#, true)
+        ]
+        let regexes = try patterns.map {
+            (regex: try NSRegularExpression(pattern: $0.pattern), requiresSpace: $0.requiresSpace)
+        }
 
         let appsDir = Self.repoRoot.appendingPathComponent("Apps")
         let files = try FileManager.default.subpathsOfDirectory(atPath: appsDir.path)
@@ -162,14 +171,22 @@ struct LocalizationTests {
             let source = try String(
                 contentsOf: appsDir.appendingPathComponent(file), encoding: .utf8)
             let required = requiredCatalogs(for: file)
-            for regex in regexes {
+            for (regex, requiresSpace) in regexes {
                 let matches = regex.matches(
                     in: source, range: NSRange(source.startIndex..., in: source))
                 for match in matches {
                     guard let range = Range(match.range(at: 1), in: source) else { continue }
                     let literal = String(source[range])
-                    // Prose = contains a space; interpolations resolve at runtime.
-                    guard literal.contains(" "), !literal.contains("\\(") else { continue }
+                    // Prose = contains a space. Control labels are additionally
+                    // flagged when they're a single Capitalized word ("Clear",
+                    // "Activate") — UI copy is capitalized here, while SF-symbol
+                    // names passed through wrappers ("globe", "delete.left") are
+                    // lowercase and must not false-positive. Interpolations
+                    // resolve at runtime.
+                    let isUserFacing =
+                        literal.contains(" ")
+                        || (!requiresSpace && literal.first?.isUppercase == true)
+                    guard isUserFacing, !literal.contains("\\(") else { continue }
                     if required.isEmpty {
                         #expect(
                             anyCatalogKeys.contains(literal),

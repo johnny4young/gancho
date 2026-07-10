@@ -2711,6 +2711,16 @@
         }
       }
     },
+    "Activate": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activar"
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "es": {
