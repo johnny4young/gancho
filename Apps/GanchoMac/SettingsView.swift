@@ -363,7 +363,6 @@ private struct GeneralSettingsTab: View {
 
 private struct CaptureSettingsTab: View {
     @Environment(AppModel.self) private var model
-    @State private var newDenylistEntry = ""
 
     var body: some View {
         @Bindable var model = model
@@ -371,6 +370,13 @@ private struct CaptureSettingsTab: View {
             Toggle("Capture images", isOn: $model.preferences.captureImages)
             Toggle("Capture copied files", isOn: $model.preferences.captureFileReferences)
             Toggle("Keep rich text formatting", isOn: $model.preferences.captureRichText)
+
+            // The editable never-capture list sits with the capture toggles —
+            // it's the same question ("what gets captured?"), and at the form's
+            // tail it hid below the fold of the default window height. Its own
+            // file: it grew rows with names/icons, an /Applications picker,
+            // and a restore affordance.
+            DenylistSettingsSection()
 
             Section("Intelligence") {
                 Button("Open Intelligence…") { model.intelligenceWindow.show(model: model) }
@@ -382,70 +388,9 @@ private struct CaptureSettingsTab: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             }
-
-            Section("Never capture from these apps") {
-                ForEach(model.denylistEntries, id: \.self) { bundleID in
-                    HStack {
-                        Text(verbatim: bundleID)
-                        Spacer()
-                        Button(role: .destructive) {
-                            model.removeFromDenylist(bundleID)
-                        } label: {
-                            Image(systemName: "minus.circle")
-                        }
-                        .accessibilityLabel(Text("Remove"))
-                    }
-                }
-                Menu("Add a running app…") {
-                    ForEach(runningApps) { app in
-                        Button {
-                            model.addToDenylist(app.id)
-                        } label: {
-                            Text(verbatim: app.name)
-                        }
-                    }
-                }
-                .accessibilityIdentifier("denylist-running-apps")
-                HStack {
-                    TextField("Bundle identifier", text: $newDenylistEntry)
-                        .accessibilityIdentifier("denylist-add-field")
-                    Button("Add") {
-                        guard !newDenylistEntry.isEmpty else { return }
-                        model.addToDenylist(newDenylistEntry)
-                        newDenylistEntry = ""
-                    }
-                }
-                Text("A bundle identifier looks like com.apple.Safari.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Text("Password managers and banking apps are excluded by default.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)
-    }
-
-    private struct RunningApp: Identifiable {
-        let id: String  // bundle identifier
-        let name: String
-    }
-
-    /// Currently-running, Dock-visible apps not already on the denylist — the
-    /// no-typing way to add one (you rarely know an app's bundle id by heart).
-    private var runningApps: [RunningApp] {
-        let denied = Set(model.denylistEntries)
-        var seen = Set<String>()
-        return NSWorkspace.shared.runningApplications
-            .filter { $0.activationPolicy == .regular }
-            .compactMap { app -> RunningApp? in
-                guard let id = app.bundleIdentifier, let name = app.localizedName,
-                    !denied.contains(id), seen.insert(id).inserted
-                else { return nil }
-                return RunningApp(id: id, name: name)
-            }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 }
 

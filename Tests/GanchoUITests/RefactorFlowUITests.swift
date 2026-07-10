@@ -36,7 +36,7 @@ final class RefactorFlowUITests: XCTestCase {
     /// (role: .destructive) → `AppModel.delete`, which shows a "Deleted" toast
     /// whose Undo button carries the `toast-undo` id.
     @MainActor
-    func testDeleteThenUndoRestoresTheClip() {
+    func testDeleteThenUndoRestoresTheClip() throws {
         let app = launchSeededPanel()
         defer { app.terminate() }
 
@@ -49,6 +49,9 @@ final class RefactorFlowUITests: XCTestCase {
             print("skip: seeded clip rows not exposed to the UI runner in this environment")
             return
         }
+        guard rows.firstMatch.isHittable else {
+            throw XCTSkip("seeded clip row is not hittable on this runner")
+        }
         let before = rows.count
 
         // Right-click the first row and pick Delete from its context menu.
@@ -58,6 +61,9 @@ final class RefactorFlowUITests: XCTestCase {
             print("skip: row context menu not reachable on this runner")
             return
         }
+        guard deleteItem.isHittable else {
+            throw XCTSkip("Delete menu item is not hittable on this runner")
+        }
         deleteItem.click()
 
         // The deferred delete surfaces a "Deleted" toast with an Undo affordance.
@@ -65,6 +71,9 @@ final class RefactorFlowUITests: XCTestCase {
         XCTAssertTrue(
             undo.waitForExistence(timeout: 5),
             "deleting a clip must show the Undo toast (DeletionCoordinator window)")
+        guard undo.isHittable else {
+            throw XCTSkip("Undo action is not hittable on this runner")
+        }
         undo.click()
 
         // Undo cancels the pending commit, so the clip — never removed from the
@@ -92,7 +101,7 @@ final class RefactorFlowUITests: XCTestCase {
     /// The free limit is `PinLimits.freeMaxPinboards` (3): the 4th create fires
     /// `onFreeLimit` → `paywallWindow.show(trigger: .freeLimitReached)`.
     @MainActor
-    func testCreateBoardAffordanceAndPrompt() {
+    func testCreateBoardAffordanceAndPrompt() throws {
         let app = launchSeededPanel(extraArguments: ["-first-pasteback-at", "1"])
         defer { app.terminate() }
 
@@ -105,6 +114,9 @@ final class RefactorFlowUITests: XCTestCase {
             print("skip: New board affordance not exposed to the UI runner")
             return
         }
+        guard newBoard.isHittable else {
+            throw XCTSkip("New board affordance is not hittable on this runner")
+        }
         newBoard.click()
 
         // The SwiftUI `.alert` for a new board exposes a "Board name" field and a
@@ -115,12 +127,16 @@ final class RefactorFlowUITests: XCTestCase {
             print("skip: New board prompt not reachable on this runner")
             return
         }
+        guard alertField.isHittable else {
+            throw XCTSkip("New board name field is not hittable on this runner")
+        }
         XCTAssertTrue(
             app.buttons["Create"].firstMatch.waitForExistence(timeout: 2),
             "the New board prompt must offer a Create action")
         // The affordance + prompt ARE the assertion; dismiss with Escape. (Clicking
         // the alert's "Cancel" can misfire on a hosted runner that maps the button
         // to a Touch Bar element; the deferred terminate is the real cleanup.)
+        try SynthesizedInput.requireForeground(app)
         app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
     }
 
@@ -133,7 +149,7 @@ final class RefactorFlowUITests: XCTestCase {
     /// ONE more board then trips `onFreeLimit` → the `paywall` surface. The store
     /// is a unique temp directory, so the user's real boards are never touched.
     @MainActor
-    func testCreatingBoardBeyondFreeLimitShowsPaywall() {
+    func testCreatingBoardBeyondFreeLimitShowsPaywall() throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
@@ -153,6 +169,9 @@ final class RefactorFlowUITests: XCTestCase {
             print("skip: New board affordance not exposed to the UI runner")
             return
         }
+        guard newBoard.isHittable else {
+            throw XCTSkip("New board affordance is not hittable on this runner")
+        }
         newBoard.click()
 
         // The free-tier gate is checked when the name is submitted (createBoard),
@@ -163,6 +182,9 @@ final class RefactorFlowUITests: XCTestCase {
             print("skip: New board prompt not reachable on this runner")
             return
         }
+        guard alertField.isHittable else {
+            throw XCTSkip("New board name field is not hittable on this runner")
+        }
         alertField.click()
         alertField.typeText("One past the limit")
         guard app.buttons["Create"].firstMatch.waitForExistence(timeout: 2) else {
@@ -172,6 +194,7 @@ final class RefactorFlowUITests: XCTestCase {
         // Submit with Return (the alert's default action) rather than clicking the
         // "Create" button: clicking an alert button can misfire on a hosted runner
         // that maps it to a Touch Bar element. Return trips the same createBoard.
+        try SynthesizedInput.requireForeground(app)
         app.typeKey(XCUIKeyboardKey.return, modifierFlags: [])
 
         // Seeded boards == freeMaxPinboards, so this is the (limit + 1)th create:

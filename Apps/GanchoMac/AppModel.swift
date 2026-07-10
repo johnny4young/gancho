@@ -131,7 +131,7 @@ final class AppModel {
 
     private let classifier = RuleClassifier()
     private let sensitiveDetector = SensitiveDataDetector()
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
     private var retentionTimer: Timer?
     /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
     private var syncPollTimer: Timer?
@@ -212,6 +212,7 @@ final class AppModel {
     // dedicated composition-root split lands.
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     init() {
+        defaults = Self.defaultsForLaunch()
         let directory = SharedStorageLocation.macAppStoreDirectory
         // Test hook: force the in-memory fallback so the "history isn't being
         // saved" warning path is drivable by a UI test (mirrors a real failure
@@ -377,6 +378,7 @@ final class AppModel {
         }
         Task { await refreshRecents() }
         seedSampleClipsIfRequested()
+        seedDenylistEntryIfRequested()
         let uiTestBoardSeedTask = seedSampleBoardsIfRequested()
         let uiTestPanelReproTask = seedPanelReproIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
@@ -495,6 +497,47 @@ final class AppModel {
             ingest(capture)
         }
     }
+
+    /// UI-test hook: `-seed-denylist-entry <bundle-id>` pre-adds one user
+    /// denylist entry so `DenylistUITests` can verify the Settings row and
+    /// the remove path with element clicks alone — synthesized typing isn't
+    /// grantable on every runner. It requires an isolated test defaults suite,
+    /// so a crash can never leave test data in a user's real preferences.
+    private func seedDenylistEntryIfRequested() {
+        #if DEBUG
+            guard let index = CommandLine.arguments.firstIndex(of: "-seed-denylist-entry"),
+                Self.uiTestDefaultsSuiteName() != nil,
+                CommandLine.arguments.indices.contains(index + 1)
+            else { return }
+            addToDenylist(CommandLine.arguments[index + 1])
+        #endif
+    }
+
+    /// Selects a disposable UserDefaults domain for UI tests. The prefix
+    /// prevents a launch argument from ever clearing a normal preferences
+    /// domain; each test supplies a unique UUID-backed suite name.
+    private static func defaultsForLaunch() -> UserDefaults {
+        #if DEBUG
+            guard let suiteName = uiTestDefaultsSuiteName(),
+                let defaults = UserDefaults(suiteName: suiteName)
+            else { return .standard }
+            defaults.removePersistentDomain(forName: suiteName)
+            return defaults
+        #else
+            return .standard
+        #endif
+    }
+
+    #if DEBUG
+        private static func uiTestDefaultsSuiteName() -> String? {
+            guard let index = CommandLine.arguments.firstIndex(of: "-ui-test-defaults-suite"),
+                CommandLine.arguments.indices.contains(index + 1)
+            else { return nil }
+            let suiteName = CommandLine.arguments[index + 1]
+            guard suiteName.hasPrefix("com.johnny4young.gancho.uitests.") else { return nil }
+            return suiteName
+        }
+    #endif
 
     /// The throwaway store directory for `-use-temp-durable-store`, or nil when
     /// the arg is absent. Lives under the OS temp directory (system-cleaned), so
@@ -1347,11 +1390,25 @@ final class AppModel {
 
     // MARK: - Denylist & settings portability
 
+    /// Bumped on every denylist mutation. The list itself lives inside the
+    /// non-observable monitor, so the computed properties below read this
+    /// stored value to give SwiftUI something to track — without it, a remove
+    /// wouldn't refresh the Settings list until an unrelated state change.
+    private(set) var denylistRevision = 0
+
     var denylistEntries: [String] {
+        _ = denylistRevision
         let effective = SourceAppDenylist.suggestedBundleIDs
             .subtracting(monitor.denylist.disabledSuggestions)
             .union(monitor.denylist.userBundleIDs)
         return effective.sorted()
+    }
+
+    /// True when the user re-enabled captures from any built-in exclusion —
+    /// gates the Settings "Restore default exclusions" button.
+    var hasDisabledDenylistSuggestions: Bool {
+        _ = denylistRevision
+        return !monitor.denylist.disabledSuggestions.isEmpty
     }
 
     func addToDenylist(_ bundleID: String) {
@@ -1361,11 +1418,21 @@ final class AppModel {
         guard !trimmed.isEmpty else { return }
         monitor.denylist.add(trimmed)
         monitor.denylist.save(to: defaults)
+        denylistRevision += 1
     }
 
     func removeFromDenylist(_ bundleID: String) {
         monitor.denylist.remove(bundleID)
         monitor.denylist.save(to: defaults)
+        denylistRevision += 1
+    }
+
+    /// Puts every built-in exclusion back on the denylist (user-added entries
+    /// are untouched).
+    func restoreDenylistDefaults() {
+        monitor.denylist.restoreSuggestions()
+        monitor.denylist.save(to: defaults)
+        denylistRevision += 1
     }
 
     /// Preferences only — never clips (reinstall portability).

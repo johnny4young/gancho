@@ -3080,6 +3080,46 @@
         }
       }
     },
+    "Restore default exclusions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar exclusiones por defecto"
+          }
+        }
+      }
+    },
+    "Choose from Applications…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir de Aplicaciones…"
+          }
+        }
+      }
+    },
+    "Default": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por defecto"
+          }
+        }
+      }
+    },
+    "Choose apps whose copies Gancho should never capture.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige las apps cuyas copias Gancho nunca debe capturar."
+          }
+        }
+      }
+    },
     "Paste": {
       "extractionState": "stale",
       "localizations": {

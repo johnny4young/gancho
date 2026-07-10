@@ -75,6 +75,13 @@ public struct SourceAppDenylist: Sendable, Equatable, Codable {
         }
     }
 
+    /// Re-excludes every suggested entry the user had allowed again — the
+    /// Settings "Restore default exclusions" affordance. User-added entries
+    /// are untouched.
+    public mutating func restoreSuggestions() {
+        disabledSuggestions = []
+    }
+
     private static let defaultsKey = "source-app-denylist"
 
     public static func load(from defaults: UserDefaults) -> SourceAppDenylist {

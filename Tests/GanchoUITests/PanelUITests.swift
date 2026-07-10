@@ -170,10 +170,10 @@ final class PanelUITests: XCTestCase {
         in app: XCUIApplication,
         file: StaticString = #filePath,
         line: UInt = #line
-    ) {
+    ) throws {
         let identifiedField = app.textFields["board-picker-filter"].firstMatch
         if identifiedField.waitForExistence(timeout: 2) {
-            typeTextReliably(text, into: identifiedField, in: app, file: file, line: line)
+            try typeTextReliably(text, into: identifiedField, in: app, file: file, line: line)
             return
         }
 
@@ -183,7 +183,7 @@ final class PanelUITests: XCTestCase {
             return
         }
 
-        typeTextReliably(text, into: labelledField, in: app, file: file, line: line)
+        try typeTextReliably(text, into: labelledField, in: app, file: file, line: line)
     }
 
     @MainActor
@@ -231,7 +231,7 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
-    func testPanelOpensAndSearchFieldHasFocus() {
+    func testPanelOpensAndSearchFieldHasFocus() throws {
         let app = launchWithPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
@@ -239,17 +239,19 @@ final class PanelUITests: XCTestCase {
             search.waitForExistence(timeout: 5), "panel search field must open on launch hook")
 
         // Type-to-search goes straight to the field — no click required.
+        try SynthesizedInput.requireForeground(app)
         app.typeText("zzz-no-results-zzz")
         XCTAssertEqual(search.value as? String, "zzz-no-results-zzz")
     }
 
     @MainActor
-    func testEscapeClosesPanel() {
+    func testEscapeClosesPanel() throws {
         let app = launchWithPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5))
 
+        try SynthesizedInput.requireForeground(app)
         app.typeKey(.escape, modifierFlags: [])
         // Window-geometry assertions self-skip on tiny virtual displays —
         // existence flips are stable everywhere.
@@ -259,7 +261,7 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
-    func testArrowNavigationDoesNotStealFocusFromSearch() {
+    func testArrowNavigationDoesNotStealFocusFromSearch() throws {
         let app = launchWithPanel()
         defer { app.terminate() }
         let search = app.textFields["search-field"].firstMatch
@@ -267,6 +269,7 @@ final class PanelUITests: XCTestCase {
 
         // Arrows are handled by the panel; the search field keeps focus so
         // the user can keep typing mid-navigation.
+        try SynthesizedInput.requireForeground(app)
         app.typeKey(.downArrow, modifierFlags: [])
         app.typeKey(.upArrow, modifierFlags: [])
         app.typeText("f")
@@ -274,7 +277,7 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
-    func testFooterShortcutsButtonOpensCheatSheet() {
+    func testFooterShortcutsButtonOpensCheatSheet() throws {
         let app = launchWithPanel()
         defer { app.terminate() }
         XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
@@ -284,7 +287,9 @@ final class PanelUITests: XCTestCase {
         let helpButton = app.buttons["panel-shortcuts-button"].firstMatch
         XCTAssertTrue(helpButton.waitForExistence(timeout: 3), "the footer ? button must exist")
         // The button is tiny and edge-anchored, so XCUITest can report it as not
-        // hittable; click its center coordinate directly.
+        // hittable; click its center coordinate directly. Coordinate clicks are
+        // raw screen points, so only with the app verified frontmost.
+        try SynthesizedInput.requireForeground(app)
         helpButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
 
         let card = app.descendants(matching: .any)["panel-shortcuts"].firstMatch
@@ -310,10 +315,11 @@ final class PanelUITests: XCTestCase {
         let allRows = rows.allElementsBoundByIndex
         try XCTSkipUnless(allRows.count >= 2, "not enough seeded rows exposed (\(allRows.count))")
 
+        try SynthesizedInput.requireForeground(app)
         app.typeKey("b", modifierFlags: .command)
         let picker = app.descendants(matching: .any)["board-picker"].firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 5), "⌘B must open the board picker")
-        typeBoardPickerFilter("Review queue", in: app)
+        try typeBoardPickerFilter("Review queue", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)["board-picker-create-row"].firstMatch
                 .waitForExistence(timeout: 3),
@@ -338,7 +344,7 @@ final class PanelUITests: XCTestCase {
         let reopenedPicker = app.descendants(matching: .any)["board-picker"].firstMatch
         XCTAssertTrue(
             reopenedPicker.waitForExistence(timeout: 5), "⌘B must reopen the board picker")
-        typeBoardPickerFilter("Review queue", in: app)
+        try typeBoardPickerFilter("Review queue", in: app)
         let createdBoardRow = app.descendants(matching: .any)["board-picker-board-row"].firstMatch
         XCTAssertTrue(createdBoardRow.waitForExistence(timeout: 3))
         let repeatedBoardSelection = XCTWaiter().wait(
@@ -462,7 +468,7 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
-    func testFilterPillExposesSelectedState() {
+    func testFilterPillExposesSelectedState() throws {
         let app = launchWithPanel()
         defer { app.terminate() }
         XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
@@ -474,6 +480,7 @@ final class PanelUITests: XCTestCase {
         let links = app.buttons["filter-links"].firstMatch
         XCTAssertTrue(links.waitForExistence(timeout: 3), "the Links filter pill must exist")
 
+        try SynthesizedInput.requireForeground(app)
         app.typeKey(.upArrow, modifierFlags: [])
         app.typeKey(.rightArrow, modifierFlags: [])
         app.typeKey(.space, modifierFlags: [])
@@ -493,15 +500,22 @@ private func typeTextReliably(
     in app: XCUIApplication,
     file: StaticString = #filePath,
     line: UInt = #line
-) {
+) throws {
+    // ⌘A + delete + typing are app-LEVEL events: if Gancho isn't frontmost or
+    // the field never takes focus, they land on whatever app/element actually
+    // has the keyboard — select-all-deleting someone else's text. Skip (not
+    // fail) when the environment can't grant us the keyboard safely.
+    try SynthesizedInput.requireForeground(app)
     if field.isHittable {
         field.click()
     } else {
-        // The field exists but isn't hittable (e.g. overlaid during a transition).
-        // Click its center coordinate so it's focused before we send app-level
-        // keys — otherwise ⌘A/delete/typing would land on whatever else has focus
-        // and could clear unrelated UI. Same fallback the help button uses above.
+        // The field exists but isn't hittable (e.g. overlaid during a
+        // transition). With the app verified frontmost, its center coordinate
+        // is over OUR window, so the focus click is safe.
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+    }
+    guard SynthesizedInput.waitForKeyboardFocus(field, timeout: 2) else {
+        throw XCTSkip("keyboard focus not grantable to the field — skipping synthesized input")
     }
 
     app.typeKey("a", modifierFlags: .command)
