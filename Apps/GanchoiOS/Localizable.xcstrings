@@ -121,6 +121,16 @@
         }
       }
     },
+    "Gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho"
+          }
+        }
+      }
+    },
     "Board name": {
       "localizations": {
         "es": {

@@ -67,7 +67,17 @@ for plist in Apps/GanchoMac/Info.plist Apps/GanchoiOS/Info.plist Apps/GanchoShar
 	[ "$bundle_version" = "$expected_build" ] || fail "$plist must use \$(CURRENT_PROJECT_VERSION), got '$bundle_version'"
 done
 
+# Keep a Changelog structure: within one version section, each '### Type'
+# heading appears at most once — a second '### Added' means an entry was
+# appended instead of merged into the existing section.
+duplicate_heading="$(awk '
+	/^## \[/ { section = $0; delete seen }
+	/^### / { if (seen[$0]++) { printf "%s under %s", $0, section; exit } }
+' CHANGELOG.md)"
+[ -z "$duplicate_heading" ] || fail "CHANGELOG.md duplicates a heading: $duplicate_heading"
+
 pass "project.yml MARKETING_VERSION $marketing_version and build $build_version are valid"
 pass "CHANGELOG.md top release matches $marketing_version"
+pass "CHANGELOG.md has no duplicate section headings"
 pass "Homebrew formula template matches $marketing_version"
 pass "Info.plist bundle versions expand from project.yml build settings"
