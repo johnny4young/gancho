@@ -157,6 +157,23 @@ final class AppModel {
         didSet { defaults.set(autoPauseOnScreenShare, forKey: "auto-pause-screen-share") }
     }
 
+    /// Remember successful searches for ⌘↑ recall (on by default). Queries can
+    /// be as sensitive as clip content, so turning this OFF also erases the
+    /// stored history immediately — a privacy toggle, not just a feature flag.
+    var rememberSearches: Bool {
+        didSet {
+            defaults.set(rememberSearches, forKey: "remember-searches")
+            if !rememberSearches {
+                Task { try? await grdbForEngines?.clearSearchHistory() }
+            }
+        }
+    }
+
+    /// The panel's live query, mirrored by `PanelView.onChange` — so `paste`
+    /// knows a search led to this paste and can remember the query. Cleared
+    /// after recording: one remembered use per typed search.
+    var activePanelQuery = ""
+
     var preferences: CapturePreferences {
         didSet {
             monitor.preferences = preferences
@@ -256,6 +273,7 @@ final class AppModel {
         autoPauseOnScreenShare =
             disableScreenShareAutoPause
             ? false : defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
+        rememberSearches = defaults.object(forKey: "remember-searches") as? Bool ?? true
         // Test hook: pin the FREE tier so the paywall flow is deterministic even
         // when `gancho-force-pro` is set in the environment (which would otherwise
         // force Pro and make `PaywallGatekeeper` suppress every trigger).
@@ -637,9 +655,27 @@ final class AppModel {
             // recordUse never flags a re-upload). The single choke point for
             // Enter, ⌘1-9, ⌘V, the paste stack, and the peek actions.
             try? await grdbStore?.recordUse(id: item.id, now: .now)
+            await rememberActiveSearch()
             _ = try? await store.insert(item, content: nil)  // move-to-top
             await refreshRecents()
         }
+    }
+
+    /// A paste while the panel had a query = that search succeeded; remember it
+    /// for ⌘↑ recall (unless the privacy toggle is off). Clearing after the
+    /// record keeps it to one remembered use per typed search. Awaited from the
+    /// paste task — a deferred fire-and-forget write could land AFTER the
+    /// privacy toggle's clear and silently repopulate the history.
+    private func rememberActiveSearch() async {
+        let query = activePanelQuery
+        activePanelQuery = ""
+        guard rememberSearches, !query.isEmpty else { return }
+        try? await grdbForEngines?.recordSearch(query, now: .now)
+    }
+
+    /// The ⌘↑ recall list for the panel's search field, newest first.
+    func recentSearches() async -> [String] {
+        (try? await grdbForEngines?.recentSearches(limit: 5)) ?? []
     }
 
     /// Paste with a pure transform applied at paste time.
@@ -655,6 +691,7 @@ final class AppModel {
                 showCopyOnlyToast()
             }
             try? await grdbStore?.recordUse(id: item.id, now: .now)
+            await rememberActiveSearch()
             _ = try? await store.insert(item, content: nil)
             await refreshRecents()
         }

@@ -3314,6 +3314,36 @@
         }
       }
     },
+    "Remember searches": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recordar búsquedas"
+          }
+        }
+      }
+    },
+    "Recall recent panel searches with ⌘↑. Stored only on this Mac; turning this off erases them.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recupera búsquedas recientes del panel con ⌘↑. Se guardan solo en este Mac; al desactivarlo se borran."
+          }
+        }
+      }
+    },
+    "Recall recent searches": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recuperar búsquedas recientes"
+          }
+        }
+      }
+    },
     "Capture paused": {
       "localizations": {
         "es": {
