@@ -81,6 +81,12 @@ struct PanelView: View {
     @State private var showShortcuts = false
     /// The ⌘B board picker overlay for the selected clip.
     @State private var showBoardPicker = false
+    /// ⌘↑/⌘↓ search recall (UX-05): the loaded recall list (newest first), the
+    /// cursor into it, and the entry we last applied — so `onChange` can tell
+    /// "user typed" (ends the session) from "we recalled" (keeps it).
+    @State private var searchHistory: [String] = []
+    @State private var historyCursor: Int?
+    @State private var recalledQuery: String?
 
     init(model: AppModel) {
         _search = State(wrappedValue: PanelSearchModel(source: model))
@@ -126,7 +132,7 @@ struct PanelView: View {
         .animation(.snappy(duration: 0.12), value: showShortcuts)
         .task { await search.refresh() }
         .task { await model.refreshBoards() }
-        .onChange(of: search.query) { _, _ in
+        .onChange(of: search.query) { _, newValue in
             // A new query invalidates a previous answer and drops rail focus
             // (you're typing in the search field again).
             askTask?.cancel()
@@ -134,6 +140,15 @@ struct PanelView: View {
             isAsking = false
             answer = nil
             railFocus = nil
+            // Mirror the live query so a paste knows the search that led to it
+            // (UX-05); typing anything that isn't a recalled entry ends the
+            // ⌘↑ recall session.
+            model.activePanelQuery = newValue
+            if newValue != recalledQuery {
+                historyCursor = nil
+                searchHistory = []
+                recalledQuery = nil
+            }
             Task { await search.refresh() }
         }
         .onChange(of: model.recentItems) { _, _ in
@@ -200,8 +215,14 @@ struct PanelView: View {
         return VStack(spacing: GanchoTokens.Spacing.xs) {
             SearchField("Search your clipboard", text: $search.query)
                 .focused($focus, equals: .search)
-                .onKeyPress(.downArrow) { handleNav(.down) }
-                .onKeyPress(.upArrow) { handleNav(.up) }
+                .onKeyPress(.downArrow, phases: [.down, .repeat]) { press in
+                    press.modifiers.contains(.command) ? recallSearch(.newer) : handleNav(.down)
+                }
+                .onKeyPress(.upArrow, phases: [.down, .repeat]) { press in
+                    // Plain ↑↓ navigate the list (and must keep key-repeat);
+                    // ⌘↑/⌘↓ cycle recent searches, shell-style (UX-05).
+                    press.modifiers.contains(.command) ? recallSearch(.older) : handleNav(.up)
+                }
                 .onKeyPress(.leftArrow) { handleNav(.left) }
                 .onKeyPress(.rightArrow) { handleNav(.right) }
                 .onKeyPress(.space, phases: .down) { _ in
@@ -752,6 +773,8 @@ struct PanelView: View {
             shortcutLine(["⌘", "1–9"], "Paste that numbered clip")
             shortcutLine(["⌘", "P"], "Pin or unpin")
             shortcutLine(["⌘", "S"], "Save as snippet")
+            shortcutLine(["⌘", "B"], "Add to board")
+            shortcutLine(["⌘", "↑"], "Recall recent searches")
             shortcutLine(["⌘", "A"], "Select all in search")
             shortcutLine(["esc"], "Close")
             shortcutLine(["⌘", "/"], "Show this list")
@@ -1071,6 +1094,44 @@ struct PanelView: View {
     }
 
     // MARK: - Rail keyboard navigation (filters + boards above the list)
+
+    /// Which way ⌘↑/⌘↓ walk the recall list (newest first: older = deeper).
+    private enum RecallStep { case older, newer }
+
+    /// Shell-style recall of remembered searches (UX-05). First ⌘↑ loads the
+    /// list and applies the newest; further ⌘↑ walk older; ⌘↓ walks back and,
+    /// past the newest, clears the field and ends the session. Plain ↑↓ are
+    /// untouched — they navigate the list.
+    private func recallSearch(_ step: RecallStep) -> KeyPress.Result {
+        if searchHistory.isEmpty {
+            guard step == .older else { return .handled }
+            Task {
+                searchHistory = await model.recentSearches()
+                applyRecall(at: 0)
+            }
+            return .handled
+        }
+        switch step {
+        case .older: applyRecall(at: (historyCursor ?? -1) + 1)
+        case .newer: applyRecall(at: (historyCursor ?? 0) - 1)
+        }
+        return .handled
+    }
+
+    private func applyRecall(at index: Int) {
+        guard !searchHistory.isEmpty else { return }
+        guard index >= 0 else {
+            // Walked past the newest entry: back to an empty field.
+            historyCursor = nil
+            recalledQuery = ""
+            search.query = ""
+            return
+        }
+        let clamped = min(index, searchHistory.count - 1)
+        historyCursor = clamped
+        recalledQuery = searchHistory[clamped]
+        search.query = searchHistory[clamped]
+    }
 
     /// Resolve an arrow / Space / Enter keypress through the pure
     /// `PanelNavigation` reducer, then apply the next state back onto the search

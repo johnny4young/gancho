@@ -9,6 +9,14 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Recall your recent searches with ⌘↑.** A search that led to a paste is
+  remembered; press ⌘↑ in the panel's search field to bring it back (and again
+  for older ones, ⌘↓ to walk forward — shell-style). Kept only on this Mac,
+  capped at 50, and the new "Remember searches" toggle in Settings → Privacy
+  erases them all the moment you turn it off.
+
+### Added
+
 - **Search learns your habits.** Results now blend text relevance with how
   often — and how recently — you actually paste each clip, so the snippet you
   use every day surfaces above a slightly-better text match you haven't touched

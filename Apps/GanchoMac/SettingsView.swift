@@ -538,6 +538,12 @@ private struct PrivacySettingsTab: View {
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
+            Toggle("Remember searches", isOn: $model.rememberSearches)
+            Text(
+                "Recall recent panel searches with ⌘↑. Stored only on this Mac; turning this off erases them."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
             Button("Open Privacy Center") {
                 model.privacyCenterWindow.show(model: model)
             }
