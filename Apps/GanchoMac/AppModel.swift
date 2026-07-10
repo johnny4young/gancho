@@ -655,7 +655,7 @@ final class AppModel {
             // recordUse never flags a re-upload). The single choke point for
             // Enter, ⌘1-9, ⌘V, the paste stack, and the peek actions.
             try? await grdbStore?.recordUse(id: item.id, now: .now)
-            rememberActiveSearch()
+            await rememberActiveSearch()
             _ = try? await store.insert(item, content: nil)  // move-to-top
             await refreshRecents()
         }
@@ -663,12 +663,14 @@ final class AppModel {
 
     /// A paste while the panel had a query = that search succeeded; remember it
     /// for ⌘↑ recall (unless the privacy toggle is off). Clearing after the
-    /// record keeps it to one remembered use per typed search.
-    private func rememberActiveSearch() {
+    /// record keeps it to one remembered use per typed search. Awaited from the
+    /// paste task — a deferred fire-and-forget write could land AFTER the
+    /// privacy toggle's clear and silently repopulate the history.
+    private func rememberActiveSearch() async {
         let query = activePanelQuery
         activePanelQuery = ""
         guard rememberSearches, !query.isEmpty else { return }
-        Task { try? await grdbForEngines?.recordSearch(query, now: .now) }
+        try? await grdbForEngines?.recordSearch(query, now: .now)
     }
 
     /// The ⌘↑ recall list for the panel's search field, newest first.
@@ -689,7 +691,7 @@ final class AppModel {
                 showCopyOnlyToast()
             }
             try? await grdbStore?.recordUse(id: item.id, now: .now)
-            rememberActiveSearch()
+            await rememberActiveSearch()
             _ = try? await store.insert(item, content: nil)
             await refreshRecents()
         }

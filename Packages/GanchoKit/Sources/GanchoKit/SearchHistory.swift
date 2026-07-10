@@ -35,7 +35,10 @@ extension GRDBClipboardStore {
 
     /// The most recent searches, newest first — the ⌘↑ recall list.
     public func recentSearches(limit: Int = 5) async throws -> [String] {
-        try await writer.read { db in
+        // SQLite treats a negative LIMIT as "no limit", which would return the
+        // whole table — clamp so a bad argument can never widen the read.
+        guard limit > 0 else { return [] }
+        return try await writer.read { db in
             try String.fetchAll(
                 db,
                 sql: "SELECT query FROM search_history ORDER BY lastUsedAt DESC LIMIT ?",

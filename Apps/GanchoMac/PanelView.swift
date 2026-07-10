@@ -1105,7 +1105,7 @@ struct PanelView: View {
     private func recallSearch(_ step: RecallStep) -> KeyPress.Result {
         if searchHistory.isEmpty {
             guard step == .older else { return .handled }
-            Task {
+            Task { @MainActor in
                 searchHistory = await model.recentSearches()
                 applyRecall(at: 0)
             }

@@ -43,14 +43,17 @@ struct SearchHistoryTests {
     func capTrims() async throws {
         let store = try makeStore()
         let base = Date(timeIntervalSince1970: 1_800_000_000)
-        for index in 0..<(GRDBClipboardStore.searchHistoryCap + 10) {
+        let cap = GRDBClipboardStore.searchHistoryCap
+        let overflow = 10
+        for index in 0..<(cap + overflow) {
             try await store.recordSearch(
                 "query-\(index)", now: base.addingTimeInterval(Double(index)))
         }
-        let all = try await store.recentSearches(limit: 1_000)
-        #expect(all.count == GRDBClipboardStore.searchHistoryCap)
-        #expect(all.first == "query-59", "newest survives")
-        #expect(!all.contains("query-0"), "the oldest rows fall off")
+        let all = try await store.recentSearches(limit: cap + overflow)
+        #expect(all.count == cap)
+        #expect(all.first == "query-\(cap + overflow - 1)", "newest survives")
+        #expect(all.last == "query-\(overflow)", "the cap keeps the newest 50")
+        #expect(!all.contains("query-\(overflow - 1)"), "the oldest rows fall off")
     }
 
     @Test("clearSearchHistory forgets everything at once")
