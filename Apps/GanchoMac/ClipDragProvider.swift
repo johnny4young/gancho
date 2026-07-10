@@ -10,13 +10,19 @@ import UniformTypeIdentifiers
 extension AppModel {
     func dragProvider(for item: ClipItem) -> NSItemProvider {
         let provider = NSItemProvider()
+        // A non-draggable clip (sensitive) gets a fully inert provider: no
+        // representations AND no metadata — `suggestedName` mirrors the
+        // (possibly user-edited) title, which must not travel either, even
+        // for a future caller that skips the `ClipDragSource` gate.
+        let representations = ClipDragPayload.representations(for: item)
+        guard !representations.isEmpty else { return provider }
         if !item.title.isEmpty {
             provider.suggestedName = item.title
         }
         // A drop target may load several of the advertised representations;
         // the clip's frecency bump must land once per drag, not once per load.
         let usage = OneShot()
-        for representation in ClipDragPayload.representations(for: item) {
+        for representation in representations {
             register(representation, of: item, on: provider, usage: usage)
         }
         return provider
@@ -80,6 +86,11 @@ extension AppModel {
             else { return nil }
             return url.dataRepresentation
         case .fileURL:
+            // SwiftUI's `.onDrag` vends ONE NSItemProvider = one drag item, so
+            // a multi-file clip can only deliver its first file here; the
+            // plain-text representation still carries every path. True
+            // multi-item drag needs an AppKit drag source — a deliberate
+            // non-goal for now.
             return ClipDragPayload.fileURLs(for: content).first?.dataRepresentation
         case .pngImage:
             guard case .binary(let data, let typeIdentifier) = content else { return nil }
