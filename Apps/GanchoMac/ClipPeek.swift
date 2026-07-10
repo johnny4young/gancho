@@ -120,6 +120,8 @@ struct ClipPeek: View {
         .accessibilityIdentifier("board-suggestion")
     }
 
+    /// The header doubles as the peek's drag-out handle (the text body keeps
+    /// its selection gestures, so the drag lives on the title row instead).
     private var header: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             TypeBadge(kind: item.kind)
@@ -137,6 +139,7 @@ struct ClipPeek: View {
             .accessibilityLabel(Text(item.isPinned ? "Unpin" : "Pin"))
             .accessibilityIdentifier("preview-pin")
         }
+        .clipDragSource(item)
     }
 
     /// Toggle this clip in/out of any board, with a checkmark on the boards it
@@ -180,7 +183,11 @@ struct ClipPeek: View {
                 .scaledToFit()
                 .frame(maxWidth: .infinity, maxHeight: 220, alignment: .topLeading)
                 .clipShape(
-                    RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
+                    RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                )
+                // Dragging the preview itself hands the full-resolution image
+                // (not the thumbnail) to the drop target.
+                .clipDragSource(item)
         } else if item.kind == .color, !item.isSensitive, let color = Color(hexString: text) {
             HStack(spacing: GanchoTokens.Spacing.sm) {
                 RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)

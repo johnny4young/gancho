@@ -36,6 +36,14 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// the seam for a future "pin" affordance.
     var keepsOpenOnFocusLoss = false
 
+    /// True while a drag that started inside the panel is still in flight —
+    /// dropping into another app can steal key focus, and hiding the source
+    /// window mid-drag would cancel the drag.
+    private var isDraggingOut = false
+    /// Distinguishes overlapping drag sessions so a stale watcher never
+    /// clears the flag of a newer drag.
+    private var dragOutGeneration = 0
+
     var isVisible: Bool {
         panel?.isVisible == true
     }
@@ -91,12 +99,28 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel?.orderOut(nil)
     }
 
+    /// Called at drag start (SwiftUI's `.onDrag` gives the source no end
+    /// callback), so the session's end is observed the only way available:
+    /// the mouse button releasing.
+    func noteDragOutStarted() {
+        dragOutGeneration += 1
+        let generation = dragOutGeneration
+        isDraggingOut = true
+        Task { @MainActor [weak self] in
+            while NSEvent.pressedMouseButtons != 0 {
+                try? await Task.sleep(for: .milliseconds(80))
+            }
+            guard let self, self.dragOutGeneration == generation else { return }
+            self.isDraggingOut = false
+        }
+    }
+
     /// Auto-hide when the panel loses key focus — a click in another app or
     /// window dismisses it (Spotlight-style). Held open while a preview sheet is
-    /// attached, while pinned, and under UI tests (which drive visibility via
-    /// the launch hook, not focus).
+    /// attached, while pinned, while a drag-out is in flight, and under UI tests
+    /// (which drive visibility via the launch hook, not focus).
     func windowDidResignKey(_ notification: Notification) {
-        guard !Self.isUITestLaunch, !keepsOpenOnFocusLoss,
+        guard !Self.isUITestLaunch, !keepsOpenOnFocusLoss, !isDraggingOut,
             let panel, panel.attachedSheet == nil
         else { return }
         panel.orderOut(nil)

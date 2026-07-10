@@ -9,6 +9,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Drag clips straight out of the panel (macOS).** Any history row — and the
+  peek's title bar or image preview — can be dragged into another app: text
+  lands as text, links as links, images as PNG, and a copied file as the file
+  itself (a multi-file clip drops its first file; the full path list travels
+  as text). The panel stays open while you drag, so pulling several clips
+  into a document is one drag each. Clips marked sensitive can't be dragged;
+  revealing a secret stays an explicit action.
 - **Recall your recent searches with ⌘↑.** A search that led to a paste is
   remembered; press ⌘↑ in the panel's search field to bring it back (and again
   for older ones, ⌘↓ to walk forward — shell-style). Kept only on this Mac,

@@ -644,6 +644,9 @@ struct PanelView: View {
     private func clipRow(index: Int, item: ClipItem) -> some View {
         row(for: item, index: index)
             .id(item.id)
+            // Drag-out (UX-03): every row is a drag source into other apps.
+            // Sensitive clips are excluded inside the modifier.
+            .clipDragSource(item)
             // Load this image's thumbnail once it scrolls into view (LazyVStack
             // builds only visible rows — the view-level virtual scrolling).
             .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
