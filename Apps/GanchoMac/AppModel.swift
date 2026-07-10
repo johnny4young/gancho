@@ -377,6 +377,7 @@ final class AppModel {
         }
         Task { await refreshRecents() }
         seedSampleClipsIfRequested()
+        seedDenylistEntryIfRequested()
         let uiTestBoardSeedTask = seedSampleBoardsIfRequested()
         let uiTestPanelReproTask = seedPanelReproIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
@@ -494,6 +495,19 @@ final class AppModel {
         ] {
             ingest(capture)
         }
+    }
+
+    /// UI-test hook: `-seed-denylist-entry <bundle-id>` pre-adds one user
+    /// denylist entry so `DenylistUITests` can verify the Settings row and
+    /// the remove path with element clicks alone — synthesized typing isn't
+    /// grantable on every runner. Equivalent to the user adding the entry by
+    /// hand (same call, same persistence), and the test removes it again; a
+    /// normal launch (no arg) is a no-op.
+    private func seedDenylistEntryIfRequested() {
+        guard let index = CommandLine.arguments.firstIndex(of: "-seed-denylist-entry"),
+            CommandLine.arguments.indices.contains(index + 1)
+        else { return }
+        addToDenylist(CommandLine.arguments[index + 1])
     }
 
     /// The throwaway store directory for `-use-temp-durable-store`, or nil when

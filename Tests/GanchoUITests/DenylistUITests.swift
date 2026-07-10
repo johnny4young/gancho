@@ -6,72 +6,77 @@ import XCTest
 /// other suites here, it self-skips — never hard-fails — where an element
 /// isn't exposed on a headless/hosted runner, and runs under `make test-ui`.
 ///
-/// Two add paths, tried in order: typing a bundle id (needs keyboard focus,
-/// which a menu-bar-agent window doesn't always get under the runner) and the
-/// click-only "Add a running app…" menu with Finder (always running, always
-/// Dock-visible) — so the add/remove round-trip is exercised even where the
-/// keyboard isn't grantable.
+/// The deterministic path seeds one user entry through the app's own
+/// `-seed-denylist-entry` launch hook (same call as the Add button) and then
+/// exercises the ROW + REMOVE round-trip with element clicks alone —
+/// synthesized typing isn't grantable on every runner. Typing the bundle id
+/// through the real field is covered by the second test, which skips where
+/// the keyboard can't be granted safely.
 final class DenylistUITests: XCTestCase {
-    /// Fixed id so an interrupted run leaves at most one stale entry that the
-    /// next run removes instead of accumulating garbage in real defaults.
-    private let typedBundleID = "com.gancho.uitests.example"
-    private let finderBundleID = "com.apple.finder"
+    /// Sorts BEFORE the built-in com.* suggestions, so the seeded row is the
+    /// first in the section and stays hittable without scrolling. Fixed id:
+    /// an interrupted run leaves at most one stale entry that the next run
+    /// removes instead of accumulating garbage in real defaults.
+    private let seededBundleID = "app.gancho.uitests.seeded"
+    private let typedBundleID = "app.gancho.uitests.typed"
 
+    /// Deterministic acceptance: the seeded entry renders as a row and its
+    /// remove button deletes it live (AppModel → SourceAppDenylist →
+    /// persistence + the `denylistRevision` refresh).
     @MainActor
-    func testAddAndRemoveDenylistEntry() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-use-in-process-status-item"]
-        app.launch()
+    func testSeededEntryShowsAndRemoveDeletesIt() throws {
+        let app = try launchIntoCaptureSettings(
+            extraArguments: ["-seed-denylist-entry", seededBundleID])
         defer { app.terminate() }
 
-        let url = try XCTUnwrap(URL(string: "gancho://settings"))
-        XCTAssertTrue(NSWorkspace.shared.open(url))
-        guard app.windows["Settings"].firstMatch.waitForExistence(timeout: 5) else {
-            print("skip: Settings window not exposed to the UI runner in this environment")
-            return
-        }
+        let row = app.staticTexts["denylist-row-\(seededBundleID)"].firstMatch
+        XCTAssertTrue(
+            row.waitForExistence(timeout: 5),
+            "the seeded denylist entry must render as a Settings row")
 
-        let captureTab = app.buttons["Capture"].firstMatch
-        guard captureTab.waitForExistence(timeout: 3) else {
-            print("skip: Capture tab not exposed to the UI runner in this environment")
-            return
-        }
-        captureTab.click()
-
-        // Recover from a previous interrupted run before asserting anything.
-        removeIfListed(typedBundleID, app: app)
-        removeIfListed(finderBundleID, app: app)
-
-        let bundleID =
-            addedByTyping(app: app) ? typedBundleID : addedViaRunningAppsMenu(app: app)
-        guard let bundleID else {
-            print("skip: no add path available to the UI runner in this environment")
-            return
-        }
-
-        let row = app.staticTexts["denylist-row-\(bundleID)"].firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 3), "the added app must appear in the list")
-
-        let remove = app.buttons["denylist-remove-\(bundleID)"].firstMatch
+        let remove = app.buttons["denylist-remove-\(seededBundleID)"].firstMatch
         XCTAssertTrue(remove.waitForExistence(timeout: 3))
+        // The denylist section sits below the capture toggles, so the row can
+        // start under the form's fold. Scroll-wheel events land on the window
+        // under the pointer, and `scroll(byDeltaX:deltaY:)` hovers first —
+        // safe once the app is verifiably frontmost. Scrolling targets the
+        // WINDOW (the first scrollView is the horizontal tab bar, not the
+        // form); the sign of deltaY varies with scroller settings, so probe
+        // down first, then back up.
+        if !remove.isHittable {
+            app.activate()
+            try SynthesizedInput.requireForeground(app)
+            let window = app.windows.firstMatch
+            for delta in [-80.0, -80, -80, 240, 80, 80] where !remove.isHittable {
+                window.scroll(byDeltaX: 0, deltaY: delta)
+            }
+        }
+        guard remove.isHittable else {
+            throw XCTSkip("remove button not hittable on this runner (below the form fold)")
+        }
         remove.click()
         XCTAssertTrue(
             waitForDisappearance(of: row, timeout: 3),
             "the removed app must leave the list immediately")
     }
 
-    /// Types `typedBundleID` into the manual field and clicks Add. Returns
-    /// false when the field never gets keyboard focus (keys would land on
-    /// whatever has it), so the caller can fall back to the click-only path.
+    /// The manual add path (bundle-id field + Add). Needs real keyboard
+    /// focus, which a menu-bar agent's window doesn't always get under the
+    /// runner — skips rather than typing into whatever else has the keyboard.
     @MainActor
-    private func addedByTyping(app: XCUIApplication) -> Bool {
+    func testAddDenylistEntryByTyping() throws {
+        let app = try launchIntoCaptureSettings()
+        defer { app.terminate() }
+
+        // Recover from a previous interrupted run before asserting anything.
+        removeIfListed(typedBundleID, app: app)
+
         let field = app.textFields["denylist-add-field"].firstMatch
-        guard field.waitForExistence(timeout: 3) else { return false }
-        // Clicks and keys are global events: without the app verifiably
-        // frontmost they'd drive whatever ELSE is on the desktop, so this
-        // path bails to the click-only fallback instead.
+        guard field.waitForExistence(timeout: 3) else {
+            throw XCTSkip("denylist add field not exposed to the UI runner")
+        }
         app.activate()
-        guard app.state == .runningForeground else { return false }
+        try SynthesizedInput.requireForeground(app)
         var fieldIsFocused = false
         for _ in 0..<2 where !fieldIsFocused {
             if field.isHittable {
@@ -81,47 +86,46 @@ final class DenylistUITests: XCTestCase {
             }
             fieldIsFocused = SynthesizedInput.waitForKeyboardFocus(field, timeout: 1)
         }
-        guard fieldIsFocused else { return false }
+        guard fieldIsFocused else {
+            throw XCTSkip("keyboard focus not grantable to the UI runner")
+        }
         field.typeText(typedBundleID)
         app.buttons["denylist-add-button"].firstMatch.click()
-        return true
+
+        let row = app.staticTexts["denylist-row-\(typedBundleID)"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 3), "the added app must appear in the list")
+
+        // Cleanup doubles as the remove assertion for this path.
+        let remove = app.buttons["denylist-remove-\(typedBundleID)"].firstMatch
+        XCTAssertTrue(remove.waitForExistence(timeout: 3))
+        remove.click()
+        XCTAssertTrue(waitForDisappearance(of: row, timeout: 3))
     }
 
-    /// Click-only fallback: excludes Finder through the running-apps menu.
-    /// Returns the bundle id it added, or nil to self-skip. SwiftUI `Menu` in
-    /// a Form surfaces as a popup/menu button depending on the OS, so probe
-    /// the likely element types; an existing-but-unhittable menu (scrolled
-    /// out of the Form's viewport) gets a coordinate click.
+    /// Launches the agent, opens Settings via the deep link, and switches to
+    /// the Capture tab. Throws `XCTSkip` where the window or tab isn't
+    /// exposed (headless/hosted runners).
     @MainActor
-    private func addedViaRunningAppsMenu(app: XCUIApplication) -> String? {
-        let candidates = [
-            app.menuButtons["denylist-running-apps"].firstMatch,
-            app.popUpButtons["denylist-running-apps"].firstMatch,
-            app.buttons["denylist-running-apps"].firstMatch,
-            app.descendants(matching: .any)
-                .matching(identifier: "denylist-running-apps").firstMatch
-        ]
-        guard let menu = candidates.first(where: { $0.waitForExistence(timeout: 1) }) else {
-            print("skip-detail: running-apps menu not in the accessibility tree")
-            return nil
+    private func launchIntoCaptureSettings(
+        extraArguments: [String] = []
+    ) throws -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-use-in-process-status-item"] + extraArguments
+        app.launch()
+
+        let url = try XCTUnwrap(URL(string: "gancho://settings"))
+        XCTAssertTrue(NSWorkspace.shared.open(url))
+        guard app.windows["Settings"].firstMatch.waitForExistence(timeout: 5) else {
+            app.terminate()
+            throw XCTSkip("Settings window not exposed to the UI runner")
         }
-        if menu.isHittable {
-            menu.click()
-        } else if app.state == .runningForeground {
-            // A raw coordinate click is a screen point — only safe when the
-            // point is verifiably over OUR window (app frontmost).
-            menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
-        } else {
-            print("skip-detail: menu unhittable and app not frontmost")
-            return nil
+        let captureTab = app.buttons["Capture"].firstMatch
+        guard captureTab.waitForExistence(timeout: 3) else {
+            app.terminate()
+            throw XCTSkip("Capture tab not exposed to the UI runner")
         }
-        let finderItem = app.menuItems["Finder"].firstMatch
-        guard finderItem.waitForExistence(timeout: 3) else {
-            print("skip-detail: Finder item not exposed after opening the menu")
-            return nil
-        }
-        finderItem.click()
-        return finderBundleID
+        captureTab.click()
+        return app
     }
 
     /// Pre-test cleanup: a crash between add and remove in a previous run

@@ -371,6 +371,13 @@ private struct CaptureSettingsTab: View {
             Toggle("Capture copied files", isOn: $model.preferences.captureFileReferences)
             Toggle("Keep rich text formatting", isOn: $model.preferences.captureRichText)
 
+            // The editable never-capture list sits with the capture toggles —
+            // it's the same question ("what gets captured?"), and at the form's
+            // tail it hid below the fold of the default window height. Its own
+            // file: it grew rows with names/icons, an /Applications picker,
+            // and a restore affordance.
+            DenylistSettingsSection()
+
             Section("Intelligence") {
                 Button("Open Intelligence…") { model.intelligenceWindow.show(model: model) }
                     .accessibilityIdentifier("open-intelligence")
@@ -381,10 +388,6 @@ private struct CaptureSettingsTab: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             }
-
-            // The editable never-capture list (its own file: it grew rows with
-            // names/icons, an /Applications picker, and a restore affordance).
-            DenylistSettingsSection()
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)
