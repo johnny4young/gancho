@@ -39,8 +39,9 @@ struct DenylistSettingsSection: View {
                 TextField("Bundle identifier", text: $newDenylistEntry)
                     .accessibilityIdentifier("denylist-add-field")
                 Button("Add") {
-                    guard !newDenylistEntry.isEmpty else { return }
-                    model.addToDenylist(newDenylistEntry)
+                    let trimmed = newDenylistEntry.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    model.addToDenylist(trimmed)
                     newDenylistEntry = ""
                 }
                 .accessibilityIdentifier("denylist-add-button")
@@ -61,15 +62,20 @@ struct DenylistSettingsSection: View {
         let info = appInfo(for: bundleID)
         return HStack(spacing: GanchoTokens.Spacing.xs) {
             if let icon = info.icon {
-                Image(nsImage: icon).resizable().frame(width: 20, height: 20)
+                Image(nsImage: icon)
+                    .resizable()
+                    .frame(width: 20, height: 20)
+                    .accessibilityHidden(true)
             } else {
                 Image(systemName: "app.dashed")
                     .foregroundStyle(.secondary)
                     .frame(width: 20, height: 20)
+                    .accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: info.name)
-                    .accessibilityIdentifier("denylist-row-\(bundleID)")
+                    .accessibilityIdentifier(
+                        denylistAccessibilityIdentifier("row", bundleID: bundleID))
                 if info.name != bundleID {
                     Text(verbatim: bundleID)
                         .font(.caption2)
@@ -92,8 +98,17 @@ struct DenylistSettingsSection: View {
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(Text("Remove"))
-            .accessibilityIdentifier("denylist-remove-\(bundleID)")
+            .accessibilityIdentifier(denylistAccessibilityIdentifier("remove", bundleID: bundleID))
         }
+    }
+
+    /// Accessibility selectors stay kebab-case even when the bundle identifier
+    /// contains dots or capitals. The visible caption retains the original id.
+    private func denylistAccessibilityIdentifier(_ role: String, bundleID: String) -> String {
+        let slug = bundleID.lowercased()
+            .split { !$0.isLetter && !$0.isNumber }
+            .joined(separator: "-")
+        return "denylist-\(role)-\(slug)"
     }
 
     private struct DeniedAppInfo {

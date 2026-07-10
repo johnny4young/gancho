@@ -13,10 +13,8 @@ import XCTest
 /// through the real field is covered by the second test, which skips where
 /// the keyboard can't be granted safely.
 final class DenylistUITests: XCTestCase {
-    /// Sorts BEFORE the built-in com.* suggestions, so the seeded row is the
-    /// first in the section and stays hittable without scrolling. Fixed id:
-    /// an interrupted run leaves at most one stale entry that the next run
-    /// removes instead of accumulating garbage in real defaults.
+    /// Sorts before the built-in com.* suggestions, so the seeded row is the
+    /// first in the section and stays hittable without scrolling.
     private let seededBundleID = "app.gancho.uitests.seeded"
     private let typedBundleID = "app.gancho.uitests.typed"
 
@@ -29,12 +27,12 @@ final class DenylistUITests: XCTestCase {
             extraArguments: ["-seed-denylist-entry", seededBundleID])
         defer { app.terminate() }
 
-        let row = app.staticTexts["denylist-row-\(seededBundleID)"].firstMatch
+        let row = app.staticTexts[denylistRowIdentifier(for: seededBundleID)].firstMatch
         XCTAssertTrue(
             row.waitForExistence(timeout: 5),
             "the seeded denylist entry must render as a Settings row")
 
-        let remove = app.buttons["denylist-remove-\(seededBundleID)"].firstMatch
+        let remove = app.buttons[denylistRemoveIdentifier(for: seededBundleID)].firstMatch
         XCTAssertTrue(remove.waitForExistence(timeout: 3))
         // The denylist section sits below the capture toggles, so the row can
         // start under the form's fold. Scroll-wheel events land on the window
@@ -68,9 +66,6 @@ final class DenylistUITests: XCTestCase {
         let app = try launchIntoCaptureSettings()
         defer { app.terminate() }
 
-        // Recover from a previous interrupted run before asserting anything.
-        removeIfListed(typedBundleID, app: app)
-
         let field = app.textFields["denylist-add-field"].firstMatch
         guard field.waitForExistence(timeout: 3) else {
             throw XCTSkip("denylist add field not exposed to the UI runner")
@@ -92,11 +87,11 @@ final class DenylistUITests: XCTestCase {
         field.typeText(typedBundleID)
         app.buttons["denylist-add-button"].firstMatch.click()
 
-        let row = app.staticTexts["denylist-row-\(typedBundleID)"].firstMatch
+        let row = app.staticTexts[denylistRowIdentifier(for: typedBundleID)].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 3), "the added app must appear in the list")
 
         // Cleanup doubles as the remove assertion for this path.
-        let remove = app.buttons["denylist-remove-\(typedBundleID)"].firstMatch
+        let remove = app.buttons[denylistRemoveIdentifier(for: typedBundleID)].firstMatch
         XCTAssertTrue(remove.waitForExistence(timeout: 3))
         remove.click()
         XCTAssertTrue(waitForDisappearance(of: row, timeout: 3))
@@ -110,7 +105,11 @@ final class DenylistUITests: XCTestCase {
         extraArguments: [String] = []
     ) throws -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-use-in-process-status-item"] + extraArguments
+        let defaultsSuite = "com.johnny4young.gancho.uitests.denylist.\(UUID().uuidString)"
+        app.launchArguments =
+            [
+                "-use-in-process-status-item", "-ui-test-defaults-suite", defaultsSuite
+            ] + extraArguments
         app.launch()
 
         let url = try XCTUnwrap(URL(string: "gancho://settings"))
@@ -128,14 +127,18 @@ final class DenylistUITests: XCTestCase {
         return app
     }
 
-    /// Pre-test cleanup: a crash between add and remove in a previous run
-    /// leaves a stale entry in real defaults — remove it before asserting.
-    @MainActor
-    private func removeIfListed(_ bundleID: String, app: XCUIApplication) {
-        let remove = app.buttons["denylist-remove-\(bundleID)"].firstMatch
-        if remove.waitForExistence(timeout: 1), remove.isHittable {
-            remove.click()
-        }
+    private func denylistRowIdentifier(for bundleID: String) -> String {
+        "denylist-row-\(denylistIdentifierSlug(bundleID))"
+    }
+
+    private func denylistRemoveIdentifier(for bundleID: String) -> String {
+        "denylist-remove-\(denylistIdentifierSlug(bundleID))"
+    }
+
+    private func denylistIdentifierSlug(_ bundleID: String) -> String {
+        bundleID.lowercased()
+            .split { !$0.isLetter && !$0.isNumber }
+            .joined(separator: "-")
     }
 
     @MainActor
