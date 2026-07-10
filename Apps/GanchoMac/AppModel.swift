@@ -678,6 +678,16 @@ final class AppModel {
         (try? await grdbForEngines?.recentSearches(limit: 5)) ?? []
     }
 
+    /// A drop target accepted a dragged-out clip — the drag equivalent of a
+    /// paste for ranking: bump frecency and remember the search that found the
+    /// clip. Called once per drag session, however many representations the
+    /// target loads. No move-to-top: the drag came FROM the visible list, and
+    /// reordering it mid-interaction would yank rows out from under the user.
+    func noteDragOutDelivered(_ item: ClipItem) async {
+        try? await grdbStore?.recordUse(id: item.id, now: .now)
+        await rememberActiveSearch()
+    }
+
     /// Paste with a pure transform applied at paste time.
     func paste(_ item: ClipItem, transform: PasteTransform) {
         Task {
