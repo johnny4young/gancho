@@ -9,6 +9,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The never-capture app list is easier to manage (macOS).** Excluded apps in
+  Settings → Capture now show their real name and icon (with the bundle id as
+  a caption), built-in exclusions carry a "Default" tag, and you can add apps
+  straight from /Applications with "Choose from Applications…" — no bundle-id
+  typing, and no need for the app to be running. If you removed a built-in
+  exclusion, "Restore default exclusions" brings them all back with one click.
 - **Drag clips straight out of the panel (macOS).** Any history row — and the
   peek's title bar or image preview — can be dragged into another app: text
   lands as text, links as links, images as PNG, and a copied file as the file

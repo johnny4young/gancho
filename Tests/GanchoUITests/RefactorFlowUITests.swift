@@ -92,7 +92,7 @@ final class RefactorFlowUITests: XCTestCase {
     /// The free limit is `PinLimits.freeMaxPinboards` (3): the 4th create fires
     /// `onFreeLimit` → `paywallWindow.show(trigger: .freeLimitReached)`.
     @MainActor
-    func testCreateBoardAffordanceAndPrompt() {
+    func testCreateBoardAffordanceAndPrompt() throws {
         let app = launchSeededPanel(extraArguments: ["-first-pasteback-at", "1"])
         defer { app.terminate() }
 
@@ -121,6 +121,7 @@ final class RefactorFlowUITests: XCTestCase {
         // The affordance + prompt ARE the assertion; dismiss with Escape. (Clicking
         // the alert's "Cancel" can misfire on a hosted runner that maps the button
         // to a Touch Bar element; the deferred terminate is the real cleanup.)
+        try SynthesizedInput.requireForeground(app)
         app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
     }
 
@@ -133,7 +134,7 @@ final class RefactorFlowUITests: XCTestCase {
     /// ONE more board then trips `onFreeLimit` → the `paywall` surface. The store
     /// is a unique temp directory, so the user's real boards are never touched.
     @MainActor
-    func testCreatingBoardBeyondFreeLimitShowsPaywall() {
+    func testCreatingBoardBeyondFreeLimitShowsPaywall() throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
@@ -172,6 +173,7 @@ final class RefactorFlowUITests: XCTestCase {
         // Submit with Return (the alert's default action) rather than clicking the
         // "Create" button: clicking an alert button can misfire on a hosted runner
         // that maps it to a Touch Bar element. Return trips the same createBoard.
+        try SynthesizedInput.requireForeground(app)
         app.typeKey(XCUIKeyboardKey.return, modifierFlags: [])
 
         // Seeded boards == freeMaxPinboards, so this is the (limit + 1)th create:

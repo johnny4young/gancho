@@ -101,6 +101,21 @@
             #expect(denylist.contains("com.bitwarden.desktop"))
         }
 
+        @Test("Restoring suggestions re-blocks every allowed one, keeps user entries")
+        func restoreSuggestions() {
+            var denylist = SourceAppDenylist()
+            denylist.remove("com.bitwarden.desktop")
+            denylist.remove("com.apple.Passwords")
+            denylist.add("com.example.banking")
+
+            denylist.restoreSuggestions()
+
+            #expect(denylist.contains("com.bitwarden.desktop"))
+            #expect(denylist.contains("com.apple.Passwords"))
+            #expect(denylist.contains("com.example.banking"), "user entries survive the restore")
+            #expect(denylist.disabledSuggestions.isEmpty)
+        }
+
         @Test("Manual denylist entries are trimmed before storage and matching")
         func manualEntryTrimming() {
             var denylist = SourceAppDenylist()

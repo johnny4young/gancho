@@ -1347,11 +1347,25 @@ final class AppModel {
 
     // MARK: - Denylist & settings portability
 
+    /// Bumped on every denylist mutation. The list itself lives inside the
+    /// non-observable monitor, so the computed properties below read this
+    /// stored value to give SwiftUI something to track — without it, a remove
+    /// wouldn't refresh the Settings list until an unrelated state change.
+    private(set) var denylistRevision = 0
+
     var denylistEntries: [String] {
+        _ = denylistRevision
         let effective = SourceAppDenylist.suggestedBundleIDs
             .subtracting(monitor.denylist.disabledSuggestions)
             .union(monitor.denylist.userBundleIDs)
         return effective.sorted()
+    }
+
+    /// True when the user re-enabled captures from any built-in exclusion —
+    /// gates the Settings "Restore default exclusions" button.
+    var hasDisabledDenylistSuggestions: Bool {
+        _ = denylistRevision
+        return !monitor.denylist.disabledSuggestions.isEmpty
     }
 
     func addToDenylist(_ bundleID: String) {
@@ -1361,11 +1375,21 @@ final class AppModel {
         guard !trimmed.isEmpty else { return }
         monitor.denylist.add(trimmed)
         monitor.denylist.save(to: defaults)
+        denylistRevision += 1
     }
 
     func removeFromDenylist(_ bundleID: String) {
         monitor.denylist.remove(bundleID)
         monitor.denylist.save(to: defaults)
+        denylistRevision += 1
+    }
+
+    /// Puts every built-in exclusion back on the denylist (user-added entries
+    /// are untouched).
+    func restoreDenylistDefaults() {
+        monitor.denylist.restoreSuggestions()
+        monitor.denylist.save(to: defaults)
+        denylistRevision += 1
     }
 
     /// Preferences only — never clips (reinstall portability).
