@@ -410,8 +410,7 @@ struct GRDBClipboardStoreTests {
         let (store, dir) = try makeStore()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        // UX-07 ships the setter; here we prove the column mapping persists what
-        // the migration added, independent of that UI.
+        // Prove the column mapping independently of the editor UI.
         let board = Pinboard(
             name: "Design", sfSymbol: "paintbrush", colorHex: "#34C759", emoji: "🎨")
         try await store.writer.write { db in try PinboardRow(board: board).insert(db) }

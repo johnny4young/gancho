@@ -383,7 +383,7 @@ private struct CaptureSettingsTab: View {
                     .accessibilityIdentifier("open-intelligence")
                 Text(
                     // swiftlint:disable:next line_length
-                    "On-device titles, semantic search, screenshot OCR, and secret detection — each a toggle, all local."
+                    "On-device titles, semantic retrieval, screenshot OCR, and secret detection — each a toggle, all local."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)

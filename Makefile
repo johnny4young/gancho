@@ -108,6 +108,7 @@ swiftlint: ## Run SwiftLint with the Portavoz-compatible strict rule set
 
 release-check: ## Verify release metadata/version sync before tagging
 	./scripts/check-version-sync.sh
+	./scripts/check-product-truth.sh
 
 package-macos: release-check project ## Build and package the macOS Release app as dist/Gancho-<version>.zip
 	./scripts/package-macos-zip.sh

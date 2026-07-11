@@ -28,6 +28,12 @@ struct ReleaseMetadataTests {
         return String(text[captureRange])
     }
 
+    private static func matchCount(in text: String, pattern: String) throws -> Int {
+        let regex = try NSRegularExpression(pattern: pattern)
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        return regex.numberOfMatches(in: text, range: range)
+    }
+
     @Test func projectChangelogAndFormulaVersionsStayInSync() throws {
         let project = try Self.text("project.yml")
         let changelog = try Self.text("CHANGELOG.md")
@@ -104,6 +110,48 @@ struct ReleaseMetadataTests {
         #expect(workflow.contains("--project-name=gancho-web"))
         #expect(index.contains("private by design"))
         #expect(index.contains("CHANGELOG.md"))
+    }
+
+    @Test func publicProductTruthMatchesSourceContracts() throws {
+        let project = try Self.text("project.yml")
+        let package = try Self.text("Packages", "GanchoKit", "Package.swift")
+        let readme = try Self.text("README.md")
+        let site = try Self.text("site", "index.html")
+        let security = try Self.text("docs", "SECURITY-MODEL.md")
+        let truth = try Self.text("docs", "PRODUCT-TRUTH.md")
+
+        let marketingVersion = try Self.firstCapture(
+            in: project,
+            pattern: #"(?m)^\s*MARKETING_VERSION:\s*"?([0-9]+\.[0-9]+\.[0-9]+)"?\s*$"#)
+
+        #expect(project.contains("macOS: \"26.0\""))
+        #expect(project.contains("iOS: \"26.0\""))
+        #expect(site.contains("macOS 26+ · iOS 26+"))
+        #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.library\(name:"#) == 8)
+        #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.executable\(name:"#) == 1)
+        #expect(readme.contains("eight library products + a CLI"))
+        #expect(readme.contains("disabled until explicit consent"))
+        #expect(security.contains("Telemetry is disabled until the user consents"))
+        #expect(site.contains("releases/latest"))
+        #expect(readme.contains("v\(marketingVersion) DMG"))
+        #expect(truth.contains("v\(marketingVersion)"))
+        #expect(site.contains("v\(marketingVersion)"))
+    }
+
+    @Test func productTruthGatePassesAgainstTrackedFiles() throws {
+        let process = Process()
+        process.executableURL = Self.repositoryRoot
+            .appendingPathComponent("scripts/check-product-truth.sh")
+        process.currentDirectoryURL = Self.repositoryRoot
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = output
+
+        try process.run()
+        process.waitUntilExit()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        let message = String(bytes: data, encoding: .utf8) ?? "Product truth gate failed"
+        #expect(process.terminationStatus == 0, Comment(rawValue: message))
     }
 
     @Test func storeKitProductCopyDoesNotShipSyncEarly() throws {

@@ -81,7 +81,7 @@ struct PanelView: View {
     @State private var showShortcuts = false
     /// The ⌘B board picker overlay for the selected clip.
     @State private var showBoardPicker = false
-    /// ⌘↑/⌘↓ search recall (UX-05): the loaded recall list (newest first), the
+    /// ⌘↑/⌘↓ search recall: the loaded recall list (newest first), the
     /// cursor into it, and the entry we last applied — so `onChange` can tell
     /// "user typed" (ends the session) from "we recalled" (keeps it).
     @State private var searchHistory: [String] = []
@@ -142,7 +142,7 @@ struct PanelView: View {
             answer = nil
             railFocus = nil
             // Mirror the live query so a paste knows the search that led to it
-            // (UX-05); typing anything that isn't a recalled entry ends the
+            // Typing anything that isn't a recalled entry ends the
             // ⌘↑ recall session.
             model.activePanelQuery = newValue
             if newValue != recalledQuery {
@@ -252,7 +252,7 @@ struct PanelView: View {
                 }
                 .onKeyPress(.upArrow, phases: [.down, .repeat]) { press in
                     // Plain ↑↓ navigate the list (and must keep key-repeat);
-                    // ⌘↑/⌘↓ cycle recent searches, shell-style (UX-05).
+                    // ⌘↑/⌘↓ cycle recent searches, shell-style.
                     press.modifiers.contains(.command) ? recallSearch(.older) : handleNav(.up)
                 }
                 .onKeyPress(.leftArrow) { handleNav(.left) }
@@ -265,7 +265,7 @@ struct PanelView: View {
                 }
                 .onKeyPress(.return, phases: .down) { press in
                     // In a rail, Enter toggles the focused chip. ⌥⌘Return enqueues
-                    // the selection onto the paste stack (UX-01). Otherwise an exact
+                    // the selection onto the paste stack. Otherwise an exact
                     // keyword match takes Enter (you typed the snippet shortcut on
                     // purpose); else Enter pastes the selection (⌥Return = plain).
                     if railFocus != nil { return handleNav(.toggle) }
@@ -676,7 +676,7 @@ struct PanelView: View {
     private func clipRow(index: Int, item: ClipItem) -> some View {
         row(for: item, index: index)
             .id(item.id)
-            // Drag-out (UX-03): every row is a drag source into other apps.
+            // Every row is a drag source into other apps.
             // Sensitive clips are excluded inside the modifier.
             .clipDragSource(item)
             // Load this image's thumbnail once it scrolls into view (LazyVStack
@@ -1133,7 +1133,7 @@ struct PanelView: View {
     /// Which way ⌘↑/⌘↓ walk the recall list (newest first: older = deeper).
     private enum RecallStep { case older, newer }
 
-    /// Shell-style recall of remembered searches (UX-05). First ⌘↑ loads the
+    /// Shell-style recall of remembered searches. First ⌘↑ loads the
     /// list and applies the newest; further ⌘↑ walk older; ⌘↓ walks back and,
     /// past the newest, clears the field and ends the session. Plain ↑↓ are
     /// untouched — they navigate the list.

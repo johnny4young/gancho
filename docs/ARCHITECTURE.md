@@ -115,7 +115,7 @@ Store shape:
   encrypted in iCloud via `encryptedValues` on sync; the local database is
   whole-database encrypted with SQLCipher (see "Encryption at rest" below).
 - FTS5 tables for searchable text, titles, tags, and snippet bodies.
-- embedding tables for on-device semantic search.
+- embedding tables for on-device semantic retrieval.
 - a `clip_board` junction plus board metadata and board tombstones.
 - tombstones for sync-compatible deletion.
 - an open JSON/CSV export so users can leave without data lock-in.
@@ -164,7 +164,7 @@ Performance budgets:
 
 - idle macOS capture loop: <0.5% average CPU and no linear memory growth,
 - exact search: <50 ms at 100k items on a current Mac,
-- semantic search: <100 ms at 10k vectors before it can be user-facing,
+- semantic retrieval: <100 ms at 10k vectors before it can be user-facing,
 - capture pipeline rules/classification before persistence: <10 ms excluding OS
   pasteboard permission stalls,
 - UI list interactions: no main-thread content decryption for off-screen rows.
@@ -203,10 +203,10 @@ not by guesswork.
    local formatters (Dev Actions), secret detection and masking, and PII
    redaction. Runs on every supported device with zero network.
 2. **Tier 1 — Apple on-device models.** Structured annotations, titles,
-   embeddings, OCR, semantic search and the embedding-based board suggestion,
-   Smart Paste rewrites/translation, and grounded "ask your clipboard" Q&A when
-   the on-device models are available. Sensitive clips are filtered out first,
-   and failures never block capture or paste-back.
+   embeddings, OCR, semantic retrieval for board suggestions and grounded
+   "ask your clipboard" Q&A, plus Smart Paste rewrites/translation when the
+   on-device models are available. Sensitive clips are filtered out first, and
+   failures never block capture or paste-back. Main history search remains FTS.
 3. **Tier 2 — opt-in external or private-cloud actions.** Used only for explicit
    transformations where the user approves the outbound content.
 

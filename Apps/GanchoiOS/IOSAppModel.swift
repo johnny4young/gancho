@@ -55,7 +55,7 @@ final class IOSAppModel {
         set { history.kindFilter = newValue }
     }
     /// nil = "All clips"; otherwise the selected board (a higher axis than the
-    /// kind filter). Boards are device-local collections of clips.
+    /// kind filter). Board identity and membership sync when iCloud is enabled.
     var selectedBoardID: UUID? {
         get { history.selectedBoardID }
         set { history.selectedBoardID = newValue }

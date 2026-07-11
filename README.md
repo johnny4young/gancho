@@ -15,12 +15,11 @@ GRDB/SQLite storage with FTS5 search, the Liquid Glass history panel,
 paste-back, pins and boards, the retention engine, the on-device intelligence
 stack, the iPhone/iPad app and its extensions, iCloud sync via `CKSyncEngine`,
 and StoreKit purchase plumbing are implemented and covered by tests. The
-release/versioning lane is now scaffolded with a changelog, version-sync guard,
-tagged GitHub Release workflow, macOS ZIP packaging, artifact QA, and a static
-GitHub Pages site. What remains before a public release is on-hardware
-verification of cross-device sync, production signing/notarization, App Store
-submission, and the account-gated launch pieces (App Store products and
-TestFlight).
+release/versioning lane ships a signed, notarized, stapled direct-download DMG,
+a signed Sparkle appcast, version-sync guards, artifact QA, and the website. The
+current v0.5.0 DMG passes Gatekeeper. What remains before 1.0 is repeating the
+real-device sync matrix for the release candidate, App Store submission, and
+the account-gated launch pieces (App Store products and TestFlight).
 
 ## Product goal
 
@@ -31,8 +30,8 @@ between devices:
 
 - **Capture safely.** Automatic on macOS, intentional on iOS/iPadOS/visionOS,
   with sensitive pasteboard markers vetoed before any content read.
-- **Retrieve instantly.** Exact search first, then semantic search and smart
-  organization once the local store is proven.
+- **Retrieve instantly.** Exact, fuzzy, and regex history search first; local
+  semantic retrieval then grounds Q&A and smart organization.
 - **Reuse anywhere.** Paste-back, snippets, templates, pins, and App Intents
   make captured work reusable without changing context.
 - **Sync without servers by default.** Apple-platform sync uses the user's
@@ -78,7 +77,8 @@ stay in reusable modules.
   always-available JSON/CSV export.
 - FTS5 full-text search (exact / fuzzy / regex; filters by kind, source app,
   date) with a 100k-item performance harness.
-- On-device semantic search (512-dim embeddings, cosine retrieval).
+- A 512-dimension on-device embedding index used by Ask your clipboard and
+  auto-board suggestions. Main history search remains FTS5 exact/fuzzy/regex.
 
 **macOS app**
 
@@ -101,7 +101,8 @@ stay in reusable modules.
   color, JWT, JSON, UUID, code + language, credit card, tracking number, …) in
   under 5 ms.
 - Apple Intelligence titles (fallback-safe), screenshot OCR, and semantic
-  indexing — each behind a per-stage toggle on the Intelligence screen.
+  indexing for grounded Q&A and board suggestions — each behind a per-stage
+  toggle on the Intelligence screen.
 - Dev Actions (JWT decode, JSON pretty/minify, Base64, URL parse, color
   conversion, UUID formats), also exposed as App Intents.
 - Smart Paste — rewrite a clip before pasting (summarize, fix grammar, change
@@ -113,8 +114,9 @@ stay in reusable modules.
 **Sync & integrations**
 
 - `CKSyncEngine` over the user's private iCloud database behind the `SyncEngine`
-  boundary (clips, board membership, deletions) with a visible sync status;
-  cross-device behavior is verified on real hardware before release.
+  boundary (clips, board membership, deletions) with a visible sync status. A
+  real-device cross-device pass has completed; the matrix is repeated for each
+  release candidate.
 - `gancho` CLI and a local, opt-in, scoped MCP server (metadata-only access
   log), plus a VS Code "Save Selection" command — see
   [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
@@ -207,13 +209,15 @@ Apps/GanchoiOS          iPhone/iPad app (+ Share, keyboard, widgets)
 site/                   Static GitHub Pages landing site
 CHANGELOG.md            Release notes that must match MARKETING_VERSION
 docs/RELEASING.md       Release/versioning, signing, QA, and Pages runbook
-Packages/GanchoKit      One SwiftPM package — seven library products + a CLI:
+docs/PRODUCT-TRUTH.md   Tested matrix tying public claims to source evidence
+Packages/GanchoKit      One SwiftPM package — eight library products + a CLI:
   GanchoKit               models, GRDB store, retention, snippets, sync boundary
   ClipboardCore           pasteboard adapters, capture + intelligence policy
   GanchoAI                on-device classifiers, annotation, embeddings, QA
   GanchoDesign            shared design tokens and components
   GanchoSync              CKSyncEngine adapter (the only module importing CloudKit)
   GanchoTelemetry         metadata-only analytics transport (network-isolated)
+  GanchoAppCore           shared platform-neutral application coordinators
   GanchoMCP               local MCP tools over the store boundary
   gancho                  CLI + stdio MCP server
 docs/ARCHITECTURE.md    Engineering decisions and invariants

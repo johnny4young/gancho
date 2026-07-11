@@ -1311,22 +1311,22 @@
         }
       }
     },
-    "Semantic search": {
+    "Semantic retrieval": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Búsqueda semántica"
+            "value": "Recuperación semántica"
           }
         }
       }
     },
-    "Find a clip by meaning, not just exact words. A 512-dim embedding indexes history on-device; the model assets stay local.": {
+    "Builds a local 512-dim index for Ask your clipboard and board suggestions. Main history search stays exact, fuzzy, and regex.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encuentra un clip por significado, no solo por palabras exactas. Un embedding de 512 dimensiones indexa el historial en el dispositivo; los assets del modelo quedan locales."
+            "value": "Crea un índice local de 512 dimensiones para Ask your clipboard y sugerencias de boards. La búsqueda principal mantiene los modos exacto, fuzzy y regex."
           }
         }
       }
