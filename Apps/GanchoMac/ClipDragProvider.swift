@@ -4,7 +4,7 @@ import GanchoKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Drag-out (UX-03): any history row or the peek header can be dragged into
+/// Any history row or the peek header can be dragged into
 /// another app. Registration is metadata-only so the drag starts instantly;
 /// the clip's bytes load from the store only when a drop target accepts.
 extension AppModel {

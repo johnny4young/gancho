@@ -32,7 +32,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project fetch-sparkle build build-signed build-ios install-ios test test-ui bench format lint swiftlint release-check package-macos package-dmg appcast qa-release site-check hooks clean open
+.PHONY: help project fetch-sparkle build build-signed build-ios install-ios test test-ui bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -106,8 +106,12 @@ lint: ## Verify formatting and SwiftLint rules without changing files
 swiftlint: ## Run SwiftLint with the Portavoz-compatible strict rule set
 	$(SWIFTLINT) lint --strict
 
-release-check: ## Verify release metadata/version sync before tagging
+warnings-check: ## Self-test the strict build-warning classifier
+	./scripts/check-build-warnings.sh --self-test
+
+release-check: warnings-check ## Verify release metadata/version sync before tagging
 	./scripts/check-version-sync.sh
+	./scripts/check-product-truth.sh
 
 package-macos: release-check project ## Build and package the macOS Release app as dist/Gancho-<version>.zip
 	./scripts/package-macos-zip.sh

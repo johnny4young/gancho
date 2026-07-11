@@ -412,8 +412,9 @@ public final class GRDBClipboardStore: ClipboardStore {
             // Boards become a first-class axis, independent of pinning: a clip
             // can belong to MANY boards, tracked in a junction. The legacy
             // single `pinboardID` column is migrated in and then left unused.
-            // Boards stay device-local (only `isPinned` syncs) — no sync schema
-            // change. Cascades clean the junction when a clip or board is gone.
+            // The migration itself is local schema work; later sync migrations
+            // and record mapping carry boards and membership between devices.
+            // Cascades clean the junction when a clip or board is gone.
             try db.alter(table: "pinboard") { t in
                 t.add(column: "sfSymbol", .text).notNull().defaults(to: "square.stack")
             }
@@ -558,14 +559,14 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.add(column: "colorHex", .text)
                 t.add(column: "emoji", .text)
             }
-            // Embedding model version so a model upgrade can re-embed selectively
-            // (DB-02); existing vectors are version 1.
+            // Embedding model version so a model upgrade can re-embed
+            // selectively; existing vectors are version 1.
             try db.alter(table: "clip_embedding") { t in
                 t.add(column: "modelVersion", .integer).notNull().defaults(to: 1)
             }
             // Search history — LOCAL ONLY, never synced. Capped in code (50 rows).
             // `query` is UNIQUE with the default ABORT policy (NOT ON CONFLICT
-            // REPLACE): the recall API (UX-05) upserts explicitly
+            // REPLACE): the recall API upserts explicitly
             // (`ON CONFLICT(query) DO UPDATE SET uses = uses + 1, lastUsedAt = ?`)
             // so re-searching a term BUMPS its counter. A schema-level REPLACE
             // would instead DELETE+INSERT a duplicate, silently resetting `uses`

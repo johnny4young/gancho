@@ -21,8 +21,11 @@ private actor FakeBoardStore: BoardStoring {
     private(set) var assignCalls = 0
     private(set) var unassignCalls = 0
     private(set) var renameCalls = 0
+    private(set) var updateIdentityCalls = 0
     private(set) var deletePinboardCalls = 0
     private(set) var deletePinboardForSyncCalls = 0
+    private(set) var lastColorHex: String?
+    private(set) var lastEmoji: String?
 
     init(
         boards: [Pinboard], createdBoard: Pinboard = Pinboard(name: "New"),
@@ -47,6 +50,11 @@ private actor FakeBoardStore: BoardStoring {
         return createdBoard
     }
     func renameBoard(id: UUID, name: String) async throws { renameCalls += 1 }
+    func updateBoardIdentity(id: UUID, colorHex: String?, emoji: String?) async throws {
+        updateIdentityCalls += 1
+        lastColorHex = colorHex
+        lastEmoji = emoji
+    }
     func deletePinboard(id: UUID) async throws { deletePinboardCalls += 1 }
     func deletePinboardForSync(id: UUID, now: Date) async throws { deletePinboardForSyncCalls += 1 }
     func assign(clipID: UUID, toBoard boardID: UUID) async throws {
@@ -75,6 +83,7 @@ private actor FakeBoardEngine: SyncEngine {
     private(set) var enqueueBoardDeletionCalls = 0
     private(set) var lastEnqueuedItemIDs: [UUID] = []
     private(set) var lastEnqueuedBoardIDs: [UUID] = []
+    private(set) var lastEnqueuedBoards: [Pinboard] = []
     private(set) var lastDeletedBoardIDs: [UUID] = []
 
     func start() async throws {}
@@ -87,6 +96,7 @@ private actor FakeBoardEngine: SyncEngine {
     func enqueue(boards: [Pinboard]) async {
         enqueueBoardsCalls += 1
         lastEnqueuedBoardIDs = boards.map(\.id)
+        lastEnqueuedBoards = boards
     }
     func enqueueBoardDeletion(ids: [UUID]) async {
         enqueueBoardDeletionCalls += 1
@@ -311,5 +321,52 @@ struct BoardsControllerTests {
         #expect(await store.renameCalls == 1)
         #expect(await engine.enqueueBoardsCalls == 1)
         #expect(await engine.lastEnqueuedBoardIDs == [board.id])
+    }
+
+    @Test("System board rename stays immutable and is never enqueued")
+    func systemRenameIsNoOp() async {
+        let favorite = Pinboard(
+            id: Pinboard.favoritesID, name: "Favorites", isSystem: true)
+        let store = FakeBoardStore(boards: [favorite])
+        let engine = FakeBoardEngine()
+
+        await BoardsController().renameBoard(
+            favorite, name: "Hacked", store: store, engine: engine)
+
+        #expect(await store.renameCalls == 0)
+        #expect(await engine.enqueueBoardsCalls == 0)
+    }
+
+    @Test("Identity update writes and enqueues the exact color and emoji")
+    func identityUpdateEnqueuesUpdatedBoard() async {
+        let board = Pinboard(name: "Docs")
+        let store = FakeBoardStore(boards: [board])
+        let engine = FakeBoardEngine()
+
+        await BoardsController().updateBoardIdentity(
+            board, colorHex: "#34C759", emoji: "📚", store: store, engine: engine)
+
+        #expect(await store.updateIdentityCalls == 1)
+        #expect(await store.lastColorHex == "#34C759")
+        #expect(await store.lastEmoji == "📚")
+        #expect(await engine.enqueueBoardsCalls == 1)
+        let enqueued = await engine.lastEnqueuedBoards.first
+        #expect(enqueued?.id == board.id)
+        #expect(enqueued?.colorHex == "#34C759")
+        #expect(enqueued?.emoji == "📚")
+    }
+
+    @Test("System board identity stays immutable and is never enqueued")
+    func systemIdentityUpdateIsNoOp() async {
+        let favorite = Pinboard(
+            id: Pinboard.favoritesID, name: "Favorites", isSystem: true)
+        let store = FakeBoardStore(boards: [favorite])
+        let engine = FakeBoardEngine()
+
+        await BoardsController().updateBoardIdentity(
+            favorite, colorHex: "#FF0000", emoji: "💥", store: store, engine: engine)
+
+        #expect(await store.updateIdentityCalls == 0)
+        #expect(await engine.enqueueBoardsCalls == 0)
     }
 }

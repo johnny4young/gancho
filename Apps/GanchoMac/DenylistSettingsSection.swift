@@ -4,7 +4,7 @@ import GanchoDesign
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Settings → Capture: the editable never-capture app list (MKT-01). The veto
+/// Settings → Capture: the editable never-capture app list. The veto
 /// itself runs in `MacPasteboardMonitor` BEFORE any pasteboard read; this is
 /// only its management surface: excluded apps with real names/icons, built-in
 /// exclusions tagged "Default", three no-typing ways to add (running apps,

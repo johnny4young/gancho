@@ -5,9 +5,8 @@ import GanchoKit
 import SwiftUI
 
 /// Privacy made verifiable, not promised: local counters, the last content
-/// read, and the network claim — this screen performs ZERO network requests
-/// and every number is computed on this Mac. The website's claims literally
-/// come from here; skeptics can confirm with Little Snitch.
+/// read, and the telemetry boundary. Every number is computed on this Mac;
+/// optional diagnostics never carry clipboard content.
 struct PrivacyCenterView: View {
     @Environment(AppModel.self) private var model
     @State private var captured = 0
@@ -180,10 +179,26 @@ struct PrivacyCenterView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Optional diagnostics") {
+                    Toggle(
+                        "Share anonymous usage diagnostics",
+                        isOn: Binding(
+                            get: { model.telemetryConsent == .enabled },
+                            set: { model.setTelemetryConsent($0 ? .enabled : .disabled) })
+                    )
+                    .accessibilityIdentifier("privacy-telemetry-consent-toggle")
+                    Text(
+                        // swiftlint:disable:next line_length
+                        "Anonymous feature counts and broad performance buckets are off until you allow them. Clipboard content, titles, searches, and source-app names are never sent."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+
                 Section("Network") {
                     Text(
                         // swiftlint:disable:next line_length
-                        "Gancho sends no clipboard content anywhere. Verify it yourself with Little Snitch or any network monitor — this screen included."
+                        "Gancho never sends clipboard content to analytics. Optional iCloud sync uses your private iCloud account; verify the boundary with Little Snitch or any network monitor."
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -213,8 +228,8 @@ struct PrivacyCenterView: View {
         mcpDenied = thisWeek.filter(\.wasDenied).count
     }
 
-    /// The trust headline (the design's green hero): the 0-outgoing-requests
-    /// claim, verifiable with an external network monitor.
+    /// The trust headline: clipboard content never enters analytics, regardless
+    /// of the optional diagnostics consent state.
     private var heroClaim: some View {
         HStack(spacing: GanchoTokens.Spacing.md) {
             Image(systemName: "lock.shield.fill")
@@ -222,8 +237,8 @@ struct PrivacyCenterView: View {
                 .foregroundStyle(.white)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: "0").font(.system(size: 30, weight: .bold))
-                Text("outgoing content requests").font(.headline)
-                Text("Your clipboard never leaves this Mac — verify with Little Snitch.")
+                Text("clipboard-content analytics requests").font(.headline)
+                Text("Optional diagnostics contain anonymous counts and broad buckets only.")
                     .font(.caption)
                     .opacity(0.9)
             }

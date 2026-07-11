@@ -1,7 +1,7 @@
 import AppKit
 import XCTest
 
-/// Settings → Capture: the editable never-capture app list (MKT-01). Drives
+/// Settings → Capture: the editable never-capture app list. Drives
 /// the real Settings window via the `gancho://settings` deep link. Like the
 /// other suites here, it self-skips — never hard-fails — where an element
 /// isn't exposed on a headless/hosted runner, and runs under `make test-ui`.

@@ -17,6 +17,15 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// One stored vector, decoded inside the read closure: `Row` itself is not
+    /// Sendable, so returning rows forces GRDB's synchronous `read` overload —
+    /// which blocks a cooperative thread for the whole fetch. This box keeps
+    /// the async overload available.
+    private struct StoredEmbedding: Sendable {
+        let id: String
+        let vector: Data
+    }
+
     /// Cosine top-K over stored vectors, joined back to visible clips.
     /// `snippetsOnly` scopes the same engine to the Library.
     public func semanticSearch(
@@ -30,7 +39,8 @@ extension GRDBClipboardStore {
                     JOIN clip c ON c.id = e.clipID
                     WHERE c.isArchived = 0 AND e.dimension = ?
                     \(snippetsOnly ? "AND c.isSnippet = 1" : "")
-                    """, arguments: [queryVector.count])
+                    """, arguments: [queryVector.count]
+            ).map { StoredEmbedding(id: $0["clipID"], vector: $0["vector"]) }
         }
         guard !rows.isEmpty else { return [] }
 
@@ -43,9 +53,7 @@ extension GRDBClipboardStore {
         var scored: [(id: String, score: Float)] = []
         scored.reserveCapacity(rows.count)
         for row in rows {
-            let id: String = row["clipID"]
-            let data: Data = row["vector"]
-            let vector = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+            let vector = row.vector.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
             guard vector.count == queryVector.count else { continue }
             var dot: Float = 0
             vector.withUnsafeBufferPointer { v in
@@ -57,7 +65,7 @@ extension GRDBClipboardStore {
             }
             let denominator = sqrt(vDSP.sumOfSquares(vector)) * queryNorm
             guard denominator > 0 else { continue }
-            scored.append((id, dot / denominator))
+            scored.append((row.id, dot / denominator))
         }
         let topIDs = scored.sorted { $0.score > $1.score }.prefix(topK).map(\.id)
 

@@ -66,9 +66,9 @@ struct IOSIntelligenceView: View {
                     isOn: $model.intelligence.intelligentTitles)
                 toggleRow(
                     "magnifyingglass", GanchoTokens.Palette.kindTint(for: .url),
-                    "Semantic search",
+                    "Semantic retrieval",
                     // swiftlint:disable:next line_length
-                    "Find a clip by meaning, not just exact words. A 512-dim embedding indexes history on-device; the model assets stay local.",
+                    "Builds a local 512-dim index for Ask your clipboard and board suggestions. Main history search stays exact, fuzzy, and regex.",
                     isOn: $model.intelligence.semanticSearch)
                 toggleRow(
                     "photo", GanchoTokens.Palette.kindTint(for: .image),

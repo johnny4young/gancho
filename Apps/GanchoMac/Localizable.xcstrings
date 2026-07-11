@@ -2273,12 +2273,12 @@
         }
       }
     },
-    "Semantic search": {
+    "Semantic retrieval": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Búsqueda semántica"
+            "value": "Recuperación semántica"
           }
         }
       }
@@ -2493,12 +2493,12 @@
         }
       }
     },
-    "Find a clip by meaning, not just exact words. A 512-dim embedding indexes history on-device; the model assets stay local.": {
+    "Builds a local 512-dim index for Ask your clipboard and board suggestions. Main history search stays exact, fuzzy, and regex.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encuentra un clip por significado, no solo por palabras exactas. Un embedding de 512 dimensiones indexa el historial en el dispositivo; los assets del modelo quedan locales."
+            "value": "Crea un índice local de 512 dimensiones para Ask your clipboard y sugerencias de boards. La búsqueda principal mantiene los modos exacto, fuzzy y regex."
           }
         }
       }
@@ -2533,12 +2533,12 @@
         }
       }
     },
-    "On-device titles, semantic search, screenshot OCR, and secret detection — each a toggle, all local.": {
+    "On-device titles, semantic retrieval, screenshot OCR, and secret detection — each a toggle, all local.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Títulos en el dispositivo, búsqueda semántica, OCR de capturas y detección de secretos — cada uno un toggle, todo local."
+            "value": "Títulos, recuperación semántica, OCR de capturas y detección de secretos en el dispositivo — cada uno un toggle, todo local."
           }
         }
       }
@@ -5432,6 +5432,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo quitar el clip de sus tableros."
+          }
+        }
+      }
+    },
+    "Help improve Gancho?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Ayudas a mejorar Gancho?"
+          }
+        }
+      }
+    },
+    "Allow anonymous diagnostics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permitir diagnósticos anónimos"
+          }
+        }
+      }
+    },
+    "Keep disabled": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantener desactivados"
+          }
+        }
+      }
+    },
+    "Gancho can share anonymous feature counts and broad performance buckets. It never sends clipboard content, titles, searches, or source-app names.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho puede compartir conteos anónimos de funciones y rangos generales de rendimiento. Nunca envía contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen."
+          }
+        }
+      }
+    },
+    "Share anonymous usage diagnostics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir diagnósticos de uso anónimos"
+          }
+        }
+      }
+    },
+    "Optional diagnostics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnósticos opcionales"
+          }
+        }
+      }
+    },
+    "Anonymous feature counts and broad performance buckets are off until you allow them. Clipboard content, titles, searches, and source-app names are never sent.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los conteos anónimos de funciones y los rangos generales de rendimiento están desactivados hasta que los autorices. Nunca se envían contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen."
+          }
+        }
+      }
+    },
+    "Optional diagnostics contain anonymous counts and broad buckets only.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los diagnósticos opcionales solo contienen conteos anónimos y rangos generales."
+          }
+        }
+      }
+    },
+    "Optional anonymous counts and broad performance buckets only — never clipboard content, titles, searches, or source-app names. Off until you allow it; changes apply immediately.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo conteos anónimos opcionales y rangos generales de rendimiento; nunca contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen. Desactivados hasta que los autorices; los cambios se aplican de inmediato."
+          }
+        }
+      }
+    },
+    "clipboard-content analytics requests": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "solicitudes analíticas con contenido del portapapeles"
+          }
+        }
+      }
+    },
+    "Gancho never sends clipboard content to analytics. Optional iCloud sync uses your private iCloud account; verify the boundary with Little Snitch or any network monitor.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho nunca envía contenido del portapapeles a servicios de analítica. La sincronización opcional usa tu cuenta privada de iCloud; verifica este límite con Little Snitch o cualquier monitor de red."
           }
         }
       }

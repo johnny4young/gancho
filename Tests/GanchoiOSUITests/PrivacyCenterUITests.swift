@@ -12,6 +12,7 @@ final class PrivacyCenterUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-force-ephemeral-store", "-open-privacy-center-on-launch"]
         app.launch()
+        defer { app.terminate() }
 
         let privacyCenter = app.descendants(matching: .any)["ios-privacy-center"].firstMatch
         XCTAssertTrue(
@@ -22,8 +23,29 @@ final class PrivacyCenterUITests: XCTestCase {
         // section must surface it with the Copy-for-support button — the
         // end-to-end proof that the error log records and renders on iOS.
         let copyButton = app.buttons["copy-diagnostics"].firstMatch
+        for _ in 0..<3 {
+            if copyButton.waitForExistence(timeout: 1) { break }
+            privacyCenter.swipeUp()
+        }
         XCTAssertTrue(
             copyButton.waitForExistence(timeout: 5),
             "an ephemeral-store launch must log a content-free issue shown in Recent issues")
+    }
+
+    @MainActor
+    func testTelemetryConsentStartsDisabledAndCanBeDeclined() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-skip-welcome-on-launch", "-force-ephemeral-store",
+            "-show-telemetry-consent", "-telemetry-consent", "notAsked",
+            "-AppleLanguages", "(en)"
+        ]
+        app.launch()
+        defer { app.terminate() }
+
+        let alert = app.alerts["Help improve Gancho?"].firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        alert.buttons["Keep disabled"].tap()
+        XCTAssertFalse(alert.waitForExistence(timeout: 1))
     }
 }

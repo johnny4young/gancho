@@ -57,7 +57,12 @@ jobs:
         run: swiftlint lint --strict --reporter github-actions-logging
 
       - name: Unit tests (Swift Testing, coverage on)
-        run: swift test --package-path Packages/GanchoKit --enable-code-coverage
+        run: |
+          mkdir -p build
+          set -o pipefail
+          swift test --package-path Packages/GanchoKit --enable-code-coverage \
+            2>&1 | tee build/package-test.log
+          ./scripts/check-build-warnings.sh build/package-test.log
 
       # Coverage gate over the package's Sources (Tests and generated code
       # excluded). The threshold is a floor, not a target — raise it as the
@@ -98,14 +103,21 @@ jobs:
 
       - name: Build macOS app
         run: |
+          mkdir -p build
+          set -o pipefail
           xcodebuild -project Gancho.xcodeproj -scheme Gancho -configuration Debug \
-            -resultBundlePath build/mac.xcresult CODE_SIGNING_ALLOWED=NO build
+            -resultBundlePath build/mac.xcresult CODE_SIGNING_ALLOWED=NO build \
+            2>&1 | tee build/mac-build.log
+          ./scripts/check-build-warnings.sh build/mac-build.log
 
       - name: Build iOS app
         run: |
+          set -o pipefail
           xcodebuild -project Gancho.xcodeproj -scheme GanchoiOS -configuration Debug \
             -destination 'generic/platform=iOS' \
-            -resultBundlePath build/ios.xcresult CODE_SIGNING_ALLOWED=NO build
+            -resultBundlePath build/ios.xcresult CODE_SIGNING_ALLOWED=NO build \
+            2>&1 | tee build/ios-build.log
+          ./scripts/check-build-warnings.sh build/ios-build.log
 
       - name: Upload result bundles (on failure)
         if: failure()
@@ -128,7 +140,8 @@ jobs:
 
       - name: Select newest Xcode (betas included)
         run: |
-          NEWEST=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          NEWEST=$(find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print \
+            | sort -V | tail -1)
           echo "Selected: $NEWEST" | tee -a "$GITHUB_STEP_SUMMARY"
           sudo xcode-select -s "$NEWEST"
           xcodebuild -version | tee -a "$GITHUB_STEP_SUMMARY"

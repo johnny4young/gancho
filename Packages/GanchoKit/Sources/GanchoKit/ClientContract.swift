@@ -174,6 +174,10 @@ public protocol BoardStoring: Sendable {
     /// Renames a user board. A guarded no-op on system boards (Favorites).
     func renameBoard(id: UUID, name: String) async throws
 
+    /// Replaces a user board's optional visual identity and marks its metadata
+    /// for sync. A guarded no-op on system boards (Favorites).
+    func updateBoardIdentity(id: UUID, colorHex: String?, emoji: String?) async throws
+
     /// Deletes a user board; its clips return to plain history (memberships
     /// cascade away, clips are never deleted). No-op on system boards. When
     /// sync is active use `deletePinboardForSync(id:now:)` instead.

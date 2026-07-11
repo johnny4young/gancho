@@ -96,7 +96,9 @@ public struct ClipCard: View {
     /// Whether a clip is close enough to expiry to earn the row countdown:
     /// within the next hour and not already past. Pure so the threshold is
     /// unit-tested (the view just reads it).
-    public static func showsExpiryCountdown(expiresAt: Date?, now: Date = .now) -> Bool {
+    nonisolated public static func showsExpiryCountdown(
+        expiresAt: Date?, now: Date = .now
+    ) -> Bool {
         guard let expiresAt else { return false }
         let remaining = expiresAt.timeIntervalSince(now)
         return remaining > 0 && remaining < 3600

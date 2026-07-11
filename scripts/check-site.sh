@@ -21,6 +21,14 @@ grep -q 'data-lang=' site/index.html || fail "site/index.html must carry the bil
 grep -qi '<title>gancho' site/index.html || fail "site/index.html must set a gancho title"
 grep -qi 'private by design' site/index.html || fail "site/index.html must carry the privacy-first product position"
 grep -q 'CHANGELOG.md' site/index.html || fail "site/index.html must link release notes/changelog"
+# Spanish is the default text in the HTML; every key used by that markup must
+# have an English dictionary entry for the language toggle.
+while IFS= read -r key; do
+	grep -Fq "\"${key}\":" site/index.html \
+		|| fail "site/index.html is missing the English translation for ${key}"
+done < <(grep -oE 'data-i18n="[^"]+"' site/index.html \
+	| sed -E 's/data-i18n="([^"]+)"/\1/' \
+	| sort -u)
 # The Sparkle appcast (site/appcast.xml) declares the Sparkle XML namespace,
 # whose URI is http://www.andymatuschak.org/xml-namespaces/sparkle — an XML
 # namespace identifier, not an insecure resource fetch. Allow it; reject any
@@ -30,5 +38,7 @@ if grep -RIn --exclude='*.svg' 'http://' site \
 	fail "site/ must not use insecure http:// URLs (only the Sparkle XML namespace is allowed)"
 fi
 ! grep -RIn 'TODO' site >/dev/null || fail "site/ contains TODO markers"
+
+./scripts/check-product-truth.sh
 
 printf '✓ site/ structural checks passed\n'

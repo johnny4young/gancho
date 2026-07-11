@@ -72,11 +72,34 @@ struct PinboardTests {
         _ = try await store.createPinboard(name: "Work")
         #expect(try await store.pinboards().first?.id == Pinboard.favoritesID)
 
-        // Rename and delete are no-ops on it.
+        // Rename, identity updates, and delete are no-ops on it.
+        try await store.markBoardUploaded(id: Pinboard.favoritesID, systemFields: Data([1]))
         try await store.renameBoard(id: Pinboard.favoritesID, name: "Hacked")
+        try await store.updateBoardIdentity(
+            id: Pinboard.favoritesID, colorHex: "#FF0000", emoji: "💥")
         try await store.deletePinboard(id: Pinboard.favoritesID)
         let favorite = try await store.pinboards().first { $0.id == Pinboard.favoritesID }
         #expect(favorite?.name == "Favorites")
+        #expect(favorite?.colorHex == nil)
+        #expect(favorite?.emoji == nil)
+        #expect(
+            !(try await store.pendingBoardUploads().contains { $0.id == Pinboard.favoritesID }))
+    }
+
+    @Test("A board identity update persists and re-queues its metadata")
+    func identityUpdateRequeuesBoard() async throws {
+        let store = try makeStore()
+        let board = try await store.createPinboard(name: "Work")
+        try await store.markBoardUploaded(id: board.id, systemFields: Data([1]))
+        #expect(!(try await store.pendingBoardUploads().contains { $0.id == board.id }))
+
+        try await store.updateBoardIdentity(
+            id: board.id, colorHex: "#34C759", emoji: "💼")
+
+        let updated = try await store.pinboards().first { $0.id == board.id }
+        #expect(updated?.colorHex == "#34C759")
+        #expect(updated?.emoji == "💼")
+        #expect(try await store.pendingBoardUploads().contains { $0.id == board.id })
     }
 
     @Test("A clip can belong to many boards; assign is idempotent, unassign is per-board")
