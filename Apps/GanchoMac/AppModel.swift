@@ -119,15 +119,18 @@ final class AppModel {
         didSet { tier.save(to: defaults) }
     }
 
-    /// Analytics opt-out. Default opted-in (anonymous buckets only, per the
-    /// product plan); the sender is created at launch, so a change applies
-    /// on the next launch.
-    var telemetryOptedOut: Bool {
+    /// Optional anonymous diagnostics are off until the user explicitly
+    /// consents. Withdrawing consent tears down the transport immediately.
+    private(set) var telemetryConsent: TelemetryConsent {
         didSet {
-            defaults.set(telemetryOptedOut, forKey: "telemetry-opted-out")
-            telemetry.setOptedOut(telemetryOptedOut)
+            telemetryConsent.save(to: defaults)
+            telemetry.setConsent(telemetryConsent)
+            if telemetryConsent != .notAsked {
+                isTelemetryConsentPromptPresented = false
+            }
         }
     }
+    var isTelemetryConsentPromptPresented = false
 
     private let classifier = RuleClassifier()
     private let sensitiveDetector = SensitiveDataDetector()
@@ -281,13 +284,13 @@ final class AppModel {
         let forceFreeTier = CommandLine.arguments.contains("-force-free-tier")
         tier = forceFreeTier ? .free : UserTier.load(from: defaults)
 
-        // Telemetry: no sender is built when opted out, so the SDK never
-        // initializes and nothing leaves the device. Buckets only either way.
-        let optedOut = defaults.bool(forKey: "telemetry-opted-out")
-        telemetryOptedOut = optedOut
-        let sender: (any TelemetrySending)? =
-            optedOut ? nil : TelemetryDeckSender(appID: GanchoTelemetryConfig.appID)
-        telemetry = TelemetryPipeline(sender: sender, optedOut: optedOut)
+        // Telemetry is a real opt-in. Loading `.notAsked` or `.disabled` keeps
+        // the SDK uninitialized; the factory runs only after explicit consent.
+        let telemetryConsent = TelemetryConsent.load(from: defaults)
+        self.telemetryConsent = telemetryConsent
+        telemetry = TelemetryPipeline(
+            consent: telemetryConsent,
+            senderFactory: { TelemetryDeckSender(appID: GanchoTelemetryConfig.appID) })
 
         let pasteboardAccessPolicy: any PasteboardAccessPolicy
         #if DEBUG
@@ -369,6 +372,11 @@ final class AppModel {
             syncController.configure(tier: tier)
         }
         telemetry.record(.appLaunched)
+        #if DEBUG
+            if CommandLine.arguments.contains("-show-telemetry-consent") {
+                requestTelemetryConsentAfterFirstValue()
+            }
+        #endif
         // A data-loss-level storage failure also lands in the support log (the
         // banner already shouts; this keeps a copyable, timestamped trail).
         if storageIsEphemeral {
@@ -465,7 +473,7 @@ final class AppModel {
         }
         telemetry.record(
             .itemCaptured(
-                type: item.kind.rawValue,
+                type: item.kind,
                 lengthBucket: .init(characterCount: length)))
         Task {
             // Use the row `insert` returns: on a dedupe it is the EXISTING clip
@@ -694,6 +702,7 @@ final class AppModel {
             telemetry.record(
                 .itemPastedBack(
                     ageBucket: .init(age: Date().timeIntervalSince(item.createdAt))))
+            requestTelemetryConsentAfterFirstValue()
             // Frecency signal: every paste bumps uses/lastUsedAt (local only —
             // recordUse never flags a re-upload). The single choke point for
             // Enter, ⌘1-9, ⌘V, the paste stack, and the peek actions.
@@ -702,6 +711,16 @@ final class AppModel {
             _ = try? await store.insert(item, content: nil)  // move-to-top
             await refreshRecents()
         }
+    }
+
+    func setTelemetryConsent(_ consent: TelemetryConsent) {
+        guard consent != .notAsked else { return }
+        telemetryConsent = consent
+    }
+
+    func requestTelemetryConsentAfterFirstValue() {
+        guard telemetryConsent == .notAsked else { return }
+        isTelemetryConsentPromptPresented = true
     }
 
     /// A paste while the panel had a query = that search succeeded; remember it
@@ -729,6 +748,7 @@ final class AppModel {
     func noteDragOutDelivered(_ item: ClipItem) async {
         try? await grdbStore?.recordUse(id: item.id, now: .now)
         await rememberActiveSearch()
+        requestTelemetryConsentAfterFirstValue()
     }
 
     /// Paste with a pure transform applied at paste time.
@@ -743,6 +763,7 @@ final class AppModel {
             if pasteBack.paste(.text(transform.apply(to: text)), asPlainText: true) == .copiedOnly {
                 showCopyOnlyToast()
             }
+            requestTelemetryConsentAfterFirstValue()
             try? await grdbStore?.recordUse(id: item.id, now: .now)
             await rememberActiveSearch()
             _ = try? await store.insert(item, content: nil)
@@ -803,6 +824,7 @@ final class AppModel {
             if pasteBack.paste(.text(filled), asPlainText: false) == .copiedOnly {
                 showCopyOnlyToast()
             }
+            requestTelemetryConsentAfterFirstValue()
             try? await grdbStore.recordUse(id: snippet.id, now: .now)
             await refreshRecents()
         }

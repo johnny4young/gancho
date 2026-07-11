@@ -58,6 +58,24 @@ struct GanchoiOSApp: App {
                 }
             }
             .environment(model)
+            .alert(
+                "Help improve Gancho?",
+                isPresented: Binding(
+                    get: { model.isTelemetryConsentPromptPresented },
+                    set: { model.isTelemetryConsentPromptPresented = $0 })
+            ) {
+                Button("Allow anonymous diagnostics") {
+                    model.setTelemetryConsent(.enabled)
+                }
+                Button("Keep disabled", role: .cancel) {
+                    model.setTelemetryConsent(.disabled)
+                }
+            } message: {
+                Text(
+                    // swiftlint:disable:next line_length
+                    "Gancho can share anonymous feature counts and broad performance buckets. It never sends clipboard content, titles, searches, or source-app names."
+                )
+            }
             // Post-launch maintenance: the cosmetic legacy-preview backfill
             // moved off the synchronous store open (it scanned image rows on
             // every cold launch); run it once the first frame is up.

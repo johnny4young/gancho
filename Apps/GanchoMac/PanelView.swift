@@ -128,6 +128,7 @@ struct PanelView: View {
         .frame(minWidth: search.selectedItem == nil ? 472 : 864, minHeight: 520)
         .overlay { shortcutsOverlay }
         .overlay { boardPickerOverlay }
+        .overlay { telemetryConsentPrompt }
         .background { pasteShortcutButtons }
         .animation(.snappy(duration: 0.12), value: showShortcuts)
         .task { await search.refresh() }
@@ -205,6 +206,37 @@ struct PanelView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
             _ in
             focus = .search
+        }
+    }
+
+    @ViewBuilder private var telemetryConsentPrompt: some View {
+        if model.isTelemetryConsentPromptPresented {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
+                Label("Help improve Gancho?", systemImage: "chart.bar.xaxis")
+                    .font(.headline)
+                Text(
+                    // swiftlint:disable:next line_length
+                    "Gancho can share anonymous feature counts and broad performance buckets. It never sends clipboard content, titles, searches, or source-app names."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                HStack {
+                    Button("Keep disabled") {
+                        model.setTelemetryConsent(.disabled)
+                    }
+                    Button("Allow anonymous diagnostics") {
+                        model.setTelemetryConsent(.enabled)
+                    }
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(GanchoTokens.Spacing.lg)
+            .frame(width: 440)
+            .ganchoSurface(radius: GanchoTokens.Radius.lg)
+            .shadow(radius: 18, y: 8)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("telemetry-consent-prompt")
+            .transition(.opacity.combined(with: .scale(scale: 0.96)))
         }
     }
 

@@ -9,9 +9,9 @@ import UIKit
 import UniformTypeIdentifiers
 import WidgetKit
 
-/// The trust dashboard on iPhone: the 0-outgoing-requests claim, local counters
-/// from the on-device store, and an honest note on how capture works on iOS.
-/// Every number is computed locally — this screen makes no network requests.
+/// The trust dashboard on iPhone: the clipboard-content telemetry boundary,
+/// local counters from the on-device store, and an honest note on how capture
+/// works on iOS. Every number is computed locally.
 /// (macOS's Privacy Center has an "ignored" ledger and MCP log; iOS captures
 /// only on explicit intent, so those don't apply here.)
 struct IOSPrivacyCenterView: View {
@@ -34,9 +34,9 @@ struct IOSPrivacyCenterView: View {
                             .font(.system(size: 44, weight: .bold))
                             .monospacedDigit()
                     }
-                    Text("Outgoing content requests")
+                    Text("Clipboard-content analytics requests")
                         .font(.headline)
-                    Text("Your clipboard never leaves this iPhone.")
+                    Text("Optional diagnostics contain anonymous counts and broad buckets only.")
                         .font(.footnote)
                         .opacity(0.9)
                 }
@@ -56,6 +56,22 @@ struct IOSPrivacyCenterView: View {
                 Text(
                     // swiftlint:disable:next line_length
                     "Gancho never reads your pasteboard in the background. Capture happens only when you act: the save button, the share sheet, or a Shortcut."
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
+
+            Section("Optional diagnostics") {
+                Toggle(
+                    "Share anonymous usage diagnostics",
+                    isOn: Binding(
+                        get: { model.telemetryConsent == .enabled },
+                        set: { model.setTelemetryConsent($0 ? .enabled : .disabled) })
+                )
+                .accessibilityIdentifier("ios-telemetry-consent-toggle")
+                Text(
+                    // swiftlint:disable:next line_length
+                    "Anonymous feature counts and broad performance buckets are off until you allow them. Clipboard content, titles, searches, and source-app names are never sent."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)

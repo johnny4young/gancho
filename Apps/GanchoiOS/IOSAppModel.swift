@@ -91,9 +91,25 @@ final class IOSAppModel {
         didSet { intelligence.save(to: defaults) }
     }
     private let defaults = UserDefaults.standard
+    let telemetry: TelemetryPipeline
+    private(set) var telemetryConsent: TelemetryConsent {
+        didSet {
+            telemetryConsent.save(to: defaults)
+            telemetry.setConsent(telemetryConsent)
+            if telemetryConsent != .notAsked {
+                isTelemetryConsentPromptPresented = false
+            }
+        }
+    }
+    var isTelemetryConsentPromptPresented = false
 
     init() {
         intelligence = IntelligencePreferences.load(from: defaults)
+        let telemetryConsent = TelemetryConsent.load(from: defaults)
+        self.telemetryConsent = telemetryConsent
+        telemetry = TelemetryPipeline(
+            consent: telemetryConsent,
+            senderFactory: { TelemetryDeckSender(appID: GanchoTelemetryConfig.appID) })
         // Resolve the capability handles once: feature code holds the facet
         // surface, only engine construction sees the concrete class.
         full = store as? any FullClipStore
@@ -140,6 +156,12 @@ final class IOSAppModel {
         // refresh an open screen.
         recordStorageHealthIfNeeded()
         seedSampleClipsIfRequested()
+        telemetry.record(.appLaunched)
+        #if DEBUG
+            if CommandLine.arguments.contains("-show-telemetry-consent") {
+                requestTelemetryConsentAfterFirstValue()
+            }
+        #endif
     }
 
     /// UI-test hook: seed a few KNOWN synthetic clips through the normal capture
@@ -195,16 +217,15 @@ final class IOSAppModel {
         }
     #endif
 
-    /// Telemetry — opt-out-first, buckets only; no sender when opted out so
-    /// the SDK never initializes. Records the launch on construction.
-    private let telemetry: TelemetryPipeline = {
-        let optedOut = UserDefaults.standard.bool(forKey: "telemetry-opted-out")
-        let sender: (any TelemetrySending)? =
-            optedOut ? nil : TelemetryDeckSender(appID: GanchoTelemetryConfig.appID)
-        let pipeline = TelemetryPipeline(sender: sender, optedOut: optedOut)
-        pipeline.record(.appLaunched)
-        return pipeline
-    }()
+    func setTelemetryConsent(_ consent: TelemetryConsent) {
+        guard consent != .notAsked else { return }
+        telemetryConsent = consent
+    }
+
+    func requestTelemetryConsentAfterFirstValue() {
+        guard telemetryConsent == .notAsked else { return }
+        isTelemetryConsentPromptPresented = true
+    }
 
     func forceSync() async {
         // Start = "run a sync cycle now" on the boundary; the CloudKit
@@ -448,6 +469,7 @@ final class IOSAppModel {
         // Copying a clip is the truest "ready to paste" moment — it's on the
         // pasteboard now — so surface it on the Live Activity too.
         clipActivity.show(item, sync: ClipSyncBadge(syncStatus))
+        requestTelemetryConsentAfterFirstValue()
     }
 
     // MARK: - Smart paste (deterministic + on-device Apple Intelligence)

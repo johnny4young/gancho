@@ -123,8 +123,8 @@ stay in reusable modules.
 
 - StoreKit 2 purchase / restore / entitlement plumbing with a contextual paywall
   and free-tier limits (the App Store products are owner-gated).
-- Privacy-first telemetry (metadata buckets only) and content-free crash and
-  support bundles.
+- Optional anonymous diagnostics, disabled until explicit consent and limited
+  by type to metadata buckets; crash and support bundles remain content-free.
 
 **Engineering**
 
@@ -244,8 +244,8 @@ Gancho is built on excellent open-source work, including
 [SQLCipher](https://www.zetetic.net/sqlcipher/) for encrypted local storage,
 [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) for the
 global hotkey, [Sauce](https://github.com/Clipy/Sauce) for keyboard-layout
-handling, and [TelemetryDeck](https://telemetrydeck.com) for content-free,
-privacy-respecting metrics.
+handling, and [TelemetryDeck](https://telemetrydeck.com) for optional,
+explicitly enabled, content-free metrics.
 
 ## License
 

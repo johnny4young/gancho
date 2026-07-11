@@ -15,8 +15,8 @@ public enum GanchoTelemetryConfig {
 /// design there is no field clipboard content could ride through.
 public struct TelemetryDeckSender: TelemetrySending {
     /// Initializing configures the SDK once. Construct this ONLY when the
-    /// user has not opted out — when opted out, no sender is created and the
-    /// SDK is never initialized, so nothing leaves the device.
+    /// user has explicitly opted in. Before consent or after withdrawal, no
+    /// sender exists and the SDK is never initialized.
     public init(appID: String) {
         TelemetryDeck.initialize(config: TelemetryDeck.Config(appID: appID))
     }

@@ -18,14 +18,16 @@ flowchart LR
     E -->|user-enabled, E2E encrypted| G[(User's iCloud\nprivate DB)]
     E --> H[Paste-back\nwrites pasteboard + self marker]
     E --> I[Export\nuser-initiated file]
-    E -.->|NEVER| T[Telemetry / crash logs /\nsupport bundles / third parties]
+    E -.->|CONTENT NEVER| T[Optional telemetry / crash logs /\nsupport bundles / third parties]
 ```
 
 Content exists in exactly four places: the pasteboard itself, the local
 store (rows + content-addressed blobs), the user's iCloud private database
 (opt-in, `encryptedValues`), and user-initiated exports. Everything else —
-ignore events, purge logs, activation metrics, future telemetry — is
-counters and timestamps by construction (the types carry no content field).
+ignore events, purge logs, activation metrics, and explicitly enabled telemetry
+— is counters and timestamps by construction (the types carry no content
+field). Telemetry is disabled until the user consents and stops immediately
+when consent is withdrawn.
 
 ## Threat table
 
@@ -48,8 +50,8 @@ counters and timestamps by construction (the types carry no content field).
    gate, and masking suites.
 2. Grep release diff for new `print(`/`Logger`/`os_log` in engine modules —
    the sweep enforces this automatically.
-3. Any NEW telemetry event ships counters/buckets only; schema reviewed
-   against this document.
+3. Any NEW telemetry event ships counters/buckets only, remains behind explicit
+   consent, and has its schema reviewed against this document.
 4. PrivacyInfo.xcprivacy matches reality (validation lands with the App
    Store compliance ticket).
 5. Manual VoiceOver + 1Password smoke (docs/ACCESSIBILITY.md, NOTES queue).

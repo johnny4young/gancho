@@ -500,12 +500,15 @@ private struct PrivacySettingsTab: View {
             .foregroundStyle(.secondary)
 
             Toggle(
-                "Share anonymous usage analytics",
+                "Share anonymous usage diagnostics",
                 isOn: Binding(
-                    get: { !model.telemetryOptedOut },
-                    set: { model.telemetryOptedOut = !$0 }))
+                    get: { model.telemetryConsent == .enabled },
+                    set: { model.setTelemetryConsent($0 ? .enabled : .disabled) })
+            )
+            .accessibilityIdentifier("telemetry-consent-toggle")
             Text(
-                "Bucketed counts only — never clipboard content. Takes effect on next launch."
+                // swiftlint:disable:next line_length
+                "Optional anonymous counts and broad performance buckets only — never clipboard content, titles, searches, or source-app names. Off until you allow it; changes apply immediately."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)

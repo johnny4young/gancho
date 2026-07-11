@@ -8,7 +8,7 @@
 	<array/>
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
-		<!-- Bucket-only product telemetry (opt-out), never linked to identity,
+		<!-- Optional bucket-only product telemetry (explicit opt-in), never linked to identity,
 		     never used for tracking. Matches docs/SECURITY-MODEL.md. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>

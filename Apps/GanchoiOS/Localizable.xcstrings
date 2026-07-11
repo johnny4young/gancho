@@ -2501,6 +2501,96 @@
           }
         }
       }
+    },
+    "Help improve Gancho?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Ayudas a mejorar Gancho?"
+          }
+        }
+      }
+    },
+    "Allow anonymous diagnostics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permitir diagnósticos anónimos"
+          }
+        }
+      }
+    },
+    "Keep disabled": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantener desactivados"
+          }
+        }
+      }
+    },
+    "Gancho can share anonymous feature counts and broad performance buckets. It never sends clipboard content, titles, searches, or source-app names.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho puede compartir conteos anónimos de funciones y rangos generales de rendimiento. Nunca envía contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen."
+          }
+        }
+      }
+    },
+    "Share anonymous usage diagnostics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir diagnósticos de uso anónimos"
+          }
+        }
+      }
+    },
+    "Optional diagnostics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnósticos opcionales"
+          }
+        }
+      }
+    },
+    "Anonymous feature counts and broad performance buckets are off until you allow them. Clipboard content, titles, searches, and source-app names are never sent.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los conteos anónimos de funciones y los rangos generales de rendimiento están desactivados hasta que los autorices. Nunca se envían contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen."
+          }
+        }
+      }
+    },
+    "Optional diagnostics contain anonymous counts and broad buckets only.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los diagnósticos opcionales solo contienen conteos anónimos y rangos generales."
+          }
+        }
+      }
+    },
+    "Clipboard-content analytics requests": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solicitudes analíticas con contenido del portapapeles"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
