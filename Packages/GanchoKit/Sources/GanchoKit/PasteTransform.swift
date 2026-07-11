@@ -55,7 +55,7 @@ public enum PasteTransform: String, Sendable, CaseIterable, Codable {
         // Collapses runs of spaces/tabs inside each line to one space (also
         // trimming the line's edges); the line structure itself is preserved.
         case .collapseSpaces:
-            return text.split(separator: "\n", omittingEmptySubsequences: false)
+            return Self.lines(in: text)
                 .map { line in
                     line.split(whereSeparator: { $0 == " " || $0 == "\t" })
                         .joined(separator: " ")
@@ -64,12 +64,12 @@ public enum PasteTransform: String, Sendable, CaseIterable, Codable {
         // Plain lexicographic order (`<`), not locale-aware collation — the
         // same input must sort identically everywhere.
         case .sortLines:
-            return text.components(separatedBy: "\n").sorted().joined(separator: "\n")
+            return Self.lines(in: text).sorted().joined(separator: "\n")
         // First occurrence wins; order is otherwise preserved. Empty lines
         // dedupe like any other line (the first blank survives).
         case .dedupeLines:
             var seen = Set<String>()
-            return text.components(separatedBy: "\n")
+            return Self.lines(in: text)
                 .filter { seen.insert($0).inserted }
                 .joined(separator: "\n")
         // RFC 3986 unreserved set: everything else (including &, =, ?, /) is
@@ -85,6 +85,25 @@ public enum PasteTransform: String, Sendable, CaseIterable, Codable {
                 .map { String(format: "%02x", $0) }
                 .joined()
         }
+    }
+
+    /// Splits every Unicode newline grapheme, including CRLF, so transforms
+    /// produce the same LF-normalized output for text from every platform.
+    private static func lines(in text: String) -> [String] {
+        var lines = [String]()
+        var currentLine = ""
+        currentLine.reserveCapacity(text.count)
+
+        for character in text {
+            if character.isNewline {
+                lines.append(currentLine)
+                currentLine.removeAll(keepingCapacity: true)
+            } else {
+                currentLine.append(character)
+            }
+        }
+        lines.append(currentLine)
+        return lines
     }
 
     private static let urlUnreserved = CharacterSet(

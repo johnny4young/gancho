@@ -27,6 +27,10 @@ struct PasteTransformTests {
         #expect(
             PasteTransform.collapseSpaces.apply(to: "a  b\tc\n\n  d   e ")
                 == "a b c\n\nd e")
+        #expect(
+            PasteTransform.collapseSpaces.apply(to: "a  b\r\n\r\n d\t e ")
+                == "a b\n\nd e")
+        #expect(PasteTransform.collapseSpaces.apply(to: "a  b\u{2028} c") == "a b\nc")
         #expect(PasteTransform.collapseSpaces.apply(to: "").isEmpty)
     }
 
@@ -35,6 +39,7 @@ struct PasteTransformTests {
         #expect(
             PasteTransform.sortLines.apply(to: "beta\n\nalpha\ncharlie")
                 == "\nalpha\nbeta\ncharlie")
+        #expect(PasteTransform.sortLines.apply(to: "beta\r\nalpha\r\n") == "\nalpha\nbeta")
     }
 
     @Test("Dedupe lines keeps the first occurrence, preserves order")
@@ -42,6 +47,7 @@ struct PasteTransformTests {
         #expect(
             PasteTransform.dedupeLines.apply(to: "b\na\nb\n\nc\n\na")
                 == "b\na\n\nc")
+        #expect(PasteTransform.dedupeLines.apply(to: "a\r\nb\r\na") == "a\nb")
     }
 
     @Test("URL encode covers reserved characters; decode round-trips")
