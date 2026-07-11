@@ -132,6 +132,17 @@ final class AppModel {
     }
     var isTelemetryConsentPromptPresented = false
 
+    #if DEBUG
+        /// UI-test-only consent pin (see init). Nil when the launch argument
+        /// is absent or malformed, so a normal launch reads real defaults.
+        private static var uiTestTelemetryConsentOverride: TelemetryConsent? {
+            guard let index = CommandLine.arguments.firstIndex(of: "-telemetry-consent"),
+                CommandLine.arguments.indices.contains(index + 1)
+            else { return nil }
+            return TelemetryConsent(rawValue: CommandLine.arguments[index + 1])
+        }
+    #endif
+
     private let classifier = RuleClassifier()
     private let sensitiveDetector = SensitiveDataDetector()
     private let defaults: UserDefaults
@@ -286,7 +297,15 @@ final class AppModel {
 
         // Telemetry is a real opt-in. Loading `.notAsked` or `.disabled` keeps
         // the SDK uninitialized; the factory runs only after explicit consent.
-        let telemetryConsent = TelemetryConsent.load(from: defaults)
+        var telemetryConsent = TelemetryConsent.load(from: defaults)
+        #if DEBUG
+            // UI-test hook: `-telemetry-consent <notAsked|enabled|disabled>`
+            // pins the state so consent-flow tests don't depend on whatever a
+            // previous run left in the runner's real defaults.
+            if let override = Self.uiTestTelemetryConsentOverride {
+                telemetryConsent = override
+            }
+        #endif
         self.telemetryConsent = telemetryConsent
         telemetry = TelemetryPipeline(
             consent: telemetryConsent,
