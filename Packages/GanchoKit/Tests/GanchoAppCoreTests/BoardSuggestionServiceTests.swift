@@ -50,6 +50,7 @@ private actor FakeStore: BoardStoring, ClipReading, ClipSearching {
     func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws {}
 
     func items(offset: Int, limit: Int) async throws -> [ClipItem] { [] }
+    func items(ids: [UUID]) async throws -> [ClipItem] { [] }
     func recentForBrowse(offset: Int, limit: Int) async throws -> [ClipItem] { [] }
     func item(id: UUID) async throws -> ClipItem? { nil }
     func count() async throws -> Int { 0 }

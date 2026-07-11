@@ -1,5 +1,24 @@
 import Foundation
 
+/// Privacy-safe metadata presentation shared by every system surface that can
+/// outlive the foreground app, including widgets and App Entities.
+public enum ClipSafePresentation {
+    public static let masked = "•••"
+
+    /// Defense in depth: detector-flagged rows are sensitive, and inherently
+    /// secret kinds stay masked even if malformed legacy/sync data lost its
+    /// sensitivity flag.
+    public static func requiresMasking(_ item: ClipItem) -> Bool {
+        item.isSensitive || item.kind.prefersMaskedPreview
+    }
+
+    public static func displayText(for item: ClipItem) -> String {
+        guard !requiresMasking(item) else { return masked }
+        let body = item.preview.isEmpty ? item.title : item.preview
+        return ByteSize.humanizedPreview(body)
+    }
+}
+
 /// A clip as a widget shows it on the home/lock screen. Deliberately tiny and
 /// `Sendable`: it carries only what a glanceable row needs and NEVER the raw
 /// content of a sensitive clip (the masking happens when the entry is built,
@@ -43,19 +62,19 @@ public struct WidgetClipEntry: Identifiable, Sendable, Equatable, Codable {
 /// the secret never travels into a widget timeline (which the system may cache
 /// and render on a locked device).
 public enum WidgetClips {
-    public static let masked = "•••"
+    public static let masked = ClipSafePresentation.masked
 
     public static func entries(from items: [ClipItem], limit: Int = 3) -> [WidgetClipEntry] {
         items.prefix(limit).map { item in
-            if item.isSensitive {
+            if ClipSafePresentation.requiresMasking(item) {
                 return WidgetClipEntry(
                     id: item.id, title: "", displayText: masked, kind: item.kind,
                     isSensitive: true, sourceAppBundleID: item.sourceAppBundleID,
                     createdAt: item.createdAt)
             }
-            let body = item.preview.isEmpty ? item.title : item.preview
             return WidgetClipEntry(
-                id: item.id, title: item.title, displayText: ByteSize.humanizedPreview(body),
+                id: item.id, title: item.title,
+                displayText: ClipSafePresentation.displayText(for: item),
                 kind: item.kind, isSensitive: false, sourceAppBundleID: item.sourceAppBundleID,
                 createdAt: item.createdAt)
         }

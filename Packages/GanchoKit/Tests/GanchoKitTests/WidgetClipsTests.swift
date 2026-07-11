@@ -19,6 +19,18 @@ struct WidgetClipsTests {
         #expect(entry?.displayText.contains("AKIA") == false)
     }
 
+    @Test("an inherently secret kind is masked even if its flag is missing")
+    func secretKindIsMaskedDefensively() {
+        let secret = ClipItem(
+            kind: .secret, title: "AWS key", preview: "AKIAIOSFODNN7EXAMPLE",
+            contentHash: "legacy", isSensitive: false)
+        let entry = WidgetClips.entries(from: [secret]).first
+
+        #expect(entry?.displayText == WidgetClips.masked)
+        #expect(entry?.title.isEmpty == true)
+        #expect(entry?.isSensitive == true)
+    }
+
     @Test("a normal clip shows its preview")
     func normalShowsPreview() {
         let clip = ClipItem(

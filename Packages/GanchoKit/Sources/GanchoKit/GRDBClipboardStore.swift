@@ -750,6 +750,22 @@ public final class GRDBClipboardStore: ClipboardStore {
         }
     }
 
+    /// Direct metadata lookup for App Entities and other identifier-based
+    /// clients. Fetch order from SQLite is undefined, so restore caller order
+    /// after the bounded primary-key query.
+    public func items(ids: [UUID]) async throws -> [ClipItem] {
+        guard !ids.isEmpty else { return [] }
+        return try await writer.read { db in
+            let rows =
+                try ClipRow
+                .filter(keys: Set(ids.map(\.uuidString)))
+                .filter(Column("isArchived") == false)
+                .fetchAll(db)
+            let itemsByID = Dictionary(uniqueKeysWithValues: rows.map { ($0.item.id, $0.item) })
+            return ids.compactMap { itemsByID[$0] }
+        }
+    }
+
     /// Recent items for the grouped history browse: pinned first (pins always
     /// sit at the top, even under "All clips"), then by capture time
     /// (`createdAt`) descending so the date buckets of the rest stay contiguous
