@@ -154,6 +154,23 @@ struct ReleaseMetadataTests {
         #expect(process.terminationStatus == 0, Comment(rawValue: message))
     }
 
+    @Test func buildWarningClassifierRejectsSeededWarnings() throws {
+        let process = Process()
+        process.executableURL = Self.repositoryRoot
+            .appendingPathComponent("scripts/check-build-warnings.sh")
+        process.arguments = ["--self-test"]
+        process.currentDirectoryURL = Self.repositoryRoot
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = output
+
+        try process.run()
+        process.waitUntilExit()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        let message = String(bytes: data, encoding: .utf8) ?? "Warning classifier self-test failed"
+        #expect(process.terminationStatus == 0, Comment(rawValue: message))
+    }
+
     @Test func storeKitProductCopyDoesNotShipSyncEarly() throws {
         let storeKit = try Self.text("Apps", "GanchoMac", "Gancho.storekit")
 

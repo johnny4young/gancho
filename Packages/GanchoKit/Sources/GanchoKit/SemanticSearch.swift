@@ -22,7 +22,7 @@ extension GRDBClipboardStore {
     public func semanticSearch(
         queryVector: [Float], topK: Int = 10, snippetsOnly: Bool = false
     ) async throws -> [ClipItem] {
-        let rows = try await writer.read { db in
+        let rows = try writer.read { db in
             try Row.fetchAll(
                 db,
                 sql: """
