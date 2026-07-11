@@ -14,4 +14,53 @@ struct PasteTransformTests {
                 == "line one line two line three")
         #expect(PasteTransform.plainText.apply(to: "as-is") == "as-is")
     }
+
+    @Test("Title Case handles unicode and stays locale-independent")
+    func titleCase() {
+        #expect(
+            PasteTransform.titleCase.apply(to: "ñandú viaja al ártico") == "Ñandú Viaja Al Ártico")
+        #expect(PasteTransform.titleCase.apply(to: "").isEmpty)
+    }
+
+    @Test("Collapse spaces squeezes runs but preserves line structure")
+    func collapseSpaces() {
+        #expect(
+            PasteTransform.collapseSpaces.apply(to: "a  b\tc\n\n  d   e ")
+                == "a b c\n\nd e")
+        #expect(PasteTransform.collapseSpaces.apply(to: "").isEmpty)
+    }
+
+    @Test("Sort lines is plain lexicographic, empty lines first")
+    func sortLines() {
+        #expect(
+            PasteTransform.sortLines.apply(to: "beta\n\nalpha\ncharlie")
+                == "\nalpha\nbeta\ncharlie")
+    }
+
+    @Test("Dedupe lines keeps the first occurrence, preserves order")
+    func dedupeLines() {
+        #expect(
+            PasteTransform.dedupeLines.apply(to: "b\na\nb\n\nc\n\na")
+                == "b\na\n\nc")
+    }
+
+    @Test("URL encode covers reserved characters; decode round-trips")
+    func urlEncodeDecode() {
+        let raw = "a b&c=d/ñ?"
+        let encoded = PasteTransform.urlEncode.apply(to: raw)
+        #expect(encoded == "a%20b%26c%3Dd%2F%C3%B1%3F")
+        #expect(PasteTransform.urlDecode.apply(to: encoded) == raw)
+        // Malformed sequences pass through unchanged instead of pasting nothing.
+        #expect(PasteTransform.urlDecode.apply(to: "100%ZZ") == "100%ZZ")
+    }
+
+    @Test("SHA-256 matches the published test vector")
+    func sha256() {
+        #expect(
+            PasteTransform.sha256Hex.apply(to: "abc")
+                == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+        #expect(
+            PasteTransform.sha256Hex.apply(to: "")
+                == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+    }
 }

@@ -350,16 +350,40 @@ struct ClipDetailView: View {
         }
     }
 
+    /// The deterministic transforms fit any text-like clip and never a masked
+    /// secret. Deliberately NO availability gate — they work on every device,
+    /// with Apple Intelligence off.
+    private var canTransform: Bool {
+        isTextLike && !item.isSensitive
+    }
+
     /// On-device transforms: deterministic dev actions plus, when available,
     /// Apple-Intelligence Smart Paste. One section, the design's "Smart Actions".
     @ViewBuilder private var smartActionsSection: some View {
         let actions = DevActions.actions(for: item.kind)
-        if !actions.isEmpty || canSmartPaste {
+        if !actions.isEmpty || canTransform || canSmartPaste {
             Section {
                 ForEach(actions) { action in
                     Button(LocalizedStringKey(action.title)) {
                         actionResult = (try? action.transform(fullText)) ?? ""
                     }
+                }
+                if canTransform {
+                    // Pure text transforms, always on-device, always available;
+                    // the result lands in the same review box + Copy flow as
+                    // the dev actions. `.plainText` is the identity — omitted.
+                    Menu {
+                        ForEach(
+                            PasteTransform.allCases.filter { $0 != .plainText }, id: \.self
+                        ) { transform in
+                            Button(LocalizedStringKey(transform.title)) {
+                                actionResult = transform.apply(to: fullText)
+                            }
+                        }
+                    } label: {
+                        Label("Transform", systemImage: "textformat")
+                    }
+                    .accessibilityIdentifier("transform-menu")
                 }
                 if let actionResult, !actionResult.isEmpty {
                     Text(actionResult).font(.body.monospaced()).textSelection(.enabled)

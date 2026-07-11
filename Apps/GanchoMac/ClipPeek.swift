@@ -45,8 +45,15 @@ struct ClipPeek: View {
             }
             peekBody
             insightStrip
-            if canSmartPaste {
-                smartPasteMenu
+            if canTransform || canSmartPaste {
+                HStack(spacing: GanchoTokens.Spacing.xxs) {
+                    if canTransform {
+                        transformsMenu
+                    }
+                    if canSmartPaste {
+                        smartPasteMenu
+                    }
+                }
             }
             if isThinking {
                 Label("Thinking…", systemImage: "sparkles")
@@ -343,12 +350,87 @@ struct ClipPeek: View {
         navActions[actionIndex].run()
     }
 
+    private func resultBox(_ result: String) -> some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
+            ScrollView {
+                Text(result)
+                    .font(.body.monospaced())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(maxHeight: 140)
+            HStack(spacing: GanchoTokens.Spacing.xxs) {
+                ActionButton("Paste", systemImage: "doc.on.clipboard", identifier: "paste-result") {
+                    model.pasteText(result)
+                }
+                ActionButton("Copy result", systemImage: "doc.on.doc", identifier: "copy-result") {
+                    SystemPasteboardWriter().write(.text(result), asPlainText: true)
+                    model.toasts.show(GanchoToast(message: "Copied"))
+                }
+            }
+        }
+    }
+
+    /// Fully local syntax tint for code clips, shared with the Library editor
+    /// via `GanchoSyntax` (strings, comments, numbers, keywords, `{placeholder}`
+    /// fields). Non-code clips render as plain text.
+    private var highlighted: AttributedString {
+        var attributed = AttributedString(bodyText)
+        // The peek re-renders on every selection change; tokenizing a very
+        // large clip there would lag navigation, so highlight only when the
+        // clip is a reasonable size.
+        guard item.kind == .code, bodyText.count <= 20_000 else { return attributed }
+        for token in GanchoSyntax.tokens(in: bodyText) {
+            let lower = bodyText.distance(from: bodyText.startIndex, to: token.range.lowerBound)
+            let upper = bodyText.distance(from: bodyText.startIndex, to: token.range.upperBound)
+            let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
+            let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
+            attributed[lo..<hi].foregroundColor = GanchoTokens.Syntax.color(for: token.kind)
+        }
+        return attributed
+    }
+}
+
+// MARK: - Smart Paste & deterministic transforms
+//
+// Lives in an extension so the view struct body stays inside the lint budget;
+// same-file access keeps every member private.
+extension ClipPeek {
     /// Smart Paste fits text clips only and never a masked secret. Model-backed
     /// rewrites need Apple Intelligence, but deterministic PII redaction remains
     /// available whenever the user kept the Smart Paste toggle on.
     private var canSmartPaste: Bool {
         model.smartPasteAvailable && !item.isSensitive
             && item.kind != .image && item.kind != .fileReference && item.kind != .color
+    }
+
+    /// The deterministic transforms fit any text (colour hex included) and
+    /// never a masked secret. Deliberately NO availability gate — they work on
+    /// every Mac, with Apple Intelligence off.
+    private var canTransform: Bool {
+        !item.isSensitive && item.kind != .image && item.kind != .fileReference
+    }
+
+    /// Pure transforms with the result in the review box below (same flow as
+    /// the Dev Actions): see it, then Paste or Copy. `.plainText` is omitted —
+    /// it's the identity here, and "Paste plain" already covers it.
+    private var transformsMenu: some View {
+        Menu {
+            ForEach(PasteTransform.allCases.filter { $0 != .plainText }, id: \.self) { transform in
+                Button(LocalizedStringKey(transform.title)) {
+                    actionResult = transform.apply(to: text)
+                }
+            }
+        } label: {
+            Label("Transform", systemImage: "textformat")
+                .font(.body.weight(.medium))
+                .padding(.horizontal, GanchoTokens.Spacing.sm)
+                .padding(.vertical, GanchoTokens.Spacing.xxs)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .ganchoSurface(radius: GanchoTokens.Radius.md)
+        .accessibilityIdentifier("transform-menu")
     }
 
     /// On-device rewrite menu (the design's "Smart paste"): summarize, fix
@@ -422,45 +504,5 @@ struct ClipPeek: View {
             isThinking = false
             actionResult = result ?? String(localized: "Couldn’t run that — try again.")
         }
-    }
-
-    private func resultBox(_ result: String) -> some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
-            ScrollView {
-                Text(result)
-                    .font(.body.monospaced())
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-            }
-            .frame(maxHeight: 140)
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                ActionButton("Paste", systemImage: "doc.on.clipboard", identifier: "paste-result") {
-                    model.pasteText(result)
-                }
-                ActionButton("Copy result", systemImage: "doc.on.doc", identifier: "copy-result") {
-                    SystemPasteboardWriter().write(.text(result), asPlainText: true)
-                    model.toasts.show(GanchoToast(message: "Copied"))
-                }
-            }
-        }
-    }
-
-    /// Fully local syntax tint for code clips, shared with the Library editor
-    /// via `GanchoSyntax` (strings, comments, numbers, keywords, `{placeholder}`
-    /// fields). Non-code clips render as plain text.
-    private var highlighted: AttributedString {
-        var attributed = AttributedString(bodyText)
-        // The peek re-renders on every selection change; tokenizing a very
-        // large clip there would lag navigation, so highlight only when the
-        // clip is a reasonable size.
-        guard item.kind == .code, bodyText.count <= 20_000 else { return attributed }
-        for token in GanchoSyntax.tokens(in: bodyText) {
-            let lower = bodyText.distance(from: bodyText.startIndex, to: token.range.lowerBound)
-            let upper = bodyText.distance(from: bodyText.startIndex, to: token.range.upperBound)
-            let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
-            let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
-            attributed[lo..<hi].foregroundColor = GanchoTokens.Syntax.color(for: token.kind)
-        }
-        return attributed
     }
 }
