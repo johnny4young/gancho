@@ -1,0 +1,155 @@
+# Full XCUITest coverage runs outside the pull-request loop because it needs
+# signed macOS runners and an iOS Simulator. Every run keeps its raw evidence.
+name: UI tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 3" # weekly, Wednesday 08:00 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos-ui:
+    name: macOS UI tests
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Record toolchain
+        run: |
+          {
+            echo "### macOS UI test toolchain"
+            sw_vers
+            xcodebuild -version
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+      - name: Generate project
+        run: |
+          ./scripts/fetch-sparkle.sh
+          xcodegen generate
+
+      - name: Verify evidence collector
+        run: ./scripts/collect-ui-test-evidence.sh --self-test
+
+      - name: Run macOS UI tests
+        env:
+          # TEST_RUNNER_ is stripped by xcodebuild before it reaches XCTest.
+          # The one helper-launch assertion needs real Apple Development
+          # signing; all in-process menu-bar behavior still runs ad-hoc in CI.
+          TEST_RUNNER_GANCHO_UI_ADHOC_SIGNING: "1"
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild test -project Gancho.xcodeproj -scheme Gancho \
+            -destination 'platform=macOS,arch=arm64' \
+            -only-testing:GanchoUITests \
+            -resultBundlePath build/macos-ui.xcresult \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= \
+            ENABLE_HARDENED_RUNTIME=NO \
+            2>&1 | tee build/macos-ui.log
+
+      - name: Collect macOS UI evidence
+        if: always()
+        run: |
+          ./scripts/collect-ui-test-evidence.sh \
+            build/macos-ui.xcresult "macOS UI tests" build/macos-ui-evidence
+
+      - name: Upload macOS UI evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-ui-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/macos-ui.xcresult
+            build/macos-ui.log
+            build/macos-ui-evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+  ios-ui:
+    name: iOS UI tests
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Record toolchain
+        run: |
+          {
+            echo "### iOS UI test toolchain"
+            sw_vers
+            xcodebuild -version
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+      - name: Generate project
+        run: |
+          ./scripts/fetch-sparkle.sh
+          xcodegen generate
+
+      - name: Select newest available iPhone simulator
+        run: |
+          runtime=$(xcrun simctl list runtimes available -j \
+            | jq -r '[.runtimes[] | select(.platform == "iOS")] | sort_by(.version) | last | .identifier')
+          simulator=$(xcrun simctl list devices available -j \
+            | jq -r --arg runtime "$runtime" \
+              '.devices[$runtime] | map(select(.name | startswith("iPhone"))) | first | .udid')
+          if [[ -z "$runtime" || "$runtime" == "null" || \
+                -z "$simulator" || "$simulator" == "null" ]]; then
+            echo "::error::No available iOS iPhone simulator was found"
+            exit 1
+          fi
+          echo "Selected runtime: $runtime"
+          echo "Selected simulator: $simulator"
+          echo "IOS_SIMULATOR_UDID=$simulator" >> "$GITHUB_ENV"
+          xcrun simctl boot "$simulator" 2>/dev/null || true
+          xcrun simctl bootstatus "$simulator" -b
+
+      - name: Run iOS UI tests
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild test -project Gancho.xcodeproj -scheme GanchoiOS \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
+            -only-testing:GanchoiOSUITests \
+            -resultBundlePath build/ios-ui.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build/ios-ui.log
+
+      - name: Collect iOS UI evidence
+        if: always()
+        run: |
+          ./scripts/collect-ui-test-evidence.sh \
+            build/ios-ui.xcresult "iOS UI tests" build/ios-ui-evidence
+
+      - name: Upload iOS UI evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-ui-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/ios-ui.xcresult
+            build/ios-ui.log
+            build/ios-ui-evidence
+          if-no-files-found: warn
+          retention-days: 14

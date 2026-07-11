@@ -7,7 +7,12 @@ import XCTest
 /// on hosted runners.
 final class PanelUITests: XCTestCase {
     @MainActor
-    func testMenuBarAgentStaysResidentOnPlainLaunch() {
+    func testMenuBarAgentStaysResidentOnPlainLaunch() throws {
+        if ProcessInfo.processInfo.environment["GANCHO_UI_ADHOC_SIGNING"] == "1" {
+            throw XCTSkip(
+                "menu-bar helper launch requires Apple Development signing; CI uses entitlements-free ad-hoc signing"
+            )
+        }
         terminateMenuBarHelpers()
         let app = XCUIApplication()
         app.launch()
