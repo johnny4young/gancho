@@ -39,6 +39,7 @@ private actor FakeStore: BoardStoring, ClipReading, ClipSearching {
         Pinboard(name: name, sfSymbol: sfSymbol)
     }
     func renameBoard(id: UUID, name: String) async throws {}
+    func updateBoardIdentity(id: UUID, colorHex: String?, emoji: String?) async throws {}
     func deletePinboard(id: UUID) async throws {}
     func deletePinboardForSync(id: UUID, now: Date) async throws {}
     func assign(clipID: UUID, toBoard boardID: UUID) async throws {}

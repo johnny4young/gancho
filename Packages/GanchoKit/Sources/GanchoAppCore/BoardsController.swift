@@ -110,10 +110,38 @@ public struct BoardsController {
         store: any BoardStoring,
         engine: any SyncEngine
     ) async {
-        try? await store.renameBoard(id: board.id, name: name)
+        guard !board.isSystem else { return }
+        do {
+            try await store.renameBoard(id: board.id, name: name)
+        } catch {
+            return
+        }
         var renamed = board
         renamed.name = name
         await engine.enqueue(boards: [renamed])
+    }
+
+    /// Replaces a user board's color/emoji identity, then queues the exact
+    /// updated metadata. Keeping the write and enqueue together prevents either
+    /// platform shell from forgetting the board dirty/sync bookkeeping.
+    public func updateBoardIdentity(
+        _ board: Pinboard,
+        colorHex: String?,
+        emoji: String?,
+        store: any BoardStoring,
+        engine: any SyncEngine
+    ) async {
+        guard !board.isSystem else { return }
+        do {
+            try await store.updateBoardIdentity(
+                id: board.id, colorHex: colorHex, emoji: emoji)
+        } catch {
+            return
+        }
+        var updated = board
+        updated.colorHex = colorHex
+        updated.emoji = emoji
+        await engine.enqueue(boards: [updated])
     }
 
     /// Deletes a user board with the exact sync/no-sync split both shells used:

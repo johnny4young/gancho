@@ -117,6 +117,21 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// Updates the optional color/emoji pair as one identity mutation so every
+    /// caller gets the same dirty-flag behavior. System boards stay immutable.
+    public func updateBoardIdentity(
+        id: UUID, colorHex: String?, emoji: String?
+    ) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE pinboard SET colorHex = ?, emoji = ?, needsUpload = 1
+                    WHERE id = ? AND isSystem = 0
+                    """,
+                arguments: [colorHex, emoji, id.uuidString])
+        }
+    }
+
     /// Deleting a board never deletes its clips — the `clip_board` rows cascade
     /// away and the clips return to plain history. System boards can't be
     /// deleted (the `isSystem = 0` guard).

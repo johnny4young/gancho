@@ -413,6 +413,16 @@ final class IOSAppModel {
         }
     }
 
+    func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) {
+        guard let full else { return }
+        Task {
+            await BoardsController().updateBoardIdentity(
+                board, colorHex: colorHex, emoji: emoji, store: full,
+                engine: syncController.engine)
+            await refreshBoards()
+        }
+    }
+
     /// Delete a user board. When sync is on, tombstone it so the removal reaches
     /// the other devices; otherwise a plain local delete. Favorites is protected.
     func deleteBoard(_ board: Pinboard) {

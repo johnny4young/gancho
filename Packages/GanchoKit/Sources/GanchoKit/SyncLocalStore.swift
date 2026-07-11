@@ -327,17 +327,18 @@ extension GRDBClipboardStore: SyncLocalStore {
             try db.execute(
                 sql: """
                     INSERT INTO pinboard
-                        (id, name, sfSymbol, sortIndex, createdAt, isSystem, syncSystemFields, \
-                    needsUpload)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+                        (id, name, sfSymbol, sortIndex, createdAt, isSystem, colorHex, emoji,
+                         syncSystemFields, needsUpload)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
                     ON CONFLICT(id) DO UPDATE SET
                         name = excluded.name, sfSymbol = excluded.sfSymbol,
                         sortIndex = excluded.sortIndex,
+                        colorHex = excluded.colorHex, emoji = excluded.emoji,
                         syncSystemFields = excluded.syncSystemFields, needsUpload = 0
                     """,
                 arguments: [
                     board.id.uuidString, board.name, board.sfSymbol, board.sortIndex,
-                    board.createdAt, board.isSystem, systemFields
+                    board.createdAt, board.isSystem, board.colorHex, board.emoji, systemFields
                 ])
         }
     }

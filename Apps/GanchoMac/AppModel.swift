@@ -1362,6 +1362,16 @@ final class AppModel {
         }
     }
 
+    func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) {
+        guard let grdbStore else { return }
+        Task {
+            await BoardsController().updateBoardIdentity(
+                board, colorHex: colorHex, emoji: emoji, store: grdbStore,
+                engine: syncController.engine)
+            await refreshBoards()
+        }
+    }
+
     func deleteBoard(_ board: Pinboard) {
         guard let grdbStore else { return }
         Task {

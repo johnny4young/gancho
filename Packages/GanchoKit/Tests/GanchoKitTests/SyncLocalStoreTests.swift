@@ -208,6 +208,39 @@ struct SyncLocalStoreTests {
         #expect(try await store.systemFields(for: b.id) == nil)
     }
 
+    @Test("Remote board identity survives insert, update, and database reopen")
+    func remoteBoardIdentitySurvivesReopen() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sync-board-identity-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        var store: GRDBClipboardStore? = try GRDBClipboardStore(directory: directory)
+        let boardID = UUID()
+        let first = Pinboard(
+            id: boardID, name: "Work", sfSymbol: "briefcase", colorHex: "#34C759",
+            emoji: "💼")
+        try await store?.applyRemoteBoardUpsert(first, systemFields: Data([1]))
+
+        let changed = Pinboard(
+            id: boardID, name: "Work", sfSymbol: "briefcase", colorHex: "#0A84FF",
+            emoji: "🧰")
+        try await store?.applyRemoteBoardUpsert(changed, systemFields: Data([2]))
+        store = nil
+
+        let reopened = try GRDBClipboardStore(directory: directory)
+        let persisted = try await reopened.pinboards().first { $0.id == boardID }
+        #expect(persisted?.colorHex == "#0A84FF")
+        #expect(persisted?.emoji == "🧰")
+        #expect(try await reopened.boardSystemFields(for: boardID) == Data([2]))
+        #expect(!(try await reopened.pendingBoardUploads().contains { $0.id == boardID }))
+
+        let legacy = Pinboard(id: UUID(), name: "Legacy", sfSymbol: "square.stack")
+        try await reopened.applyRemoteBoardUpsert(legacy, systemFields: Data([3]))
+        let legacyPersisted = try await reopened.pinboards().first { $0.id == legacy.id }
+        #expect(legacyPersisted?.colorHex == nil)
+        #expect(legacyPersisted?.emoji == nil)
+    }
+
     @Test("A remote-winning upsert never touches local-only curation columns")
     func remoteUpsertPreservesLocalOnlyColumns() async throws {
         let store = try makeStore()
