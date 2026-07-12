@@ -1,6 +1,136 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Transform": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transformar"
+          }
+        }
+      }
+    },
+    "Plain text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto plano"
+          }
+        }
+      }
+    },
+    "lowercase": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "minúsculas"
+          }
+        }
+      }
+    },
+    "UPPERCASE": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MAYÚSCULAS"
+          }
+        }
+      }
+    },
+    "Title Case": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipo Título"
+          }
+        }
+      }
+    },
+    "Trimmed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin espacios extremos"
+          }
+        }
+      }
+    },
+    "Single line": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una sola línea"
+          }
+        }
+      }
+    },
+    "Collapse spaces": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Colapsar espacios"
+          }
+        }
+      }
+    },
+    "Sort lines": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordenar líneas"
+          }
+        }
+      }
+    },
+    "Dedupe lines": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar líneas duplicadas"
+          }
+        }
+      }
+    },
+    "URL-encode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codificar URL"
+          }
+        }
+      }
+    },
+    "URL-decode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decodificar URL"
+          }
+        }
+      }
+    },
+    "SHA-256": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SHA-256"
+          }
+        }
+      }
+    },
     "Recent issues": {
       "localizations": {
         "es": {

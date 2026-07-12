@@ -9,6 +9,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Text transforms that work on every device.** A new "Transform" menu in the
+  macOS peek and the iOS clip detail applies pure, deterministic text
+  operations — Title Case, collapse spaces, sort/dedupe lines, URL encode and
+  decode, SHA-256 — with the result shown for review before you paste or copy
+  it. The panel's "Paste as…" menu gains the same new options. No Apple
+  Intelligence required, nothing leaves the device, and the stored clip is
+  never modified.
 - **The never-capture app list is easier to manage (macOS).** Excluded apps in
   Settings → Capture now show their real name and icon (with the bundle id as
   a caption), built-in exclusions carry a "Default" tag, and you can add apps
