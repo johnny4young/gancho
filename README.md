@@ -221,6 +221,7 @@ Packages/GanchoKit      One SwiftPM package — eight library products + a CLI:
   GanchoMCP               local MCP tools over the store boundary
   gancho                  CLI + stdio MCP server
 docs/ARCHITECTURE.md    Engineering decisions and invariants
+docs/SCALE-READINESS-RESEARCH.md  Evidence-based architecture and product growth research
 project.yml             XcodeGen source of truth for Gancho.xcodeproj
 ```
 
