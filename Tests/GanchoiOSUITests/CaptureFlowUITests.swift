@@ -13,7 +13,7 @@ final class CaptureFlowUITests: XCTestCase {
     /// so this drives the SAME `IOSAppModel.ingest` capture→enrich path via
     /// `-seed-sample-clips` and asserts a seeded clip lands in the history list.
     @MainActor
-    func testSeededCaptureAppearsInHistory() {
+    func testSeededCaptureAppearsInHistory() throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "-skip-welcome-on-launch", "-force-ephemeral-store", "-seed-sample-clips"
@@ -23,8 +23,7 @@ final class CaptureFlowUITests: XCTestCase {
 
         let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
         guard capture.waitForExistence(timeout: 10) else {
-            print("skip: capture screen not exposed to the UI runner in this environment")
-            return
+            throw XCTSkip("capture screen not exposed to the UI runner in this environment")
         }
 
         // The seeded clips flow through the real capture path (ingest → store
@@ -40,7 +39,7 @@ final class CaptureFlowUITests: XCTestCase {
     /// exercises the real handoff: seed the system pasteboard, tap, and the
     /// capture card flashes its `save-note` ("Saved") confirmation via `ingest`.
     @MainActor
-    func testPasteControlTapSavesPasteboardContent() {
+    func testPasteControlTapSavesPasteboardContent() throws {
         UIPasteboard.general.string = "gancho paste-drive sample"
         let app = XCUIApplication()
         app.launchArguments = ["-skip-welcome-on-launch", "-force-ephemeral-store"]
@@ -49,13 +48,11 @@ final class CaptureFlowUITests: XCTestCase {
 
         let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
         guard capture.waitForExistence(timeout: 10) else {
-            print("skip: capture screen not exposed to the UI runner in this environment")
-            return
+            throw XCTSkip("capture screen not exposed to the UI runner in this environment")
         }
         let paste = app.descendants(matching: .any)["paste-control"].firstMatch
         guard paste.waitForExistence(timeout: 5) else {
-            print("skip: paste control not exposed to the UI runner")
-            return
+            throw XCTSkip("paste control not exposed to the UI runner")
         }
         paste.tap()
 

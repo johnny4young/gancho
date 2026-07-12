@@ -46,8 +46,7 @@ final class RefactorFlowUITests: XCTestCase {
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         guard rows.firstMatch.waitForExistence(timeout: 8) else {
-            print("skip: seeded clip rows not exposed to the UI runner in this environment")
-            return
+            throw XCTSkip("seeded clip rows not exposed to the UI runner in this environment")
         }
         guard rows.firstMatch.isHittable else {
             throw XCTSkip("seeded clip row is not hittable on this runner")
@@ -58,8 +57,7 @@ final class RefactorFlowUITests: XCTestCase {
         rows.firstMatch.rightClick()
         let deleteItem = app.menuItems["Delete"].firstMatch
         guard deleteItem.waitForExistence(timeout: 3) else {
-            print("skip: row context menu not reachable on this runner")
-            return
+            throw XCTSkip("row context menu not reachable on this runner")
         }
         guard deleteItem.isHittable else {
             throw XCTSkip("Delete menu item is not hittable on this runner")
@@ -111,8 +109,7 @@ final class RefactorFlowUITests: XCTestCase {
 
         let newBoard = app.buttons["board-new"].firstMatch
         guard newBoard.waitForExistence(timeout: 8) else {
-            print("skip: New board affordance not exposed to the UI runner")
-            return
+            throw XCTSkip("New board affordance not exposed to the UI runner")
         }
         guard newBoard.isHittable else {
             throw XCTSkip("New board affordance is not hittable on this runner")
@@ -124,8 +121,7 @@ final class RefactorFlowUITests: XCTestCase {
         let field = app.textFields["Board name"].firstMatch
         let alertField = field.exists ? field : app.dialogs.textFields.firstMatch
         guard alertField.waitForExistence(timeout: 3) else {
-            print("skip: New board prompt not reachable on this runner")
-            return
+            throw XCTSkip("New board prompt not reachable on this runner")
         }
         guard alertField.isHittable else {
             throw XCTSkip("New board name field is not hittable on this runner")
@@ -166,8 +162,7 @@ final class RefactorFlowUITests: XCTestCase {
 
         let newBoard = app.buttons["board-new"].firstMatch
         guard newBoard.waitForExistence(timeout: 8) else {
-            print("skip: New board affordance not exposed to the UI runner")
-            return
+            throw XCTSkip("New board affordance not exposed to the UI runner")
         }
         guard newBoard.isHittable else {
             throw XCTSkip("New board affordance is not hittable on this runner")
@@ -179,8 +174,7 @@ final class RefactorFlowUITests: XCTestCase {
         let field = app.textFields["Board name"].firstMatch
         let alertField = field.exists ? field : app.dialogs.textFields.firstMatch
         guard alertField.waitForExistence(timeout: 3) else {
-            print("skip: New board prompt not reachable on this runner")
-            return
+            throw XCTSkip("New board prompt not reachable on this runner")
         }
         guard alertField.isHittable else {
             throw XCTSkip("New board name field is not hittable on this runner")
@@ -188,8 +182,7 @@ final class RefactorFlowUITests: XCTestCase {
         alertField.click()
         alertField.typeText("One past the limit")
         guard app.buttons["Create"].firstMatch.waitForExistence(timeout: 2) else {
-            print("skip: Create action not reachable on this runner")
-            return
+            throw XCTSkip("Create action not reachable on this runner")
         }
         // Submit with Return (the alert's default action) rather than clicking the
         // "Create" button: clicking an alert button can misfire on a hosted runner
