@@ -7,7 +7,12 @@ import XCTest
 /// on hosted runners.
 final class PanelUITests: XCTestCase {
     @MainActor
-    func testMenuBarAgentStaysResidentOnPlainLaunch() {
+    func testMenuBarAgentStaysResidentOnPlainLaunch() throws {
+        if ProcessInfo.processInfo.environment["GANCHO_UI_ADHOC_SIGNING"] == "1" {
+            throw XCTSkip(
+                "menu-bar helper launch requires Apple Development signing; CI uses entitlements-free ad-hoc signing"
+            )
+        }
         terminateMenuBarHelpers()
         let app = XCUIApplication()
         app.launch()
@@ -65,7 +70,7 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
-    func testMenuBarStatusItemResolvesToARealFrame() {
+    func testMenuBarStatusItemResolvesToARealFrame() throws {
         let app = launchWithInProcessStatusItem()
         defer { app.terminate() }
 
@@ -77,8 +82,7 @@ final class PanelUITests: XCTestCase {
         guard statusItem.waitForExistence(timeout: 5) else {
             // Self-skip where the runner can't reach the status menu bar (some
             // headless CI displays); residence is covered by the sibling test.
-            print("skip: status item not exposed to the UI runner in this environment")
-            return
+            throw XCTSkip("status item not exposed to the UI runner in this environment")
         }
         XCTAssertFalse(
             statusItem.frame.isEmpty, "the status item must resolve to a non-zero on-screen frame")
@@ -91,8 +95,7 @@ final class PanelUITests: XCTestCase {
 
         let statusItem = app.statusItems.firstMatch
         guard statusItem.waitForExistence(timeout: 5), !statusItem.frame.isEmpty else {
-            print("skip: status item not exposed to the UI runner in this environment")
-            return
+            throw XCTSkip("status item not exposed to the UI runner in this environment")
         }
 
         try openStatusMenuItem("Settings…", app: app)
@@ -108,8 +111,7 @@ final class PanelUITests: XCTestCase {
 
         let statusItem = app.statusItems.firstMatch
         guard statusItem.waitForExistence(timeout: 5), !statusItem.frame.isEmpty else {
-            print("skip: status item not exposed to the UI runner in this environment")
-            return
+            throw XCTSkip("status item not exposed to the UI runner in this environment")
         }
 
         try openStatusMenuItem("Quit Gancho", app: app)

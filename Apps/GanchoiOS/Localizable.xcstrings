@@ -431,6 +431,56 @@
         }
       }
     },
+    "Action": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acción"
+          }
+        }
+      }
+    },
+    "Already pinned.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya está fijado."
+          }
+        }
+      }
+    },
+    "Already unpinned.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya está desfijado."
+          }
+        }
+      }
+    },
+    "Clip is no longer available.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El clip ya no está disponible."
+          }
+        }
+      }
+    },
+    "Clip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clip"
+          }
+        }
+      }
+    },
     "Free plan pin limit reached.": {
       "localizations": {
         "es": {
@@ -461,12 +511,42 @@
         }
       }
     },
-    "Pins a clip so it never expires.": {
+    "Pins or unpins a clip.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fija un clip para que nunca expire."
+            "value": "Fija o desfija un clip."
+          }
+        }
+      }
+    },
+    "Pin action": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acción de fijado"
+          }
+        }
+      }
+    },
+    "Pinned.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fijado."
+          }
+        }
+      }
+    },
+    "Unpinned.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desfijado."
           }
         }
       }

@@ -126,8 +126,9 @@ struct AskClipboardIntent: AppIntent {
     }
 }
 
-/// Clips as entities: Shortcuts can pass them around; Spotlight indexes
-/// them (semantic schema adoption deepens when the SDK-27 APIs stabilize).
+/// Clips as entities so Shortcuts can pass user-selected references between
+/// actions. This is deliberately not an `IndexedEntity`: Gancho does not donate
+/// raw clipboard history to Spotlight.
 struct ClipEntity: AppEntity, Identifiable {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Clip"
     static let defaultQuery = ClipEntityQuery()
@@ -138,7 +139,7 @@ struct ClipEntity: AppEntity, Identifiable {
 
     init(item: ClipItem) {
         id = item.id
-        preview = item.preview
+        preview = ClipSafePresentation.displayText(for: item)
         kind = item.kind.rawValue
     }
 
@@ -151,10 +152,7 @@ struct ClipEntity: AppEntity, Identifiable {
 struct ClipEntityQuery: EntityQuery {
     func entities(for identifiers: [UUID]) async throws -> [ClipEntity] {
         let store = try IntentStore.open()
-        let ids = Set(identifiers)
-        return try await store.items(offset: 0, limit: 500)
-            .filter { ids.contains($0.id) }
-            .map(ClipEntity.init)
+        return try await store.items(ids: identifiers).map(ClipEntity.init)
     }
 
     func suggestedEntities() async throws -> [ClipEntity] {
@@ -189,6 +187,11 @@ struct GanchoShortcuts: AppShortcutsProvider {
             phrases: ["Search clips in \(.applicationName)"],
             shortTitle: "Search Clips",
             systemImageName: "magnifyingglass")
+        AppShortcut(
+            intent: PinClipIntent(),
+            phrases: ["Pin a clip in \(.applicationName)"],
+            shortTitle: "Pin Clip",
+            systemImageName: "pin")
         AppShortcut(
             intent: AskClipboardIntent(),
             phrases: [

@@ -46,6 +46,11 @@ public protocol ClipReading: Sendable {
     /// (`lastUsedAt` falling back to `createdAt`), paged. Non-archived only.
     func items(offset: Int, limit: Int) async throws -> [ClipItem]
 
+    /// Visible metadata for the requested identifiers, in caller order.
+    /// Unlike paging, this resolves old entities directly without an arbitrary
+    /// recency window. Unknown, deleted, and archived identifiers are omitted.
+    func items(ids: [UUID]) async throws -> [ClipItem]
+
     /// Recent items for the grouped history browse: pinned first, then by
     /// capture time (`createdAt`) descending so date buckets stay contiguous.
     /// Non-archived only; paginates like `items(offset:limit:)`.

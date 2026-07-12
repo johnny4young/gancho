@@ -1,6 +1,21 @@
 import Foundation
 import StoreKit
 
+extension StoreKitEntitlement {
+    /// Resolves the current App Store entitlement without constructing the
+    /// purchase handler or its long-lived transaction listener. App Intents
+    /// use this query because they can run independently of the app model.
+    public static func currentTier() async -> UserTier {
+        var entitledIDs = Set<String>()
+        for await result in Transaction.currentEntitlements {
+            if case .verified(let transaction) = result {
+                entitledIDs.insert(transaction.productID)
+            }
+        }
+        return tier(forEntitledProductIDs: entitledIDs)
+    }
+}
+
 /// Native StoreKit 2 purchase handler — no third-party SDK. Loads products
 /// by the `ProCatalog` IDs, drives the purchase/restore flow, and treats
 /// `Transaction.currentEntitlements` as the authoritative source of the
@@ -82,13 +97,7 @@ public final class StoreKitPurchaseHandler: PurchaseHandling {
     }
 
     public func currentTier() async -> UserTier {
-        var entitledIDs = Set<String>()
-        for await result in Transaction.currentEntitlements {
-            if case .verified(let transaction) = result {
-                entitledIDs.insert(transaction.productID)
-            }
-        }
-        return StoreKitEntitlement.tier(forEntitledProductIDs: entitledIDs)
+        await StoreKitEntitlement.currentTier()
     }
 
     private func notifyTierChange() async {
