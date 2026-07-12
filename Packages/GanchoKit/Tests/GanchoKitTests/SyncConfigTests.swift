@@ -76,6 +76,31 @@ struct SyncConfigTests {
             "iOS must request its APNs token explicitly at launch")
     }
 
+    /// The shared app layer owns only lifecycle policy over `SyncEngine`; each
+    /// platform shell must choose and inject the concrete CloudKit transport.
+    @Test func appCoreStaysIndependentFromTheCloudKitImplementation() throws {
+        let package = try Self.text("Packages", "GanchoKit", "Package.swift")
+        #expect(
+            package.contains(
+                "name: \"GanchoAppCore\",\n            dependencies: [\"GanchoKit\", \"GanchoAI\", \"ClipboardCore\"]"
+            ),
+            "GanchoAppCore must not depend on GanchoSync")
+
+        let controller = try Self.text(
+            "Packages", "GanchoKit", "Sources", "GanchoAppCore", "SyncController.swift")
+        #expect(!controller.contains("import GanchoSync"))
+        #expect(!controller.contains("SyncEngineFactory.make"))
+
+        for shell in [
+            try Self.text("Apps", "GanchoMac", "AppModel.swift"),
+            try Self.text("Apps", "GanchoiOS", "IOSAppModel.swift")
+        ] {
+            #expect(shell.contains("hasCloudKitEntitlement:"))
+            #expect(shell.contains("makeEngine:"))
+            #expect(shell.contains("SyncEngineFactory.make"))
+        }
+    }
+
     /// iOS receives CloudKit pushes in the background only with the
     /// remote-notification background mode.
     @Test func iOSDeclaresTheRemoteNotificationBackgroundMode() throws {

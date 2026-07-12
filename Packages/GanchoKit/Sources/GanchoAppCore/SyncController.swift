@@ -1,6 +1,5 @@
 import Foundation
 import GanchoKit
-import GanchoSync
 
 /// Owns the iCloud sync engine LIFECYCLE for both app shells: the live
 /// `SyncEngine` instance, the cached enablement flag, and the make/start/stop/
@@ -67,9 +66,8 @@ public final class SyncController {
     /// its stored-property init).
     public var diagnostics: DiagnosticLog?
 
-    /// Builds the engine `configure(tier:)` installs. Injected so tests can
-    /// substitute a fake engine; the default is the production factory, so the
-    /// live behavior is unchanged.
+    /// Builds the engine `configure(tier:)` installs. The platform composition
+    /// root must inject its concrete transport; tests substitute a fake.
     public typealias EngineFactory =
         @MainActor (
             _ store: any SyncLocalStore,
@@ -88,18 +86,10 @@ public final class SyncController {
         iCloudAvailable: @escaping @Sendable () -> Bool = {
             FileManager.default.ubiquityIdentityToken != nil
         },
-        hasCloudKitEntitlement: @escaping @Sendable () -> Bool = {
-            CloudKitEntitlements.currentTaskAllowsSync()
-        },
+        hasCloudKitEntitlement: @escaping @Sendable () -> Bool,
         onStatus: (@MainActor (SyncStatus) async -> Void)? = nil,
         onIdle: (@MainActor () -> Void)? = nil,
-        makeEngine: @escaping EngineFactory = {
-            store, tier, iCloud, entitled, state, onStatus, diagnostics, pollState in
-            SyncEngineFactory.make(
-                store: store, tier: tier, iCloudAvailable: iCloud,
-                hasCloudKitEntitlement: entitled, stateStore: state, onStatus: onStatus,
-                diagnostics: diagnostics, pollStateStore: pollState)
-        }
+        makeEngine: @escaping EngineFactory
     ) {
         self.store = store
         self.stateStoreURL = stateStoreURL

@@ -69,6 +69,11 @@ Persistence and sync implementations
 App targets stay thin. If feature logic cannot be tested from a SwiftPM target,
 it probably lives in the wrong layer.
 
+`GanchoAppCore` depends only on the transport-neutral `SyncEngine`,
+`SyncStateStore`, and `SyncEnablement` contracts in `GanchoKit`. The macOS and
+iOS composition roots inject `GanchoSync.SyncEngineFactory`; the app layer
+cannot construct or import the CloudKit implementation.
+
 ## Platform contracts
 
 | Platform family | What is allowed | What is forbidden |

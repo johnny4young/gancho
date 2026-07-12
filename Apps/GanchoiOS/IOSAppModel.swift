@@ -114,6 +114,21 @@ final class IOSAppModel {
         }
     #endif
 
+    /// CloudKit stays at the platform composition root; GanchoAppCore receives
+    /// only this transport-neutral factory closure.
+    private static let syncEngineFactory: SyncController.EngineFactory = {
+        store, tier, iCloud, entitled, state, onStatus, diagnostics, pollState in
+        SyncEngineFactory.make(
+            store: store,
+            tier: tier,
+            iCloudAvailable: iCloud,
+            hasCloudKitEntitlement: entitled,
+            stateStore: state,
+            onStatus: onStatus,
+            diagnostics: diagnostics,
+            pollStateStore: pollState)
+    }
+
     init() {
         intelligence = IntelligencePreferences.load(from: defaults)
         var telemetryConsent = TelemetryConsent.load(from: defaults)
@@ -138,7 +153,9 @@ final class IOSAppModel {
             store: store as? any SyncLocalStore,
             stateStoreURL: SharedStorageLocation.storeDirectory(
                 appGroupID: SharedInbox.appGroupID
-            ).appendingPathComponent("sync-state.plist"))
+            ).appendingPathComponent("sync-state.plist"),
+            hasCloudKitEntitlement: { CloudKitEntitlements.currentTaskAllowsSync() },
+            makeEngine: Self.syncEngineFactory)
         // Sync status/idle mapping stays here (the views observe `syncStatus`);
         // the controller only drives the engine lifecycle and calls back.
         syncController.onStatus = { [weak self] status in

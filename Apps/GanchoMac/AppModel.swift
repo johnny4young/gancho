@@ -221,6 +221,21 @@ final class AppModel {
         }
     }
 
+    /// CloudKit stays at the platform composition root; GanchoAppCore receives
+    /// only this transport-neutral factory closure.
+    private static let syncEngineFactory: SyncController.EngineFactory = {
+        store, tier, iCloud, entitled, state, onStatus, diagnostics, pollState in
+        SyncEngineFactory.make(
+            store: store,
+            tier: tier,
+            iCloudAvailable: iCloud,
+            hasCloudKitEntitlement: entitled,
+            stateStore: state,
+            onStatus: onStatus,
+            diagnostics: diagnostics,
+            pollStateStore: pollState)
+    }
+
     // Startup wires storage, capture policy, sync, licensing, and UI test hooks
     // in the same order as production launch; keep the exception local until a
     // dedicated composition-root split lands.
@@ -251,7 +266,9 @@ final class AppModel {
             store: grdb,
             stateStoreURL: URL.applicationSupportDirectory
                 .appendingPathComponent("Gancho", isDirectory: true)
-                .appendingPathComponent("sync-state.plist"))
+                .appendingPathComponent("sync-state.plist"),
+            hasCloudKitEntitlement: { CloudKitEntitlements.currentTaskAllowsSync() },
+            makeEngine: Self.syncEngineFactory)
         let resolvedStore = self.store
         self.thumbnails = ClipThumbnailStore(imageData: { id in
             if case .binary(let data, _)? = try? await resolvedStore.content(for: id) {
