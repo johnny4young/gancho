@@ -64,23 +64,15 @@ jobs:
             2>&1 | tee build/package-test.log
           ./scripts/check-build-warnings.sh build/package-test.log
 
-      # Coverage gate over the package's Sources (Tests and generated code
-      # excluded). The threshold is a floor, not a target — raise it as the
-      # suite grows, never lower it to make a PR pass.
-      - name: Coverage gate (>70% lines)
+      # Evidence from the three preceding successful main runs: 83.7%, 83.6%,
+      # and 83.6%. The 80% floor keeps at least 3.6 percentage points of
+      # headroom. Raise it as the suite grows; never lower it to pass a PR.
+      - name: Coverage gate (production sources >=80%)
+        env:
+          COVERAGE_FLOOR: "80"
         run: |
-          BIN=$(swift build --package-path Packages/GanchoKit --show-bin-path)
-          PROFDATA="$BIN/codecov/default.profdata"
-          XCTEST=$(find "$BIN" -name '*.xctest' -maxdepth 1 | head -1)
-          BINARY="$XCTEST/Contents/MacOS/$(basename "$XCTEST" .xctest)"
-          TOTAL=$(xcrun llvm-cov export "$BINARY" \
-            -instr-profile "$PROFDATA" \
-            -ignore-filename-regex='(Tests|\.build)' \
-            -summary-only | jq '.data[0].totals.lines.percent')
-          printf '### Coverage\nLine coverage: %.1f%% (gate: 70%%)\n' "$TOTAL" \
-            | tee -a "$GITHUB_STEP_SUMMARY"
-          awk -v t="$TOTAL" 'BEGIN { exit (t >= 70 ? 0 : 1) }' \
-            || { echo "::error::Line coverage ${TOTAL}% is below the 70% gate"; exit 1; }
+          ./scripts/check-coverage.sh --self-test
+          ./scripts/check-coverage.sh
 
   build-apps:
     name: Build macOS + iOS apps

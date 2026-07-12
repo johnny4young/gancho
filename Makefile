@@ -33,7 +33,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project fetch-sparkle build build-signed build-ios install-ios test test-storekit test-ui bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
+.PHONY: help project fetch-sparkle build build-signed build-ios install-ios test test-storekit coverage coverage-check test-ui bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -73,6 +73,16 @@ install-ios: project ## Build the iOS app (Debug, team-signed) and install it on
 
 test: ## Run package unit tests (Swift Testing)
 	swift test --package-path $(PACKAGE)
+
+coverage: ## Run package tests with coverage and enforce the production-source floor
+	mkdir -p build
+	set -o pipefail; swift test --package-path $(PACKAGE) --enable-code-coverage \
+		2>&1 | tee build/package-test.log
+	./scripts/check-build-warnings.sh build/package-test.log
+	./scripts/check-coverage.sh
+
+coverage-check: ## Self-test the production-source coverage classifier
+	./scripts/check-coverage.sh --self-test
 
 test-storekit: project ## Run serialized StoreKitTest purchase/entitlement automation
 	mkdir -p build
