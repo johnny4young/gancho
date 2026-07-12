@@ -23,11 +23,11 @@ is_allowed_warning() {
 		*"xcodebuild: WARNING: Using the first of multiple matching destinations:")
 			return 0
 			;;
-		# Xcode 26.6 schedules metadata extraction for every Swift app extension.
-		# GanchoShare intentionally declares no App Intents, so the extractor
-		# reports this toolchain diagnostic after successfully building the target.
+		# Xcode 26.6 schedules metadata extraction for Swift extensions and hosted
+		# test bundles. These targets intentionally declare no App Intents, so the
+		# extractor reports this toolchain diagnostic after a successful build.
 		*"warning: Metadata extraction skipped. No AppIntents.framework dependency found.")
-			[[ "$metadata_target" == "GanchoShare" ]]
+			[[ "$metadata_target" == "GanchoShare" || "$metadata_target" == "GanchoStoreKitTests" ]]
 			return
 			;;
 		*) return 1 ;;
@@ -71,6 +71,8 @@ self_test() {
 	cat >"$warning_fixture_dir/allowed.log" <<'EOF'
 --- xcodebuild: WARNING: Using the first of multiple matching destinations:
 ExtractAppIntentsMetadata (in target 'GanchoShare' from project 'Gancho')
+2026-07-11 appintentsmetadataprocessor[1:1] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+ExtractAppIntentsMetadata (in target 'GanchoStoreKitTests' from project 'Gancho')
 2026-07-11 appintentsmetadataprocessor[1:1] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
 EOF
 	check_log "$warning_fixture_dir/allowed.log" || {

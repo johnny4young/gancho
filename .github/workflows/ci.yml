@@ -101,6 +101,9 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
+      - name: StoreKit purchase and entitlement tests
+        run: make test-storekit
+
       - name: Build macOS app
         run: |
           mkdir -p build

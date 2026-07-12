@@ -5,6 +5,7 @@ XCODEGEN ?= xcodegen
 SWIFTLINT ?= swiftlint
 SCHEME_MAC ?= Gancho
 SCHEME_IOS ?= GanchoiOS
+SCHEME_STOREKIT ?= GanchoStoreKit
 PACKAGE ?= Packages/GanchoKit
 # Default signing team for local signed builds. Override for forks/CI with
 # `make install-ios DEVELOPMENT_TEAM=<team-id>`.
@@ -32,7 +33,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project fetch-sparkle build build-signed build-ios install-ios test test-ui bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
+.PHONY: help project fetch-sparkle build build-signed build-ios install-ios test test-storekit test-ui bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -72,6 +73,19 @@ install-ios: project ## Build the iOS app (Debug, team-signed) and install it on
 
 test: ## Run package unit tests (Swift Testing)
 	swift test --package-path $(PACKAGE)
+
+test-storekit: project ## Run serialized StoreKitTest purchase/entitlement automation
+	mkdir -p build
+	rm -rf build/storekit-tests.xcresult
+	set -o pipefail; xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_STOREKIT) \
+		-destination 'platform=macOS' \
+		-resultBundlePath build/storekit-tests.xcresult \
+		CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
+		CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+		CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= \
+		ENABLE_HARDENED_RUNTIME=NO \
+		2>&1 | tee build/storekit-tests.log
+	./scripts/check-build-warnings.sh build/storekit-tests.log
 
 bench: ## Run the scale performance harness (seeds 100k rows; not for the PR loop)
 	env GANCHO_PERF=1 swift test --package-path $(PACKAGE) --filter PerformanceHarnessTests
