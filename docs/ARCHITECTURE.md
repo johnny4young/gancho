@@ -56,9 +56,10 @@ App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/
   └─ GanchoAppCore: the testable app logic both shells share and forward to —
        PanelSearchModel + PanelNavigation (macOS panel), HistoryListViewModel (iOS
        list), SyncController, ClipIngestionCoordinator, CaptureLifecycleController
-       (macOS), BoardsController, EnrichmentService, DeletionCoordinator,
-       BoardSuggestionService, ClipItemFactory. Store access is facet-typed, so
-       each unit runs against an in-memory fake in GanchoAppCoreTests.
+       (macOS), ReuseController, BoardsController, EnrichmentService,
+       DeletionCoordinator, BoardSuggestionService, ClipItemFactory. Store access
+       is facet-typed, so each unit runs against an in-memory fake in
+       GanchoAppCoreTests.
 
 Persistence and sync implementations
   ├─ GRDB / SQLite / FTS5 local store with content-addressed disk blobs
@@ -86,6 +87,13 @@ pasteboard content: start/stop/ignore commands, observable status mirroring,
 capture-preference persistence, and the periodic screen-share auto-pause check.
 `AppModel` remains the observable facade and retains platform composition such
 as monitor construction, denylist callbacks, windows, and presentation effects.
+
+`ReuseController` owns the reusable session state that follows successful user
+actions: the recent metadata page, local use/search signals, cyclic selection,
+paste-stack ordering, and the reversible-delete window. The macOS `AppModel`
+keeps AppKit paste-back, toasts, telemetry, helper publishing, and the concrete
+sync-aware deletion mutation, while exposing facade properties so views do not
+couple themselves to controller composition.
 
 ## Platform contracts
 

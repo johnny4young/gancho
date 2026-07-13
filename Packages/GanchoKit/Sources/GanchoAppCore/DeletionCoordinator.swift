@@ -8,11 +8,10 @@ import Observation
 /// makes the timing/state logic reachable by `swift test` for the first time —
 /// it lives in an app target today and cannot be exercised.
 ///
-/// The shell keeps everything genuinely its own: the immediate UI a delete
-/// performs BEFORE scheduling (dropping the row, re-publishing "Last copied",
-/// showing the Undo toast) and the store writes themselves — both injected as
-/// closures so no behavior moves, only the set/timer/ordering bookkeeping does.
-/// iOS deletes immediately (no undo window) and does not use this type.
+/// `ReuseController` owns the immediate recent-list update and post-commit
+/// reconciliation. The platform shell keeps the user-facing Undo toast and
+/// supplies the concrete sync-aware store mutation as a closure. iOS deletes
+/// immediately (no undo window) and does not use this type.
 ///
 /// The grace is injectable so tests drive the commit deterministically instead
 /// of waiting the real window; production keeps the shell's `.seconds(6)`.
@@ -44,14 +43,15 @@ public final class DeletionCoordinator {
         self.grace = grace
     }
 
-    /// Whether `id`'s delete is still in its undo window — drives the shell's
-    /// per-row filter in `refreshRecents`.
+    /// Whether `id`'s delete is still in its undo window — drives the reuse
+    /// controller's per-row filter in `refreshRecents`.
     public func isPending(_ id: UUID) -> Bool {
         pending.contains(id)
     }
 
-    /// Whether any delete is pending — lets the shell skip the filter entirely
-    /// when the list is unfiltered (the former `pendingDeletionIDs.isEmpty`).
+    /// Whether any delete is pending — lets the reuse controller skip the filter
+    /// entirely when the list is unfiltered (the former
+    /// `pendingDeletionIDs.isEmpty`).
     public var hasPending: Bool {
         !pending.isEmpty
     }

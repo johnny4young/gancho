@@ -49,11 +49,10 @@ enum AppearancePreference: String, CaseIterable {
 @MainActor
 final class AppModel {
     // swiftlint:enable type_body_length
-    private(set) var recentItems: [ClipItem] = []
-    /// Owns the undo-window deletion state machine (pending set + grace timer +
-    /// commit-only-if-still-pending). Clips in their window stay out of
-    /// `recentItems` even across a refresh until the deletion commits.
-    let deletionCoordinator = DeletionCoordinator()
+    /// Shared reuse-session owner; views continue to consume this model's
+    /// facade properties and commands rather than reaching through directly.
+    let reuseController: ReuseController
+    var recentItems: [ClipItem] { reuseController.recentItems }
     /// True when the durable store failed to open and the app is running on the
     /// in-memory fallback — history won't survive a relaunch, so the panel warns.
     var storageIsEphemeral: Bool { !store.isDurable }
@@ -173,18 +172,17 @@ final class AppModel {
     /// be as sensitive as clip content, so turning this OFF also erases the
     /// stored history immediately — a privacy toggle, not just a feature flag.
     var rememberSearches: Bool {
-        didSet {
-            defaults.set(rememberSearches, forKey: "remember-searches")
-            if !rememberSearches {
-                Task { try? await grdbForEngines?.clearSearchHistory() }
-            }
-        }
+        get { reuseController.rememberSearches }
+        set { reuseController.rememberSearches = newValue }
     }
 
     /// The panel's live query, mirrored by `PanelView.onChange` — so `paste`
     /// knows a search led to this paste and can remember the query. Cleared
     /// after recording: one remembered use per typed search.
-    var activePanelQuery = ""
+    var activePanelQuery: String {
+        get { reuseController.activeSearchQuery }
+        set { reuseController.activeSearchQuery = newValue }
+    }
 
     var preferences: CapturePreferences {
         get { captureLifecycle.preferences }
@@ -259,6 +257,15 @@ final class AppModel {
         self.grdbStore = grdb
         self.grdbForEngines = grdb
         self.store = grdb ?? InMemoryClipboardStore()
+        let loadedRememberSearches =
+            appDefaults.object(forKey: "remember-searches") as? Bool ?? true
+        self.reuseController = ReuseController(
+            store: self.store,
+            usageStore: grdb,
+            rememberSearches: loadedRememberSearches,
+            onRememberSearchesChanged: {
+                appDefaults.set($0, forKey: "remember-searches")
+            })
         self.syncController = SyncController(
             store: grdb,
             stateStoreURL: URL.applicationSupportDirectory
@@ -302,7 +309,6 @@ final class AppModel {
         let loadedAutoPauseOnScreenShare =
             disableScreenShareAutoPause
             ? false : appDefaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
-        rememberSearches = appDefaults.object(forKey: "remember-searches") as? Bool ?? true
         // Test hook: pin the FREE tier so the paywall flow is deterministic even
         // when `gancho-force-pro` is set in the environment (which would otherwise
         // force Pro and make `PaywallGatekeeper` suppress every trigger).
@@ -355,6 +361,9 @@ final class AppModel {
         }
         monitor.onIgnore = { [weak self] reason in
             self?.privacyEvents.record(IgnoredCaptureEvent(reason: reason))
+        }
+        reuseController.setRecentItemsObserver { [weak self] _ in
+            self?.publishLastCopied()
         }
         captureLifecycle.activate()
         #if DEBUG
@@ -676,12 +685,7 @@ final class AppModel {
     }
 
     func refreshRecents() async {
-        let items = (try? await store.items(offset: 0, limit: 50)) ?? []
-        // Keep clips in their undo window hidden even if a capture refreshes the list.
-        recentItems =
-            deletionCoordinator.hasPending
-            ? items.filter { !deletionCoordinator.isPending($0.id) } : items
-        publishLastCopied()
+        await reuseController.refreshRecents()
     }
 
     /// Publish the most recent clip's preview to the menu-bar helper's recent
@@ -722,13 +726,7 @@ final class AppModel {
                 .itemPastedBack(
                     ageBucket: .init(age: Date().timeIntervalSince(item.createdAt))))
             requestTelemetryConsentAfterFirstValue()
-            // Frecency signal: every paste bumps uses/lastUsedAt (local only —
-            // recordUse never flags a re-upload). The single choke point for
-            // Enter, ⌘1-9, ⌘V, the paste stack, and the peek actions.
-            try? await grdbStore?.recordUse(id: item.id, now: .now)
-            await rememberActiveSearch()
-            _ = try? await store.insert(item, content: nil)  // move-to-top
-            await refreshRecents()
+            await reuseController.recordPaste(of: item)
         }
     }
 
@@ -742,21 +740,9 @@ final class AppModel {
         isTelemetryConsentPromptPresented = true
     }
 
-    /// A paste while the panel had a query = that search succeeded; remember it
-    /// for ⌘↑ recall (unless the privacy toggle is off). Clearing after the
-    /// record keeps it to one remembered use per typed search. Awaited from the
-    /// paste task — a deferred fire-and-forget write could land AFTER the
-    /// privacy toggle's clear and silently repopulate the history.
-    private func rememberActiveSearch() async {
-        let query = activePanelQuery
-        activePanelQuery = ""
-        guard rememberSearches, !query.isEmpty else { return }
-        try? await grdbForEngines?.recordSearch(query, now: .now)
-    }
-
     /// The ⌘↑ recall list for the panel's search field, newest first.
     func recentSearches() async -> [String] {
-        (try? await grdbForEngines?.recentSearches(limit: 5)) ?? []
+        await reuseController.recentSearches()
     }
 
     /// A drop target accepted a dragged-out clip — the drag equivalent of a
@@ -765,8 +751,7 @@ final class AppModel {
     /// target loads. No move-to-top: the drag came FROM the visible list, and
     /// reordering it mid-interaction would yank rows out from under the user.
     func noteDragOutDelivered(_ item: ClipItem) async {
-        try? await grdbStore?.recordUse(id: item.id, now: .now)
-        await rememberActiveSearch()
+        await reuseController.recordDragDelivery(of: item)
         requestTelemetryConsentAfterFirstValue()
     }
 
@@ -783,10 +768,7 @@ final class AppModel {
                 showCopyOnlyToast()
             }
             requestTelemetryConsentAfterFirstValue()
-            try? await grdbStore?.recordUse(id: item.id, now: .now)
-            await rememberActiveSearch()
-            _ = try? await store.insert(item, content: nil)
-            await refreshRecents()
+            await reuseController.recordPaste(of: item)
         }
     }
 
@@ -844,8 +826,7 @@ final class AppModel {
                 showCopyOnlyToast()
             }
             requestTelemetryConsentAfterFirstValue()
-            try? await grdbStore.recordUse(id: snippet.id, now: .now)
-            await refreshRecents()
+            await reuseController.recordSnippetPaste(of: snippet)
         }
     }
 
@@ -929,53 +910,38 @@ final class AppModel {
         }
     }
 
-    /// Cyclic quick-paste: each invocation pastes the NEXT history item
-    /// (wraps around). Resets to the top after 8s of silence.
-    private var cycleIndex = 0
-    private var lastCycleAt = Date.distantPast
-
     func cyclicPaste() {
-        if Date().timeIntervalSince(lastCycleAt) > 8 { cycleIndex = 0 }
-        lastCycleAt = Date()
-        guard !recentItems.isEmpty else { return }
-        let item = recentItems[cycleIndex % recentItems.count]
-        cycleIndex += 1
+        guard let item = reuseController.nextCyclicItem() else { return }
         paste(item)
     }
 
     // MARK: - Paste stack (local; cross-device rides sync)
 
-    /// FIFO queue: load several clips, then paste them in order — each
-    /// stack-paste pops the front. Survives only the session (by design:
-    /// a stack is a working set, not history). Ordering logic lives in the
-    /// `PasteStack` value (unit-tested); this owns the paste-back side effect.
-    private var stack = PasteStack()
-
     /// Queue entries (each with a stable id independent of the clip), so the UI
     /// can render and address duplicates without ClipItem.id collisions.
-    var pasteStackEntries: [PasteStack.Entry] { stack.entries }
+    var pasteStackEntries: [PasteStack.Entry] { reuseController.pasteStackEntries }
 
     func pushToStack(_ item: ClipItem) {
-        stack.push(item)
+        reuseController.pushToStack(item)
         toasts.show(GanchoToast(message: "Added to paste stack"))
     }
 
     func clearStack() {
-        stack.clear()
+        reuseController.clearStack()
     }
 
     func removeFromStack(entryID: Int) {
-        stack.remove(entryID: entryID)
+        reuseController.removeFromStack(entryID: entryID)
     }
 
     func moveInStack(fromOffsets source: IndexSet, toOffset destination: Int) {
-        stack.move(fromOffsets: source, toOffset: destination)
+        reuseController.moveInStack(fromOffsets: source, toOffset: destination)
     }
 
     func pasteNextFromStack() {
-        guard let item = stack.popFirst() else { return }
+        guard let item = reuseController.popNextFromStack() else { return }
         paste(item)
-        if stack.isEmpty {
+        if pasteStackEntries.isEmpty {
             toasts.show(GanchoToast(message: "Paste stack finished"))
         }
     }
@@ -988,40 +954,24 @@ final class AppModel {
     /// loses history, and pins/boards/timestamps survive an Undo intact. If the
     /// app quits mid-window the commit never runs, so the clip is kept (safe).
     func delete(_ item: ClipItem) {
-        recentItems.removeAll { $0.id == item.id }
-        // The deleted clip may have been the most-recent one — re-publish so the
-        // menu-bar helper's "Last copied" preview doesn't point at it until the
-        // next refresh.
-        publishLastCopied()
-        deletionCoordinator.beginDeletion(
-            item.id,
-            performDelete: { [weak self] _ in
+        reuseController.delete(
+            item,
+            performDelete: { [weak self] id in
                 guard let self else { return }
                 if syncController.isEnabled, let grdbStore {
-                    _ = try? await grdbStore.deleteForSync(id: item.id, now: .now)
-                    await syncController.engine.enqueueDeletion(ids: [item.id])
+                    _ = try? await grdbStore.deleteForSync(id: id, now: .now)
+                    await syncController.engine.enqueueDeletion(ids: [id])
                 } else {
-                    _ = try? await store.delete(id: item.id)
+                    _ = try? await store.delete(id: id)
                 }
-            },
-            // Reconcile from the store of record only AFTER the delete lands: a
-            // refresh mid-commit can't flash the clip back (it stays filtered
-            // until the coordinator clears the hold), and a failed delete
-            // honestly reappears — the list and "Last copied" are both re-derived
-            // from what's actually stored.
-            didFinish: { [weak self] _ in await self?.refreshRecents() })
+            })
         toasts.show(
             GanchoToast(
                 message: "Deleted",
                 action: ToastAction(title: "Undo", accessibilityIdentifier: "toast-undo") {
                     [weak self] in
-                    self?.undoDelete(item)
+                    self?.reuseController.undoDeletion(item.id)
                 }))
-    }
-
-    private func undoDelete(_ item: ClipItem) {
-        // Still in the store → reappears in place once the list refreshes.
-        deletionCoordinator.undo(item.id) { [weak self] _ in await self?.refreshRecents() }
     }
 
     func togglePause() {
