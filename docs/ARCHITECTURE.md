@@ -52,12 +52,13 @@ Shared engine-room targets (nonisolated + Sendable)
   ├─ GanchoTelemetry: metadata-only analytics transport (network-isolated)
   └─ GanchoMCP: local MCP tools over the store boundary (driven by the `gancho` CLI)
 
-App-layer models and coordinators (@MainActor; NO AppKit/UIKit/SwiftUI/CloudKit)
+App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/SwiftUI/CloudKit)
   └─ GanchoAppCore: the testable app logic both shells share and forward to —
        PanelSearchModel + PanelNavigation (macOS panel), HistoryListViewModel (iOS
-       list), SyncController, BoardsController, EnrichmentService, DeletionCoordinator,
-       BoardSuggestionService, ClipItemFactory. Store access is facet-typed, so
-       each unit runs against an in-memory fake in GanchoAppCoreTests.
+       list), SyncController, ClipIngestionCoordinator, BoardsController,
+       EnrichmentService, DeletionCoordinator, BoardSuggestionService,
+       ClipItemFactory. Store access is facet-typed, so each unit runs against an
+       in-memory fake in GanchoAppCoreTests.
 
 Persistence and sync implementations
   ├─ GRDB / SQLite / FTS5 local store with content-addressed disk blobs
@@ -73,6 +74,12 @@ it probably lives in the wrong layer.
 `SyncStateStore`, and `SyncEnablement` contracts in `GanchoKit`. The macOS and
 iOS composition roots inject `GanchoSync.SyncEngineFactory`; the app layer
 cannot construct or import the CloudKit implementation.
+
+`ClipIngestionCoordinator` is the shared capture workflow: it maps payloads,
+persists and deduplicates them, enqueues the durable row, computes and runs the
+enrichment plan, and enqueues enriched metadata. Platform shells own only
+capture mechanics and presentation effects such as telemetry buckets, list or
+widget refresh, feedback, and Live Activity state.
 
 ## Platform contracts
 

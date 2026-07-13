@@ -596,7 +596,7 @@ final class IOSAppModel {
     }
 
     private let source = IntentionalPasteboardSource()
-    private let classifier = RuleClassifier()
+    private let ingestionCoordinator = ClipIngestionCoordinator()
     /// Durable store in the App Group container (shared family location);
     /// in-memory fallback keeps the app usable if the container is missing.
     let store: any ClipboardStore = {
@@ -746,34 +746,29 @@ final class IOSAppModel {
     )
         async
     {
-        let item = makeItem(from: capture, precomputedKind: precomputedKind)
-        let content: ClipContent? =
-            switch capture.payload {
-            case .image(let data, let typeIdentifier):
-                .binary(data: data, typeIdentifier: typeIdentifier)
-            default:
-                capture.textRepresentation.map { .text($0) }
-            }
-        // Dedupe-aware feedback: the store returns the EXISTING item when
-        // the content hash matches — warn subtly instead of duplicating.
-        let stored = try? await store.insert(item, content: content)
-        if let stored { await syncController.engine.enqueue([stored]) }
-        let isNew = stored?.id == item.id
+        let configuration = ClipIngestionCoordinator.Configuration(
+            sensitiveLifetime: RetentionPolicy.load(from: defaults).sensitiveLifetime,
+            detectSecrets: intelligence.detectSecrets,
+            precomputedKind: precomputedKind,
+            tier: tier,
+            intelligence: intelligence)
+        guard
+            let outcome = try? await ingestionCoordinator.ingest(
+                capture,
+                configuration: configuration,
+                store: store,
+                syncEngine: syncController.engine)
+        else { return }
         flashNote(
-            isNew ? String(localized: "Saved") : String(localized: "Already in your history"))
+            outcome.isNew
+                ? String(localized: "Saved") : String(localized: "Already in your history"))
         // Bounded like every other load — search() pulls the first page only.
         await search()
         reloadWidgets()
         // Surface the just-captured clip as "ready to paste" (masked if
         // sensitive) on the Dynamic Island / lock screen.
-        if let stored { clipActivity.show(stored, sync: ClipSyncBadge(syncStatus)) }
-        // Enrich a genuinely new clip — OR a re-copy that predates enrichment and
-        // is still untitled (its first capture never got a title). Enrich the
-        // STORED row so a dedupe re-titles the real clip, not the deduped-away id;
-        // the plan's hasTitle guard skips a re-copy that already carries its title.
-        if let stored, isNew || stored.title.isEmpty {
-            enrich(stored, content: content)
-        }
+        clipActivity.show(outcome.item, sync: ClipSyncBadge(syncStatus))
+        enrich(outcome)
     }
 
     /// On-device enrichment of a clip captured ON this iPhone — Apple
@@ -782,51 +777,18 @@ final class IOSAppModel {
     /// priority); the shared `EnrichmentPlan` gates it (Pro + non-sensitive +
     /// per-stage toggles). Enriched fields that ride the clip record sync; the
     /// embedding stays device-local.
-    private func enrich(_ item: ClipItem, content: ClipContent?) {
-        let plan = EnrichmentPlan(
-            content: content, kind: item.kind, isSensitive: item.isSensitive,
-            hasTitle: !item.title.isEmpty, isPro: tier == .pro, preferences: intelligence)
-        guard !plan.isEmpty, let full else { return }
+    private func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
+        guard !outcome.enrichment.isEmpty, let full else { return }
+        let syncEngine: (any SyncEngine)? =
+            syncController.isEnabled ? syncController.engine : nil
         Task(priority: .utility) {
-            await EnrichmentService().enrich(
-                item, content: content, plan: plan, writeTitle: plan.runs(.title),
-                store: full
+            await ingestionCoordinator.enrich(
+                outcome,
+                store: full,
+                syncEngine: syncEngine
             ) {
                 await self.search()  // surface the new title without a manual refresh
             }
-            // The title/OCR writes flagged the row for upload; push it now so the
-            // fruit reaches the other devices, not only at the next sync start().
-            if syncController.isEnabled {
-                await syncController.engine.enqueue([item])
-            }
-        }
-    }
-
-    private func makeItem(
-        from capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil
-    ) -> ClipItem {
-        switch capture.payload {
-        case .image(let data, _):
-            return ClipItem(
-                kind: .image,
-                preview: "Image (\(ByteSize.formatted(data.count)))",
-                contentHash: ClipItem.hash(of: data, kind: .image),
-                sourceAppBundleID: capture.sourceAppBundleID)
-        default:
-            let raw = capture.textRepresentation ?? ""
-            let kind = precomputedKind ?? classifier.classify(raw)
-            let text = ContentNormalizer.canonicalText(raw, kind: kind)
-            let item = ClipItem(
-                kind: kind,
-                preview: String(text.prefix(120)),
-                contentHash: ClipItem.hash(of: text, kind: kind),
-                sourceAppBundleID: capture.sourceAppBundleID)
-            // Intelligence toggle off ⇒ skip secret detection/masking. The
-            // password-manager veto (Concealed/Transient) is separate, pre-read,
-            // and always on.
-            guard intelligence.detectSecrets else { return item }
-            return SensitiveIngestionPolicy.decorate(
-                item, finding: SensitiveDataDetector().detect(text), originalText: text)
         }
     }
 }

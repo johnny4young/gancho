@@ -143,8 +143,7 @@ final class AppModel {
         }
     #endif
 
-    private let classifier = RuleClassifier()
-    private let sensitiveDetector = SensitiveDataDetector()
+    private let ingestionCoordinator = ClipIngestionCoordinator()
     private let defaults: UserDefaults
     private var retentionTimer: Timer?
     /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
@@ -496,32 +495,27 @@ final class AppModel {
         // this also keeps cross-device capture consistent with iOS's consensual
         // model (the origin device decides, the rest receive via sync).
         guard !capture.isFromUniversalClipboard else { return }
-        let (item, content) = ClipItemFactory.make(
-            from: capture, classifier: classifier, detector: sensitiveDetector,
-            sensitiveLifetime: retentionPolicy.sensitiveLifetime,
-            detectSecrets: intelligence.detectSecrets)
-        // Bucketized analytics: kind + a length BUCKET, never the content.
-        let length: Int
-        switch content {
-        case .text(let text): length = text.count
-        case .binary(let data, _): length = data.count
-        default: length = item.preview.count
-        }
-        telemetry.record(
-            .itemCaptured(
-                type: item.kind,
-                lengthBucket: .init(characterCount: length)))
         Task {
-            // Use the row `insert` returns: on a dedupe it is the EXISTING clip
-            // (moved to top), which may still be untitled from a capture that
-            // predates enrichment. Enriching the NEW item's id would target a row
-            // that was deduped away — so a re-copied clip never got its title.
-            // Enriching the stored row re-titles it when it has none, and
-            // `EnrichmentPlan`'s hasTitle guard skips it when it already does.
-            let stored = (try? await store.insert(item, content: content)) ?? item
-            await syncController.engine.enqueue([stored])
+            let configuration = ClipIngestionCoordinator.Configuration(
+                sensitiveLifetime: retentionPolicy.sensitiveLifetime,
+                detectSecrets: intelligence.detectSecrets,
+                tier: tier,
+                intelligence: intelligence,
+                allowsFreeTitle: freeAITitlesRemaining > 0)
+            guard
+                let outcome = try? await ingestionCoordinator.ingest(
+                    capture,
+                    configuration: configuration,
+                    store: store,
+                    syncEngine: syncController.engine)
+            else { return }
+            // Bucketized analytics: kind + a length BUCKET, never the content.
+            telemetry.record(
+                .itemCaptured(
+                    type: outcome.item.kind,
+                    lengthBucket: .init(characterCount: outcome.contentLength)))
             await refreshRecents()
-            enrich(stored, content: content)
+            enrich(outcome)
         }
     }
 
@@ -654,40 +648,23 @@ final class AppModel {
 
     /// Pro-tier async enrichment — never blocks capture: OCR makes image
     /// clips searchable; the tiered annotator titles text clips.
-    private func enrich(_ item: ClipItem, content: ClipContent?) {
-        // The Pro + non-sensitive + per-toggle gating is the shared policy both
-        // platforms drive their enrichment IO from (see `EnrichmentPlan`); only
-        // the store writes and the list refresh differ per platform.
-        let plan = EnrichmentPlan(
-            content: content, kind: item.kind, isSensitive: item.isSensitive,
-            hasTitle: !item.title.isEmpty, isPro: tier == .pro, preferences: intelligence)
-        // Free taste: the first `FreeTierLimits.freeAITitleTaste` text clips get a
-        // real AI title even on the free tier, so a new user sees the on-device
-        // intelligence on their OWN clips before deciding. Titles only — semantic
-        // search and OCR stay Pro; sensitive clips are never enriched.
-        let tasteTitle =
-            tier != .pro && !item.isSensitive && item.title.isEmpty
-            && freeAITitlesRemaining > 0
-        guard !plan.isEmpty || tasteTitle, let grdbStore else { return }
+    private func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
+        guard !outcome.enrichment.isEmpty, let grdbStore else { return }
+        let syncEngine: (any SyncEngine)? =
+            syncController.isEnabled ? syncController.engine : nil
         Task(priority: .utility) {
-            await EnrichmentService().enrich(
-                item, content: content, plan: plan,
-                writeTitle: plan.runs(.title) || tasteTitle, store: grdbStore
-            ) { @MainActor in
-                if tasteTitle {
+            await ingestionCoordinator.enrich(
+                outcome,
+                store: grdbStore,
+                syncEngine: syncEngine
+            ) { @MainActor [self] in
+                if outcome.enrichment.usesFreeTitle {
                     consumeFreeAITitle()
                     // The moment the taste runs out is the conversion moment: a
                     // gentle, tappable nudge — never an interrupting gateway.
                     if freeAITitlesRemaining == 0 { showAITasteEndedNudge() }
                 }
                 await refreshRecents()
-            }
-            // Enrichment runs per-device, but its FRUITS sync: the title/OCR
-            // writes flagged the row for upload; push it now (like a pin toggle)
-            // so the other device sees the smart title instead of the raw clip,
-            // rather than waiting for the next sync start().
-            if syncController.isEnabled {
-                await syncController.engine.enqueue([item])
             }
         }
     }
