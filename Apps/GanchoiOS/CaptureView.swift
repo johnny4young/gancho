@@ -92,6 +92,9 @@ struct CaptureView: View {
                 .onChange(of: model.kindFilter) { _, _ in
                     Task { await model.search() }
                 }
+                .onChange(of: model.selectedSourceAppBundleID) { _, _ in
+                    Task { await model.search() }
+                }
                 .navigationTitle("Gancho")
                 .navigationDestination(for: UUID.self) { id in
                     if let item = model.captures.first(where: { $0.id == id }) {
@@ -486,26 +489,20 @@ struct CaptureView: View {
 
     private var kindFilterMenu: some View {
         @Bindable var model = self.model
-        return Menu {
-            Picker("Filter by type", selection: $model.kindFilter) {
-                Text("All types").tag(ClipContentKind?.none)
-                ForEach(ClipContentKind.allCases, id: \.self) { kind in
-                    Label(LocalizedStringKey(kind.rawValue), systemImage: kind.symbolName)
-                        .tag(ClipContentKind?.some(kind))
-                }
-            }
-        } label: {
-            Image(systemName: "line.3.horizontal.decrease.circle")
-        }
-        .accessibilityLabel(Text("Filter by type"))
+        return HistoryFilterMenu(
+            kindFilter: $model.kindFilter,
+            selectedSourceAppBundleID: $model.selectedSourceAppBundleID,
+            sourceApps: model.sourceApps)
     }
 
     private var hasActiveFilter: Bool {
         model.kindFilter != nil || model.selectedBoardID != nil
+            || model.selectedSourceAppBundleID != nil
     }
 
     private func clearFilters() {
         model.kindFilter = nil
+        model.selectedSourceAppBundleID = nil
         model.selectBoard(nil)
     }
 
@@ -550,6 +547,7 @@ struct CaptureView: View {
         await model.refreshHints()
         await model.drainSharedInbox()
         await model.refreshBoards()
+        await model.refreshSourceApps()
         await model.search()
     }
 

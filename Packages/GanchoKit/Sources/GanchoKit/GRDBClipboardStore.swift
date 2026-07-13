@@ -615,7 +615,9 @@ public final class GRDBClipboardStore: ClipboardStore {
         if query.mode == .regex {
             return try await regexSearch(query, limit: limit)
         }
-        guard let match = query.ftsMatchExpression() else { return [] }
+        guard let match = query.ftsMatchExpression() else {
+            return try await filterOnlySearch(query, limit: limit)
+        }
 
         return try await writer.read { db in
             var sql = """
@@ -680,7 +682,7 @@ public final class GRDBClipboardStore: ClipboardStore {
     }
 
     /// Shared WHERE clauses for kind / source app / date filters.
-    private static func appendFilters(
+    static func appendFilters(
         for query: ClipSearchQuery, to sql: inout String,
         arguments: inout [any DatabaseValueConvertible]
     ) {

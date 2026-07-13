@@ -441,6 +441,7 @@ final class AppModel {
         seedDenylistEntryIfRequested()
         let uiTestBoardSeedTask = seedSampleBoardsIfRequested()
         let uiTestPanelReproTask = seedPanelReproIfRequested()
+        let uiTestSourceAppSeedTask = seedSourceAppsIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
         // launch); run it at utility priority once the UI is wired up.
@@ -460,6 +461,7 @@ final class AppModel {
                     guard let self else { return }
                     await uiTestBoardSeedTask?.value
                     await uiTestPanelReproTask?.value
+                    await uiTestSourceAppSeedTask?.value
                     panel.show(model: self)
                     _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
                     try? await Task.sleep(for: .milliseconds(250))
@@ -470,6 +472,7 @@ final class AppModel {
             Task { @MainActor in
                 await uiTestBoardSeedTask?.value
                 await uiTestPanelReproTask?.value
+                await uiTestSourceAppSeedTask?.value
                 try? await Task.sleep(for: .seconds(1))
                 if !panel.isVisible { panel.show(model: self) }
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
@@ -624,6 +627,38 @@ final class AppModel {
                     name: "Seed board \(i)", sfSymbol: "square.stack")
             }
             await refreshBoards()
+        }
+    }
+
+    /// UI-test hook: seed source-app metadata into a throwaway durable store so
+    /// the filter can be exercised without reading or mutating real history.
+    /// Both launch arguments are required; all payloads are synthetic.
+    private func seedSourceAppsIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-source-apps"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let grdbStore
+        else { return nil }
+        return Task {
+            let entries: [(text: String, app: String, kind: ClipContentKind)] = [
+                ("Safari source alpha", "com.apple.Safari", .text),
+                ("Safari source link", "com.apple.Safari", .url),
+                ("Xcode source sample", "com.apple.dt.Xcode", .code)
+            ]
+            let identifiers = [
+                "00000000-0000-4000-8000-000000000101",
+                "00000000-0000-4000-8000-000000000102",
+                "00000000-0000-4000-8000-000000000103"
+            ]
+            for (index, entry) in entries.enumerated() {
+                guard let id = UUID(uuidString: identifiers[index]) else { return }
+                let item = ClipItem(
+                    id: id,
+                    createdAt: Date(timeIntervalSince1970: 1_800_000_000 + Double(index)),
+                    kind: entry.kind, preview: entry.text,
+                    contentHash: "ui-source-\(index)", sourceAppBundleID: entry.app)
+                _ = try? await grdbStore.insert(item, content: .text(entry.text))
+            }
+            await refreshRecents()
         }
     }
 

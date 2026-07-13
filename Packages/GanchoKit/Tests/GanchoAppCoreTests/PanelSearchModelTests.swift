@@ -15,6 +15,8 @@ import Testing
     var board: [ClipItem] = []
     var snippets: [String: ClipItem] = [:]
     var pending: Set<UUID> = []
+    var sourceApps: [ClipSourceApp] = []
+    var lastSearchQuery: ClipSearchQuery?
 
     func recentBrowse(offset: Int, limit: Int) async -> [ClipItem] {
         Array(recent.dropFirst(offset).prefix(limit))
@@ -23,7 +25,13 @@ import Testing
         Array(recent.dropFirst(offset).prefix(limit))
     }
     func boardItems(_ boardID: UUID) async -> [ClipItem] { board }
-    func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] { searchResults }
+    func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
+        lastSearchQuery = query
+        return Array(searchResults.prefix(limit))
+    }
+    func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
+        Array(sourceApps.prefix(limit))
+    }
     func snippet(matchingKeyword keyword: String) async -> ClipItem? { snippets[keyword] }
     func isDeletionPending(_ id: UUID) -> Bool { pending.contains(id) }
 }
@@ -112,6 +120,37 @@ struct PanelSearchModelTests {
         model.kindFilter = .links
         #expect(model.filtered.count == 2)
         #expect(model.filtered.allSatisfy { $0.kind == .url })
+    }
+
+    @Test func sourceAppFilterComposesWithBoardAndEmptyText() async {
+        let source = FakeSource()
+        let boardID = UUID()
+        source.searchResults = [
+            ClipItem(
+                kind: .url, preview: "Safari", sourceAppBundleID: "com.apple.Safari")
+        ]
+        let model = PanelSearchModel(source: source)
+        model.selectedBoardID = boardID
+        model.selectedSourceAppBundleID = "com.apple.Safari"
+
+        await model.refresh()
+
+        #expect(model.results.count == 1)
+        #expect(source.lastSearchQuery?.text.isEmpty == true)
+        #expect(source.lastSearchQuery?.boardID == boardID)
+        #expect(source.lastSearchQuery?.sourceAppBundleID == "com.apple.Safari")
+        #expect(model.hasActiveFilter)
+        #expect(!model.isGroupedView)
+    }
+
+    @Test func sourceAppOptionsAreLoadedAsContentFreeMetadata() async {
+        let source = FakeSource()
+        source.sourceApps = [ClipSourceApp(bundleID: "com.apple.Safari", clipCount: 7)]
+        let model = PanelSearchModel(source: source)
+
+        await model.refreshSourceApps()
+
+        #expect(model.sourceApps == source.sourceApps)
     }
 
     // MARK: - Search vs recent modes

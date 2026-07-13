@@ -145,7 +145,10 @@ struct PanelView: View {
         .overlay { telemetryConsentPrompt }
         .background { pasteShortcutButtons }
         .animation(.snappy(duration: 0.12), value: showShortcuts)
-        .task { await search.refresh() }
+        .task {
+            await search.refreshSourceApps()
+            await search.refresh()
+        }
         .task { await model.refreshBoards() }
         .onChange(of: search.query) { _, newValue in
             // A new query invalidates a previous answer and drops rail focus
@@ -167,9 +170,15 @@ struct PanelView: View {
             Task { await search.refresh() }
         }
         .onChange(of: model.recentItems) { _, _ in
-            Task { await search.refresh() }
+            Task {
+                await search.refreshSourceApps()
+                await search.refresh()
+            }
         }
         .onChange(of: search.selectedBoardID) { _, _ in
+            Task { await search.refresh() }
+        }
+        .onChange(of: search.selectedSourceAppBundleID) { _, _ in
             Task { await search.refresh() }
         }
         // The kind filter narrows client-side, so regroup without a re-query.
@@ -430,10 +439,72 @@ struct PanelView: View {
                 ForEach(ClipKindFilter.allCases) { filter in
                     filterPill(filter)
                 }
+                if !search.sourceApps.isEmpty {
+                    sourceAppMenu
+                }
             }
             .padding(.horizontal, GanchoTokens.Spacing.xxs)
         }
-        .accessibilityIdentifier("board-rail")
+        .accessibilityIdentifier("filter-rail")
+    }
+
+    /// Source-app filter: recent apps and content-free counts in one compact
+    /// menu, intersected with the board, type, and text query owned by search.
+    private var sourceAppMenu: some View {
+        Menu {
+            Button {
+                search.selectedSourceAppBundleID = nil
+            } label: {
+                Label("All apps", systemImage: "square.grid.2x2")
+            }
+            Divider()
+            ForEach(search.sourceApps) { app in
+                Button {
+                    search.selectedSourceAppBundleID = app.bundleID
+                } label: {
+                    HStack {
+                        Text(verbatim: SourceApp.displayName(forBundleID: app.bundleID))
+                        Spacer()
+                        Text(verbatim: "\(app.clipCount)")
+                        if search.selectedSourceAppBundleID == app.bundleID {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+                .accessibilityIdentifier("source-app-\(app.bundleID)")
+            }
+        } label: {
+            HStack(spacing: 4) {
+                if let bundleID = search.selectedSourceAppBundleID,
+                    let icon = SourceApp.icon(forBundleID: bundleID)
+                {
+                    Image(nsImage: icon).resizable().frame(width: 12, height: 12)
+                } else {
+                    Image(systemName: "app.dashed").font(.caption2)
+                }
+                if let bundleID = search.selectedSourceAppBundleID {
+                    Text(verbatim: SourceApp.displayName(forBundleID: bundleID))
+                } else {
+                    Text("All apps")
+                }
+            }
+            .font(.caption.weight(search.selectedSourceAppBundleID == nil ? .medium : .semibold))
+            .padding(.horizontal, GanchoTokens.Spacing.xs)
+            .padding(.vertical, 3)
+            .background(
+                search.selectedSourceAppBundleID == nil
+                    ? AnyShapeStyle(.quaternary) : AnyShapeStyle(GanchoTokens.Palette.accent),
+                in: Capsule()
+            )
+            .foregroundStyle(
+                search.selectedSourceAppBundleID == nil
+                    ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.white)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .accessibilityLabel(Text("Filter by app"))
+        .accessibilityIdentifier("source-app-filter")
     }
 
     private func filterPill(_ filter: ClipKindFilter) -> some View {
@@ -1088,6 +1159,7 @@ struct PanelView: View {
                     Button("Clear filters") {
                         search.kindFilter = .all
                         search.selectedBoardID = nil
+                        search.selectedSourceAppBundleID = nil
                     }
                     .buttonStyle(.borderless)
                     .padding(.top, GanchoTokens.Spacing.xxs)

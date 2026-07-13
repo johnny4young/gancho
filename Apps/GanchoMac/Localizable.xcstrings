@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "All apps": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas las apps"
+          }
+        }
+      }
+    },
+    "Filter by app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtrar por aplicación"
+          }
+        }
+      }
+    },
     "Transform": {
       "localizations": {
         "es": {

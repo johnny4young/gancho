@@ -9,10 +9,11 @@ import Foundation
 /// `NSWorkspace`; the pure `fallbackName` — used when the app is not installed
 /// or resolvable, and in tests — derives a readable name from the bundle id.
 public enum SourceApp {
-    /// A readable name derived purely from a bundle id, e.g.
-    /// `com.apple.Terminal` → `Terminal`: the last dot-separated segment,
-    /// capitalized; the whole id when it has no dots.
+    /// A readable name derived purely from a bundle id. Known platform aliases
+    /// use their familiar product name; otherwise the last dot-separated
+    /// segment is capitalized, or the whole id when it has no dots.
     public static func fallbackName(forBundleID bundleID: String) -> String {
+        if bundleID == "com.apple.mobilesafari" { return "Safari" }
         let segment = bundleID.split(separator: ".").last.map(String.init) ?? bundleID
         guard let first = segment.first else { return bundleID }
         return first.uppercased() + segment.dropFirst()

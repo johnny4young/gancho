@@ -60,6 +60,13 @@ final class IOSAppModel {
         get { history.selectedBoardID }
         set { history.selectedBoardID = newValue }
     }
+    /// nil = all apps; otherwise the source-app filter selected in history.
+    var selectedSourceAppBundleID: String? {
+        get { history.selectedSourceAppBundleID }
+        set { history.selectedSourceAppBundleID = newValue }
+    }
+    /// Content-free recent app options and aggregate counts.
+    var sourceApps: [ClipSourceApp] { history.sourceApps }
     var boards: [Pinboard] = []
     /// Set by a widget deep link; `CaptureView` consumes it to push the clip.
     var deepLinkClipID: UUID?
@@ -198,6 +205,7 @@ final class IOSAppModel {
         recordStorageHealthIfNeeded()
         seedSampleClipsIfRequested()
         seedSampleBoardsIfRequested()
+        seedSourceAppsIfRequested()
         telemetry.record(.appLaunched)
         #if DEBUG
             if CommandLine.arguments.contains("-show-telemetry-consent") {
@@ -240,6 +248,38 @@ final class IOSAppModel {
                     name: "Seed board \(index)", sfSymbol: "square.stack")
             }
             await refreshBoards()
+        }
+    }
+
+    /// UI-test hook: seed synthetic source-app rows into a throwaway durable
+    /// store. Both launch arguments are mandatory, so real history is untouched.
+    private func seedSourceAppsIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-seed-source-apps"),
+            ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
+            let full
+        else { return }
+        Task {
+            let entries: [(text: String, app: String, kind: ClipContentKind)] = [
+                ("Safari source alpha", "com.apple.Safari", .text),
+                ("Safari source link", "com.apple.Safari", .url),
+                ("Xcode source sample", "com.apple.dt.Xcode", .code)
+            ]
+            let identifiers = [
+                "00000000-0000-4000-8000-000000000201",
+                "00000000-0000-4000-8000-000000000202",
+                "00000000-0000-4000-8000-000000000203"
+            ]
+            for (index, entry) in entries.enumerated() {
+                guard let id = UUID(uuidString: identifiers[index]) else { return }
+                let item = ClipItem(
+                    id: id,
+                    createdAt: Date(timeIntervalSince1970: 1_800_000_000 + Double(index)),
+                    kind: entry.kind, preview: entry.text,
+                    contentHash: "ios-ui-source-\(index)", sourceAppBundleID: entry.app)
+                _ = try? await full.insert(item, content: .text(entry.text))
+            }
+            await refreshSourceApps()
+            await search()
         }
     }
 
@@ -534,6 +574,8 @@ final class IOSAppModel {
     var visibleClips: [ClipItem] { history.visibleClips }
 
     func search() async { await history.search() }
+
+    func refreshSourceApps() async { await history.refreshSourceApps() }
 
     /// Append the next page as the list nears its end (infinite scroll).
     func loadMoreIfNeeded(_ item: ClipItem) async { await history.loadMoreIfNeeded(item) }

@@ -19,6 +19,8 @@ import Observation
     func boardItems(_ boardID: UUID) async -> [ClipItem]
     /// Ranked full-text search (durable stores only; [] otherwise).
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem]
+    /// Content-free source-app options for the filter menu.
+    func recentSourceApps(limit: Int) async -> [ClipSourceApp]
 }
 
 /// The iOS history list's search + pagination + grouping state, lifted off
@@ -36,6 +38,10 @@ import Observation
     public var kindFilter: ClipContentKind?
     /// nil = "All clips"; otherwise the selected board.
     public var selectedBoardID: UUID?
+    /// nil = all apps; otherwise the source bundle identifier intersected with
+    /// text, type, and board filters.
+    public var selectedSourceAppBundleID: String?
+    public var sourceApps: [ClipSourceApp] = []
 
     var reachedEnd = false
     var isLoadingMore = false
@@ -49,7 +55,9 @@ import Observation
 
     /// The recent list (no query, no board) is the only date-grouped, paginated
     /// view; a board loads whole, search returns ranked results.
-    public var isGroupedView: Bool { query.isEmpty && selectedBoardID == nil }
+    public var isGroupedView: Bool {
+        query.isEmpty && selectedBoardID == nil && selectedSourceAppBundleID == nil
+    }
 
     /// `captures` narrowed by the kind filter — what the list actually shows.
     public var visibleClips: [ClipItem] {
@@ -57,8 +65,15 @@ import Observation
         return captures.filter { $0.kind == kindFilter }
     }
 
+    /// Refreshes the app menu independently from text search so type-to-search
+    /// does not repeat the aggregate metadata query on every keystroke.
+    public func refreshSourceApps() async {
+        sourceApps = await source.recentSourceApps(limit: 8)
+    }
+
     public func search() async {
-        if query.isEmpty {
+        let sourceApp = selectedSourceAppBundleID
+        if query.isEmpty, sourceApp == nil {
             if let board = selectedBoardID, source.isDurable {
                 captures = await source.boardItems(board)
                 reachedEnd = true
@@ -66,10 +81,20 @@ import Observation
                 captures = await loadRecentPage(offset: 0)
                 reachedEnd = captures.count < Self.pageSize
             }
-        } else {
+        } else if source.isDurable {
             let kinds: Set<ClipContentKind>? = kindFilter.map { [$0] }
             captures = await source.search(
-                ClipSearchQuery(text: query, kinds: kinds, boardID: selectedBoardID), limit: 50)
+                ClipSearchQuery(
+                    text: query, kinds: kinds, sourceAppBundleID: sourceApp,
+                    boardID: selectedBoardID),
+                limit: query.isEmpty ? 500 : 50)
+            reachedEnd = true
+        } else {
+            let all = await source.items(offset: 0, limit: 200)
+            captures = all.filter {
+                (query.isEmpty || $0.preview.localizedCaseInsensitiveContains(query))
+                    && (sourceApp == nil || $0.sourceAppBundleID == sourceApp)
+            }
             reachedEnd = true
         }
         rebuildSections()

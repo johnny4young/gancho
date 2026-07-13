@@ -98,6 +98,17 @@ public protocol ClipSearching: Sendable {
     func items(matching rule: SmartCollectionRule, limit: Int) async throws -> [ClipItem]
 }
 
+// MARK: - Source apps
+
+/// Content-free source-app discovery for history filters. Kept separate from
+/// `ClipSearching` so clients that only execute explicit queries do not gain an
+/// unrelated aggregate-enumeration capability.
+public protocol SourceAppProviding: Sendable {
+    /// Recent apps represented in visible history, ordered by their newest
+    /// capture. Returns bundle IDs and aggregate counts only — never content.
+    func recentSourceApps(limit: Int) async throws -> [ClipSourceApp]
+}
+
 // MARK: - Mutating
 
 /// User-initiated writes to the history: capture/insert, deletion (plain and
@@ -336,7 +347,7 @@ public protocol StoreMaintaining: Sendable {
 public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring & ExportProviding
 
 /// The full first-party surface the Mac and iOS app models hold in place of the
-/// concrete `GRDBClipboardStore`: all nine facets composed. App code downcasts
+/// concrete `GRDBClipboardStore`: all ten facets composed. App code downcasts
 /// its `any ClipboardStore` to this ONCE at the composition root
 /// (`store as? any FullClipStore`, nil on the in-memory fallback) and reaches
 /// every capability through it; only engine construction and MCP/sync internals
@@ -345,11 +356,12 @@ public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring 
 /// `ClipboardStore` is intentionally NOT composed in: each of its requirements
 /// (`insert`, `count`, `content(for:)`, `delete`, `items(offset:limit:)`,
 /// `exportJSON`/`exportCSV`) is already restated by one of the facets, so adding
-/// it would only duplicate requirements in the existential. The nine facets have
+/// it would only duplicate requirements in the existential. The ten facets have
 /// no overlapping requirements among themselves, so member access on an
 /// `any FullClipStore` is unambiguous.
 public typealias FullClipStore = ClipReading & ClipSearching & ClipMutating & ClipEnriching
-    & BoardStoring & SnippetStoring & StoreStatsProviding & ExportProviding & StoreMaintaining
+    & SourceAppProviding & BoardStoring & SnippetStoring & StoreStatsProviding & ExportProviding
+    & StoreMaintaining
 
 // MARK: - Production conformances
 
@@ -359,6 +371,7 @@ public typealias FullClipStore = ClipReading & ClipSearching & ClipMutating & Cl
 /// the contract's full production surface is auditable at a glance.
 extension GRDBClipboardStore: ClipReading {}
 extension GRDBClipboardStore: ClipSearching {}
+extension GRDBClipboardStore: SourceAppProviding {}
 extension GRDBClipboardStore: ClipMutating {}
 extension GRDBClipboardStore: ClipEnriching {}
 extension GRDBClipboardStore: BoardStoring {}
