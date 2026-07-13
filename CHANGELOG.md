@@ -17,6 +17,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Give every board a recognizable identity.** User boards can now choose from
+  a fixed accessible color palette and an optional emoji on both Mac and
+  iPhone/iPad. The appearance editor is keyboard- and VoiceOver-friendly,
+  previews changes before saving, and uses the existing durable sync path so
+  the same identity follows the board across devices. Existing boards keep
+  their stable automatic color until customized.
 - **Text transforms that work on every device.** A new "Transform" menu in the
   macOS peek and the iOS clip detail applies pure, deterministic text
   operations — Title Case, collapse spaces, sort/dedupe lines, URL encode and

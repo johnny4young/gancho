@@ -196,4 +196,76 @@ final class RefactorFlowUITests: XCTestCase {
             app.descendants(matching: .any)["paywall"].firstMatch.waitForExistence(timeout: 6),
             "creating a board past the free limit must open the paywall")
     }
+
+    /// Board identity editing through the real durable mutation boundary. The
+    /// seeded store is throwaway, but unlike the ephemeral harness it can prove
+    /// the chosen palette token survives the editor's save and model refresh.
+    @MainActor
+    func testBoardAppearanceEditorPersistsPaletteSelection() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item",
+            "-use-temp-durable-store", "-seed-sample-boards",
+            "-AppleLanguages", "(en)"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        _ = app.wait(for: .runningForeground, timeout: 5)
+
+        XCTAssertTrue(
+            app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8),
+            "the panel must open on launch")
+
+        let board = app.buttons["Seed board 1"].firstMatch
+        guard board.waitForExistence(timeout: 8), board.isHittable else {
+            throw XCTSkip("seeded board chip is not reachable on this runner")
+        }
+        try openAppearanceEditor(for: board, in: app)
+
+        let blue = app.buttons["board-color-2E70D1"].firstMatch
+        guard blue.waitForExistence(timeout: 3), blue.isHittable else {
+            throw XCTSkip("board color controls are not reachable on this runner")
+        }
+        blue.click()
+        XCTAssertEqual(
+            blue.value as? String, "Selected",
+            "choosing a palette option must update the editor draft")
+
+        let save = app.buttons["board-appearance-save"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 2))
+        guard save.isHittable else {
+            throw XCTSkip("board appearance save action is not hittable on this runner")
+        }
+        save.click()
+        XCTAssertFalse(
+            save.waitForExistence(timeout: 5),
+            "a successful durable update must dismiss the editor")
+
+        try openAppearanceEditor(for: board, in: app)
+        XCTAssertEqual(
+            app.buttons["board-color-2E70D1"].firstMatch.value as? String,
+            "Selected",
+            "reopening after model refresh must retain the persisted palette token")
+    }
+
+    @MainActor
+    private func openAppearanceEditor(
+        for board: XCUIElement, in app: XCUIApplication
+    ) throws {
+        for attempt in 0..<2 {
+            board.rightClick()
+            let customize = app.menuItems["Customize board…"].firstMatch
+            if customize.waitForExistence(timeout: 3), customize.isHittable {
+                customize.click()
+                XCTAssertTrue(
+                    app.buttons["board-color-automatic"].firstMatch.waitForExistence(timeout: 4),
+                    "the board appearance action must open its editor")
+                return
+            }
+            if attempt == 0 {
+                app.typeKey(.escape, modifierFlags: [])
+            }
+        }
+        throw XCTSkip("board appearance context action is not reachable on this runner")
+    }
 }

@@ -16,9 +16,7 @@ struct BoardDot: View {
     var size: CGFloat = 12
 
     var body: some View {
-        Circle()
-            .fill(board.isSystem ? GanchoTokens.Palette.warning : BoardColors.color(for: board))
-            .frame(width: size, height: size)
+        BoardIdentityMark(board: board, size: size)
     }
 }
 
@@ -118,8 +116,8 @@ struct MoveToBoardSheet: View {
 /// The boards home — the managed list the rail's quick switcher can't be.
 /// Smart boards (All clips, Favorites) sit above the user's boards, each with
 /// its identity color and live clip count. Tapping a board scopes the history
-/// to it; a board can be created, renamed, or deleted here. Reorder, recolor,
-/// and per-board sharing are deferred (each needs store or sync plumbing).
+/// to it; a board can be created, customized, renamed, or deleted here.
+/// Reordering and per-board sharing remain deliberately deferred.
 struct BoardsHomeView: View {
     @Environment(IOSAppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -129,6 +127,7 @@ struct BoardsHomeView: View {
     @State private var newBoardName = ""
     @State private var renameTarget: Pinboard?
     @State private var renameField = ""
+    @State private var appearanceTarget: Pinboard?
 
     private var systemBoards: [Pinboard] { model.boards.filter(\.isSystem) }
     private var userBoards: [Pinboard] { model.boards.filter { !$0.isSystem } }
@@ -180,6 +179,12 @@ struct BoardsHomeView: View {
                     if let renameTarget { model.renameBoard(renameTarget, name: renameField) }
                 }
             }
+            .sheet(item: $appearanceTarget) { board in
+                BoardIdentityEditor(board: board) { colorHex, emoji in
+                    await model.updateBoardIdentity(
+                        board, colorHex: colorHex, emoji: emoji)
+                }
+            }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
@@ -219,12 +224,23 @@ struct BoardsHomeView: View {
                     Label("Rename", systemImage: "pencil")
                 }
                 .tint(.blue)
+                Button {
+                    appearanceTarget = currentBoard(board)
+                } label: {
+                    Label("Appearance", systemImage: "paintpalette")
+                }
+                .tint(.indigo)
             }
         }
     }
 
     @ViewBuilder
     private func boardActions(_ board: Pinboard) -> some View {
+        Button {
+            appearanceTarget = currentBoard(board)
+        } label: {
+            Label("Customize board", systemImage: "paintpalette")
+        }
         Button {
             renameField = board.name
             renameTarget = board
@@ -236,6 +252,10 @@ struct BoardsHomeView: View {
         } label: {
             Label("Delete board", systemImage: "trash")
         }
+    }
+
+    private func currentBoard(_ board: Pinboard) -> Pinboard {
+        model.boards.first { $0.id == board.id } ?? board
     }
 
     private func boardLabel(

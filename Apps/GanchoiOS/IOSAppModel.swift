@@ -192,6 +192,7 @@ final class IOSAppModel {
         // refresh an open screen.
         recordStorageHealthIfNeeded()
         seedSampleClipsIfRequested()
+        seedSampleBoardsIfRequested()
         telemetry.record(.appLaunched)
         #if DEBUG
             if CommandLine.arguments.contains("-show-telemetry-consent") {
@@ -217,6 +218,23 @@ final class IOSAppModel {
             ] {
                 await ingest(capture)
             }
+        }
+    }
+
+    /// UI-test hook: seed known boards into a throwaway SQLite store so the
+    /// appearance flow exercises the real durable write and refresh path. Both
+    /// arguments are required; a normal launch can never touch user storage.
+    private func seedSampleBoardsIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-seed-sample-boards"),
+            ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
+            let full
+        else { return }
+        Task {
+            for index in 1...PinLimits.freeMaxPinboards {
+                _ = try? await full.createPinboard(
+                    name: "Seed board \(index)", sfSymbol: "square.stack")
+            }
+            await refreshBoards()
         }
     }
 
@@ -473,17 +491,17 @@ final class IOSAppModel {
         }
     }
 
-    func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) {
-        guard let full else { return }
-        Task {
-            let outcome = await BoardsController().updateBoardIdentity(
-                board, colorHex: colorHex, emoji: emoji, store: full,
-                engine: syncController.engine)
-            if outcome == .failed {
-                recordBoardFailure("Couldn’t update the board appearance.")
-            }
-            await refreshBoards()
+    @discardableResult
+    func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) async -> Bool {
+        guard let full else { return false }
+        let outcome = await BoardsController().updateBoardIdentity(
+            board, colorHex: colorHex, emoji: emoji, store: full,
+            engine: syncController.engine)
+        if outcome == .failed {
+            recordBoardFailure("Couldn’t update the board appearance.")
         }
+        await refreshBoards()
+        return outcome != .failed
     }
 
     /// Delete a user board. When sync is on, tombstone it so the removal reaches
@@ -639,6 +657,17 @@ final class IOSAppModel {
         // saved" path (and its diagnostics entry) is drivable by a UI test.
         if ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store") {
             return InMemoryClipboardStore()
+        }
+        // A unique SQLite store gives UI tests durable GRDB semantics without
+        // opening the simulator user's App Group database or Keychain.
+        if ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store") {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+                "gancho-ios-uitest-store-\(UUID().uuidString)", isDirectory: true)
+            try? FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true)
+            return
+                (try? GRDBClipboardStore(directory: directory))
+                ?? InMemoryClipboardStore()
         }
         let directory = SharedStorageLocation.storeDirectory(
             appGroupID: SharedInbox.appGroupID)

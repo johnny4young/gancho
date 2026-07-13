@@ -2871,6 +2871,306 @@
           }
         }
       }
+    },
+    "Blue": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Azul"
+          }
+        }
+      }
+    },
+    "Orange": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naranja"
+          }
+        }
+      }
+    },
+    "Teal": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verde azulado"
+          }
+        }
+      }
+    },
+    "Pink": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rosa"
+          }
+        }
+      }
+    },
+    "Purple": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Morado"
+          }
+        }
+      }
+    },
+    "Brown": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marrón"
+          }
+        }
+      }
+    },
+    "Briefcase": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maletín"
+          }
+        }
+      }
+    },
+    "Books": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libros"
+          }
+        }
+      }
+    },
+    "Art": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arte"
+          }
+        }
+      }
+    },
+    "Travel": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Viajes"
+          }
+        }
+      }
+    },
+    "Home": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hogar"
+          }
+        }
+      }
+    },
+    "Idea": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idea"
+          }
+        }
+      }
+    },
+    "Heart": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corazón"
+          }
+        }
+      }
+    },
+    "Star": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estrella"
+          }
+        }
+      }
+    },
+    "Rocket": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cohete"
+          }
+        }
+      }
+    },
+    "Shopping": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compras"
+          }
+        }
+      }
+    },
+    "Board appearance": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apariencia del tablero"
+          }
+        }
+      }
+    },
+    "Couldn’t save changes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron guardar los cambios"
+          }
+        }
+      }
+    },
+    "Your board is unchanged. Try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu tablero no cambió. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Preview": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista previa"
+          }
+        }
+      }
+    },
+    "Automatic": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automático"
+          }
+        }
+      }
+    },
+    "Automatic stays stable for this board. Custom colors sync across your devices.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automático se mantiene estable para este tablero. Los colores personalizados se sincronizan entre tus dispositivos."
+          }
+        }
+      }
+    },
+    "Emoji": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emoji"
+          }
+        }
+      }
+    },
+    "Emoji adds a second visual cue and never replaces the board name.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El emoji agrega una segunda señal visual y nunca reemplaza el nombre del tablero."
+          }
+        }
+      }
+    },
+    "None": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ninguno"
+          }
+        }
+      }
+    },
+    "Selected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seleccionado"
+          }
+        }
+      }
+    },
+    "Not selected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No seleccionado"
+          }
+        }
+      }
+    },
+    "Customize board…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personalizar tablero…"
+          }
+        }
+      }
+    },
+    "Customize board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personalizar tablero"
+          }
+        }
+      }
+    },
+    "Appearance": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apariencia"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

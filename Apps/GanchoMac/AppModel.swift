@@ -1285,17 +1285,17 @@ final class AppModel {
         }
     }
 
-    func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) {
-        guard let grdbStore else { return }
-        Task {
-            let outcome = await BoardsController().updateBoardIdentity(
-                board, colorHex: colorHex, emoji: emoji, store: grdbStore,
-                engine: syncController.engine)
-            if outcome == .failed {
-                recordBoardFailure("Couldn’t update the board appearance.")
-            }
-            await refreshBoards()
+    @discardableResult
+    func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) async -> Bool {
+        guard let grdbStore else { return false }
+        let outcome = await BoardsController().updateBoardIdentity(
+            board, colorHex: colorHex, emoji: emoji, store: grdbStore,
+            engine: syncController.engine)
+        if outcome == .failed {
+            recordBoardFailure("Couldn’t update the board appearance.")
         }
+        await refreshBoards()
+        return outcome != .failed
     }
 
     func deleteBoard(_ board: Pinboard) {

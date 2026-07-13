@@ -12,6 +12,7 @@ import WidgetKit
 enum CaptureSheet: Identifiable {
     case settings
     case boards
+    case boardAppearance(Pinboard)
     case peek(ClipItem)
     case move(ClipItem)
     case pro
@@ -20,6 +21,7 @@ enum CaptureSheet: Identifiable {
         switch self {
         case .settings: "settings"
         case .boards: "boards"
+        case .boardAppearance(let board): "board-appearance-\(board.id.uuidString)"
         case .peek(let clip): "peek-\(clip.id)"
         case .move(let clip): "move-\(clip.id)"
         case .pro: "pro"
@@ -122,6 +124,11 @@ struct CaptureView: View {
                     switch sheet {
                     case .settings: IOSSettingsView()
                     case .boards: BoardsHomeView()
+                    case .boardAppearance(let board):
+                        BoardIdentityEditor(board: board) { colorHex, emoji in
+                            await model.updateBoardIdentity(
+                                board, colorHex: colorHex, emoji: emoji)
+                        }
                     case .peek(let clip):
                         // Wrap the peek in its own NavigationStack so it gets a
                         // titled bar + an explicit Done button (the codebase
@@ -403,12 +410,16 @@ struct CaptureView: View {
                         board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
                         systemImage: board.sfSymbol,
                         isActive: model.selectedBoardID == board.id,
-                        dotColor: board.isSystem ? nil : BoardColors.color(for: board)
+                        board: board
                     ) {
                         select(board: board.id)
                     }
                     .contextMenu {
                         if !board.isSystem {
+                            Button("Customize board…") {
+                                let current = model.boards.first { $0.id == board.id } ?? board
+                                activeSheet = .boardAppearance(current)
+                            }
                             Button("Rename board…") {
                                 renameField = board.name
                                 renameTarget = board
@@ -440,13 +451,15 @@ struct CaptureView: View {
     }
 
     private func railChip(
-        _ label: Text, systemImage: String, isActive: Bool, dotColor: Color? = nil,
+        _ label: Text, systemImage: String, isActive: Bool, board: Pinboard? = nil,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 5) {
-                if let dotColor, !isActive {
-                    Circle().fill(dotColor).frame(width: 8, height: 8)
+                if isActive {
+                    Image(systemName: "checkmark").font(.caption)
+                } else if let board {
+                    BoardIdentityMark(board: board, size: 10)
                 } else {
                     Image(systemName: systemImage).font(.caption)
                 }
