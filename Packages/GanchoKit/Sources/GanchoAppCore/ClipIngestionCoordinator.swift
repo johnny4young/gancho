@@ -111,8 +111,15 @@ public struct ClipIngestionCoordinator: Sendable {
     }
 
     /// Runs the planned on-device work and pushes its persisted fruits through
-    /// sync. `syncEngine` is nil when sync is disabled; embeddings remain local
-    /// because they are not part of `ClipItem`'s transport representation.
+    /// sync. `syncEngine` is nil when sync is disabled.
+    ///
+    /// The follow-up enqueue only fires for stages that write a SYNCED column:
+    /// the title (including the macOS free-title taste) and OCR both set
+    /// `needsUpload`. Embeddings live in `clip_embedding` and are not part of
+    /// `ClipItem`'s transport representation, so an embedding-only enrichment
+    /// must not schedule a CloudKit upload — otherwise the enqueue's
+    /// `markNeedsUpload` would re-upload a clip whose synced content never
+    /// changed.
     public func enrich(
         _ outcome: Outcome,
         store: any ClipEnriching,
@@ -127,7 +134,9 @@ public struct ClipIngestionCoordinator: Sendable {
             writeTitle: outcome.enrichment.writesTitle,
             store: store,
             onTitleWritten: onTitleWritten)
-        if let syncEngine {
+        let wroteSyncedField =
+            outcome.enrichment.writesTitle || outcome.enrichment.plan.runs(.ocr)
+        if wroteSyncedField, let syncEngine {
             await syncEngine.enqueue([outcome.item])
         }
     }

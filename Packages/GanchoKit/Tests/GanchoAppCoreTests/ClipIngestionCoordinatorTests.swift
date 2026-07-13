@@ -190,6 +190,41 @@ struct ClipIngestionCoordinatorTests {
         #expect(await sync.enqueuedItems.count == 2)
         #expect(await sync.enqueuedItems.last == [outcome.item])
     }
+
+    @Test("Embedding-only enrichment never schedules a second sync upload")
+    func embeddingOnlyDoesNotReenqueue() async throws {
+        let store = IngestionStoreSpy()
+        let sync = IngestionSyncSpy()
+        // A text clip that already carries a title: intelligent titles are on
+        // but skipped (hasTitle), leaving embedding as the only planned stage.
+        await store.setReturnedItem(
+            ClipItem(kind: .text, title: "already titled", preview: "body"))
+        let preferences = IntelligencePreferences(
+            intelligentTitles: true,
+            semanticSearch: true,
+            searchableScreenshots: false)
+        let outcome = try await coordinator.ingest(
+            PasteboardCapture(text: "body"),
+            configuration: configuration(tier: .pro, intelligence: preferences),
+            store: store,
+            syncEngine: sync)
+
+        // Only the embedding stage is planned, and it writes solely to the
+        // local clip_embedding table.
+        #expect(outcome.enrichment.plan.runs(.embedding))
+        #expect(!outcome.enrichment.plan.runs(.title))
+        #expect(!outcome.enrichment.writesTitle)
+
+        await coordinator.enrich(
+            outcome,
+            store: store,
+            syncEngine: sync,
+            onTitleWritten: {})
+
+        // The initial capture enqueue stands; the embedding-only enrichment
+        // must NOT add a second upload (embeddings never sync).
+        #expect(await sync.enqueuedItems == [[outcome.item]])
+    }
 }
 
 extension IngestionStoreSpy {

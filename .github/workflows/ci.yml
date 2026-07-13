@@ -64,9 +64,12 @@ jobs:
             2>&1 | tee build/package-test.log
           ./scripts/check-build-warnings.sh build/package-test.log
 
-      # Evidence from the three preceding successful main runs: 83.7%, 83.6%,
-      # and 83.6%. The 80% floor keeps at least 3.6 percentage points of
-      # headroom. Raise it as the suite grows; never lower it to pass a PR.
+      # The gate scopes to production sources (everything under Sources/,
+      # including the CloudKit adapter and the SwiftUI board editors that unit
+      # tests reach only partially), which measures ~80.5% on this branch — so
+      # the 80% floor sits just below current coverage, not the wider margin the
+      # old all-Sources metric reported. Raise it as the suite grows; never
+      # lower it to pass a PR.
       - name: Coverage gate (production sources >=80%)
         env:
           COVERAGE_FLOOR: "80"
