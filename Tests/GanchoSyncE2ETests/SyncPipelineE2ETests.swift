@@ -39,7 +39,7 @@ struct SyncPipelineE2ETests {
             let state = dir.appendingPathComponent("engine-state.plist")
             adapter = CKSyncEngineAdapter(
                 store: store,
-                containerIdentifier: SyncEnablement.defaultContainerIdentifier,
+                containerIdentifier: CloudKitEntitlements.defaultContainerIdentifier,
                 stateStore: .file(at: state),
                 pollStateStore: .file(at: state.appendingPathExtension("poll")))
         }
