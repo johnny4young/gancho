@@ -21,6 +21,26 @@ struct BoardIdentityTests {
         #expect(BoardIdentityColor.canonicalToken(nil) == nil)
     }
 
+    @Test("Every picker token has presentation metadata")
+    func presentationMetadataIsComplete() throws {
+        let colorOptions = BoardIdentityColor.allCases
+        let emojiOptions = BoardIdentityEmoji.allCases
+
+        #expect(colorOptions.map(\.id) == colorOptions.map(\.rawValue))
+        #expect(emojiOptions.map(\.id) == emojiOptions.map(\.rawValue))
+        #expect(colorOptions.map { String(describing: $0.color) }.allSatisfy { !$0.isEmpty })
+        #expect(colorOptions.map { String(describing: $0.name) }.allSatisfy { !$0.isEmpty })
+        #expect(emojiOptions.map { String(describing: $0.name) }.allSatisfy { !$0.isEmpty })
+
+        let userID = try #require(UUID(uuidString: "05000000-0000-4000-A000-000000000002"))
+        let favorite = Pinboard(id: Pinboard.favoritesID, name: "Favorites", isSystem: true)
+        let user = Pinboard(id: userID, name: "Work", colorHex: BoardIdentityColor.blue.rawValue)
+        let effectiveColors = [favorite, user].map {
+            String(describing: BoardColors.color(for: $0))
+        }
+        #expect(effectiveColors.allSatisfy { !$0.isEmpty })
+    }
+
     @Test("A valid override wins over the board's automatic color")
     func persistedColorWins() throws {
         let id = try #require(UUID(uuidString: "05000000-0000-4000-A000-000000000001"))
