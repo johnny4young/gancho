@@ -56,10 +56,10 @@ App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/
   └─ GanchoAppCore: the testable app logic both shells share and forward to —
        PanelSearchModel + PanelNavigation (macOS panel), HistoryListViewModel (iOS
        list), SyncController, ClipIngestionCoordinator, CaptureLifecycleController
-       (macOS), ReuseController, BoardsController, EnrichmentService,
-       DeletionCoordinator, BoardSuggestionService, ClipItemFactory. Store access
-       is facet-typed, so each unit runs against an in-memory fake in
-       GanchoAppCoreTests.
+       (macOS), ReuseController, ClipCurationController, BoardsController,
+       EnrichmentService, DeletionCoordinator, BoardSuggestionService,
+       ClipItemFactory. Store access is facet-typed, so each unit runs against an
+       in-memory fake in GanchoAppCoreTests.
 
 Persistence and sync implementations
   ├─ GRDB / SQLite / FTS5 local store with content-addressed disk blobs
@@ -94,6 +94,12 @@ paste-stack ordering, and the reversible-delete window. The macOS `AppModel`
 keeps AppKit paste-back, toasts, telemetry, helper publishing, and the concrete
 sync-aware deletion mutation, while exposing facade properties so views do not
 couple themselves to controller composition.
+
+`ClipCurationController` gives macOS and iOS one policy and mutation sequence
+for pinning and promoting snippets. It returns content-free outcomes after the
+free-tier gate and durable write, and enqueues successful pin changes. Each
+shell maps those outcomes to its own paywall, diagnostics, confirmation, and
+list refresh; failed writes never produce success feedback.
 
 ## Platform contracts
 

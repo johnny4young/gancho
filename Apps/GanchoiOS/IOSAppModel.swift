@@ -360,17 +360,20 @@ final class IOSAppModel {
     }
 
     /// Promote a clip to a reusable snippet — the peek's "Save as snippet".
-    /// Honors the free-tier snippet limit and surfaces a note either way.
+    /// Honors the shared free-tier gate and only confirms a durable write.
     func saveAsSnippet(_ item: ClipItem) async {
         guard let full else { return }
-        let count = (try? await full.snippetCount()) ?? 0
-        guard SnippetLimits.canPromote(currentSnippetCount: count, isPro: tier == .pro) else {
-            flashNote(String(localized: "Upgrade to Pro for more snippets"))
-            return
+        switch await curationController.promoteToSnippet(item, tier: tier, store: full) {
+        case .promoted:
+            flashNote(String(localized: "Saved as snippet"))
+            await search()
+        case .freeLimitReached:
+            proGateTick += 1
+        case .clipUnavailable:
+            await search()
+        case .failed:
+            diagnostics.record("Snippets", "Couldn’t save the snippet.")
         }
-        try? await full.promoteToSnippet(id: item.id, title: nil)
-        flashNote(String(localized: "Saved as snippet"))
-        await search()
     }
 
     /// Creates a board and queues its metadata for sync, so it shows up on the
@@ -576,12 +579,16 @@ final class IOSAppModel {
 
     func togglePin(_ item: ClipItem) async {
         guard let full else { return }
-        try? await full.setPinned(id: item.id, !item.isPinned)
-        // setPinned flagged the row for upload; enqueue pushes it now instead
-        // of at the next sync start(). The engine builds the record from the
-        // stored row, so only the id matters here.
-        await syncController.engine.enqueue([item])
-        await search()
+        switch await curationController.togglePin(
+            item, tier: tier, store: full, engine: syncController.engine)
+        {
+        case .pinned, .unpinned, .alreadyPinned, .alreadyUnpinned, .clipUnavailable:
+            await search()
+        case .freeLimitReached:
+            proGateTick += 1
+        case .failed:
+            diagnostics.record("Pins", "Couldn’t update the pin.")
+        }
     }
 
     func delete(_ item: ClipItem) async {
@@ -596,6 +603,7 @@ final class IOSAppModel {
     }
 
     private let source = IntentionalPasteboardSource()
+    private let curationController = ClipCurationController()
     private let ingestionCoordinator = ClipIngestionCoordinator()
     /// Durable store in the App Group container (shared family location);
     /// in-memory fallback keeps the app usable if the container is missing.

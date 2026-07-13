@@ -143,6 +143,7 @@ final class AppModel {
         }
     #endif
 
+    private let curationController = ClipCurationController()
     private let ingestionCoordinator = ClipIngestionCoordinator()
     private let defaults: UserDefaults
     private var retentionTimer: Timer?
@@ -1161,27 +1162,23 @@ final class AppModel {
     func togglePin(_ item: ClipItem) {
         guard let grdbStore else { return }
         Task {
-            // Free-tier ceiling; the paywall UX lands with monetization.
-            if !item.isPinned {
-                let count = (try? await grdbStore.pinnedCount()) ?? 0
-                guard PinLimits.canPin(currentPinCount: count, isPro: tier == .pro) else {
-                    paywallWindow.show(trigger: .freeLimitReached, model: self)
-                    return
-                }
+            switch await curationController.togglePin(
+                item, tier: tier, store: grdbStore, engine: syncController.engine)
+            {
+            case .pinned:
+                toasts.show(GanchoToast(message: "Pinned"))
+                await refreshRecents()
+            case .unpinned:
+                toasts.show(GanchoToast(message: "Unpinned"))
+                await refreshRecents()
+            case .alreadyPinned, .alreadyUnpinned, .clipUnavailable:
+                // Reconcile a stale row snapshot without claiming a mutation.
+                await refreshRecents()
+            case .freeLimitReached:
+                paywallWindow.show(trigger: .freeLimitReached, model: self)
+            case .failed:
+                diagnostics.record("Pins", "Couldn’t update the pin.")
             }
-            guard
-                await withDiagnostics(
-                    "Pins", "Couldn’t update the pin.",
-                    {
-                        _ = try await grdbStore.setPinned(id: item.id, !item.isPinned)
-                    })
-            else { return }
-            // setPinned flagged the row for upload; enqueue pushes it now
-            // instead of at the next sync start(). The engine builds the
-            // record from the stored row, so only the id matters here.
-            await syncController.engine.enqueue([item])
-            toasts.show(GanchoToast(message: item.isPinned ? "Unpinned" : "Pinned"))
-            await refreshRecents()
         }
     }
 
@@ -1189,21 +1186,19 @@ final class AppModel {
     func promoteToSnippet(_ item: ClipItem) {
         guard let grdbStore else { return }
         Task {
-            let count = (try? await grdbStore.snippetCount()) ?? 0
-            guard SnippetLimits.canPromote(currentSnippetCount: count, isPro: tier == .pro)
-            else {
+            switch await curationController.promoteToSnippet(
+                item, tier: tier, store: grdbStore)
+            {
+            case .promoted:
+                toasts.show(GanchoToast(message: "Saved as snippet"))
+                await refreshRecents()
+            case .freeLimitReached:
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
-                return
+            case .clipUnavailable:
+                await refreshRecents()
+            case .failed:
+                diagnostics.record("Snippets", "Couldn’t save the snippet.")
             }
-            guard
-                await withDiagnostics(
-                    "Snippets", "Couldn’t save the snippet.",
-                    {
-                        _ = try await grdbStore.promoteToSnippet(id: item.id, title: nil)
-                    })
-            else { return }
-            toasts.show(GanchoToast(message: "Saved as snippet"))
-            await refreshRecents()
         }
     }
 

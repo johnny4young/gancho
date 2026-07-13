@@ -53,6 +53,14 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   the clip into it, Esc to close. **⇧⌘B** repeats the last board you used, so
   curating many clips into one board is a keystroke each.
 
+### Fixed
+
+- **Curation limits and confirmations now agree across devices.** Pinning on
+  iPhone and iPad now honors the same 15-pin free-tier limit as Mac and
+  Shortcuts. Saving a snippet only shows success after the database write
+  succeeds; failed pin or snippet writes are recorded as content-free
+  diagnostics instead of being presented as successful actions.
+
 ## [0.5.0] - 2026-07-08
 
 ### Fixed
