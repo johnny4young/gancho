@@ -5,6 +5,9 @@ import GRDB
 /// includes 20 snippets).
 public enum SnippetLimits {
     public static let freeMaxSnippets = 20
+    /// The first point where repeated use has proven enough value to offer
+    /// permanent curation. Equality, rather than `>=`, makes the nudge one-shot.
+    public static let promotionSuggestionUseThreshold = 3
 
     public static func canPromote(currentSnippetCount: Int, isPro: Bool) -> Bool {
         isPro || currentSnippetCount < freeMaxSnippets
@@ -152,6 +155,29 @@ extension GRDBClipboardStore {
             try db.execute(
                 sql: "UPDATE clip SET uses = uses + 1, lastUsedAt = ? WHERE id = ?",
                 arguments: [now, id.uuidString])
+        }
+    }
+
+    /// Records one successful reuse and resolves a one-shot promotion candidate
+    /// in the same write transaction. The query returns metadata only; content
+    /// is neither loaded nor logged. Exact equality means dismissing the nudge
+    /// needs no persistent flag — the next use advances past the threshold.
+    @discardableResult
+    public func recordUseAndSnippetSuggestion(
+        id: UUID, now: Date = .now,
+        requiredUses: Int = SnippetLimits.promotionSuggestionUseThreshold
+    ) async throws -> ClipItem? {
+        try await writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET uses = uses + 1, lastUsedAt = ? WHERE id = ?",
+                arguments: [now, id.uuidString])
+            return try ClipRow.filter(
+                sql: """
+                    id = ? AND uses = ? AND isSnippet = 0
+                    AND isSensitive = 0 AND isArchived = 0
+                    """,
+                arguments: [id.uuidString, requiredUses]
+            ).fetchOne(db)?.item
         }
     }
 

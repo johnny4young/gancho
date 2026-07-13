@@ -10,11 +10,13 @@ import SwiftUI
 struct GanchoToast {
     enum Style {
         case success
+        case suggestion
         case warning
 
         var symbol: String {
             switch self {
             case .success: "checkmark.circle.fill"
+            case .suggestion: "sparkles"
             case .warning: "exclamationmark.triangle.fill"
             }
         }
@@ -22,6 +24,7 @@ struct GanchoToast {
         var tint: Color {
             switch self {
             case .success: GanchoTokens.Palette.success
+            case .suggestion: GanchoTokens.Palette.accent
             case .warning: GanchoTokens.Palette.warning
             }
         }
@@ -93,7 +96,10 @@ final class ToastPresenter {
         let duration = duration ?? (toast.action != nil ? .seconds(6) : .seconds(2.4))
         let host = NSHostingView(
             rootView: ToastView(toast: toast, onDismiss: { [weak self] in self?.dismiss() })
-                .frame(maxWidth: 360))
+                .frame(width: 360)
+                // Keep width available for wrapping, but collapse the hosting
+                // view's otherwise flexible height to the toast's ideal height.
+                .fixedSize(horizontal: false, vertical: true))
         host.layout()
         let size = host.fittingSize
 

@@ -89,9 +89,14 @@ capture-preference persistence, and the periodic screen-share auto-pause check.
 as monitor construction, denylist callbacks, windows, and presentation effects.
 
 `ReuseController` owns the reusable session state that follows successful user
-actions: the recent metadata page, local use/search signals, cyclic selection,
-paste-stack ordering, and the reversible-delete window. The macOS `AppModel`
-keeps AppKit paste-back, toasts, telemetry, helper publishing, and the concrete
+actions: the recent metadata page, local use/search signals, exact-threshold
+snippet candidates, cyclic selection, paste-stack ordering, and the
+reversible-delete window. The candidate is resolved atomically with the third
+successful use and excludes sensitive, archived, and existing-snippet rows;
+exact equality makes dismissal one-shot without another persistence flag. The
+platform shells keep presentation and give a confident board suggestion
+priority so curation prompts never compete. The macOS `AppModel` also keeps
+AppKit paste-back, toasts, telemetry, helper publishing, and the concrete
 sync-aware deletion mutation, while exposing facade properties so views do not
 couple themselves to controller composition.
 
@@ -120,7 +125,7 @@ diagnostic, paywall, and toast behavior.
 
 ## Frozen client contract
 
-The store is not one wide class to everyone. `Packages/GanchoKit/Sources/GanchoKit/ClientContract.swift` splits it into ten capability **facets** — `ClipReading`, `ClipSearching`, `SourceAppProviding`, `ClipMutating`, `ClipEnriching`, `BoardStoring`, `SnippetStoring`, `StoreStatsProviding`, `ExportProviding`, `StoreMaintaining` — plus two compositions: `GanchoClientStore` (the read/search/board/export surface a third-party or cross-target client may depend on) and `FullClipStore` (everything the first-party apps hold, including content-free source-app discovery). Feature code takes the narrowest facet it needs; only the composition root sees the concrete `GRDBClipboardStore`.
+The store is not one wide class to everyone. `Packages/GanchoKit/Sources/GanchoKit/ClientContract.swift` splits it into eleven capability **facets** — `ClipReading`, `ClipSearching`, `SourceAppProviding`, `ClipMutating`, `ReuseSuggestionProviding`, `ClipEnriching`, `BoardStoring`, `SnippetStoring`, `StoreStatsProviding`, `ExportProviding`, `StoreMaintaining` — plus two compositions: `GanchoClientStore` (the read/search/board/export surface a third-party or cross-target client may depend on) and `FullClipStore` (everything the first-party apps hold, including content-free source-app discovery and atomic local reuse suggestions). Feature code takes the narrowest facet it needs; only the composition root sees the concrete `GRDBClipboardStore`.
 
 That surface is **frozen**: it is the supported API, so changes to it are deliberate, documented, and reviewed. GRDB-shaped members that are not facet witnesses (`migrate()`, `thumbnailURL(for:)`) live behind `@_spi(GanchoInternal)` so they stay off the ambient app-facing and external surface; the few internal call sites (tests, the perf harness) opt in with `@_spi(GanchoInternal) import GanchoKit`. `ContractFreezeTests` enforces this in CI: every frozen facet stays declared, every requirement stays documented, and the SPI-gated members stay gated.
 

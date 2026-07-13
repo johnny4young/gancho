@@ -2102,12 +2102,32 @@
         }
       }
     },
+    "Save": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar"
+          }
+        }
+      }
+    },
     "Save as snippet": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Guardar como snippet"
+          }
+        }
+      }
+    },
+    "Used 3 times — save as a snippet?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo usaste 3 veces. ¿Guardarlo como snippet?"
           }
         }
       }

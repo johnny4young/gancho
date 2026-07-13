@@ -44,6 +44,9 @@ final class IOSAppModel {
     /// Transient feedback ("Saved" / "Already in your history").
     var saveNote: String?
     @ObservationIgnored private var saveNoteTask: Task<Void, Never>?
+    /// One non-modal curation action produced at the exact third successful use.
+    /// Metadata only; exact-threshold dismissal needs no persisted state.
+    var reuseSuggestion: ReuseSuggestion?
     /// Search field text — see `HistoryListViewModel.query`.
     var query: String {
         get { history.query }
@@ -206,6 +209,7 @@ final class IOSAppModel {
         seedSampleClipsIfRequested()
         seedSampleBoardsIfRequested()
         seedSourceAppsIfRequested()
+        seedReuseSuggestionIfRequested()
         telemetry.record(.appLaunched)
         #if DEBUG
             if CommandLine.arguments.contains("-show-telemetry-consent") {
@@ -279,6 +283,24 @@ final class IOSAppModel {
                 _ = try? await full.insert(item, content: .text(entry.text))
             }
             await refreshSourceApps()
+            await search()
+        }
+    }
+
+    /// UI-test hook: seed one synthetic clip at two uses so the next Copy drives
+    /// the real atomic threshold and banner. Both arguments are mandatory; a
+    /// normal launch can never touch durable user history.
+    private func seedReuseSuggestionIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-seed-reuse-suggestion"),
+            ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
+            let full,
+            let id = UUID(uuidString: "00000000-0000-4000-8000-000000000204")
+        else { return }
+        Task {
+            let item = ClipItem(
+                id: id, preview: "Reusable standup update",
+                contentHash: "ios-ui-reuse-suggestion", uses: 2)
+            _ = try? await full.insert(item, content: .text("Reusable standup update"))
             await search()
         }
     }
@@ -432,8 +454,10 @@ final class IOSAppModel {
         guard let full else { return }
         switch await curationController.promoteToSnippet(item, tier: tier, store: full) {
         case .promoted:
-            flashNote(String(localized: "Saved as snippet"))
             await search()
+            // Refresh first so the two-second confirmation remains visible
+            // after the durable mutation has settled and the UI is idle.
+            flashNote(String(localized: "Saved as snippet"))
         case .freeLimitReached:
             proGateTick += 1
         case .clipUnavailable:
@@ -605,12 +629,42 @@ final class IOSAppModel {
         }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         // Frecency signal: iOS's "use" is the Copy tap (there's no paste-back).
-        // Local only — recordUse never flags a re-upload.
-        try? await full?.recordUse(id: item.id, now: .now)
+        // The atomic return contains metadata only and never flags a re-upload.
+        let suggestion = try? await full?.recordUseAndSnippetSuggestion(
+            id: item.id, now: .now,
+            requiredUses: SnippetLimits.promotionSuggestionUseThreshold)
         // Copying a clip is the truest "ready to paste" moment — it's on the
         // pasteboard now — so surface it on the Live Activity too.
         clipActivity.show(item, sync: ClipSyncBadge(syncStatus))
         requestTelemetryConsentAfterFirstValue()
+        if let suggestion { await presentReuseSuggestion(suggestion) }
+    }
+
+    /// Resolves the one curation prompt for this use. Auto-board keeps priority
+    /// so the copy moment never stacks a board prompt and a snippet prompt.
+    private func presentReuseSuggestion(_ item: ClipItem) async {
+        let destination: ReuseSuggestion.Destination
+        if let board = await suggestedBoard(for: item) {
+            destination = .board(board)
+        } else {
+            destination = .snippet
+        }
+        reuseSuggestion = ReuseSuggestion(item: item, destination: destination)
+    }
+
+    func dismissReuseSuggestion() {
+        reuseSuggestion = nil
+    }
+
+    func acceptReuseSuggestion() async {
+        guard let suggestion = reuseSuggestion else { return }
+        reuseSuggestion = nil
+        switch suggestion.destination {
+        case .board(let board):
+            _ = await setBoardMembership(suggestion.item, board: board, member: true)
+        case .snippet:
+            await saveAsSnippet(suggestion.item)
+        }
     }
 
     // MARK: - Smart paste (deterministic + on-device Apple Intelligence)

@@ -149,6 +149,21 @@ public protocol ClipMutating: Sendable {
     func recordUse(id: UUID, now: Date) async throws
 }
 
+// MARK: - Reuse suggestions
+
+/// The atomic local signal that turns demonstrated reuse into an optional
+/// curation suggestion. Kept separate from `ClipMutating`: callers that only
+/// need the nudge cannot delete, pin, or rewrite clipboard history.
+public protocol ReuseSuggestionProviding: Sendable {
+    /// Records one successful reuse and returns the clip only when the updated
+    /// counter equals `requiredUses` and the row is eligible for promotion.
+    /// Sensitive, archived, and existing-snippet rows always return nil.
+    @discardableResult
+    func recordUseAndSnippetSuggestion(
+        id: UUID, now: Date, requiredUses: Int
+    ) async throws -> ClipItem?
+}
+
 // MARK: - Enriching
 
 /// Post-capture enrichment writes: titles, OCR text, content edits, and
@@ -347,7 +362,7 @@ public protocol StoreMaintaining: Sendable {
 public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring & ExportProviding
 
 /// The full first-party surface the Mac and iOS app models hold in place of the
-/// concrete `GRDBClipboardStore`: all ten facets composed. App code downcasts
+/// concrete `GRDBClipboardStore`: all eleven facets composed. App code downcasts
 /// its `any ClipboardStore` to this ONCE at the composition root
 /// (`store as? any FullClipStore`, nil on the in-memory fallback) and reaches
 /// every capability through it; only engine construction and MCP/sync internals
@@ -356,12 +371,12 @@ public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring 
 /// `ClipboardStore` is intentionally NOT composed in: each of its requirements
 /// (`insert`, `count`, `content(for:)`, `delete`, `items(offset:limit:)`,
 /// `exportJSON`/`exportCSV`) is already restated by one of the facets, so adding
-/// it would only duplicate requirements in the existential. The ten facets have
+/// it would only duplicate requirements in the existential. The eleven facets have
 /// no overlapping requirements among themselves, so member access on an
 /// `any FullClipStore` is unambiguous.
 public typealias FullClipStore = ClipReading & ClipSearching & ClipMutating & ClipEnriching
-    & SourceAppProviding & BoardStoring & SnippetStoring & StoreStatsProviding & ExportProviding
-    & StoreMaintaining
+    & SourceAppProviding & ReuseSuggestionProviding & BoardStoring & SnippetStoring
+    & StoreStatsProviding & ExportProviding & StoreMaintaining
 
 // MARK: - Production conformances
 
@@ -373,6 +388,7 @@ extension GRDBClipboardStore: ClipReading {}
 extension GRDBClipboardStore: ClipSearching {}
 extension GRDBClipboardStore: SourceAppProviding {}
 extension GRDBClipboardStore: ClipMutating {}
+extension GRDBClipboardStore: ReuseSuggestionProviding {}
 extension GRDBClipboardStore: ClipEnriching {}
 extension GRDBClipboardStore: BoardStoring {}
 extension GRDBClipboardStore: SnippetStoring {}

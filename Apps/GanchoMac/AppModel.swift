@@ -442,6 +442,7 @@ final class AppModel {
         let uiTestBoardSeedTask = seedSampleBoardsIfRequested()
         let uiTestPanelReproTask = seedPanelReproIfRequested()
         let uiTestSourceAppSeedTask = seedSourceAppsIfRequested()
+        let uiTestReuseSuggestionSeedTask = seedReuseSuggestionIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
         // launch); run it at utility priority once the UI is wired up.
@@ -462,6 +463,7 @@ final class AppModel {
                     await uiTestBoardSeedTask?.value
                     await uiTestPanelReproTask?.value
                     await uiTestSourceAppSeedTask?.value
+                    await uiTestReuseSuggestionSeedTask?.value
                     panel.show(model: self)
                     _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
                     try? await Task.sleep(for: .milliseconds(250))
@@ -473,6 +475,7 @@ final class AppModel {
                 await uiTestBoardSeedTask?.value
                 await uiTestPanelReproTask?.value
                 await uiTestSourceAppSeedTask?.value
+                await uiTestReuseSuggestionSeedTask?.value
                 try? await Task.sleep(for: .seconds(1))
                 if !panel.isVisible { panel.show(model: self) }
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
@@ -662,6 +665,24 @@ final class AppModel {
         }
     }
 
+    /// UI-test hook: seed one synthetic clip at two uses so a double-click
+    /// drives the real paste-back → atomic third-use → suggestion path. It is
+    /// available only with the throwaway durable store.
+    private func seedReuseSuggestionIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-reuse-suggestion"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let grdbStore,
+            let id = UUID(uuidString: "00000000-0000-4000-8000-000000000104")
+        else { return nil }
+        return Task {
+            let item = ClipItem(
+                id: id, preview: "Reusable standup update",
+                contentHash: "mac-ui-reuse-suggestion", uses: 2)
+            _ = try? await grdbStore.insert(item, content: .text("Reusable standup update"))
+            await refreshRecents()
+        }
+    }
+
     /// UI-test hook: seed a THROWAWAY durable store with a few PINNED clips plus
     /// several same-day clips, so a UI test can assert the grouped panel render
     /// keeps exactly one row selected and hands each row a DISTINCT ⌘N shortcut —
@@ -747,7 +768,8 @@ final class AppModel {
             panel.hide()
             // Give focus one beat to return to the previous app.
             try? await Task.sleep(for: .milliseconds(80))
-            switch pasteBack.paste(content, asPlainText: asPlainText) {
+            let pasteOutcome = pasteBack.paste(content, asPlainText: asPlainText)
+            switch pasteOutcome {
             case .copiedOnly:
                 showCopyOnlyToast()
             case .pasted:
@@ -763,7 +785,11 @@ final class AppModel {
                 .itemPastedBack(
                     ageBucket: .init(age: Date().timeIntervalSince(item.createdAt))))
             requestTelemetryConsentAfterFirstValue()
-            await reuseController.recordPaste(of: item)
+            if let suggestion = await reuseController.recordPaste(of: item),
+                shouldPresentReuseSuggestion(after: pasteOutcome)
+            {
+                await presentReuseSuggestion(suggestion)
+            }
         }
     }
 
@@ -788,7 +814,9 @@ final class AppModel {
     /// target loads. No move-to-top: the drag came FROM the visible list, and
     /// reordering it mid-interaction would yank rows out from under the user.
     func noteDragOutDelivered(_ item: ClipItem) async {
-        await reuseController.recordDragDelivery(of: item)
+        if let suggestion = await reuseController.recordDragDelivery(of: item) {
+            await presentReuseSuggestion(suggestion)
+        }
         requestTelemetryConsentAfterFirstValue()
     }
 
@@ -801,12 +829,56 @@ final class AppModel {
             }
             panel.hide()
             try? await Task.sleep(for: .milliseconds(80))
-            if pasteBack.paste(.text(transform.apply(to: text)), asPlainText: true) == .copiedOnly {
+            let pasteOutcome = pasteBack.paste(
+                .text(transform.apply(to: text)), asPlainText: true)
+            if pasteOutcome == .copiedOnly {
                 showCopyOnlyToast()
             }
             requestTelemetryConsentAfterFirstValue()
-            await reuseController.recordPaste(of: item)
+            if let suggestion = await reuseController.recordPaste(of: item),
+                shouldPresentReuseSuggestion(after: pasteOutcome)
+            {
+                await presentReuseSuggestion(suggestion)
+            }
         }
+    }
+
+    /// Operational paste feedback outranks optional curation. The isolated UI
+    /// fixture still exercises the nudge when its host cannot grant Accessibility.
+    private func shouldPresentReuseSuggestion(after outcome: PasteBackOutcome) -> Bool {
+        outcome == .pasted
+            || (CommandLine.arguments.contains("-seed-reuse-suggestion")
+                && CommandLine.arguments.contains("-use-temp-durable-store"))
+    }
+
+    /// Turns the exact third-use signal into one non-blocking curation action.
+    /// A confident board has priority over snippet promotion so the user never
+    /// receives two competing suggestions for the same demonstrated reuse.
+    private func presentReuseSuggestion(_ item: ClipItem) async {
+        if let board = await suggestedBoard(for: item) {
+            toasts.show(
+                GanchoToast(
+                    message: "Add to \(board.name)?",
+                    style: .suggestion,
+                    action: ToastAction(
+                        title: "Add", accessibilityIdentifier: "reuse-suggestion-action"
+                    ) { [weak self] in
+                        self?.assignWithUndo(item, toBoard: board)
+                    }),
+                duration: .seconds(8))
+            return
+        }
+        toasts.show(
+            GanchoToast(
+                message: "Used 3 times — save as a snippet?",
+                style: .suggestion,
+                action: ToastAction(
+                    title: "Save as snippet",
+                    accessibilityIdentifier: "reuse-suggestion-action"
+                ) { [weak self] in
+                    self?.promoteToSnippet(item)
+                }),
+            duration: .seconds(8))
     }
 
     /// Paste-back degraded to copy-only (Accessibility off): tell the user and

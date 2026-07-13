@@ -4916,6 +4916,16 @@
         }
       }
     },
+    "Used 3 times — save as a snippet?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo usaste 3 veces. ¿Guardarlo como snippet?"
+          }
+        }
+      }
+    },
     "Select all in search": {
       "localizations": {
         "es": {
