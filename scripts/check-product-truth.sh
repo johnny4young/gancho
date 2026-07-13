@@ -29,9 +29,11 @@ require_literal project.yml 'iOS: "26.0"'
 require_literal site/index.html 'macOS 26+ · iOS 26+'
 require_literal README.md 'eight library products + a CLI'
 require_literal README.md 'disabled until explicit consent'
+require_literal README.md 'short-prefix indexes'
 require_literal docs/SECURITY-MODEL.md 'Telemetry is disabled until the user consents'
 require_literal docs/PRODUCT-TRUTH.md '# Product truth contract'
 require_literal site/index.html 'releases/latest'
+require_literal site/index.html 'Boards with their own color and emoji'
 
 library_count="$(grep -Ec '^[[:space:]]*\.library\(name:' Packages/GanchoKit/Package.swift)"
 [[ "$library_count" == 8 ]] || fail "GanchoKit must expose exactly eight library products"

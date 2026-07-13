@@ -14,7 +14,8 @@
 GRDB/SQLite storage with FTS5 search, the Liquid Glass history panel,
 paste-back, pins and boards, the retention engine, the on-device intelligence
 stack, the iPhone/iPad app and its extensions, iCloud sync via `CKSyncEngine`,
-and StoreKit purchase plumbing are implemented and covered by tests. The
+and StoreKit purchase plumbing are implemented and covered by tests. Serialized
+purchase and restore automation verifies entitlement changes end to end. The
 release/versioning lane ships a signed, notarized, stapled direct-download DMG,
 a signed Sparkle appcast, version-sync guards, artifact QA, and the website. The
 current v0.5.0 DMG passes Gatekeeper. What remains before 1.0 is repeating the
@@ -76,7 +77,9 @@ stay in reusable modules.
   metadata-only lists, versioned migrations, device-aware dedup, and
   always-available JSON/CSV export.
 - FTS5 full-text search (exact / fuzzy / regex; filters by kind, source app,
-  date) with a 100k-item performance harness.
+  date) with dedicated short-prefix indexes so fuzzy recall stays responsive
+  while typing. The 100k-item performance harness measures cold startup and
+  reproducible warm rounds separately.
 - A 512-dimension on-device embedding index used by Ask your clipboard and
   auto-board suggestions. Main history search remains FTS5 exact/fuzzy/regex.
 
@@ -87,7 +90,8 @@ stay in reusable modules.
   keycodes, plain-text paste, restore-previous), onboarding, Settings, and the
   Privacy Center.
 - Pins and boards (multi-membership collections) and a unified Library for
-  boards and snippets.
+  boards and snippets. Boards can use a fixed accessible color and an optional
+  emoji identity that persists and syncs across Mac, iPhone, and iPad.
 
 **iPhone & iPad app**
 
@@ -133,7 +137,10 @@ stay in reusable modules.
 - XcodeGen project; Swift 6 strict concurrency (app targets `@MainActor`,
   engine-room targets nonisolated + `Sendable`); a bilingual (English + Spanish)
   String Catalog gate; accessibility (VoiceOver, Dynamic Type,
-  reduce-transparency); and CI for build/test/lint, coverage, and performance.
+  reduce-transparency); and shared platform-neutral coordinators in
+  `GanchoAppCore` behind durable store and transport-neutral sync boundaries.
+- CI covers build/test/lint, an enforced production-source coverage floor,
+  serialized StoreKit purchase/restore automation, and scale performance.
 
 ## Setup (< 10 min)
 
@@ -155,10 +162,13 @@ make open    # generate Gancho.xcodeproj and open Xcode
 | `make build-ios` | Build the iOS app (unsigned Debug, generic device) |
 | `make install-ios` | Build the iOS app team-signed and install it on the connected iPhone/iPad |
 | `make test` | Run package unit tests |
+| `make coverage` | Run package tests with coverage and enforce the production-source floor |
+| `make test-storekit` | Run serialized StoreKit purchase/restore entitlement automation |
+| `make test-ui` / `make test-ui-ios` | Run the macOS / iOS XCUITest suites |
 | `make release-check` | Verify `project.yml`, `CHANGELOG.md`, and release templates are in sync |
 | `make package-macos` | Build `dist/Gancho-<version>.zip` for release QA |
 | `make qa-release` | QA the newest release ZIP, or `ARTIFACT=/path/to/Gancho.app` |
-| `make site-check` | Verify the static GitHub Pages site under `site/` |
+| `make site-check` | Verify the static website and its product-truth contract under `site/` |
 | `make format` / `make lint` | Format / verify Swift sources |
 | `make hooks` | Install the versioned pre-commit lint hook |
 | `make clean` | Remove generated project and build artifacts |
