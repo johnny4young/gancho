@@ -74,7 +74,8 @@ final class AppModel {
     let thumbnails: ClipThumbnailStore
 
     let monitor: MacPasteboardMonitor
-    private(set) var monitorStatus: MonitorStatus = .stopped
+    private let captureLifecycle: CaptureLifecycleController
+    var monitorStatus: MonitorStatus { captureLifecycle.status }
     let pasteBack = PasteBackService()
     let privacyEvents = InMemoryPrivacyEventRecorder()
     /// Content-free log of recent operational issues (storage that wouldn't
@@ -148,9 +149,6 @@ final class AppModel {
     private var retentionTimer: Timer?
     /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
     private var syncPollTimer: Timer?
-    private let screenShareDetector = ScreenShareDetector()
-    private var screenShareTimer: Timer?
-    private var monitorStatusTimer: Timer?
     private var uiTestPanelObserver: NSObjectProtocol?
     /// Wake-from-sleep sync catch-up (see the `didWakeNotification` observer).
     private var wakeObserver: NSObjectProtocol?
@@ -167,7 +165,8 @@ final class AppModel {
 
     /// Opt-out for the share auto-pause (on by default).
     var autoPauseOnScreenShare: Bool {
-        didSet { defaults.set(autoPauseOnScreenShare, forKey: "auto-pause-screen-share") }
+        get { captureLifecycle.autoPauseOnScreenShare }
+        set { captureLifecycle.autoPauseOnScreenShare = newValue }
     }
 
     /// Remember successful searches for ⌘↑ recall (on by default). Queries can
@@ -188,10 +187,8 @@ final class AppModel {
     var activePanelQuery = ""
 
     var preferences: CapturePreferences {
-        didSet {
-            monitor.preferences = preferences
-            preferences.save(to: defaults)
-        }
+        get { captureLifecycle.preferences }
+        set { captureLifecycle.preferences = newValue }
     }
 
     /// On-device intelligence toggles (the Intelligence screen). Each gates a
@@ -240,7 +237,8 @@ final class AppModel {
     // dedicated composition-root split lands.
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     init() {
-        defaults = Self.defaultsForLaunch()
+        let appDefaults = Self.defaultsForLaunch()
+        defaults = appDefaults
         let directory = SharedStorageLocation.macAppStoreDirectory
         // Test hook: force the in-memory fallback so the "history isn't being
         // saved" warning path is drivable by a UI test (mirrors a real failure
@@ -277,7 +275,7 @@ final class AppModel {
         })
         self.mcpConfig = MCPServerConfig.load(fromStoreDirectory: directory)
 
-        var loadedPreferences = CapturePreferences.load(from: defaults)
+        var loadedPreferences = CapturePreferences.load(from: appDefaults)
         #if DEBUG
             // UI tests must not inherit a developer's persisted Private Mode state.
             // Keep the override in-memory so the real preference is untouched.
@@ -285,35 +283,35 @@ final class AppModel {
                 loadedPreferences.isPrivateModePaused = false
             }
         #endif
-        preferences = loadedPreferences
-        intelligence = IntelligencePreferences.load(from: defaults)
-        retentionPolicy = RetentionPolicy.load(from: defaults)
+        intelligence = IntelligencePreferences.load(from: appDefaults)
+        retentionPolicy = RetentionPolicy.load(from: appDefaults)
         // Default to a menu-bar agent (.accessory). This app is LSUIElement;
         // forcing .regular (what the old Debug-only "show in Dock" default did)
         // leaves the status item registered but never placed in the menu bar —
         // the icon silently vanishes. Opt into the Dock explicitly instead.
-        showInDock = defaults.bool(forKey: "show-in-dock")
+        showInDock = appDefaults.bool(forKey: "show-in-dock")
         appearance =
-            AppearancePreference(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .auto
+            AppearancePreference(rawValue: appDefaults.string(forKey: "appearance") ?? "")
+            ?? .auto
         #if DEBUG
             let disableScreenShareAutoPause = CommandLine.arguments.contains(
                 "-disable-screen-share-auto-pause")
         #else
             let disableScreenShareAutoPause = false
         #endif
-        autoPauseOnScreenShare =
+        let loadedAutoPauseOnScreenShare =
             disableScreenShareAutoPause
-            ? false : defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
-        rememberSearches = defaults.object(forKey: "remember-searches") as? Bool ?? true
+            ? false : appDefaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
+        rememberSearches = appDefaults.object(forKey: "remember-searches") as? Bool ?? true
         // Test hook: pin the FREE tier so the paywall flow is deterministic even
         // when `gancho-force-pro` is set in the environment (which would otherwise
         // force Pro and make `PaywallGatekeeper` suppress every trigger).
         let forceFreeTier = CommandLine.arguments.contains("-force-free-tier")
-        tier = forceFreeTier ? .free : UserTier.load(from: defaults)
+        tier = forceFreeTier ? .free : UserTier.load(from: appDefaults)
 
         // Telemetry is a real opt-in. Loading `.notAsked` or `.disabled` keeps
         // the SDK uninitialized; the factory runs only after explicit consent.
-        var telemetryConsent = TelemetryConsent.load(from: defaults)
+        var telemetryConsent = TelemetryConsent.load(from: appDefaults)
         #if DEBUG
             // UI-test hook: `-telemetry-consent <notAsked|enabled|disabled>`
             // pins the state so consent-flow tests don't depend on whatever a
@@ -337,26 +335,34 @@ final class AppModel {
         #else
             pasteboardAccessPolicy = SystemPasteboardAccessPolicy()
         #endif
-        monitor = MacPasteboardMonitor(
+        let resolvedMonitor = MacPasteboardMonitor(
             accessPolicy: pasteboardAccessPolicy,
             preferences: loadedPreferences)
-        monitor.denylist = SourceAppDenylist.load(from: defaults)
+        monitor = resolvedMonitor
+        let screenShareDetector = ScreenShareDetector()
+        captureLifecycle = CaptureLifecycleController(
+            monitor: resolvedMonitor,
+            preferences: loadedPreferences,
+            autoPauseOnScreenShare: loadedAutoPauseOnScreenShare,
+            screenShareIsActive: { screenShareDetector.isScreenSharePresumed() },
+            onPreferencesChanged: { $0.save(to: appDefaults) },
+            onAutoPauseChanged: {
+                appDefaults.set($0, forKey: "auto-pause-screen-share")
+            })
+        monitor.denylist = SourceAppDenylist.load(from: appDefaults)
         monitor.onCapture = { [weak self] capture in
             self?.ingest(capture)
         }
         monitor.onIgnore = { [weak self] reason in
             self?.privacyEvents.record(IgnoredCaptureEvent(reason: reason))
         }
-        monitor.start()
+        captureLifecycle.activate()
         #if DEBUG
             if CommandLine.arguments.contains("-start-capture-paused") {
-                monitor.stop()
+                captureLifecycle.stopCapture()
             }
         #endif
-        syncMonitorStatus()
-        scheduleMonitorStatusMirror()
         scheduleRetention()
-        scheduleScreenShareWatch()
         scheduleSyncPoll()
         panel.attach(model: self)
         applyActivationPolicy()
@@ -1019,20 +1025,15 @@ final class AppModel {
     }
 
     func togglePause() {
-        if monitor.status == .running {
-            monitor.stop()
-        } else {
-            monitor.start()
-        }
-        syncMonitorStatus()
+        captureLifecycle.toggleCapture()
     }
 
     func togglePrivateMode() {
-        preferences.isPrivateModePaused.toggle()
+        captureLifecycle.togglePrivateMode()
     }
 
     func ignoreNextCopy() {
-        monitor.ignoreNextCopy()
+        captureLifecycle.ignoreNextCopy()
     }
 
     /// Generates the shareable "Wrapped" stats card and saves it (on-device).
@@ -1511,37 +1512,6 @@ final class AppModel {
             let value = AppearancePreference(rawValue: raw)
         {
             appearance = value
-        }
-    }
-
-    private func scheduleMonitorStatusMirror() {
-        monitorStatusTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) {
-            [weak self] _ in
-            Task { @MainActor in
-                self?.syncMonitorStatus()
-            }
-        }
-    }
-
-    private func syncMonitorStatus() {
-        let status = monitor.status
-        if monitorStatus != status {
-            monitorStatus = status
-        }
-    }
-
-    private func scheduleScreenShareWatch() {
-        screenShareTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) {
-            [weak self] _ in
-            Task { @MainActor in
-                guard let self else { return }
-                let sharing =
-                    self.autoPauseOnScreenShare
-                    && self.screenShareDetector.isScreenSharePresumed()
-                if self.monitor.pausedForScreenShare != sharing {
-                    self.monitor.pausedForScreenShare = sharing
-                }
-            }
         }
     }
 

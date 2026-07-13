@@ -55,10 +55,10 @@ Shared engine-room targets (nonisolated + Sendable)
 App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/SwiftUI/CloudKit)
   └─ GanchoAppCore: the testable app logic both shells share and forward to —
        PanelSearchModel + PanelNavigation (macOS panel), HistoryListViewModel (iOS
-       list), SyncController, ClipIngestionCoordinator, BoardsController,
-       EnrichmentService, DeletionCoordinator, BoardSuggestionService,
-       ClipItemFactory. Store access is facet-typed, so each unit runs against an
-       in-memory fake in GanchoAppCoreTests.
+       list), SyncController, ClipIngestionCoordinator, CaptureLifecycleController
+       (macOS), BoardsController, EnrichmentService, DeletionCoordinator,
+       BoardSuggestionService, ClipItemFactory. Store access is facet-typed, so
+       each unit runs against an in-memory fake in GanchoAppCoreTests.
 
 Persistence and sync implementations
   ├─ GRDB / SQLite / FTS5 local store with content-addressed disk blobs
@@ -80,6 +80,12 @@ persists and deduplicates them, enqueues the durable row, computes and runs the
 enrichment plan, and enqueues enriched metadata. Platform shells own only
 capture mechanics and presentation effects such as telemetry buckets, list or
 widget refresh, feedback, and Live Activity state.
+
+On macOS, `CaptureLifecycleController` owns the monitor lifecycle rather than
+pasteboard content: start/stop/ignore commands, observable status mirroring,
+capture-preference persistence, and the periodic screen-share auto-pause check.
+`AppModel` remains the observable facade and retains platform composition such
+as monitor construction, denylist callbacks, windows, and presentation effects.
 
 ## Platform contracts
 
