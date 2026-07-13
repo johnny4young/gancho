@@ -319,6 +319,45 @@ targets:
     dependencies:
       - target: Gancho
 
+  # Minimal application host required by StoreKitTest. Keeping it separate
+  # prevents purchase automation from launching Gancho's capture/sync/helper
+  # lifecycle or touching the user's real local store.
+  GanchoStoreKitHost:
+    type: application
+    platform: macOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.storekit-host
+        GENERATE_INFOPLIST_FILE: YES
+    sources:
+      - path: Tests/GanchoStoreKitHost
+
+  # StoreKitTest is an Xcode-only framework, so this Xcode test bundle uses
+  # Swift Testing to exercise the real App Store purchase handler outside
+  # SwiftPM. The local configuration is copied into the test bundle.
+  GanchoStoreKitTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "26.0"
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        # Xcode 26.5's StoreKitTest umbrella header imports a deprecated
+        # StoreKit 1 declaration even though this target uses only StoreKit 2.
+        # Keep the SDK-only suppression scoped to this automation bundle.
+        OTHER_SWIFT_FLAGS: $(inherited) -Xcc -Wno-deprecated-declarations
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/GanchoStoreKitHost.app/Contents/MacOS/GanchoStoreKitHost
+        BUNDLE_LOADER: $(TEST_HOST)
+    sources:
+      - path: Tests/GanchoStoreKitTests
+      - path: Apps/GanchoMac/Gancho.storekit
+        buildPhase: resources
+    dependencies:
+      - target: GanchoStoreKitHost
+      - package: GanchoKit
+        product: GanchoKit
+
   # Live sync-pipeline harness: TWO CKSyncEngineAdapters in one process against
   # the REAL development container — capture on "device A", pull on "device B",
   # assert the clip, its enrichment title, and its deletion all cross. HOSTED
@@ -513,3 +552,13 @@ schemes:
       config: Debug
       targets:
         - GanchoiOSUITests
+
+  GanchoStoreKit:
+    build:
+      targets:
+        GanchoStoreKitHost: all
+        GanchoStoreKitTests: [test]
+    test:
+      config: Debug
+      targets:
+        - GanchoStoreKitTests

@@ -20,6 +20,10 @@ jobs:
     # macOS/iOS 26 deployment target + Swift 6.2 need an Xcode 26 runner;
     # macos-latest still carries Xcode 16 (macOS 15 SDK) and cannot build it.
     runs-on: macos-26
+    # Pin the stable toolchain so weekly runner-image updates cannot silently
+    # change the compiler or SDK used by required validation.
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v7
 
@@ -64,29 +68,26 @@ jobs:
             2>&1 | tee build/package-test.log
           ./scripts/check-build-warnings.sh build/package-test.log
 
-      # Coverage gate over the package's Sources (Tests and generated code
-      # excluded). The threshold is a floor, not a target — raise it as the
-      # suite grows, never lower it to make a PR pass.
-      - name: Coverage gate (>70% lines)
+      # The gate scopes to production sources (everything under Sources/,
+      # including the CloudKit adapter and the SwiftUI board editors that unit
+      # tests reach only partially), which measures ~80.5% on this branch — so
+      # the 80% floor sits just below current coverage, not the wider margin the
+      # old all-Sources metric reported. Raise it as the suite grows; never
+      # lower it to pass a PR.
+      - name: Coverage gate (production sources >=80%)
+        env:
+          COVERAGE_FLOOR: "80"
         run: |
-          BIN=$(swift build --package-path Packages/GanchoKit --show-bin-path)
-          PROFDATA="$BIN/codecov/default.profdata"
-          XCTEST=$(find "$BIN" -name '*.xctest' -maxdepth 1 | head -1)
-          BINARY="$XCTEST/Contents/MacOS/$(basename "$XCTEST" .xctest)"
-          TOTAL=$(xcrun llvm-cov export "$BINARY" \
-            -instr-profile "$PROFDATA" \
-            -ignore-filename-regex='(Tests|\.build)' \
-            -summary-only | jq '.data[0].totals.lines.percent')
-          printf '### Coverage\nLine coverage: %.1f%% (gate: 70%%)\n' "$TOTAL" \
-            | tee -a "$GITHUB_STEP_SUMMARY"
-          awk -v t="$TOTAL" 'BEGIN { exit (t >= 70 ? 0 : 1) }' \
-            || { echo "::error::Line coverage ${TOTAL}% is below the 70% gate"; exit 1; }
+          ./scripts/check-coverage.sh --self-test
+          ./scripts/check-coverage.sh
 
   build-apps:
     name: Build macOS + iOS apps
     # Deployment target is macOS/iOS 26 — needs an Xcode 26 runner image.
     # macos-latest still lags on Xcode 16 (macOS 15 SDK), so pin macos-26.
     runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v7
 
@@ -100,6 +101,11 @@ jobs:
 
       - name: Generate project
         run: xcodegen generate
+
+      - name: StoreKit purchase and entitlement tests
+        run: |
+          ./scripts/run-storekit-tests-ci.sh --self-test
+          ./scripts/run-storekit-tests-ci.sh
 
       - name: Build macOS app
         run: |

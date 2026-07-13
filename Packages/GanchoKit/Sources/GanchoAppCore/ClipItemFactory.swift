@@ -23,7 +23,8 @@ public enum ClipItemFactory {
         classifier: RuleClassifier,
         detector: SensitiveDataDetector,
         sensitiveLifetime: TimeInterval,
-        detectSecrets: Bool = true
+        detectSecrets: Bool = true,
+        precomputedKind: ClipContentKind? = nil
     ) -> (ClipItem, ClipContent?) {
         switch capture.payload {
         case .image(let data, let typeIdentifier):
@@ -45,7 +46,8 @@ public enum ClipItemFactory {
             let text = plain ?? ""
             let item = decoratedTextItem(
                 text: text, capture: capture, classifier: classifier, detector: detector,
-                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets)
+                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets,
+                precomputedKind: precomputedKind)
             return (
                 item,
                 item.isSensitive ? .text(text) : .binary(data: rtf, typeIdentifier: "public.rtf")
@@ -54,7 +56,8 @@ public enum ClipItemFactory {
             let text = capture.textRepresentation ?? ""
             let item = decoratedTextItem(
                 text: text, capture: capture, classifier: classifier, detector: detector,
-                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets)
+                sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets,
+                precomputedKind: precomputedKind)
             return (item, .text(ContentNormalizer.canonicalText(text, kind: item.kind)))
         }
     }
@@ -62,9 +65,9 @@ public enum ClipItemFactory {
     private static func decoratedTextItem(
         text: String, capture: PasteboardCapture, classifier: RuleClassifier,
         detector: SensitiveDataDetector, sensitiveLifetime: TimeInterval,
-        detectSecrets: Bool = true
+        detectSecrets: Bool = true, precomputedKind: ClipContentKind? = nil
     ) -> ClipItem {
-        let kind = classifier.classify(text)
+        let kind = precomputedKind ?? classifier.classify(text)
         let canonical = ContentNormalizer.canonicalText(text, kind: kind)
         let item = ClipItem(
             kind: kind,

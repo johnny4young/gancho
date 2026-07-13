@@ -39,6 +39,7 @@ struct LibraryView: View {
     @State private var boardNameField = ""
     /// The board a destructive "Delete board" is awaiting confirmation on.
     @State private var boardPendingDeletion: Pinboard?
+    @State private var boardAppearanceTarget: Pinboard?
 
     private enum EditorField { case title, keyword }
 
@@ -75,6 +76,14 @@ struct LibraryView: View {
         } message: { _ in
             Text("Your clips stay in history — only the board is removed.")
         }
+        .sheet(item: $boardAppearanceTarget) { board in
+            BoardIdentityEditor(board: board) { colorHex, emoji in
+                let saved = await model.updateBoardIdentity(
+                    board, colorHex: colorHex, emoji: emoji)
+                if saved { await refreshAll() }
+                return saved
+            }
+        }
     }
 
     // MARK: - Sidebar
@@ -89,10 +98,15 @@ struct LibraryView: View {
                         navRow(
                             .board(board.id),
                             boardTitle(board),
-                            systemImage: board.sfSymbol, count: boardCounts[board.id] ?? 0
+                            systemImage: board.sfSymbol, count: boardCounts[board.id] ?? 0,
+                            board: board
                         )
                         .contextMenu {
                             if !board.isSystem {
+                                Button("Customize board…") {
+                                    boardAppearanceTarget =
+                                        boards.first { $0.id == board.id } ?? board
+                                }
                                 Button("Rename board…") {
                                     boardNameField = board.name
                                     boardSheet = .rename(board)
@@ -134,12 +148,17 @@ struct LibraryView: View {
     }
 
     private func navRow(
-        _ selectionValue: LibrarySelection, _ label: Text, systemImage: String, count: Int
+        _ selectionValue: LibrarySelection, _ label: Text, systemImage: String, count: Int,
+        board: Pinboard? = nil
     ) -> some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: systemImage)
-                .frame(width: 18)
-                .foregroundStyle(.secondary)
+            if let board {
+                BoardIdentityMark(board: board, size: 14).frame(width: 18)
+            } else {
+                Image(systemName: systemImage)
+                    .frame(width: 18)
+                    .foregroundStyle(.secondary)
+            }
             label.lineLimit(1)
             Spacer(minLength: 0)
             if count > 0 {

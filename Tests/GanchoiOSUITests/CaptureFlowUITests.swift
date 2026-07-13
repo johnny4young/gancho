@@ -34,6 +34,65 @@ final class CaptureFlowUITests: XCTestCase {
             "a seeded clip must appear in the history via the capture path")
     }
 
+    /// Chooses a palette token through the iPhone UI and reopens the editor to
+    /// prove the value survived the durable store write and model refresh.
+    @MainActor
+    func testBoardAppearancePersistsPaletteSelection() async throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-skip-welcome-on-launch", "-use-temp-durable-store", "-seed-sample-boards",
+            "-force-free-tier",
+            "-AppleLanguages", "(en)"
+        ]
+        app.launch()
+        defer { app.terminate() }
+
+        let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
+        guard capture.waitForExistence(timeout: 10) else {
+            throw XCTSkip("capture screen not exposed to the UI runner in this environment")
+        }
+        let board = app.buttons["Seed board 1"].firstMatch
+        guard board.waitForExistence(timeout: 8), board.isHittable else {
+            throw XCTSkip("seeded board chip is not reachable on this runner")
+        }
+
+        try openAppearanceEditor(for: board, in: app)
+        let blue = app.buttons["board-color-2E70D1"].firstMatch
+        guard blue.waitForExistence(timeout: 4), blue.isHittable else {
+            throw XCTSkip("board color controls are not reachable on this runner")
+        }
+        blue.tap()
+        XCTAssertEqual(blue.value as? String, "Selected")
+
+        let save = app.buttons["board-appearance-save"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 2))
+        save.tap()
+        let dismissal = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: save)
+        dismissal.expectationDescription = "a successful durable update must dismiss the editor"
+        await fulfillment(of: [dismissal], timeout: 5)
+
+        try openAppearanceEditor(for: board, in: app)
+        XCTAssertEqual(
+            app.buttons["board-color-2E70D1"].firstMatch.value as? String, "Selected",
+            "reopening after model refresh must retain the persisted palette token")
+    }
+
+    @MainActor
+    private func openAppearanceEditor(
+        for board: XCUIElement, in app: XCUIApplication
+    ) throws {
+        board.press(forDuration: 1)
+        let customize = app.buttons["Customize board…"].firstMatch
+        guard customize.waitForExistence(timeout: 4), customize.isHittable else {
+            throw XCTSkip("board appearance context action is not reachable on this runner")
+        }
+        customize.tap()
+        XCTAssertTrue(
+            app.buttons["board-color-automatic"].firstMatch.waitForExistence(timeout: 4),
+            "the board appearance action must open its editor")
+    }
+
     /// Drives the `UIPasteControl` tap end to end. The control grants one-shot
     /// pasteboard access on tap with NO permission prompt, so a synthetic tap
     /// exercises the real handoff: seed the system pasteboard, tap, and the

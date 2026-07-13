@@ -38,7 +38,7 @@ public struct BoardsController {
     /// platform's exact post-create refresh without the controller touching the
     /// shell's `boards`/`refreshRecents`/`search`:
     /// - `blocked`: the free-tier gate stopped it (`onFreeLimit` already fired);
-    /// - `failed`: `createPinboard` did not return a board;
+    /// - `failed`: the authoritative board list or create write failed;
     /// - `created`: success, carrying the new board's id and whether an
     ///   optional filing write also succeeded (the shells use that to update
     ///   checkmarks / repeat-last state only after a real membership write).
@@ -46,6 +46,15 @@ public struct BoardsController {
         case blocked
         case failed
         case created(UUID, filedClip: Bool)
+    }
+
+    /// Content-free result of a board mutation. Platform shells use it to
+    /// refresh presentation state and record diagnostics without exposing a
+    /// board name or clip content.
+    public enum MutationOutcome: Sendable, Equatable {
+        case changed
+        case noChange
+        case failed
     }
 
     // Keep dependencies explicit at the platform boundary instead of hiding side
@@ -81,7 +90,13 @@ public struct BoardsController {
     ) async -> BoardCreateOutcome {
         // swiftlint:enable function_parameter_count
         // The built-in Favorites board never counts against the free limit.
-        let count = (try? await store.pinboards().filter { !$0.isSystem }.count) ?? 0
+        // A read failure must not look like an empty store and bypass the gate.
+        let count: Int
+        do {
+            count = try await store.pinboards().filter { !$0.isSystem }.count
+        } catch {
+            return .failed
+        }
         guard PinLimits.canCreatePinboard(currentBoardCount: count, isPro: isPro) else {
             onFreeLimit()
             return .blocked
@@ -102,23 +117,24 @@ public struct BoardsController {
 
     /// Renames a user board and queues its new metadata for sync, mirroring both
     /// shells: `renameBoard`, then `enqueue(boards:)` with the locally updated
-    /// copy. A guarded no-op on system boards (the store enforces `isSystem`);
-    /// the shell still owns the trim and the follow-up refresh.
+    /// copy. A guarded no-op on system boards; the shell still owns the trim
+    /// and the follow-up refresh.
     public func renameBoard(
         _ board: Pinboard,
         name: String,
         store: any BoardStoring,
         engine: any SyncEngine
-    ) async {
-        guard !board.isSystem else { return }
+    ) async -> MutationOutcome {
+        guard !board.isSystem else { return .noChange }
         do {
             try await store.renameBoard(id: board.id, name: name)
         } catch {
-            return
+            return .failed
         }
         var renamed = board
         renamed.name = name
         await engine.enqueue(boards: [renamed])
+        return .changed
     }
 
     /// Replaces a user board's color/emoji identity, then queues the exact
@@ -130,36 +146,60 @@ public struct BoardsController {
         emoji: String?,
         store: any BoardStoring,
         engine: any SyncEngine
-    ) async {
-        guard !board.isSystem else { return }
+    ) async -> MutationOutcome {
+        guard !board.isSystem else { return .noChange }
         do {
             try await store.updateBoardIdentity(
                 id: board.id, colorHex: colorHex, emoji: emoji)
         } catch {
-            return
+            return .failed
         }
         var updated = board
         updated.colorHex = colorHex
         updated.emoji = emoji
         await engine.enqueue(boards: [updated])
+        return .changed
     }
 
     /// Deletes a user board with the exact sync/no-sync split both shells used:
     /// when sync is on, tombstone via `deletePinboardForSync(id:now:.now)` and
     /// `enqueueBoardDeletion` so the removal reaches the other devices; otherwise
-    /// a plain local `deletePinboard`. The `isSystem` guard, `selectedBoardID`
-    /// clearing, and refresh stay in the shell.
+    /// a plain local `deletePinboard`. The deletion is only enqueued after its
+    /// local tombstone commits. Selection clearing and refresh stay in the
+    /// shell.
     public func deleteBoard(
         _ board: Pinboard,
         store: any BoardStoring,
         engine: any SyncEngine,
         syncEnabled: Bool
-    ) async {
-        if syncEnabled {
-            try? await store.deletePinboardForSync(id: board.id, now: .now)
-            await engine.enqueueBoardDeletion(ids: [board.id])
-        } else {
-            try? await store.deletePinboard(id: board.id)
+    ) async -> MutationOutcome {
+        guard !board.isSystem else { return .noChange }
+        do {
+            if syncEnabled {
+                try await store.deletePinboardForSync(id: board.id, now: .now)
+                await engine.enqueueBoardDeletion(ids: [board.id])
+            } else {
+                try await store.deletePinboard(id: board.id)
+            }
+            return .changed
+        } catch {
+            return .failed
+        }
+    }
+
+    /// Removes a clip from every board and enqueues its membership record only
+    /// after the durable local write succeeds.
+    public func removeFromAllBoards(
+        _ item: ClipItem,
+        store: any BoardStoring,
+        engine: any SyncEngine
+    ) async -> MutationOutcome {
+        do {
+            try await store.removeFromAllBoards(clipID: item.id)
+            await engine.enqueue([item])
+            return .changed
+        } catch {
+            return .failed
         }
     }
 

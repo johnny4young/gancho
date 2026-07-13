@@ -76,6 +76,29 @@ enum ClipFixtures {
     .serialized)
 struct PerformanceHarnessTests {
     static let scale = 100_000
+    static let searchRounds = 5
+    static let coldSearchBudget = Duration.milliseconds(150)
+    static let warmSearchP95Budget = Duration.milliseconds(50)
+    static let searchQueries = [
+        "deploy", "quarterly inv", "dent", "stag", "rotate cred", "tick",
+        "release bran", "flight track", "agen", "snip short", "meeting",
+        "func handle", "example", "groc", "draft rev", "invoice quart",
+        "branch stag", "credentials", "review", "json name"
+    ]
+
+    private struct LatencySummary {
+        let median: Duration
+        let p95: Duration
+        let maximum: Duration
+
+        init(_ samples: [Duration]) {
+            precondition(!samples.isEmpty)
+            let sorted = samples.sorted()
+            median = sorted[sorted.count / 2]
+            p95 = sorted[Int(0.95 * Double(sorted.count - 1))]
+            maximum = sorted[sorted.count - 1]
+        }
+    }
 
     private func makeSeededStore(upTo migration: String? = nil) async throws -> GRDBClipboardStore {
         let store = GRDBClipboardStore(
@@ -133,26 +156,77 @@ struct PerformanceHarnessTests {
         }
     }
 
-    @Test("FTS5 fuzzy search p95 stays under 50ms over 100k clips")
+    /// Deterministically varies query order so one favorable sequence cannot
+    /// hide cache-sensitive regressions, while keeping hosted runs comparable.
+    private func searchQueries(forRound round: Int) -> [String] {
+        var queries = Self.searchQueries
+        var generator = ClipFixtures.Generator(seed: UInt64(round + 1))
+        for index in stride(from: queries.count - 1, through: 1, by: -1) {
+            queries.swapAt(index, generator.next(index + 1))
+        }
+        return queries
+    }
+
+    /// Test-only fault injection proves the gate still fails when every query
+    /// is deliberately slowed; normal and hosted runs leave the variable unset.
+    private var injectedSearchDelay: Duration {
+        let raw = ProcessInfo.processInfo.environment["GANCHO_PERF_SEARCH_DELAY_MS"]
+        guard let raw, let milliseconds = Int64(raw), milliseconds > 0 else { return .zero }
+        return .milliseconds(milliseconds)
+    }
+
+    private func measureSearch(
+        _ query: String,
+        store: GRDBClipboardStore
+    ) async throws -> Duration {
+        let start = ContinuousClock.now
+        _ = try await store.search(ClipSearchQuery(text: query), limit: 50)
+        if injectedSearchDelay > .zero {
+            try await Task.sleep(for: injectedSearchDelay)
+        }
+        return ContinuousClock.now - start
+    }
+
+    @Test("FTS5 cold and warm search budgets hold over 100k clips")
     func searchBudget() async throws {
         let store = try await makeSeededStore()
-        let queries = [
-            "deploy", "quarterly inv", "dent", "stag", "rotate cred", "tick",
-            "release bran", "flight track", "agen", "snip short", "meeting",
-            "func handle", "example", "groc", "draft rev", "invoice quart",
-            "branch stag", "credentials", "review", "json name"
-        ]
+        let environment = ProcessInfo.processInfo.environment["CI"] == nil ? "local" : "hosted-ci"
+        print(
+            "perf: FTS5 method environment=\(environment) cold=1 warmup=1 "
+                + "warm-rounds=\(Self.searchRounds) queries-per-round=\(Self.searchQueries.count) "
+                + "cold-budget=\(Self.coldSearchBudget) "
+                + "warm-p95-budget=\(Self.warmSearchP95Budget)")
+        let cold = try await measureSearch("quarterly inv", store: store)
+        print("perf: FTS5 cold first query over \(Self.scale): \(cold)")
 
-        var latencies: [Duration] = []
-        for query in queries {
-            let start = ContinuousClock.now
-            _ = try await store.search(ClipSearchQuery(text: query), limit: 50)
-            latencies.append(ContinuousClock.now - start)
+        // One explicit untimed warmup separates launch/cache cost from the
+        // interactive budget rather than silently mixing both populations.
+        _ = try await store.search(ClipSearchQuery(text: "deploy"), limit: 50)
+
+        var warmLatencies: [Duration] = []
+        for round in 1...Self.searchRounds {
+            var roundLatencies: [Duration] = []
+            for query in searchQueries(forRound: round) {
+                roundLatencies.append(try await measureSearch(query, store: store))
+            }
+            warmLatencies += roundLatencies
+            let summary = LatencySummary(roundLatencies)
+            print(
+                "perf: FTS5 warm round \(round)/\(Self.searchRounds) over \(Self.scale): "
+                    + "median=\(summary.median) p95=\(summary.p95) max=\(summary.maximum)")
         }
-        let sorted = latencies.sorted()
-        let p95 = sorted[Int(0.95 * Double(sorted.count - 1))]
-        print("perf: FTS5 fuzzy over \(Self.scale): median=\(sorted[sorted.count / 2]) p95=\(p95)")
-        #expect(p95 < .milliseconds(50), "p95 \(p95) blew the 50ms budget")
+        let warm = LatencySummary(warmLatencies)
+        print(
+            "perf: FTS5 warm aggregate over \(Self.scale): "
+                + "n=\(warmLatencies.count) median=\(warm.median) "
+                + "p95=\(warm.p95) max=\(warm.maximum)")
+
+        #expect(
+            cold < Self.coldSearchBudget,
+            "cold query \(cold) blew the \(Self.coldSearchBudget) budget")
+        #expect(
+            warm.p95 < Self.warmSearchP95Budget,
+            "warm p95 \(warm.p95) blew the \(Self.warmSearchP95Budget) budget")
     }
 
     @Test("FTS index build over 100k existing rows stays under 10s")

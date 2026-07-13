@@ -2,7 +2,6 @@ import ClipboardCore
 import GanchoAI
 import GanchoDesign
 import GanchoKit
-import GanchoSync
 import GanchoTelemetry
 import SwiftUI
 import UIKit

@@ -114,7 +114,23 @@ final class IOSAppModel {
         }
     #endif
 
+    /// CloudKit stays at the platform composition root; GanchoAppCore receives
+    /// only this transport-neutral factory closure.
+    private static let syncEngineFactory: SyncController.EngineFactory = {
+        store, tier, iCloud, entitled, state, onStatus, diagnostics, pollState in
+        SyncEngineFactory.make(
+            store: store,
+            tier: tier,
+            iCloudAvailable: iCloud,
+            hasCloudKitEntitlement: entitled,
+            stateStore: state,
+            onStatus: onStatus,
+            diagnostics: diagnostics,
+            pollStateStore: pollState)
+    }
+
     init() {
+        let forceFreeTier = CommandLine.arguments.contains("-force-free-tier")
         intelligence = IntelligencePreferences.load(from: defaults)
         var telemetryConsent = TelemetryConsent.load(from: defaults)
         #if DEBUG
@@ -138,7 +154,9 @@ final class IOSAppModel {
             store: store as? any SyncLocalStore,
             stateStoreURL: SharedStorageLocation.storeDirectory(
                 appGroupID: SharedInbox.appGroupID
-            ).appendingPathComponent("sync-state.plist"))
+            ).appendingPathComponent("sync-state.plist"),
+            hasCloudKitEntitlement: { CloudKitEntitlements.currentTaskAllowsSync() },
+            makeEngine: Self.syncEngineFactory)
         // Sync status/idle mapping stays here (the views observe `syncStatus`);
         // the controller only drives the engine lifecycle and calls back.
         syncController.onStatus = { [weak self] status in
@@ -158,15 +176,19 @@ final class IOSAppModel {
         // (fetched records that fail to decode/apply, non-transient save errors).
         syncController.diagnostics = diagnostics
         purchases.onTierChange = { [weak self] tier in
-            guard let self else { return }
+            guard !forceFreeTier, let self else { return }
             self.tier = tier
             self.syncController.configure(tier: self.tier)
         }
         Task {
-            tier = await purchases.currentTier()
-            #if DEBUG
-                if DebugFlags.forcePro { tier = .pro }
-            #endif
+            if forceFreeTier {
+                tier = .free
+            } else {
+                tier = await purchases.currentTier()
+                #if DEBUG
+                    if DebugFlags.forcePro { tier = .pro }
+                #endif
+            }
             syncController.configure(tier: tier)
         }
         // Log a data-loss-level storage failure eagerly (before any view reads
@@ -175,6 +197,7 @@ final class IOSAppModel {
         // refresh an open screen.
         recordStorageHealthIfNeeded()
         seedSampleClipsIfRequested()
+        seedSampleBoardsIfRequested()
         telemetry.record(.appLaunched)
         #if DEBUG
             if CommandLine.arguments.contains("-show-telemetry-consent") {
@@ -200,6 +223,23 @@ final class IOSAppModel {
             ] {
                 await ingest(capture)
             }
+        }
+    }
+
+    /// UI-test hook: seed known boards into a throwaway SQLite store so the
+    /// appearance flow exercises the real durable write and refresh path. Both
+    /// arguments are required; a normal launch can never touch user storage.
+    private func seedSampleBoardsIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-seed-sample-boards"),
+            ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
+            let full
+        else { return }
+        Task {
+            for index in 1...PinLimits.freeMaxPinboards {
+                _ = try? await full.createPinboard(
+                    name: "Seed board \(index)", sfSymbol: "square.stack")
+            }
+            await refreshBoards()
         }
     }
 
@@ -323,6 +363,10 @@ final class IOSAppModel {
         boards = (try? await full.pinboards()) ?? []
     }
 
+    private func recordBoardFailure(_ message: String.LocalizationValue) {
+        diagnostics.record(String(localized: "Boards"), String(localized: message))
+    }
+
     /// Scope the history list to a board (or back to All clips) and refresh —
     /// the one path both the rail and the boards home go through.
     func selectBoard(_ id: UUID?) {
@@ -343,17 +387,20 @@ final class IOSAppModel {
     }
 
     /// Promote a clip to a reusable snippet — the peek's "Save as snippet".
-    /// Honors the free-tier snippet limit and surfaces a note either way.
+    /// Honors the shared free-tier gate and only confirms a durable write.
     func saveAsSnippet(_ item: ClipItem) async {
         guard let full else { return }
-        let count = (try? await full.snippetCount()) ?? 0
-        guard SnippetLimits.canPromote(currentSnippetCount: count, isPro: tier == .pro) else {
-            flashNote(String(localized: "Upgrade to Pro for more snippets"))
-            return
+        switch await curationController.promoteToSnippet(item, tier: tier, store: full) {
+        case .promoted:
+            flashNote(String(localized: "Saved as snippet"))
+            await search()
+        case .freeLimitReached:
+            proGateTick += 1
+        case .clipUnavailable:
+            await search()
+        case .failed:
+            diagnostics.record("Snippets", "Couldn’t save the snippet.")
         }
-        try? await full.promoteToSnippet(id: item.id, title: nil)
-        flashNote(String(localized: "Saved as snippet"))
-        await search()
     }
 
     /// Creates a board and queues its metadata for sync, so it shows up on the
@@ -369,6 +416,9 @@ final class IOSAppModel {
                 // Don't dead-end on a vanishing note: surface the Pro screen.
                 onFreeLimit: { self.proGateTick += 1 },
                 onAssigned: {})
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t create the board.")
+            }
             guard outcome != .blocked else { return }
             await refreshBoards()
         }
@@ -387,6 +437,11 @@ final class IOSAppModel {
             isPro: tier == .pro,
             onFreeLimit: { self.flashNote(String(localized: "Upgrade to Pro for more boards")) },
             onAssigned: {})
+        if outcome == .failed {
+            recordBoardFailure("Couldn’t create the board.")
+        } else if case .created(_, filedClip: false) = outcome {
+            recordBoardFailure("The board was created, but the clip couldn’t be added.")
+        }
         await refreshBoards()
         await search()
         guard case .created(let boardID, filedClip: true) = outcome else { return nil }
@@ -415,31 +470,43 @@ final class IOSAppModel {
         guard let full else { return false }
         let succeeded = await BoardsController().setBoardMembership(
             item, board: board, member: member, store: full, engine: syncController.engine)
-        guard succeeded else { return false }
+        guard succeeded else {
+            recordBoardFailure(
+                member
+                    ? "Couldn’t add the clip to the board."
+                    : "Couldn’t remove the clip from the board.")
+            return false
+        }
         await search()
         return true
     }
 
     /// Rename a user board and propagate the new name (no-op on Favorites — the
-    /// store guards `isSystem`).
+    /// shared controller guards `isSystem`).
     func renameBoard(_ board: Pinboard, name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let full else { return }
         Task {
-            await BoardsController().renameBoard(
+            let outcome = await BoardsController().renameBoard(
                 board, name: trimmed, store: full, engine: syncController.engine)
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t rename the board.")
+            }
             await refreshBoards()
         }
     }
 
-    func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) {
-        guard let full else { return }
-        Task {
-            await BoardsController().updateBoardIdentity(
-                board, colorHex: colorHex, emoji: emoji, store: full,
-                engine: syncController.engine)
-            await refreshBoards()
+    @discardableResult
+    func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) async -> Bool {
+        guard let full else { return false }
+        let outcome = await BoardsController().updateBoardIdentity(
+            board, colorHex: colorHex, emoji: emoji, store: full,
+            engine: syncController.engine)
+        if outcome == .failed {
+            recordBoardFailure("Couldn’t update the board appearance.")
         }
+        await refreshBoards()
+        return outcome != .failed
     }
 
     /// Delete a user board. When sync is on, tombstone it so the removal reaches
@@ -447,10 +514,13 @@ final class IOSAppModel {
     func deleteBoard(_ board: Pinboard) {
         guard !board.isSystem, let full else { return }
         Task {
-            await BoardsController().deleteBoard(
+            let outcome = await BoardsController().deleteBoard(
                 board, store: full, engine: syncController.engine,
                 syncEnabled: syncController.isEnabled)
-            if selectedBoardID == board.id { selectedBoardID = nil }
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t delete the board.")
+            }
+            if outcome == .changed, selectedBoardID == board.id { selectedBoardID = nil }
             await refreshBoards()
             await search()
         }
@@ -559,12 +629,16 @@ final class IOSAppModel {
 
     func togglePin(_ item: ClipItem) async {
         guard let full else { return }
-        try? await full.setPinned(id: item.id, !item.isPinned)
-        // setPinned flagged the row for upload; enqueue pushes it now instead
-        // of at the next sync start(). The engine builds the record from the
-        // stored row, so only the id matters here.
-        await syncController.engine.enqueue([item])
-        await search()
+        switch await curationController.togglePin(
+            item, tier: tier, store: full, engine: syncController.engine)
+        {
+        case .pinned, .unpinned, .alreadyPinned, .alreadyUnpinned, .clipUnavailable:
+            await search()
+        case .freeLimitReached:
+            proGateTick += 1
+        case .failed:
+            diagnostics.record("Pins", "Couldn’t update the pin.")
+        }
     }
 
     func delete(_ item: ClipItem) async {
@@ -579,7 +653,8 @@ final class IOSAppModel {
     }
 
     private let source = IntentionalPasteboardSource()
-    private let classifier = RuleClassifier()
+    private let curationController = ClipCurationController()
+    private let ingestionCoordinator = ClipIngestionCoordinator()
     /// Durable store in the App Group container (shared family location);
     /// in-memory fallback keeps the app usable if the container is missing.
     let store: any ClipboardStore = {
@@ -587,6 +662,17 @@ final class IOSAppModel {
         // saved" path (and its diagnostics entry) is drivable by a UI test.
         if ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store") {
             return InMemoryClipboardStore()
+        }
+        // A unique SQLite store gives UI tests durable GRDB semantics without
+        // opening the simulator user's App Group database or Keychain.
+        if ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store") {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+                "gancho-ios-uitest-store-\(UUID().uuidString)", isDirectory: true)
+            try? FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true)
+            return
+                (try? GRDBClipboardStore(directory: directory))
+                ?? InMemoryClipboardStore()
         }
         let directory = SharedStorageLocation.storeDirectory(
             appGroupID: SharedInbox.appGroupID)
@@ -729,34 +815,29 @@ final class IOSAppModel {
     )
         async
     {
-        let item = makeItem(from: capture, precomputedKind: precomputedKind)
-        let content: ClipContent? =
-            switch capture.payload {
-            case .image(let data, let typeIdentifier):
-                .binary(data: data, typeIdentifier: typeIdentifier)
-            default:
-                capture.textRepresentation.map { .text($0) }
-            }
-        // Dedupe-aware feedback: the store returns the EXISTING item when
-        // the content hash matches — warn subtly instead of duplicating.
-        let stored = try? await store.insert(item, content: content)
-        if let stored { await syncController.engine.enqueue([stored]) }
-        let isNew = stored?.id == item.id
+        let configuration = ClipIngestionCoordinator.Configuration(
+            sensitiveLifetime: RetentionPolicy.load(from: defaults).sensitiveLifetime,
+            detectSecrets: intelligence.detectSecrets,
+            precomputedKind: precomputedKind,
+            tier: tier,
+            intelligence: intelligence)
+        guard
+            let outcome = try? await ingestionCoordinator.ingest(
+                capture,
+                configuration: configuration,
+                store: store,
+                syncEngine: syncController.engine)
+        else { return }
         flashNote(
-            isNew ? String(localized: "Saved") : String(localized: "Already in your history"))
+            outcome.isNew
+                ? String(localized: "Saved") : String(localized: "Already in your history"))
         // Bounded like every other load — search() pulls the first page only.
         await search()
         reloadWidgets()
         // Surface the just-captured clip as "ready to paste" (masked if
         // sensitive) on the Dynamic Island / lock screen.
-        if let stored { clipActivity.show(stored, sync: ClipSyncBadge(syncStatus)) }
-        // Enrich a genuinely new clip — OR a re-copy that predates enrichment and
-        // is still untitled (its first capture never got a title). Enrich the
-        // STORED row so a dedupe re-titles the real clip, not the deduped-away id;
-        // the plan's hasTitle guard skips a re-copy that already carries its title.
-        if let stored, isNew || stored.title.isEmpty {
-            enrich(stored, content: content)
-        }
+        clipActivity.show(outcome.item, sync: ClipSyncBadge(syncStatus))
+        enrich(outcome)
     }
 
     /// On-device enrichment of a clip captured ON this iPhone — Apple
@@ -765,51 +846,18 @@ final class IOSAppModel {
     /// priority); the shared `EnrichmentPlan` gates it (Pro + non-sensitive +
     /// per-stage toggles). Enriched fields that ride the clip record sync; the
     /// embedding stays device-local.
-    private func enrich(_ item: ClipItem, content: ClipContent?) {
-        let plan = EnrichmentPlan(
-            content: content, kind: item.kind, isSensitive: item.isSensitive,
-            hasTitle: !item.title.isEmpty, isPro: tier == .pro, preferences: intelligence)
-        guard !plan.isEmpty, let full else { return }
+    private func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
+        guard !outcome.enrichment.isEmpty, let full else { return }
+        let syncEngine: (any SyncEngine)? =
+            syncController.isEnabled ? syncController.engine : nil
         Task(priority: .utility) {
-            await EnrichmentService().enrich(
-                item, content: content, plan: plan, writeTitle: plan.runs(.title),
-                store: full
+            await ingestionCoordinator.enrich(
+                outcome,
+                store: full,
+                syncEngine: syncEngine
             ) {
                 await self.search()  // surface the new title without a manual refresh
             }
-            // The title/OCR writes flagged the row for upload; push it now so the
-            // fruit reaches the other devices, not only at the next sync start().
-            if syncController.isEnabled {
-                await syncController.engine.enqueue([item])
-            }
-        }
-    }
-
-    private func makeItem(
-        from capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil
-    ) -> ClipItem {
-        switch capture.payload {
-        case .image(let data, _):
-            return ClipItem(
-                kind: .image,
-                preview: "Image (\(ByteSize.formatted(data.count)))",
-                contentHash: ClipItem.hash(of: data, kind: .image),
-                sourceAppBundleID: capture.sourceAppBundleID)
-        default:
-            let raw = capture.textRepresentation ?? ""
-            let kind = precomputedKind ?? classifier.classify(raw)
-            let text = ContentNormalizer.canonicalText(raw, kind: kind)
-            let item = ClipItem(
-                kind: kind,
-                preview: String(text.prefix(120)),
-                contentHash: ClipItem.hash(of: text, kind: kind),
-                sourceAppBundleID: capture.sourceAppBundleID)
-            // Intelligence toggle off ⇒ skip secret detection/masking. The
-            // password-manager veto (Concealed/Transient) is separate, pre-read,
-            // and always on.
-            guard intelligence.detectSecrets else { return item }
-            return SensitiveIngestionPolicy.decorate(
-                item, finding: SensitiveDataDetector().detect(text), originalText: text)
         }
     }
 }

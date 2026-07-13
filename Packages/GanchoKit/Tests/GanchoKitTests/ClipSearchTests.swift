@@ -226,4 +226,35 @@ struct ClipSearchTests {
         try await store.delete(id: item.id)
         #expect(try await store.search(ClipSearchQuery(text: "ephemeral")).isEmpty)
     }
+
+    @Test("Existing FTS indexes rebuild with prefix acceleration without losing search data")
+    func prefixIndexMigration() async throws {
+        let store = GRDBClipboardStore(
+            writer: try DatabaseQueue(),
+            blobs: BlobStore(
+                directory: FileManager.default.temporaryDirectory
+                    .appendingPathComponent("fts-migration-\(UUID().uuidString)")))
+        try store.migrate(upTo: "v17-frecency-boards-insights")
+        let items = [
+            ClipItem(preview: "quarterly invoice", contentHash: "prefix-migration-1"),
+            ClipItem(preview: "quarterly quarterly plan", contentHash: "prefix-migration-2"),
+            ClipItem(preview: "quarterly review", contentHash: "prefix-migration-3")
+        ]
+        for item in items {
+            try await store.insert(item, content: .text(item.preview))
+        }
+        let legacyOrder = try await store.search(ClipSearchQuery(text: "quart")).map(\.id)
+
+        try store.migrate()
+
+        let schema = try await store.writer.read { db in
+            try String.fetchOne(
+                db,
+                sql: "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'clip_fts'")
+        }
+        #expect(schema?.contains("prefix='2 3 4'") == true)
+        let optimizedOrder = try await store.search(ClipSearchQuery(text: "quart")).map(\.id)
+        #expect(optimizedOrder == legacyOrder)
+        #expect(Set(optimizedOrder) == Set(items.map(\.id)))
+    }
 }

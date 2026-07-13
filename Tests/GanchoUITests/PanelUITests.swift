@@ -362,7 +362,7 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
-    func testCaptureIndicatorResumesFromThePanelNotice() {
+    func testCaptureIndicatorResumesFromThePanelNotice() throws {
         let app = launchWithPanel(
             extraArguments: [
                 "-use-temp-durable-store", "-force-capture-active",
@@ -393,7 +393,15 @@ final class PanelUITests: XCTestCase {
 
         let resume = app.buttons["Resume"].firstMatch
         XCTAssertTrue(resume.waitForExistence(timeout: 3), "paused notice must be actionable")
-        resume.click()
+        try SynthesizedInput.requireForeground(app)
+        if resume.isHittable {
+            resume.click()
+        } else {
+            // The edge-anchored panel can expose the button to accessibility
+            // while XCUITest declines an element click. Once Gancho is proven
+            // frontmost, a center-coordinate click remains safely in its panel.
+            resume.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        }
         let resumedIndicatorResult = XCTWaiter().wait(
             for: [
                 XCTNSPredicateExpectation(

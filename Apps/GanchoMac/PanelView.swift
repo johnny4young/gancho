@@ -44,6 +44,21 @@ private enum BoardSheet: Identifiable {
     }
 }
 
+/// The panel has one native sheet presentation slot. Keeping snippet filling
+/// and board appearance in one enum avoids the unreliable multiple-sheet state
+/// that previously made presentations silently compete.
+private enum PanelPresentedSheet: Identifiable {
+    case snippet(SnippetFillRequest)
+    case boardAppearance(Pinboard)
+
+    var id: String {
+        switch self {
+        case .snippet(let request): "snippet-\(request.id.uuidString)"
+        case .boardAppearance(let board): "board-appearance-\(board.id.uuidString)"
+        }
+    }
+}
+
 /// Which zone owns the keyboard: the search field (list navigation) or the
 /// peek (its action list). → moves focus into the peek, ← returns to the list.
 enum PanelFocus: Hashable { case search, peek }
@@ -69,8 +84,7 @@ struct PanelView: View {
     @State private var boardNameField = ""
     /// The board a destructive "Delete board" is awaiting confirmation on.
     @State private var boardPendingDeletion: Pinboard?
-    /// Set when invoking a template snippet ({fields}) — drives the fill sheet.
-    @State private var fillRequest: SnippetFillRequest?
+    @State private var presentedSheet: PanelPresentedSheet?
     /// "Ask your clipboard": the grounded answer + its source clips, and whether
     /// the on-device model is currently answering.
     @State private var answer: AppModel.ClipboardAnswer?
@@ -180,12 +194,20 @@ struct PanelView: View {
         } message: { _ in
             Text("Your clips stay in history — only the board is removed.")
         }
-        .sheet(item: $fillRequest) { request in
-            SnippetFillSheet(request: request) { values in
-                model.pasteSnippet(request.snippet, values: values)
-                fillRequest = nil
-            } onCancel: {
-                fillRequest = nil
+        .sheet(item: $presentedSheet) { sheet in
+            switch sheet {
+            case .snippet(let request):
+                SnippetFillSheet(request: request) { values in
+                    model.pasteSnippet(request.snippet, values: values)
+                    presentedSheet = nil
+                } onCancel: {
+                    presentedSheet = nil
+                }
+            case .boardAppearance(let board):
+                BoardIdentityEditor(board: board) { colorHex, emoji in
+                    await model.updateBoardIdentity(
+                        board, colorHex: colorHex, emoji: emoji)
+                }
             }
         }
         // Load the peek for the selected clip, keyed on its id and debounced:
@@ -411,6 +433,7 @@ struct PanelView: View {
             }
             .padding(.horizontal, GanchoTokens.Spacing.xxs)
         }
+        .accessibilityIdentifier("board-rail")
     }
 
     private func filterPill(_ filter: ClipKindFilter) -> some View {
@@ -478,12 +501,21 @@ struct PanelView: View {
                         systemImage: board.sfSymbol,
                         isActive: search.selectedBoardID == board.id,
                         isFocused: railFocus == .boards(index + 1),
-                        identifier: "board-\(board.id.uuidString)"
+                        identifier: "board-\(board.id.uuidString)",
+                        board: board
                     ) {
                         search.selectedBoardID = board.id
                     }
                     .contextMenu {
                         if !board.isSystem {
+                            Button("Customize board…") {
+                                // Context-menu views can outlive an async model
+                                // refresh. Resolve the latest value by id so a
+                                // second edit starts from the durable metadata,
+                                // not the snapshot captured by the old menu.
+                                let current = model.boards.first { $0.id == board.id } ?? board
+                                presentedSheet = .boardAppearance(current)
+                            }
                             Button("Rename board…") {
                                 boardNameField = board.name
                                 boardSheet = .rename(board)
@@ -514,14 +546,22 @@ struct PanelView: View {
 
     private func boardChip(
         label: Text, systemImage: String, isActive: Bool, isFocused: Bool, identifier: String,
+        board: Pinboard? = nil,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 4) {
                 // Active board swaps its glyph for a checkmark, so the selection
                 // shows without leaning on the accent colour alone (WCAG 1.4.1).
-                Image(systemName: isActive ? "checkmark" : systemImage).font(.caption2)
-                    .accessibilityHidden(true)
+                if isActive {
+                    Image(systemName: "checkmark").font(.caption2)
+                        .accessibilityHidden(true)
+                } else if let board {
+                    BoardIdentityMark(board: board, size: 11)
+                } else {
+                    Image(systemName: systemImage).font(.caption2)
+                        .accessibilityHidden(true)
+                }
                 label.font(.caption.weight(isActive ? .semibold : .medium))
             }
             .padding(.horizontal, GanchoTokens.Spacing.xs)
@@ -1261,7 +1301,8 @@ struct PanelView: View {
             if fields.isEmpty {
                 model.pasteSnippet(snippet, values: [:])
             } else {
-                fillRequest = SnippetFillRequest(snippet: snippet, body: body, fields: fields)
+                presentedSheet = .snippet(
+                    SnippetFillRequest(snippet: snippet, body: body, fields: fields))
             }
         }
     }

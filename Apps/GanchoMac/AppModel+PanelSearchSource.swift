@@ -30,5 +30,5 @@ extension AppModel: PanelSearchSource {
         return (try? await grdbStore.search(query, limit: limit)) ?? []
     }
 
-    func isDeletionPending(_ id: UUID) -> Bool { deletionCoordinator.isPending(id) }
+    func isDeletionPending(_ id: UUID) -> Bool { reuseController.isDeletionPending(id) }
 }

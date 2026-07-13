@@ -49,11 +49,10 @@ enum AppearancePreference: String, CaseIterable {
 @MainActor
 final class AppModel {
     // swiftlint:enable type_body_length
-    private(set) var recentItems: [ClipItem] = []
-    /// Owns the undo-window deletion state machine (pending set + grace timer +
-    /// commit-only-if-still-pending). Clips in their window stay out of
-    /// `recentItems` even across a refresh until the deletion commits.
-    let deletionCoordinator = DeletionCoordinator()
+    /// Shared reuse-session owner; views continue to consume this model's
+    /// facade properties and commands rather than reaching through directly.
+    let reuseController: ReuseController
+    var recentItems: [ClipItem] { reuseController.recentItems }
     /// True when the durable store failed to open and the app is running on the
     /// in-memory fallback — history won't survive a relaunch, so the panel warns.
     var storageIsEphemeral: Bool { !store.isDurable }
@@ -74,7 +73,8 @@ final class AppModel {
     let thumbnails: ClipThumbnailStore
 
     let monitor: MacPasteboardMonitor
-    private(set) var monitorStatus: MonitorStatus = .stopped
+    private let captureLifecycle: CaptureLifecycleController
+    var monitorStatus: MonitorStatus { captureLifecycle.status }
     let pasteBack = PasteBackService()
     let privacyEvents = InMemoryPrivacyEventRecorder()
     /// Content-free log of recent operational issues (storage that wouldn't
@@ -143,15 +143,12 @@ final class AppModel {
         }
     #endif
 
-    private let classifier = RuleClassifier()
-    private let sensitiveDetector = SensitiveDataDetector()
+    private let curationController = ClipCurationController()
+    private let ingestionCoordinator = ClipIngestionCoordinator()
     private let defaults: UserDefaults
     private var retentionTimer: Timer?
     /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
     private var syncPollTimer: Timer?
-    private let screenShareDetector = ScreenShareDetector()
-    private var screenShareTimer: Timer?
-    private var monitorStatusTimer: Timer?
     private var uiTestPanelObserver: NSObjectProtocol?
     /// Wake-from-sleep sync catch-up (see the `didWakeNotification` observer).
     private var wakeObserver: NSObjectProtocol?
@@ -168,31 +165,29 @@ final class AppModel {
 
     /// Opt-out for the share auto-pause (on by default).
     var autoPauseOnScreenShare: Bool {
-        didSet { defaults.set(autoPauseOnScreenShare, forKey: "auto-pause-screen-share") }
+        get { captureLifecycle.autoPauseOnScreenShare }
+        set { captureLifecycle.autoPauseOnScreenShare = newValue }
     }
 
     /// Remember successful searches for ⌘↑ recall (on by default). Queries can
     /// be as sensitive as clip content, so turning this OFF also erases the
     /// stored history immediately — a privacy toggle, not just a feature flag.
     var rememberSearches: Bool {
-        didSet {
-            defaults.set(rememberSearches, forKey: "remember-searches")
-            if !rememberSearches {
-                Task { try? await grdbForEngines?.clearSearchHistory() }
-            }
-        }
+        get { reuseController.rememberSearches }
+        set { reuseController.rememberSearches = newValue }
     }
 
     /// The panel's live query, mirrored by `PanelView.onChange` — so `paste`
     /// knows a search led to this paste and can remember the query. Cleared
     /// after recording: one remembered use per typed search.
-    var activePanelQuery = ""
+    var activePanelQuery: String {
+        get { reuseController.activeSearchQuery }
+        set { reuseController.activeSearchQuery = newValue }
+    }
 
     var preferences: CapturePreferences {
-        didSet {
-            monitor.preferences = preferences
-            preferences.save(to: defaults)
-        }
+        get { captureLifecycle.preferences }
+        set { captureLifecycle.preferences = newValue }
     }
 
     /// On-device intelligence toggles (the Intelligence screen). Each gates a
@@ -221,12 +216,28 @@ final class AppModel {
         }
     }
 
+    /// CloudKit stays at the platform composition root; GanchoAppCore receives
+    /// only this transport-neutral factory closure.
+    private static let syncEngineFactory: SyncController.EngineFactory = {
+        store, tier, iCloud, entitled, state, onStatus, diagnostics, pollState in
+        SyncEngineFactory.make(
+            store: store,
+            tier: tier,
+            iCloudAvailable: iCloud,
+            hasCloudKitEntitlement: entitled,
+            stateStore: state,
+            onStatus: onStatus,
+            diagnostics: diagnostics,
+            pollStateStore: pollState)
+    }
+
     // Startup wires storage, capture policy, sync, licensing, and UI test hooks
     // in the same order as production launch; keep the exception local until a
     // dedicated composition-root split lands.
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     init() {
-        defaults = Self.defaultsForLaunch()
+        let appDefaults = Self.defaultsForLaunch()
+        defaults = appDefaults
         let directory = SharedStorageLocation.macAppStoreDirectory
         // Test hook: force the in-memory fallback so the "history isn't being
         // saved" warning path is drivable by a UI test (mirrors a real failure
@@ -247,11 +258,22 @@ final class AppModel {
         self.grdbStore = grdb
         self.grdbForEngines = grdb
         self.store = grdb ?? InMemoryClipboardStore()
+        let loadedRememberSearches =
+            appDefaults.object(forKey: "remember-searches") as? Bool ?? true
+        self.reuseController = ReuseController(
+            store: self.store,
+            usageStore: grdb,
+            rememberSearches: loadedRememberSearches,
+            onRememberSearchesChanged: {
+                appDefaults.set($0, forKey: "remember-searches")
+            })
         self.syncController = SyncController(
             store: grdb,
             stateStoreURL: URL.applicationSupportDirectory
                 .appendingPathComponent("Gancho", isDirectory: true)
-                .appendingPathComponent("sync-state.plist"))
+                .appendingPathComponent("sync-state.plist"),
+            hasCloudKitEntitlement: { CloudKitEntitlements.currentTaskAllowsSync() },
+            makeEngine: Self.syncEngineFactory)
         let resolvedStore = self.store
         self.thumbnails = ClipThumbnailStore(imageData: { id in
             if case .binary(let data, _)? = try? await resolvedStore.content(for: id) {
@@ -261,7 +283,7 @@ final class AppModel {
         })
         self.mcpConfig = MCPServerConfig.load(fromStoreDirectory: directory)
 
-        var loadedPreferences = CapturePreferences.load(from: defaults)
+        var loadedPreferences = CapturePreferences.load(from: appDefaults)
         #if DEBUG
             // UI tests must not inherit a developer's persisted Private Mode state.
             // Keep the override in-memory so the real preference is untouched.
@@ -269,35 +291,34 @@ final class AppModel {
                 loadedPreferences.isPrivateModePaused = false
             }
         #endif
-        preferences = loadedPreferences
-        intelligence = IntelligencePreferences.load(from: defaults)
-        retentionPolicy = RetentionPolicy.load(from: defaults)
+        intelligence = IntelligencePreferences.load(from: appDefaults)
+        retentionPolicy = RetentionPolicy.load(from: appDefaults)
         // Default to a menu-bar agent (.accessory). This app is LSUIElement;
         // forcing .regular (what the old Debug-only "show in Dock" default did)
         // leaves the status item registered but never placed in the menu bar —
         // the icon silently vanishes. Opt into the Dock explicitly instead.
-        showInDock = defaults.bool(forKey: "show-in-dock")
+        showInDock = appDefaults.bool(forKey: "show-in-dock")
         appearance =
-            AppearancePreference(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .auto
+            AppearancePreference(rawValue: appDefaults.string(forKey: "appearance") ?? "")
+            ?? .auto
         #if DEBUG
             let disableScreenShareAutoPause = CommandLine.arguments.contains(
                 "-disable-screen-share-auto-pause")
         #else
             let disableScreenShareAutoPause = false
         #endif
-        autoPauseOnScreenShare =
+        let loadedAutoPauseOnScreenShare =
             disableScreenShareAutoPause
-            ? false : defaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
-        rememberSearches = defaults.object(forKey: "remember-searches") as? Bool ?? true
+            ? false : appDefaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
         // Test hook: pin the FREE tier so the paywall flow is deterministic even
         // when `gancho-force-pro` is set in the environment (which would otherwise
         // force Pro and make `PaywallGatekeeper` suppress every trigger).
         let forceFreeTier = CommandLine.arguments.contains("-force-free-tier")
-        tier = forceFreeTier ? .free : UserTier.load(from: defaults)
+        tier = forceFreeTier ? .free : UserTier.load(from: appDefaults)
 
         // Telemetry is a real opt-in. Loading `.notAsked` or `.disabled` keeps
         // the SDK uninitialized; the factory runs only after explicit consent.
-        var telemetryConsent = TelemetryConsent.load(from: defaults)
+        var telemetryConsent = TelemetryConsent.load(from: appDefaults)
         #if DEBUG
             // UI-test hook: `-telemetry-consent <notAsked|enabled|disabled>`
             // pins the state so consent-flow tests don't depend on whatever a
@@ -321,26 +342,37 @@ final class AppModel {
         #else
             pasteboardAccessPolicy = SystemPasteboardAccessPolicy()
         #endif
-        monitor = MacPasteboardMonitor(
+        let resolvedMonitor = MacPasteboardMonitor(
             accessPolicy: pasteboardAccessPolicy,
             preferences: loadedPreferences)
-        monitor.denylist = SourceAppDenylist.load(from: defaults)
+        monitor = resolvedMonitor
+        let screenShareDetector = ScreenShareDetector()
+        captureLifecycle = CaptureLifecycleController(
+            monitor: resolvedMonitor,
+            preferences: loadedPreferences,
+            autoPauseOnScreenShare: loadedAutoPauseOnScreenShare,
+            screenShareIsActive: { screenShareDetector.isScreenSharePresumed() },
+            onPreferencesChanged: { $0.save(to: appDefaults) },
+            onAutoPauseChanged: {
+                appDefaults.set($0, forKey: "auto-pause-screen-share")
+            })
+        monitor.denylist = SourceAppDenylist.load(from: appDefaults)
         monitor.onCapture = { [weak self] capture in
             self?.ingest(capture)
         }
         monitor.onIgnore = { [weak self] reason in
             self?.privacyEvents.record(IgnoredCaptureEvent(reason: reason))
         }
-        monitor.start()
+        reuseController.setRecentItemsObserver { [weak self] _ in
+            self?.publishLastCopied()
+        }
+        captureLifecycle.activate()
         #if DEBUG
             if CommandLine.arguments.contains("-start-capture-paused") {
-                monitor.stop()
+                captureLifecycle.stopCapture()
             }
         #endif
-        syncMonitorStatus()
-        scheduleMonitorStatusMirror()
         scheduleRetention()
-        scheduleScreenShareWatch()
         scheduleSyncPoll()
         panel.attach(model: self)
         applyActivationPolicy()
@@ -376,6 +408,7 @@ final class AppModel {
         // Only StoreKit has out-of-process tier changes (renewals, refunds);
         // the direct-download license handler changes only on activation.
         (purchases as? StoreKitPurchaseHandler)?.onTierChange = { [weak self] tier in
+            guard !forceFreeTier else { return }
             self?.applyTier(tier)
         }
         Task {
@@ -479,32 +512,27 @@ final class AppModel {
         // this also keeps cross-device capture consistent with iOS's consensual
         // model (the origin device decides, the rest receive via sync).
         guard !capture.isFromUniversalClipboard else { return }
-        let (item, content) = ClipItemFactory.make(
-            from: capture, classifier: classifier, detector: sensitiveDetector,
-            sensitiveLifetime: retentionPolicy.sensitiveLifetime,
-            detectSecrets: intelligence.detectSecrets)
-        // Bucketized analytics: kind + a length BUCKET, never the content.
-        let length: Int
-        switch content {
-        case .text(let text): length = text.count
-        case .binary(let data, _): length = data.count
-        default: length = item.preview.count
-        }
-        telemetry.record(
-            .itemCaptured(
-                type: item.kind,
-                lengthBucket: .init(characterCount: length)))
         Task {
-            // Use the row `insert` returns: on a dedupe it is the EXISTING clip
-            // (moved to top), which may still be untitled from a capture that
-            // predates enrichment. Enriching the NEW item's id would target a row
-            // that was deduped away — so a re-copied clip never got its title.
-            // Enriching the stored row re-titles it when it has none, and
-            // `EnrichmentPlan`'s hasTitle guard skips it when it already does.
-            let stored = (try? await store.insert(item, content: content)) ?? item
-            await syncController.engine.enqueue([stored])
+            let configuration = ClipIngestionCoordinator.Configuration(
+                sensitiveLifetime: retentionPolicy.sensitiveLifetime,
+                detectSecrets: intelligence.detectSecrets,
+                tier: tier,
+                intelligence: intelligence,
+                allowsFreeTitle: freeAITitlesRemaining > 0)
+            guard
+                let outcome = try? await ingestionCoordinator.ingest(
+                    capture,
+                    configuration: configuration,
+                    store: store,
+                    syncEngine: syncController.engine)
+            else { return }
+            // Bucketized analytics: kind + a length BUCKET, never the content.
+            telemetry.record(
+                .itemCaptured(
+                    type: outcome.item.kind,
+                    lengthBucket: .init(characterCount: outcome.contentLength)))
             await refreshRecents()
-            enrich(stored, content: content)
+            enrich(outcome)
         }
     }
 
@@ -637,27 +665,17 @@ final class AppModel {
 
     /// Pro-tier async enrichment — never blocks capture: OCR makes image
     /// clips searchable; the tiered annotator titles text clips.
-    private func enrich(_ item: ClipItem, content: ClipContent?) {
-        // The Pro + non-sensitive + per-toggle gating is the shared policy both
-        // platforms drive their enrichment IO from (see `EnrichmentPlan`); only
-        // the store writes and the list refresh differ per platform.
-        let plan = EnrichmentPlan(
-            content: content, kind: item.kind, isSensitive: item.isSensitive,
-            hasTitle: !item.title.isEmpty, isPro: tier == .pro, preferences: intelligence)
-        // Free taste: the first `FreeTierLimits.freeAITitleTaste` text clips get a
-        // real AI title even on the free tier, so a new user sees the on-device
-        // intelligence on their OWN clips before deciding. Titles only — semantic
-        // search and OCR stay Pro; sensitive clips are never enriched.
-        let tasteTitle =
-            tier != .pro && !item.isSensitive && item.title.isEmpty
-            && freeAITitlesRemaining > 0
-        guard !plan.isEmpty || tasteTitle, let grdbStore else { return }
+    private func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
+        guard !outcome.enrichment.isEmpty, let grdbStore else { return }
+        let syncEngine: (any SyncEngine)? =
+            syncController.isEnabled ? syncController.engine : nil
         Task(priority: .utility) {
-            await EnrichmentService().enrich(
-                item, content: content, plan: plan,
-                writeTitle: plan.runs(.title) || tasteTitle, store: grdbStore
-            ) { @MainActor in
-                if tasteTitle {
+            await ingestionCoordinator.enrich(
+                outcome,
+                store: grdbStore,
+                syncEngine: syncEngine
+            ) { @MainActor [self] in
+                if outcome.enrichment.usesFreeTitle {
                     consumeFreeAITitle()
                     // The moment the taste runs out is the conversion moment: a
                     // gentle, tappable nudge — never an interrupting gateway.
@@ -665,23 +683,11 @@ final class AppModel {
                 }
                 await refreshRecents()
             }
-            // Enrichment runs per-device, but its FRUITS sync: the title/OCR
-            // writes flagged the row for upload; push it now (like a pin toggle)
-            // so the other device sees the smart title instead of the raw clip,
-            // rather than waiting for the next sync start().
-            if syncController.isEnabled {
-                await syncController.engine.enqueue([item])
-            }
         }
     }
 
     func refreshRecents() async {
-        let items = (try? await store.items(offset: 0, limit: 50)) ?? []
-        // Keep clips in their undo window hidden even if a capture refreshes the list.
-        recentItems =
-            deletionCoordinator.hasPending
-            ? items.filter { !deletionCoordinator.isPending($0.id) } : items
-        publishLastCopied()
+        await reuseController.refreshRecents()
     }
 
     /// Publish the most recent clip's preview to the menu-bar helper's recent
@@ -722,13 +728,7 @@ final class AppModel {
                 .itemPastedBack(
                     ageBucket: .init(age: Date().timeIntervalSince(item.createdAt))))
             requestTelemetryConsentAfterFirstValue()
-            // Frecency signal: every paste bumps uses/lastUsedAt (local only —
-            // recordUse never flags a re-upload). The single choke point for
-            // Enter, ⌘1-9, ⌘V, the paste stack, and the peek actions.
-            try? await grdbStore?.recordUse(id: item.id, now: .now)
-            await rememberActiveSearch()
-            _ = try? await store.insert(item, content: nil)  // move-to-top
-            await refreshRecents()
+            await reuseController.recordPaste(of: item)
         }
     }
 
@@ -742,21 +742,9 @@ final class AppModel {
         isTelemetryConsentPromptPresented = true
     }
 
-    /// A paste while the panel had a query = that search succeeded; remember it
-    /// for ⌘↑ recall (unless the privacy toggle is off). Clearing after the
-    /// record keeps it to one remembered use per typed search. Awaited from the
-    /// paste task — a deferred fire-and-forget write could land AFTER the
-    /// privacy toggle's clear and silently repopulate the history.
-    private func rememberActiveSearch() async {
-        let query = activePanelQuery
-        activePanelQuery = ""
-        guard rememberSearches, !query.isEmpty else { return }
-        try? await grdbForEngines?.recordSearch(query, now: .now)
-    }
-
     /// The ⌘↑ recall list for the panel's search field, newest first.
     func recentSearches() async -> [String] {
-        (try? await grdbForEngines?.recentSearches(limit: 5)) ?? []
+        await reuseController.recentSearches()
     }
 
     /// A drop target accepted a dragged-out clip — the drag equivalent of a
@@ -765,8 +753,7 @@ final class AppModel {
     /// target loads. No move-to-top: the drag came FROM the visible list, and
     /// reordering it mid-interaction would yank rows out from under the user.
     func noteDragOutDelivered(_ item: ClipItem) async {
-        try? await grdbStore?.recordUse(id: item.id, now: .now)
-        await rememberActiveSearch()
+        await reuseController.recordDragDelivery(of: item)
         requestTelemetryConsentAfterFirstValue()
     }
 
@@ -783,10 +770,7 @@ final class AppModel {
                 showCopyOnlyToast()
             }
             requestTelemetryConsentAfterFirstValue()
-            try? await grdbStore?.recordUse(id: item.id, now: .now)
-            await rememberActiveSearch()
-            _ = try? await store.insert(item, content: nil)
-            await refreshRecents()
+            await reuseController.recordPaste(of: item)
         }
     }
 
@@ -834,7 +818,7 @@ final class AppModel {
     /// paste the result, and bump the usage count. Empty values means a
     /// non-template snippet (or fields left blank → their defaults apply).
     func pasteSnippet(_ snippet: ClipItem, values: [String: String]) {
-        guard let grdbStore else { return }
+        guard grdbStore != nil else { return }
         Task {
             guard case .text(let body)? = try? await store.content(for: snippet.id) else { return }
             let filled = SnippetTemplate.fill(body, values: values)
@@ -844,8 +828,7 @@ final class AppModel {
                 showCopyOnlyToast()
             }
             requestTelemetryConsentAfterFirstValue()
-            try? await grdbStore.recordUse(id: snippet.id, now: .now)
-            await refreshRecents()
+            await reuseController.recordSnippetPaste(of: snippet)
         }
     }
 
@@ -929,53 +912,38 @@ final class AppModel {
         }
     }
 
-    /// Cyclic quick-paste: each invocation pastes the NEXT history item
-    /// (wraps around). Resets to the top after 8s of silence.
-    private var cycleIndex = 0
-    private var lastCycleAt = Date.distantPast
-
     func cyclicPaste() {
-        if Date().timeIntervalSince(lastCycleAt) > 8 { cycleIndex = 0 }
-        lastCycleAt = Date()
-        guard !recentItems.isEmpty else { return }
-        let item = recentItems[cycleIndex % recentItems.count]
-        cycleIndex += 1
+        guard let item = reuseController.nextCyclicItem() else { return }
         paste(item)
     }
 
     // MARK: - Paste stack (local; cross-device rides sync)
 
-    /// FIFO queue: load several clips, then paste them in order — each
-    /// stack-paste pops the front. Survives only the session (by design:
-    /// a stack is a working set, not history). Ordering logic lives in the
-    /// `PasteStack` value (unit-tested); this owns the paste-back side effect.
-    private var stack = PasteStack()
-
     /// Queue entries (each with a stable id independent of the clip), so the UI
     /// can render and address duplicates without ClipItem.id collisions.
-    var pasteStackEntries: [PasteStack.Entry] { stack.entries }
+    var pasteStackEntries: [PasteStack.Entry] { reuseController.pasteStackEntries }
 
     func pushToStack(_ item: ClipItem) {
-        stack.push(item)
+        reuseController.pushToStack(item)
         toasts.show(GanchoToast(message: "Added to paste stack"))
     }
 
     func clearStack() {
-        stack.clear()
+        reuseController.clearStack()
     }
 
     func removeFromStack(entryID: Int) {
-        stack.remove(entryID: entryID)
+        reuseController.removeFromStack(entryID: entryID)
     }
 
     func moveInStack(fromOffsets source: IndexSet, toOffset destination: Int) {
-        stack.move(fromOffsets: source, toOffset: destination)
+        reuseController.moveInStack(fromOffsets: source, toOffset: destination)
     }
 
     func pasteNextFromStack() {
-        guard let item = stack.popFirst() else { return }
+        guard let item = reuseController.popNextFromStack() else { return }
         paste(item)
-        if stack.isEmpty {
+        if pasteStackEntries.isEmpty {
             toasts.show(GanchoToast(message: "Paste stack finished"))
         }
     }
@@ -988,57 +956,36 @@ final class AppModel {
     /// loses history, and pins/boards/timestamps survive an Undo intact. If the
     /// app quits mid-window the commit never runs, so the clip is kept (safe).
     func delete(_ item: ClipItem) {
-        recentItems.removeAll { $0.id == item.id }
-        // The deleted clip may have been the most-recent one — re-publish so the
-        // menu-bar helper's "Last copied" preview doesn't point at it until the
-        // next refresh.
-        publishLastCopied()
-        deletionCoordinator.beginDeletion(
-            item.id,
-            performDelete: { [weak self] _ in
+        reuseController.delete(
+            item,
+            performDelete: { [weak self] id in
                 guard let self else { return }
                 if syncController.isEnabled, let grdbStore {
-                    _ = try? await grdbStore.deleteForSync(id: item.id, now: .now)
-                    await syncController.engine.enqueueDeletion(ids: [item.id])
+                    _ = try? await grdbStore.deleteForSync(id: id, now: .now)
+                    await syncController.engine.enqueueDeletion(ids: [id])
                 } else {
-                    _ = try? await store.delete(id: item.id)
+                    _ = try? await store.delete(id: id)
                 }
-            },
-            // Reconcile from the store of record only AFTER the delete lands: a
-            // refresh mid-commit can't flash the clip back (it stays filtered
-            // until the coordinator clears the hold), and a failed delete
-            // honestly reappears — the list and "Last copied" are both re-derived
-            // from what's actually stored.
-            didFinish: { [weak self] _ in await self?.refreshRecents() })
+            })
         toasts.show(
             GanchoToast(
                 message: "Deleted",
                 action: ToastAction(title: "Undo", accessibilityIdentifier: "toast-undo") {
                     [weak self] in
-                    self?.undoDelete(item)
+                    self?.reuseController.undoDeletion(item.id)
                 }))
     }
 
-    private func undoDelete(_ item: ClipItem) {
-        // Still in the store → reappears in place once the list refreshes.
-        deletionCoordinator.undo(item.id) { [weak self] _ in await self?.refreshRecents() }
-    }
-
     func togglePause() {
-        if monitor.status == .running {
-            monitor.stop()
-        } else {
-            monitor.start()
-        }
-        syncMonitorStatus()
+        captureLifecycle.toggleCapture()
     }
 
     func togglePrivateMode() {
-        preferences.isPrivateModePaused.toggle()
+        captureLifecycle.togglePrivateMode()
     }
 
     func ignoreNextCopy() {
-        monitor.ignoreNextCopy()
+        captureLifecycle.ignoreNextCopy()
     }
 
     /// Generates the shareable "Wrapped" stats card and saves it (on-device).
@@ -1194,49 +1141,30 @@ final class AppModel {
 
     private(set) var boards: [Pinboard] = []
 
-    /// Runs a store mutation and reports whether it succeeded. A thrown error is
-    /// logged content-free (a category + a fixed message, never the clip) so a
-    /// success toast never fires on a silent write failure (A3-3.2b): the
-    /// `try? … then show(toast)` pattern used to confirm "Pinned"/"Saved" even
-    /// when the write threw.
-    @discardableResult
-    func withDiagnostics(
-        _ category: String.LocalizationValue, _ failure: String.LocalizationValue,
-        _ operation: () async throws -> Void
-    ) async -> Bool {
-        do {
-            try await operation()
-            return true
-        } catch {
-            diagnostics.record(String(localized: category), String(localized: failure))
-            return false
-        }
+    private func recordBoardFailure(_ message: String.LocalizationValue) {
+        diagnostics.record(String(localized: "Boards"), String(localized: message))
     }
 
     func togglePin(_ item: ClipItem) {
         guard let grdbStore else { return }
         Task {
-            // Free-tier ceiling; the paywall UX lands with monetization.
-            if !item.isPinned {
-                let count = (try? await grdbStore.pinnedCount()) ?? 0
-                guard PinLimits.canPin(currentPinCount: count, isPro: tier == .pro) else {
-                    paywallWindow.show(trigger: .freeLimitReached, model: self)
-                    return
-                }
+            switch await curationController.togglePin(
+                item, tier: tier, store: grdbStore, engine: syncController.engine)
+            {
+            case .pinned:
+                toasts.show(GanchoToast(message: "Pinned"))
+                await refreshRecents()
+            case .unpinned:
+                toasts.show(GanchoToast(message: "Unpinned"))
+                await refreshRecents()
+            case .alreadyPinned, .alreadyUnpinned, .clipUnavailable:
+                // Reconcile a stale row snapshot without claiming a mutation.
+                await refreshRecents()
+            case .freeLimitReached:
+                paywallWindow.show(trigger: .freeLimitReached, model: self)
+            case .failed:
+                diagnostics.record("Pins", "Couldn’t update the pin.")
             }
-            guard
-                await withDiagnostics(
-                    "Pins", "Couldn’t update the pin.",
-                    {
-                        _ = try await grdbStore.setPinned(id: item.id, !item.isPinned)
-                    })
-            else { return }
-            // setPinned flagged the row for upload; enqueue pushes it now
-            // instead of at the next sync start(). The engine builds the
-            // record from the stored row, so only the id matters here.
-            await syncController.engine.enqueue([item])
-            toasts.show(GanchoToast(message: item.isPinned ? "Unpinned" : "Pinned"))
-            await refreshRecents()
         }
     }
 
@@ -1244,21 +1172,19 @@ final class AppModel {
     func promoteToSnippet(_ item: ClipItem) {
         guard let grdbStore else { return }
         Task {
-            let count = (try? await grdbStore.snippetCount()) ?? 0
-            guard SnippetLimits.canPromote(currentSnippetCount: count, isPro: tier == .pro)
-            else {
+            switch await curationController.promoteToSnippet(
+                item, tier: tier, store: grdbStore)
+            {
+            case .promoted:
+                toasts.show(GanchoToast(message: "Saved as snippet"))
+                await refreshRecents()
+            case .freeLimitReached:
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
-                return
+            case .clipUnavailable:
+                await refreshRecents()
+            case .failed:
+                diagnostics.record("Snippets", "Couldn’t save the snippet.")
             }
-            guard
-                await withDiagnostics(
-                    "Snippets", "Couldn’t save the snippet.",
-                    {
-                        _ = try await grdbStore.promoteToSnippet(id: item.id, title: nil)
-                    })
-            else { return }
-            toasts.show(GanchoToast(message: "Saved as snippet"))
-            await refreshRecents()
         }
     }
 
@@ -1268,19 +1194,9 @@ final class AppModel {
     }
 
     func assign(_ item: ClipItem, toBoard board: Pinboard) {
-        guard let grdbStore else { return }
         Task {
-            guard
-                await withDiagnostics(
-                    "Boards", "Couldn’t add the clip to the board.",
-                    {
-                        try await grdbStore.assign(clipID: item.id, toBoard: board.id)
-                    })
-            else { return }
-            lastAssignedBoardID = board.id
-            await syncController.engine.enqueue([item])
+            guard await setBoardMembership(item, board: board, member: true) else { return }
             toasts.show(GanchoToast(message: "Added to board"))
-            await refreshRecents()
         }
     }
 
@@ -1288,18 +1204,8 @@ final class AppModel {
     /// reversible, so offer the reversal in the toast instead of making the user
     /// hunt through the board menu to take it back.
     func assignWithUndo(_ item: ClipItem, toBoard board: Pinboard) {
-        guard let grdbStore else { return }
         Task {
-            guard
-                await withDiagnostics(
-                    "Boards", "Couldn’t add the clip to the board.",
-                    {
-                        try await grdbStore.assign(clipID: item.id, toBoard: board.id)
-                    })
-            else { return }
-            lastAssignedBoardID = board.id
-            await syncController.engine.enqueue([item])
-            await refreshRecents()
+            guard await setBoardMembership(item, board: board, member: true) else { return }
             toasts.show(
                 GanchoToast(
                     message: "Added to board",
@@ -1310,31 +1216,22 @@ final class AppModel {
     }
 
     func unassign(_ item: ClipItem, fromBoard board: Pinboard) {
-        guard let grdbStore else { return }
         Task {
-            guard
-                await withDiagnostics(
-                    "Boards", "Couldn’t remove the clip from the board.",
-                    {
-                        try await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
-                    })
-            else { return }
-            await syncController.engine.enqueue([item])
-            await refreshRecents()
+            _ = await setBoardMembership(item, board: board, member: false)
         }
     }
 
     func removeFromAllBoards(_ item: ClipItem) {
         guard let grdbStore else { return }
         Task {
-            guard
-                await withDiagnostics(
-                    "Boards", "Couldn’t remove the clip from its boards.",
-                    {
-                        try await grdbStore.removeFromAllBoards(clipID: item.id)
-                    })
-            else { return }
-            await syncController.engine.enqueue([item])
+            let outcome = await BoardsController().removeFromAllBoards(
+                item, store: grdbStore, engine: syncController.engine)
+            guard outcome == .changed else {
+                if outcome == .failed {
+                    recordBoardFailure("Couldn’t remove the clip from its boards.")
+                }
+                return
+            }
             await refreshRecents()
         }
     }
@@ -1361,6 +1258,11 @@ final class AppModel {
             isPro: tier == .pro,
             onFreeLimit: { self.paywallWindow.show(trigger: .freeLimitReached, model: self) },
             onAssigned: { self.toasts.show(GanchoToast(message: "Added to board")) })
+        if outcome == .failed {
+            recordBoardFailure("Couldn’t create the board.")
+        } else if item != nil, case .created(_, filedClip: false) = outcome {
+            recordBoardFailure("The board was created, but the clip couldn’t be added.")
+        }
         guard outcome != .blocked else { return outcome }
         await refreshBoards()
         if case .created(let boardID, filedClip: true) = outcome {
@@ -1370,33 +1272,42 @@ final class AppModel {
         return outcome
     }
 
-    /// Rename / delete are no-ops on the built-in Favorites board (the store
-    /// guards on isSystem), so the UI only needs to hide the affordances.
+    /// Rename / delete are no-ops on the built-in Favorites board, so the UI
+    /// only needs to hide the affordances.
     func renameBoard(_ board: Pinboard, name: String) {
         guard let grdbStore else { return }
         Task {
-            await BoardsController().renameBoard(
+            let outcome = await BoardsController().renameBoard(
                 board, name: name, store: grdbStore, engine: syncController.engine)
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t rename the board.")
+            }
             await refreshBoards()
         }
     }
 
-    func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) {
-        guard let grdbStore else { return }
-        Task {
-            await BoardsController().updateBoardIdentity(
-                board, colorHex: colorHex, emoji: emoji, store: grdbStore,
-                engine: syncController.engine)
-            await refreshBoards()
+    @discardableResult
+    func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) async -> Bool {
+        guard let grdbStore else { return false }
+        let outcome = await BoardsController().updateBoardIdentity(
+            board, colorHex: colorHex, emoji: emoji, store: grdbStore,
+            engine: syncController.engine)
+        if outcome == .failed {
+            recordBoardFailure("Couldn’t update the board appearance.")
         }
+        await refreshBoards()
+        return outcome != .failed
     }
 
     func deleteBoard(_ board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            await BoardsController().deleteBoard(
+            let outcome = await BoardsController().deleteBoard(
                 board, store: grdbStore, engine: syncController.engine,
                 syncEnabled: syncController.isEnabled)
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t delete the board.")
+            }
             await refreshBoards()
             await refreshRecents()
         }
@@ -1415,7 +1326,13 @@ final class AppModel {
         guard let grdbStore else { return false }
         let succeeded = await BoardsController().setBoardMembership(
             item, board: board, member: member, store: grdbStore, engine: syncController.engine)
-        guard succeeded else { return false }
+        guard succeeded else {
+            recordBoardFailure(
+                member
+                    ? "Couldn’t add the clip to the board."
+                    : "Couldn’t remove the clip from the board.")
+            return false
+        }
         if member { lastAssignedBoardID = board.id }
         await refreshRecents()
         return true
@@ -1517,37 +1434,6 @@ final class AppModel {
             let value = AppearancePreference(rawValue: raw)
         {
             appearance = value
-        }
-    }
-
-    private func scheduleMonitorStatusMirror() {
-        monitorStatusTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) {
-            [weak self] _ in
-            Task { @MainActor in
-                self?.syncMonitorStatus()
-            }
-        }
-    }
-
-    private func syncMonitorStatus() {
-        let status = monitor.status
-        if monitorStatus != status {
-            monitorStatus = status
-        }
-    }
-
-    private func scheduleScreenShareWatch() {
-        screenShareTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) {
-            [weak self] _ in
-            Task { @MainActor in
-                guard let self else { return }
-                let sharing =
-                    self.autoPauseOnScreenShare
-                    && self.screenShareDetector.isScreenSharePresumed()
-                if self.monitor.pausedForScreenShare != sharing {
-                    self.monitor.pausedForScreenShare = sharing
-                }
-            }
         }
     }
 

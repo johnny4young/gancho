@@ -1,16 +1,21 @@
 import Foundation
 
-/// Persistence boundary for clip history. The production implementation is
-/// GRDB/SQLite (+FTS5); the in-memory implementation backs unit tests and
-/// previews. List calls page METADATA only — full content is a separate,
-/// per-item fetch so blobs never ride along with scrolling.
-public protocol ClipboardStore: Sendable {
+/// Minimal persistence facet for capture workflows. Keeping ingestion on this
+/// surface prevents coordinators from gaining unrelated list, delete, content,
+/// or export responsibilities.
+public protocol ClipIngesting: Sendable {
     /// Inserts a clip with its full content. Implementations deduplicate by
     /// `contentHash`: re-copying identical content moves the existing item
     /// to the top instead of duplicating it.
     @discardableResult
     func insert(_ item: ClipItem, content: ClipContent?) async throws -> ClipItem
+}
 
+/// Persistence boundary for clip history. The production implementation is
+/// GRDB/SQLite (+FTS5); the in-memory implementation backs unit tests and
+/// previews. List calls page METADATA only — full content is a separate,
+/// per-item fetch so blobs never ride along with scrolling.
+public protocol ClipboardStore: ClipIngesting {
     /// Newest first (pins float to the top), paged.
     func items(offset: Int, limit: Int) async throws -> [ClipItem]
 

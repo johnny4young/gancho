@@ -7,8 +7,22 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Fuzzy search stays responsive as history grows.** The local FTS index now
+  accelerates the short prefixes produced while typing, with existing indexes
+  upgraded transactionally. The 100k-clip performance gate separately measures
+  cold startup cost and five reproducible warm rounds instead of depending on
+  one favorable query sequence.
+
 ### Added
 
+- **Give every board a recognizable identity.** User boards can now choose from
+  a fixed accessible color palette and an optional emoji on both Mac and
+  iPhone/iPad. The appearance editor is keyboard- and VoiceOver-friendly,
+  previews changes before saving, and uses the existing durable sync path so
+  the same identity follows the board across devices. Existing boards keep
+  their stable automatic color until customized.
 - **Text transforms that work on every device.** A new "Transform" menu in the
   macOS peek and the iOS clip detail applies pure, deterministic text
   operations — Title Case, collapse spaces, sort/dedupe lines, URL encode and
@@ -52,6 +66,19 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   toggle membership, ⌘Return (or the "New board" row) to create a board and file
   the clip into it, Esc to close. **⇧⌘B** repeats the last board you used, so
   curating many clips into one board is a keystroke each.
+
+### Fixed
+
+- **Board changes now reflect durable database results.** A failed board-count
+  read no longer bypasses the free-tier limit, failed edits are recorded as
+  content-free diagnostics, and a board deletion is only queued for sync after
+  its local tombstone commits. On iPhone and iPad, a failed deletion also keeps
+  the active board filter intact.
+- **Curation limits and confirmations now agree across devices.** Pinning on
+  iPhone and iPad now honors the same 15-pin free-tier limit as Mac and
+  Shortcuts. Saving a snippet only shows success after the database write
+  succeeds; failed pin or snippet writes are recorded as content-free
+  diagnostics instead of being presented as successful actions.
 
 ## [0.5.0] - 2026-07-08
 

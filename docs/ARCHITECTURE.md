@@ -52,12 +52,14 @@ Shared engine-room targets (nonisolated + Sendable)
   ├─ GanchoTelemetry: metadata-only analytics transport (network-isolated)
   └─ GanchoMCP: local MCP tools over the store boundary (driven by the `gancho` CLI)
 
-App-layer models and coordinators (@MainActor; NO AppKit/UIKit/SwiftUI/CloudKit)
+App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/SwiftUI/CloudKit)
   └─ GanchoAppCore: the testable app logic both shells share and forward to —
        PanelSearchModel + PanelNavigation (macOS panel), HistoryListViewModel (iOS
-       list), SyncController, BoardsController, EnrichmentService, DeletionCoordinator,
-       BoardSuggestionService, ClipItemFactory. Store access is facet-typed, so
-       each unit runs against an in-memory fake in GanchoAppCoreTests.
+       list), SyncController, ClipIngestionCoordinator, CaptureLifecycleController
+       (macOS), ReuseController, ClipCurationController, BoardsController,
+       EnrichmentService, DeletionCoordinator, BoardSuggestionService,
+       ClipItemFactory. Store access is facet-typed, so each unit runs against an
+       in-memory fake in GanchoAppCoreTests.
 
 Persistence and sync implementations
   ├─ GRDB / SQLite / FTS5 local store with content-addressed disk blobs
@@ -68,6 +70,43 @@ Persistence and sync implementations
 
 App targets stay thin. If feature logic cannot be tested from a SwiftPM target,
 it probably lives in the wrong layer.
+
+`GanchoAppCore` depends only on the transport-neutral `SyncEngine`,
+`SyncStateStore`, and `SyncEnablement` contracts in `GanchoKit`. The macOS and
+iOS composition roots inject `GanchoSync.SyncEngineFactory`; the app layer
+cannot construct or import the CloudKit implementation.
+
+`ClipIngestionCoordinator` is the shared capture workflow: it maps payloads,
+persists and deduplicates them, enqueues the durable row, computes and runs the
+enrichment plan, and enqueues enriched metadata. Platform shells own only
+capture mechanics and presentation effects such as telemetry buckets, list or
+widget refresh, feedback, and Live Activity state.
+
+On macOS, `CaptureLifecycleController` owns the monitor lifecycle rather than
+pasteboard content: start/stop/ignore commands, observable status mirroring,
+capture-preference persistence, and the periodic screen-share auto-pause check.
+`AppModel` remains the observable facade and retains platform composition such
+as monitor construction, denylist callbacks, windows, and presentation effects.
+
+`ReuseController` owns the reusable session state that follows successful user
+actions: the recent metadata page, local use/search signals, cyclic selection,
+paste-stack ordering, and the reversible-delete window. The macOS `AppModel`
+keeps AppKit paste-back, toasts, telemetry, helper publishing, and the concrete
+sync-aware deletion mutation, while exposing facade properties so views do not
+couple themselves to controller composition.
+
+`ClipCurationController` gives macOS and iOS one policy and mutation sequence
+for pinning and promoting snippets. It returns content-free outcomes after the
+free-tier gate and durable write, and enqueues successful pin changes. Each
+shell maps those outcomes to its own paywall, diagnostics, confirmation, and
+list refresh; failed writes never produce success feedback.
+
+`BoardsController` applies the same boundary to board creation, metadata,
+deletion, and clip membership. Board limits fail closed if the authoritative
+list cannot be read, protected system boards are rejected before persistence,
+and sync work is enqueued only after its local mutation or tombstone commits.
+The shells receive content-free outcomes and retain selection, refresh,
+diagnostic, paywall, and toast behavior.
 
 ## Platform contracts
 
@@ -163,7 +202,8 @@ inside the decrypted database.
 Performance budgets:
 
 - idle macOS capture loop: <0.5% average CPU and no linear memory growth,
-- exact search: <50 ms at 100k items on a current Mac,
+- FTS search at 100k items on a current Mac: cold first query <150 ms and warm
+  interactive p95 <50 ms, measured separately over reproducibly shuffled rounds,
 - semantic retrieval: <100 ms at 10k vectors before it can be user-facing,
 - capture pipeline rules/classification before persistence: <10 ms excluding OS
   pasteboard permission stalls,
