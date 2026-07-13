@@ -433,6 +433,7 @@ struct PanelView: View {
             }
             .padding(.horizontal, GanchoTokens.Spacing.xxs)
         }
+        .accessibilityIdentifier("board-rail")
     }
 
     private func filterPill(_ filter: ClipKindFilter) -> some View {

@@ -130,6 +130,7 @@ final class IOSAppModel {
     }
 
     init() {
+        let forceFreeTier = CommandLine.arguments.contains("-force-free-tier")
         intelligence = IntelligencePreferences.load(from: defaults)
         var telemetryConsent = TelemetryConsent.load(from: defaults)
         #if DEBUG
@@ -175,15 +176,19 @@ final class IOSAppModel {
         // (fetched records that fail to decode/apply, non-transient save errors).
         syncController.diagnostics = diagnostics
         purchases.onTierChange = { [weak self] tier in
-            guard let self else { return }
+            guard !forceFreeTier, let self else { return }
             self.tier = tier
             self.syncController.configure(tier: self.tier)
         }
         Task {
-            tier = await purchases.currentTier()
-            #if DEBUG
-                if DebugFlags.forcePro { tier = .pro }
-            #endif
+            if forceFreeTier {
+                tier = .free
+            } else {
+                tier = await purchases.currentTier()
+                #if DEBUG
+                    if DebugFlags.forcePro { tier = .pro }
+                #endif
+            }
             syncController.configure(tier: tier)
         }
         // Log a data-loss-level storage failure eagerly (before any view reads

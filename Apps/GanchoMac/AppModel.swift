@@ -408,6 +408,7 @@ final class AppModel {
         // Only StoreKit has out-of-process tier changes (renewals, refunds);
         // the direct-download license handler changes only on activation.
         (purchases as? StoreKitPurchaseHandler)?.onTierChange = { [weak self] tier in
+            guard !forceFreeTier else { return }
             self?.applyTier(tier)
         }
         Task {
@@ -817,7 +818,7 @@ final class AppModel {
     /// paste the result, and bump the usage count. Empty values means a
     /// non-template snippet (or fields left blank → their defaults apply).
     func pasteSnippet(_ snippet: ClipItem, values: [String: String]) {
-        guard let grdbStore else { return }
+        guard grdbStore != nil else { return }
         Task {
             guard case .text(let body)? = try? await store.content(for: snippet.id) else { return }
             let filled = SnippetTemplate.fill(body, values: values)

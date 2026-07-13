@@ -20,6 +20,10 @@ jobs:
     # macOS/iOS 26 deployment target + Swift 6.2 need an Xcode 26 runner;
     # macos-latest still carries Xcode 16 (macOS 15 SDK) and cannot build it.
     runs-on: macos-26
+    # Pin the stable toolchain so weekly runner-image updates cannot silently
+    # change the compiler or SDK used by required validation.
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v7
 
@@ -82,6 +86,8 @@ jobs:
     # Deployment target is macOS/iOS 26 — needs an Xcode 26 runner image.
     # macos-latest still lags on Xcode 16 (macOS 15 SDK), so pin macos-26.
     runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v7
 
@@ -97,7 +103,9 @@ jobs:
         run: xcodegen generate
 
       - name: StoreKit purchase and entitlement tests
-        run: make test-storekit
+        run: |
+          ./scripts/run-storekit-tests-ci.sh --self-test
+          ./scripts/run-storekit-tests-ci.sh
 
       - name: Build macOS app
         run: |

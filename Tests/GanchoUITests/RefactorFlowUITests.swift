@@ -201,11 +201,12 @@ final class RefactorFlowUITests: XCTestCase {
     /// seeded store is throwaway, but unlike the ephemeral harness it can prove
     /// the chosen palette token survives the editor's save and model refresh.
     @MainActor
-    func testBoardAppearanceEditorPersistsPaletteSelection() throws {
+    func testBoardAppearanceEditorPersistsPaletteSelection() async throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-sample-boards",
+            "-force-free-tier",
             "-AppleLanguages", "(en)"
         ]
         app.launch()
@@ -217,7 +218,13 @@ final class RefactorFlowUITests: XCTestCase {
             "the panel must open on launch")
 
         let board = app.buttons["Seed board 1"].firstMatch
-        guard board.waitForExistence(timeout: 8), board.isHittable else {
+        guard board.waitForExistence(timeout: 8) else {
+            throw XCTSkip("seeded board chip is not reachable on this runner")
+        }
+        if !board.isHittable {
+            app.scrollViews["board-rail"].firstMatch.swipeLeft()
+        }
+        guard board.isHittable else {
             throw XCTSkip("seeded board chip is not reachable on this runner")
         }
         try openAppearanceEditor(for: board, in: app)
@@ -237,9 +244,10 @@ final class RefactorFlowUITests: XCTestCase {
             throw XCTSkip("board appearance save action is not hittable on this runner")
         }
         save.click()
-        XCTAssertFalse(
-            save.waitForExistence(timeout: 5),
-            "a successful durable update must dismiss the editor")
+        let dismissal = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: save)
+        dismissal.expectationDescription = "a successful durable update must dismiss the editor"
+        await fulfillment(of: [dismissal], timeout: 5)
 
         try openAppearanceEditor(for: board, in: app)
         XCTAssertEqual(
@@ -252,20 +260,19 @@ final class RefactorFlowUITests: XCTestCase {
     private func openAppearanceEditor(
         for board: XCUIElement, in app: XCUIApplication
     ) throws {
-        for attempt in 0..<2 {
+        for attempt in 0..<3 {
             board.rightClick()
             let customize = app.menuItems["Customize board…"].firstMatch
             if customize.waitForExistence(timeout: 3), customize.isHittable {
                 customize.click()
-                XCTAssertTrue(
-                    app.buttons["board-color-automatic"].firstMatch.waitForExistence(timeout: 4),
-                    "the board appearance action must open its editor")
-                return
+                if app.buttons["board-color-automatic"].firstMatch.waitForExistence(timeout: 4) {
+                    return
+                }
             }
-            if attempt == 0 {
+            if attempt < 2 {
                 app.typeKey(.escape, modifierFlags: [])
             }
         }
-        throw XCTSkip("board appearance context action is not reachable on this runner")
+        XCTFail("the board appearance action must open its editor")
     }
 }
