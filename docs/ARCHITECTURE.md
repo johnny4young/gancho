@@ -195,7 +195,8 @@ inside the decrypted database.
 Performance budgets:
 
 - idle macOS capture loop: <0.5% average CPU and no linear memory growth,
-- exact search: <50 ms at 100k items on a current Mac,
+- FTS search at 100k items on a current Mac: cold first query <150 ms and warm
+  interactive p95 <50 ms, measured separately over reproducibly shuffled rounds,
 - semantic retrieval: <100 ms at 10k vectors before it can be user-facing,
 - capture pipeline rules/classification before persistence: <10 ms excluding OS
   pasteboard permission stalls,

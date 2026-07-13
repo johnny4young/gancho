@@ -7,6 +7,14 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Fuzzy search stays responsive as history grows.** The local FTS index now
+  accelerates the short prefixes produced while typing, with existing indexes
+  upgraded transactionally. The 100k-clip performance gate separately measures
+  cold startup cost and five reproducible warm rounds instead of depending on
+  one favorable query sequence.
+
 ### Added
 
 - **Text transforms that work on every device.** A new "Transform" menu in the

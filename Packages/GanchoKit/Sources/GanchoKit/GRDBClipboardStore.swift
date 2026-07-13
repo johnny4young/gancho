@@ -587,6 +587,22 @@ public final class GRDBClipboardStore: ClipboardStore {
                 t.primaryKey(["bundleID", "day"])
             }
         }
+        migrator.registerMigration("v18-fts-prefix-indexes") { db in
+            // Keep the historical v2 migration immutable. Rebuild once here so
+            // existing databases and fresh migration replays converge on the
+            // same FTS definition without schema-string branching.
+            try db.drop(table: "clip_fts")
+            try db.dropFTS5SynchronizationTriggers(forTable: "clip_fts")
+            try db.create(virtualTable: "clip_fts", using: FTS5()) { t in
+                t.synchronize(withTable: "clip")
+                // Type-to-search emits prefix queries. Index the short prefixes
+                // that otherwise require broad term-range scans while users type.
+                t.prefixes = [2, 3, 4]
+                t.column("title")
+                t.column("preview")
+                t.column("contentText")
+            }
+        }
         return migrator
     }
 
