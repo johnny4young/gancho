@@ -10,11 +10,21 @@ import Testing
 /// gate that keeps these tests non-vacuous. `pinboards()` returns a configurable
 /// list so a test can seat the free-tier board count precisely.
 private actor FakeBoardStore: BoardStoring {
+    enum Operation: Hashable {
+        case list
+        case create
+        case assign
+        case unassign
+        case rename
+        case updateIdentity
+        case delete
+        case deleteForSync
+        case removeAll
+    }
+
     let boards: [Pinboard]
     let createdBoard: Pinboard
-    let createShouldFail: Bool
-    let assignShouldFail: Bool
-    let unassignShouldFail: Bool
+    let failures: Set<Operation>
 
     private(set) var pinboardsCalls = 0
     private(set) var createPinboardCalls = 0
@@ -24,55 +34,66 @@ private actor FakeBoardStore: BoardStoring {
     private(set) var updateIdentityCalls = 0
     private(set) var deletePinboardCalls = 0
     private(set) var deletePinboardForSyncCalls = 0
+    private(set) var removeFromAllBoardsCalls = 0
     private(set) var lastColorHex: String?
     private(set) var lastEmoji: String?
 
     init(
         boards: [Pinboard], createdBoard: Pinboard = Pinboard(name: "New"),
-        createShouldFail: Bool = false,
-        assignShouldFail: Bool = false,
-        unassignShouldFail: Bool = false
+        failures: Set<Operation> = []
     ) {
         self.boards = boards
         self.createdBoard = createdBoard
-        self.createShouldFail = createShouldFail
-        self.assignShouldFail = assignShouldFail
-        self.unassignShouldFail = unassignShouldFail
+        self.failures = failures
     }
 
     func pinboards() async throws -> [Pinboard] {
         pinboardsCalls += 1
+        if failures.contains(.list) { throw FakeBoardError.failure }
         return boards
     }
     func createPinboard(name: String, sfSymbol: String) async throws -> Pinboard {
         createPinboardCalls += 1
-        if createShouldFail { throw FakeBoardError.create }
+        if failures.contains(.create) { throw FakeBoardError.failure }
         return createdBoard
     }
-    func renameBoard(id: UUID, name: String) async throws { renameCalls += 1 }
+    func renameBoard(id: UUID, name: String) async throws {
+        renameCalls += 1
+        if failures.contains(.rename) { throw FakeBoardError.failure }
+    }
     func updateBoardIdentity(id: UUID, colorHex: String?, emoji: String?) async throws {
         updateIdentityCalls += 1
+        if failures.contains(.updateIdentity) { throw FakeBoardError.failure }
         lastColorHex = colorHex
         lastEmoji = emoji
     }
-    func deletePinboard(id: UUID) async throws { deletePinboardCalls += 1 }
-    func deletePinboardForSync(id: UUID, now: Date) async throws { deletePinboardForSyncCalls += 1 }
+    func deletePinboard(id: UUID) async throws {
+        deletePinboardCalls += 1
+        if failures.contains(.delete) { throw FakeBoardError.failure }
+    }
+    func deletePinboardForSync(id: UUID, now: Date) async throws {
+        deletePinboardForSyncCalls += 1
+        if failures.contains(.deleteForSync) { throw FakeBoardError.failure }
+    }
     func assign(clipID: UUID, toBoard boardID: UUID) async throws {
         assignCalls += 1
-        if assignShouldFail { throw FakeBoardError.assign }
+        if failures.contains(.assign) { throw FakeBoardError.failure }
     }
     func unassign(clipID: UUID, fromBoard boardID: UUID) async throws {
         unassignCalls += 1
-        if unassignShouldFail { throw FakeBoardError.unassign }
+        if failures.contains(.unassign) { throw FakeBoardError.failure }
     }
-    func removeFromAllBoards(clipID: UUID) async throws {}
+    func removeFromAllBoards(clipID: UUID) async throws {
+        removeFromAllBoardsCalls += 1
+        if failures.contains(.removeAll) { throw FakeBoardError.failure }
+    }
     func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> { [] }
     func items(inBoard boardID: UUID) async throws -> [ClipItem] { [] }
     func count(inBoard boardID: UUID) async throws -> Int { 0 }
     func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws {}
 }
 
-private enum FakeBoardError: Error { case create, assign, unassign }
+private enum FakeBoardError: Error { case failure }
 
 /// Records the board-metadata enqueues the controller fires, so a test proves
 /// the sync side effects (upsert on create/rename, deletion on sync-on delete)
@@ -168,7 +189,7 @@ struct BoardsControllerTests {
     @Test("Filing failure still creates the board but reports no filed clip")
     func filingFailureDoesNotFireAssignedOrEnqueueItem() async {
         let created = Pinboard(name: "New")
-        let store = FakeBoardStore(boards: [], createdBoard: created, assignShouldFail: true)
+        let store = FakeBoardStore(boards: [], createdBoard: created, failures: [.assign])
         let engine = FakeBoardEngine()
         var assignedFired = false
         let item = ClipItem(title: "hello")
@@ -220,7 +241,7 @@ struct BoardsControllerTests {
 
     @Test("A failed create returns .failed and enqueues nothing")
     func createFailureReturnsFailed() async {
-        let store = FakeBoardStore(boards: [], createShouldFail: true)
+        let store = FakeBoardStore(boards: [], failures: [.create])
         let engine = FakeBoardEngine()
 
         let outcome = await BoardsController().createBoard(
@@ -233,15 +254,33 @@ struct BoardsControllerTests {
         #expect(await store.assignCalls == 0)
     }
 
+    @Test("A failed board-list read fails closed before the free-tier gate")
+    func boardListFailureFailsClosed() async {
+        let store = FakeBoardStore(boards: [], failures: [.list])
+        let engine = FakeBoardEngine()
+        var freeLimitFired = false
+
+        let outcome = await BoardsController().createBoard(
+            name: "New", filing: nil, store: store, engine: engine, isPro: false,
+            onFreeLimit: { freeLimitFired = true }, onAssigned: {})
+
+        #expect(outcome == .failed)
+        #expect(!freeLimitFired)
+        #expect(await store.pinboardsCalls == 1)
+        #expect(await store.createPinboardCalls == 0)
+        #expect(await engine.enqueueBoardsCalls == 0)
+    }
+
     @Test("Delete with sync on tombstones and enqueues the deletion")
     func deleteWithSyncTombstones() async {
         let board = Pinboard(name: "Docs")
         let store = FakeBoardStore(boards: [board])
         let engine = FakeBoardEngine()
 
-        await BoardsController().deleteBoard(
+        let outcome = await BoardsController().deleteBoard(
             board, store: store, engine: engine, syncEnabled: true)
 
+        #expect(outcome == .changed)
         #expect(await store.deletePinboardForSyncCalls == 1)
         #expect(await engine.enqueueBoardDeletionCalls == 1)
         #expect(await engine.lastDeletedBoardIDs == [board.id])
@@ -255,11 +294,57 @@ struct BoardsControllerTests {
         let store = FakeBoardStore(boards: [board])
         let engine = FakeBoardEngine()
 
-        await BoardsController().deleteBoard(
+        let outcome = await BoardsController().deleteBoard(
             board, store: store, engine: engine, syncEnabled: false)
 
+        #expect(outcome == .changed)
         #expect(await store.deletePinboardCalls == 1)
         #expect(await store.deletePinboardForSyncCalls == 0)
+        #expect(await engine.enqueueBoardDeletionCalls == 0)
+    }
+
+    @Test("A failed sync tombstone never enqueues a ghost deletion")
+    func failedSyncDeleteDoesNotEnqueue() async {
+        let board = Pinboard(name: "Docs")
+        let store = FakeBoardStore(boards: [board], failures: [.deleteForSync])
+        let engine = FakeBoardEngine()
+
+        let outcome = await BoardsController().deleteBoard(
+            board, store: store, engine: engine, syncEnabled: true)
+
+        #expect(outcome == .failed)
+        #expect(await store.deletePinboardForSyncCalls == 1)
+        #expect(await store.deletePinboardCalls == 0)
+        #expect(await engine.enqueueBoardDeletionCalls == 0)
+    }
+
+    @Test("A failed local delete reports failure and never enqueues")
+    func failedLocalDeleteReportsFailure() async {
+        let board = Pinboard(name: "Docs")
+        let store = FakeBoardStore(boards: [board], failures: [.delete])
+        let engine = FakeBoardEngine()
+
+        let outcome = await BoardsController().deleteBoard(
+            board, store: store, engine: engine, syncEnabled: false)
+
+        #expect(outcome == .failed)
+        #expect(await store.deletePinboardCalls == 1)
+        #expect(await engine.enqueueBoardDeletionCalls == 0)
+    }
+
+    @Test("The system board cannot enter either deletion path")
+    func systemDeleteIsNoOp() async {
+        let favorite = Pinboard(
+            id: Pinboard.favoritesID, name: "Favorites", isSystem: true)
+        let store = FakeBoardStore(boards: [favorite])
+        let engine = FakeBoardEngine()
+
+        let outcome = await BoardsController().deleteBoard(
+            favorite, store: store, engine: engine, syncEnabled: true)
+
+        #expect(outcome == .noChange)
+        #expect(await store.deletePinboardForSyncCalls == 0)
+        #expect(await store.deletePinboardCalls == 0)
         #expect(await engine.enqueueBoardDeletionCalls == 0)
     }
 
@@ -297,7 +382,7 @@ struct BoardsControllerTests {
 
     @Test("Membership write failures return false and never enqueue")
     func membershipFailureReturnsFalse() async {
-        let store = FakeBoardStore(boards: [], assignShouldFail: true)
+        let store = FakeBoardStore(boards: [], failures: [.assign])
         let engine = FakeBoardEngine()
         let item = ClipItem(title: "x")
 
@@ -309,15 +394,30 @@ struct BoardsControllerTests {
         #expect(await engine.enqueueItemsCalls == 0)
     }
 
+    @Test("Membership unassign failures return false and never enqueue")
+    func membershipUnassignFailureReturnsFalse() async {
+        let store = FakeBoardStore(boards: [], failures: [.unassign])
+        let engine = FakeBoardEngine()
+        let item = ClipItem(title: "x")
+
+        let succeeded = await BoardsController().setBoardMembership(
+            item, board: Pinboard(name: "Docs"), member: false, store: store, engine: engine)
+
+        #expect(!succeeded)
+        #expect(await store.unassignCalls == 1)
+        #expect(await engine.enqueueItemsCalls == 0)
+    }
+
     @Test("Rename writes the name and enqueues the updated board once")
     func renameEnqueuesUpdatedBoard() async {
         let board = Pinboard(name: "Docs")
         let store = FakeBoardStore(boards: [board])
         let engine = FakeBoardEngine()
 
-        await BoardsController().renameBoard(
+        let outcome = await BoardsController().renameBoard(
             board, name: "Papers", store: store, engine: engine)
 
+        #expect(outcome == .changed)
         #expect(await store.renameCalls == 1)
         #expect(await engine.enqueueBoardsCalls == 1)
         #expect(await engine.lastEnqueuedBoardIDs == [board.id])
@@ -330,10 +430,25 @@ struct BoardsControllerTests {
         let store = FakeBoardStore(boards: [favorite])
         let engine = FakeBoardEngine()
 
-        await BoardsController().renameBoard(
+        let outcome = await BoardsController().renameBoard(
             favorite, name: "Hacked", store: store, engine: engine)
 
+        #expect(outcome == .noChange)
         #expect(await store.renameCalls == 0)
+        #expect(await engine.enqueueBoardsCalls == 0)
+    }
+
+    @Test("A failed rename reports failure and never enqueues")
+    func renameFailureDoesNotEnqueue() async {
+        let board = Pinboard(name: "Docs")
+        let store = FakeBoardStore(boards: [board], failures: [.rename])
+        let engine = FakeBoardEngine()
+
+        let outcome = await BoardsController().renameBoard(
+            board, name: "Papers", store: store, engine: engine)
+
+        #expect(outcome == .failed)
+        #expect(await store.renameCalls == 1)
         #expect(await engine.enqueueBoardsCalls == 0)
     }
 
@@ -343,9 +458,10 @@ struct BoardsControllerTests {
         let store = FakeBoardStore(boards: [board])
         let engine = FakeBoardEngine()
 
-        await BoardsController().updateBoardIdentity(
+        let outcome = await BoardsController().updateBoardIdentity(
             board, colorHex: "#34C759", emoji: "📚", store: store, engine: engine)
 
+        #expect(outcome == .changed)
         #expect(await store.updateIdentityCalls == 1)
         #expect(await store.lastColorHex == "#34C759")
         #expect(await store.lastEmoji == "📚")
@@ -363,10 +479,54 @@ struct BoardsControllerTests {
         let store = FakeBoardStore(boards: [favorite])
         let engine = FakeBoardEngine()
 
-        await BoardsController().updateBoardIdentity(
+        let outcome = await BoardsController().updateBoardIdentity(
             favorite, colorHex: "#FF0000", emoji: "💥", store: store, engine: engine)
 
+        #expect(outcome == .noChange)
         #expect(await store.updateIdentityCalls == 0)
         #expect(await engine.enqueueBoardsCalls == 0)
+    }
+
+    @Test("A failed identity update reports failure and never enqueues")
+    func identityFailureDoesNotEnqueue() async {
+        let board = Pinboard(name: "Docs")
+        let store = FakeBoardStore(boards: [board], failures: [.updateIdentity])
+        let engine = FakeBoardEngine()
+
+        let outcome = await BoardsController().updateBoardIdentity(
+            board, colorHex: "#34C759", emoji: "📚", store: store, engine: engine)
+
+        #expect(outcome == .failed)
+        #expect(await store.updateIdentityCalls == 1)
+        #expect(await engine.enqueueBoardsCalls == 0)
+    }
+
+    @Test("Removing all memberships writes once and enqueues the clip")
+    func removeAllMembershipsEnqueues() async {
+        let store = FakeBoardStore(boards: [])
+        let engine = FakeBoardEngine()
+        let item = ClipItem(title: "x")
+
+        let outcome = await BoardsController().removeFromAllBoards(
+            item, store: store, engine: engine)
+
+        #expect(outcome == .changed)
+        #expect(await store.removeFromAllBoardsCalls == 1)
+        #expect(await engine.enqueueItemsCalls == 1)
+        #expect(await engine.lastEnqueuedItemIDs == [item.id])
+    }
+
+    @Test("A failed remove-all write never enqueues the clip")
+    func removeAllMembershipsFailureDoesNotEnqueue() async {
+        let store = FakeBoardStore(boards: [], failures: [.removeAll])
+        let engine = FakeBoardEngine()
+        let item = ClipItem(title: "x")
+
+        let outcome = await BoardsController().removeFromAllBoards(
+            item, store: store, engine: engine)
+
+        #expect(outcome == .failed)
+        #expect(await store.removeFromAllBoardsCalls == 1)
+        #expect(await engine.enqueueItemsCalls == 0)
     }
 }

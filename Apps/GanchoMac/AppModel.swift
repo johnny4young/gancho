@@ -1140,23 +1140,8 @@ final class AppModel {
 
     private(set) var boards: [Pinboard] = []
 
-    /// Runs a store mutation and reports whether it succeeded. A thrown error is
-    /// logged content-free (a category + a fixed message, never the clip) so a
-    /// success toast never fires on a silent write failure (A3-3.2b): the
-    /// `try? … then show(toast)` pattern used to confirm "Pinned"/"Saved" even
-    /// when the write threw.
-    @discardableResult
-    func withDiagnostics(
-        _ category: String.LocalizationValue, _ failure: String.LocalizationValue,
-        _ operation: () async throws -> Void
-    ) async -> Bool {
-        do {
-            try await operation()
-            return true
-        } catch {
-            diagnostics.record(String(localized: category), String(localized: failure))
-            return false
-        }
+    private func recordBoardFailure(_ message: String.LocalizationValue) {
+        diagnostics.record(String(localized: "Boards"), String(localized: message))
     }
 
     func togglePin(_ item: ClipItem) {
@@ -1208,19 +1193,9 @@ final class AppModel {
     }
 
     func assign(_ item: ClipItem, toBoard board: Pinboard) {
-        guard let grdbStore else { return }
         Task {
-            guard
-                await withDiagnostics(
-                    "Boards", "Couldn’t add the clip to the board.",
-                    {
-                        try await grdbStore.assign(clipID: item.id, toBoard: board.id)
-                    })
-            else { return }
-            lastAssignedBoardID = board.id
-            await syncController.engine.enqueue([item])
+            guard await setBoardMembership(item, board: board, member: true) else { return }
             toasts.show(GanchoToast(message: "Added to board"))
-            await refreshRecents()
         }
     }
 
@@ -1228,18 +1203,8 @@ final class AppModel {
     /// reversible, so offer the reversal in the toast instead of making the user
     /// hunt through the board menu to take it back.
     func assignWithUndo(_ item: ClipItem, toBoard board: Pinboard) {
-        guard let grdbStore else { return }
         Task {
-            guard
-                await withDiagnostics(
-                    "Boards", "Couldn’t add the clip to the board.",
-                    {
-                        try await grdbStore.assign(clipID: item.id, toBoard: board.id)
-                    })
-            else { return }
-            lastAssignedBoardID = board.id
-            await syncController.engine.enqueue([item])
-            await refreshRecents()
+            guard await setBoardMembership(item, board: board, member: true) else { return }
             toasts.show(
                 GanchoToast(
                     message: "Added to board",
@@ -1250,31 +1215,22 @@ final class AppModel {
     }
 
     func unassign(_ item: ClipItem, fromBoard board: Pinboard) {
-        guard let grdbStore else { return }
         Task {
-            guard
-                await withDiagnostics(
-                    "Boards", "Couldn’t remove the clip from the board.",
-                    {
-                        try await grdbStore.unassign(clipID: item.id, fromBoard: board.id)
-                    })
-            else { return }
-            await syncController.engine.enqueue([item])
-            await refreshRecents()
+            _ = await setBoardMembership(item, board: board, member: false)
         }
     }
 
     func removeFromAllBoards(_ item: ClipItem) {
         guard let grdbStore else { return }
         Task {
-            guard
-                await withDiagnostics(
-                    "Boards", "Couldn’t remove the clip from its boards.",
-                    {
-                        try await grdbStore.removeFromAllBoards(clipID: item.id)
-                    })
-            else { return }
-            await syncController.engine.enqueue([item])
+            let outcome = await BoardsController().removeFromAllBoards(
+                item, store: grdbStore, engine: syncController.engine)
+            guard outcome == .changed else {
+                if outcome == .failed {
+                    recordBoardFailure("Couldn’t remove the clip from its boards.")
+                }
+                return
+            }
             await refreshRecents()
         }
     }
@@ -1301,6 +1257,11 @@ final class AppModel {
             isPro: tier == .pro,
             onFreeLimit: { self.paywallWindow.show(trigger: .freeLimitReached, model: self) },
             onAssigned: { self.toasts.show(GanchoToast(message: "Added to board")) })
+        if outcome == .failed {
+            recordBoardFailure("Couldn’t create the board.")
+        } else if item != nil, case .created(_, filedClip: false) = outcome {
+            recordBoardFailure("The board was created, but the clip couldn’t be added.")
+        }
         guard outcome != .blocked else { return outcome }
         await refreshBoards()
         if case .created(let boardID, filedClip: true) = outcome {
@@ -1310,13 +1271,16 @@ final class AppModel {
         return outcome
     }
 
-    /// Rename / delete are no-ops on the built-in Favorites board (the store
-    /// guards on isSystem), so the UI only needs to hide the affordances.
+    /// Rename / delete are no-ops on the built-in Favorites board, so the UI
+    /// only needs to hide the affordances.
     func renameBoard(_ board: Pinboard, name: String) {
         guard let grdbStore else { return }
         Task {
-            await BoardsController().renameBoard(
+            let outcome = await BoardsController().renameBoard(
                 board, name: name, store: grdbStore, engine: syncController.engine)
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t rename the board.")
+            }
             await refreshBoards()
         }
     }
@@ -1324,9 +1288,12 @@ final class AppModel {
     func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) {
         guard let grdbStore else { return }
         Task {
-            await BoardsController().updateBoardIdentity(
+            let outcome = await BoardsController().updateBoardIdentity(
                 board, colorHex: colorHex, emoji: emoji, store: grdbStore,
                 engine: syncController.engine)
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t update the board appearance.")
+            }
             await refreshBoards()
         }
     }
@@ -1334,9 +1301,12 @@ final class AppModel {
     func deleteBoard(_ board: Pinboard) {
         guard let grdbStore else { return }
         Task {
-            await BoardsController().deleteBoard(
+            let outcome = await BoardsController().deleteBoard(
                 board, store: grdbStore, engine: syncController.engine,
                 syncEnabled: syncController.isEnabled)
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t delete the board.")
+            }
             await refreshBoards()
             await refreshRecents()
         }
@@ -1355,7 +1325,13 @@ final class AppModel {
         guard let grdbStore else { return false }
         let succeeded = await BoardsController().setBoardMembership(
             item, board: board, member: member, store: grdbStore, engine: syncController.engine)
-        guard succeeded else { return false }
+        guard succeeded else {
+            recordBoardFailure(
+                member
+                    ? "Couldn’t add the clip to the board."
+                    : "Couldn’t remove the clip from the board.")
+            return false
+        }
         if member { lastAssignedBoardID = board.id }
         await refreshRecents()
         return true

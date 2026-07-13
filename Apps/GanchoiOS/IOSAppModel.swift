@@ -340,6 +340,10 @@ final class IOSAppModel {
         boards = (try? await full.pinboards()) ?? []
     }
 
+    private func recordBoardFailure(_ message: String.LocalizationValue) {
+        diagnostics.record(String(localized: "Boards"), String(localized: message))
+    }
+
     /// Scope the history list to a board (or back to All clips) and refresh —
     /// the one path both the rail and the boards home go through.
     func selectBoard(_ id: UUID?) {
@@ -389,6 +393,9 @@ final class IOSAppModel {
                 // Don't dead-end on a vanishing note: surface the Pro screen.
                 onFreeLimit: { self.proGateTick += 1 },
                 onAssigned: {})
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t create the board.")
+            }
             guard outcome != .blocked else { return }
             await refreshBoards()
         }
@@ -407,6 +414,11 @@ final class IOSAppModel {
             isPro: tier == .pro,
             onFreeLimit: { self.flashNote(String(localized: "Upgrade to Pro for more boards")) },
             onAssigned: {})
+        if outcome == .failed {
+            recordBoardFailure("Couldn’t create the board.")
+        } else if case .created(_, filedClip: false) = outcome {
+            recordBoardFailure("The board was created, but the clip couldn’t be added.")
+        }
         await refreshBoards()
         await search()
         guard case .created(let boardID, filedClip: true) = outcome else { return nil }
@@ -435,19 +447,28 @@ final class IOSAppModel {
         guard let full else { return false }
         let succeeded = await BoardsController().setBoardMembership(
             item, board: board, member: member, store: full, engine: syncController.engine)
-        guard succeeded else { return false }
+        guard succeeded else {
+            recordBoardFailure(
+                member
+                    ? "Couldn’t add the clip to the board."
+                    : "Couldn’t remove the clip from the board.")
+            return false
+        }
         await search()
         return true
     }
 
     /// Rename a user board and propagate the new name (no-op on Favorites — the
-    /// store guards `isSystem`).
+    /// shared controller guards `isSystem`).
     func renameBoard(_ board: Pinboard, name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let full else { return }
         Task {
-            await BoardsController().renameBoard(
+            let outcome = await BoardsController().renameBoard(
                 board, name: trimmed, store: full, engine: syncController.engine)
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t rename the board.")
+            }
             await refreshBoards()
         }
     }
@@ -455,9 +476,12 @@ final class IOSAppModel {
     func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) {
         guard let full else { return }
         Task {
-            await BoardsController().updateBoardIdentity(
+            let outcome = await BoardsController().updateBoardIdentity(
                 board, colorHex: colorHex, emoji: emoji, store: full,
                 engine: syncController.engine)
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t update the board appearance.")
+            }
             await refreshBoards()
         }
     }
@@ -467,10 +491,13 @@ final class IOSAppModel {
     func deleteBoard(_ board: Pinboard) {
         guard !board.isSystem, let full else { return }
         Task {
-            await BoardsController().deleteBoard(
+            let outcome = await BoardsController().deleteBoard(
                 board, store: full, engine: syncController.engine,
                 syncEnabled: syncController.isEnabled)
-            if selectedBoardID == board.id { selectedBoardID = nil }
+            if outcome == .failed {
+                recordBoardFailure("Couldn’t delete the board.")
+            }
+            if outcome == .changed, selectedBoardID == board.id { selectedBoardID = nil }
             await refreshBoards()
             await search()
         }

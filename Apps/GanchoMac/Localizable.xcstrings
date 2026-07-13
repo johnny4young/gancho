@@ -5516,6 +5516,56 @@
         }
       }
     },
+    "Couldn’t create the board.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo crear el tablero."
+          }
+        }
+      }
+    },
+    "The board was created, but the clip couldn’t be added.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El tablero se creó, pero no se pudo añadir el clip."
+          }
+        }
+      }
+    },
+    "Couldn’t rename the board.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo renombrar el tablero."
+          }
+        }
+      }
+    },
+    "Couldn’t update the board appearance.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar la apariencia del tablero."
+          }
+        }
+      }
+    },
+    "Couldn’t delete the board.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo eliminar el tablero."
+          }
+        }
+      }
+    },
     "Help improve Gancho?": {
       "localizations": {
         "es": {

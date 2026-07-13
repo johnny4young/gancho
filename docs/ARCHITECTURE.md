@@ -101,6 +101,13 @@ free-tier gate and durable write, and enqueues successful pin changes. Each
 shell maps those outcomes to its own paywall, diagnostics, confirmation, and
 list refresh; failed writes never produce success feedback.
 
+`BoardsController` applies the same boundary to board creation, metadata,
+deletion, and clip membership. Board limits fail closed if the authoritative
+list cannot be read, protected system boards are rejected before persistence,
+and sync work is enqueued only after its local mutation or tombstone commits.
+The shells receive content-free outcomes and retain selection, refresh,
+diagnostic, paywall, and toast behavior.
+
 ## Platform contracts
 
 | Platform family | What is allowed | What is forbidden |

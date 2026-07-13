@@ -63,6 +63,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Board changes now reflect durable database results.** A failed board-count
+  read no longer bypasses the free-tier limit, failed edits are recorded as
+  content-free diagnostics, and a board deletion is only queued for sync after
+  its local tombstone commits. On iPhone and iPad, a failed deletion also keeps
+  the active board filter intact.
 - **Curation limits and confirmations now agree across devices.** Pinning on
   iPhone and iPad now honors the same 15-pin free-tier limit as Mac and
   Shortcuts. Saving a snippet only shows success after the database write
