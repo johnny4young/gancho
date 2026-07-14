@@ -139,13 +139,54 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
             GanchoRuntime.menuBarPublisher.start(model: model)
         }
 
-        let launchedHelper =
-            GanchoRuntime.usesInProcessStatusItem
-            ? false
-            : GanchoMenuBarHelperLauncher.launch()
-        GanchoRuntime.launchedHelper = launchedHelper
+        ensureMenuBarPresence()
+    }
 
-        if !launchedHelper, let model = GanchoRuntime.model {
+    /// Guarantees Gancho ALWAYS shows a menu-bar affordance — the invariant that
+    /// was missing before: a resident agent could end up with no helper icon and
+    /// no fallback, leaving the user no control short of killing the process.
+    ///
+    /// The external helper spawns asynchronously (launchd `RunAtLoad` or a direct
+    /// `Process`), and either can silently fail — launchd declines to respawn a
+    /// self-exited agent, the sandbox blocks the child, or the helper crashes. So
+    /// we do not trust `launch()`'s return: we VERIFY the helper actually appears
+    /// in the process table shortly after, and if it never does, attach the
+    /// in-process `NSStatusItem` fallback. Idempotent — runs at launch and on
+    /// every reopen, so clicking Gancho.app always restores the icon.
+    private func ensureMenuBarPresence() {
+        guard let model = GanchoRuntime.model else { return }
+        if GanchoRuntime.usesInProcessStatusItem {
+            GanchoRuntime.statusItem.attach(model: model)
+            return
+        }
+
+        GanchoRuntime.launchedHelper = GanchoMenuBarHelperLauncher.launch()
+
+        Task { @MainActor in
+            // Poll briefly for the helper (a local Developer ID spawn appears in
+            // well under a second; give launchd's RunAtLoad generous headroom).
+            for _ in 0..<14 {
+                if GanchoMenuBarHelperLauncher.isHelperRunning() {
+                    // The helper owns the icon — never paint a duplicate.
+                    GanchoRuntime.statusItem.detach()
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(150))
+            }
+            // The helper may have appeared on the final interval — re-check once
+            // more so a slightly-slow spawn isn't reported as a failure.
+            if GanchoMenuBarHelperLauncher.isHelperRunning() {
+                GanchoRuntime.statusItem.detach()
+                return
+            }
+            // The helper never came up: fall back to the AppKit-owned item so the
+            // menu bar is never silently empty. Only when the fallback isn't
+            // already painting — a later reopen must not re-attach or re-log
+            // (the DiagnosticLog is capped; a repeat would evict real entries).
+            guard !GanchoRuntime.statusItem.isAttached else { return }
+            model.diagnostics.record(
+                String(localized: "Menu bar"),
+                String(localized: "The menu-bar helper didn’t start; using the built-in icon."))
             GanchoRuntime.statusItem.attach(model: model)
         }
     }
@@ -153,15 +194,13 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
     /// A menu-bar agent has no windows, so clicking Gancho in Finder or the Dock
     /// sends a reopen with nothing to show. If the helper died — after a Quit
     /// that didn't fully take, or a crash — the icon is gone with no way back
-    /// short of killing the process. Re-launch it here: `launch()` is idempotent
-    /// (it no-ops when a helper is already running), so this only revives a dead
-    /// one. Skipped on the in-process status-item path, which never had a helper.
+    /// short of killing the process. Re-establish the guaranteed affordance here
+    /// (helper if it can spawn, in-process item otherwise), so a click on
+    /// Gancho.app always brings the menu bar back.
     func applicationShouldHandleReopen(
         _ sender: NSApplication, hasVisibleWindows flag: Bool
     ) -> Bool {
-        if GanchoRuntime.launchedHelper {
-            GanchoMenuBarHelperLauncher.launch()
-        }
+        ensureMenuBarPresence()
         return true
     }
 

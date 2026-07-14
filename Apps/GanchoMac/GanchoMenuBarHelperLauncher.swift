@@ -113,7 +113,10 @@ enum GanchoMenuBarHelperLauncher {
     }
 
     /// Whether a menu-bar helper other than this process is already running.
-    private static func isHelperRunning() -> Bool {
+    /// Internal so the app delegate can VERIFY a launch actually produced a
+    /// helper (launchd may decline to respawn, the sandbox may block the child,
+    /// the helper may crash) and fall back to the in-process item if not.
+    static func isHelperRunning() -> Bool {
         let currentProcessID = ProcessInfo.processInfo.processIdentifier
         return NSWorkspace.shared.runningApplications.contains {
             $0.processIdentifier != currentProcessID && isHelper($0)

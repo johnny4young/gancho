@@ -34,6 +34,17 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private let menu = NSMenu()
 
+    /// Whether the in-process fallback item is currently painting.
+    var isAttached: Bool { statusItem != nil }
+
+    /// Removes the in-process fallback item. Called when the external helper is
+    /// confirmed running so the two never paint a duplicate icon.
+    func detach() {
+        guard let statusItem else { return }
+        NSStatusBar.system.removeStatusItem(statusItem)
+        self.statusItem = nil
+    }
+
     func attach(model: AppModel) {
         guard statusItem == nil else { return }
 
