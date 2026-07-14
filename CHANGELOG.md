@@ -9,6 +9,14 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The menu-bar icon always comes back (macOS).** If the menu-bar helper ever
+  died — a crash, or a quit that didn't fully take — Gancho could stay running
+  in the background with no icon and no window, leaving no way to reach it short
+  of force-quitting the process. Gancho now guarantees a menu-bar affordance:
+  after launching the helper it verifies the icon actually appeared, and if it
+  didn't, falls back to a built-in menu-bar icon. Clicking Gancho in Finder or
+  the Dock re-establishes the icon the same way, so you can always reach the
+  menu (and "Quit Gancho") without touching Activity Monitor.
 - **JWT tokens no longer show in the clear in the history list.** A bare JWT
   copied to the clipboard is recognized as a token but wasn't flagged as a
   detected secret, so its row preview appeared unmasked in the history list

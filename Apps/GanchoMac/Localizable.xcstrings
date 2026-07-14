@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Menu bar": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barra de menú"
+          }
+        }
+      }
+    },
+    "The menu-bar helper didn’t start; using the built-in icon.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El asistente de la barra de menú no arrancó; usando el ícono integrado."
+          }
+        }
+      }
+    },
     "All apps": {
       "localizations": {
         "es": {
