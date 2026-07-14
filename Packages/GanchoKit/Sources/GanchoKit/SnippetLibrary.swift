@@ -100,24 +100,30 @@ extension GRDBClipboardStore {
     /// The SQL predicates repeat the controller guards atomically so a row that
     /// becomes sensitive or binary while an editor is open cannot be replaced.
     public func updateClipText(id: UUID, text: String) async throws {
+        // The rejected-kind list is derived from the shared editability policy
+        // so the SQL belt can never drift from the app-layer guard — critically,
+        // it excludes every masked-preview kind (secret/card/JWT), not just the
+        // few a bare `isSensitive` check happens to catch.
+        let rejectedKinds = ClipContentKind.textEditingRejectedKinds.map(\.rawValue)
+        let kindPlaceholders = rejectedKinds.map { _ in "?" }.joined(separator: ", ")
         try await writer.write { db in
+            var arguments: [any DatabaseValueConvertible] = [
+                text, String(text.prefix(120)), Date(), id.uuidString
+            ]
+            arguments.append(contentsOf: rejectedKinds)
+            arguments.append("public.file-url")
             try db.execute(
                 sql: """
                     UPDATE clip
                     SET contentText = ?, preview = ?, updatedAt = ?, needsUpload = 1
                     WHERE id = ?
                       AND isSensitive = 0
-                      AND kind NOT IN (?, ?, ?, ?)
+                      AND kind NOT IN (\(kindPlaceholders))
                       AND contentText IS NOT NULL
                       AND contentBlobHash IS NULL
                       AND (contentTypeIdentifier IS NULL OR contentTypeIdentifier != ?)
                     """,
-                arguments: [
-                    text, String(text.prefix(120)), Date(), id.uuidString,
-                    ClipContentKind.image.rawValue, ClipContentKind.fileReference.rawValue,
-                    ClipContentKind.secret.rawValue, ClipContentKind.color.rawValue,
-                    "public.file-url"
-                ])
+                arguments: StatementArguments(arguments))
             guard db.changesCount == 1 else { throw ClipTextEditError.readOnly }
             try db.execute(
                 sql: "DELETE FROM clip_embedding WHERE clipID = ?",
@@ -201,16 +207,24 @@ extension GRDBClipboardStore {
         id: UUID, now: Date = .now,
         requiredUses: Int = SnippetLimits.promotionSuggestionUseThreshold
     ) async throws -> ClipItem? {
-        try await writer.write { db in
+        // Never nudge the user to permanently retain and sync a masked-preview
+        // kind (secret/card/JWT): promotion would outlive the short sensitive
+        // lifetime and cross devices. `isSensitive` alone misses a bare JWT.
+        let maskedKinds = ClipContentKind.allCases.filter(\.prefersMaskedPreview).map(\.rawValue)
+        let kindPlaceholders = maskedKinds.map { _ in "?" }.joined(separator: ", ")
+        return try await writer.write { db in
             try db.execute(
                 sql: "UPDATE clip SET uses = uses + 1, lastUsedAt = ? WHERE id = ?",
                 arguments: [now, id.uuidString])
+            var arguments: [any DatabaseValueConvertible] = [id.uuidString, requiredUses]
+            arguments.append(contentsOf: maskedKinds)
             return try ClipRow.filter(
                 sql: """
                     id = ? AND uses = ? AND isSnippet = 0
                     AND isSensitive = 0 AND isArchived = 0
+                    AND kind NOT IN (\(kindPlaceholders))
                     """,
-                arguments: [id.uuidString, requiredUses]
+                arguments: StatementArguments(arguments)
             ).fetchOne(db)?.item
         }
     }

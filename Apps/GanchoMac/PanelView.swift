@@ -1355,8 +1355,7 @@ struct PanelView: View {
         guard !Task.isCancelled, search.selectedItem?.id == item.id else { return }
         if case .text(let text)? = content {
             previewText = text
-            previewTextIsEditable =
-                !item.isSensitive && item.kind != .secret && item.kind != .color
+            previewTextIsEditable = !item.isSensitive && item.kind.allowsTextEditing
         }
     }
 

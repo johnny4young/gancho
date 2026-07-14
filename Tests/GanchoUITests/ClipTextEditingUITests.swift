@@ -24,6 +24,13 @@ final class ClipTextEditingUITests: XCTestCase {
         let field = app.textViews["preview-content-field"].firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 2))
         field.click()
+        // `app.typeKey`/`typeText` are GLOBAL events: a menu-bar-agent window
+        // that fails to foreground under the runner would send this ⌘A + text
+        // to whatever app actually has the keyboard. Gate on real focus.
+        try SynthesizedInput.requireForeground(app)
+        guard SynthesizedInput.waitForKeyboardFocus(field, timeout: 2) else {
+            throw XCTSkip("editor field never took keyboard focus on this runner")
+        }
         app.typeKey("a", modifierFlags: .command)
         let finalText =
             "Next: ship safely\nYesterday: fixed search\nToday: improve editing\nBlockers: none"

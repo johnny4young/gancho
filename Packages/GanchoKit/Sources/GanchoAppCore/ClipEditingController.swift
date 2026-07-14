@@ -60,8 +60,7 @@ public struct ClipEditingController: Sendable {
             guard let authoritative = try await store.item(id: item.id) else {
                 return .clipUnavailable
             }
-            guard !authoritative.isSensitive, authoritative.kind != .secret,
-                authoritative.kind != .color,
+            guard !authoritative.isSensitive, authoritative.kind.allowsTextEditing,
                 case .text(let storedText)? = try await store.content(for: item.id)
             else { return .notEditable }
             guard storedText != text else { return .unchanged }

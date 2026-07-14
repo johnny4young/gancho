@@ -21,6 +21,10 @@ final class ClipLargePreviewUITests: XCTestCase {
             throw XCTSkip("seeded preview clip is not reachable on this runner")
         }
 
+        // ⌘Y is a GLOBAL shortcut: if the menu-bar-agent panel isn't frontmost
+        // on this runner it would fire in whatever app is (⌘Y opens History in
+        // browsers). Skip rather than drive another app.
+        try SynthesizedInput.requireForeground(app)
         app.typeKey("y", modifierFlags: .command)
 
         let preview = app.sheets["large-preview-window"].firstMatch

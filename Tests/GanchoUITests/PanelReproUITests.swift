@@ -85,6 +85,9 @@ final class PanelReproUITests: XCTestCase {
             "selected preview is not exposed to the UI runner in this environment")
         let firstValue = preview.value as? String
 
+        // Arrow keys are app-level (global) events; only send them once the
+        // panel is verifiably frontmost so navigation lands on Gancho.
+        try SynthesizedInput.requireForeground(app)
         app.typeKey(XCUIKeyboardKey.downArrow.rawValue, modifierFlags: [])
 
         let changed = XCTNSPredicateExpectation(

@@ -123,17 +123,23 @@ struct SnippetLibraryTests {
         #expect(try await store.semanticSearch(queryVector: [1, 0]).isEmpty)
     }
 
-    @Test("Atomic text editing rejects sensitive and binary-backed rows")
+    @Test("Atomic text editing rejects sensitive, masked-kind, and binary rows")
     func textEditingRejectsReadOnlyRows() async throws {
         let store = try makeStore()
         let sensitive = ClipItem(
             kind: .secret, preview: "••••", contentHash: "sensitive-edit", isSensitive: true)
         let image = ClipItem(kind: .image, preview: "Image", contentHash: "binary-edit")
+        // A lone JWT classifies as `.jwt` but is NOT flagged sensitive, so a
+        // bare `isSensitive` guard would let it be edited/persisted in the
+        // clear. The masked-kind list must reject it.
+        let jwt = ClipItem(kind: .jwt, preview: "eyJ…", contentHash: "jwt-edit")
         try await store.insert(sensitive, content: .text("never replace"))
         try await store.insert(
             image, content: .binary(data: Data([1, 2, 3]), typeIdentifier: "public.png"))
+        try await store.insert(jwt, content: .text("eyJhbGciOiJIUzI1NiJ9.payload.sig"))
         try await store.markUploaded(id: sensitive.id, systemFields: Data([1]))
         try await store.markUploaded(id: image.id, systemFields: Data([2]))
+        try await store.markUploaded(id: jwt.id, systemFields: Data([3]))
 
         await #expect(throws: (any Error).self) {
             try await store.updateClipText(id: sensitive.id, text: "replacement")
@@ -141,12 +147,35 @@ struct SnippetLibraryTests {
         await #expect(throws: (any Error).self) {
             try await store.updateClipText(id: image.id, text: "replacement")
         }
+        await #expect(throws: (any Error).self) {
+            try await store.updateClipText(id: jwt.id, text: "replacement")
+        }
 
         #expect(try await store.content(for: sensitive.id) == .text("never replace"))
         #expect(
             try await store.content(for: image.id)
                 == .binary(data: Data([1, 2, 3]), typeIdentifier: "public.png"))
+        #expect(
+            try await store.content(for: jwt.id)
+                == .text("eyJhbGciOiJIUzI1NiJ9.payload.sig"))
         #expect(try await store.pendingUploadIDs().isEmpty)
+    }
+
+    @Test("Reuse suggestion never nudges promotion of a masked-preview kind")
+    func reuseSuggestionSkipsMaskedKinds() async throws {
+        let store = try makeStore()
+        let jwt = ClipItem(kind: .jwt, preview: "eyJ…", contentHash: "jwt-reuse")
+        try await store.insert(jwt, content: .text("eyJhbGciOiJIUzI1NiJ9.payload.sig"))
+
+        // Reuse it up to and past the promotion threshold: an ordinary clip
+        // would surface exactly at `requiredUses`, but a JWT must never nudge.
+        var suggestion: ClipItem?
+        for _ in 0..<(SnippetLimits.promotionSuggestionUseThreshold + 1) {
+            suggestion = try await store.recordUseAndSnippetSuggestion(
+                id: jwt.id, now: .now,
+                requiredUses: SnippetLimits.promotionSuggestionUseThreshold)
+            #expect(suggestion == nil)
+        }
     }
 
     @Test("Keyword: set, match case-insensitively, and count uses")

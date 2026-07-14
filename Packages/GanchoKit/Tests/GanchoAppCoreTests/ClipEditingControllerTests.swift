@@ -181,6 +181,24 @@ struct ClipEditingControllerTests {
         #expect(await sync.enqueuedIDs.isEmpty)
     }
 
+    @Test("Masked-preview kinds stay read-only even when not flagged sensitive")
+    func maskedKindsAreReadOnly() async {
+        // A lone JWT / card number classifies to a masked kind but is NOT
+        // flagged `isSensitive`; the editability guard must still refuse it.
+        for kind in [ClipContentKind.jwt, .creditCard] {
+            let item = ClipItem(kind: kind, preview: "•••", contentHash: "masked-\(kind.rawValue)")
+            let store = EditingStoreSpy(item: item, content: .text("eyJ.raw.token"))
+            let sync = EditingSyncSpy()
+
+            let outcome = await controller.updateText(
+                item, text: "replace", store: store, engine: sync)
+
+            #expect(outcome == .notEditable, "\(kind.rawValue) must be read-only")
+            #expect(await store.writtenTexts.isEmpty)
+            #expect(await sync.enqueuedIDs.isEmpty)
+        }
+    }
+
     @Test("Failed text writes never enqueue")
     func failedTextWriteNeverEnqueues() async {
         let item = ClipItem(preview: "body", contentHash: "body")

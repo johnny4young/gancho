@@ -210,7 +210,7 @@ struct ClipDetailView: View {
         .task {
             if case .text(let text)? = try? await model.store.content(for: item.id) {
                 fullText = text
-                if !item.isSensitive, item.kind != .secret, item.kind != .color {
+                if !item.isSensitive, item.kind.allowsTextEditing {
                     editableText = text
                 }
             }
