@@ -80,6 +80,10 @@ struct PanelView: View {
     /// Non-nil when the keyboard moved up into the filter/board rails.
     @State private var railFocus: RailFocus?
     @State private var previewText = ""
+    /// Identity of the clip whose full text produced `previewText`. Until it
+    /// matches the current selection, the UI renders metadata-only preview text
+    /// so an async read can never flash the previous clip's body.
+    @State private var previewTextItemID: UUID?
     @State private var previewTextIsEditable = false
     @State private var boardSheet: BoardSheet?
     @State private var boardNameField = ""
@@ -139,10 +143,16 @@ struct PanelView: View {
             // The peek opens BESIDE the list (not a modal) and follows the
             // hovered / selected clip — Quick-Look-style.
             if let selected = search.selectedItem {
+                let hasLoadedSelectedText = previewTextItemID == selected.id
                 ClipPeek(
-                    item: selected, text: previewText,
-                    isTextEditable: previewTextIsEditable, focus: $focus
+                    item: selected,
+                    text: hasLoadedSelectedText ? previewText : selected.preview,
+                    isTextEditable: hasLoadedSelectedText && previewTextIsEditable,
+                    focus: $focus
                 )
+                // Drafts, async save callbacks, and action state belong to one
+                // clip only. A new selection gets a fresh preview identity.
+                .id(selected.id)
                 .frame(width: 400)
                 .ganchoSurface(radius: GanchoTokens.Radius.lg)
                 .transition(.opacity)
@@ -1331,20 +1341,22 @@ struct PanelView: View {
     private func loadSelectedText() async {
         guard let item = search.selectedItem else {
             previewText = ""
+            previewTextItemID = nil
             previewTextIsEditable = false
             return
         }
+        previewText = item.preview
+        previewTextItemID = item.id
         previewTextIsEditable = false
         guard item.kind != .image, item.kind != .fileReference else {
-            previewText = item.preview
             return
         }
-        if case .text(let text)? = try? await model.store.content(for: item.id) {
+        let content = try? await model.store.content(for: item.id)
+        guard !Task.isCancelled, search.selectedItem?.id == item.id else { return }
+        if case .text(let text)? = content {
             previewText = text
             previewTextIsEditable =
                 !item.isSensitive && item.kind != .secret && item.kind != .color
-        } else {
-            previewText = item.preview
         }
     }
 

@@ -60,4 +60,42 @@ final class PanelReproUITests: XCTestCase {
             shortcuts.count, Set(shortcuts).count,
             "each visible row must carry a distinct ⌘N shortcut; got \(shortcuts)")
     }
+
+    @MainActor
+    func testKeyboardSelectionLoadsOnlyTheSelectedPreview() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item",
+            "-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier",
+            "-start-capture-paused"
+        ]
+        app.launch()
+        defer { app.terminate() }
+
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        try XCTSkipUnless(
+            rows.firstMatch.waitForExistence(timeout: 8),
+            "seeded clip rows not exposed to the UI runner in this environment")
+
+        let preview = app.descendants(matching: .any)["preview-content"].firstMatch
+        try XCTSkipUnless(
+            preview.waitForExistence(timeout: 5),
+            "selected preview is not exposed to the UI runner in this environment")
+        let firstValue = preview.value as? String
+
+        app.typeKey(XCUIKeyboardKey.downArrow.rawValue, modifierFlags: [])
+
+        let changed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value != %@", firstValue ?? ""),
+            object: preview)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
+        let selected = rows.allElementsBoundByIndex.first(where: \.isSelected)
+        let selectedDescription = selected?.label ?? ""
+        let loadedValue = preview.value as? String ?? ""
+        XCTAssertTrue(
+            selectedDescription.contains(loadedValue),
+            "the visible preview must belong to the newly selected row")
+    }
 }
