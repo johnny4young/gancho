@@ -91,6 +91,20 @@ struct SnippetLibraryTests {
         #expect(try await store.search(ClipSearchQuery(text: "Blockers")).count == 1)
     }
 
+    @Test("Generated enrichment never replaces a manual title")
+    func generatedTitleUsesAtomicEmptyGuard() async throws {
+        let store = try makeStore()
+        let item = ClipItem(preview: "draft", contentHash: "title-race")
+        try await store.insert(item, content: .text("draft"))
+
+        #expect(try await store.updateTitleIfEmpty(id: item.id, title: "Generated"))
+        try await store.updateTitle(id: item.id, title: "Manual title")
+        #expect(!((try await store.updateTitleIfEmpty(id: item.id, title: "Too late"))))
+
+        #expect(try await store.item(id: item.id)?.title == "Manual title")
+        #expect(try await store.pendingUploadIDs() == [item.id])
+    }
+
     @Test("Keyword: set, match case-insensitively, and count uses")
     func keywordAndUses() async throws {
         let store = try makeStore()

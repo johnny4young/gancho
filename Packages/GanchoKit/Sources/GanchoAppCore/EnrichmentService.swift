@@ -60,8 +60,9 @@ public struct EnrichmentService: Sendable {
         if writeTitle, case .text(let text)? = content,
             let annotation = try? await TieredClipAnnotator().annotate(text)
         {
-            _ = try? await store.updateTitle(id: item.id, title: annotation.title)
-            await onTitleWritten()
+            let wroteTitle =
+                (try? await store.updateTitleIfEmpty(id: item.id, title: annotation.title)) == true
+            if wroteTitle { await onTitleWritten() }
         }
         // Semantic vector (the embedder caches its model after the first call).
         if plan.runs(.embedding), case .text(let text)? = content,

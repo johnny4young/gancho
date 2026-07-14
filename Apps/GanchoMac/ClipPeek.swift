@@ -26,6 +26,24 @@ struct ClipPeek: View {
     @State private var suggestedBoard: Pinboard?
     /// The highlighted action while the peek owns the keyboard (focus == .peek).
     @State private var actionIndex = 0
+    /// User-authored titles are edited inline; drafts never mutate the store
+    /// until Save succeeds.
+    @State private var presentedTitle: String
+    @State private var titleDraft: String
+    @State private var isEditingTitle = false
+    @State private var isSavingTitle = false
+    @State private var titleSaveFailed = false
+
+    init(
+        item: ClipItem, text: String,
+        focus: FocusState<PanelFocus?>.Binding
+    ) {
+        self.item = item
+        self.text = text
+        self.focus = focus
+        _presentedTitle = State(initialValue: item.title)
+        _titleDraft = State(initialValue: item.title)
+    }
 
     /// Masked clips show their stored masked preview, not the raw content. The
     /// peek is a preview, so cap very long clips: laying out a huge Text here on
@@ -40,6 +58,11 @@ struct ClipPeek: View {
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
             header
+            if titleSaveFailed {
+                Text("Couldn’t save the title.")
+                    .font(.caption)
+                    .foregroundStyle(GanchoTokens.Palette.danger)
+            }
             if let suggestedBoard {
                 suggestionChip(suggestedBoard)
             }
@@ -69,7 +92,6 @@ struct ClipPeek: View {
         // Sized to its content and pinned to the top — the peek is a shorter
         // detail card, not the full height of the list.
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .accessibilityIdentifier("clip-peek")
         // The peek owns the keyboard while focus == .peek: ↑↓ move among the
         // actions, Enter runs the focused one, ← hands focus back to the list.
         .focusable()
@@ -91,6 +113,11 @@ struct ClipPeek: View {
         }
         .onChange(of: focus.wrappedValue) { _, newValue in
             if newValue == .peek { actionIndex = 0 }
+        }
+        .onChange(of: item.title) { _, newTitle in
+            guard !isEditingTitle else { return }
+            presentedTitle = newTitle
+            titleDraft = newTitle
         }
         .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
         .task(id: item.id) { boardIDs = await model.boardMembership(for: item) }
@@ -132,8 +159,35 @@ struct ClipPeek: View {
     private var header: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             TypeBadge(kind: item.kind)
-            if !item.title.isEmpty {
-                Text(item.title).font(.headline).lineLimit(1)
+            if isEditingTitle {
+                TextField("Title", text: $titleDraft)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { saveTitle() }
+                    .accessibilityIdentifier("preview-title-field")
+                Button("Save") { saveTitle() }
+                    .buttonStyle(.borderless)
+                    .disabled(isSavingTitle)
+                    .accessibilityIdentifier("preview-save-title")
+                Button("Cancel") { cancelTitleEditing() }
+                    .buttonStyle(.borderless)
+                    .disabled(isSavingTitle)
+                    .accessibilityIdentifier("preview-cancel-title")
+            } else {
+                Text(presentedTitle.isEmpty ? String(localized: "Untitled") : presentedTitle)
+                    .font(.headline)
+                    .foregroundStyle(presentedTitle.isEmpty ? .secondary : .primary)
+                    .lineLimit(1)
+                    .accessibilityIdentifier("preview-title")
+                Button {
+                    titleDraft = presentedTitle
+                    titleSaveFailed = false
+                    isEditingTitle = true
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(Text("Edit title"))
+                .accessibilityIdentifier("preview-edit-title")
             }
             Spacer(minLength: 0)
             boardMenu
@@ -147,6 +201,31 @@ struct ClipPeek: View {
             .accessibilityIdentifier("preview-pin")
         }
         .clipDragSource(item)
+    }
+
+    private func saveTitle() {
+        guard !isSavingTitle else { return }
+        isSavingTitle = true
+        titleSaveFailed = false
+        let draft = titleDraft
+        Task {
+            let saved = await model.updateClipTitle(item, title: draft)
+            isSavingTitle = false
+            guard saved else {
+                titleSaveFailed = true
+                return
+            }
+            let normalized = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+            presentedTitle = normalized
+            titleDraft = normalized
+            isEditingTitle = false
+        }
+    }
+
+    private func cancelTitleEditing() {
+        titleDraft = presentedTitle
+        titleSaveFailed = false
+        isEditingTitle = false
     }
 
     /// Toggle this clip in/out of any board, with a checkmark on the boards it

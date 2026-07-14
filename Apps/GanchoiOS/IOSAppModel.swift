@@ -93,6 +93,7 @@ final class IOSAppModel {
     /// the Pro screen instead of letting a transient note dead-end the user.
     var proGateTick = 0
     private let purchases = StoreKitPurchaseHandler()
+    private let editingController = ClipEditingController()
 
     /// Per-device on-device intelligence toggles (the iOS Intelligence screen).
     /// Device-local by design — they gate what runs HERE and never sync; the
@@ -207,9 +208,7 @@ final class IOSAppModel {
         // refresh an open screen.
         recordStorageHealthIfNeeded()
         seedSampleClipsIfRequested()
-        seedSampleBoardsIfRequested()
-        seedSourceAppsIfRequested()
-        seedReuseSuggestionIfRequested()
+        seedDurableUITestFixturesIfRequested()
         telemetry.record(.appLaunched)
         #if DEBUG
             if CommandLine.arguments.contains("-show-telemetry-consent") {
@@ -235,73 +234,6 @@ final class IOSAppModel {
             ] {
                 await ingest(capture)
             }
-        }
-    }
-
-    /// UI-test hook: seed known boards into a throwaway SQLite store so the
-    /// appearance flow exercises the real durable write and refresh path. Both
-    /// arguments are required; a normal launch can never touch user storage.
-    private func seedSampleBoardsIfRequested() {
-        guard ProcessInfo.processInfo.arguments.contains("-seed-sample-boards"),
-            ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
-            let full
-        else { return }
-        Task {
-            for index in 1...PinLimits.freeMaxPinboards {
-                _ = try? await full.createPinboard(
-                    name: "Seed board \(index)", sfSymbol: "square.stack")
-            }
-            await refreshBoards()
-        }
-    }
-
-    /// UI-test hook: seed synthetic source-app rows into a throwaway durable
-    /// store. Both launch arguments are mandatory, so real history is untouched.
-    private func seedSourceAppsIfRequested() {
-        guard ProcessInfo.processInfo.arguments.contains("-seed-source-apps"),
-            ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
-            let full
-        else { return }
-        Task {
-            let entries: [(text: String, app: String, kind: ClipContentKind)] = [
-                ("Safari source alpha", "com.apple.Safari", .text),
-                ("Safari source link", "com.apple.Safari", .url),
-                ("Xcode source sample", "com.apple.dt.Xcode", .code)
-            ]
-            let identifiers = [
-                "00000000-0000-4000-8000-000000000201",
-                "00000000-0000-4000-8000-000000000202",
-                "00000000-0000-4000-8000-000000000203"
-            ]
-            for (index, entry) in entries.enumerated() {
-                guard let id = UUID(uuidString: identifiers[index]) else { return }
-                let item = ClipItem(
-                    id: id,
-                    createdAt: Date(timeIntervalSince1970: 1_800_000_000 + Double(index)),
-                    kind: entry.kind, preview: entry.text,
-                    contentHash: "ios-ui-source-\(index)", sourceAppBundleID: entry.app)
-                _ = try? await full.insert(item, content: .text(entry.text))
-            }
-            await refreshSourceApps()
-            await search()
-        }
-    }
-
-    /// UI-test hook: seed one synthetic clip at two uses so the next Copy drives
-    /// the real atomic threshold and banner. Both arguments are mandatory; a
-    /// normal launch can never touch durable user history.
-    private func seedReuseSuggestionIfRequested() {
-        guard ProcessInfo.processInfo.arguments.contains("-seed-reuse-suggestion"),
-            ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
-            let full,
-            let id = UUID(uuidString: "00000000-0000-4000-8000-000000000204")
-        else { return }
-        Task {
-            let item = ClipItem(
-                id: id, preview: "Reusable standup update",
-                contentHash: "ios-ui-reuse-suggestion", uses: 2)
-            _ = try? await full.insert(item, content: .text("Reusable standup update"))
-            await search()
         }
     }
 
@@ -464,6 +396,27 @@ final class IOSAppModel {
             await search()
         case .failed:
             diagnostics.record("Snippets", "Couldn’t save the snippet.")
+        }
+    }
+
+    /// Persists a user-authored title and schedules sync only after the durable
+    /// write succeeds. The detail view retains its local draft on failure.
+    func updateClipTitle(_ item: ClipItem, title: String) async -> Bool {
+        guard let full else { return false }
+        switch await editingController.updateTitle(
+            item, title: title, store: full, engine: syncController.engine)
+        {
+        case .saved:
+            await search()
+            return true
+        case .unchanged:
+            return true
+        case .clipUnavailable:
+            await search()
+            return false
+        case .failed:
+            diagnostics.record("Editing", "Couldn’t save the title.")
+            return false
         }
     }
 

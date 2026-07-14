@@ -5975,6 +5975,36 @@
           }
         }
       }
+    },
+    "Title": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Título"
+          }
+        }
+      }
+    },
+    "Edit title": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar título"
+          }
+        }
+      }
+    },
+    "Couldn’t save the title.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el título."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

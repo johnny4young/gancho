@@ -173,6 +173,12 @@ public protocol ClipEnriching: Sendable {
     /// Tier-1 enrichment: sets the title without touching content.
     func updateTitle(id: UUID, title: String) async throws
 
+    /// Tier-1 enrichment writes a generated title only while the authoritative
+    /// row is still untitled. Returns whether the guarded write happened, so a
+    /// manual title entered while enrichment was running can never be replaced.
+    @discardableResult
+    func updateTitleIfEmpty(id: UUID, title: String) async throws -> Bool
+
     /// OCR enrichment for image clips: extracted text lands in the searchable
     /// text column (screenshots become findable) without altering the preview
     /// or the blob.

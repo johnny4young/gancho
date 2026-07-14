@@ -169,6 +169,9 @@ struct ClipDetailView: View {
 
     var body: some View {
         List {
+            ClipTitleEditor(title: item.title) { title in
+                await model.updateClipTitle(item, title: title)
+            }
             actionRow
             contentSection
             metaChipsSection

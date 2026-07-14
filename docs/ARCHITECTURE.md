@@ -56,8 +56,8 @@ App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/
   └─ GanchoAppCore: the testable app logic both shells share and forward to —
        PanelSearchModel + PanelNavigation (macOS panel), HistoryListViewModel (iOS
        list), SyncController, ClipIngestionCoordinator, CaptureLifecycleController
-       (macOS), ReuseController, ClipCurationController, BoardsController,
-       EnrichmentService, DeletionCoordinator, BoardSuggestionService,
+       (macOS), ReuseController, ClipCurationController, ClipEditingController,
+       BoardsController, EnrichmentService, DeletionCoordinator, BoardSuggestionService,
        ClipItemFactory. Store access is facet-typed, so each unit runs against an
        in-memory fake in GanchoAppCoreTests.
 
@@ -105,6 +105,13 @@ for pinning and promoting snippets. It returns content-free outcomes after the
 free-tier gate and durable write, and enqueues successful pin changes. Each
 shell maps those outcomes to its own paywall, diagnostics, confirmation, and
 list refresh; failed writes never produce success feedback.
+
+`ClipEditingController` applies the same durable-write-before-sync boundary to
+user-owned clip metadata. Title edits are shared across macOS and iOS, compare
+against the authoritative stored row, and enqueue sync only after a real local
+change. AI enrichment uses an atomic title-if-empty write, so an asynchronous
+suggested title can never replace a title the user saved while enrichment was
+running.
 
 `BoardsController` applies the same boundary to board creation, metadata,
 deletion, and clip membership. Board limits fail closed if the authoritative

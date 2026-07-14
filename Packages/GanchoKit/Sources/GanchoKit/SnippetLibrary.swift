@@ -66,6 +66,22 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// Generated titles are opportunistic enrichment, never authority over a
+    /// user's curation. The predicate and write share one transaction so a
+    /// manual title saved while the model was running always wins the race.
+    @discardableResult
+    public func updateTitleIfEmpty(id: UUID, title: String) async throws -> Bool {
+        try await writer.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE clip SET title = ?, updatedAt = ?, needsUpload = 1
+                    WHERE id = ? AND title = ''
+                    """,
+                arguments: [title, Date(), id.uuidString])
+            return db.changesCount == 1
+        }
+    }
+
     /// OCR enrichment for image clips: extracted text lands in contentText
     /// (FTS-indexed → screenshots become searchable) without altering the
     /// preview or the blob. Flags `needsUpload` so the OCR fruit syncs.

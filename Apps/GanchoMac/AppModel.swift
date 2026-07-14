@@ -144,6 +144,7 @@ final class AppModel {
     #endif
 
     private let curationController = ClipCurationController()
+    private let editingController = ClipEditingController()
     private let ingestionCoordinator = ClipIngestionCoordinator()
     private let defaults: UserDefaults
     private var retentionTimer: Timer?
@@ -443,6 +444,7 @@ final class AppModel {
         let uiTestPanelReproTask = seedPanelReproIfRequested()
         let uiTestSourceAppSeedTask = seedSourceAppsIfRequested()
         let uiTestReuseSuggestionSeedTask = seedReuseSuggestionIfRequested()
+        let uiTestClipEditingSeedTask = seedClipEditingIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
         // launch); run it at utility priority once the UI is wired up.
@@ -464,6 +466,7 @@ final class AppModel {
                     await uiTestPanelReproTask?.value
                     await uiTestSourceAppSeedTask?.value
                     await uiTestReuseSuggestionSeedTask?.value
+                    await uiTestClipEditingSeedTask?.value
                     panel.show(model: self)
                     _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
                     try? await Task.sleep(for: .milliseconds(250))
@@ -476,6 +479,7 @@ final class AppModel {
                 await uiTestPanelReproTask?.value
                 await uiTestSourceAppSeedTask?.value
                 await uiTestReuseSuggestionSeedTask?.value
+                await uiTestClipEditingSeedTask?.value
                 try? await Task.sleep(for: .seconds(1))
                 if !panel.isVisible { panel.show(model: self) }
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
@@ -679,6 +683,27 @@ final class AppModel {
                 id: id, preview: "Reusable standup update",
                 contentHash: "mac-ui-reuse-suggestion", uses: 2)
             _ = try? await grdbStore.insert(item, content: .text("Reusable standup update"))
+            await refreshRecents()
+        }
+    }
+
+    /// UI-test hook: one deterministic text clip for title/content editing and
+    /// large-preview evidence. The throwaway durable-store guard prevents a
+    /// normal launch from ever seeding user history.
+    private func seedClipEditingIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-clip-editing"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let grdbStore,
+            let id = UUID(uuidString: "00000000-0000-4000-8000-000000000105")
+        else { return nil }
+        return Task {
+            let item = ClipItem(
+                id: id, preview: "Yesterday: fixed search",
+                contentHash: "mac-ui-clip-editing")
+            _ = try? await grdbStore.insert(
+                item,
+                content: .text(
+                    "Yesterday: fixed search\nToday: improve editing\nBlockers: none"))
             await refreshRecents()
         }
     }
@@ -1247,6 +1272,27 @@ final class AppModel {
     // MARK: - Pins & boards
 
     private(set) var boards: [Pinboard] = []
+
+    /// Persists a user-authored title and schedules sync only after the durable
+    /// write succeeds. The view owns draft/error presentation.
+    func updateClipTitle(_ item: ClipItem, title: String) async -> Bool {
+        guard let grdbStore else { return false }
+        switch await editingController.updateTitle(
+            item, title: title, store: grdbStore, engine: syncController.engine)
+        {
+        case .saved:
+            await refreshRecents()
+            return true
+        case .unchanged:
+            return true
+        case .clipUnavailable:
+            await refreshRecents()
+            return false
+        case .failed:
+            diagnostics.record("Editing", "Couldn’t save the title.")
+            return false
+        }
+    }
 
     private func recordBoardFailure(_ message: String.LocalizationValue) {
         diagnostics.record(String(localized: "Boards"), String(localized: message))
