@@ -21,6 +21,8 @@ import Observation
     func boardItems(_ boardID: UUID) async -> [ClipItem]
     /// Ranked full-text search (durable stores only).
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem]
+    /// Content-free source-app options for the filter menu.
+    func recentSourceApps(limit: Int) async -> [ClipSourceApp]
     /// The snippet whose keyword matches the query exactly, if any.
     func snippet(matchingKeyword keyword: String) async -> ClipItem?
     /// Whether a clip's delete is in its undo window — such rows hide at once.
@@ -63,6 +65,11 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public var kindFilter: ClipKindFilter = .all
     /// nil = "All clips"; otherwise the selected board's id.
     public var selectedBoardID: UUID?
+    /// nil = all apps; otherwise the source bundle identifier to intersect with
+    /// the current text, type, and board filters.
+    public var selectedSourceAppBundleID: String?
+    /// Recent source apps and aggregate counts for the filter menu.
+    public var sourceApps: [ClipSourceApp] = []
     /// The snippet whose keyword the query matches exactly — surfaces a
     /// one-keystroke insert banner above the list.
     public var snippetMatch: ClipItem?
@@ -128,10 +135,20 @@ public struct PanelDateGroup: Identifiable, Sendable {
 
     /// A type or board filter is narrowing the list — drives the no-results
     /// "Clear filters" affordance.
-    public var hasActiveFilter: Bool { kindFilter != .all || selectedBoardID != nil }
+    public var hasActiveFilter: Bool {
+        kindFilter != .all || selectedBoardID != nil || selectedSourceAppBundleID != nil
+    }
 
     /// The recent list is showing (paginates); a query or board is a bounded set.
-    public var isGroupedView: Bool { query.isEmpty && selectedBoardID == nil }
+    public var isGroupedView: Bool {
+        query.isEmpty && selectedBoardID == nil && selectedSourceAppBundleID == nil
+    }
+
+    /// Refreshes app choices independently from text search so typing never
+    /// repeats the aggregate query. Call on panel open and after history changes.
+    public func refreshSourceApps() async {
+        sourceApps = await source.recentSourceApps(limit: 8)
+    }
 
     /// Select a row by index (the click + arrow path).
     public func select(_ index: Int) { selectedIndex = index }
@@ -140,7 +157,8 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// recents (pins first, store order). The recent list paginates on demand.
     public func refresh() async {
         let board = selectedBoardID
-        if query.isEmpty {
+        let sourceApp = selectedSourceAppBundleID
+        if query.isEmpty, sourceApp == nil {
             if let board, source.isDurable {
                 results = await source.boardItems(board)
                 reachedEnd = true  // a board is a curated set — loaded whole
@@ -154,12 +172,17 @@ public struct PanelDateGroup: Identifiable, Sendable {
             // here in Swift, not SQL — see `reranked`.
             results = Self.reranked(
                 await source.search(
-                    ClipSearchQuery(text: query, boardID: board), limit: 100))
+                    ClipSearchQuery(
+                        text: query, sourceAppBundleID: sourceApp, boardID: board),
+                    limit: query.isEmpty ? 500 : 100))
             reachedEnd = true  // ranked top results, not a scroll-through
         } else {
             let all = await source.items(offset: 0, limit: 200)
             results = Self.reranked(
-                all.filter { $0.preview.localizedCaseInsensitiveContains(query) })
+                all.filter {
+                    (query.isEmpty || $0.preview.localizedCaseInsensitiveContains(query))
+                        && (sourceApp == nil || $0.sourceAppBundleID == sourceApp)
+                })
             reachedEnd = true
         }
         // A query that exactly matches a snippet's keyword offers a one-keystroke

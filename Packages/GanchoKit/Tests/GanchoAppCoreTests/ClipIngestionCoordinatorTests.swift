@@ -26,6 +26,10 @@ private actor IngestionStoreSpy: ClipIngesting, ClipEnriching {
     }
 
     func updateTitle(id: UUID, title: String) async throws { titleWrites += 1 }
+    func updateTitleIfEmpty(id: UUID, title: String) async throws -> Bool {
+        titleWrites += 1
+        return true
+    }
     func attachExtractedText(id: UUID, text: String) async throws {
         extractedTextWrites += 1
     }

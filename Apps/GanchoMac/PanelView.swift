@@ -80,6 +80,11 @@ struct PanelView: View {
     /// Non-nil when the keyboard moved up into the filter/board rails.
     @State private var railFocus: RailFocus?
     @State private var previewText = ""
+    /// Identity of the clip whose full text produced `previewText`. Until it
+    /// matches the current selection, the UI renders metadata-only preview text
+    /// so an async read can never flash the previous clip's body.
+    @State private var previewTextItemID: UUID?
+    @State private var previewTextIsEditable = false
     @State private var boardSheet: BoardSheet?
     @State private var boardNameField = ""
     /// The board a destructive "Delete board" is awaiting confirmation on.
@@ -106,12 +111,12 @@ struct PanelView: View {
         _search = State(wrappedValue: PanelSearchModel(source: model))
     }
 
-    /// Zero-size buttons that claim ⌘V / ⌥⌘V as keyboard shortcuts. The search
+    /// Zero-size buttons that claim command-level shortcuts. The search
     /// field is the first responder for type-to-search, so a plain key handler
     /// never sees ⌘V — the field editor consumes it as native "paste" and dumps
     /// the clipboard into the query. A keyboardShortcut is resolved as a command
     /// (ahead of the field editor), so ⌘V pastes the SELECTED clip like Enter.
-    private var pasteShortcutButtons: some View {
+    private var commandShortcutButtons: some View {
         Group {
             Button("") { if let item = search.selectedItem { model.paste(item) } }
                 .keyboardShortcut("v", modifiers: .command)
@@ -119,6 +124,12 @@ struct PanelView: View {
                 if let item = search.selectedItem { model.paste(item, asPlainText: true) }
             }
             .keyboardShortcut("v", modifiers: [.command, .option])
+            Button("") {
+                if let item = search.selectedItem {
+                    model.panel.showLargePreview(item, model: model)
+                }
+            }
+            .keyboardShortcut("y", modifiers: .command)
         }
         .opacity(0)
         .frame(width: 0, height: 0)
@@ -132,10 +143,19 @@ struct PanelView: View {
             // The peek opens BESIDE the list (not a modal) and follows the
             // hovered / selected clip — Quick-Look-style.
             if let selected = search.selectedItem {
-                ClipPeek(item: selected, text: previewText, focus: $focus)
-                    .frame(width: 400)
-                    .ganchoSurface(radius: GanchoTokens.Radius.lg)
-                    .transition(.opacity)
+                let hasLoadedSelectedText = previewTextItemID == selected.id
+                ClipPeek(
+                    item: selected,
+                    text: hasLoadedSelectedText ? previewText : selected.preview,
+                    isTextEditable: hasLoadedSelectedText && previewTextIsEditable,
+                    focus: $focus
+                )
+                // Drafts, async save callbacks, and action state belong to one
+                // clip only. A new selection gets a fresh preview identity.
+                .id(selected.id)
+                .frame(width: 400)
+                .ganchoSurface(radius: GanchoTokens.Radius.lg)
+                .transition(.opacity)
             }
         }
         .padding(GanchoTokens.Spacing.sm)
@@ -143,9 +163,12 @@ struct PanelView: View {
         .overlay { shortcutsOverlay }
         .overlay { boardPickerOverlay }
         .overlay { telemetryConsentPrompt }
-        .background { pasteShortcutButtons }
+        .background { commandShortcutButtons }
         .animation(.snappy(duration: 0.12), value: showShortcuts)
-        .task { await search.refresh() }
+        .task {
+            await search.refreshSourceApps()
+            await search.refresh()
+        }
         .task { await model.refreshBoards() }
         .onChange(of: search.query) { _, newValue in
             // A new query invalidates a previous answer and drops rail focus
@@ -167,9 +190,15 @@ struct PanelView: View {
             Task { await search.refresh() }
         }
         .onChange(of: model.recentItems) { _, _ in
-            Task { await search.refresh() }
+            Task {
+                await search.refreshSourceApps()
+                await search.refresh()
+            }
         }
         .onChange(of: search.selectedBoardID) { _, _ in
+            Task { await search.refresh() }
+        }
+        .onChange(of: search.selectedSourceAppBundleID) { _, _ in
             Task { await search.refresh() }
         }
         // The kind filter narrows client-side, so regroup without a re-query.
@@ -430,10 +459,72 @@ struct PanelView: View {
                 ForEach(ClipKindFilter.allCases) { filter in
                     filterPill(filter)
                 }
+                if !search.sourceApps.isEmpty {
+                    sourceAppMenu
+                }
             }
             .padding(.horizontal, GanchoTokens.Spacing.xxs)
         }
-        .accessibilityIdentifier("board-rail")
+        .accessibilityIdentifier("filter-rail")
+    }
+
+    /// Source-app filter: recent apps and content-free counts in one compact
+    /// menu, intersected with the board, type, and text query owned by search.
+    private var sourceAppMenu: some View {
+        Menu {
+            Button {
+                search.selectedSourceAppBundleID = nil
+            } label: {
+                Label("All apps", systemImage: "square.grid.2x2")
+            }
+            Divider()
+            ForEach(search.sourceApps) { app in
+                Button {
+                    search.selectedSourceAppBundleID = app.bundleID
+                } label: {
+                    HStack {
+                        Text(verbatim: SourceApp.displayName(forBundleID: app.bundleID))
+                        Spacer()
+                        Text(verbatim: "\(app.clipCount)")
+                        if search.selectedSourceAppBundleID == app.bundleID {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+                .accessibilityIdentifier("source-app-\(app.bundleID)")
+            }
+        } label: {
+            HStack(spacing: 4) {
+                if let bundleID = search.selectedSourceAppBundleID,
+                    let icon = SourceApp.icon(forBundleID: bundleID)
+                {
+                    Image(nsImage: icon).resizable().frame(width: 12, height: 12)
+                } else {
+                    Image(systemName: "app.dashed").font(.caption2)
+                }
+                if let bundleID = search.selectedSourceAppBundleID {
+                    Text(verbatim: SourceApp.displayName(forBundleID: bundleID))
+                } else {
+                    Text("All apps")
+                }
+            }
+            .font(.caption.weight(search.selectedSourceAppBundleID == nil ? .medium : .semibold))
+            .padding(.horizontal, GanchoTokens.Spacing.xs)
+            .padding(.vertical, 3)
+            .background(
+                search.selectedSourceAppBundleID == nil
+                    ? AnyShapeStyle(.quaternary) : AnyShapeStyle(GanchoTokens.Palette.accent),
+                in: Capsule()
+            )
+            .foregroundStyle(
+                search.selectedSourceAppBundleID == nil
+                    ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.white)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .accessibilityLabel(Text("Filter by app"))
+        .accessibilityIdentifier("source-app-filter")
     }
 
     private func filterPill(_ filter: ClipKindFilter) -> some View {
@@ -541,7 +632,10 @@ struct PanelView: View {
                 .accessibilityIdentifier("board-new")
             }
             .padding(.horizontal, GanchoTokens.Spacing.xxs)
+            .frame(minHeight: 28)
+            .contentShape(Rectangle())
         }
+        .accessibilityIdentifier("board-rail")
     }
 
     private func boardChip(
@@ -849,6 +943,7 @@ struct PanelView: View {
             shortcutLine(["⌘", "P"], "Pin or unpin")
             shortcutLine(["⌘", "S"], "Save as snippet")
             shortcutLine(["⌘", "B"], "Add to board")
+            shortcutLine(["⌘", "Y"], "Preview")
             shortcutLine(["⌘", "↑"], "Recall recent searches")
             shortcutLine(["⌘", "A"], "Select all in search")
             shortcutLine(["esc"], "Close")
@@ -1088,6 +1183,7 @@ struct PanelView: View {
                     Button("Clear filters") {
                         search.kindFilter = .all
                         search.selectedBoardID = nil
+                        search.selectedSourceAppBundleID = nil
                     }
                     .buttonStyle(.borderless)
                     .padding(.top, GanchoTokens.Spacing.xxs)
@@ -1248,16 +1344,30 @@ struct PanelView: View {
     private func loadSelectedText() async {
         guard let item = search.selectedItem else {
             previewText = ""
+            previewTextItemID = nil
+            previewTextIsEditable = false
             return
         }
+        previewText =
+            ClipSafePresentation.requiresMasking(item)
+            ? ClipSafePresentation.masked : item.preview
+        previewTextItemID = item.id
+        previewTextIsEditable = false
         guard item.kind != .image, item.kind != .fileReference else {
-            previewText = item.preview
             return
         }
-        if case .text(let text)? = try? await model.store.content(for: item.id) {
+        let store = model.store
+        let payload = await ClipPreviewLoader().load(item) { id in
+            try await store.content(for: id)
+        }
+        guard !Task.isCancelled, search.selectedItem?.id == item.id else { return }
+        switch payload {
+        case .masked(let text), .text(let text):
             previewText = text
-        } else {
-            previewText = item.preview
+            previewTextIsEditable =
+                !ClipSafePresentation.requiresMasking(item) && item.kind.allowsTextEditing
+        case .binary, .fileReferences, .unavailable:
+            break
         }
     }
 

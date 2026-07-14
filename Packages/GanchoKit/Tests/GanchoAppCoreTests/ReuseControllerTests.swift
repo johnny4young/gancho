@@ -19,11 +19,18 @@ private actor ReuseStoreSpy: ClipboardStore, ReuseUsageStoring {
     func deletionCount() -> Int { deleteCount }
 
     @discardableResult
-    func insert(_ item: ClipItem, content _: ClipContent?) async throws -> ClipItem {
+    func insert(_ item: ClipItem, content: ClipContent?) async throws -> ClipItem {
         events.append("insert:\(item.preview)")
+        var stored = item
+        if content == nil, let current = storage.first(where: { $0.id == item.id }) {
+            // Match GRDB's metadata-only move-to-top semantics: a stale view
+            // snapshot must not erase the use signal written immediately before.
+            stored.uses = current.uses
+            stored.lastUsedAt = current.lastUsedAt
+        }
         storage.removeAll { $0.id == item.id }
-        storage.insert(item, at: 0)
-        return item
+        storage.insert(stored, at: 0)
+        return stored
     }
 
     func items(offset: Int, limit: Int) async throws -> [ClipItem] {
@@ -41,9 +48,20 @@ private actor ReuseStoreSpy: ClipboardStore, ReuseUsageStoring {
     func exportJSON() async throws -> Data { Data() }
     func exportCSV() async throws -> Data { Data() }
 
-    func recordUse(id: UUID, now _: Date) async throws {
-        let preview = storage.first { $0.id == id }?.preview ?? "missing"
+    func recordUseAndSnippetSuggestion(
+        id: UUID, now: Date, requiredUses: Int
+    ) async throws -> ClipItem? {
+        guard let index = storage.firstIndex(where: { $0.id == id }) else {
+            events.append("use:missing")
+            return nil
+        }
+        let preview = storage[index].preview
         events.append("use:\(preview)")
+        storage[index].uses += 1
+        storage[index].lastUsedAt = now
+        let updated = storage[index]
+        guard updated.uses == requiredUses, !updated.isSensitive else { return nil }
+        return updated
     }
 
     func recordSearch(_ query: String, now _: Date) async throws {
@@ -133,6 +151,34 @@ struct ReuseControllerTests {
         #expect(controller.activeSearchQuery.isEmpty)
         #expect(controller.recentItems.map(\.id) == [second.id, first.id])
         #expect(await controller.recentSearches() == ["invoice"])
+    }
+
+    @Test("A successful third use returns one non-sensitive snippet candidate")
+    func recordPasteReturnsExactThresholdCandidate() async {
+        let store = ReuseStoreSpy()
+        let item = ClipItem(preview: "reusable", contentHash: "reusable", uses: 2)
+        await store.seed([item])
+        let controller = makeController(store: store)
+
+        let candidate = await controller.recordPaste(of: item)
+        let afterThreshold = await controller.recordPaste(of: item)
+
+        #expect(candidate?.id == item.id)
+        #expect(candidate?.uses == SnippetLimits.promotionSuggestionUseThreshold)
+        #expect(afterThreshold == nil, "the exact-threshold suggestion must not repeat")
+    }
+
+    @Test("Sensitive clips never become snippet candidates")
+    func sensitivePasteNeverSuggestsSnippet() async {
+        let store = ReuseStoreSpy()
+        let item = ClipItem(
+            preview: "•••", contentHash: "sensitive", isSensitive: true, uses: 2)
+        await store.seed([item])
+        let controller = makeController(store: store)
+
+        let candidate = await controller.recordPaste(of: item)
+
+        #expect(candidate == nil)
     }
 
     @Test("Drag delivery records ranking and search without reordering the visible list")

@@ -1,5 +1,6 @@
 import ClipboardCore
 import GanchoAI
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import GanchoTelemetry
@@ -77,6 +78,10 @@ struct ClipDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let item: ClipItem
     @State private var fullText = ""
+    @State private var hasLoadedFullText = false
+    /// Non-nil only when the durable payload is plain text and policy permits
+    /// editing. Binary/rich/file/sensitive rows remain read-only.
+    @State private var editableText: String?
     @State private var actionResult: String?
     @State private var boardIDs: Set<UUID> = []
     @State private var smartResult: String?
@@ -99,11 +104,17 @@ struct ClipDetailView: View {
         item.kind != .image && item.kind != .fileReference && item.kind != .color
     }
 
+    /// Includes malformed legacy/sync rows whose kind is intrinsically masked
+    /// even when their `isSensitive` metadata is false.
+    private var requiresMasking: Bool {
+        ClipSafePresentation.requiresMasking(item)
+    }
+
     /// Smart Paste fits text clips only and never a masked secret. Model-backed
     /// rewrites need Apple Intelligence, but deterministic PII redaction remains
     /// available whenever the user kept the Smart Paste toggle on.
     private var canSmartPaste: Bool {
-        model.smartPasteAvailable && !item.isSensitive && isTextLike
+        model.smartPasteAvailable && !requiresMasking && isTextLike
     }
 
     /// The boards this clip currently belongs to — shown as chips in the peek.
@@ -114,7 +125,8 @@ struct ClipDetailView: View {
     /// Text handed to the iOS share sheet — the full text once loaded, else the
     /// stored preview (sensitive clips share only their masked preview).
     private var shareText: String {
-        item.isSensitive ? item.preview : (fullText.isEmpty ? item.preview : fullText)
+        requiresMasking
+            ? ClipSafePresentation.masked : (fullText.isEmpty ? item.preview : fullText)
     }
 
     /// The medium-detent quick actions (the peek's action row). Copy is primary
@@ -169,11 +181,20 @@ struct ClipDetailView: View {
 
     var body: some View {
         List {
+            ClipTitleEditor(title: item.title) { title in
+                await model.updateClipTitle(item, title: title)
+            }
             actionRow
-            contentSection
+            if editableText != nil {
+                ClipTextEditor(text: editableTextBinding, kind: item.kind) { text in
+                    await model.updateClipText(item, text: text)
+                }
+            } else {
+                contentSection
+            }
             metaChipsSection
             boardsSection
-            if isTextLike, !item.isSensitive {
+            if isTextLike, !requiresMasking {
                 Section {
                     Button("Save as snippet", systemImage: "textformat") {
                         Task { await model.saveAsSnippet(item) }
@@ -195,9 +216,25 @@ struct ClipDetailView: View {
                 Task { boardIDs = await model.boardMembership(for: item) }
             }
         }
-        .task {
-            if case .text(let text)? = try? await model.store.content(for: item.id) {
+        .task(id: revealed) {
+            let store = model.store
+            let payload = await ClipPreviewLoader().load(
+                item, revealMaskedContent: revealed
+            ) { id in
+                try await store.content(for: id)
+            }
+            guard !Task.isCancelled else { return }
+            switch payload {
+            case .text(let text):
                 fullText = text
+                hasLoadedFullText = true
+                if !requiresMasking, item.kind.allowsTextEditing {
+                    editableText = text
+                }
+            case .masked, .binary, .fileReferences, .unavailable:
+                fullText = ""
+                hasLoadedFullText = false
+                editableText = nil
             }
         }
         .task { await model.thumbnails.ensureLoaded(item) }
@@ -212,10 +249,19 @@ struct ClipDetailView: View {
         .presentationDragIndicator(.visible)
     }
 
+    private var editableTextBinding: Binding<String> {
+        Binding(
+            get: { editableText ?? fullText },
+            set: { newText in
+                editableText = newText
+                fullText = newText
+            })
+    }
+
     /// The clip itself — image, text, or a masked secret kept behind Reveal.
     @ViewBuilder private var contentSection: some View {
         Section {
-            if item.kind == .image, !item.isSensitive,
+            if item.kind == .image, !requiresMasking,
                 let thumbnail = model.thumbnails.cached(for: item.id)
             {
                 thumbnail
@@ -229,23 +275,32 @@ struct ClipDetailView: View {
                     .onTapGesture { showFullImage = true }
                     .accessibilityAddTraits(.isButton)
                     .accessibilityHint(Text("Open full screen to zoom"))
-            } else if item.isSensitive, !revealed {
-                Text(item.preview)
+            } else if requiresMasking, !revealed {
+                Text(ClipSafePresentation.masked)
                     .font(item.kind == .code ? .body.monospaced() : .body)
                     .foregroundStyle(.secondary)
                 Button("Reveal", systemImage: "eye") { revealed = true }
                     .accessibilityIdentifier("detail-reveal")
+            } else if requiresMasking, !hasLoadedFullText {
+                ProgressView()
+                Button("Hide", systemImage: "eye.slash") { revealed = false }
+                    .foregroundStyle(.secondary)
             } else {
                 // A very long Text inside a List row fails to lay out on iOS
                 // (the detail came up blank). Cap what we render; the whole clip
                 // is still available via Copy.
-                let body = fullText.isEmpty ? item.preview : fullText
+                let fallback = requiresMasking ? ClipSafePresentation.masked : item.preview
+                let body = fullText.isEmpty ? fallback : fullText
                 Text(body.count > 8000 ? String(body.prefix(8000)) + "\n…" : body)
                     .font(item.kind == .code ? .body.monospaced() : .body)
                     .textSelection(.enabled)
-                if item.isSensitive {
-                    Button("Hide", systemImage: "eye.slash") { revealed = false }
-                        .foregroundStyle(.secondary)
+                if requiresMasking {
+                    Button("Hide", systemImage: "eye.slash") {
+                        fullText = ""
+                        hasLoadedFullText = false
+                        revealed = false
+                    }
+                    .foregroundStyle(.secondary)
                 }
             }
         }
@@ -259,7 +314,7 @@ struct ClipDetailView: View {
                     metaChip(
                         Text(LocalizedStringKey(item.kind.rawValue)),
                         systemImage: item.kind.symbolName)
-                    if item.isSensitive {
+                    if requiresMasking {
                         metaChip(Text("Masked"), systemImage: "lock.fill")
                     }
                     if let bundleID = item.sourceAppBundleID, !bundleID.isEmpty {
@@ -353,13 +408,15 @@ struct ClipDetailView: View {
     /// secret. Deliberately NO availability gate — they work on every device,
     /// with Apple Intelligence off.
     private var canTransform: Bool {
-        isTextLike && !item.isSensitive
+        isTextLike && !requiresMasking
     }
 
     /// On-device transforms: deterministic dev actions plus, when available,
     /// Apple-Intelligence Smart Paste. One section, the design's "Smart Actions".
     @ViewBuilder private var smartActionsSection: some View {
-        let actions = DevActions.actions(for: item.kind)
+        let actions =
+            (!requiresMasking || (revealed && hasLoadedFullText))
+            ? DevActions.actions(for: item.kind) : []
         if !actions.isEmpty || canTransform || canSmartPaste {
             Section {
                 ForEach(actions) { action in

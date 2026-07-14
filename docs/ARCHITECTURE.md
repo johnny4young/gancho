@@ -56,10 +56,10 @@ App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/
   └─ GanchoAppCore: the testable app logic both shells share and forward to —
        PanelSearchModel + PanelNavigation (macOS panel), HistoryListViewModel (iOS
        list), SyncController, ClipIngestionCoordinator, CaptureLifecycleController
-       (macOS), ReuseController, ClipCurationController, BoardsController,
-       EnrichmentService, DeletionCoordinator, BoardSuggestionService,
-       ClipItemFactory. Store access is facet-typed, so each unit runs against an
-       in-memory fake in GanchoAppCoreTests.
+       (macOS), ReuseController, ClipCurationController, ClipEditingController,
+       ClipPreviewLoader, BoardsController, EnrichmentService, DeletionCoordinator,
+       BoardSuggestionService, ClipItemFactory. Store access is facet-typed, so
+       each unit runs against an in-memory fake in GanchoAppCoreTests.
 
 Persistence and sync implementations
   ├─ GRDB / SQLite / FTS5 local store with content-addressed disk blobs
@@ -89,9 +89,14 @@ capture-preference persistence, and the periodic screen-share auto-pause check.
 as monitor construction, denylist callbacks, windows, and presentation effects.
 
 `ReuseController` owns the reusable session state that follows successful user
-actions: the recent metadata page, local use/search signals, cyclic selection,
-paste-stack ordering, and the reversible-delete window. The macOS `AppModel`
-keeps AppKit paste-back, toasts, telemetry, helper publishing, and the concrete
+actions: the recent metadata page, local use/search signals, exact-threshold
+snippet candidates, cyclic selection, paste-stack ordering, and the
+reversible-delete window. The candidate is resolved atomically with the third
+successful use and excludes sensitive, archived, and existing-snippet rows;
+exact equality makes dismissal one-shot without another persistence flag. The
+platform shells keep presentation and give a confident board suggestion
+priority so curation prompts never compete. The macOS `AppModel` also keeps
+AppKit paste-back, toasts, telemetry, helper publishing, and the concrete
 sync-aware deletion mutation, while exposing facade properties so views do not
 couple themselves to controller composition.
 
@@ -100,6 +105,25 @@ for pinning and promoting snippets. It returns content-free outcomes after the
 free-tier gate and durable write, and enqueues successful pin changes. Each
 shell maps those outcomes to its own paywall, diagnostics, confirmation, and
 list refresh; failed writes never produce success feedback.
+
+`ClipEditingController` applies the same durable-write-before-sync boundary to
+user-owned clip metadata. Title edits are shared across macOS and iOS, compare
+against the authoritative stored row, and enqueue sync only after a real local
+change. AI enrichment uses an atomic title-if-empty write, so an asynchronous
+suggested title can never replace a title the user saved while enrichment was
+running. Explicit text-body edits preserve the user's exact whitespace, reject
+blank/sensitive/binary/file/structured-color payloads, recompute the preview and
+FTS projection in one transaction, and delete the now-stale semantic vector.
+Receiving a changed text body from sync performs the same vector invalidation;
+metadata-only remote updates keep the existing vector.
+
+`ClipPreviewLoader` is the privacy boundary for explicit full-content previews.
+It runs only after the user invokes the macOS Command-Y sheet, returns the
+sanitized metadata preview for sensitive or intrinsically masked kinds without
+reading durable content, and otherwise preserves text, binary, and file-reference
+representations in memory. The macOS sheet decodes images and rich text lazily,
+uses a read-only `NSTextView` for large selectable documents, and never writes a
+temporary Quick Look file.
 
 `BoardsController` applies the same boundary to board creation, metadata,
 deletion, and clip membership. Board limits fail closed if the authoritative
@@ -120,7 +144,7 @@ diagnostic, paywall, and toast behavior.
 
 ## Frozen client contract
 
-The store is not one wide class to everyone. `Packages/GanchoKit/Sources/GanchoKit/ClientContract.swift` splits it into nine capability **facets** — `ClipReading`, `ClipSearching`, `ClipMutating`, `ClipEnriching`, `BoardStoring`, `SnippetStoring`, `StoreStatsProviding`, `ExportProviding`, `StoreMaintaining` — plus two compositions: `GanchoClientStore` (the read/search/board/export surface a third-party or cross-target client may depend on) and `FullClipStore` (everything the first-party apps hold). Feature code takes the narrowest facet it needs; only the composition root sees the concrete `GRDBClipboardStore`.
+The store is not one wide class to everyone. `Packages/GanchoKit/Sources/GanchoKit/ClientContract.swift` splits it into eleven capability **facets** — `ClipReading`, `ClipSearching`, `SourceAppProviding`, `ClipMutating`, `ReuseSuggestionProviding`, `ClipEnriching`, `BoardStoring`, `SnippetStoring`, `StoreStatsProviding`, `ExportProviding`, `StoreMaintaining` — plus two compositions: `GanchoClientStore` (the read/search/board/export surface a third-party or cross-target client may depend on) and `FullClipStore` (everything the first-party apps hold, including content-free source-app discovery and atomic local reuse suggestions). Feature code takes the narrowest facet it needs; only the composition root sees the concrete `GRDBClipboardStore`.
 
 That surface is **frozen**: it is the supported API, so changes to it are deliberate, documented, and reviewed. GRDB-shaped members that are not facet witnesses (`migrate()`, `thumbnailURL(for:)`) live behind `@_spi(GanchoInternal)` so they stay off the ambient app-facing and external surface; the few internal call sites (tests, the perf harness) opt in with `@_spi(GanchoInternal) import GanchoKit`. `ContractFreezeTests` enforces this in CI: every frozen facet stays declared, every requirement stays documented, and the SPI-gated members stay gated.
 

@@ -12,6 +12,8 @@ import Testing
     var recent: [ClipItem] = []
     var searchResults: [ClipItem] = []
     var board: [ClipItem] = []
+    var sourceApps: [ClipSourceApp] = []
+    var lastSearchQuery: ClipSearchQuery?
 
     func recentBrowse(offset: Int, limit: Int) async -> [ClipItem] {
         Array(recent.dropFirst(offset).prefix(limit))
@@ -23,7 +25,11 @@ import Testing
     // `HistoryStoreSource` returns [] otherwise, so the fake mirrors that.
     func boardItems(_ boardID: UUID) async -> [ClipItem] { isDurable ? board : [] }
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
-        isDurable ? searchResults : []
+        lastSearchQuery = query
+        return isDurable ? Array(searchResults.prefix(limit)) : []
+    }
+    func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
+        Array(sourceApps.prefix(limit))
     }
 }
 
@@ -80,6 +86,38 @@ struct HistoryListViewModelTests {
         model.kindFilter = .url
         #expect(model.captures.count == 3)  // the loaded page is untouched
         #expect(model.visibleClips.count == 2)  // the filter applies on top
+    }
+
+    @Test func sourceAppFilterComposesWithKindBoardAndEmptyText() async {
+        let source = FakeSource()
+        let boardID = UUID()
+        source.searchResults = [
+            ClipItem(
+                kind: .url, preview: "Safari", sourceAppBundleID: "com.apple.Safari")
+        ]
+        let model = HistoryListViewModel(source: source)
+        model.kindFilter = .url
+        model.selectedBoardID = boardID
+        model.selectedSourceAppBundleID = "com.apple.Safari"
+
+        await model.search()
+
+        #expect(model.captures.count == 1)
+        #expect(source.lastSearchQuery?.text.isEmpty == true)
+        #expect(source.lastSearchQuery?.kinds == [.url])
+        #expect(source.lastSearchQuery?.boardID == boardID)
+        #expect(source.lastSearchQuery?.sourceAppBundleID == "com.apple.Safari")
+        #expect(!model.isGroupedView)
+    }
+
+    @Test func sourceAppOptionsAreLoadedAsContentFreeMetadata() async {
+        let source = FakeSource()
+        source.sourceApps = [ClipSourceApp(bundleID: "com.apple.mobilesafari", clipCount: 4)]
+        let model = HistoryListViewModel(source: source)
+
+        await model.refreshSourceApps()
+
+        #expect(model.sourceApps == source.sourceApps)
     }
 
     @Test func filteredInfiniteScrollUsesTheVisibleTail() async {

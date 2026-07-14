@@ -5,6 +5,9 @@ import GRDB
 /// includes 20 snippets).
 public enum SnippetLimits {
     public static let freeMaxSnippets = 20
+    /// The first point where repeated use has proven enough value to offer
+    /// permanent curation. Equality, rather than `>=`, makes the nudge one-shot.
+    public static let promotionSuggestionUseThreshold = 3
 
     public static func canPromote(currentSnippetCount: Int, isPro: Bool) -> Bool {
         isPro || currentSnippetCount < freeMaxSnippets
@@ -63,6 +66,22 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// Generated titles are opportunistic enrichment, never authority over a
+    /// user's curation. The predicate and write share one transaction so a
+    /// manual title saved while the model was running always wins the race.
+    @discardableResult
+    public func updateTitleIfEmpty(id: UUID, title: String) async throws -> Bool {
+        try await writer.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE clip SET title = ?, updatedAt = ?, needsUpload = 1
+                    WHERE id = ? AND title = ''
+                    """,
+                arguments: [title, Date(), id.uuidString])
+            return db.changesCount == 1
+        }
+    }
+
     /// OCR enrichment for image clips: extracted text lands in contentText
     /// (FTS-indexed → screenshots become searchable) without altering the
     /// preview or the blob. Flags `needsUpload` so the OCR fruit syncs.
@@ -74,17 +93,41 @@ extension GRDBClipboardStore {
         }
     }
 
-    /// Edits ANY text clip's content (Quick Look editing); recomputes the
-    /// preview. The hash is left as-is on purpose: edits are curation, and
-    /// re-copying the original must still dedupe against this row. Flags
-    /// `needsUpload` so the edit propagates to the other devices.
+    /// Edits a non-sensitive text-backed clip and recomputes its preview. The
+    /// hash is left as-is on purpose: edits are curation, and re-copying the
+    /// original must still dedupe against this row. Invalidates the stale
+    /// semantic vector and flags `needsUpload` for cross-device propagation.
+    /// The SQL predicates repeat the controller guards atomically so a row that
+    /// becomes sensitive or binary while an editor is open cannot be replaced.
     public func updateClipText(id: UUID, text: String) async throws {
+        // The rejected-kind list is derived from the shared editability policy
+        // so the SQL belt can never drift from the app-layer guard — critically,
+        // it excludes every masked-preview kind (secret/card/JWT), not just the
+        // few a bare `isSensitive` check happens to catch.
+        let rejectedKinds = ClipContentKind.textEditingRejectedKinds.map(\.rawValue)
+        let kindPlaceholders = rejectedKinds.map { _ in "?" }.joined(separator: ", ")
         try await writer.write { db in
+            var arguments: [any DatabaseValueConvertible] = [
+                text, String(text.prefix(120)), Date(), id.uuidString
+            ]
+            arguments.append(contentsOf: rejectedKinds)
+            arguments.append("public.file-url")
             try db.execute(
-                sql:
-                    "UPDATE clip SET contentText = ?, preview = ?, updatedAt = ?, needsUpload = 1 "
-                    + "WHERE id = ?",
-                arguments: [text, String(text.prefix(120)), Date(), id.uuidString])
+                sql: """
+                    UPDATE clip
+                    SET contentText = ?, preview = ?, updatedAt = ?, needsUpload = 1
+                    WHERE id = ?
+                      AND isSensitive = 0
+                      AND kind NOT IN (\(kindPlaceholders))
+                      AND contentText IS NOT NULL
+                      AND contentBlobHash IS NULL
+                      AND (contentTypeIdentifier IS NULL OR contentTypeIdentifier != ?)
+                    """,
+                arguments: StatementArguments(arguments))
+            guard db.changesCount == 1 else { throw ClipTextEditError.readOnly }
+            try db.execute(
+                sql: "DELETE FROM clip_embedding WHERE clipID = ?",
+                arguments: [id.uuidString])
         }
     }
 
@@ -155,6 +198,37 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// Records one successful reuse and resolves a one-shot promotion candidate
+    /// in the same write transaction. The query returns metadata only; content
+    /// is neither loaded nor logged. Exact equality means dismissing the nudge
+    /// needs no persistent flag — the next use advances past the threshold.
+    @discardableResult
+    public func recordUseAndSnippetSuggestion(
+        id: UUID, now: Date = .now,
+        requiredUses: Int = SnippetLimits.promotionSuggestionUseThreshold
+    ) async throws -> ClipItem? {
+        // Never nudge the user to permanently retain and sync a masked-preview
+        // kind (secret/card/JWT): promotion would outlive the short sensitive
+        // lifetime and cross devices. `isSensitive` alone misses a bare JWT.
+        let maskedKinds = ClipContentKind.allCases.filter(\.prefersMaskedPreview).map(\.rawValue)
+        let kindPlaceholders = maskedKinds.map { _ in "?" }.joined(separator: ", ")
+        return try await writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET uses = uses + 1, lastUsedAt = ? WHERE id = ?",
+                arguments: [now, id.uuidString])
+            var arguments: [any DatabaseValueConvertible] = [id.uuidString, requiredUses]
+            arguments.append(contentsOf: maskedKinds)
+            return try ClipRow.filter(
+                sql: """
+                    id = ? AND uses = ? AND isSnippet = 0
+                    AND isSensitive = 0 AND isArchived = 0
+                    AND kind NOT IN (\(kindPlaceholders))
+                    """,
+                arguments: StatementArguments(arguments)
+            ).fetchOne(db)?.item
+        }
+    }
+
     /// The snippet invoked by an exact keyword (case-insensitive), if any — the
     /// in-app keyword expansion path.
     public func snippet(matchingKeyword keyword: String) async throws -> ClipItem? {
@@ -166,4 +240,8 @@ extension GRDBClipboardStore {
             ).fetchOne(db)?.item
         }
     }
+}
+
+private enum ClipTextEditError: Error {
+    case readOnly
 }

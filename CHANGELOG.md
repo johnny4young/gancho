@@ -17,6 +17,23 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Filter history by the app it came from.** macOS, iPhone, and iPad now show
+  recent source apps as a content-free filter that composes with text, kind,
+  board, and date filters. Clearing it restores the previous search without
+  creating a second query or selection model.
+- **Turn proven clips into snippets at the right moment.** After a clip is
+  reused for the third time, Gancho offers one local, dismissible promotion to
+  save it as a snippet. Secrets and archived clips are excluded, and clips
+  already organized in a board take priority over the prompt.
+- **Name and refine the text you keep.** Clip titles can now be edited on Mac,
+  iPhone, and iPad. Text-like clips also gain an explicit Edit → Save/Cancel
+  flow that preserves exact content, refreshes search, invalidates stale
+  semantic data, and only syncs after the durable local write succeeds.
+- **Open a full, privacy-safe preview on macOS.** Press Command-Y to inspect
+  complete text, code, colors, rich text, images, or file references in a
+  resizable read-only window. Sensitive and intrinsically masked clips are
+  rejected before their stored payload is read, and no temporary Quick Look
+  files are written.
 - **Give every board a recognizable identity.** User boards can now choose from
   a fixed accessible color palette and an optional emoji on both Mac and
   iPhone/iPad. The appearance editor is keyboard- and VoiceOver-friendly,
@@ -54,7 +71,6 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   in months. The boost decays over ~a month, applies to search only (the
   recent list stays chronological). Usage counts stay local; last-used
   timestamps follow Gancho's existing sync metadata policy.
-
 - **The panel shows whether Gancho is capturing.** A small "Capturing" indicator
   in the panel footer (and "Paused" when it isn't), so if you copy something and
   don't see it you can tell at a glance whether Gancho is watching. When capture
@@ -69,6 +85,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Preview and edit state stays with its clip.** Moving quickly between rows
+  can no longer show a late body load, editability state, or unsaved title draft
+  from the previously selected clip. Each selection owns a fresh preview state,
+  and asynchronous reads are discarded when their clip is no longer selected.
 - **Board changes now reflect durable database results.** A failed board-count
   read no longer bypasses the free-tier limit, failed edits are recorded as
   content-free diagnostics, and a board deletion is only queued for sync after

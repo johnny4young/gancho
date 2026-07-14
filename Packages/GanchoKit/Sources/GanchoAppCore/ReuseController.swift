@@ -5,8 +5,7 @@ import Observation
 /// The local-only usage signals attached to a successful clip reuse.
 /// Search queries remain device-local and can be erased independently from
 /// history; implementations must never sync or log them.
-public protocol ReuseUsageStoring: Sendable {
-    func recordUse(id: UUID, now: Date) async throws
+public protocol ReuseUsageStoring: ReuseSuggestionProviding {
     func recordSearch(_ query: String, now: Date) async throws
     func recentSearches(limit: Int) async throws -> [String]
     func clearSearchHistory() async throws
@@ -81,24 +80,28 @@ public final class ReuseController {
     /// Records the local ranking/search signals after a paste succeeds, moves
     /// the reused item to the top through the store's metadata-only insert, and
     /// reconciles the visible page from the store of record.
-    public func recordPaste(of item: ClipItem, now: Date = .now) async {
-        try? await usageStore?.recordUse(id: item.id, now: now)
+    @discardableResult
+    public func recordPaste(of item: ClipItem, now: Date = .now) async -> ClipItem? {
+        let suggestion = await recordUseAndSnippetSuggestion(for: item, now: now)
         await rememberActiveSearch(now: now)
         _ = try? await store.insert(item, content: nil)
         await refreshRecents()
+        return suggestion
     }
 
     /// A successful drag is a reuse signal but must not reorder the list under
     /// the pointer, so it records usage/search without the metadata insert.
-    public func recordDragDelivery(of item: ClipItem, now: Date = .now) async {
-        try? await usageStore?.recordUse(id: item.id, now: now)
+    @discardableResult
+    public func recordDragDelivery(of item: ClipItem, now: Date = .now) async -> ClipItem? {
+        let suggestion = await recordUseAndSnippetSuggestion(for: item, now: now)
         await rememberActiveSearch(now: now)
+        return suggestion
     }
 
     /// Snippet insertion bumps frecency and refreshes, but it does not consume
     /// the panel's search query or perform a second move-to-top insert.
     public func recordSnippetPaste(of item: ClipItem, now: Date = .now) async {
-        try? await usageStore?.recordUse(id: item.id, now: now)
+        _ = await recordUseAndSnippetSuggestion(for: item, now: now)
         await refreshRecents()
     }
 
@@ -166,6 +169,14 @@ public final class ReuseController {
         activeSearchQuery = ""
         guard rememberSearches, !query.isEmpty else { return }
         try? await usageStore?.recordSearch(query, now: now)
+    }
+
+    private func recordUseAndSnippetSuggestion(
+        for item: ClipItem, now: Date
+    ) async -> ClipItem? {
+        try? await usageStore?.recordUseAndSnippetSuggestion(
+            id: item.id, now: now,
+            requiredUses: SnippetLimits.promotionSuggestionUseThreshold)
     }
 
     private func updateRecentItems(_ items: [ClipItem]) {

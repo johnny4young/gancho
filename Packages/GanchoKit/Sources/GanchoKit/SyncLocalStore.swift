@@ -190,6 +190,9 @@ extension GRDBClipboardStore: SyncLocalStore {
                 db, sql: "SELECT updatedAt FROM clip WHERE id = ?",
                 arguments: [item.id.uuidString])
             {
+                let localContentText = try String.fetchOne(
+                    db, sql: "SELECT contentText FROM clip WHERE id = ?",
+                    arguments: [item.id.uuidString])
                 // Last-writer-wins: skip if the local copy is newer, but still
                 // record the remote's system fields so we stop re-sending ours.
                 if localUpdatedAt > item.updatedAt {
@@ -238,6 +241,11 @@ extension GRDBClipboardStore: SyncLocalStore {
                             finalRow.contentText, finalRow.contentTypeIdentifier,
                             item.id.uuidString
                         ])
+                    if case .text = content, localContentText != finalRow.contentText {
+                        try db.execute(
+                            sql: "DELETE FROM clip_embedding WHERE clipID = ?",
+                            arguments: [item.id.uuidString])
+                    }
                 case .binary:
                     try db.execute(
                         sql: """

@@ -215,6 +215,39 @@ struct ClipSearchTests {
         #expect(dated.count == 2, "only the two clips created before the cutoff")
     }
 
+    @Test("An empty search composes metadata filters without invoking FTS")
+    func emptyFilterOnlySearch() async throws {
+        let store = try makeStore()
+        try await seed(store)
+
+        let hits = try await store.search(
+            ClipSearchQuery(
+                text: "", kinds: [.url], sourceAppBundleID: "com.apple.Safari"))
+
+        #expect(hits.count == 1)
+        #expect(hits.first?.kind == .url)
+        #expect(hits.first?.sourceAppBundleID == "com.apple.Safari")
+        #expect(try await store.search(ClipSearchQuery(text: "")).isEmpty)
+    }
+
+    @Test("Recent source apps return counts and recency without clip content")
+    func recentSourceApps() async throws {
+        let store = try makeStore()
+        try await seed(store)
+        try await store.insert(
+            ClipItem(
+                createdAt: Date(timeIntervalSince1970: 1_700_400_000),
+                preview: "second Safari clip", contentHash: "second-safari",
+                sourceAppBundleID: "com.apple.Safari"),
+            content: .text("content not selected by the aggregate query"))
+
+        let apps = try await store.recentSourceApps(limit: 3)
+
+        #expect(apps.first == ClipSourceApp(bundleID: "com.apple.Safari", clipCount: 2))
+        #expect(apps.count == 3)
+        #expect(try await store.recentSourceApps(limit: 0).isEmpty)
+    }
+
     @Test("Search index follows updates and deletes")
     func indexFollowsWrites() async throws {
         let store = try makeStore()

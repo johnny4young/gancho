@@ -14,6 +14,11 @@ struct SourceAppTests {
         #expect(SourceApp.fallbackName(forBundleID: "com.microsoft.VSCode") == "VSCode")
     }
 
+    @Test("Recognizes platform bundle aliases")
+    func platformAliases() {
+        #expect(SourceApp.fallbackName(forBundleID: "com.apple.mobilesafari") == "Safari")
+    }
+
     @Test("A dotless id stays as-is; a single char is capitalized; empty is safe")
     func edges() {
         #expect(SourceApp.fallbackName(forBundleID: "Finder") == "Finder")

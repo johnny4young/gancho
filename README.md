@@ -86,18 +86,23 @@ stay in reusable modules.
 **macOS app**
 
 - Menu-bar agent and Liquid Glass floating panel (⇧⌘V): keyboard-first,
-  type-to-search, per-kind previews, paste-back via synthetic ⌘V (layout-aware
-  keycodes, plain-text paste, restore-previous), onboarding, Settings, and the
-  Privacy Center.
+  type-to-search, composable source/kind/board/date filters, editable titles and
+  explicit Save/Cancel text refinement, per-kind previews, a privacy-safe
+  read-only full-content preview (⌘Y), paste-back via synthetic ⌘V
+  (layout-aware keycodes, plain-text paste, restore-previous), onboarding,
+  Settings, and the Privacy Center.
 - Pins and boards (multi-membership collections) and a unified Library for
   boards and snippets. Boards can use a fixed accessible color and an optional
-  emoji identity that persists and syncs across Mac, iPhone, and iPad.
+  emoji identity that persists and syncs across Mac, iPhone, and iPad. A local,
+  one-time suggestion offers to promote a clip to a snippet after its third
+  successful reuse.
 
 **iPhone & iPad app**
 
 - Intentional capture only: Save button, `UIPasteControl`, Share Extension, and
   App Intents / Shortcuts. Keyboard extension with history, widgets, iPad split
-  view, and on-device enrichment of clips captured on the device.
+  view, source-app filtering, editable clip titles and text, and on-device
+  enrichment of clips captured on the device.
 
 **On-device intelligence** (zero network — every tier runs on the device)
 

@@ -36,4 +36,19 @@ extension ClipContentKind {
         default: false
         }
     }
+
+    /// Kinds a user must never text-edit: structured/binary payloads (a color
+    /// swatch, an image, a file reference have no free-text body) and EVERY
+    /// masked-preview kind — editing would reveal a secret/card/JWT that a bare
+    /// `isSensitive` check misses (a lone JWT classifies as `.jwt` but is not
+    /// flagged sensitive). Single source of truth for the editability guards
+    /// and the authoritative `updateClipText` SQL predicate.
+    public static let textEditingRejectedKinds: [ClipContentKind] =
+        [.image, .fileReference, .color] + allCases.filter(\.prefersMaskedPreview)
+
+    /// True when a text editor may open this kind's content for editing. The
+    /// caller still checks `isSensitive` and that the payload is actually text.
+    public var allowsTextEditing: Bool {
+        !Self.textEditingRejectedKinds.contains(self)
+    }
 }

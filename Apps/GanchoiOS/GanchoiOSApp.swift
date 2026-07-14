@@ -75,6 +75,17 @@ struct GanchoiOSApp: App {
                     "Gancho can share anonymous feature counts and broad performance buckets. It never sends clipboard content, titles, searches, or source-app names."
                 )
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if let suggestion = model.reuseSuggestion {
+                    ReuseSuggestionBanner(
+                        suggestion: suggestion,
+                        onAccept: { Task { await model.acceptReuseSuggestion() } },
+                        onDismiss: { model.dismissReuseSuggestion() }
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.snappy, value: model.reuseSuggestion)
             // Post-launch maintenance: the cosmetic legacy-preview backfill
             // moved off the synchronous store open (it scanned image rows on
             // every cold launch); run it once the first frame is up.

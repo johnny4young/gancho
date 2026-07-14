@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "All apps": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas las apps"
+          }
+        }
+      }
+    },
+    "Filter by app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtrar por aplicación"
+          }
+        }
+      }
+    },
     "Transform": {
       "localizations": {
         "es": {
@@ -1709,6 +1729,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vista previa"
+          }
+        }
+      }
+    },
+    "Preview unavailable": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista previa no disponible"
+          }
+        }
+      }
+    },
+    "The clip content couldn’t be loaded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar el contenido del clip."
           }
         }
       }
@@ -4896,6 +4936,16 @@
         }
       }
     },
+    "Used 3 times — save as a snippet?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo usaste 3 veces. ¿Guardarlo como snippet?"
+          }
+        }
+      }
+    },
     "Select all in search": {
       "localizations": {
         "es": {
@@ -5942,6 +5992,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "Personalizar tablero"
+          }
+        }
+      }
+    },
+    "Title": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Título"
+          }
+        }
+      }
+    },
+    "Edit title": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar título"
+          }
+        }
+      }
+    },
+    "Couldn’t save the title.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el título."
+          }
+        }
+      }
+    },
+    "Content": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contenido"
+          }
+        }
+      }
+    },
+    "Edit content": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar contenido"
+          }
+        }
+      }
+    },
+    "Content can’t be empty.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El contenido no puede estar vacío."
+          }
+        }
+      }
+    },
+    "Couldn’t save the content.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el contenido."
           }
         }
       }

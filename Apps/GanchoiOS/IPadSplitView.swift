@@ -39,10 +39,19 @@ struct IPadSplitView: View {
                             .tag(ClipContentKind?.some(kind))
                     }
                 }
+                if !model.sourceApps.isEmpty {
+                    Section("Apps") {
+                        sourceAppRow(nil)
+                        ForEach(model.sourceApps) { sourceAppRow($0) }
+                    }
+                }
             }
             .navigationTitle("Gancho")
             .onChange(of: model.kindFilter) { _, _ in Task { await model.search() } }
             .onChange(of: model.selectedBoardID) { _, _ in Task { await model.search() } }
+            .onChange(of: model.selectedSourceAppBundleID) { _, _ in
+                Task { await model.search() }
+            }
         } content: {
             List(selection: $selectedID) {
                 if model.storageIsEphemeral { storageWarningSection }
@@ -94,6 +103,7 @@ struct IPadSplitView: View {
             await model.refreshHints()
             await model.drainSharedInbox()
             await model.refreshBoards()
+            await model.refreshSourceApps()
             await model.search()
         }
     }
@@ -174,5 +184,32 @@ struct IPadSplitView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    private func sourceAppRow(_ sourceApp: ClipSourceApp?) -> some View {
+        let bundleID = sourceApp?.bundleID
+        let selected = model.selectedSourceAppBundleID == bundleID
+        return Button {
+            model.selectedSourceAppBundleID = bundleID
+        } label: {
+            HStack {
+                Label {
+                    if let bundleID {
+                        Text(verbatim: SourceApp.fallbackName(forBundleID: bundleID))
+                    } else {
+                        Text("All apps")
+                    }
+                } icon: {
+                    Image(systemName: bundleID == nil ? "square.grid.2x2" : "app.dashed")
+                }
+                Spacer()
+                if let sourceApp {
+                    Text(verbatim: "\(sourceApp.clipCount)").foregroundStyle(.secondary)
+                }
+                if selected { Image(systemName: "checkmark").foregroundStyle(.tint) }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(bundleID.map { "source-app-\($0)" } ?? "source-app-all")
     }
 }

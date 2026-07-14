@@ -44,6 +44,9 @@ final class IOSAppModel {
     /// Transient feedback ("Saved" / "Already in your history").
     var saveNote: String?
     @ObservationIgnored private var saveNoteTask: Task<Void, Never>?
+    /// One non-modal curation action produced at the exact third successful use.
+    /// Metadata only; exact-threshold dismissal needs no persisted state.
+    var reuseSuggestion: ReuseSuggestion?
     /// Search field text — see `HistoryListViewModel.query`.
     var query: String {
         get { history.query }
@@ -60,6 +63,13 @@ final class IOSAppModel {
         get { history.selectedBoardID }
         set { history.selectedBoardID = newValue }
     }
+    /// nil = all apps; otherwise the source-app filter selected in history.
+    var selectedSourceAppBundleID: String? {
+        get { history.selectedSourceAppBundleID }
+        set { history.selectedSourceAppBundleID = newValue }
+    }
+    /// Content-free recent app options and aggregate counts.
+    var sourceApps: [ClipSourceApp] { history.sourceApps }
     var boards: [Pinboard] = []
     /// Set by a widget deep link; `CaptureView` consumes it to push the clip.
     var deepLinkClipID: UUID?
@@ -83,6 +93,7 @@ final class IOSAppModel {
     /// the Pro screen instead of letting a transient note dead-end the user.
     var proGateTick = 0
     private let purchases = StoreKitPurchaseHandler()
+    private let editingController = ClipEditingController()
 
     /// Per-device on-device intelligence toggles (the iOS Intelligence screen).
     /// Device-local by design — they gate what runs HERE and never sync; the
@@ -197,7 +208,7 @@ final class IOSAppModel {
         // refresh an open screen.
         recordStorageHealthIfNeeded()
         seedSampleClipsIfRequested()
-        seedSampleBoardsIfRequested()
+        seedDurableUITestFixturesIfRequested()
         telemetry.record(.appLaunched)
         #if DEBUG
             if CommandLine.arguments.contains("-show-telemetry-consent") {
@@ -223,23 +234,6 @@ final class IOSAppModel {
             ] {
                 await ingest(capture)
             }
-        }
-    }
-
-    /// UI-test hook: seed known boards into a throwaway SQLite store so the
-    /// appearance flow exercises the real durable write and refresh path. Both
-    /// arguments are required; a normal launch can never touch user storage.
-    private func seedSampleBoardsIfRequested() {
-        guard ProcessInfo.processInfo.arguments.contains("-seed-sample-boards"),
-            ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
-            let full
-        else { return }
-        Task {
-            for index in 1...PinLimits.freeMaxPinboards {
-                _ = try? await full.createPinboard(
-                    name: "Seed board \(index)", sfSymbol: "square.stack")
-            }
-            await refreshBoards()
         }
     }
 
@@ -392,14 +386,62 @@ final class IOSAppModel {
         guard let full else { return }
         switch await curationController.promoteToSnippet(item, tier: tier, store: full) {
         case .promoted:
-            flashNote(String(localized: "Saved as snippet"))
             await search()
+            // Refresh first so the two-second confirmation remains visible
+            // after the durable mutation has settled and the UI is idle.
+            flashNote(String(localized: "Saved as snippet"))
         case .freeLimitReached:
             proGateTick += 1
         case .clipUnavailable:
             await search()
         case .failed:
             diagnostics.record("Snippets", "Couldn’t save the snippet.")
+        }
+    }
+
+    /// Persists a user-authored title and schedules sync only after the durable
+    /// write succeeds. The detail view retains its local draft on failure.
+    func updateClipTitle(_ item: ClipItem, title: String) async -> Bool {
+        guard let full else { return false }
+        switch await editingController.updateTitle(
+            item, title: title, store: full, engine: syncController.engine)
+        {
+        case .saved:
+            await search()
+            return true
+        case .unchanged:
+            return true
+        case .emptyContent, .notEditable:
+            return false
+        case .clipUnavailable:
+            await search()
+            return false
+        case .failed:
+            diagnostics.record("Editing", "Couldn’t save the title.")
+            return false
+        }
+    }
+
+    /// Persists an explicit text-body edit and refreshes list metadata without
+    /// ever copying the user-authored body into diagnostics.
+    func updateClipText(_ item: ClipItem, text: String) async -> Bool {
+        guard let full else { return false }
+        switch await editingController.updateText(
+            item, text: text, store: full, engine: syncController.engine)
+        {
+        case .saved:
+            await search()
+            return true
+        case .unchanged:
+            return true
+        case .emptyContent, .notEditable:
+            return false
+        case .clipUnavailable:
+            await search()
+            return false
+        case .failed:
+            diagnostics.record("Editing", "Couldn’t save the content.")
+            return false
         }
     }
 
@@ -535,6 +577,8 @@ final class IOSAppModel {
 
     func search() async { await history.search() }
 
+    func refreshSourceApps() async { await history.refreshSourceApps() }
+
     /// Append the next page as the list nears its end (infinite scroll).
     func loadMoreIfNeeded(_ item: ClipItem) async { await history.loadMoreIfNeeded(item) }
 
@@ -563,12 +607,42 @@ final class IOSAppModel {
         }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         // Frecency signal: iOS's "use" is the Copy tap (there's no paste-back).
-        // Local only — recordUse never flags a re-upload.
-        try? await full?.recordUse(id: item.id, now: .now)
+        // The atomic return contains metadata only and never flags a re-upload.
+        let suggestion = try? await full?.recordUseAndSnippetSuggestion(
+            id: item.id, now: .now,
+            requiredUses: SnippetLimits.promotionSuggestionUseThreshold)
         // Copying a clip is the truest "ready to paste" moment — it's on the
         // pasteboard now — so surface it on the Live Activity too.
         clipActivity.show(item, sync: ClipSyncBadge(syncStatus))
         requestTelemetryConsentAfterFirstValue()
+        if let suggestion { await presentReuseSuggestion(suggestion) }
+    }
+
+    /// Resolves the one curation prompt for this use. Auto-board keeps priority
+    /// so the copy moment never stacks a board prompt and a snippet prompt.
+    private func presentReuseSuggestion(_ item: ClipItem) async {
+        let destination: ReuseSuggestion.Destination
+        if let board = await suggestedBoard(for: item) {
+            destination = .board(board)
+        } else {
+            destination = .snippet
+        }
+        reuseSuggestion = ReuseSuggestion(item: item, destination: destination)
+    }
+
+    func dismissReuseSuggestion() {
+        reuseSuggestion = nil
+    }
+
+    func acceptReuseSuggestion() async {
+        guard let suggestion = reuseSuggestion else { return }
+        reuseSuggestion = nil
+        switch suggestion.destination {
+        case .board(let board):
+            _ = await setBoardMembership(suggestion.item, board: board, member: true)
+        case .snippet:
+            await saveAsSnippet(suggestion.item)
+        }
     }
 
     // MARK: - Smart paste (deterministic + on-device Apple Intelligence)

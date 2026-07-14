@@ -405,6 +405,61 @@ struct GRDBClipboardStoreTests {
         #expect(fetched.uses == 1, "the move-to-top write must preserve the use count")
     }
 
+    @Test("Snippet suggestions occur only on the exact eligible-use threshold")
+    func recordUseReturnsOneExactSnippetCandidate() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let item = ClipItem(preview: "reusable", contentHash: "h-reusable", uses: 2)
+        try await store.insert(item, content: .text("reusable"))
+
+        let candidate = try await store.recordUseAndSnippetSuggestion(
+            id: item.id, now: Date(timeIntervalSince1970: 1_800_000_000),
+            requiredUses: SnippetLimits.promotionSuggestionUseThreshold)
+        let afterThreshold = try await store.recordUseAndSnippetSuggestion(
+            id: item.id, now: Date(timeIntervalSince1970: 1_800_000_060),
+            requiredUses: SnippetLimits.promotionSuggestionUseThreshold)
+
+        #expect(candidate?.id == item.id)
+        #expect(candidate?.uses == SnippetLimits.promotionSuggestionUseThreshold)
+        #expect(afterThreshold == nil, "a dismissed exact-threshold nudge must not repeat")
+    }
+
+    @Test("Snippet suggestions exclude sensitive, archived, and already-promoted clips")
+    func recordUseExcludesIneligibleSnippetCandidates() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let sensitive = ClipItem(
+            preview: "•••", contentHash: "h-sensitive-suggestion", isSensitive: true, uses: 2)
+        let archived = ClipItem(
+            preview: "archived", contentHash: "h-archived-suggestion", uses: 2)
+        let snippet = ClipItem(preview: "saved", contentHash: "h-saved-suggestion", uses: 2)
+        try await store.insert(sensitive, content: .text("synthetic-sensitive"))
+        try await store.insert(archived, content: .text("archived"))
+        try await store.insert(snippet, content: .text("saved"))
+        try await store.writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET isArchived = 1 WHERE id = ?",
+                arguments: [archived.id.uuidString])
+        }
+        try await store.promoteToSnippet(id: snippet.id)
+
+        let sensitiveCandidate = try await store.recordUseAndSnippetSuggestion(
+            id: sensitive.id, now: .now,
+            requiredUses: SnippetLimits.promotionSuggestionUseThreshold)
+        let archivedCandidate = try await store.recordUseAndSnippetSuggestion(
+            id: archived.id, now: .now,
+            requiredUses: SnippetLimits.promotionSuggestionUseThreshold)
+        let snippetCandidate = try await store.recordUseAndSnippetSuggestion(
+            id: snippet.id, now: .now,
+            requiredUses: SnippetLimits.promotionSuggestionUseThreshold)
+
+        #expect(sensitiveCandidate == nil)
+        #expect(archivedCandidate == nil)
+        #expect(snippetCandidate == nil)
+    }
+
     @Test("A board's color and emoji round-trip through the store")
     func boardIdentityPersists() async throws {
         let (store, dir) = try makeStore()

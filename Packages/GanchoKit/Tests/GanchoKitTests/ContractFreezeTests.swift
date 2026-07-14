@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-/// The frozen client contract gate (.audit/09 PR-L, F-1.5/A3-2.6). The nine
+/// The frozen client contract gate. The eleven
 /// store facets + `GanchoClientStore` are the surface third-party / cross-target
 /// code is allowed to depend on; GRDB-shaped members live behind
 /// `@_spi(GanchoInternal)`. These tests run in the normal package test job, so
@@ -10,11 +10,11 @@ import Testing
 /// GRDB-shaped member back onto the ambient public surface fails the build.
 @Suite("Frozen client contract")
 struct ContractFreezeTests {
-    /// The nine facets and two compositions that make up the frozen surface.
+    /// The eleven facets and two compositions that make up the frozen surface.
     static let facets = [
-        "ClipReading", "ClipSearching", "ClipMutating", "ClipEnriching",
-        "BoardStoring", "SnippetStoring", "StoreStatsProviding", "ExportProviding",
-        "StoreMaintaining"
+        "ClipReading", "ClipSearching", "SourceAppProviding", "ClipMutating",
+        "ReuseSuggestionProviding", "ClipEnriching", "BoardStoring", "SnippetStoring",
+        "StoreStatsProviding", "ExportProviding", "StoreMaintaining"
     ]
     static let compositions = ["GanchoClientStore", "FullClipStore"]
 
