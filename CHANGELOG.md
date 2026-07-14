@@ -7,6 +7,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-14
+
 ### Changed
 
 - **Fuzzy search stays responsive as history grows.** The local FTS index now
