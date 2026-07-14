@@ -1,9 +1,9 @@
 import Foundation
 import GanchoKit
 
-/// Content handed to an explicit large-preview surface. Keeping loading policy
-/// in the shared core makes every caller fail closed for sensitive kinds while
-/// preserving the original payload only in memory.
+/// Content handed to a preview surface. Keeping loading policy in the shared
+/// core makes every caller fail closed for sensitive kinds while preserving the
+/// original payload only in memory after an explicit reveal.
 public enum ClipPreviewPayload: Sendable, Equatable {
     case masked(String)
     case text(String)
@@ -13,17 +13,19 @@ public enum ClipPreviewPayload: Sendable, Equatable {
 }
 
 /// Lazily resolves one clip's full content only after the user asks for a
-/// preview. Sensitive or intrinsically masked kinds return their sanitized
-/// metadata preview without touching the content store.
+/// preview. Sensitive or intrinsically masked kinds return a canonical mask
+/// without touching the content store unless the caller records an explicit
+/// reveal interaction.
 public struct ClipPreviewLoader: Sendable {
     public init() {}
 
     public func load(
         _ item: ClipItem,
+        revealMaskedContent: Bool = false,
         loadContent: @Sendable (UUID) async throws -> ClipContent?
     ) async -> ClipPreviewPayload {
-        guard !item.isSensitive, !item.kind.prefersMaskedPreview else {
-            return .masked(item.preview)
+        guard revealMaskedContent || !ClipSafePresentation.requiresMasking(item) else {
+            return .masked(ClipSafePresentation.masked)
         }
         do {
             switch try await loadContent(item.id) {

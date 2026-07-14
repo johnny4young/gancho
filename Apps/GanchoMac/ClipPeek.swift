@@ -55,12 +55,14 @@ struct ClipPeek: View {
         _presentedText = State(initialValue: text)
     }
 
-    /// Masked clips show their stored masked preview, not the raw content. The
-    /// peek is a preview, so cap very long clips: laying out a huge Text here on
-    /// every selection change is what froze navigation on big clips (e.g. a long
-    /// markdown doc).
+    /// Masked clips show the canonical mask even if malformed legacy/sync
+    /// metadata carries a raw preview. The peek is a preview, so cap very long
+    /// clips: laying out a huge Text here on every selection change is what froze
+    /// navigation on big clips (e.g. a long markdown doc).
     private var bodyText: String {
-        let raw = item.isSensitive ? item.preview : presentedText
+        let raw =
+            ClipSafePresentation.requiresMasking(item)
+            ? ClipSafePresentation.masked : presentedText
         let limit = 4000
         return raw.count > limit ? String(raw.prefix(limit)) + "\n…" : raw
     }
@@ -364,17 +366,19 @@ struct ClipPeek: View {
                 model.paste(item, asPlainText: true)
             }
         ]
-        for action in DevActions.actions(for: item.kind) {
-            actions.append(
-                PeekAction(
-                    id: "dev-action-\(action.id.rawValue)",
-                    title: LocalizedStringKey(action.title), symbol: "wand.and.sparkles"
-                ) {
-                    actionResult = (try? action.transform(presentedText)) ?? ""
-                    UserDefaults.standard.set(
-                        UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
-                        forKey: "dev-actions-run")
-                })
+        if !ClipSafePresentation.requiresMasking(item) {
+            for action in DevActions.actions(for: item.kind) {
+                actions.append(
+                    PeekAction(
+                        id: "dev-action-\(action.id.rawValue)",
+                        title: LocalizedStringKey(action.title), symbol: "wand.and.sparkles"
+                    ) {
+                        actionResult = (try? action.transform(presentedText)) ?? ""
+                        UserDefaults.standard.set(
+                            UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
+                            forKey: "dev-actions-run")
+                    })
+            }
         }
         return actions
     }
@@ -538,7 +542,7 @@ extension ClipPeek {
     /// rewrites need Apple Intelligence, but deterministic PII redaction remains
     /// available whenever the user kept the Smart Paste toggle on.
     private var canSmartPaste: Bool {
-        model.smartPasteAvailable && !item.isSensitive
+        model.smartPasteAvailable && !ClipSafePresentation.requiresMasking(item)
             && item.kind != .image && item.kind != .fileReference && item.kind != .color
     }
 
@@ -546,7 +550,8 @@ extension ClipPeek {
     /// never a masked secret. Deliberately NO availability gate — they work on
     /// every Mac, with Apple Intelligence off.
     private var canTransform: Bool {
-        !item.isSensitive && item.kind != .image && item.kind != .fileReference
+        !ClipSafePresentation.requiresMasking(item)
+            && item.kind != .image && item.kind != .fileReference
     }
 
     /// Pure transforms with the result in the review box below (same flow as

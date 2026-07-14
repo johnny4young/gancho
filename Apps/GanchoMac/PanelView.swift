@@ -632,7 +632,10 @@ struct PanelView: View {
                 .accessibilityIdentifier("board-new")
             }
             .padding(.horizontal, GanchoTokens.Spacing.xxs)
+            .frame(minHeight: 28)
+            .contentShape(Rectangle())
         }
+        .accessibilityIdentifier("board-rail")
     }
 
     private func boardChip(
@@ -1345,17 +1348,26 @@ struct PanelView: View {
             previewTextIsEditable = false
             return
         }
-        previewText = item.preview
+        previewText =
+            ClipSafePresentation.requiresMasking(item)
+            ? ClipSafePresentation.masked : item.preview
         previewTextItemID = item.id
         previewTextIsEditable = false
         guard item.kind != .image, item.kind != .fileReference else {
             return
         }
-        let content = try? await model.store.content(for: item.id)
+        let store = model.store
+        let payload = await ClipPreviewLoader().load(item) { id in
+            try await store.content(for: id)
+        }
         guard !Task.isCancelled, search.selectedItem?.id == item.id else { return }
-        if case .text(let text)? = content {
+        switch payload {
+        case .masked(let text), .text(let text):
             previewText = text
-            previewTextIsEditable = !item.isSensitive && item.kind.allowsTextEditing
+            previewTextIsEditable =
+                !ClipSafePresentation.requiresMasking(item) && item.kind.allowsTextEditing
+        case .binary, .fileReferences, .unavailable:
+            break
         }
     }
 

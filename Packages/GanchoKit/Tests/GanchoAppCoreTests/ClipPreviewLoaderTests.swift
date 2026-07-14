@@ -31,24 +31,39 @@ struct ClipPreviewLoaderTests {
     @Test("Sensitive metadata never loads the durable payload")
     func sensitiveClipsFailClosedBeforeLoading() async {
         let item = ClipItem(
-            kind: .secret, preview: "•••• 1234", contentHash: "secret", isSensitive: true)
+            kind: .secret, preview: "raw-secret", contentHash: "secret", isSensitive: true)
         let probe = PreviewContentProbe(content: .text("must never load"))
 
         let payload = await loader.load(item) { id in try await probe.load(id) }
 
-        #expect(payload == .masked("•••• 1234"))
+        #expect(payload == .masked(ClipSafePresentation.masked))
         #expect(await probe.requestedIDs.isEmpty)
     }
 
     @Test("Intrinsically masked kinds fail closed even if metadata is inconsistent")
     func maskedKindFailsClosed() async {
-        let item = ClipItem(kind: .jwt, preview: "•••• token", contentHash: "jwt")
+        let item = ClipItem(
+            kind: .jwt, preview: "header.payload.signature", contentHash: "jwt")
         let probe = PreviewContentProbe(content: .text("header.payload.signature"))
 
         let payload = await loader.load(item) { id in try await probe.load(id) }
 
-        #expect(payload == .masked("•••• token"))
+        #expect(payload == .masked(ClipSafePresentation.masked))
         #expect(await probe.requestedIDs.isEmpty)
+    }
+
+    @Test("An explicit reveal may load an intrinsically masked payload")
+    func explicitRevealLoadsMaskedKind() async {
+        let item = ClipItem(
+            kind: .jwt, preview: "header.payload.signature", contentHash: "jwt")
+        let probe = PreviewContentProbe(content: .text("header.payload.signature"))
+
+        let payload = await loader.load(item, revealMaskedContent: true) { id in
+            try await probe.load(id)
+        }
+
+        #expect(payload == .text("header.payload.signature"))
+        #expect(await probe.requestedIDs == [item.id])
     }
 
     @Test("Explicit previews preserve each non-sensitive content representation")
