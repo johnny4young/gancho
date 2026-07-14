@@ -173,9 +173,17 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
                 }
                 try? await Task.sleep(for: .milliseconds(150))
             }
+            // The helper may have appeared on the final interval — re-check once
+            // more so a slightly-slow spawn isn't reported as a failure.
+            if GanchoMenuBarHelperLauncher.isHelperRunning() {
+                GanchoRuntime.statusItem.detach()
+                return
+            }
             // The helper never came up: fall back to the AppKit-owned item so the
-            // menu bar is never silently empty. Content-free diagnostic for the
-            // Privacy Center / support log.
+            // menu bar is never silently empty. Only when the fallback isn't
+            // already painting — a later reopen must not re-attach or re-log
+            // (the DiagnosticLog is capped; a repeat would evict real entries).
+            guard !GanchoRuntime.statusItem.isAttached else { return }
             model.diagnostics.record(
                 String(localized: "Menu bar"),
                 String(localized: "The menu-bar helper didn’t start; using the built-in icon."))

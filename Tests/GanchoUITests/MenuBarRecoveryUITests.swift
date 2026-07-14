@@ -25,6 +25,13 @@ final class MenuBarRecoveryUITests: XCTestCase {
             app.terminate()
             _ = waitForMenuBarHelpers(present: false, timeout: 5)
         }
+
+        // Wait for the app to leave `.notRunning` before asserting helper
+        // presence, so a slow runner's launch doesn't fail the first check.
+        let startDeadline = Date().addingTimeInterval(5)
+        while app.state == .notRunning && Date() < startDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
         XCTAssertTrue(
             waitForMenuBarHelpers(present: true, timeout: 5),
             "launch must start the menu-bar helper")
