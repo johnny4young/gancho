@@ -107,12 +107,12 @@ struct PanelView: View {
         _search = State(wrappedValue: PanelSearchModel(source: model))
     }
 
-    /// Zero-size buttons that claim ⌘V / ⌥⌘V as keyboard shortcuts. The search
+    /// Zero-size buttons that claim command-level shortcuts. The search
     /// field is the first responder for type-to-search, so a plain key handler
     /// never sees ⌘V — the field editor consumes it as native "paste" and dumps
     /// the clipboard into the query. A keyboardShortcut is resolved as a command
     /// (ahead of the field editor), so ⌘V pastes the SELECTED clip like Enter.
-    private var pasteShortcutButtons: some View {
+    private var commandShortcutButtons: some View {
         Group {
             Button("") { if let item = search.selectedItem { model.paste(item) } }
                 .keyboardShortcut("v", modifiers: .command)
@@ -120,6 +120,12 @@ struct PanelView: View {
                 if let item = search.selectedItem { model.paste(item, asPlainText: true) }
             }
             .keyboardShortcut("v", modifiers: [.command, .option])
+            Button("") {
+                if let item = search.selectedItem {
+                    model.panel.showLargePreview(item, model: model)
+                }
+            }
+            .keyboardShortcut("y", modifiers: .command)
         }
         .opacity(0)
         .frame(width: 0, height: 0)
@@ -147,7 +153,7 @@ struct PanelView: View {
         .overlay { shortcutsOverlay }
         .overlay { boardPickerOverlay }
         .overlay { telemetryConsentPrompt }
-        .background { pasteShortcutButtons }
+        .background { commandShortcutButtons }
         .animation(.snappy(duration: 0.12), value: showShortcuts)
         .task {
             await search.refreshSourceApps()
@@ -924,6 +930,7 @@ struct PanelView: View {
             shortcutLine(["⌘", "P"], "Pin or unpin")
             shortcutLine(["⌘", "S"], "Save as snippet")
             shortcutLine(["⌘", "B"], "Add to board")
+            shortcutLine(["⌘", "Y"], "Preview")
             shortcutLine(["⌘", "↑"], "Recall recent searches")
             shortcutLine(["⌘", "A"], "Select all in search")
             shortcutLine(["esc"], "Close")

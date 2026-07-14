@@ -86,9 +86,9 @@ stay in reusable modules.
 **macOS app**
 
 - Menu-bar agent and Liquid Glass floating panel (⇧⌘V): keyboard-first,
-  type-to-search, per-kind previews, paste-back via synthetic ⌘V (layout-aware
-  keycodes, plain-text paste, restore-previous), onboarding, Settings, and the
-  Privacy Center.
+  type-to-search, per-kind previews, a read-only full-content preview (⌘Y),
+  paste-back via synthetic ⌘V (layout-aware keycodes, plain-text paste,
+  restore-previous), onboarding, Settings, and the Privacy Center.
 - Pins and boards (multi-membership collections) and a unified Library for
   boards and snippets. Boards can use a fixed accessible color and an optional
   emoji identity that persists and syncs across Mac, iPhone, and iPad.

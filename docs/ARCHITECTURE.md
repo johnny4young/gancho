@@ -57,9 +57,9 @@ App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/
        PanelSearchModel + PanelNavigation (macOS panel), HistoryListViewModel (iOS
        list), SyncController, ClipIngestionCoordinator, CaptureLifecycleController
        (macOS), ReuseController, ClipCurationController, ClipEditingController,
-       BoardsController, EnrichmentService, DeletionCoordinator, BoardSuggestionService,
-       ClipItemFactory. Store access is facet-typed, so each unit runs against an
-       in-memory fake in GanchoAppCoreTests.
+       ClipPreviewLoader, BoardsController, EnrichmentService, DeletionCoordinator,
+       BoardSuggestionService, ClipItemFactory. Store access is facet-typed, so
+       each unit runs against an in-memory fake in GanchoAppCoreTests.
 
 Persistence and sync implementations
   ├─ GRDB / SQLite / FTS5 local store with content-addressed disk blobs
@@ -116,6 +116,14 @@ blank/sensitive/binary/file/structured-color payloads, recompute the preview and
 FTS projection in one transaction, and delete the now-stale semantic vector.
 Receiving a changed text body from sync performs the same vector invalidation;
 metadata-only remote updates keep the existing vector.
+
+`ClipPreviewLoader` is the privacy boundary for explicit full-content previews.
+It runs only after the user invokes the macOS Command-Y sheet, returns the
+sanitized metadata preview for sensitive or intrinsically masked kinds without
+reading durable content, and otherwise preserves text, binary, and file-reference
+representations in memory. The macOS sheet decodes images and rich text lazily,
+uses a read-only `NSTextView` for large selectable documents, and never writes a
+temporary Quick Look file.
 
 `BoardsController` applies the same boundary to board creation, metadata,
 deletion, and clip membership. Board limits fail closed if the authoritative

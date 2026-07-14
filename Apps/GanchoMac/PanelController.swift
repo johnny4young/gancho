@@ -1,5 +1,6 @@
 import AppKit
 import GanchoDesign
+import GanchoKit
 import KeyboardShortcuts
 import SwiftUI
 
@@ -29,6 +30,7 @@ enum PanelPosition: String, CaseIterable {
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
     private var panel: KeyPanel?
+    private var largePreviewWindow: NSWindow?
     private weak var model: AppModel?
 
     /// The panel auto-hides when it loses key focus (the user clicks another
@@ -96,7 +98,49 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func hide() {
+        closeLargePreview()
         panel?.orderOut(nil)
+    }
+
+    /// Presents the selected clip as an attached, resizable sheet. Attaching it
+    /// keeps the nonactivating source panel alive behind the preview and returns
+    /// keyboard focus to the same search/list state when the sheet closes.
+    func showLargePreview(_ item: ClipItem, model: AppModel) {
+        let panel = ensurePanel(model: model)
+        guard panel.attachedSheet == nil else { return }
+
+        let hosting = NSHostingController(
+            rootView: ClipLargePreview(item: item) { [weak self] in
+                self?.closeLargePreview()
+            }
+            .environment(model)
+            .ganchoTinted())
+        let preview = NSWindow(contentViewController: hosting)
+        preview.title = String(localized: "Preview")
+        preview.styleMask = [.titled, .resizable, .fullSizeContentView]
+        preview.titleVisibility = .hidden
+        preview.titlebarAppearsTransparent = true
+        preview.isReleasedWhenClosed = false
+        preview.setAccessibilityIdentifier("large-preview-window")
+        preview.setContentSize(NSSize(width: 900, height: 660))
+        preview.contentMinSize = NSSize(width: 640, height: 420)
+        preview.standardWindowButton(.closeButton)?.isHidden = true
+        preview.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        preview.standardWindowButton(.zoomButton)?.isHidden = true
+        largePreviewWindow = preview
+        panel.beginSheet(preview) { [weak self] _ in
+            self?.largePreviewWindow = nil
+        }
+    }
+
+    func closeLargePreview() {
+        guard let preview = largePreviewWindow else { return }
+        if let parent = preview.sheetParent {
+            parent.endSheet(preview)
+        } else {
+            preview.orderOut(nil)
+            largePreviewWindow = nil
+        }
     }
 
     /// Called at drag start (SwiftUI's `.onDrag` gives the source no end
