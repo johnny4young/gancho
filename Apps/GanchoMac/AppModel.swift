@@ -1285,11 +1285,36 @@ final class AppModel {
             return true
         case .unchanged:
             return true
+        case .emptyContent, .notEditable:
+            return false
         case .clipUnavailable:
             await refreshRecents()
             return false
         case .failed:
             diagnostics.record("Editing", "Couldn’t save the title.")
+            return false
+        }
+    }
+
+    /// Persists an explicit text-body edit, refreshes visible metadata after a
+    /// successful durable write, and never logs the user-authored content.
+    func updateClipText(_ item: ClipItem, text: String) async -> Bool {
+        guard let grdbStore else { return false }
+        switch await editingController.updateText(
+            item, text: text, store: grdbStore, engine: syncController.engine)
+        {
+        case .saved:
+            await refreshRecents()
+            return true
+        case .unchanged:
+            return true
+        case .emptyContent, .notEditable:
+            return false
+        case .clipUnavailable:
+            await refreshRecents()
+            return false
+        case .failed:
+            diagnostics.record("Editing", "Couldn’t save the content.")
             return false
         }
     }

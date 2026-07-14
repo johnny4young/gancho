@@ -111,7 +111,11 @@ user-owned clip metadata. Title edits are shared across macOS and iOS, compare
 against the authoritative stored row, and enqueue sync only after a real local
 change. AI enrichment uses an atomic title-if-empty write, so an asynchronous
 suggested title can never replace a title the user saved while enrichment was
-running.
+running. Explicit text-body edits preserve the user's exact whitespace, reject
+blank/sensitive/binary/file/structured-color payloads, recompute the preview and
+FTS projection in one transaction, and delete the now-stale semantic vector.
+Receiving a changed text body from sync performs the same vector invalidation;
+metadata-only remote updates keep the existing vector.
 
 `BoardsController` applies the same boundary to board creation, metadata,
 deletion, and clip membership. Board limits fail closed if the authoritative

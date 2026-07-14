@@ -411,11 +411,36 @@ final class IOSAppModel {
             return true
         case .unchanged:
             return true
+        case .emptyContent, .notEditable:
+            return false
         case .clipUnavailable:
             await search()
             return false
         case .failed:
             diagnostics.record("Editing", "Couldn’t save the title.")
+            return false
+        }
+    }
+
+    /// Persists an explicit text-body edit and refreshes list metadata without
+    /// ever copying the user-authored body into diagnostics.
+    func updateClipText(_ item: ClipItem, text: String) async -> Bool {
+        guard let full else { return false }
+        switch await editingController.updateText(
+            item, text: text, store: full, engine: syncController.engine)
+        {
+        case .saved:
+            await search()
+            return true
+        case .unchanged:
+            return true
+        case .emptyContent, .notEditable:
+            return false
+        case .clipUnavailable:
+            await search()
+            return false
+        case .failed:
+            diagnostics.record("Editing", "Couldn’t save the content.")
             return false
         }
     }

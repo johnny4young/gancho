@@ -13,6 +13,7 @@ import SwiftUI
 struct ClipPeek: View {
     let item: ClipItem
     let text: String
+    let isTextEditable: Bool
     /// Shared with the list: the peek owns the keyboard when this equals `.peek`
     /// (entered with → from the list, left with ←).
     var focus: FocusState<PanelFocus?>.Binding
@@ -33,16 +34,24 @@ struct ClipPeek: View {
     @State private var isEditingTitle = false
     @State private var isSavingTitle = false
     @State private var titleSaveFailed = false
+    /// The current durable body. The text editor changes this only after Save;
+    /// transforms and Smart Paste therefore use the just-saved value.
+    @State private var presentedText: String
+    /// While the multiline editor owns the keyboard, parent navigation must
+    /// not intercept Return, arrows, or Escape.
+    @State private var isEditingText = false
 
     init(
-        item: ClipItem, text: String,
+        item: ClipItem, text: String, isTextEditable: Bool,
         focus: FocusState<PanelFocus?>.Binding
     ) {
         self.item = item
         self.text = text
+        self.isTextEditable = isTextEditable
         self.focus = focus
         _presentedTitle = State(initialValue: item.title)
         _titleDraft = State(initialValue: item.title)
+        _presentedText = State(initialValue: text)
     }
 
     /// Masked clips show their stored masked preview, not the raw content. The
@@ -50,7 +59,7 @@ struct ClipPeek: View {
     /// every selection change is what froze navigation on big clips (e.g. a long
     /// markdown doc).
     private var bodyText: String {
-        let raw = item.isSensitive ? item.preview : text
+        let raw = item.isSensitive ? item.preview : presentedText
         let limit = 4000
         return raw.count > limit ? String(raw.prefix(limit)) + "\n…" : raw
     }
@@ -97,17 +106,26 @@ struct ClipPeek: View {
         .focusable()
         .focusEffectDisabled()
         .focused(focus, equals: .peek)
-        .onKeyPress(.upArrow) { moveAction(-1) }
-        .onKeyPress(.downArrow) { moveAction(1) }
+        .onKeyPress(.upArrow) {
+            guard !isInlineEditing else { return .ignored }
+            return moveAction(-1)
+        }
+        .onKeyPress(.downArrow) {
+            guard !isInlineEditing else { return .ignored }
+            return moveAction(1)
+        }
         .onKeyPress(.leftArrow) {
+            guard !isInlineEditing else { return .ignored }
             focus.wrappedValue = .search
             return .handled
         }
         .onKeyPress(.return) {
+            guard !isInlineEditing else { return .ignored }
             runFocusedAction()
             return .handled
         }
         .onKeyPress(.escape) {
+            guard !isInlineEditing else { return .ignored }
             model.panel.hide()
             return .handled
         }
@@ -118,6 +136,9 @@ struct ClipPeek: View {
             guard !isEditingTitle else { return }
             presentedTitle = newTitle
             titleDraft = newTitle
+        }
+        .onChange(of: text) { _, newText in
+            presentedText = newText
         }
         .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
         .task(id: item.id) { boardIDs = await model.boardMembership(for: item) }
@@ -203,31 +224,6 @@ struct ClipPeek: View {
         .clipDragSource(item)
     }
 
-    private func saveTitle() {
-        guard !isSavingTitle else { return }
-        isSavingTitle = true
-        titleSaveFailed = false
-        let draft = titleDraft
-        Task {
-            let saved = await model.updateClipTitle(item, title: draft)
-            isSavingTitle = false
-            guard saved else {
-                titleSaveFailed = true
-                return
-            }
-            let normalized = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-            presentedTitle = normalized
-            titleDraft = normalized
-            isEditingTitle = false
-        }
-    }
-
-    private func cancelTitleEditing() {
-        titleDraft = presentedTitle
-        titleSaveFailed = false
-        isEditingTitle = false
-    }
-
     /// Toggle this clip in/out of any board, with a checkmark on the boards it
     /// already belongs to (a clip can be in several). Favorites is just another
     /// board here — the protected one.
@@ -274,7 +270,18 @@ struct ClipPeek: View {
                 // Dragging the preview itself hands the full-resolution image
                 // (not the thumbnail) to the drop target.
                 .clipDragSource(item)
-        } else if item.kind == .color, !item.isSensitive, let color = Color(hexString: text) {
+        } else if isTextEditable {
+            ClipTextEditor(
+                text: $presentedText, kind: item.kind,
+                onEditingChanged: { isEditingText = $0 },
+                onSave: { edited in
+                    await model.updateClipText(item, text: edited)
+                }
+            )
+            .id(item.id)
+        } else if item.kind == .color, !item.isSensitive,
+            let color = Color(hexString: presentedText)
+        {
             HStack(spacing: GanchoTokens.Spacing.sm) {
                 RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                     .fill(color)
@@ -282,7 +289,7 @@ struct ClipPeek: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                             .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-                Text(text).font(.body.monospaced()).textSelection(.enabled)
+                Text(presentedText).font(.body.monospaced()).textSelection(.enabled)
                 Spacer(minLength: 0)
             }
         } else {
@@ -360,7 +367,7 @@ struct ClipPeek: View {
                     id: "dev-action-\(action.id.rawValue)",
                     title: LocalizedStringKey(action.title), symbol: "wand.and.sparkles"
                 ) {
-                    actionResult = (try? action.transform(text)) ?? ""
+                    actionResult = (try? action.transform(presentedText)) ?? ""
                     UserDefaults.standard.set(
                         UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
                         forKey: "dev-actions-run")
@@ -475,6 +482,35 @@ struct ClipPeek: View {
 // Lives in an extension so the view struct body stays inside the lint budget;
 // same-file access keeps every member private.
 extension ClipPeek {
+    private var isInlineEditing: Bool {
+        isEditingTitle || isEditingText
+    }
+
+    private func saveTitle() {
+        guard !isSavingTitle else { return }
+        isSavingTitle = true
+        titleSaveFailed = false
+        let draft = titleDraft
+        Task {
+            let saved = await model.updateClipTitle(item, title: draft)
+            isSavingTitle = false
+            guard saved else {
+                titleSaveFailed = true
+                return
+            }
+            let normalized = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+            presentedTitle = normalized
+            titleDraft = normalized
+            isEditingTitle = false
+        }
+    }
+
+    private func cancelTitleEditing() {
+        titleDraft = presentedTitle
+        titleSaveFailed = false
+        isEditingTitle = false
+    }
+
     /// Smart Paste fits text clips only and never a masked secret. Model-backed
     /// rewrites need Apple Intelligence, but deterministic PII redaction remains
     /// available whenever the user kept the Smart Paste toggle on.
@@ -497,7 +533,7 @@ extension ClipPeek {
         Menu {
             ForEach(PasteTransform.allCases.filter { $0 != .plainText }, id: \.self) { transform in
                 Button(LocalizedStringKey(transform.title)) {
-                    actionResult = transform.apply(to: text)
+                    actionResult = transform.apply(to: presentedText)
                 }
             }
         } label: {
@@ -557,7 +593,7 @@ extension ClipPeek {
         actionResult = nil
         isThinking = true
         Task {
-            let result = await model.smartPaste(text, action: action)
+            let result = await model.smartPaste(presentedText, action: action)
             isThinking = false
             actionResult = result ?? String(localized: "Couldn’t run that — try again.")
         }
@@ -579,7 +615,7 @@ extension ClipPeek {
         actionResult = nil
         isThinking = true
         Task {
-            let result = await model.smartTranslate(text, to: language)
+            let result = await model.smartTranslate(presentedText, to: language)
             isThinking = false
             actionResult = result ?? String(localized: "Couldn’t run that — try again.")
         }

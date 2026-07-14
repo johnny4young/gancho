@@ -80,6 +80,7 @@ struct PanelView: View {
     /// Non-nil when the keyboard moved up into the filter/board rails.
     @State private var railFocus: RailFocus?
     @State private var previewText = ""
+    @State private var previewTextIsEditable = false
     @State private var boardSheet: BoardSheet?
     @State private var boardNameField = ""
     /// The board a destructive "Delete board" is awaiting confirmation on.
@@ -132,10 +133,13 @@ struct PanelView: View {
             // The peek opens BESIDE the list (not a modal) and follows the
             // hovered / selected clip — Quick-Look-style.
             if let selected = search.selectedItem {
-                ClipPeek(item: selected, text: previewText, focus: $focus)
-                    .frame(width: 400)
-                    .ganchoSurface(radius: GanchoTokens.Radius.lg)
-                    .transition(.opacity)
+                ClipPeek(
+                    item: selected, text: previewText,
+                    isTextEditable: previewTextIsEditable, focus: $focus
+                )
+                .frame(width: 400)
+                .ganchoSurface(radius: GanchoTokens.Radius.lg)
+                .transition(.opacity)
             }
         }
         .padding(GanchoTokens.Spacing.sm)
@@ -1320,14 +1324,18 @@ struct PanelView: View {
     private func loadSelectedText() async {
         guard let item = search.selectedItem else {
             previewText = ""
+            previewTextIsEditable = false
             return
         }
+        previewTextIsEditable = false
         guard item.kind != .image, item.kind != .fileReference else {
             previewText = item.preview
             return
         }
         if case .text(let text)? = try? await model.store.content(for: item.id) {
             previewText = text
+            previewTextIsEditable =
+                !item.isSensitive && item.kind != .secret && item.kind != .color
         } else {
             previewText = item.preview
         }

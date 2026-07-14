@@ -184,9 +184,11 @@ public protocol ClipEnriching: Sendable {
     /// or the blob.
     func attachExtractedText(id: UUID, text: String) async throws
 
-    /// Edits a text clip's content (Quick Look editing); recomputes the
-    /// preview. The content hash is left as-is on purpose: edits are
-    /// curation, and re-copying the original must still dedupe to this row.
+    /// Edits a non-sensitive, text-backed clip; recomputes the preview and
+    /// invalidates its semantic vector. Binary, file-reference, structured
+    /// color, and sensitive rows reject the write. The content hash deliberately
+    /// stays unchanged: edits are curation, and re-copying the original must
+    /// still dedupe to this row.
     func updateClipText(id: UUID, text: String) async throws
 
     /// Stores (or replaces) a clip's sentence-embedding vector for semantic

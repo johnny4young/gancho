@@ -77,6 +77,9 @@ struct ClipDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let item: ClipItem
     @State private var fullText = ""
+    /// Non-nil only when the durable payload is plain text and policy permits
+    /// editing. Binary/rich/file/sensitive rows remain read-only.
+    @State private var editableText: String?
     @State private var actionResult: String?
     @State private var boardIDs: Set<UUID> = []
     @State private var smartResult: String?
@@ -173,7 +176,13 @@ struct ClipDetailView: View {
                 await model.updateClipTitle(item, title: title)
             }
             actionRow
-            contentSection
+            if editableText != nil {
+                ClipTextEditor(text: editableTextBinding, kind: item.kind) { text in
+                    await model.updateClipText(item, text: text)
+                }
+            } else {
+                contentSection
+            }
             metaChipsSection
             boardsSection
             if isTextLike, !item.isSensitive {
@@ -201,6 +210,9 @@ struct ClipDetailView: View {
         .task {
             if case .text(let text)? = try? await model.store.content(for: item.id) {
                 fullText = text
+                if !item.isSensitive, item.kind != .secret, item.kind != .color {
+                    editableText = text
+                }
             }
         }
         .task { await model.thumbnails.ensureLoaded(item) }
@@ -213,6 +225,15 @@ struct ClipDetailView: View {
         // the large detent for chips, boards, Smart Actions, and the full text.
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private var editableTextBinding: Binding<String> {
+        Binding(
+            get: { editableText ?? fullText },
+            set: { newText in
+                editableText = newText
+                fullText = newText
+            })
     }
 
     /// The clip itself — image, text, or a masked secret kept behind Reveal.

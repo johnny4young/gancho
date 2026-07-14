@@ -105,6 +105,50 @@ struct SnippetLibraryTests {
         #expect(try await store.pendingUploadIDs() == [item.id])
     }
 
+    @Test("Text editing updates content, preview, search, sync, and invalidates embeddings")
+    func textEditingUpdatesEveryDerivedSurface() async throws {
+        let store = try makeStore()
+        let item = ClipItem(preview: "old searchable body", contentHash: "edited-body")
+        try await store.insert(item, content: .text("old searchable body"))
+        try await store.saveEmbedding(clipID: item.id, vector: [1, 0])
+
+        let edited = "  new searchable body\nwith exact spacing  "
+        try await store.updateClipText(id: item.id, text: edited)
+
+        #expect(try await store.content(for: item.id) == .text(edited))
+        #expect(try await store.item(id: item.id)?.preview == String(edited.prefix(120)))
+        #expect(try await store.search(ClipSearchQuery(text: "old")).isEmpty)
+        #expect(try await store.search(ClipSearchQuery(text: "new")).map(\.id) == [item.id])
+        #expect(try await store.pendingUploadIDs() == [item.id])
+        #expect(try await store.semanticSearch(queryVector: [1, 0]).isEmpty)
+    }
+
+    @Test("Atomic text editing rejects sensitive and binary-backed rows")
+    func textEditingRejectsReadOnlyRows() async throws {
+        let store = try makeStore()
+        let sensitive = ClipItem(
+            kind: .secret, preview: "••••", contentHash: "sensitive-edit", isSensitive: true)
+        let image = ClipItem(kind: .image, preview: "Image", contentHash: "binary-edit")
+        try await store.insert(sensitive, content: .text("never replace"))
+        try await store.insert(
+            image, content: .binary(data: Data([1, 2, 3]), typeIdentifier: "public.png"))
+        try await store.markUploaded(id: sensitive.id, systemFields: Data([1]))
+        try await store.markUploaded(id: image.id, systemFields: Data([2]))
+
+        await #expect(throws: (any Error).self) {
+            try await store.updateClipText(id: sensitive.id, text: "replacement")
+        }
+        await #expect(throws: (any Error).self) {
+            try await store.updateClipText(id: image.id, text: "replacement")
+        }
+
+        #expect(try await store.content(for: sensitive.id) == .text("never replace"))
+        #expect(
+            try await store.content(for: image.id)
+                == .binary(data: Data([1, 2, 3]), typeIdentifier: "public.png"))
+        #expect(try await store.pendingUploadIDs().isEmpty)
+    }
+
     @Test("Keyword: set, match case-insensitively, and count uses")
     func keywordAndUses() async throws {
         let store = try makeStore()

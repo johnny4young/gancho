@@ -8,10 +8,15 @@ private enum EditingStoreFailure: Error { case write }
 
 private actor EditingStoreSpy: ClipReading, ClipEnriching {
     var storedItem: ClipItem?
+    var storedContent: ClipContent?
     var failsWrite = false
     private(set) var writtenTitles: [String] = []
+    private(set) var writtenTexts: [String] = []
 
-    init(item: ClipItem?) { storedItem = item }
+    init(item: ClipItem?, content: ClipContent? = .text("body")) {
+        storedItem = item
+        storedContent = content
+    }
 
     func items(offset: Int, limit: Int) async throws -> [ClipItem] { [] }
     func items(ids: [UUID]) async throws -> [ClipItem] { [] }
@@ -19,7 +24,9 @@ private actor EditingStoreSpy: ClipReading, ClipEnriching {
     func item(id: UUID) async throws -> ClipItem? {
         storedItem?.id == id ? storedItem : nil
     }
-    func content(for id: UUID) async throws -> ClipContent? { nil }
+    func content(for id: UUID) async throws -> ClipContent? {
+        storedItem?.id == id ? storedContent : nil
+    }
     func count() async throws -> Int { storedItem == nil ? 0 : 1 }
     func thumbnailData(for id: UUID) async throws -> Data? { nil }
 
@@ -33,7 +40,14 @@ private actor EditingStoreSpy: ClipReading, ClipEnriching {
 
     func updateTitleIfEmpty(id: UUID, title: String) async throws -> Bool { false }
     func attachExtractedText(id: UUID, text: String) async throws {}
-    func updateClipText(id: UUID, text: String) async throws {}
+    func updateClipText(id: UUID, text: String) async throws {
+        guard !failsWrite else { throw EditingStoreFailure.write }
+        guard var item = storedItem, item.id == id else { return }
+        writtenTexts.append(text)
+        storedContent = .text(text)
+        item.preview = String(text.prefix(120))
+        storedItem = item
+    }
     func saveEmbedding(clipID: UUID, vector: [Float]) async throws {}
 
     func failWrites() { failsWrite = true }
@@ -50,7 +64,7 @@ private actor EditingSyncSpy: SyncEngine {
     func enqueueBoardDeletion(ids: [UUID]) async {}
 }
 
-@Suite("Clip editing controller — durable title edits")
+@Suite("Clip editing controller — durable user edits")
 struct ClipEditingControllerTests {
     private let controller = ClipEditingController()
 
@@ -109,6 +123,75 @@ struct ClipEditingControllerTests {
 
         #expect(missing == .clipUnavailable)
         #expect(failed == .failed)
+        #expect(await sync.enqueuedIDs.isEmpty)
+    }
+
+    @Test("A changed text body is preserved exactly, persisted, then enqueued")
+    func changedTextPersistsAndEnqueues() async {
+        let item = ClipItem(preview: "body", contentHash: "body")
+        let store = EditingStoreSpy(item: item, content: .text("body"))
+        let sync = EditingSyncSpy()
+        let edited = "  first line\nsecond line  "
+
+        let outcome = await controller.updateText(
+            item, text: edited, store: store, engine: sync)
+
+        #expect(outcome == .saved)
+        #expect(await store.writtenTexts == [edited])
+        #expect(await sync.enqueuedIDs == [item.id])
+    }
+
+    @Test("Unchanged and blank text never write or sync")
+    func unchangedAndBlankTextAreNoOps() async {
+        let item = ClipItem(preview: "body", contentHash: "body")
+        let store = EditingStoreSpy(item: item, content: .text("body"))
+        let sync = EditingSyncSpy()
+
+        let unchanged = await controller.updateText(
+            item, text: "body", store: store, engine: sync)
+        let blank = await controller.updateText(
+            item, text: " \n ", store: store, engine: sync)
+
+        #expect(unchanged == .unchanged)
+        #expect(blank == .emptyContent)
+        #expect(await store.writtenTexts.isEmpty)
+        #expect(await sync.enqueuedIDs.isEmpty)
+    }
+
+    @Test("Sensitive and binary clips stay read-only")
+    func sensitiveAndBinaryClipsAreReadOnly() async {
+        let sensitive = ClipItem(
+            kind: .secret, preview: "••••", contentHash: "secret", isSensitive: true)
+        let binary = ClipItem(kind: .image, preview: "Image", contentHash: "image")
+        let sensitiveStore = EditingStoreSpy(
+            item: sensitive, content: .text("never expose"))
+        let binaryStore = EditingStoreSpy(
+            item: binary, content: .binary(data: Data([1, 2, 3]), typeIdentifier: "public.png"))
+        let sync = EditingSyncSpy()
+
+        let sensitiveOutcome = await controller.updateText(
+            sensitive, text: "replace", store: sensitiveStore, engine: sync)
+        let binaryOutcome = await controller.updateText(
+            binary, text: "replace", store: binaryStore, engine: sync)
+
+        #expect(sensitiveOutcome == .notEditable)
+        #expect(binaryOutcome == .notEditable)
+        #expect(await sensitiveStore.writtenTexts.isEmpty)
+        #expect(await binaryStore.writtenTexts.isEmpty)
+        #expect(await sync.enqueuedIDs.isEmpty)
+    }
+
+    @Test("Failed text writes never enqueue")
+    func failedTextWriteNeverEnqueues() async {
+        let item = ClipItem(preview: "body", contentHash: "body")
+        let store = EditingStoreSpy(item: item, content: .text("body"))
+        await store.failWrites()
+        let sync = EditingSyncSpy()
+
+        let outcome = await controller.updateText(
+            item, text: "new body", store: store, engine: sync)
+
+        #expect(outcome == .failed)
         #expect(await sync.enqueuedIDs.isEmpty)
     }
 }

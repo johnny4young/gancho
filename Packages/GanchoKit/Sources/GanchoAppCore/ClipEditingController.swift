@@ -11,6 +11,8 @@ public struct ClipEditingController: Sendable {
     public enum Outcome: Sendable, Equatable {
         case saved
         case unchanged
+        case emptyContent
+        case notEditable
         case clipUnavailable
         case failed
     }
@@ -34,6 +36,37 @@ public struct ClipEditingController: Sendable {
             guard authoritative.title != normalized else { return .unchanged }
             try await store.updateTitle(id: item.id, title: normalized)
             await engine.enqueue([item])
+            return .saved
+        } catch {
+            return .failed
+        }
+    }
+
+    /// Saves an exact user-authored text body. Blank drafts are rejected;
+    /// leading whitespace and line endings otherwise remain untouched. Binary,
+    /// file-reference, structured-color, and sensitive rows are read-only. The
+    /// store repeats those guards atomically so a row that changes while the
+    /// editor is open cannot be overwritten.
+    public func updateText<Store>(
+        _ item: ClipItem,
+        text: String,
+        store: Store,
+        engine: any SyncEngine
+    ) async -> Outcome where Store: ClipReading & ClipEnriching {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return .emptyContent
+        }
+        do {
+            guard let authoritative = try await store.item(id: item.id) else {
+                return .clipUnavailable
+            }
+            guard !authoritative.isSensitive, authoritative.kind != .secret,
+                authoritative.kind != .color,
+                case .text(let storedText)? = try await store.content(for: item.id)
+            else { return .notEditable }
+            guard storedText != text else { return .unchanged }
+            try await store.updateClipText(id: item.id, text: text)
+            await engine.enqueue([authoritative])
             return .saved
         } catch {
             return .failed

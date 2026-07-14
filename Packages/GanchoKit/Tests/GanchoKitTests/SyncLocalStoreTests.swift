@@ -77,6 +77,31 @@ struct SyncLocalStoreTests {
         #expect(try await store.content(for: local.id) == .text("newer"))
     }
 
+    @Test("Remote text edits invalidate stale embeddings only when the body changes")
+    func remoteTextEditsInvalidateStaleEmbeddings() async throws {
+        let store = try makeStore()
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let local = ClipItem(updatedAt: base, preview: "body", contentHash: "edit-sync")
+        try await store.insert(local, content: .text("body"))
+        try await store.saveEmbedding(clipID: local.id, vector: [1, 0])
+
+        let metadataOnly = ClipItem(
+            id: local.id, updatedAt: base.addingTimeInterval(1), title: "Named",
+            preview: "body", contentHash: local.contentHash)
+        #expect(
+            try await store.applyRemoteUpsert(
+                metadataOnly, content: .text("body"), systemFields: Data([1])))
+        #expect(try await store.semanticSearch(queryVector: [1, 0]).map(\.id) == [local.id])
+
+        let contentEdit = ClipItem(
+            id: local.id, updatedAt: base.addingTimeInterval(2), title: "Named",
+            preview: "new body", contentHash: local.contentHash)
+        #expect(
+            try await store.applyRemoteUpsert(
+                contentEdit, content: .text("new body"), systemFields: Data([2])))
+        #expect(try await store.semanticSearch(queryVector: [1, 0]).isEmpty)
+    }
+
     @Test("An enrichment-title update (v2) applies over the untitled first sync (v1)")
     func enrichmentFruitSecondSaveApplies() async throws {
         // The receiving side of the fruit pipeline: a clip arrives untitled

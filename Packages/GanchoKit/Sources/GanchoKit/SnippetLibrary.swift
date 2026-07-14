@@ -93,17 +93,35 @@ extension GRDBClipboardStore {
         }
     }
 
-    /// Edits ANY text clip's content (Quick Look editing); recomputes the
-    /// preview. The hash is left as-is on purpose: edits are curation, and
-    /// re-copying the original must still dedupe against this row. Flags
-    /// `needsUpload` so the edit propagates to the other devices.
+    /// Edits a non-sensitive text-backed clip and recomputes its preview. The
+    /// hash is left as-is on purpose: edits are curation, and re-copying the
+    /// original must still dedupe against this row. Invalidates the stale
+    /// semantic vector and flags `needsUpload` for cross-device propagation.
+    /// The SQL predicates repeat the controller guards atomically so a row that
+    /// becomes sensitive or binary while an editor is open cannot be replaced.
     public func updateClipText(id: UUID, text: String) async throws {
         try await writer.write { db in
             try db.execute(
-                sql:
-                    "UPDATE clip SET contentText = ?, preview = ?, updatedAt = ?, needsUpload = 1 "
-                    + "WHERE id = ?",
-                arguments: [text, String(text.prefix(120)), Date(), id.uuidString])
+                sql: """
+                    UPDATE clip
+                    SET contentText = ?, preview = ?, updatedAt = ?, needsUpload = 1
+                    WHERE id = ?
+                      AND isSensitive = 0
+                      AND kind NOT IN (?, ?, ?, ?)
+                      AND contentText IS NOT NULL
+                      AND contentBlobHash IS NULL
+                      AND (contentTypeIdentifier IS NULL OR contentTypeIdentifier != ?)
+                    """,
+                arguments: [
+                    text, String(text.prefix(120)), Date(), id.uuidString,
+                    ClipContentKind.image.rawValue, ClipContentKind.fileReference.rawValue,
+                    ClipContentKind.secret.rawValue, ClipContentKind.color.rawValue,
+                    "public.file-url"
+                ])
+            guard db.changesCount == 1 else { throw ClipTextEditError.readOnly }
+            try db.execute(
+                sql: "DELETE FROM clip_embedding WHERE clipID = ?",
+                arguments: [id.uuidString])
         }
     }
 
@@ -208,4 +226,8 @@ extension GRDBClipboardStore {
             ).fetchOne(db)?.item
         }
     }
+}
+
+private enum ClipTextEditError: Error {
+    case readOnly
 }
