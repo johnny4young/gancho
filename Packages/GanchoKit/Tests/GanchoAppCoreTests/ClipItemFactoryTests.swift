@@ -63,6 +63,43 @@ struct ClipItemFactoryTests {
         #expect(content == .fileReferences(["/tmp/report.pdf", "/tmp/notes.txt"]))
     }
 
+    @Test("A bare JWT masks its stored preview but stays a usable, kept clip")
+    func bareJWTMaskedButNotSensitive() {
+        // The classic HS256 example token: the classifier tags it `.jwt`, but
+        // the secret detector has no JWT category, so it is NOT flagged
+        // sensitive. Its stored preview must still be masked (the list row and
+        // large preview render `preview` in the clear), while the clip stays
+        // non-sensitive and un-expired so "Decode JWT" and paste keep working.
+        let jwt =
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+            + ".eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0"
+            + ".SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        let (item, content) = make(PasteboardCapture(text: jwt))
+
+        #expect(item.kind == .jwt)
+        #expect(!item.isSensitive)
+        #expect(item.expiresAt == nil, "a deliberately copied JWT is kept, not auto-expired")
+        #expect(item.preview.hasPrefix("●●●●"))
+        #expect(!item.preview.contains("eyJ"), "the token never appears in the stored preview")
+        // The full token is still stored so Decode JWT / paste operate on it.
+        #expect(content == .text(jwt))
+    }
+
+    @Test("A bare JWT is masked even with secret detection off")
+    func bareJWTMaskedWithDetectionOff() {
+        // The mask is classifier-driven (the kind is known deterministically),
+        // so it does not depend on the Intelligence secret-detection toggle.
+        let jwt =
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+            + ".eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0"
+            + ".SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        let (item, _) = make(PasteboardCapture(text: jwt), detectSecrets: false)
+
+        #expect(item.kind == .jwt)
+        #expect(item.preview.hasPrefix("●●●●"))
+        #expect(!item.preview.contains("eyJ"))
+    }
+
     @Test("detectSecrets:false leaves a secret-looking clip un-flagged")
     func secretsToggledOff() {
         // A GitHub-token shape, split mid-literal so the source carries no

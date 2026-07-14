@@ -7,6 +7,16 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **JWT tokens no longer show in the clear in the history list.** A bare JWT
+  copied to the clipboard is recognized as a token but wasn't flagged as a
+  detected secret, so its row preview appeared unmasked in the history list
+  (the peek and full preview already masked it). Its stored preview is now
+  masked like other credential kinds. The token stays in your history and
+  remains fully usable — Decode JWT and paste still work — it just isn't shown
+  in the clear at a glance.
+
 ## [0.6.0] - 2026-07-14
 
 ### Changed

@@ -69,13 +69,27 @@ public enum ClipItemFactory {
     ) -> ClipItem {
         let kind = precomputedKind ?? classifier.classify(text)
         let canonical = ContentNormalizer.canonicalText(text, kind: kind)
-        let item = ClipItem(
+        var item = ClipItem(
             kind: kind,
             preview: String(canonical.prefix(120)),
             contentHash: ClipItem.hash(of: canonical, kind: kind),
             sourceAppBundleID: capture.sourceAppBundleID)
-        // Intelligence toggle off ⇒ skip secret detection/masking. The
-        // password-manager veto (ConcealedType, pre-read) is separate and stays.
+        // A deterministically classified masked-preview kind — the case that
+        // matters is a bare JWT, which the secret detector has no category for,
+        // so it is never flagged sensitive — must not store its token in the
+        // clear: the history list row (and its VoiceOver label) render `preview`
+        // directly with no sensitivity gate. The peek, iOS detail, and full
+        // preview already mask via `ClipSafePresentation.requiresMasking`; this
+        // closes the remaining raw-`preview` readers. Runs regardless of the
+        // Intelligence toggle because the classifier already knows the kind,
+        // and it leaves the clip NON-sensitive on purpose: a JWT is copied to
+        // decode and paste, so Gancho keeps it and the "Decode JWT" action
+        // still works — the token just never shows in the clear.
+        if kind.prefersMaskedPreview {
+            item.preview = SensitiveMasking.maskedPreview(for: canonical)
+        }
+        // Intelligence toggle off ⇒ skip secret detection. The password-manager
+        // veto (ConcealedType, pre-read) is separate and stays.
         guard detectSecrets else { return item }
         return SensitiveIngestionPolicy.decorate(
             item, finding: detector.detect(canonical), originalText: canonical,
