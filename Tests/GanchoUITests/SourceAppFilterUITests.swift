@@ -23,13 +23,26 @@ final class SourceAppFilterUITests: XCTestCase {
         XCTAssertTrue(safari.isHittable, "Safari source filter is not hittable")
         safari.click()
 
-        XCTAssertTrue(app.staticTexts["Safari source alpha"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Safari source link"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Xcode source sample"].exists)
+        // ClipCard intentionally combines kind + preview into one accessible
+        // row (for example, "text, Safari source alpha"). Query that public
+        // row contract instead of assuming the preview is a standalone text.
+        let safariAlpha = clipRow(containing: "Safari source alpha", in: app)
+        let safariLink = clipRow(containing: "Safari source link", in: app)
+        let xcodeSample = clipRow(containing: "Xcode source sample", in: app)
+        XCTAssertTrue(safariAlpha.waitForExistence(timeout: 5))
+        XCTAssertTrue(safariLink.waitForExistence(timeout: 5))
+        XCTAssertFalse(xcodeSample.exists)
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "macOS source-app filter — Safari"
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    @MainActor
+    private func clipRow(containing preview: String, in app: XCUIApplication) -> XCUIElement {
+        app.staticTexts.matching(
+            NSPredicate(format: "identifier == 'clip-row' AND label CONTAINS %@", preview)
+        ).firstMatch
     }
 }
