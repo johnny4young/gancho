@@ -30,8 +30,12 @@ final class ClipTextEditingUITests: XCTestCase {
         field.typeText(finalText)
         app.buttons["preview-save-content"].firstMatch.click()
 
+        // ClipCard combines the kind and exact preview into one semantic row;
+        // assert that durable list update instead of assuming the preview Text
+        // exposes its contents through the accessibility label rather than value.
         let saved = app.staticTexts.matching(
-            NSPredicate(format: "label == %@", finalText)
+            NSPredicate(
+                format: "identifier == 'clip-row' AND label CONTAINS %@", finalText)
         ).firstMatch
         XCTAssertTrue(saved.waitForExistence(timeout: 5))
         let attachment = XCTAttachment(screenshot: app.screenshot())

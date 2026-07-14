@@ -16,6 +16,7 @@ struct ClipTextEditor: View {
     @State private var isSaving = false
     @State private var saveFailed = false
     @State private var isActive = false
+    @FocusState private var isEditorFocused: Bool
 
     init(
         text: Binding<String>, kind: ClipContentKind,
@@ -72,6 +73,7 @@ struct ClipTextEditor: View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             TextEditor(text: $draft)
                 .font(kind == .code ? .body.monospaced() : .body)
+                .focused($isEditorFocused)
                 .frame(minHeight: 160, maxHeight: 220)
                 .padding(GanchoTokens.Spacing.xxs)
                 .background(.quaternary.opacity(0.45))
@@ -129,6 +131,11 @@ struct ClipTextEditor: View {
         saveFailed = false
         onEditingChanged(true)
         isEditing = true
+        Task { @MainActor in
+            await Task.yield()
+            guard isEditing else { return }
+            isEditorFocused = true
+        }
     }
 
     private func save() {
@@ -149,6 +156,7 @@ struct ClipTextEditor: View {
             guard isActive else { return }
             text = pending
             draft = pending
+            isEditorFocused = false
             isEditing = false
             onEditingChanged(false)
         }
@@ -157,6 +165,7 @@ struct ClipTextEditor: View {
     private func cancel() {
         draft = text
         saveFailed = false
+        isEditorFocused = false
         isEditing = false
         onEditingChanged(false)
     }

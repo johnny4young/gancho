@@ -34,6 +34,7 @@ struct ClipPeek: View {
     @State private var isEditingTitle = false
     @State private var isSavingTitle = false
     @State private var titleSaveFailed = false
+    @FocusState private var isTitleFieldFocused: Bool
     /// The current durable body. The text editor changes this only after Save;
     /// transforms and Smart Paste therefore use the just-saved value.
     @State private var presentedText: String
@@ -183,6 +184,7 @@ struct ClipPeek: View {
             if isEditingTitle {
                 TextField("Title", text: $titleDraft)
                     .textFieldStyle(.roundedBorder)
+                    .focused($isTitleFieldFocused)
                     .onSubmit { saveTitle() }
                     .accessibilityIdentifier("preview-title-field")
                 Button("Save") { saveTitle() }
@@ -200,9 +202,7 @@ struct ClipPeek: View {
                     .lineLimit(1)
                     .accessibilityIdentifier("preview-title")
                 Button {
-                    titleDraft = presentedTitle
-                    titleSaveFailed = false
-                    isEditingTitle = true
+                    beginTitleEditing()
                 } label: {
                     Image(systemName: "pencil")
                 }
@@ -273,7 +273,10 @@ struct ClipPeek: View {
         } else if isTextEditable {
             ClipTextEditor(
                 text: $presentedText, kind: item.kind,
-                onEditingChanged: { isEditingText = $0 },
+                onEditingChanged: { editing in
+                    isEditingText = editing
+                    focus.wrappedValue = editing ? nil : .peek
+                },
                 onSave: { edited in
                     await model.updateClipText(item, text: edited)
                 }
@@ -457,6 +460,13 @@ struct ClipPeek: View {
         }
     }
 
+}
+
+// MARK: - Smart Paste & deterministic transforms
+//
+// Lives in an extension so the view struct body stays inside the lint budget;
+// same-file access keeps every member private.
+extension ClipPeek {
     /// Fully local syntax tint for code clips, shared with the Library editor
     /// via `GanchoSyntax` (strings, comments, numbers, keywords, `{placeholder}`
     /// fields). Non-code clips render as plain text.
@@ -475,15 +485,24 @@ struct ClipPeek: View {
         }
         return attributed
     }
-}
 
-// MARK: - Smart Paste & deterministic transforms
-//
-// Lives in an extension so the view struct body stays inside the lint budget;
-// same-file access keeps every member private.
-extension ClipPeek {
     private var isInlineEditing: Bool {
         isEditingTitle || isEditingText
+    }
+
+    private func beginTitleEditing() {
+        titleDraft = presentedTitle
+        titleSaveFailed = false
+        // The panel search field normally owns keyboard focus. Relinquish it
+        // before presenting the inline editor, then focus the newly inserted
+        // field on the next run-loop turn so typing can begin immediately.
+        focus.wrappedValue = nil
+        isEditingTitle = true
+        Task { @MainActor in
+            await Task.yield()
+            guard isEditingTitle else { return }
+            isTitleFieldFocused = true
+        }
     }
 
     private func saveTitle() {
@@ -501,14 +520,18 @@ extension ClipPeek {
             let normalized = draft.trimmingCharacters(in: .whitespacesAndNewlines)
             presentedTitle = normalized
             titleDraft = normalized
+            isTitleFieldFocused = false
             isEditingTitle = false
+            focus.wrappedValue = .peek
         }
     }
 
     private func cancelTitleEditing() {
         titleDraft = presentedTitle
         titleSaveFailed = false
+        isTitleFieldFocused = false
         isEditingTitle = false
+        focus.wrappedValue = .peek
     }
 
     /// Smart Paste fits text clips only and never a masked secret. Model-backed
