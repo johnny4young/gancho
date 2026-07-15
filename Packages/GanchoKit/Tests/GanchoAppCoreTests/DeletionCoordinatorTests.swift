@@ -141,4 +141,54 @@ struct DeletionCoordinatorTests {
         #expect(recorder.log == ["perform-second", "finish-second"])
         #expect(!coordinator.isPending(id))
     }
+
+    @Test("A batch owns one timer and one Undo transaction")
+    func batchUndoIsAtomic() async {
+        let coordinator = DeletionCoordinator(grace: .milliseconds(50))
+        let ids = [UUID(), UUID(), UUID()]
+        var log: [String] = []
+
+        let transaction = coordinator.beginDeletion(
+            ids,
+            performDelete: { received in log.append("perform:\(received.count)") },
+            didFinish: { received in log.append("finish:\(received.count)") })
+
+        #expect(transaction.clipIDs == ids)
+        #expect(ids.allSatisfy(coordinator.isPending))
+
+        coordinator.undo(transaction) { received in
+            log.append("undo:\(received.count)")
+        }
+
+        #expect(ids.allSatisfy { !coordinator.isPending($0) })
+        await waitUntil { log == ["undo:3"] }
+        await waitUntil({ false }, timeout: .milliseconds(150))
+
+        #expect(log == ["undo:3"])
+        #expect(!coordinator.hasPending)
+    }
+
+    @Test("A batch commits in visible order and clears every pending id before finish")
+    func batchCommitRunsOnce() async {
+        let coordinator = DeletionCoordinator(grace: .zero)
+        let ids = [UUID(), UUID(), UUID()]
+        var performed: [[UUID]] = []
+        var finished: [[UUID]] = []
+        var pendingAtFinish = true
+
+        coordinator.beginDeletion(
+            ids,
+            performDelete: { performed.append($0) },
+            didFinish: { received in
+                finished.append(received)
+                pendingAtFinish = ids.contains(where: coordinator.isPending)
+            })
+
+        await waitUntil { finished.count == 1 }
+
+        #expect(performed == [ids])
+        #expect(finished == [ids])
+        #expect(!pendingAtFinish)
+        #expect(!coordinator.hasPending)
+    }
 }

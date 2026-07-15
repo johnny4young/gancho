@@ -3,14 +3,14 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-/// The ⌘B board picker: file the selected clip into (or out of) boards without
+/// The ⌘B board picker: file the selected clip or selection into (or out of) boards without
 /// the mouse. Type to filter; ↑↓ move; Return toggles the highlighted board;
 /// ⌘Return (or the "New board" row) creates a board and files the clip; Esc
 /// closes. Membership changes go through `AppModel.setBoardMembership`, which
 /// marks the clip needs-upload, so the board set syncs.
 struct PanelBoardPicker: View {
     @Environment(AppModel.self) private var model
-    let item: ClipItem
+    let items: [ClipItem]
     let onClose: () -> Void
 
     @State private var filter = ""
@@ -27,6 +27,16 @@ struct PanelBoardPicker: View {
     /// Total selectable rows: the filtered boards plus the optional create row.
     private var rowCount: Int { matches.count + (canCreate ? 1 : 0) }
 
+    init(item: ClipItem, onClose: @escaping () -> Void) {
+        self.items = [item]
+        self.onClose = onClose
+    }
+
+    init(items: [ClipItem], onClose: @escaping () -> Void) {
+        self.items = items
+        self.onClose = onClose
+    }
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.18)
@@ -36,7 +46,7 @@ struct PanelBoardPicker: View {
             card
         }
         .transition(.opacity)
-        .task { memberIDs = await model.boardMembership(for: item) }
+        .task { memberIDs = await model.commonBoardMembership(for: items) }
     }
 
     private var card: some View {
@@ -49,7 +59,13 @@ struct PanelBoardPicker: View {
                 .onKeyPress(.downArrow) { move(1) }
                 .onKeyPress(.upArrow) { move(-1) }
                 .onKeyPress(.escape) {
-                    onClose()
+                    // Remove the overlay on the next actor turn. Removing it
+                    // synchronously lets the same Escape continue into the
+                    // newly exposed panel handler, which closes the panel too.
+                    Task { @MainActor in
+                        await Task.yield()
+                        onClose()
+                    }
                     return .handled
                 }
                 .onKeyPress(.return, phases: .down) { press in
@@ -166,8 +182,8 @@ struct PanelBoardPicker: View {
     private func toggle(_ board: Pinboard) {
         let member = memberIDs.contains(board.id)
         Task {
-            await model.setBoardMembership(item, board: board, member: !member)
-            memberIDs = await model.boardMembership(for: item)
+            await model.setBoardMembership(items, board: board, member: !member)
+            memberIDs = await model.commonBoardMembership(for: items)
         }
     }
 
@@ -177,8 +193,16 @@ struct PanelBoardPicker: View {
         isCreating = true
         Task { @MainActor in
             defer { isCreating = false }
-            let outcome = await model.createBoard(named: name, assigning: item)
-            if case .created(_, filedClip: true) = outcome {
+            if items.count == 1, let item = items.first {
+                let outcome = await model.createBoard(named: name, assigning: item)
+                if case .created(_, filedClip: true) = outcome { onClose() }
+                return
+            }
+            let outcome = await model.createBoard(named: name)
+            guard case .created(let boardID, filedClip: false) = outcome,
+                let board = model.boards.first(where: { $0.id == boardID })
+            else { return }
+            if await model.setBoardMembership(items, board: board, member: true) {
                 onClose()
             }
         }

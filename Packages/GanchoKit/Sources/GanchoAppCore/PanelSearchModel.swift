@@ -184,6 +184,11 @@ public struct PanelDateGroup: Identifiable, Sendable {
         applySelection(.reconcile)
     }
 
+    /// Leaves the cursor row selected and clears every additional row.
+    public func clearSelection() {
+        applySelection(.replace(index: selectedIndex))
+    }
+
     /// Type-to-search: first keystroke already narrows; empty query shows
     /// recents (pins first, store order). The recent list paginates on demand.
     public func refresh() async {

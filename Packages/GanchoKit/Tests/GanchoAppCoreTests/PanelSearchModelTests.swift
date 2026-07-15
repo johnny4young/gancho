@@ -159,6 +159,20 @@ struct PanelSearchModelTests {
         #expect(model.selectedItems.map(\.id) == [source.recent[1].id])
     }
 
+    @Test func clearSelectionKeepsOnlyTheCursorRow() async {
+        let source = FakeSource()
+        source.recent = items(4)
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+        model.moveSelection(by: 2, extending: true)
+
+        model.clearSelection()
+
+        #expect(model.selectionCount == 1)
+        #expect(model.selectedIndex == 2)
+        #expect(model.selectedItems.map(\.id) == [source.recent[2].id])
+    }
+
     @Test func sourceAppFilterComposesWithBoardAndEmptyText() async {
         let source = FakeSource()
         let boardID = UUID()

@@ -291,4 +291,27 @@ struct ReuseControllerTests {
         #expect(await store.deletionCount() == 0)
         #expect(controller.recentItems.map(\.id) == [item.id])
     }
+
+    @Test("Batch deletion hides together and one Undo restores the full transaction")
+    func batchUndoDeletion() async {
+        let store = ReuseStoreSpy()
+        let items = [clip("first"), clip("second"), clip("third")]
+        await store.seed(items)
+        let controller = makeController(store: store, deletionGrace: .seconds(60))
+        await controller.refreshRecents()
+
+        let transaction = controller.delete(Array(items.prefix(2))) { ids in
+            for id in ids { try? await store.delete(id: id) }
+        }
+
+        #expect(controller.recentItems.map(\.id) == [items[2].id])
+        #expect(items.prefix(2).allSatisfy { controller.isDeletionPending($0.id) })
+
+        controller.undoDeletion(transaction)
+        await waitUntil { controller.recentItems.count == items.count }
+
+        #expect(items.allSatisfy { !controller.isDeletionPending($0.id) })
+        #expect(await store.deletionCount() == 0)
+        #expect(controller.recentItems.map(\.id) == items.map(\.id))
+    }
 }

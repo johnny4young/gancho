@@ -40,6 +40,12 @@ public struct PasteStack: Equatable, Sendable {
         nextID += 1
     }
 
+    /// Appends a visible-order selection as one queue operation. The queue
+    /// remains FIFO and duplicate clips still receive distinct entry ids.
+    public mutating func push(contentsOf clips: [ClipItem]) {
+        for clip in clips { push(clip) }
+    }
+
     /// Removes and returns the front clip (the next to paste), or nil when empty.
     @discardableResult
     public mutating func popFirst() -> ClipItem? {

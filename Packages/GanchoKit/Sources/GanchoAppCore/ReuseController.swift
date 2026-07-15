@@ -126,6 +126,10 @@ public final class ReuseController {
         stack.push(item)
     }
 
+    public func pushToStack(_ items: [ClipItem]) {
+        stack.push(contentsOf: items)
+    }
+
     public func clearStack() {
         stack.clear()
     }
@@ -145,19 +149,38 @@ public final class ReuseController {
     /// Hides the row immediately, then lets DeletionCoordinator preserve the
     /// six-second commit/undo ordering. The shell supplies the sync-aware store
     /// mutation; this controller owns the state and post-commit reconciliation.
+    @discardableResult
     public func delete(
         _ item: ClipItem,
         performDelete: @escaping @MainActor (UUID) async -> Void
-    ) {
-        updateRecentItems(recentItems.filter { $0.id != item.id })
-        deletionCoordinator.beginDeletion(
-            item.id,
+    ) -> DeletionTransaction {
+        delete([item]) { ids in
+            for id in ids { await performDelete(id) }
+        }
+    }
+
+    /// Hides a visible-order batch immediately and commits it behind one grace
+    /// timer, so the shell can surface exactly one Undo action.
+    @discardableResult
+    public func delete(
+        _ items: [ClipItem],
+        performDelete: @escaping @MainActor ([UUID]) async -> Void
+    ) -> DeletionTransaction {
+        let ids = items.map(\.id)
+        let idSet = Set(ids)
+        updateRecentItems(recentItems.filter { !idSet.contains($0.id) })
+        return deletionCoordinator.beginDeletion(
+            ids,
             performDelete: performDelete,
             didFinish: { [weak self] _ in await self?.refreshRecents() })
     }
 
     public func undoDeletion(_ id: UUID) {
         deletionCoordinator.undo(id) { [weak self] _ in await self?.refreshRecents() }
+    }
+
+    public func undoDeletion(_ transaction: DeletionTransaction) {
+        deletionCoordinator.undo(transaction) { [weak self] _ in await self?.refreshRecents() }
     }
 
     public func isDeletionPending(_ id: UUID) -> Bool {

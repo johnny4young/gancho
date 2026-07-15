@@ -1,6 +1,19 @@
 import Foundation
 import Observation
 
+/// One reversible delete operation. A transaction can carry one clip (the
+/// historical path) or a visible-order batch, but it always owns one grace
+/// timer and one Undo action.
+public struct DeletionTransaction: Identifiable, Equatable, Hashable, Sendable {
+    public let id: UUID
+    public let clipIDs: [UUID]
+
+    fileprivate init(id: UUID = UUID(), clipIDs: [UUID]) {
+        self.id = id
+        self.clipIDs = clipIDs
+    }
+}
+
 /// Owns the macOS undo-window deletion STATE MACHINE that used to be inlined in
 /// `AppModel` (`pendingDeletionIDs`/`deletionTasks` plus `delete`/`undoDelete`/
 /// `commitDeletion`): the pending set, the per-id grace timer, and the
@@ -30,10 +43,10 @@ public final class DeletionCoordinator {
     /// the instant its delete begins (and show it again on Undo) — reading
     /// `isPending`/`hasPending` from a SwiftUI body tracks this set.
     private var pending: Set<UUID> = []
-    /// The per-id grace timers, so a repeated delete or an Undo can cancel the
-    /// prior one. Mirrors the shell's former `deletionTasks`. Not observed — it
-    /// is bookkeeping, and Tasks are not a view input.
+    /// One grace timer per user-visible transaction. Not observed — it is
+    /// bookkeeping, and Tasks are not a view input.
     @ObservationIgnored private var tasks: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored private var transactions: [UUID: DeletionTransaction] = [:]
 
     /// The undo window length. Injectable so tests need not wait real seconds;
     /// the default is the shell's production value.
@@ -68,33 +81,96 @@ public final class DeletionCoordinator {
     /// the shell's `didFinish` reconciles the list from the store of record, so a
     /// FAILED store delete honestly reappears while a mid-commit refresh cannot
     /// flash the clip back (it stays filtered until the delete lands).
+    @discardableResult
     public func beginDeletion(
         _ id: UUID,
         performDelete: @escaping @MainActor (UUID) async -> Void,
         didFinish: @escaping @MainActor (UUID) async -> Void
-    ) {
-        pending.insert(id)
-        tasks[id]?.cancel()
+    ) -> DeletionTransaction {
+        beginDeletion(
+            [id],
+            performDelete: { ids in
+                guard let id = ids.first else { return }
+                await performDelete(id)
+            },
+            didFinish: { ids in
+                guard let id = ids.first else { return }
+                await didFinish(id)
+            })
+    }
+
+    /// Begins one reversible batch. Every id hides immediately, then the whole
+    /// visible-order group commits behind one timer. If a requested id already
+    /// belongs to a pending transaction, that transaction is folded into this
+    /// one and its window restarts; no clip is accidentally released.
+    @discardableResult
+    public func beginDeletion(
+        _ ids: [UUID],
+        performDelete: @escaping @MainActor ([UUID]) async -> Void,
+        didFinish: @escaping @MainActor ([UUID]) async -> Void
+    ) -> DeletionTransaction {
+        let requested = unique(ids)
+        guard !requested.isEmpty else { return DeletionTransaction(clipIDs: []) }
+
+        let requestedSet = Set(requested)
+        let overlapping = transactions.values.filter {
+            !requestedSet.isDisjoint(with: $0.clipIDs)
+        }
+        var combined = overlapping.flatMap(\.clipIDs)
+        combined.append(contentsOf: requested)
+        let clipIDs = unique(combined)
+        for transaction in overlapping {
+            tasks[transaction.id]?.cancel()
+            tasks[transaction.id] = nil
+            transactions[transaction.id] = nil
+            pending.subtract(transaction.clipIDs)
+        }
+
+        let transaction = DeletionTransaction(clipIDs: clipIDs)
+        transactions[transaction.id] = transaction
+        pending.formUnion(clipIDs)
         let grace = grace
-        tasks[id] = Task { [weak self] in
+        tasks[transaction.id] = Task { [weak self] in
             try? await Task.sleep(for: grace)
             guard !Task.isCancelled else { return }
             guard let self else { return }
-            guard pending.contains(id) else { return }
-            tasks[id] = nil
-            await performDelete(id)
-            pending.remove(id)
-            await didFinish(id)
+            guard transactions[transaction.id] != nil else { return }
+            tasks[transaction.id] = nil
+            await performDelete(transaction.clipIDs)
+            pending.subtract(transaction.clipIDs)
+            transactions[transaction.id] = nil
+            await didFinish(transaction.clipIDs)
         }
+        return transaction
     }
 
     /// Reverses a pending delete before its window closes: cancel and drop the
     /// timer, clear the hold, then run `then` (the shell refreshes so the clip —
     /// still in the store — reappears in place). Mirrors the former `undoDelete`.
     public func undo(_ id: UUID, then: @escaping @MainActor (UUID) async -> Void) {
-        tasks[id]?.cancel()
-        tasks[id] = nil
-        pending.remove(id)
-        Task { await then(id) }
+        guard let transaction = transactions.values.first(where: { $0.clipIDs.contains(id) }) else {
+            return
+        }
+        undo(transaction) { _ in
+            await then(id)
+        }
+    }
+
+    /// Reverses every clip in one pending transaction with one user action.
+    public func undo(
+        _ transaction: DeletionTransaction,
+        then: @escaping @MainActor ([UUID]) async -> Void
+    ) {
+        guard let current = transactions[transaction.id] else { return }
+        tasks[current.id]?.cancel()
+        tasks[current.id] = nil
+        transactions[current.id] = nil
+        pending.subtract(current.clipIDs)
+        Task { await then(current.clipIDs) }
+    }
+
+    private func unique(_ ids: [UUID]) -> [UUID] {
+        var seen = Set<UUID>()
+        return ids.filter { seen.insert($0).inserted }
     }
 }

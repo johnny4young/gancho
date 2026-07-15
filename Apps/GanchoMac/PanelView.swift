@@ -333,9 +333,9 @@ struct PanelView: View {
                     // purpose); else Enter pastes the selection (⌥Return = plain).
                     if railFocus != nil { return handleNav(.toggle) }
                     if press.modifiers.contains(.command), press.modifiers.contains(.option),
-                        let item = search.selectedItem
+                        !search.selectedItems.isEmpty
                     {
-                        model.pushToStack(item)
+                        model.pushToStack(search.selectedItems)
                         return .handled
                     }
                     if let match = search.snippetMatch {
@@ -393,11 +393,11 @@ struct PanelView: View {
                 .onKeyPress(characters: CharacterSet(charactersIn: "bB"), phases: .down) { press in
                     // ⌘B opens the board picker for the selection; ⇧⌘B repeats
                     // the last board (curate many clips into one board fast).
-                    guard press.modifiers.contains(.command), let item = search.selectedItem else {
+                    guard press.modifiers.contains(.command), !search.selectedItems.isEmpty else {
                         return .ignored
                     }
                     if press.modifiers.contains(.shift) {
-                        model.assignToLastBoard(item)
+                        model.assignToLastBoard(search.selectedItems)
                     } else {
                         showBoardPicker = true
                     }
@@ -407,6 +407,8 @@ struct PanelView: View {
             boardRail
 
             filterRail
+
+            selectionContextBar
 
             if let captureNotice {
                 captureBanner(captureNotice)
@@ -478,6 +480,64 @@ struct PanelView: View {
             .padding(.horizontal, GanchoTokens.Spacing.xxs)
         }
         .accessibilityIdentifier("filter-rail")
+    }
+
+    /// Appears only for a batch, keeping single-selection navigation visually
+    /// unchanged while making the available group operations explicit.
+    @ViewBuilder private var selectionContextBar: some View {
+        if search.selectionCount > 1 {
+            HStack(spacing: GanchoTokens.Spacing.sm) {
+                Label("\(search.selectionCount) clips", systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(GanchoTokens.Palette.accent)
+                Spacer(minLength: 0)
+                Button {
+                    model.pushToStack(search.selectedItems)
+                } label: {
+                    Image(systemName: "square.stack.3d.up")
+                }
+                .help("Add to paste stack")
+                .accessibilityLabel("Add to paste stack")
+                .accessibilityIdentifier("selection-add-to-stack-button")
+
+                Button {
+                    showBoardPicker = true
+                } label: {
+                    Image(systemName: "square.stack")
+                }
+                .help("Add to board")
+                .accessibilityLabel("Add to board")
+                .accessibilityIdentifier("selection-add-to-board-button")
+
+                Button(role: .destructive) {
+                    model.delete(search.selectedItems)
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .foregroundStyle(.red)
+                .help("Delete")
+                .accessibilityLabel("Delete")
+                .accessibilityIdentifier("selection-delete-button")
+
+                Divider().frame(height: 16)
+                Button("Clear") { search.clearSelection() }
+                    .accessibilityIdentifier("selection-clear-button")
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, GanchoTokens.Spacing.sm)
+            .padding(.vertical, GanchoTokens.Spacing.xxs)
+            .background(
+                GanchoTokens.Palette.accent.opacity(0.08),
+                in: RoundedRectangle(
+                    cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+            )
+            .padding(.horizontal, GanchoTokens.Spacing.xxs)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(Text("\(search.selectionCount) clips"))
+            .accessibilityIdentifier("selection-context-bar")
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
     }
 
     /// Source-app filter: recent apps and content-free counts in one compact
@@ -918,8 +978,8 @@ struct PanelView: View {
     /// A dimmed scrim + a card listing every panel shortcut. Toggled by ⌘/ or
     /// the footer "?"; esc and a scrim tap dismiss it.
     @ViewBuilder private var boardPickerOverlay: some View {
-        if showBoardPicker, let item = search.selectedItem {
-            PanelBoardPicker(item: item) { showBoardPicker = false }
+        if showBoardPicker, !search.selectedItems.isEmpty {
+            PanelBoardPicker(items: search.selectedItems) { showBoardPicker = false }
                 .transition(.opacity)
         }
     }

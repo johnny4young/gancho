@@ -10,6 +10,45 @@ import XCTest
 /// `make test-ui` (a foreground GUI session), are NOT part of CI, and self-skip
 /// where elements aren't exposed on a headless runner.
 final class PanelReproUITests: XCTestCase {
+    @MainActor
+    private func selectThreeRows(_ app: XCUIApplication, rows: XCUIElementQuery) throws {
+        try SynthesizedInput.requireForeground(app)
+        app.typeKey(.downArrow, modifierFlags: [.shift])
+        app.typeKey(.downArrow, modifierFlags: [.shift])
+        let threeSelected = NSPredicate { _, _ in
+            rows.allElementsBoundByIndex.filter(\.isSelected).count == 3
+        }
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [XCTNSPredicateExpectation(predicate: threeSelected, object: app)], timeout: 5),
+            .completed,
+            "Shift-Down must extend the cursor into a three-row contiguous selection")
+    }
+
+    @MainActor
+    private func verifyBatchBoardAssignment(_ app: XCUIApplication, search: XCUIElement) {
+        let addToBoard = app.buttons["selection-add-to-board-button"].firstMatch
+        XCTAssertTrue(addToBoard.waitForExistence(timeout: 3))
+        addToBoard.click()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["board-picker"].firstMatch.waitForExistence(
+                timeout: 3),
+            "the board picker must accept the full selected batch")
+        let boardRow = app.descendants(matching: .any)["board-picker-board-row"].firstMatch
+        XCTAssertTrue(boardRow.waitForExistence(timeout: 3))
+        boardRow.click()
+        let allAssigned = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Selected"), object: boardRow)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [allAssigned], timeout: 5), .completed,
+            "one board action must assign every selected clip")
+        let boardFilter = app.textFields["board-picker-filter"].firstMatch
+        XCTAssertTrue(boardFilter.waitForExistence(timeout: 3))
+        boardFilter.click()
+        boardFilter.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(search.exists, "closing the board picker must keep the panel open")
+    }
+
     /// Seeds a throwaway durable store with three PINNED clips plus four
     /// same-day clips (`-seed-panel-repro`), opens the panel, and asserts the two
     /// invariants the report violated.
@@ -125,21 +164,51 @@ final class PanelReproUITests: XCTestCase {
         }
         try XCTSkipUnless(rows.count >= 4, "not enough seeded rows exposed (\(rows.count))")
 
-        try SynthesizedInput.requireForeground(app)
-        app.typeKey(.downArrow, modifierFlags: [.shift])
-        app.typeKey(.downArrow, modifierFlags: [.shift])
+        try selectThreeRows(app, rows: rows)
 
-        let threeSelected = NSPredicate { _, _ in
-            rows.allElementsBoundByIndex.filter(\.isSelected).count == 3
-        }
-        let expectation = XCTNSPredicateExpectation(predicate: threeSelected, object: app)
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [expectation], timeout: 5), .completed,
-            "Shift-Down must extend the initial row into a three-row contiguous selection")
+        let contextBar = app.descendants(matching: .any)["selection-context-bar"].firstMatch
+        XCTAssertTrue(contextBar.waitForExistence(timeout: 3))
+        XCTAssertEqual(contextBar.label, "3 clips")
+
+        let addToStack = app.buttons["selection-add-to-stack-button"].firstMatch
+        XCTAssertTrue(addToStack.waitForExistence(timeout: 3))
+        addToStack.click()
+        let stack = app.buttons["paste-stack-strip"].firstMatch
+        XCTAssertTrue(stack.waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            stack.label.contains("3"),
+            "batch enqueue must add all three selected clips in one action")
 
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        attachment.name = "panel-shift-multi-selection"
+        attachment.name = "panel-batch-context-actions"
         attachment.lifetime = .keepAlways
         add(attachment)
+
+        let beforeDelete = rows.count
+        let delete = app.buttons["selection-delete-button"].firstMatch
+        XCTAssertTrue(delete.waitForExistence(timeout: 3))
+        delete.click()
+
+        let undo = app.buttons["toast-undo"].firstMatch
+        XCTAssertTrue(undo.waitForExistence(timeout: 3))
+        let hidden = NSPredicate { _, _ in rows.count <= beforeDelete - 3 }
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [XCTNSPredicateExpectation(predicate: hidden, object: app)], timeout: 3),
+            .completed,
+            "batch delete must hide every selected row together")
+
+        undo.click()
+        let restored = NSPredicate { _, _ in rows.count >= beforeDelete }
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [XCTNSPredicateExpectation(predicate: restored, object: app)], timeout: 5),
+            .completed,
+            "one Undo action must restore the entire deleted selection")
+
+        // Undo refreshes the list and intentionally restores single-selection.
+        // Select a batch again to exercise board assignment independently.
+        try selectThreeRows(app, rows: rows)
+        verifyBatchBoardAssignment(app, search: search)
     }
 }
