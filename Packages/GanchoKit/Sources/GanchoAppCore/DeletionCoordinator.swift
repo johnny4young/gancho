@@ -47,6 +47,13 @@ public final class DeletionCoordinator {
     /// bookkeeping, and Tasks are not a view input.
     @ObservationIgnored private var tasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private var transactions: [UUID: DeletionTransaction] = [:]
+    /// Creation order per transaction. `transactions` is a Dictionary, whose
+    /// iteration order is not stable, so folding overlapping transactions must
+    /// sort by this — otherwise the folded `clipIDs` order (and with it the
+    /// delete/undo order) would vary run to run, breaking the visible-order
+    /// batch guarantee.
+    @ObservationIgnored private var sequences: [UUID: UInt64] = [:]
+    @ObservationIgnored private var nextSequence: UInt64 = 0
 
     /// The undo window length. Injectable so tests need not wait real seconds;
     /// the default is the shell's production value.
@@ -103,6 +110,9 @@ public final class DeletionCoordinator {
     /// visible-order group commits behind one timer. If a requested id already
     /// belongs to a pending transaction, that transaction is folded into this
     /// one and its window restarts; no clip is accidentally released.
+    ///
+    /// Folding is deterministic: older pending transactions contribute their
+    /// clips first (in their own visible order), then the newly requested ids.
     @discardableResult
     public func beginDeletion(
         _ ids: [UUID],
@@ -113,9 +123,9 @@ public final class DeletionCoordinator {
         guard !requested.isEmpty else { return DeletionTransaction(clipIDs: []) }
 
         let requestedSet = Set(requested)
-        let overlapping = transactions.values.filter {
-            !requestedSet.isDisjoint(with: $0.clipIDs)
-        }
+        let overlapping = transactions.values
+            .filter { !requestedSet.isDisjoint(with: $0.clipIDs) }
+            .sorted { (sequences[$0.id] ?? 0) < (sequences[$1.id] ?? 0) }
         var combined = overlapping.flatMap(\.clipIDs)
         combined.append(contentsOf: requested)
         let clipIDs = unique(combined)
@@ -123,11 +133,14 @@ public final class DeletionCoordinator {
             tasks[transaction.id]?.cancel()
             tasks[transaction.id] = nil
             transactions[transaction.id] = nil
+            sequences[transaction.id] = nil
             pending.subtract(transaction.clipIDs)
         }
 
         let transaction = DeletionTransaction(clipIDs: clipIDs)
         transactions[transaction.id] = transaction
+        sequences[transaction.id] = nextSequence
+        nextSequence += 1
         pending.formUnion(clipIDs)
         let grace = grace
         tasks[transaction.id] = Task { [weak self] in
@@ -139,6 +152,7 @@ public final class DeletionCoordinator {
             await performDelete(transaction.clipIDs)
             pending.subtract(transaction.clipIDs)
             transactions[transaction.id] = nil
+            sequences[transaction.id] = nil
             await didFinish(transaction.clipIDs)
         }
         return transaction
@@ -165,6 +179,7 @@ public final class DeletionCoordinator {
         tasks[current.id]?.cancel()
         tasks[current.id] = nil
         transactions[current.id] = nil
+        sequences[current.id] = nil
         pending.subtract(current.clipIDs)
         Task { await then(current.clipIDs) }
     }

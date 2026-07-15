@@ -1554,6 +1554,7 @@ final class AppModel {
         guard let first = items.first else { return [] }
         var common = await boardMembership(for: first)
         for item in items.dropFirst() {
+            guard !common.isEmpty else { break }
             common.formIntersection(await boardMembership(for: item))
         }
         return common
@@ -1566,19 +1567,15 @@ final class AppModel {
         await setBoardMembership([item], board: board, member: member)
     }
 
-    /// Applies one board membership choice to the selected clips and refreshes
-    /// presentation once after all durable writes have completed.
+    /// Applies one board membership choice to the selected clips atomically and
+    /// refreshes presentation once after the durable transaction completes.
     @discardableResult
     func setBoardMembership(_ items: [ClipItem], board: Pinboard, member: Bool) async -> Bool {
         guard let grdbStore else { return false }
         guard !items.isEmpty else { return false }
-        var succeeded = true
-        for item in items {
-            let itemSucceeded = await BoardsController().setBoardMembership(
-                item, board: board, member: member, store: grdbStore,
-                engine: syncController.engine)
-            succeeded = itemSucceeded && succeeded
-        }
+        let succeeded = await BoardsController().setBoardMembership(
+            items, board: board, member: member, store: grdbStore,
+            engine: syncController.engine)
         guard succeeded else {
             recordBoardFailure(
                 member

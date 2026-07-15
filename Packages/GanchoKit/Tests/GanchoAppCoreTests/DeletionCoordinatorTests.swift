@@ -191,4 +191,26 @@ struct DeletionCoordinatorTests {
         #expect(!pendingAtFinish)
         #expect(!coordinator.hasPending)
     }
+
+    @Test("Folding several overlapping batches keeps a deterministic clip order")
+    func foldingOverlappingBatchesIsDeterministic() async {
+        // Two pending batches, then a third request that overlaps BOTH. The
+        // folded order must be oldest-batch-first (one/two, then three/four,
+        // then the new id) — never the Dictionary's unordered `values` order.
+        let one = UUID()
+        let two = UUID()
+        let three = UUID()
+        let four = UUID()
+        let five = UUID()
+        let coordinator = DeletionCoordinator(grace: .seconds(60))
+        coordinator.beginDeletion([one, two], performDelete: { _ in }, didFinish: { _ in })
+        coordinator.beginDeletion([three, four], performDelete: { _ in }, didFinish: { _ in })
+
+        // Overlaps the first batch (one) and the second (four), and adds five.
+        let folded = coordinator.beginDeletion(
+            [one, four, five], performDelete: { _ in }, didFinish: { _ in })
+
+        #expect(folded.clipIDs == [one, two, three, four, five])
+        #expect([one, two, three, four, five].allSatisfy(coordinator.isPending))
+    }
 }

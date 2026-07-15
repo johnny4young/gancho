@@ -106,6 +106,46 @@ final class PanelReproUITests: XCTestCase {
         add(attachment)
     }
 
+    /// The AppKit drag responder must not capture macOS's Control-click
+    /// context-menu gesture once multi-file preflight activates it.
+    @MainActor
+    func testMultiFileRowControlClickOpensContextMenu() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item",
+            "-use-temp-durable-store", "-seed-multi-file-drag",
+            "-show-multi-file-drop-target", "-place-panel-for-ui-test",
+            "-force-free-tier"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        _ = app.wait(for: .runningForeground, timeout: 5)
+
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        let target = app.descendants(matching: .any)["multi-file-drop-target"].firstMatch
+        try XCTSkipUnless(row.waitForExistence(timeout: 8), "multi-file row not exposed")
+        try XCTSkipUnless(target.waitForExistence(timeout: 3), "drop target not exposed")
+        let prepared = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "label == %@",
+                "Multi-file drop target, 0 files, prepared 2, started 0"),
+            object: target)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [prepared], timeout: 5), .completed,
+            "the AppKit row bridge must be active before the gesture is tested")
+
+        try SynthesizedInput.controlClick(row, in: app)
+
+        let delete = app.menuItems["Delete"].firstMatch
+        XCTAssertTrue(
+            delete.waitForExistence(timeout: 3),
+            "Control-click must reach the row context menu instead of the drag bridge")
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "panel-multi-file-control-click-menu"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     /// Seeds a throwaway durable store with three PINNED clips plus four
     /// same-day clips (`-seed-panel-repro`), opens the panel, and asserts the two
     /// invariants the report violated.

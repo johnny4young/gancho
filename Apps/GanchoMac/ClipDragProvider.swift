@@ -234,7 +234,13 @@ private struct MultiFileDragEventBridge: NSViewRepresentable {
         private var dragStarted = false
 
         override func hitTest(_ point: NSPoint) -> NSView? {
-            guard isActive, NSApp.currentEvent?.type == .leftMouseDown,
+            // A control-click is a `.leftMouseDown` carrying `.control` — it is
+            // macOS's other way to ask for a context menu. Capturing it here
+            // would swallow the gesture into mouseUp selection and the row's
+            // `.contextMenu` would never open, so let it fall through the same
+            // way `.rightMouseDown` already does.
+            guard isActive, let event = NSApp.currentEvent, event.type == .leftMouseDown,
+                !event.modifierFlags.contains(.control),
                 bounds.contains(point)
             else { return nil }
             return self
