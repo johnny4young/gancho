@@ -40,7 +40,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// The process-local signal used by the lifecycle guard. If macOS or a
     /// menu-bar manager removes this item, the history process must not remain
     /// alive without a manipulation affordance.
-    var hasVisibleAffordance: Bool { statusItem?.isVisible == true }
+    var hasVisibleAffordance: Bool {
+        guard let statusItem, statusItem.isVisible else { return false }
+        return statusItem.button?.window != nil
+    }
 
     /// Removes the in-process fallback item. Called when the external helper is
     /// confirmed running so the two never paint a duplicate icon.
@@ -63,13 +66,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         // manipulation affordance out of the menu bar terminates Gancho.
         item.behavior = .terminationOnRemoval
         item.menu = menu
-        item.isVisible = true
         statusItem = item
 
         menu.autoenablesItems = false
         menu.delegate = self
 
         updateStatusPresentation()
+        // AppKit can apply its automatically chosen visibility autosave state
+        // while materializing the button. Repair it once after that first host
+        // setup; later presentation refreshes must never mask a real removal.
+        item.isVisible = true
         observeStatus()
     }
 
@@ -100,7 +106,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private func updateStatusPresentation() {
-        guard let button = statusItem?.button, let model else { return }
+        guard let statusItem, let button = statusItem.button, let model else { return }
 
         let presentation = StatusItemPresentation(status: model.monitorStatus)
         button.image = presentation.icon.templateImage()
@@ -108,7 +114,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         button.title = ""
         button.toolTip = presentation.accessibilityDescription
         button.setAccessibilityLabel(presentation.accessibilityDescription)
-        statusItem?.isVisible = true
 
         #if DEBUG
             logResolvedPlacement(of: button)

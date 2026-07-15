@@ -72,8 +72,9 @@ final class MenuBarLifecycleUITests: XCTestCase {
             if isRunning == present { return true }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
-        return !NSRunningApplication.runningApplications(
+        let isRunning = !NSRunningApplication.runningApplications(
             withBundleIdentifier: ganchoBundleID
-        ).isEmpty == present
+        ).isEmpty
+        return isRunning == present
     }
 }
