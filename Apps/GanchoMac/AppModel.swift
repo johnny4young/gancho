@@ -435,6 +435,7 @@ final class AppModel {
         let uiTestSourceAppSeedTask = seedSourceAppsIfRequested()
         let uiTestReuseSuggestionSeedTask = seedReuseSuggestionIfRequested()
         let uiTestClipEditingSeedTask = seedClipEditingIfRequested()
+        let uiTestMultiFileDragSeedTask = seedMultiFileDragIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
         // launch); run it at utility priority once the UI is wired up.
@@ -457,6 +458,7 @@ final class AppModel {
                     await uiTestSourceAppSeedTask?.value
                     await uiTestReuseSuggestionSeedTask?.value
                     await uiTestClipEditingSeedTask?.value
+                    await uiTestMultiFileDragSeedTask?.value
                     panel.show(model: self)
                     _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
                     try? await Task.sleep(for: .milliseconds(250))
@@ -470,6 +472,7 @@ final class AppModel {
                 await uiTestSourceAppSeedTask?.value
                 await uiTestReuseSuggestionSeedTask?.value
                 await uiTestClipEditingSeedTask?.value
+                await uiTestMultiFileDragSeedTask?.value
                 try? await Task.sleep(for: .seconds(1))
                 if !panel.isVisible { panel.show(model: self) }
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
@@ -730,6 +733,38 @@ final class AppModel {
         }
     }
 
+    /// UI-test hook: creates two harmless temporary files and one pinned clip
+    /// that references both. The paired in-panel drop target can then verify
+    /// that AppKit exposes two independent dragging items end to end.
+    private func seedMultiFileDragIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-multi-file-drag"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let grdbStore
+        else { return nil }
+        return Task {
+            let directory = FileManager.default.temporaryDirectory
+                .appending(path: "gancho-multi-file-drag-ui-test", directoryHint: .isDirectory)
+            try? FileManager.default.removeItem(at: directory)
+            try? FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true)
+            let urls = ["alpha.txt", "beta.txt"].map { directory.appending(path: $0) }
+            for (index, url) in urls.enumerated() {
+                try? Data("Gancho drag file \(index + 1)".utf8).write(to: url)
+            }
+            let item = ClipItem(
+                kind: .fileReference,
+                title: "Two test files",
+                preview: "alpha.txt + beta.txt",
+                contentHash: "mac-ui-multi-file-drag")
+            if let stored = try? await grdbStore.insert(
+                item, content: .fileReferences(urls.map(\.path)))
+            {
+                _ = try? await grdbStore.setPinned(id: stored.id, true)
+            }
+            await refreshRecents()
+        }
+    }
+
     /// Pro-tier async enrichment — never blocks capture: OCR makes image
     /// clips searchable; the tiered annotator titles text clips.
     private func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
@@ -825,9 +860,21 @@ final class AppModel {
     /// target loads. No move-to-top: the drag came FROM the visible list, and
     /// reordering it mid-interaction would yank rows out from under the user.
     func noteDragOutDelivered(_ item: ClipItem) async {
-        if let suggestion = await reuseController.recordDragDelivery(of: item) {
-            await presentReuseSuggestion(suggestion)
+        await noteDragOutDelivered([item])
+    }
+
+    /// Records every clip represented by one successful multi-file drop while
+    /// presenting at most one reuse suggestion for the session.
+    func noteDragOutDelivered(_ items: [ClipItem]) async {
+        var firstSuggestion: ClipItem?
+        for item in items {
+            if let suggestion = await reuseController.recordDragDelivery(of: item),
+                firstSuggestion == nil
+            {
+                firstSuggestion = suggestion
+            }
         }
+        if let firstSuggestion { await presentReuseSuggestion(firstSuggestion) }
         requestTelemetryConsentAfterFirstValue()
     }
 

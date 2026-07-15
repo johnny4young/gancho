@@ -106,6 +106,10 @@ struct PanelView: View {
     @State private var searchHistory: [String] = []
     @State private var historyCursor: Int?
     @State private var recalledQuery: String?
+    /// Set only by the opt-in debug drop target used by the signed drag smoke.
+    @State private var uiTestDroppedFileCount = 0
+    @State private var uiTestPreparedFileCount = 0
+    @State private var uiTestStartedFileCount = 0
 
     init(model: AppModel) {
         _search = State(wrappedValue: PanelSearchModel(source: model))
@@ -163,6 +167,7 @@ struct PanelView: View {
         .overlay { shortcutsOverlay }
         .overlay { boardPickerOverlay }
         .overlay { telemetryConsentPrompt }
+        .overlay(alignment: .top) { uiTestMultiFileDropTarget }
         .background { commandShortcutButtons }
         .animation(.snappy(duration: 0.12), value: showShortcuts)
         .task {
@@ -258,6 +263,60 @@ struct PanelView: View {
             _ in
             focus = .search
         }
+    }
+
+    /// A DEBUG-only, launch-argument-gated real drop destination. It exercises
+    /// the same pasteboard handoff as another app without making the UI test
+    /// drag across arbitrary windows on the developer's desktop.
+    @ViewBuilder private var uiTestMultiFileDropTarget: some View {
+        #if DEBUG
+            if CommandLine.arguments.contains("-show-multi-file-drop-target") {
+                VStack(spacing: GanchoTokens.Spacing.xxs) {
+                    Image(systemName: "tray.and.arrow.down.fill")
+                        .font(.title2)
+                    Text(
+                        verbatim: uiTestDroppedFileCount == 0
+                            ? "Drop files here"
+                            : "Received \(uiTestDroppedFileCount) files"
+                    )
+                    .font(.caption.weight(.semibold))
+                }
+                .foregroundStyle(GanchoTokens.Palette.accent)
+                .frame(width: 180, height: 76)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(
+                            GanchoTokens.Palette.accent,
+                            style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                }
+                .padding(GanchoTokens.Spacing.lg)
+                .onAppear {
+                    model.panel.configureUITestMultiFileDrop { count in
+                        uiTestDroppedFileCount = count
+                    }
+                }
+                .onDisappear { model.panel.configureUITestMultiFileDrop(nil) }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: .uiTestMultiFileDragPrepared)
+                ) { notification in
+                    uiTestPreparedFileCount = notification.object as? Int ?? 0
+                }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: .uiTestMultiFileDragStarted)
+                ) { notification in
+                    uiTestStartedFileCount = notification.object as? Int ?? 0
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    Text(
+                        verbatim:
+                            "Multi-file drop target, \(uiTestDroppedFileCount) files, prepared \(uiTestPreparedFileCount), started \(uiTestStartedFileCount)"
+                    )
+                )
+                .accessibilityIdentifier("multi-file-drop-target")
+            }
+        #endif
     }
 
     @ViewBuilder private var telemetryConsentPrompt: some View {
@@ -884,7 +943,12 @@ struct PanelView: View {
             .id(item.id)
             // Every row is a drag source into other apps.
             // Sensitive clips are excluded inside the modifier.
-            .clipDragSource(item)
+            .clipDragSource(
+                item,
+                selectedItems: search.selectedItems,
+                select: { toggling in select(index, toggling: toggling) },
+                doubleClick: { model.paste(item) }
+            )
             // Load this image's thumbnail once it scrolls into view (LazyVStack
             // builds only visible rows — the view-level virtual scrolling).
             .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }

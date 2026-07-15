@@ -49,6 +49,63 @@ final class PanelReproUITests: XCTestCase {
         XCTAssertTrue(search.exists, "closing the board picker must keep the panel open")
     }
 
+    /// Uses an in-panel real URL drop destination so the runner can verify the
+    /// AppKit pasteboard contains two independent items without touching an
+    /// unrelated Finder window on the developer's desktop.
+    @MainActor
+    func testMultiFileClipDragsEveryFileAndKeepsPanelOpen() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item",
+            "-use-temp-durable-store", "-seed-multi-file-drag",
+            "-show-multi-file-drop-target", "-place-panel-for-ui-test",
+            "-force-free-tier"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        _ = app.wait(for: .runningForeground, timeout: 5)
+
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        let target = app.descendants(matching: .any)["multi-file-drop-target"].firstMatch
+        try XCTSkipUnless(row.waitForExistence(timeout: 8), "multi-file row not exposed")
+        try XCTSkipUnless(target.waitForExistence(timeout: 3), "drop target not exposed")
+        if app.state != .runningForeground {
+            app.activate()
+            _ = app.wait(for: .runningForeground, timeout: 2)
+        }
+        try SynthesizedInput.requireForeground(app)
+
+        let prepared = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "label == %@",
+                "Multi-file drop target, 0 files, prepared 2, started 0"),
+            object: target)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [prepared], timeout: 5), .completed,
+            "the path-only preflight must expose both URLs before dragging")
+        let source = row.coordinate(withNormalizedOffset: CGVector(dx: 0.18, dy: 0.5))
+        let destination = target.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        source.press(forDuration: 0.15, thenDragTo: destination)
+
+        let received = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "label == %@",
+                "Multi-file drop target, 2 files, prepared 2, started 2"),
+            object: target)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [received], timeout: 5), .completed,
+            "one drag must deliver both file URLs as separate pasteboard items")
+        XCTAssertTrue(search.exists, "the panel must remain open after the drop")
+
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "panel-multi-file-drag-delivered"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     /// Seeds a throwaway durable store with three PINNED clips plus four
     /// same-day clips (`-seed-panel-repro`), opens the panel, and asserts the two
     /// invariants the report violated.

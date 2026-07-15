@@ -57,4 +57,46 @@ struct ClipDragPayloadTests {
         #expect(urls.allSatisfy { $0.isFileURL })
         #expect(ClipDragPayload.fileURLs(for: .text("/tmp/a.txt")).isEmpty)
     }
+
+    @Test("Selected file rows drag together in visible order")
+    func selectedFileRowsDragTogether() {
+        let first = ClipItem(kind: .fileReference, preview: "first")
+        let second = ClipItem(kind: .fileReference, preview: "second")
+        let text = ClipItem(kind: .text, preview: "text")
+
+        #expect(
+            ClipDragPayload.fileDragItems(
+                dragged: second, selectedItems: [first, second]) == [first, second])
+        #expect(
+            ClipDragPayload.fileDragItems(
+                dragged: second, selectedItems: [first, text, second]) == [second])
+        #expect(
+            ClipDragPayload.fileDragItems(
+                dragged: first, selectedItems: [second]) == [first])
+    }
+
+    @Test("Sensitive rows never enter a file drag batch")
+    func sensitiveFileRowsStayInert() {
+        let ordinary = ClipItem(kind: .fileReference)
+        let sensitive = ClipItem(kind: .fileReference, isSensitive: true)
+
+        #expect(
+            ClipDragPayload.fileDragItems(
+                dragged: sensitive, selectedItems: [ordinary, sensitive]
+            ).isEmpty)
+        #expect(
+            ClipDragPayload.fileDragItems(
+                dragged: ordinary, selectedItems: [ordinary, sensitive]) == [ordinary])
+    }
+
+    @Test("File URL flattening is stable and unique")
+    func uniqueFileURLFlattening() {
+        let urls = ClipDragPayload.uniqueFileURLs(for: [
+            .fileReferences(["/tmp/a.txt", "/tmp/b.txt"]),
+            .text("ignored"),
+            .fileReferences(["/tmp/a.txt", "/tmp/c.txt"])
+        ])
+
+        #expect(urls.map(\.path) == ["/tmp/a.txt", "/tmp/b.txt", "/tmp/c.txt"])
+    }
 }
