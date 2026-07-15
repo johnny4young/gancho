@@ -106,6 +106,10 @@ struct PanelView: View {
     @State private var searchHistory: [String] = []
     @State private var historyCursor: Int?
     @State private var recalledQuery: String?
+    /// Set only by the opt-in debug drop target used by the signed drag smoke.
+    @State private var uiTestDroppedFileCount = 0
+    @State private var uiTestPreparedFileCount = 0
+    @State private var uiTestStartedFileCount = 0
 
     init(model: AppModel) {
         _search = State(wrappedValue: PanelSearchModel(source: model))
@@ -163,6 +167,7 @@ struct PanelView: View {
         .overlay { shortcutsOverlay }
         .overlay { boardPickerOverlay }
         .overlay { telemetryConsentPrompt }
+        .overlay(alignment: .top) { uiTestMultiFileDropTarget }
         .background { commandShortcutButtons }
         .animation(.snappy(duration: 0.12), value: showShortcuts)
         .task {
@@ -260,6 +265,60 @@ struct PanelView: View {
         }
     }
 
+    /// A DEBUG-only, launch-argument-gated real drop destination. It exercises
+    /// the same pasteboard handoff as another app without making the UI test
+    /// drag across arbitrary windows on the developer's desktop.
+    @ViewBuilder private var uiTestMultiFileDropTarget: some View {
+        #if DEBUG
+            if CommandLine.arguments.contains("-show-multi-file-drop-target") {
+                VStack(spacing: GanchoTokens.Spacing.xxs) {
+                    Image(systemName: "tray.and.arrow.down.fill")
+                        .font(.title2)
+                    Text(
+                        verbatim: uiTestDroppedFileCount == 0
+                            ? "Drop files here"
+                            : "Received \(uiTestDroppedFileCount) files"
+                    )
+                    .font(.caption.weight(.semibold))
+                }
+                .foregroundStyle(GanchoTokens.Palette.accent)
+                .frame(width: 180, height: 76)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(
+                            GanchoTokens.Palette.accent,
+                            style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                }
+                .padding(GanchoTokens.Spacing.lg)
+                .onAppear {
+                    model.panel.configureUITestMultiFileDrop { count in
+                        uiTestDroppedFileCount = count
+                    }
+                }
+                .onDisappear { model.panel.configureUITestMultiFileDrop(nil) }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: .uiTestMultiFileDragPrepared)
+                ) { notification in
+                    uiTestPreparedFileCount = notification.object as? Int ?? 0
+                }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: .uiTestMultiFileDragStarted)
+                ) { notification in
+                    uiTestStartedFileCount = notification.object as? Int ?? 0
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    Text(
+                        verbatim:
+                            "Multi-file drop target, \(uiTestDroppedFileCount) files, prepared \(uiTestPreparedFileCount), started \(uiTestStartedFileCount)"
+                    )
+                )
+                .accessibilityIdentifier("multi-file-drop-target")
+            }
+        #endif
+    }
+
     @ViewBuilder private var telemetryConsentPrompt: some View {
         if model.isTelemetryConsentPromptPresented {
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
@@ -299,12 +358,24 @@ struct PanelView: View {
             SearchField("Search your clipboard", text: $search.query)
                 .focused($focus, equals: .search)
                 .onKeyPress(.downArrow, phases: [.down, .repeat]) { press in
-                    press.modifiers.contains(.command) ? recallSearch(.newer) : handleNav(.down)
+                    if railFocus == nil, press.modifiers.contains(.shift),
+                        !press.modifiers.contains(.command)
+                    {
+                        return extendSelection(by: 1)
+                    }
+                    return press.modifiers.contains(.command)
+                        ? recallSearch(.newer) : handleNav(.down)
                 }
                 .onKeyPress(.upArrow, phases: [.down, .repeat]) { press in
                     // Plain ↑↓ navigate the list (and must keep key-repeat);
                     // ⌘↑/⌘↓ cycle recent searches, shell-style.
-                    press.modifiers.contains(.command) ? recallSearch(.older) : handleNav(.up)
+                    if railFocus == nil, press.modifiers.contains(.shift),
+                        !press.modifiers.contains(.command)
+                    {
+                        return extendSelection(by: -1)
+                    }
+                    return press.modifiers.contains(.command)
+                        ? recallSearch(.older) : handleNav(.up)
                 }
                 .onKeyPress(.leftArrow) { handleNav(.left) }
                 .onKeyPress(.rightArrow) { handleNav(.right) }
@@ -321,9 +392,9 @@ struct PanelView: View {
                     // purpose); else Enter pastes the selection (⌥Return = plain).
                     if railFocus != nil { return handleNav(.toggle) }
                     if press.modifiers.contains(.command), press.modifiers.contains(.option),
-                        let item = search.selectedItem
+                        !search.selectedItems.isEmpty
                     {
-                        model.pushToStack(item)
+                        model.pushToStack(search.selectedItems)
                         return .handled
                     }
                     if let match = search.snippetMatch {
@@ -381,11 +452,11 @@ struct PanelView: View {
                 .onKeyPress(characters: CharacterSet(charactersIn: "bB"), phases: .down) { press in
                     // ⌘B opens the board picker for the selection; ⇧⌘B repeats
                     // the last board (curate many clips into one board fast).
-                    guard press.modifiers.contains(.command), let item = search.selectedItem else {
+                    guard press.modifiers.contains(.command), !search.selectedItems.isEmpty else {
                         return .ignored
                     }
                     if press.modifiers.contains(.shift) {
-                        model.assignToLastBoard(item)
+                        model.assignToLastBoard(search.selectedItems)
                     } else {
                         showBoardPicker = true
                     }
@@ -395,6 +466,8 @@ struct PanelView: View {
             boardRail
 
             filterRail
+
+            selectionContextBar
 
             if let captureNotice {
                 captureBanner(captureNotice)
@@ -466,6 +539,64 @@ struct PanelView: View {
             .padding(.horizontal, GanchoTokens.Spacing.xxs)
         }
         .accessibilityIdentifier("filter-rail")
+    }
+
+    /// Appears only for a batch, keeping single-selection navigation visually
+    /// unchanged while making the available group operations explicit.
+    @ViewBuilder private var selectionContextBar: some View {
+        if search.selectionCount > 1 {
+            HStack(spacing: GanchoTokens.Spacing.sm) {
+                Label("\(search.selectionCount) clips", systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(GanchoTokens.Palette.accent)
+                Spacer(minLength: 0)
+                Button {
+                    model.pushToStack(search.selectedItems)
+                } label: {
+                    Image(systemName: "square.stack.3d.up")
+                }
+                .help("Add to paste stack")
+                .accessibilityLabel("Add to paste stack")
+                .accessibilityIdentifier("selection-add-to-stack-button")
+
+                Button {
+                    showBoardPicker = true
+                } label: {
+                    Image(systemName: "square.stack")
+                }
+                .help("Add to board")
+                .accessibilityLabel("Add to board")
+                .accessibilityIdentifier("selection-add-to-board-button")
+
+                Button(role: .destructive) {
+                    model.delete(search.selectedItems)
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .foregroundStyle(.red)
+                .help("Delete")
+                .accessibilityLabel("Delete")
+                .accessibilityIdentifier("selection-delete-button")
+
+                Divider().frame(height: 16)
+                Button("Clear") { search.clearSelection() }
+                    .accessibilityIdentifier("selection-clear-button")
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, GanchoTokens.Spacing.sm)
+            .padding(.vertical, GanchoTokens.Spacing.xxs)
+            .background(
+                GanchoTokens.Palette.accent.opacity(0.08),
+                in: RoundedRectangle(
+                    cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+            )
+            .padding(.horizontal, GanchoTokens.Spacing.xxs)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(Text("\(search.selectionCount) clips"))
+            .accessibilityIdentifier("selection-context-bar")
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
     }
 
     /// Source-app filter: recent apps and content-free counts in one compact
@@ -812,7 +943,12 @@ struct PanelView: View {
             .id(item.id)
             // Every row is a drag source into other apps.
             // Sensitive clips are excluded inside the modifier.
-            .clipDragSource(item)
+            .clipDragSource(
+                item,
+                selectedItems: search.selectedItems,
+                select: { toggling in select(index, toggling: toggling) },
+                doubleClick: { model.paste(item) }
+            )
             // Load this image's thumbnail once it scrolls into view (LazyVStack
             // builds only visible rows — the view-level virtual scrolling).
             .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
@@ -825,7 +961,11 @@ struct PanelView: View {
             // beside `count: 2` makes SwiftUI delay every single click to
             // disambiguate, which is what made selection feel laggy.
             .onTapGesture(count: 2) { model.paste(item) }
-            .simultaneousGesture(TapGesture().onEnded { select(index) })
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    select(index, toggling: NSEvent.modifierFlags.contains(.command))
+                }
+            )
             .contextMenu { contextMenu(for: item) }
     }
 
@@ -902,8 +1042,8 @@ struct PanelView: View {
     /// A dimmed scrim + a card listing every panel shortcut. Toggled by ⌘/ or
     /// the footer "?"; esc and a scrim tap dismiss it.
     @ViewBuilder private var boardPickerOverlay: some View {
-        if showBoardPicker, let item = search.selectedItem {
-            PanelBoardPicker(item: item) { showBoardPicker = false }
+        if showBoardPicker, !search.selectedItems.isEmpty {
+            PanelBoardPicker(items: search.selectedItems) { showBoardPicker = false }
                 .transition(.opacity)
         }
     }
@@ -1208,7 +1348,7 @@ struct PanelView: View {
         // title/preview, pin / Universal-Clipboard markers, and the ⌘N
         // quick-paste badge for the first nine rows.
         ClipCard(
-            item: item, isSelected: index == search.selectedIndex,
+            item: item, isSelected: search.isSelected(item.id),
             previewsHidden: model.preferences.isPrivateModePaused,
             shortcutNumber: index < 9 ? index + 1 : nil,
             thumbnail: model.thumbnails.cached(for: item.id))
@@ -1258,10 +1398,17 @@ struct PanelView: View {
     /// Select a row without acting on it (the click + arrow path). Re-grabs
     /// search focus so type-to-search and Enter-to-paste keep working after a
     /// click lands focus on the row.
-    private func select(_ index: Int) {
-        search.select(index)
+    private func select(_ index: Int, toggling: Bool = false) {
+        search.select(index, toggling: toggling)
         railFocus = nil
         focus = .search
+    }
+
+    private func extendSelection(by delta: Int) -> KeyPress.Result {
+        search.moveSelection(by: delta, extending: true)
+        if delta > 0 { Task { await search.loadMoreIfNeeded(search.selectedIndex) } }
+        focus = .search
+        return .handled
     }
 
     // MARK: - Rail keyboard navigation (filters + boards above the list)

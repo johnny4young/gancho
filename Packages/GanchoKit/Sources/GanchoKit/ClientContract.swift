@@ -234,6 +234,13 @@ public protocol BoardStoring: Sendable {
     /// Removes a clip from one board; marks the clip for re-upload.
     func unassign(clipID: UUID, fromBoard boardID: UUID) async throws
 
+    /// Adds or removes several clips in one local database transaction and
+    /// marks every affected clip for re-upload. Either the entire visible-order
+    /// batch commits or none of it does.
+    func setBoardMembership(
+        clipIDs: [UUID], boardID: UUID, member: Bool
+    ) async throws
+
     /// Removes a clip from every board; marks the clip for re-upload.
     func removeFromAllBoards(clipID: UUID) async throws
 

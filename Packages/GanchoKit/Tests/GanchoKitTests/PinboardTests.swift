@@ -146,6 +146,23 @@ struct PinboardTests {
             "removing from boards re-queues the clip too")
     }
 
+    @Test("Batch membership rolls back every clip when one write fails")
+    func batchMembershipIsAtomic() async throws {
+        let store = try makeStore()
+        let board = try await store.createPinboard(name: "Atomic")
+        let item = ClipItem(preview: "kept unchanged", contentHash: "atomic-membership")
+        try await store.insert(item, content: .text("kept unchanged"))
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))
+
+        await #expect(throws: (any Error).self) {
+            try await store.setBoardMembership(
+                clipIDs: [item.id, UUID()], boardID: board.id, member: true)
+        }
+
+        #expect(try await store.boardIDs(forClip: item.id).isEmpty)
+        #expect(try await store.pendingUploads().isEmpty)
+    }
+
     @Test("Board members survive retention even though they are not pinned")
     func boardMembersExemptFromRetention() async throws {
         let store = try makeStore()

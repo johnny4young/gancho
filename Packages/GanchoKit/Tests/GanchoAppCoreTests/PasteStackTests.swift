@@ -24,6 +24,17 @@ struct PasteStackTests {
         #expect(stack.isEmpty)
     }
 
+    @Test("batch push preserves the visible input order")
+    func batchOrder() {
+        var stack = PasteStack()
+        let clips = [clip("first"), clip("second"), clip("third")]
+
+        stack.push(contentsOf: clips)
+
+        #expect(stack.items.map(\.id) == clips.map(\.id))
+        #expect(stack.entries.map(\.id) == [0, 1, 2])
+    }
+
     @Test("duplicates are allowed and get distinct entry ids")
     func duplicatesAllowed() {
         var stack = PasteStack()

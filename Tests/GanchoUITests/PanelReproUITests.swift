@@ -10,6 +10,142 @@ import XCTest
 /// `make test-ui` (a foreground GUI session), are NOT part of CI, and self-skip
 /// where elements aren't exposed on a headless runner.
 final class PanelReproUITests: XCTestCase {
+    @MainActor
+    private func selectThreeRows(_ app: XCUIApplication, rows: XCUIElementQuery) throws {
+        try SynthesizedInput.requireForeground(app)
+        app.typeKey(.downArrow, modifierFlags: [.shift])
+        app.typeKey(.downArrow, modifierFlags: [.shift])
+        let threeSelected = NSPredicate { _, _ in
+            rows.allElementsBoundByIndex.filter(\.isSelected).count == 3
+        }
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [XCTNSPredicateExpectation(predicate: threeSelected, object: app)], timeout: 5),
+            .completed,
+            "Shift-Down must extend the cursor into a three-row contiguous selection")
+    }
+
+    @MainActor
+    private func verifyBatchBoardAssignment(_ app: XCUIApplication, search: XCUIElement) {
+        let addToBoard = app.buttons["selection-add-to-board-button"].firstMatch
+        XCTAssertTrue(addToBoard.waitForExistence(timeout: 3))
+        addToBoard.click()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["board-picker"].firstMatch.waitForExistence(
+                timeout: 3),
+            "the board picker must accept the full selected batch")
+        let boardRow = app.descendants(matching: .any)["board-picker-board-row"].firstMatch
+        XCTAssertTrue(boardRow.waitForExistence(timeout: 3))
+        boardRow.click()
+        let allAssigned = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Selected"), object: boardRow)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [allAssigned], timeout: 5), .completed,
+            "one board action must assign every selected clip")
+        let boardFilter = app.textFields["board-picker-filter"].firstMatch
+        XCTAssertTrue(boardFilter.waitForExistence(timeout: 3))
+        boardFilter.click()
+        boardFilter.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(search.exists, "closing the board picker must keep the panel open")
+    }
+
+    /// Uses an in-panel real URL drop destination so the runner can verify the
+    /// AppKit pasteboard contains two independent items without touching an
+    /// unrelated Finder window on the developer's desktop.
+    @MainActor
+    func testMultiFileClipDragsEveryFileAndKeepsPanelOpen() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item",
+            "-use-temp-durable-store", "-seed-multi-file-drag",
+            "-show-multi-file-drop-target", "-place-panel-for-ui-test",
+            "-force-free-tier"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        _ = app.wait(for: .runningForeground, timeout: 5)
+
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        let target = app.descendants(matching: .any)["multi-file-drop-target"].firstMatch
+        try XCTSkipUnless(row.waitForExistence(timeout: 8), "multi-file row not exposed")
+        try XCTSkipUnless(target.waitForExistence(timeout: 3), "drop target not exposed")
+        if app.state != .runningForeground {
+            app.activate()
+            _ = app.wait(for: .runningForeground, timeout: 2)
+        }
+        try SynthesizedInput.requireForeground(app)
+
+        let prepared = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "label == %@",
+                "Multi-file drop target, 0 files, prepared 2, started 0"),
+            object: target)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [prepared], timeout: 5), .completed,
+            "the path-only preflight must expose both URLs before dragging")
+        let source = row.coordinate(withNormalizedOffset: CGVector(dx: 0.18, dy: 0.5))
+        let destination = target.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        source.press(forDuration: 0.15, thenDragTo: destination)
+
+        let received = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "label == %@",
+                "Multi-file drop target, 2 files, prepared 2, started 2"),
+            object: target)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [received], timeout: 5), .completed,
+            "one drag must deliver both file URLs as separate pasteboard items")
+        XCTAssertTrue(search.exists, "the panel must remain open after the drop")
+
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "panel-multi-file-drag-delivered"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    /// The AppKit drag responder must not capture macOS's Control-click
+    /// context-menu gesture once multi-file preflight activates it.
+    @MainActor
+    func testMultiFileRowControlClickOpensContextMenu() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item",
+            "-use-temp-durable-store", "-seed-multi-file-drag",
+            "-show-multi-file-drop-target", "-place-panel-for-ui-test",
+            "-force-free-tier"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        _ = app.wait(for: .runningForeground, timeout: 5)
+
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        let target = app.descendants(matching: .any)["multi-file-drop-target"].firstMatch
+        try XCTSkipUnless(row.waitForExistence(timeout: 8), "multi-file row not exposed")
+        try XCTSkipUnless(target.waitForExistence(timeout: 3), "drop target not exposed")
+        let prepared = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "label == %@",
+                "Multi-file drop target, 0 files, prepared 2, started 0"),
+            object: target)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [prepared], timeout: 5), .completed,
+            "the AppKit row bridge must be active before the gesture is tested")
+
+        try SynthesizedInput.controlClick(row, in: app)
+
+        let delete = app.menuItems["Delete"].firstMatch
+        XCTAssertTrue(
+            delete.waitForExistence(timeout: 3),
+            "Control-click must reach the row context menu instead of the drag bridge")
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "panel-multi-file-control-click-menu"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     /// Seeds a throwaway durable store with three PINNED clips plus four
     /// same-day clips (`-seed-panel-repro`), opens the panel, and asserts the two
     /// invariants the report violated.
@@ -100,5 +236,76 @@ final class PanelReproUITests: XCTestCase {
         XCTAssertTrue(
             selectedDescription.contains(loadedValue),
             "the visible preview must belong to the newly selected row")
+    }
+
+    @MainActor
+    func testShiftArrowExtendsAContiguousSelection() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item",
+            "-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier",
+            "-start-capture-paused"
+        ]
+        app.launch()
+        defer { app.terminate() }
+
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        try XCTSkipUnless(
+            rows.firstMatch.waitForExistence(timeout: 8),
+            "seeded clip rows not exposed to the UI runner in this environment")
+        let settle = Date().addingTimeInterval(3)
+        while rows.count < 4 && Date() < settle {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        try XCTSkipUnless(rows.count >= 4, "not enough seeded rows exposed (\(rows.count))")
+
+        try selectThreeRows(app, rows: rows)
+
+        let contextBar = app.descendants(matching: .any)["selection-context-bar"].firstMatch
+        XCTAssertTrue(contextBar.waitForExistence(timeout: 3))
+        XCTAssertEqual(contextBar.label, "3 clips")
+
+        let addToStack = app.buttons["selection-add-to-stack-button"].firstMatch
+        XCTAssertTrue(addToStack.waitForExistence(timeout: 3))
+        addToStack.click()
+        let stack = app.buttons["paste-stack-strip"].firstMatch
+        XCTAssertTrue(stack.waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            stack.label.contains("3"),
+            "batch enqueue must add all three selected clips in one action")
+
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "panel-batch-context-actions"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+
+        let beforeDelete = rows.count
+        let delete = app.buttons["selection-delete-button"].firstMatch
+        XCTAssertTrue(delete.waitForExistence(timeout: 3))
+        delete.click()
+
+        let undo = app.buttons["toast-undo"].firstMatch
+        XCTAssertTrue(undo.waitForExistence(timeout: 3))
+        let hidden = NSPredicate { _, _ in rows.count <= beforeDelete - 3 }
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [XCTNSPredicateExpectation(predicate: hidden, object: app)], timeout: 3),
+            .completed,
+            "batch delete must hide every selected row together")
+
+        undo.click()
+        let restored = NSPredicate { _, _ in rows.count >= beforeDelete }
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [XCTNSPredicateExpectation(predicate: restored, object: app)], timeout: 5),
+            .completed,
+            "one Undo action must restore the entire deleted selection")
+
+        // Undo refreshes the list and intentionally restores single-selection.
+        // Select a batch again to exercise board assignment independently.
+        try selectThreeRows(app, rows: rows)
+        verifyBatchBoardAssignment(app, search: search)
     }
 }

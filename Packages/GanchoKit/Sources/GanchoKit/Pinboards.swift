@@ -150,24 +150,38 @@ extension GRDBClipboardStore {
     /// matters: without it, a fetched pre-change copy of the record (equal
     /// timestamp — remote wins ties) would silently revert the membership.
     public func assign(clipID: UUID, toBoard boardID: UUID) async throws {
-        try await writer.write { db in
-            try db.execute(
-                sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) VALUES (?, ?)",
-                arguments: [clipID.uuidString, boardID.uuidString])
-            try db.execute(
-                sql: "UPDATE clip SET needsUpload = 1, updatedAt = ? WHERE id = ?",
-                arguments: [Date(), clipID.uuidString])
-        }
+        try await setBoardMembership(clipIDs: [clipID], boardID: boardID, member: true)
     }
 
     public func unassign(clipID: UUID, fromBoard boardID: UUID) async throws {
+        try await setBoardMembership(clipIDs: [clipID], boardID: boardID, member: false)
+    }
+
+    /// Applies one membership choice to a batch atomically. `writer.write`
+    /// wraps the loop in a transaction, so a constraint or I/O failure cannot
+    /// leave only a prefix assigned while the UI reports a batch failure.
+    public func setBoardMembership(
+        clipIDs: [UUID], boardID: UUID, member: Bool
+    ) async throws {
+        var seen = Set<UUID>()
+        let uniqueIDs = clipIDs.filter { seen.insert($0).inserted }
+        guard !uniqueIDs.isEmpty else { return }
+        let now = Date()
         try await writer.write { db in
-            try db.execute(
-                sql: "DELETE FROM clip_board WHERE clipID = ? AND boardID = ?",
-                arguments: [clipID.uuidString, boardID.uuidString])
-            try db.execute(
-                sql: "UPDATE clip SET needsUpload = 1, updatedAt = ? WHERE id = ?",
-                arguments: [Date(), clipID.uuidString])
+            for clipID in uniqueIDs {
+                if member {
+                    try db.execute(
+                        sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) VALUES (?, ?)",
+                        arguments: [clipID.uuidString, boardID.uuidString])
+                } else {
+                    try db.execute(
+                        sql: "DELETE FROM clip_board WHERE clipID = ? AND boardID = ?",
+                        arguments: [clipID.uuidString, boardID.uuidString])
+                }
+                try db.execute(
+                    sql: "UPDATE clip SET needsUpload = 1, updatedAt = ? WHERE id = ?",
+                    arguments: [now, clipID.uuidString])
+            }
         }
     }
 

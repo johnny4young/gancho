@@ -435,6 +435,7 @@ final class AppModel {
         let uiTestSourceAppSeedTask = seedSourceAppsIfRequested()
         let uiTestReuseSuggestionSeedTask = seedReuseSuggestionIfRequested()
         let uiTestClipEditingSeedTask = seedClipEditingIfRequested()
+        let uiTestMultiFileDragSeedTask = seedMultiFileDragIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
         // launch); run it at utility priority once the UI is wired up.
@@ -457,6 +458,7 @@ final class AppModel {
                     await uiTestSourceAppSeedTask?.value
                     await uiTestReuseSuggestionSeedTask?.value
                     await uiTestClipEditingSeedTask?.value
+                    await uiTestMultiFileDragSeedTask?.value
                     panel.show(model: self)
                     _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
                     try? await Task.sleep(for: .milliseconds(250))
@@ -470,6 +472,7 @@ final class AppModel {
                 await uiTestSourceAppSeedTask?.value
                 await uiTestReuseSuggestionSeedTask?.value
                 await uiTestClipEditingSeedTask?.value
+                await uiTestMultiFileDragSeedTask?.value
                 try? await Task.sleep(for: .seconds(1))
                 if !panel.isVisible { panel.show(model: self) }
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
@@ -730,6 +733,38 @@ final class AppModel {
         }
     }
 
+    /// UI-test hook: creates two harmless temporary files and one pinned clip
+    /// that references both. The paired in-panel drop target can then verify
+    /// that AppKit exposes two independent dragging items end to end.
+    private func seedMultiFileDragIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-multi-file-drag"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let grdbStore
+        else { return nil }
+        return Task {
+            let directory = FileManager.default.temporaryDirectory
+                .appending(path: "gancho-multi-file-drag-ui-test", directoryHint: .isDirectory)
+            try? FileManager.default.removeItem(at: directory)
+            try? FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true)
+            let urls = ["alpha.txt", "beta.txt"].map { directory.appending(path: $0) }
+            for (index, url) in urls.enumerated() {
+                try? Data("Gancho drag file \(index + 1)".utf8).write(to: url)
+            }
+            let item = ClipItem(
+                kind: .fileReference,
+                title: "Two test files",
+                preview: "alpha.txt + beta.txt",
+                contentHash: "mac-ui-multi-file-drag")
+            if let stored = try? await grdbStore.insert(
+                item, content: .fileReferences(urls.map(\.path)))
+            {
+                _ = try? await grdbStore.setPinned(id: stored.id, true)
+            }
+            await refreshRecents()
+        }
+    }
+
     /// Pro-tier async enrichment — never blocks capture: OCR makes image
     /// clips searchable; the tiered annotator titles text clips.
     private func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
@@ -825,9 +860,21 @@ final class AppModel {
     /// target loads. No move-to-top: the drag came FROM the visible list, and
     /// reordering it mid-interaction would yank rows out from under the user.
     func noteDragOutDelivered(_ item: ClipItem) async {
-        if let suggestion = await reuseController.recordDragDelivery(of: item) {
-            await presentReuseSuggestion(suggestion)
+        await noteDragOutDelivered([item])
+    }
+
+    /// Records every clip represented by one successful multi-file drop while
+    /// presenting at most one reuse suggestion for the session.
+    func noteDragOutDelivered(_ items: [ClipItem]) async {
+        var firstSuggestion: ClipItem?
+        for item in items {
+            if let suggestion = await reuseController.recordDragDelivery(of: item),
+                firstSuggestion == nil
+            {
+                firstSuggestion = suggestion
+            }
         }
+        if let firstSuggestion { await presentReuseSuggestion(firstSuggestion) }
         requestTelemetryConsentAfterFirstValue()
     }
 
@@ -1042,7 +1089,12 @@ final class AppModel {
     var pasteStackEntries: [PasteStack.Entry] { reuseController.pasteStackEntries }
 
     func pushToStack(_ item: ClipItem) {
-        reuseController.pushToStack(item)
+        pushToStack([item])
+    }
+
+    func pushToStack(_ items: [ClipItem]) {
+        guard !items.isEmpty else { return }
+        reuseController.pushToStack(items)
         toasts.show(GanchoToast(message: "Added to paste stack"))
     }
 
@@ -1074,15 +1126,24 @@ final class AppModel {
     /// loses history, and pins/boards/timestamps survive an Undo intact. If the
     /// app quits mid-window the commit never runs, so the clip is kept (safe).
     func delete(_ item: ClipItem) {
-        reuseController.delete(
-            item,
-            performDelete: { [weak self] id in
+        delete([item])
+    }
+
+    /// Deletes one visible-order selection behind one grace timer and exposes
+    /// one Undo action for the entire transaction.
+    func delete(_ items: [ClipItem]) {
+        guard !items.isEmpty else { return }
+        let transaction = reuseController.delete(
+            items,
+            performDelete: { [weak self] ids in
                 guard let self else { return }
                 if syncController.isEnabled, let grdbStore {
-                    _ = try? await grdbStore.deleteForSync(id: id, now: .now)
-                    await syncController.engine.enqueueDeletion(ids: [id])
+                    for id in ids {
+                        _ = try? await grdbStore.deleteForSync(id: id, now: .now)
+                    }
+                    await syncController.engine.enqueueDeletion(ids: ids)
                 } else {
-                    _ = try? await store.delete(id: id)
+                    for id in ids { _ = try? await store.delete(id: id) }
                 }
             })
         toasts.show(
@@ -1090,7 +1151,7 @@ final class AppModel {
                 message: "Deleted",
                 action: ToastAction(title: "Undo", accessibilityIdentifier: "toast-undo") {
                     [weak self] in
-                    self?.reuseController.undoDeletion(item.id)
+                    self?.reuseController.undoDeletion(transaction)
                 }))
     }
 
@@ -1358,8 +1419,12 @@ final class AppModel {
     }
 
     func assign(_ item: ClipItem, toBoard board: Pinboard) {
+        assign([item], toBoard: board)
+    }
+
+    func assign(_ items: [ClipItem], toBoard board: Pinboard) {
         Task {
-            guard await setBoardMembership(item, board: board, member: true) else { return }
+            guard await setBoardMembership(items, board: board, member: true) else { return }
             toasts.show(GanchoToast(message: "Added to board"))
         }
     }
@@ -1483,18 +1548,40 @@ final class AppModel {
         return (try? await grdbStore.boardIDs(forClip: item.id)) ?? []
     }
 
+    /// Boards shared by every selected clip. The picker uses this intersection
+    /// for one unambiguous checkmark in a mixed batch.
+    func commonBoardMembership(for items: [ClipItem]) async -> Set<UUID> {
+        guard let first = items.first else { return [] }
+        var common = await boardMembership(for: first)
+        for item in items.dropFirst() {
+            guard !common.isEmpty else { break }
+            common.formIntersection(await boardMembership(for: item))
+        }
+        return common
+    }
+
     /// Add or remove a clip from one board (the peek's per-board toggle and the
     /// ⌘B picker). Remembers the board so ⇧⌘B can repeat it on the next clip.
     @discardableResult
     func setBoardMembership(_ item: ClipItem, board: Pinboard, member: Bool) async -> Bool {
+        await setBoardMembership([item], board: board, member: member)
+    }
+
+    /// Applies one board membership choice to the selected clips atomically and
+    /// refreshes presentation once after the durable transaction completes.
+    @discardableResult
+    func setBoardMembership(_ items: [ClipItem], board: Pinboard, member: Bool) async -> Bool {
         guard let grdbStore else { return false }
+        guard !items.isEmpty else { return false }
         let succeeded = await BoardsController().setBoardMembership(
-            item, board: board, member: member, store: grdbStore, engine: syncController.engine)
+            items, board: board, member: member, store: grdbStore,
+            engine: syncController.engine)
         guard succeeded else {
             recordBoardFailure(
                 member
-                    ? "Couldn’t add the clip to the board."
-                    : "Couldn’t remove the clip from the board.")
+                    ? "Couldn’t add every clip to the board."
+                    : "Couldn’t remove every clip from the board.")
+            await refreshRecents()
             return false
         }
         if member { lastAssignedBoardID = board.id }
@@ -1513,11 +1600,15 @@ final class AppModel {
     /// the same board is one keystroke each. A no-op (with a nudge) when there is
     /// no remembered board or it has since been deleted.
     func assignToLastBoard(_ item: ClipItem) {
+        assignToLastBoard([item])
+    }
+
+    func assignToLastBoard(_ items: [ClipItem]) {
         guard let id = lastAssignedBoardID, let board = boards.first(where: { $0.id == id }) else {
             toasts.show(GanchoToast(message: "Pick a board with ⌘B first"))
             return
         }
-        assign(item, toBoard: board)
+        assign(items, toBoard: board)
     }
 
     // MARK: - Denylist & settings portability

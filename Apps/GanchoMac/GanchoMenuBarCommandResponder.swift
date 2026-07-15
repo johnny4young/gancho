@@ -2,10 +2,10 @@ import AppKit
 
 /// Performs menu-bar commands against the main app model.
 ///
-/// The external helper routes commands here through `gancho://menu-bar/...`
-/// deep links, keeping clipboard state and private previews inside the main app
-/// process. The in-process status-item fallback calls the same responder
-/// directly, so both menu-bar implementations stay behaviorally aligned.
+/// The external helper routes commands here through content-free distributed
+/// notifications, keeping the full clipboard history and command payloads
+/// inside the main app process. The in-process status-item fallback calls the
+/// same responder directly, so both menu-bar implementations stay aligned.
 @MainActor
 extension GanchoMenuBarCommand {
     func perform(on model: AppModel) {

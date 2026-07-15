@@ -44,6 +44,9 @@ private actor FakeStore: BoardStoring, ClipReading, ClipSearching {
     func deletePinboardForSync(id: UUID, now: Date) async throws {}
     func assign(clipID: UUID, toBoard boardID: UUID) async throws {}
     func unassign(clipID: UUID, fromBoard boardID: UUID) async throws {}
+    func setBoardMembership(
+        clipIDs: [UUID], boardID: UUID, member: Bool
+    ) async throws {}
     func removeFromAllBoards(clipID: UUID) async throws {}
     func items(inBoard boardID: UUID) async throws -> [ClipItem] { [] }
     func count(inBoard boardID: UUID) async throws -> Int { 0 }

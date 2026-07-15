@@ -15,6 +15,7 @@ private actor FakeBoardStore: BoardStoring {
         case create
         case assign
         case unassign
+        case setMembershipBatch
         case rename
         case updateIdentity
         case delete
@@ -30,6 +31,7 @@ private actor FakeBoardStore: BoardStoring {
     private(set) var createPinboardCalls = 0
     private(set) var assignCalls = 0
     private(set) var unassignCalls = 0
+    private(set) var setMembershipBatchCalls = 0
     private(set) var renameCalls = 0
     private(set) var updateIdentityCalls = 0
     private(set) var deletePinboardCalls = 0
@@ -37,6 +39,9 @@ private actor FakeBoardStore: BoardStoring {
     private(set) var removeFromAllBoardsCalls = 0
     private(set) var lastColorHex: String?
     private(set) var lastEmoji: String?
+    private(set) var lastMembershipClipIDs: [UUID] = []
+    private(set) var lastMembershipBoardID: UUID?
+    private(set) var lastMembershipValue: Bool?
 
     init(
         boards: [Pinboard], createdBoard: Pinboard = Pinboard(name: "New"),
@@ -82,6 +87,15 @@ private actor FakeBoardStore: BoardStoring {
     func unassign(clipID: UUID, fromBoard boardID: UUID) async throws {
         unassignCalls += 1
         if failures.contains(.unassign) { throw FakeBoardError.failure }
+    }
+    func setBoardMembership(
+        clipIDs: [UUID], boardID: UUID, member: Bool
+    ) async throws {
+        setMembershipBatchCalls += 1
+        if failures.contains(.setMembershipBatch) { throw FakeBoardError.failure }
+        lastMembershipClipIDs = clipIDs
+        lastMembershipBoardID = boardID
+        lastMembershipValue = member
     }
     func removeFromAllBoards(clipID: UUID) async throws {
         removeFromAllBoardsCalls += 1
@@ -405,6 +419,42 @@ struct BoardsControllerTests {
 
         #expect(!succeeded)
         #expect(await store.unassignCalls == 1)
+        #expect(await engine.enqueueItemsCalls == 0)
+    }
+
+    @Test("Batch membership writes once and enqueues the visible-order selection")
+    func batchMembershipWritesAndEnqueuesOnce() async {
+        let store = FakeBoardStore(boards: [])
+        let engine = FakeBoardEngine()
+        let board = Pinboard(name: "Docs")
+        let items = [ClipItem(title: "one"), ClipItem(title: "two")]
+
+        let succeeded = await BoardsController().setBoardMembership(
+            items, board: board, member: true, store: store, engine: engine)
+
+        #expect(succeeded)
+        #expect(await store.setMembershipBatchCalls == 1)
+        #expect(await store.lastMembershipClipIDs == items.map(\.id))
+        #expect(await store.lastMembershipBoardID == board.id)
+        #expect(await store.lastMembershipValue == true)
+        #expect(await store.assignCalls == 0)
+        #expect(await store.unassignCalls == 0)
+        #expect(await engine.enqueueItemsCalls == 1)
+        #expect(await engine.lastEnqueuedItemIDs == items.map(\.id))
+    }
+
+    @Test("Failed batch membership never enqueues a partial selection")
+    func batchMembershipFailureDoesNotEnqueue() async {
+        let store = FakeBoardStore(boards: [], failures: [.setMembershipBatch])
+        let engine = FakeBoardEngine()
+        let items = [ClipItem(title: "one"), ClipItem(title: "two")]
+
+        let succeeded = await BoardsController().setBoardMembership(
+            items, board: Pinboard(name: "Docs"), member: false,
+            store: store, engine: engine)
+
+        #expect(!succeeded)
+        #expect(await store.setMembershipBatchCalls == 1)
         #expect(await engine.enqueueItemsCalls == 0)
     }
 

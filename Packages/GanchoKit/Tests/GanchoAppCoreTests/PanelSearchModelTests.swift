@@ -122,6 +122,57 @@ struct PanelSearchModelTests {
         #expect(model.filtered.allSatisfy { $0.kind == .url })
     }
 
+    @Test func selectionKeepsVisibleOrderAcrossRangeAndCommandToggle() async {
+        let source = FakeSource()
+        source.recent = items(5)
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+
+        model.moveSelection(by: 2, extending: true)
+        model.select(4, toggling: true)
+
+        #expect(model.selectionCount == 4)
+        #expect(
+            model.selectedItems.map(\.id) == [
+                source.recent[0].id, source.recent[1].id, source.recent[2].id,
+                source.recent[4].id
+            ])
+        #expect(model.selectedItem?.id == source.recent[4].id)
+    }
+
+    @Test func rebuildingAfterAFilterDropsHiddenSelections() async {
+        let source = FakeSource()
+        source.recent = [
+            ClipItem(kind: .text, preview: "one"),
+            ClipItem(kind: .url, preview: "https://example.com"),
+            ClipItem(kind: .text, preview: "two")
+        ]
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+        model.moveSelection(by: 2, extending: true)
+
+        model.kindFilter = .links
+        model.rebuildGroups()
+
+        #expect(model.selectionCount == 1)
+        #expect(model.selectedItem?.id == source.recent[1].id)
+        #expect(model.selectedItems.map(\.id) == [source.recent[1].id])
+    }
+
+    @Test func clearSelectionKeepsOnlyTheCursorRow() async {
+        let source = FakeSource()
+        source.recent = items(4)
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+        model.moveSelection(by: 2, extending: true)
+
+        model.clearSelection()
+
+        #expect(model.selectionCount == 1)
+        #expect(model.selectedIndex == 2)
+        #expect(model.selectedItems.map(\.id) == [source.recent[2].id])
+    }
+
     @Test func sourceAppFilterComposesWithBoardAndEmptyText() async {
         let source = FakeSource()
         let boardID = UUID()

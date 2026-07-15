@@ -21,14 +21,14 @@ final class MenuBarLifecycleUITests: XCTestCase {
         waitForAppToStart(app)
         let runningApp = NSRunningApplication.runningApplications(
             withBundleIdentifier: ganchoBundleID
-        ).first
+        ).first { $0.executableURL?.lastPathComponent == "Gancho" }
         XCTAssertEqual(
             runningApp?.activationPolicy, .accessory,
             "Gancho must remain menu-bar-only and never create a Dock presence")
     }
 
     @MainActor
-    func testAffordanceLossTerminatesTheHistoryProcess() {
+    func testAffordanceLossTerminatesTheHistoryProcess() throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "-use-temp-durable-store", "-start-capture-paused",
@@ -39,12 +39,45 @@ final class MenuBarLifecycleUITests: XCTestCase {
         defer { if app.state != .notRunning { app.terminate() } }
 
         waitForAppToStart(app)
+        let mainApp = try XCTUnwrap(
+            NSRunningApplication.runningApplications(
+                withBundleIdentifier: ganchoBundleID
+            ).first { $0.executableURL?.lastPathComponent == "Gancho" })
         XCTAssertTrue(
-            app.wait(for: .notRunning, timeout: 10),
-            "losing the menu-bar icon must terminate the background history process")
-        XCTAssertTrue(
-            waitForGanchoMain(present: false, timeout: 2),
+            waitForTermination(of: mainApp, timeout: 10),
             "Gancho must not leave an iconless main process behind")
+    }
+
+    @MainActor
+    func testExternalHelperExitsAfterMainProcessIsKilled() throws {
+        if ProcessInfo.processInfo.environment["GANCHO_UI_ADHOC_SIGNING"] == "1" {
+            throw XCTSkip(
+                "menu-bar helper launch requires Apple Development signing; CI uses entitlements-free ad-hoc signing"
+            )
+        }
+
+        terminateMenuBarHelpers()
+        let app = XCUIApplication()
+        app.launchArguments = ["-use-temp-durable-store", "-start-capture-paused"]
+        app.launch()
+        defer {
+            if app.state != .notRunning { app.terminate() }
+            terminateMenuBarHelpers()
+        }
+
+        waitForAppToStart(app)
+        XCTAssertTrue(
+            waitForMenuBarHelper(present: true, timeout: 5),
+            "plain launch must start the external menu-bar helper")
+
+        let mainApp = NSRunningApplication.runningApplications(
+            withBundleIdentifier: ganchoBundleID
+        ).first { $0.executableURL?.lastPathComponent == "Gancho" }
+        XCTAssertTrue(try XCTUnwrap(mainApp).forceTerminate())
+
+        XCTAssertTrue(
+            waitForMenuBarHelper(present: false, timeout: 5),
+            "the helper watchdog must exit after its exact main process is gone")
     }
 
     // MARK: - Process observation
@@ -63,18 +96,41 @@ final class MenuBarLifecycleUITests: XCTestCase {
     }
 
     @MainActor
-    private func waitForGanchoMain(present: Bool, timeout: TimeInterval) -> Bool {
+    private func waitForTermination(
+        of application: NSRunningApplication,
+        timeout: TimeInterval
+    ) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            let isRunning = !NSRunningApplication.runningApplications(
-                withBundleIdentifier: ganchoBundleID
-            ).isEmpty
+            if application.isTerminated { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return application.isTerminated
+    }
+
+    @MainActor
+    private func waitForMenuBarHelper(present: Bool, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let isRunning = !menuBarHelpers().isEmpty
             if isRunning == present { return true }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
-        let isRunning = !NSRunningApplication.runningApplications(
-            withBundleIdentifier: ganchoBundleID
-        ).isEmpty
-        return isRunning == present
+        return !menuBarHelpers().isEmpty == present
+    }
+
+    @MainActor
+    private func terminateMenuBarHelpers() {
+        for helper in menuBarHelpers() {
+            _ = helper.forceTerminate()
+        }
+        _ = waitForMenuBarHelper(present: false, timeout: 2)
+    }
+
+    @MainActor
+    private func menuBarHelpers() -> [NSRunningApplication] {
+        NSWorkspace.shared.runningApplications.filter {
+            $0.executableURL?.lastPathComponent == "GanchoMenuBarHelper"
+        }
     }
 }

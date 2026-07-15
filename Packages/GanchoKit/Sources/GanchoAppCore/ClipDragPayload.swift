@@ -46,6 +46,22 @@ public enum ClipDragPayload {
         !representations(for: item).isEmpty
     }
 
+    /// The file-reference clips represented by a drag that begins on `item`.
+    /// A selected visible-order batch travels together only when every member
+    /// is a non-sensitive file reference; mixed selections keep the historical
+    /// behavior and drag only the row under the pointer.
+    public static func fileDragItems(
+        dragged item: ClipItem, selectedItems: [ClipItem]
+    ) -> [ClipItem] {
+        guard item.kind == .fileReference, !item.isSensitive else { return [] }
+        guard selectedItems.contains(where: { $0.id == item.id }) else { return [item] }
+        guard
+            !selectedItems.isEmpty,
+            selectedItems.allSatisfy({ $0.kind == .fileReference && !$0.isSensitive })
+        else { return [item] }
+        return selectedItems
+    }
+
     /// The `public.utf8-plain-text` bytes for a loaded content, or nil when
     /// the content has no text form (binary blobs).
     public static func plainText(for content: ClipContent) -> String? {
@@ -60,5 +76,14 @@ public enum ClipDragPayload {
     public static func fileURLs(for content: ClipContent) -> [URL] {
         guard case .fileReferences(let paths) = content else { return [] }
         return paths.map { URL(fileURLWithPath: $0) }
+    }
+
+    /// Flattens file-reference manifests into one stable drag order and drops
+    /// duplicate paths so each concrete URL becomes exactly one drag item.
+    public static func uniqueFileURLs(for contents: [ClipContent]) -> [URL] {
+        var seen = Set<URL>()
+        return contents.flatMap(fileURLs(for:)).filter {
+            seen.insert($0.standardizedFileURL).inserted
+        }
     }
 }

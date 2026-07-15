@@ -1,7 +1,7 @@
 import Foundation
 
-/// Content-free side channel between the main app and the paint-only menu-bar
-/// helper, shared by both targets.
+/// Privacy-bounded side channel between the main app and the paint-only
+/// menu-bar helper, shared by both targets.
 ///
 /// Backed by an App Group suite, so it resolves to the shared group container
 /// under the App Store sandbox and to a shared preferences domain otherwise —
@@ -56,7 +56,7 @@ enum GanchoMenuBarBridge {
     }
 
     // MARK: Command nonce — the app writes it and validates inbound commands
-    // against it; the helper reads it and stamps every command deep link.
+    // against it; the helper reads it and attaches it to each notification.
 
     static func writeNonce(_ nonce: String) {
         defaults?.set(nonce, forKey: Key.nonce)

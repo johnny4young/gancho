@@ -226,4 +226,24 @@ public struct BoardsController {
         }
         return succeeded
     }
+
+    /// Adds or removes a visible-order selection in one durable transaction.
+    /// Sync sees the batch only after the local write commits, so a failed
+    /// mutation never uploads or presents a partially changed selection.
+    public func setBoardMembership(
+        _ items: [ClipItem],
+        board: Pinboard,
+        member: Bool,
+        store: any BoardStoring,
+        engine: any SyncEngine
+    ) async -> Bool {
+        guard !items.isEmpty else { return false }
+        let succeeded =
+            (try? await store.setBoardMembership(
+                clipIDs: items.map(\.id), boardID: board.id, member: member)) != nil
+        if succeeded {
+            await engine.enqueue(items)
+        }
+        return succeeded
+    }
 }
