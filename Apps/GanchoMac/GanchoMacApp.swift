@@ -47,11 +47,7 @@ private enum GanchoRuntime {
         return UUID().uuidString
     }()
     static let menuBarPublisher = GanchoMenuBarStatusPublisher()
-
-    /// Whether launch spawned the external helper (vs. the in-process status
-    /// item fallback). A reopen only re-launches the helper when this is true,
-    /// so the in-process path never ends up with two icons.
-    static var launchedHelper = false
+    static let menuBarLifecycleGuard = GanchoMenuBarLifecycleGuard()
 
     static var usesInProcessStatusItem: Bool {
         CommandLine.arguments.contains("-use-in-process-status-item")
@@ -60,6 +56,12 @@ private enum GanchoRuntime {
     static var needsRegularActivationForUITests: Bool {
         CommandLine.arguments.contains("-open-panel-on-launch")
     }
+
+    #if DEBUG
+        static var removesMenuBarAffordanceForUITests: Bool {
+            CommandLine.arguments.contains("-remove-menu-bar-affordance-after-launch")
+        }
+    #endif
 }
 
 @MainActor
@@ -103,10 +105,10 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Re-assert the launch-time policy after SwiftUI finishes scene bring-up.
-        // AppModel also applies this when the user toggles Show in Dock.
+        // Gancho is intentionally menu-bar-only; regular activation remains a
+        // narrow UI-test hook so XCUITest can drive its otherwise-agent windows.
         NSApp.setActivationPolicy(
             GanchoRuntime.needsRegularActivationForUITests
-                || UserDefaults.standard.bool(forKey: "show-in-dock")
                 ? .regular : .accessory)
 
         // Apply the saved appearance override (Auto = follow the system). AppModel
@@ -139,28 +141,28 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
             GanchoRuntime.menuBarPublisher.start(model: model)
         }
 
-        ensureMenuBarPresence()
+        establishMenuBarPresence()
     }
 
-    /// Guarantees Gancho ALWAYS shows a menu-bar affordance — the invariant that
-    /// was missing before: a resident agent could end up with no helper icon and
-    /// no fallback, leaving the user no control short of killing the process.
+    /// Establishes the menu-bar affordance that owns the background lifetime.
     ///
     /// The external helper spawns asynchronously (launchd `RunAtLoad` or a direct
     /// `Process`), and either can silently fail — launchd declines to respawn a
     /// self-exited agent, the sandbox blocks the child, or the helper crashes. So
     /// we do not trust `launch()`'s return: we VERIFY the helper actually appears
     /// in the process table shortly after, and if it never does, attach the
-    /// in-process `NSStatusItem` fallback. Idempotent — runs at launch and on
-    /// every reopen, so clicking Gancho.app always restores the icon.
-    private func ensureMenuBarPresence() {
+    /// in-process `NSStatusItem` fallback. Once an owner is confirmed, the
+    /// lifecycle guard watches it continuously and terminates Gancho if the
+    /// affordance disappears; clipboard history can never remain resident and
+    /// unreachable in the background.
+    private func establishMenuBarPresence() {
         guard let model = GanchoRuntime.model else { return }
         if GanchoRuntime.usesInProcessStatusItem {
-            GanchoRuntime.statusItem.attach(model: model)
+            monitorInProcessStatusItem(model: model)
             return
         }
 
-        GanchoRuntime.launchedHelper = GanchoMenuBarHelperLauncher.launch()
+        GanchoMenuBarHelperLauncher.launch()
 
         Task { @MainActor in
             // Poll briefly for the helper (a local Developer ID spawn appears in
@@ -168,7 +170,7 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
             for _ in 0..<14 {
                 if GanchoMenuBarHelperLauncher.isHelperRunning() {
                     // The helper owns the icon — never paint a duplicate.
-                    GanchoRuntime.statusItem.detach()
+                    monitorExternalHelper()
                     return
                 }
                 try? await Task.sleep(for: .milliseconds(150))
@@ -176,35 +178,57 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
             // The helper may have appeared on the final interval — re-check once
             // more so a slightly-slow spawn isn't reported as a failure.
             if GanchoMenuBarHelperLauncher.isHelperRunning() {
-                GanchoRuntime.statusItem.detach()
+                monitorExternalHelper()
                 return
             }
             // The helper never came up: fall back to the AppKit-owned item so the
-            // menu bar is never silently empty. Only when the fallback isn't
-            // already painting — a later reopen must not re-attach or re-log
-            // (the DiagnosticLog is capped; a repeat would evict real entries).
+            // menu bar is never silently empty. Do not re-attach or re-log if a
+            // duplicate launch callback arrives (the DiagnosticLog is capped).
             guard !GanchoRuntime.statusItem.isAttached else { return }
             model.diagnostics.record(
                 String(localized: "Menu bar"),
                 String(localized: "The menu-bar helper didn’t start; using the built-in icon."))
-            GanchoRuntime.statusItem.attach(model: model)
+            monitorInProcessStatusItem(model: model)
         }
     }
 
-    /// A menu-bar agent has no windows, so clicking Gancho in Finder or the Dock
-    /// sends a reopen with nothing to show. If the helper died — after a Quit
-    /// that didn't fully take, or a crash — the icon is gone with no way back
-    /// short of killing the process. Re-establish the guaranteed affordance here
-    /// (helper if it can spawn, in-process item otherwise), so a click on
-    /// Gancho.app always brings the menu bar back.
-    func applicationShouldHandleReopen(
-        _ sender: NSApplication, hasVisibleWindows flag: Bool
-    ) -> Bool {
-        ensureMenuBarPresence()
-        return true
+    private func monitorExternalHelper() {
+        GanchoRuntime.statusItem.detach()
+        GanchoRuntime.menuBarLifecycleGuard.monitorExternalHelper()
+        #if DEBUG
+            scheduleAffordanceRemovalForUITests {
+                GanchoMenuBarHelperLauncher.stop()
+            }
+        #endif
     }
 
+    private func monitorInProcessStatusItem(model: AppModel) {
+        GanchoRuntime.statusItem.attach(model: model)
+        GanchoRuntime.menuBarLifecycleGuard.monitorInProcessStatusItem(GanchoRuntime.statusItem)
+        #if DEBUG
+            scheduleAffordanceRemovalForUITests {
+                GanchoRuntime.statusItem.detach()
+            }
+        #endif
+    }
+
+    #if DEBUG
+        /// Gives the UI harness a deterministic way to remove whichever
+        /// production affordance won launch without exposing a user-facing
+        /// command that could strand clipboard history accidentally.
+        private func scheduleAffordanceRemovalForUITests(
+            _ removeAffordance: @escaping @MainActor () -> Void
+        ) {
+            guard GanchoRuntime.removesMenuBarAffordanceForUITests else { return }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(4))
+                removeAffordance()
+            }
+        }
+    #endif
+
     func applicationWillTerminate(_ notification: Notification) {
+        GanchoRuntime.menuBarLifecycleGuard.stop()
         GanchoMenuBarHelperLauncher.stop()
     }
 

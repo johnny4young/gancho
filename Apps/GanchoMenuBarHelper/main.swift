@@ -24,6 +24,10 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
         menu.delegate = self
 
         let item = NSStatusBar.system.statusItem(withLength: GanchoMenuBarCommand.statusItemLength)
+        // The helper exits immediately if the user Command-drags its icon out
+        // of the menu bar; the main app's reciprocal watchdog then closes the
+        // in-memory history process too.
+        item.behavior = .terminationOnRemoval
         item.menu = menu
         item.isVisible = true
         statusItem = item
@@ -128,6 +132,16 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
     }
 
     @objc private func tick() {
+        // A removed/hidden status item is equivalent to losing the helper: ask
+        // the main app to quit, then exit so its reciprocal watchdog also sees
+        // the loss even if the deep link is dropped or sandboxed termination is
+        // denied. No clipboard-history process may survive without an icon.
+        guard statusItem?.isVisible == true else {
+            requestMainAppTermination()
+            NSApp.terminate(nil)
+            return
+        }
+
         // Exit when the main app is gone — works whether we were launched by
         // launchd (SMAppService) or by the app directly (Process fallback).
         let mainAppRunning =
@@ -147,9 +161,6 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
             let command = GanchoMenuBarCommand(rawValue: rawValue)
         else { return }
 
-        let token = GanchoMenuBarBridge.readNonce() ?? ""
-        NSWorkspace.shared.open(command.deepLinkURL(token: token))
-
         if command == .quit {
             // The deep link asks the main app to quit cleanly. But a dropped open
             // event (or a nonce mismatch) must NEVER strand it as a live,
@@ -158,11 +169,20 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
             // watchdog exits us the moment the main app is actually gone, so if
             // the main app somehow refuses to quit we stay resident with the icon
             // present (the user can retry) instead of orphaning it.
-            for app in NSRunningApplication.runningApplications(
-                withBundleIdentifier: Self.mainAppBundleID)
-            {
-                app.terminate()
-            }
+            requestMainAppTermination()
+        } else {
+            let token = GanchoMenuBarBridge.readNonce() ?? ""
+            NSWorkspace.shared.open(command.deepLinkURL(token: token))
+        }
+    }
+
+    private func requestMainAppTermination() {
+        let token = GanchoMenuBarBridge.readNonce() ?? ""
+        NSWorkspace.shared.open(GanchoMenuBarCommand.quit.deepLinkURL(token: token))
+        for app in NSRunningApplication.runningApplications(
+            withBundleIdentifier: Self.mainAppBundleID)
+        {
+            app.terminate()
         }
     }
 }

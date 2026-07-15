@@ -19,7 +19,6 @@ enum GanchoMenuBarCommand: String, CaseIterable {
     case privacyCenter
     case wrapped
     case fixClipboardAccess
-    case showInDock
     case quit
 
     static let appTitle = String(localized: "Gancho")
@@ -38,7 +37,7 @@ enum GanchoMenuBarCommand: String, CaseIterable {
     static let helperMenuSections: [[GanchoMenuBarCommand]] = [
         [.openPanel, .library],
         [.toggleCapture, .togglePrivateMode, .ignoreNextCopy],
-        [.settings, .privacyCenter, .welcome, .wrapped, .showInDock],
+        [.settings, .privacyCenter, .welcome, .wrapped],
         [.quit]
     ]
 
@@ -54,7 +53,6 @@ enum GanchoMenuBarCommand: String, CaseIterable {
         case .privacyCenter: String(localized: "Privacy Center")
         case .wrapped: String(localized: "My Clipboard, Wrapped…")
         case .fixClipboardAccess: String(localized: "Fix clipboard access…")
-        case .showInDock: String(localized: "Show in Dock")
         case .quit: String(localized: "Quit Gancho")
         }
     }
@@ -62,7 +60,6 @@ enum GanchoMenuBarCommand: String, CaseIterable {
     var helperTitle: String {
         switch self {
         case .togglePrivateMode: String(localized: "Toggle Private Mode")
-        case .showInDock: String(localized: "Toggle Dock Icon")
         case .library, .openPanel, .toggleCapture, .ignoreNextCopy, .settings, .welcome,
             .privacyCenter, .wrapped, .fixClipboardAccess, .quit:
             title
@@ -82,7 +79,6 @@ enum GanchoMenuBarCommand: String, CaseIterable {
         case .privacyCenter: "lock.shield"
         case .wrapped: "gift"
         case .fixClipboardAccess: "exclamationmark.triangle"
-        case .showInDock: "dock.rectangle"
         case .quit: "power"
         }
     }
@@ -101,7 +97,6 @@ enum GanchoMenuBarCommand: String, CaseIterable {
         case .privacyCenter: String(localized: "Open privacy center")
         case .wrapped: String(localized: "Export clipboard wrapped")
         case .fixClipboardAccess: String(localized: "Open clipboard access settings")
-        case .showInDock: String(localized: "Toggle Dock icon")
         case .quit: String(localized: "Quit Gancho")
         }
     }
@@ -112,7 +107,7 @@ enum GanchoMenuBarCommand: String, CaseIterable {
         case .settings: ","
         case .quit: "q"
         case .library, .toggleCapture, .togglePrivateMode, .ignoreNextCopy, .welcome,
-            .privacyCenter, .wrapped, .fixClipboardAccess, .showInDock:
+            .privacyCenter, .wrapped, .fixClipboardAccess:
             ""
         }
     }
@@ -122,7 +117,7 @@ enum GanchoMenuBarCommand: String, CaseIterable {
         case .openPanel: [.command, .shift]
         case .settings, .quit: [.command]
         case .library, .toggleCapture, .togglePrivateMode, .ignoreNextCopy, .welcome,
-            .privacyCenter, .wrapped, .fixClipboardAccess, .showInDock:
+            .privacyCenter, .wrapped, .fixClipboardAccess:
             []
         }
     }

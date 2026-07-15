@@ -201,14 +201,6 @@ final class AppModel {
         didSet { retentionPolicy.save(to: defaults) }
     }
 
-    /// Menu-bar agent by default; Settings can surface the Dock icon.
-    var showInDock: Bool {
-        didSet {
-            defaults.set(showInDock, forKey: "show-in-dock")
-            applyActivationPolicy()
-        }
-    }
-
     /// App appearance: Auto follows the system, Light/Dark force it.
     var appearance: AppearancePreference {
         didSet {
@@ -238,6 +230,10 @@ final class AppModel {
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     init() {
         let appDefaults = Self.defaultsForLaunch()
+        // One-way migration from versions that allowed a Dock override. Gancho
+        // is now permanently menu-bar-only, so an existing `true` must not
+        // survive as latent configuration or reappear in an exported snapshot.
+        appDefaults.removeObject(forKey: "show-in-dock")
         defaults = appDefaults
         let directory = SharedStorageLocation.macAppStoreDirectory
         // Test hook: force the in-memory fallback so the "history isn't being
@@ -294,11 +290,6 @@ final class AppModel {
         #endif
         intelligence = IntelligencePreferences.load(from: appDefaults)
         retentionPolicy = RetentionPolicy.load(from: appDefaults)
-        // Default to a menu-bar agent (.accessory). This app is LSUIElement;
-        // forcing .regular (what the old Debug-only "show in Dock" default did)
-        // leaves the status item registered but never placed in the menu bar —
-        // the icon silently vanishes. Opt into the Dock explicitly instead.
-        showInDock = appDefaults.bool(forKey: "show-in-dock")
         appearance =
             AppearancePreference(rawValue: appDefaults.string(forKey: "appearance") ?? "")
             ?? .auto
@@ -376,7 +367,6 @@ final class AppModel {
         scheduleRetention()
         scheduleSyncPoll()
         panel.attach(model: self)
-        applyActivationPolicy()
         // Intents resolve the SAME model instance the UI uses.
         AppDependencyManager.shared.add(dependency: self)
         KeyboardShortcuts.onKeyUp(for: .togglePrivateMode) { [weak self] in
@@ -501,10 +491,6 @@ final class AppModel {
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             }
         }
-    }
-
-    private func applyActivationPolicy() {
-        NSApplication.shared.setActivationPolicy(showInDock ? .regular : .accessory)
     }
 
     private func applyAppearance() {
@@ -1588,7 +1574,6 @@ final class AppModel {
             capturePreferencesJSON: (try? JSONEncoder().encode(preferences)) ?? Data(),
             appSettings: [
                 "panel-position": panel.position.rawValue,
-                "show-in-dock": showInDock ? "true" : "false",
                 "appearance": appearance.rawValue
             ])
     }
@@ -1604,9 +1589,6 @@ final class AppModel {
             let position = PanelPosition(rawValue: raw)
         {
             panel.position = position
-        }
-        if let dock = snapshot.appSettings["show-in-dock"] {
-            showInDock = dock == "true"
         }
         if let raw = snapshot.appSettings["appearance"],
             let value = AppearancePreference(rawValue: raw)

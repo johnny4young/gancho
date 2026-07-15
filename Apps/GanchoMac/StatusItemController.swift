@@ -37,6 +37,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// Whether the in-process fallback item is currently painting.
     var isAttached: Bool { statusItem != nil }
 
+    /// The process-local signal used by the lifecycle guard. If macOS or a
+    /// menu-bar manager removes this item, the history process must not remain
+    /// alive without a manipulation affordance.
+    var hasVisibleAffordance: Bool { statusItem?.isVisible == true }
+
     /// Removes the in-process fallback item. Called when the external helper is
     /// confirmed running so the two never paint a duplicate icon.
     func detach() {
@@ -54,6 +59,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         let item = NSStatusBar.system.statusItem(
             withLength: GanchoMenuBarCommand.statusItemLength)
+        // AppKit's native fail-closed contract: Command-dragging the last
+        // manipulation affordance out of the menu bar terminates Gancho.
+        item.behavior = .terminationOnRemoval
         item.menu = menu
         item.isVisible = true
         statusItem = item
@@ -178,8 +186,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if model.monitorStatus == .deniedByPrivacySettings {
             addCommand(.fixClipboardAccess)
         }
-        addCommand(.showInDock, state: model.showInDock ? .on : .off)
-
         menu.addItem(.separator())
         addCommand(.quit)
     }
