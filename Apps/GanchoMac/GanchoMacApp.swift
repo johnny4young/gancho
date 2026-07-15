@@ -35,10 +35,9 @@ struct GanchoMacApp: App {
 private enum GanchoRuntime {
     static var model: AppModel?
     static let statusItem = StatusItemController()
-    /// Per-launch nonce stamped onto helper command deep links so forged
-    /// `gancho://menu-bar/...` opens from other processes are rejected. A UI
-    /// test can pin it via `-command-nonce <value>` to drive a deterministic
-    /// deep link without reading cross-process state.
+    /// Per-launch nonce used to validate helper notifications and
+    /// `gancho://menu-bar/...` opens. A UI test can pin it via
+    /// `-command-nonce <value>` without reading cross-process state.
     static let commandNonce: String = {
         let arguments = CommandLine.arguments
         if let index = arguments.firstIndex(of: "-command-nonce"), index + 1 < arguments.count {
@@ -60,6 +59,14 @@ private enum GanchoRuntime {
     #if DEBUG
         static var removesMenuBarAffordanceForUITests: Bool {
             CommandLine.arguments.contains("-remove-menu-bar-affordance-after-launch")
+        }
+
+        static var deepLinkForUITests: URL? {
+            let arguments = CommandLine.arguments
+            guard let index = arguments.firstIndex(of: "-open-deep-link-on-launch"),
+                index + 1 < arguments.count
+            else { return nil }
+            return URL(string: arguments[index + 1])
         }
     #endif
 }
@@ -133,15 +140,54 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
         // signed-out users simply get a benign failure (logged content-free).
         NSApp.registerForRemoteNotifications()
 
-        // Publish the content-free side channel BEFORE the helper paints: the
-        // command nonce (#5), the localized menu titles (#4), and the current
-        // status presentation (#3). No clipboard data ever crosses it.
+        // Publish the initial content-free command/status state BEFORE the
+        // helper paints: the command nonce (#5), localized menu titles (#4),
+        // and current status presentation (#3). No clip-derived value is
+        // written during this startup step.
         if let model = GanchoRuntime.model {
             GanchoMenuBarBridge.writeNonce(GanchoRuntime.commandNonce)
             GanchoRuntime.menuBarPublisher.start(model: model)
         }
 
+        startMenuBarCommandChannel()
         establishMenuBarPresence()
+
+        #if DEBUG
+            if let deepLink = GanchoRuntime.deepLinkForUITests {
+                Task { @MainActor in
+                    // Exercise the production handler after AppKit has finished
+                    // wiring the test process, without asking the hardened UI
+                    // runner to send a TCC-protected Apple Event.
+                    try? await Task.sleep(for: .milliseconds(300))
+                    GanchoDeepLinks.open(deepLink)
+                }
+            }
+        #endif
+    }
+
+    private func startMenuBarCommandChannel() {
+        let center = DistributedNotificationCenter.default()
+        for command in GanchoMenuBarCommand.allCases {
+            center.addObserver(
+                self,
+                selector: #selector(receiveMenuBarCommand(_:)),
+                name: command.distributedNotificationName,
+                object: nil,
+                suspensionBehavior: .deliverImmediately)
+        }
+    }
+
+    @objc private func receiveMenuBarCommand(_ notification: Notification) {
+        guard
+            let command = GanchoMenuBarCommand.command(
+                forDistributedNotification: notification.name),
+            let token = notification.object as? String,
+            token == GanchoRuntime.commandNonce,
+            let model = GanchoRuntime.model
+        else { return }
+
+        command.perform(on: model)
+        GanchoRuntime.menuBarPublisher.publishNow()
     }
 
     /// Establishes the menu-bar affordance that owns the background lifetime.
@@ -228,6 +274,7 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
     #endif
 
     func applicationWillTerminate(_ notification: Notification) {
+        DistributedNotificationCenter.default().removeObserver(self)
         GanchoRuntime.menuBarLifecycleGuard.stop()
         GanchoMenuBarHelperLauncher.stop()
     }

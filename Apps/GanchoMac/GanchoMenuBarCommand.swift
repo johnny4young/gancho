@@ -28,6 +28,30 @@ enum GanchoMenuBarCommand: String, CaseIterable {
     static let statusItemLength = NSStatusItem.variableLength
     static let statusAccessibilityLabel = String(localized: "Gancho")
 
+    /// A content-free cross-process command channel. Each command gets its own
+    /// notification name and carries only the per-launch nonce as `object`, so
+    /// it remains valid for sandboxed builds (distributed notifications forbid
+    /// `userInfo` dictionaries there) and never needs Automation permission.
+    var distributedNotificationName: Notification.Name {
+        Notification.Name("com.johnny4young.gancho.menu-bar-command.\(rawValue)")
+    }
+
+    static func command(
+        forDistributedNotification name: Notification.Name
+    )
+        -> GanchoMenuBarCommand?
+    {
+        allCases.first { $0.distributedNotificationName == name }
+    }
+
+    func postDistributed(token: String) {
+        DistributedNotificationCenter.default().postNotificationName(
+            distributedNotificationName,
+            object: token,
+            userInfo: nil,
+            options: [.deliverImmediately])
+    }
+
     /// Commands the helper can safely show without reading clipboard state.
     ///
     /// Recent clips stay only in the main app process so clipboard previews are
@@ -120,17 +144,6 @@ enum GanchoMenuBarCommand: String, CaseIterable {
             .privacyCenter, .wrapped, .fixClipboardAccess:
             []
         }
-    }
-
-    /// The command deep link, stamped with the per-launch nonce so the app can
-    /// reject forged `gancho://menu-bar/...` opens from other processes.
-    func deepLinkURL(token: String) -> URL {
-        var components = URLComponents()
-        components.scheme = "gancho"
-        components.host = "menu-bar"
-        components.path = "/\(rawValue)"
-        components.queryItems = [URLQueryItem(name: "token", value: token)]
-        return components.url!
     }
 
     init?(deepLink url: URL) {

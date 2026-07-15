@@ -7,12 +7,15 @@ import ServiceManagement
 /// an App Store build — and falls back to a direct `Process` launch when the
 /// service cannot be registered (e.g. an unsigned Debug build from DerivedData)
 /// or when launchd won't (re)spawn it. Either way the helper self-exits once the
-/// main app is gone (its own bundle-id watchdog), so no path leaves an orphan in
-/// the menu bar.
+/// main app is gone (its owning-process watchdog), so no path leaves an orphan
+/// in the menu bar.
 @MainActor
 enum GanchoMenuBarHelperLauncher {
     private static let executableName = "GanchoMenuBarHelper"
-    private static let agentPlistName = "com.johnny4young.gancho.menubar-helper.plist"
+    private static let agentPlistName = "com.johnny4young.gancho.menubar-helper.agent.plist"
+    private static let legacyAgentPlistNames = [
+        "com.johnny4young.gancho.menubar-helper.plist"
+    ]
     private static let helperBundleID = "com.johnny4young.gancho.menubar-helper"
 
     /// What `launch()` should do once SMAppService has been consulted.
@@ -42,7 +45,8 @@ enum GanchoMenuBarHelperLauncher {
 
     @discardableResult
     static func launch() -> Bool {
-        let justLoaded = registerLoginItem()
+        retireLegacyServices()
+        let justLoaded = registerAgent()
         switch launchPlan(justLoadedAgent: justLoaded, helperAlreadyRunning: isHelperRunning()) {
         case .helperAlreadyRunning, .trustLaunchd:
             return true
@@ -53,6 +57,7 @@ enum GanchoMenuBarHelperLauncher {
 
     static func stop() {
         unregisterService()
+        unregisterLegacyServices()
         terminateRunningHelpers()
     }
 
@@ -69,7 +74,7 @@ enum GanchoMenuBarHelperLauncher {
     /// a running helper must be ensured another way. A signed build awaiting the
     /// user's approval (`.requiresApproval`) also returns `false`.
     @discardableResult
-    private static func registerLoginItem() -> Bool {
+    private static func registerAgent() -> Bool {
         let service = service
         guard service.status != .enabled else { return false }
         do {
@@ -84,6 +89,31 @@ enum GanchoMenuBarHelperLauncher {
     private static func unregisterService() {
         guard service.status == .enabled else { return }
         service.unregister { _ in }
+    }
+
+    /// Retires previously shipped service labels before loading the current
+    /// helper. Service Management caches a launch constraint for each label;
+    /// reusing a record after the embedded executable changes can leave a valid
+    /// replacement unable to spawn. Keeping the old plist in the bundle lets
+    /// upgrades unregister that job without resetting unrelated login items.
+    private static func retireLegacyServices() {
+        let services = legacyServices.filter { $0.status == .enabled }
+        guard !services.isEmpty else { return }
+
+        for service in services {
+            try? service.unregister()
+        }
+        terminateRunningHelpers()
+    }
+
+    private static func unregisterLegacyServices() {
+        for service in legacyServices where service.status == .enabled {
+            service.unregister { _ in }
+        }
+    }
+
+    private static var legacyServices: [SMAppService] {
+        legacyAgentPlistNames.map { SMAppService.agent(plistName: $0) }
     }
 
     // MARK: - Process fallback (Debug / unsigned / re-spawn)

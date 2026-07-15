@@ -84,10 +84,12 @@ targets:
         com.apple.developer.icloud-services:
           - CloudKit
         com.apple.developer.aps-environment: development
-        # NOTE: the menu-bar helper bridge (status, localized titles, nonce) is
-        # content-free and runs over a shared `UserDefaults(suiteName:)`. In
-        # Debug / Developer ID that resolves to a shared preferences domain (no
-        # entitlement needed). For the sandboxed App Store build, add the
+        # NOTE: the menu-bar helper bridge is privacy-bounded: command/status
+        # metadata is content-free, while its only clip-derived value is one
+        # masked recent preview (omitted in private mode). It runs over a shared
+        # `UserDefaults(suiteName:)`; in Debug / Developer ID that resolves to a
+        # shared preferences domain (no entitlement needed). For the sandboxed
+        # App Store build, add the
         # `com.apple.security.application-groups` (group.com.johnny4young.gancho)
         # + `com.apple.security.app-sandbox` entitlements at archive time so it
         # resolves to the App Group container — kept out of the baked Debug set
@@ -126,13 +128,19 @@ targets:
         embed: false
     postBuildScripts:
       - name: Embed the menu-bar helper and its LaunchAgent in the app bundle
-        basedOnDependencyAnalysis: true
+        # A signing-setting-only rebuild can update the standalone helper after
+        # dependency analysis has already considered this phase up to date.
+        # Always refresh this tiny executable so the app never seals a stale
+        # helper signature into its bundle.
+        basedOnDependencyAnalysis: false
         inputFiles:
           - "$(BUILT_PRODUCTS_DIR)/GanchoMenuBarHelper"
           - "$(SRCROOT)/Apps/GanchoMenuBarHelper/com.johnny4young.gancho.menubar-helper.plist"
+          - "$(SRCROOT)/Apps/GanchoMenuBarHelper/com.johnny4young.gancho.menubar-helper.agent.plist"
         outputFiles:
           - "$(TARGET_BUILD_DIR)/$(EXECUTABLE_FOLDER_PATH)/GanchoMenuBarHelper"
           - "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchAgents/com.johnny4young.gancho.menubar-helper.plist"
+          - "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchAgents/com.johnny4young.gancho.menubar-helper.agent.plist"
         script: |
           set -euo pipefail
           # Plain cp (not ditto): the sandboxed user script may only write the
@@ -145,6 +153,8 @@ targets:
           mkdir -p "${launch_agents}"
           cp -f "${SRCROOT}/Apps/GanchoMenuBarHelper/com.johnny4young.gancho.menubar-helper.plist" \
             "${launch_agents}/com.johnny4young.gancho.menubar-helper.plist"
+          cp -f "${SRCROOT}/Apps/GanchoMenuBarHelper/com.johnny4young.gancho.menubar-helper.agent.plist" \
+            "${launch_agents}/com.johnny4young.gancho.menubar-helper.agent.plist"
       - name: Embed the gancho CLI in the app bundle
         basedOnDependencyAnalysis: true
         inputFiles:
@@ -173,7 +183,7 @@ targets:
         SUFeedURL: https://johnny4young.github.io/gancho/appcast.xml
         SUPublicEDKey: Y5DOypMB7sZ04Ffw2gkLr9BlZRHKGWgWu0bB9jEsqmU=
         CFBundleDisplayName: Gancho
-        # Deep links let the menu-bar helper reach Settings and the panel
+        # Deep links let external integrations reach Settings and the panel
         # without requiring a Dock presence.
         CFBundleURLTypes:
           - CFBundleURLName: com.johnny4young.gancho
@@ -213,6 +223,11 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.menubar-helper
+        # This raw helper has no embedded provisioning profile and needs no
+        # entitlements. Xcode's automatic application-identifier entitlement
+        # makes taskgated reject the launchd spawn as unprovisioned.
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+        ENTITLEMENTS_REQUIRED: NO
     # No entitlements in the baked build: the bridge uses a shared preferences
     # domain in Debug / Developer ID. Add the App Group entitlement to the helper
     # at App Store archive time (mirrors the app, see the Gancho target note).
@@ -220,6 +235,7 @@ targets:
       - path: Apps/GanchoMenuBarHelper
         excludes:
           - "com.johnny4young.gancho.menubar-helper.plist"
+          - "com.johnny4young.gancho.menubar-helper.agent.plist"
       - path: Apps/GanchoMac/GanchoMenuBarCommand.swift
       - path: Apps/GanchoMac/GanchoMenuBarBridge.swift
 

@@ -3,10 +3,11 @@ import AppKit
 /// Paint-only menu-bar helper.
 ///
 /// A separate, minimal process owns the visible `NSStatusItem` so the main app's
-/// scene lifecycle can't keep the icon hidden. It reads only content-free data
-/// from the shared App Group (`GanchoMenuBarBridge`): the status glyph, the
-/// localized menu titles, and the command nonce. It performs no clipboard work —
-/// every menu click is forwarded to the main app as a nonce-stamped deep link.
+/// scene lifecycle can't keep the icon hidden. It reads privacy-bounded bridge
+/// state: status, localized menu titles, the command nonce, and at most one
+/// masked recent preview (omitted in private mode). It performs no clipboard
+/// capture or history access; every menu click is forwarded to the main app as
+/// a nonce-stamped distributed notification.
 @MainActor
 private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let mainAppBundleID = "com.johnny4young.gancho"
@@ -134,8 +135,8 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
     @objc private func tick() {
         // A removed/hidden status item is equivalent to losing the helper: ask
         // the main app to quit, then exit so its reciprocal watchdog also sees
-        // the loss even if the deep link is dropped or sandboxed termination is
-        // denied. No clipboard-history process may survive without an icon.
+        // the loss even if the notification is dropped or process termination
+        // is denied. No clipboard-history process may survive without an icon.
         guard statusItem?.isVisible == true else {
             requestMainAppTermination()
             NSApp.terminate(nil)
@@ -144,10 +145,7 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
 
         // Exit when the main app is gone — works whether we were launched by
         // launchd (SMAppService) or by the app directly (Process fallback).
-        let mainAppRunning =
-            !NSRunningApplication
-            .runningApplications(withBundleIdentifier: Self.mainAppBundleID).isEmpty
-        guard mainAppRunning else {
+        guard !mainAppInstances.isEmpty else {
             NSApp.terminate(nil)
             return
         }
@@ -162,27 +160,43 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
         else { return }
 
         if command == .quit {
-            // The deep link asks the main app to quit cleanly. But a dropped open
-            // event (or a nonce mismatch) must NEVER strand it as a live,
-            // icon-less agent, so terminate it directly too — belt and suspenders.
+            // The distributed command asks the main app to quit cleanly. But a
+            // dropped notification (or a nonce mismatch) must NEVER strand it
+            // as a live, icon-less agent, so terminate it directly too — belt
+            // and suspenders.
             // We do NOT self-terminate on a timer here (the old behavior): the
             // watchdog exits us the moment the main app is actually gone, so if
             // the main app somehow refuses to quit we stay resident with the icon
             // present (the user can retry) instead of orphaning it.
             requestMainAppTermination()
         } else {
-            let token = GanchoMenuBarBridge.readNonce() ?? ""
-            NSWorkspace.shared.open(command.deepLinkURL(token: token))
+            guard let token = GanchoMenuBarBridge.readNonce(), !token.isEmpty else { return }
+            command.postDistributed(token: token)
         }
     }
 
     private func requestMainAppTermination() {
-        let token = GanchoMenuBarBridge.readNonce() ?? ""
-        NSWorkspace.shared.open(GanchoMenuBarCommand.quit.deepLinkURL(token: token))
-        for app in NSRunningApplication.runningApplications(
-            withBundleIdentifier: Self.mainAppBundleID)
-        {
+        if let token = GanchoMenuBarBridge.readNonce(), !token.isEmpty {
+            GanchoMenuBarCommand.quit.postDistributed(token: token)
+        }
+        for app in mainAppInstances {
             app.terminate()
+        }
+    }
+
+    /// The raw helper is embedded inside Gancho.app, so LaunchServices attributes
+    /// it to the container bundle identifier too. Exclude this executable and
+    /// match the containing bundle path; otherwise the watchdog can mistake the
+    /// helper itself (or another installed Gancho) for its owning main process.
+    private var mainAppInstances: [NSRunningApplication] {
+        let currentProcessID = ProcessInfo.processInfo.processIdentifier
+        let mainBundleURL = Bundle.main.bundleURL.standardizedFileURL
+        return NSRunningApplication.runningApplications(
+            withBundleIdentifier: Self.mainAppBundleID
+        ).filter { app in
+            app.processIdentifier != currentProcessID
+                && app.executableURL?.lastPathComponent != "GanchoMenuBarHelper"
+                && app.bundleURL?.standardizedFileURL == mainBundleURL
         }
     }
 }

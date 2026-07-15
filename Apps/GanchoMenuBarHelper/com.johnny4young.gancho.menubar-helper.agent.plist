@@ -2,11 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Legacy service definition retained only so upgrades can unregister the
-	     original label without resetting unrelated login items. New launches use
-	     com.johnny4young.gancho.menubar-helper.agent.plist. -->
+	<!-- Active LaunchAgent for SMAppService.agent. BundleProgram is the helper
+	     embedded in the app; its exact-owner watchdog self-exits when Gancho is
+	     gone, so RunAtLoad cannot leave an orphaned menu-bar process. -->
 	<key>Label</key>
-	<string>com.johnny4young.gancho.menubar-helper</string>
+	<string>com.johnny4young.gancho.menubar-helper.agent</string>
 	<key>BundleProgram</key>
 	<string>Contents/MacOS/GanchoMenuBarHelper</string>
 	<key>RunAtLoad</key>
