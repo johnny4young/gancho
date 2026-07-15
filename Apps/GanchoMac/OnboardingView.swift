@@ -138,14 +138,6 @@ struct OnboardingView: View {
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
-
-            Toggle(
-                "Also show Gancho in the Dock",
-                isOn: Binding(get: { model.showInDock }, set: { model.showInDock = $0 })
-            )
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .accessibilityIdentifier("onboarding-show-in-dock")
         }
     }
 

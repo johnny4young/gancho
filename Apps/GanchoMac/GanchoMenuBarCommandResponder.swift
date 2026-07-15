@@ -30,8 +30,6 @@ extension GanchoMenuBarCommand {
             model.exportWrapped()
         case .fixClipboardAccess:
             model.permissionWindow.show(model: model)
-        case .showInDock:
-            model.showInDock.toggle()
         case .quit:
             NSApplication.shared.terminate(nil)
         }

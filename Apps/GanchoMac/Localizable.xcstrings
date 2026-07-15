@@ -4167,17 +4167,6 @@
         }
       }
     },
-    "Show in Dock": {
-      "extractionState": "stale",
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mostrar en el Dock"
-          }
-        }
-      }
-    },
     "Sign in to iCloud in System Settings.": {
       "extractionState": "stale",
       "localizations": {
@@ -4334,28 +4323,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Para pegar un clip directamente en la app que estás usando, macOS exige el permiso de Accesibilidad. Gancho lo usa SOLO para enviar la tecla de pegado — nunca para leer tu pantalla."
-          }
-        }
-      }
-    },
-    "Toggle Dock icon": {
-      "extractionState": "stale",
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alternar el ícono del Dock"
-          }
-        }
-      }
-    },
-    "Toggle Dock Icon": {
-      "extractionState": "stale",
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alternar el ícono del Dock"
           }
         }
       }
@@ -5072,16 +5039,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "¿Olvidaste el atajo? Gancho también vive en tu barra de menú — haz clic en su ícono cuando quieras."
-          }
-        }
-      }
-    },
-    "Also show Gancho in the Dock": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mostrar también Gancho en el Dock"
           }
         }
       }

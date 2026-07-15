@@ -267,8 +267,6 @@ private struct GeneralSettingsTab: View {
                 Text("Last position").tag(PanelPosition.lastPosition)
             }
 
-            Toggle("Show in Dock", isOn: $model.showInDock)
-
             Picker("Appearance", selection: $model.appearance) {
                 Text("Auto").tag(AppearancePreference.auto)
                 Text("Light").tag(AppearancePreference.light)

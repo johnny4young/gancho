@@ -173,13 +173,14 @@ targets:
         SUFeedURL: https://johnny4young.github.io/gancho/appcast.xml
         SUPublicEDKey: Y5DOypMB7sZ04Ffw2gkLr9BlZRHKGWgWu0bB9jEsqmU=
         CFBundleDisplayName: Gancho
-        # Deep links keep Settings/panel reachable if macOS or a menu-bar
-        # manager hides the status item.
+        # Deep links let the menu-bar helper reach Settings and the panel
+        # without requiring a Dock presence.
         CFBundleURLTypes:
           - CFBundleURLName: com.johnny4young.gancho
             CFBundleURLSchemes:
               - gancho
-        # Menu-bar app: no Dock icon (Settings can offer an override later).
+        # Menu-bar-only app: no Dock icon. The background history lifetime is
+        # coupled to its status-item affordance in GanchoMenuBarLifecycleGuard.
         LSUIElement: true
         NSHumanReadableCopyright: "© 2026 Johnny Young"
 

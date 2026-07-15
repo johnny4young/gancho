@@ -37,6 +37,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// Whether the in-process fallback item is currently painting.
     var isAttached: Bool { statusItem != nil }
 
+    /// The process-local signal used by the lifecycle guard. If macOS or a
+    /// menu-bar manager removes this item, the history process must not remain
+    /// alive without a manipulation affordance.
+    var hasVisibleAffordance: Bool {
+        guard let statusItem, statusItem.isVisible else { return false }
+        return statusItem.button?.window != nil
+    }
+
     /// Removes the in-process fallback item. Called when the external helper is
     /// confirmed running so the two never paint a duplicate icon.
     func detach() {
@@ -54,14 +62,20 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         let item = NSStatusBar.system.statusItem(
             withLength: GanchoMenuBarCommand.statusItemLength)
+        // AppKit's native fail-closed contract: Command-dragging the last
+        // manipulation affordance out of the menu bar terminates Gancho.
+        item.behavior = .terminationOnRemoval
         item.menu = menu
-        item.isVisible = true
         statusItem = item
 
         menu.autoenablesItems = false
         menu.delegate = self
 
         updateStatusPresentation()
+        // AppKit can apply its automatically chosen visibility autosave state
+        // while materializing the button. Repair it once after that first host
+        // setup; later presentation refreshes must never mask a real removal.
+        item.isVisible = true
         observeStatus()
     }
 
@@ -92,7 +106,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private func updateStatusPresentation() {
-        guard let button = statusItem?.button, let model else { return }
+        guard let statusItem, let button = statusItem.button, let model else { return }
 
         let presentation = StatusItemPresentation(status: model.monitorStatus)
         button.image = presentation.icon.templateImage()
@@ -100,7 +114,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         button.title = ""
         button.toolTip = presentation.accessibilityDescription
         button.setAccessibilityLabel(presentation.accessibilityDescription)
-        statusItem?.isVisible = true
 
         #if DEBUG
             logResolvedPlacement(of: button)
@@ -178,8 +191,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if model.monitorStatus == .deniedByPrivacySettings {
             addCommand(.fixClipboardAccess)
         }
-        addCommand(.showInDock, state: model.showInDock ? .on : .off)
-
         menu.addItem(.separator())
         addCommand(.quit)
     }
