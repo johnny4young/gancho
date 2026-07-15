@@ -299,12 +299,24 @@ struct PanelView: View {
             SearchField("Search your clipboard", text: $search.query)
                 .focused($focus, equals: .search)
                 .onKeyPress(.downArrow, phases: [.down, .repeat]) { press in
-                    press.modifiers.contains(.command) ? recallSearch(.newer) : handleNav(.down)
+                    if railFocus == nil, press.modifiers.contains(.shift),
+                        !press.modifiers.contains(.command)
+                    {
+                        return extendSelection(by: 1)
+                    }
+                    return press.modifiers.contains(.command)
+                        ? recallSearch(.newer) : handleNav(.down)
                 }
                 .onKeyPress(.upArrow, phases: [.down, .repeat]) { press in
                     // Plain ↑↓ navigate the list (and must keep key-repeat);
                     // ⌘↑/⌘↓ cycle recent searches, shell-style.
-                    press.modifiers.contains(.command) ? recallSearch(.older) : handleNav(.up)
+                    if railFocus == nil, press.modifiers.contains(.shift),
+                        !press.modifiers.contains(.command)
+                    {
+                        return extendSelection(by: -1)
+                    }
+                    return press.modifiers.contains(.command)
+                        ? recallSearch(.older) : handleNav(.up)
                 }
                 .onKeyPress(.leftArrow) { handleNav(.left) }
                 .onKeyPress(.rightArrow) { handleNav(.right) }
@@ -825,7 +837,11 @@ struct PanelView: View {
             // beside `count: 2` makes SwiftUI delay every single click to
             // disambiguate, which is what made selection feel laggy.
             .onTapGesture(count: 2) { model.paste(item) }
-            .simultaneousGesture(TapGesture().onEnded { select(index) })
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    select(index, toggling: NSEvent.modifierFlags.contains(.command))
+                }
+            )
             .contextMenu { contextMenu(for: item) }
     }
 
@@ -1208,7 +1224,7 @@ struct PanelView: View {
         // title/preview, pin / Universal-Clipboard markers, and the ⌘N
         // quick-paste badge for the first nine rows.
         ClipCard(
-            item: item, isSelected: index == search.selectedIndex,
+            item: item, isSelected: search.isSelected(item.id),
             previewsHidden: model.preferences.isPrivateModePaused,
             shortcutNumber: index < 9 ? index + 1 : nil,
             thumbnail: model.thumbnails.cached(for: item.id))
@@ -1258,10 +1274,17 @@ struct PanelView: View {
     /// Select a row without acting on it (the click + arrow path). Re-grabs
     /// search focus so type-to-search and Enter-to-paste keep working after a
     /// click lands focus on the row.
-    private func select(_ index: Int) {
-        search.select(index)
+    private func select(_ index: Int, toggling: Bool = false) {
+        search.select(index, toggling: toggling)
         railFocus = nil
         focus = .search
+    }
+
+    private func extendSelection(by delta: Int) -> KeyPress.Result {
+        search.moveSelection(by: delta, extending: true)
+        if delta > 0 { Task { await search.loadMoreIfNeeded(search.selectedIndex) } }
+        focus = .search
+        return .handled
     }
 
     // MARK: - Rail keyboard navigation (filters + boards above the list)

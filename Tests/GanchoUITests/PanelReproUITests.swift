@@ -101,4 +101,45 @@ final class PanelReproUITests: XCTestCase {
             selectedDescription.contains(loadedValue),
             "the visible preview must belong to the newly selected row")
     }
+
+    @MainActor
+    func testShiftArrowExtendsAContiguousSelection() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item",
+            "-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier",
+            "-start-capture-paused"
+        ]
+        app.launch()
+        defer { app.terminate() }
+
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        try XCTSkipUnless(
+            rows.firstMatch.waitForExistence(timeout: 8),
+            "seeded clip rows not exposed to the UI runner in this environment")
+        let settle = Date().addingTimeInterval(3)
+        while rows.count < 4 && Date() < settle {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        try XCTSkipUnless(rows.count >= 4, "not enough seeded rows exposed (\(rows.count))")
+
+        try SynthesizedInput.requireForeground(app)
+        app.typeKey(.downArrow, modifierFlags: [.shift])
+        app.typeKey(.downArrow, modifierFlags: [.shift])
+
+        let threeSelected = NSPredicate { _, _ in
+            rows.allElementsBoundByIndex.filter(\.isSelected).count == 3
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: threeSelected, object: app)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [expectation], timeout: 5), .completed,
+            "Shift-Down must extend the initial row into a three-row contiguous selection")
+
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "panel-shift-multi-selection"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
 }
