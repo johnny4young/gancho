@@ -14,6 +14,13 @@ private actor FakeIndex: SpotlightIndexing {
     func removeAll() async throws { removeAllCalls += 1 }
 }
 
+/// A system index whose every write fails — the runner-denied/error case.
+private struct BrokenIndex: SpotlightIndexing {
+    struct Failure: Error {}
+    func replaceAll(with entries: [SpotlightEntry]) async throws { throw Failure() }
+    func removeAll() async throws { throw Failure() }
+}
+
 /// Minimal curated-store fake: `snippets()` plus a scripted browse order.
 private actor FakeCuratedStore: ClipReading, SnippetStoring {
     var snippetItems: [ClipItem] = []
@@ -85,6 +92,17 @@ struct LibrarySpotlightServiceTests {
         #expect(untitled.summary == "first line\nsecond line")
     }
 
+    @Test("Secret-shaped spans inside an ordinary curated clip never reach the donation")
+    func entryRedactsSecretSpans() throws {
+        let memo = clip(
+            "deploy notes: staging key sk-live-gancho-4242424242 rotates Friday",
+            title: "Deploy sk-live-gancho-4242424242", pinned: true)
+        let entry = try #require(LibrarySpotlightService.entry(for: memo))
+        #expect(!entry.title.contains("sk-live-gancho-4242424242"))
+        #expect(!entry.summary.contains("sk-live-gancho-4242424242"))
+        #expect(entry.summary.contains("[redacted]"))
+    }
+
     @Test("Reconcile donates snippets plus the pinned browse prefix, de-duplicated")
     func reconcileComposesTheCuratedSet() async {
         var snippet = clip("deploy checklist", title: "Deploy")
@@ -121,9 +139,20 @@ struct LibrarySpotlightServiceTests {
     func disabledWipes() async {
         let store = FakeCuratedStore(snippets: [clip("s", title: "T")], browse: [])
         let index = FakeIndex()
-        await LibrarySpotlightService(index: index).reconcile(store: store, enabled: false)
+        let landed = await LibrarySpotlightService(index: index)
+            .reconcile(store: store, enabled: false)
+        #expect(landed)
         #expect(await index.removeAllCalls == 1)
         #expect(await index.replaced.isEmpty, "nothing may be donated while disabled")
+    }
+
+    @Test("A failed system-index write is reported, not swallowed")
+    func indexFailureSurfaces() async {
+        let store = FakeCuratedStore(snippets: [clip("s", title: "T")], browse: [])
+        let broken = BrokenIndex()
+        let service = LibrarySpotlightService(index: broken)
+        #expect(await service.reconcile(store: store, enabled: true) == false)
+        #expect(await service.reconcile(store: store, enabled: false) == false)
     }
 
     @Test("Pinned collection pages across the boundary and stops at the first unpinned row")

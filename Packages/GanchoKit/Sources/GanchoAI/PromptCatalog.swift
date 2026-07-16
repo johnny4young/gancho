@@ -23,10 +23,13 @@ public struct PromptSpec: Sendable, Equatable, Identifiable {
 /// evaluation suite (`GANCHO_AI_EVAL=1`) runs the objective criteria against
 /// the live on-device model before a wording change ships.
 public enum PromptCatalog {
-    /// Every model-facing prompt ends with this sentence; the catalog test
-    /// asserts it is never dropped from any entry. v2 replaced the bare
-    /// prohibition with a concrete substitution directive after the live
-    /// evaluation showed summaries and answers reproducing a planted key.
+    /// The substitution directive every Smart Paste and translate prompt ends
+    /// with verbatim. The title and ask prompts carry their own task-specific
+    /// secret clauses instead; what the catalog test enforces on EVERY entry
+    /// is that some form of the "secret material" guardrail language is never
+    /// dropped. v2 replaced the bare prohibition with this concrete
+    /// substitution directive after the live evaluation showed summaries and
+    /// answers reproducing a planted key.
     public static let secretGuardrail =
         // swiftlint:disable:next line_length
         "If the text contains passwords, card numbers, API keys, tokens, or other secret material, replace each one with [redacted] in your output — never reproduce secret material."

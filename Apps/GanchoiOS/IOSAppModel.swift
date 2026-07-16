@@ -752,8 +752,11 @@ final class IOSAppModel {
         guard let full else { return }
         let enabled = spotlightIndexing
         Task(priority: .utility) {
-            await LibrarySpotlightService(index: CoreSpotlightIndexer())
+            let landed = await LibrarySpotlightService(index: CoreSpotlightIndexer())
                 .reconcile(store: full, enabled: enabled)
+            if !landed {
+                diagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
+            }
         }
     }
 

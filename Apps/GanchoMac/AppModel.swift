@@ -457,13 +457,17 @@ final class AppModel {
         if let grdb {
             let refreshEmbeddings = intelligence.semanticSearch
             let spotlightEnabled = spotlightIndexing
+            let launchDiagnostics = diagnostics
             Task(priority: .utility) {
                 try? await grdb.backfillLegacyPreviews()
                 if refreshEmbeddings {
                     await EmbeddingRefreshService().run(store: grdb)
                 }
-                await LibrarySpotlightService(index: CoreSpotlightIndexer())
+                let landed = await LibrarySpotlightService(index: CoreSpotlightIndexer())
                     .reconcile(store: grdb, enabled: spotlightEnabled)
+                if !landed {
+                    launchDiagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
+                }
             }
         }
 
@@ -1455,8 +1459,11 @@ final class AppModel {
         guard let grdbStore else { return }
         let enabled = spotlightIndexing
         Task(priority: .utility) {
-            await LibrarySpotlightService(index: CoreSpotlightIndexer())
+            let landed = await LibrarySpotlightService(index: CoreSpotlightIndexer())
                 .reconcile(store: grdbStore, enabled: enabled)
+            if !landed {
+                diagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
+            }
         }
     }
 
