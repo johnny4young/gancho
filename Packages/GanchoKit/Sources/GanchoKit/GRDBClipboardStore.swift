@@ -16,7 +16,7 @@ import GRDB
 ///   NEVER edit a registered migration; append a new one.
 /// - The store never imports CloudKit: sync goes through the `SyncEngine`
 ///   boundary, fed by the same records.
-public final class GRDBClipboardStore: ClipboardStore {
+public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     // swiftlint:enable type_body_length
     /// Internal (not private) so same-module engines (retention, sync feed)
     /// and the test harness can run statements without widening the API.

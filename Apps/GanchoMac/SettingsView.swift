@@ -13,6 +13,8 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
 
     @State private var tab: SettingsTab = .general
+    @State private var showMigrationImporter = false
+    @State private var appliedMigrationUITestLaunch = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,11 +28,16 @@ struct SettingsView: View {
         }
         .frame(width: 520, height: 400)
         .accessibilityIdentifier("settings")
+        .sheet(isPresented: $showMigrationImporter) {
+            MigrationImportView()
+        }
+        .onAppear { showMigrationImporterForUITestIfRequested() }
     }
 
     @ViewBuilder private var selectedTab: some View {
         switch tab {
-        case .general: GeneralSettingsTab()
+        case .general:
+            GeneralSettingsTab { showMigrationImporter = true }
         case .capture: CaptureSettingsTab()
         case .retention: RetentionSettingsTab()
         case .privacy: PrivacySettingsTab()
@@ -38,6 +45,17 @@ struct SettingsView: View {
         case .pro: ProSettingsTab()
         case .about: AboutSettingsTab()
         }
+    }
+
+    private func showMigrationImporterForUITestIfRequested() {
+        #if DEBUG
+            guard !appliedMigrationUITestLaunch,
+                model.storageIsEphemeral,
+                CommandLine.arguments.contains("-show-migration-importer")
+            else { return }
+            appliedMigrationUITestLaunch = true
+            showMigrationImporter = true
+        #endif
     }
 }
 
@@ -222,6 +240,7 @@ private struct SettingsTabBar: View {
 
 private struct GeneralSettingsTab: View {
     @Environment(AppModel.self) private var model
+    let showMigrationImporter: () -> Void
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var shortcutWarning: String?
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
@@ -281,6 +300,10 @@ private struct GeneralSettingsTab: View {
             }
 
             Section {
+                Button("Import clipboard history…", systemImage: "arrow.down.doc") {
+                    showMigrationImporter()
+                }
+                .accessibilityIdentifier("open-migration-importer")
                 HStack {
                     Button("Export settings…") { exportSettings() }
                     Button("Import settings…") { importSettings() }

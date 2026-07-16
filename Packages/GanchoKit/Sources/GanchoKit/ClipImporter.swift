@@ -1,105 +1,156 @@
 import Foundation
 import GRDB
 
-/// Imports from competing tools and generic formats into the store, riding
-/// the same dedupe and (for foreign databases) read-only access. Every
-/// importer returns counts; nothing is ever modified at the source.
+/// Reads supported migration sources without mutating either the source or the
+/// destination. Classification, secret policy, deduplication, and persistence
+/// belong to the app-layer migration coordinator so imports cannot bypass the
+/// normal ingestion rules.
 public enum ClipImporter {
-    public struct Summary: Sendable, Equatable {
-        public var imported: Int
-        public var skippedDuplicates: Int
+    /// One portable text candidate decoded from a foreign source.
+    public struct Candidate: Sendable, Equatable {
+        public var text: String
+        public var title: String?
+        public var isPinned: Bool
 
-        public init(imported: Int = 0, skippedDuplicates: Int = 0) {
-            self.imported = imported
-            self.skippedDuplicates = skippedDuplicates
+        public init(text: String, title: String? = nil, isPinned: Bool = false) {
+            self.text = text
+            self.title = title
+            self.isPinned = isPinned
         }
     }
 
-    public enum ImportError: Error, Equatable {
-        case unreadable(String)
+    /// A decoded source plus the number of rows that Gancho deliberately
+    /// cannot import. The document stays in memory until the user confirms or
+    /// cancels; merely discovering a file never creates one.
+    public struct Document: Sendable, Equatable {
+        public var candidates: [Candidate]
+        public var unsupportedCount: Int
+
+        public init(candidates: [Candidate], unsupportedCount: Int = 0) {
+            self.candidates = candidates
+            self.unsupportedCount = unsupportedCount
+        }
     }
 
-    /// Generic CSV: header must include `text` (optional `title`, `pinned`).
-    public static func importCSV(
-        _ data: Data, into store: GRDBClipboardStore
-    ) async throws -> Summary {
-        guard let content = String(data: data, encoding: .utf8) else {
-            throw ImportError.unreadable("not UTF-8")
+    /// Stable, content-free reasons a source cannot be previewed. Callers map
+    /// these cases to localized UI instead of displaying database errors that
+    /// could include paths or schema fragments.
+    public enum UnreadableReason: String, Error, Sendable, Equatable {
+        case notUTF8
+        case emptyCSV
+        case missingTextColumn
+        case unclosedQuotedField
+        case cannotOpenCSVFile
+        case cannotOpenMaccyDatabase
+        case unexpectedMaccySchema
+    }
+
+    public enum ImportError: Error, Sendable, Equatable {
+        case unreadable(UnreadableReason)
+    }
+
+    /// Decodes generic RFC-4180 CSV. The header must include `text`; `title`
+    /// and `pinned` are optional. Empty or structurally short data rows are
+    /// counted as unsupported rather than silently presented as importable.
+    public static func readCSV(_ data: Data) throws -> Document {
+        guard var content = String(data: data, encoding: .utf8) else {
+            throw ImportError.unreadable(.notUTF8)
         }
-        var lines = parseCSV(content)
-        guard let header = lines.first else { throw ImportError.unreadable("empty CSV") }
-        lines.removeFirst()
+        if content.first == "\u{feff}" { content.removeFirst() }
+
+        var rows = try parseCSV(content)
+        guard let rawHeader = rows.first else {
+            throw ImportError.unreadable(.emptyCSV)
+        }
+        rows.removeFirst()
+        let header = rawHeader.map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
         guard let textIndex = header.firstIndex(of: "text") else {
-            throw ImportError.unreadable("missing 'text' column")
+            throw ImportError.unreadable(.missingTextColumn)
         }
         let titleIndex = header.firstIndex(of: "title")
         let pinnedIndex = header.firstIndex(of: "pinned")
 
-        var summary = Summary()
-        for row in lines where row.count > textIndex {
-            let text = row[textIndex]
-            guard !text.isEmpty else { continue }
-            let item = ClipItem(
-                title: titleIndex.flatMap { row.indices.contains($0) ? row[$0] : nil } ?? "",
-                preview: String(text.prefix(120)),
-                contentHash: ClipItem.hash(of: text, kind: .text),
-                isPinned: pinnedIndex.flatMap { row.indices.contains($0) ? row[$0] : nil }
-                    == "true")
-            let stored = try await store.insert(item, content: .text(text))
-            if stored.id == item.id {
-                summary.imported += 1
-            } else {
-                summary.skippedDuplicates += 1
+        var candidates: [Candidate] = []
+        var unsupportedCount = 0
+        for row in rows {
+            guard row.indices.contains(textIndex) else {
+                unsupportedCount += 1
+                continue
             }
+            let text = row[textIndex]
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                unsupportedCount += 1
+                continue
+            }
+            let title = titleIndex.flatMap { index -> String? in
+                guard row.indices.contains(index) else { return nil }
+                let value = row[index].trimmingCharacters(in: .whitespacesAndNewlines)
+                return value.isEmpty ? nil : value
+            }
+            let pinned =
+                pinnedIndex.flatMap { index -> Bool? in
+                    guard row.indices.contains(index) else { return nil }
+                    return
+                        switch row[index].trimmingCharacters(in: .whitespacesAndNewlines)
+                        .lowercased()
+                    {
+                    case "true", "1", "yes": true
+                    default: false
+                    }
+                } ?? false
+            candidates.append(Candidate(text: text, title: title, isPinned: pinned))
         }
-        return summary
+        return Document(candidates: candidates, unsupportedCount: unsupportedCount)
     }
 
-    /// Maccy: read-only over its SQLite (HistoryItem/HistoryItemContent,
-    /// plain-text contents only — images carry no portable provenance).
-    public static func importMaccy(
-        databaseAt url: URL, into store: GRDBClipboardStore
-    ) async throws -> Summary {
+    /// Reads Maccy's Core Data SQLite database through a read-only connection.
+    /// Only portable plain text is decoded; images and foreign representations
+    /// are reported as unsupported. SQLite errors are collapsed to stable
+    /// reasons so no source path or content escapes into diagnostics.
+    public static func readMaccy(databaseAt url: URL) async throws -> Document {
         let source: DatabaseQueue
         do {
-            var config = Configuration()
-            config.readonly = true
-            source = try DatabaseQueue(path: url.path, configuration: config)
+            var configuration = Configuration()
+            configuration.readonly = true
+            source = try DatabaseQueue(path: url.path, configuration: configuration)
         } catch {
-            throw ImportError.unreadable("cannot open Maccy database")
+            throw ImportError.unreadable(.cannotOpenMaccyDatabase)
         }
 
-        let texts: [String]
         do {
-            texts = try await source.read { db in
-                try String.fetchAll(
-                    db,
+            return try await source.read { database in
+                let total =
+                    try Int.fetchOne(
+                        database,
+                        sql: "SELECT COUNT(*) FROM ZHISTORYITEMCONTENT WHERE ZVALUE IS NOT NULL"
+                    ) ?? 0
+                let values = try String.fetchAll(
+                    database,
                     sql: """
                         SELECT CAST(ZVALUE AS TEXT) FROM ZHISTORYITEMCONTENT
                         WHERE ZTYPE = 'public.utf8-plain-text' AND ZVALUE IS NOT NULL
                         """)
+                let candidates = values.compactMap { value -> Candidate? in
+                    guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        return nil
+                    }
+                    return Candidate(text: value)
+                }
+                return Document(
+                    candidates: candidates,
+                    unsupportedCount: max(0, total - candidates.count))
             }
         } catch {
-            throw ImportError.unreadable("unexpected Maccy schema")
+            throw ImportError.unreadable(.unexpectedMaccySchema)
         }
-
-        var summary = Summary()
-        for text in texts where !text.isEmpty {
-            let item = ClipItem(
-                preview: String(text.prefix(120)),
-                contentHash: ClipItem.hash(of: text, kind: .text))
-            let stored = try await store.insert(item, content: .text(text))
-            if stored.id == item.id {
-                summary.imported += 1
-            } else {
-                summary.skippedDuplicates += 1
-            }
-        }
-        return summary
     }
 
-    /// Minimal RFC-4180 parser (quotes, escaped quotes, newlines in quotes).
-    static func parseCSV(_ content: String) -> [[String]] {
+    /// RFC-4180 parser with quoted commas, escaped quotes, and quoted newlines.
+    /// It rejects unterminated quoted fields instead of importing a truncated
+    /// document whose remaining rows would be impossible to account for.
+    static func parseCSV(_ content: String) throws -> [[String]] {
         var rows: [[String]] = []
         var field = ""
         var row: [String] = []
@@ -143,6 +194,9 @@ public enum ClipImporter {
                 default: field.append(character)
                 }
             }
+        }
+        guard !inQuotes else {
+            throw ImportError.unreadable(.unclosedQuotedField)
         }
         endRow()
         return rows

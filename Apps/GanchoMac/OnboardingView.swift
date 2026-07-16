@@ -11,6 +11,7 @@ struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @State private var step = 0
     @State private var accessibilityGranted = AXIsProcessTrusted()
+    @State private var showMigrationImporter = false
 
     private let accessibilityCheck = Timer.publish(every: 1, on: .main, in: .common)
         .autoconnect()
@@ -36,7 +37,9 @@ struct OnboardingView: View {
         }
         .padding(GanchoTokens.Spacing.xl)
         .frame(width: 520, height: 420)
-        .accessibilityIdentifier("onboarding")
+        .sheet(isPresented: $showMigrationImporter) {
+            MigrationImportView()
+        }
     }
 
     /// Screen 1 — value, demonstrated LIVE: the monitor is already running,
@@ -66,11 +69,19 @@ struct OnboardingView: View {
             Text("Your clips never leave this Mac unless YOU turn on iCloud sync.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Label(
-                "Your first clips get smart AI titles, free and on-device.", systemImage: "sparkles"
-            )
+            HStack(spacing: GanchoTokens.Spacing.sm) {
+                Label(
+                    "Your first clips get smart AI titles, free and on-device.",
+                    systemImage: "sparkles"
+                )
+                .foregroundStyle(.tint)
+                Spacer(minLength: 0)
+                Button("Import clipboard history…", systemImage: "arrow.down.doc") {
+                    showMigrationImporter = true
+                }
+                .accessibilityIdentifier("onboarding-open-migration-importer")
+            }
             .font(.footnote)
-            .foregroundStyle(.tint)
         }
     }
 

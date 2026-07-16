@@ -60,6 +60,10 @@ final class AppModel {
     /// Durable store under Application Support; falls back to in-memory if
     /// the disk store cannot open (never block launch on a storage error).
     let store: any ClipboardStore
+    /// Atomic migration surface over the same concrete store. Kept separate
+    /// from `ClipboardStore` so test doubles and ordinary clients do not gain
+    /// import-only responsibilities.
+    let migrationStore: any ClipImporting
     /// Full first-party store surface, downcast once from `store`; nil on the
     /// in-memory fallback. Feature code (this model and the views) reaches every
     /// capability through it instead of downcasting to the concrete class.
@@ -265,7 +269,14 @@ final class AppModel {
         }
         self.grdbStore = grdb
         self.grdbForEngines = grdb
-        self.store = grdb ?? InMemoryClipboardStore()
+        if let grdb {
+            self.store = grdb
+            self.migrationStore = grdb
+        } else {
+            let memoryStore = InMemoryClipboardStore()
+            self.store = memoryStore
+            self.migrationStore = memoryStore
+        }
         let loadedRememberSearches =
             appDefaults.object(forKey: "remember-searches") as? Bool ?? true
         self.reuseController = ReuseController(
@@ -509,7 +520,9 @@ final class AppModel {
                 if !panel.isVisible { panel.show(model: self) }
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             }
-        } else if !defaults.bool(forKey: "has-seen-welcome") {
+        } else if CommandLine.arguments.contains("-open-welcome-on-launch")
+            || !defaults.bool(forKey: "has-seen-welcome")
+        {
             Task { welcomeWindow.show(model: self) }
         } else if monitor.status == .deniedByPrivacySettings {
             Task { permissionWindow.show(model: self) }

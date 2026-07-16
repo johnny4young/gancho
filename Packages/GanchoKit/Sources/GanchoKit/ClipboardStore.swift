@@ -11,6 +11,45 @@ public protocol ClipIngesting: Sendable {
     func insert(_ item: ClipItem, content: ClipContent?) async throws -> ClipItem
 }
 
+/// One classified text row ready for an approved migration transaction.
+/// Import sources in Gancho are text-only today; keeping the canonical text
+/// beside its metadata prevents a generic batch API from accidentally gaining
+/// authority to write arbitrary foreign blobs.
+public struct ClipImportBatchItem: Sendable, Equatable {
+    public var item: ClipItem
+    public var text: String
+
+    public init(item: ClipItem, text: String) {
+        self.item = item
+        self.text = text
+    }
+}
+
+/// Atomic outcome of an approved migration. Only newly inserted rows are
+/// returned for post-commit sync; duplicates are left completely unchanged.
+public struct ClipImportBatchResult: Sendable, Equatable {
+    public var insertedItems: [ClipItem]
+    public var skippedDuplicates: Int
+
+    public init(insertedItems: [ClipItem] = [], skippedDuplicates: Int = 0) {
+        self.insertedItems = insertedItems
+        self.skippedDuplicates = skippedDuplicates
+    }
+}
+
+/// Narrow persistence surface for migration dry runs and their final atomic
+/// commit. Import dedupe intentionally compares content hashes across devices:
+/// a migration must not create a local copy of content already synced here.
+public protocol ClipImporting: Sendable {
+    /// Existing hashes among the proposed set, without loading clip content.
+    func existingImportContentHashes(_ hashes: Set<String>) async throws -> Set<String>
+
+    /// Inserts all non-duplicate text rows in one transaction. Cancellation or
+    /// an error rolls back the entire batch; existing duplicates are not moved,
+    /// retimestamped, pinned, or otherwise mutated.
+    func importTextBatch(_ records: [ClipImportBatchItem]) async throws -> ClipImportBatchResult
+}
+
 /// Persistence boundary for clip history. The production implementation is
 /// GRDB/SQLite (+FTS5); the in-memory implementation backs unit tests and
 /// previews. List calls page METADATA only — full content is a separate,
@@ -56,7 +95,7 @@ extension ClipboardStore {
 
 /// Test/preview store. Newest first; dedupe-by-hash matches the capture
 /// semantics (re-copying identical content moves it to the top).
-public actor InMemoryClipboardStore: ClipboardStore {
+public actor InMemoryClipboardStore: ClipboardStore, ClipImporting {
     private var storage: [ClipItem] = []
     private var contents: [UUID: ClipContent] = [:]
 
@@ -82,6 +121,38 @@ public actor InMemoryClipboardStore: ClipboardStore {
             contents[item.id] = content
         }
         return item
+    }
+
+    public func existingImportContentHashes(_ hashes: Set<String>) async throws -> Set<String> {
+        Set(storage.lazy.map(\.contentHash).filter(hashes.contains))
+    }
+
+    public func importTextBatch(
+        _ records: [ClipImportBatchItem]
+    ) async throws -> ClipImportBatchResult {
+        var stagedStorage = storage
+        var stagedContents = contents
+        var knownHashes = Set(stagedStorage.map(\.contentHash))
+        var insertedItems: [ClipItem] = []
+        var skippedDuplicates = 0
+
+        for record in records {
+            try Task.checkCancellation()
+            guard knownHashes.insert(record.item.contentHash).inserted else {
+                skippedDuplicates += 1
+                continue
+            }
+            stagedStorage.insert(record.item, at: 0)
+            stagedContents[record.item.id] = .text(record.text)
+            insertedItems.append(record.item)
+        }
+
+        try Task.checkCancellation()
+        storage = stagedStorage
+        contents = stagedContents
+        return ClipImportBatchResult(
+            insertedItems: insertedItems,
+            skippedDuplicates: skippedDuplicates)
     }
 
     public func items(offset: Int, limit: Int) async throws -> [ClipItem] {

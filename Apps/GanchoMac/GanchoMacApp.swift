@@ -119,6 +119,9 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(
             GanchoRuntime.needsRegularActivationForUITests
                 ? .regular : .accessory)
+        if CommandLine.arguments.contains("-regular-activation-for-ui-tests") {
+            _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+        }
 
         // Apply the saved appearance override (Auto = follow the system). AppModel
         // also re-applies this when the user changes it in Settings.
@@ -162,6 +165,9 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
                     // runner to send a TCC-protected Apple Event.
                     try? await Task.sleep(for: .milliseconds(300))
                     GanchoDeepLinks.open(deepLink)
+                    if GanchoRuntime.needsRegularActivationForUITests {
+                        _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+                    }
                 }
             }
         #endif
