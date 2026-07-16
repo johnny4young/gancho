@@ -95,9 +95,14 @@ final class PanelUITests: XCTestCase {
         }
 
         try openStatusMenuItem("Settings…", app: app)
-        // 10s, not 5: a hosted runner's first Settings-scene open runs cold
-        // (observed >5s on CI while the click path itself succeeded).
-        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 10))
+        // Hosted runners have repeatedly dropped the FIRST status-menu action
+        // on the floor (menu closed, no window) while the deep-link Settings
+        // path passes — retry the menu path once before calling it missing.
+        // 10s waits, not 5: the first Settings-scene open runs cold on CI.
+        if !app.windows["Settings"].firstMatch.waitForExistence(timeout: 10) {
+            try openStatusMenuItem("Settings…", app: app)
+            XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 10))
+        }
     }
 
     @MainActor
