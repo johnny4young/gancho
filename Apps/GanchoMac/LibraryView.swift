@@ -590,13 +590,16 @@ struct LibraryView: View {
     }
 
     /// Re-runs the model action, then reloads the scope + counts once the write
-    /// settles (the model methods kick their own tasks).
+    /// settles (the model methods kick their own tasks). Every Library mutation
+    /// funnels through here, so this is also where the curated Spotlight set
+    /// stays in step (snippet saves, edits, demotes).
     private func mutate(_ action: () -> Void) {
         action()
         Task {
             try? await Task.sleep(for: .milliseconds(140))
             await loadScope()
             await refreshCounts()
+            model.refreshSpotlight()
         }
     }
 
@@ -634,6 +637,9 @@ struct LibraryView: View {
             try? await model.grdbStore?.updateSnippet(id: id, title: title, text: body)
             try? await model.grdbStore?.setKeyword(id: id, keyword: keyword)
             snippets = (try? await model.grdbStore?.snippets()) ?? []
+            // An edited snippet must replace its Spotlight donation at once —
+            // text the user just rewrote out of it must not stay searchable.
+            model.refreshSpotlight()
         }
     }
 
@@ -643,6 +649,9 @@ struct LibraryView: View {
             try? await model.grdbStore?.demoteFromSnippet(id: editingSnippet.id)
             selection = .allClips
             await refreshAll()
+            // Un-curating removes the donation immediately, matching the
+            // Settings copy's promise.
+            model.refreshSpotlight()
         }
     }
 
@@ -663,6 +672,7 @@ struct LibraryView: View {
             try? await store.promoteToSnippet(id: item.id, title: text)
             snippets = (try? await store.snippets()) ?? []
             selection = .snippet(item.id)
+            model.refreshSpotlight()
         }
     }
 

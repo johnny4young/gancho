@@ -7,6 +7,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Find your snippets from Spotlight.** Snippets and pinned clips now appear
+  in the system-wide Spotlight search on Mac, iPhone, and iPad — open one and
+  Gancho takes you to it. Only the curated Library is indexed: raw history,
+  secrets, masked credentials, and expiring clips never reach the system
+  index. A new toggle in Settings turns this off and removes everything from
+  Spotlight immediately.
+
 ### Fixed
 
 - **AI features can no longer echo a secret that hides inside ordinary text.**

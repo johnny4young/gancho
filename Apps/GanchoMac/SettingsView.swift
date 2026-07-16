@@ -487,6 +487,16 @@ private struct PrivacySettingsTab: View {
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
+            Toggle("Show snippets and pins in Spotlight", isOn: $model.spotlightIndexing)
+            Text(
+                """
+                Only snippets and pinned clips reach the system index — never your raw \
+                history, secrets, or expiring clips. Turning this off removes them from \
+                Spotlight immediately.
+                """
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
             Button("Open Privacy Center") {
                 model.privacyCenterWindow.show(model: model)
             }

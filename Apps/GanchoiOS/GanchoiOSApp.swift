@@ -1,5 +1,7 @@
 import ClipboardCore
+import CoreSpotlight
 import GanchoAI
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import GanchoTelemetry
@@ -88,10 +90,23 @@ struct GanchoiOSApp: App {
             .animation(.snappy, value: model.reuseSuggestion)
             // Post-launch maintenance: the cosmetic legacy-preview backfill
             // moved off the synchronous store open (it scanned image rows on
-            // every cold launch); run it once the first frame is up.
+            // every cold launch); run it once the first frame is up. The
+            // Spotlight reconcile follows: it repairs any curation change the
+            // app missed and applies the toggle state.
             .task {
                 guard let full = model.full else { return }
                 try? await full.backfillLegacyPreviews()
+                model.refreshSpotlight()
+            }
+            // A curated snippet opened from Spotlight lands on its detail via
+            // the same deep link the widgets use.
+            .onContinueUserActivity(CSSearchableItemActionType) { activity in
+                guard
+                    let identifier = activity.userInfo?[CSSearchableItemActivityIdentifier]
+                        as? String,
+                    let url = URL(string: "gancho://clip/\(identifier)")
+                else { return }
+                model.handleDeepLink(url)
             }
             // Widget deep links (`gancho://clip/<id>`) open the right clip.
             .onOpenURL { model.handleDeepLink($0) }

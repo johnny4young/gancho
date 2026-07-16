@@ -6062,6 +6062,26 @@
           }
         }
       }
+    },
+    "Show snippets and pins in Spotlight": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar snippets y pins en Spotlight"
+          }
+        }
+      }
+    },
+    "Only snippets and pinned clips reach the system index — never your raw history, secrets, or expiring clips. Turning this off removes them from Spotlight immediately.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo los snippets y los clips fijados llegan al índice del sistema — nunca tu historial completo, secretos ni clips que expiran. Al desactivarlo, se eliminan de Spotlight de inmediato."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

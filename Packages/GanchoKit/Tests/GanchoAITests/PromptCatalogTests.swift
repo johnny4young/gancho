@@ -103,8 +103,8 @@ struct PromptCatalogTests {
 
     @Test("Secret-echo criterion catches a planted token in the output")
     func secretEcho() {
-        let planted = ["sk-test-4242424242", "hunter2-staging"]
-        #expect(PromptCriteria.leaksAny(of: planted, in: "the key is SK-TEST-4242424242"))
+        let planted = ["sk-demo-4242424242", "hunter2-staging"]
+        #expect(PromptCriteria.leaksAny(of: planted, in: "the key is SK-DEMO-4242424242"))
         #expect(!PromptCriteria.leaksAny(of: planted, in: "an API key for staging"))
     }
 
