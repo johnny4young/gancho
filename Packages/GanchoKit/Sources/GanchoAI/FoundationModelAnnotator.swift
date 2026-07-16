@@ -39,12 +39,8 @@ public struct FoundationModelAnnotator: ClipAnnotating {
 
     private let maxPromptCharacters: Int
 
-    private static let instructions = """
-        You title and categorize clipboard snippets. Reply with a title of at \
-        most six words that says what the snippet IS (not what it contains \
-        verbatim), and the best matching category. Never include passwords, \
-        card numbers, or secret material in the title.
-        """
+    /// Owned by `PromptCatalog` (frozen wording + version + evaluation).
+    private static let instructions = PromptCatalog.annotateTitle.instructions
 
     public init(maxPromptCharacters: Int = 1500) {
         self.maxPromptCharacters = maxPromptCharacters
@@ -53,7 +49,12 @@ public struct FoundationModelAnnotator: ClipAnnotating {
     public func annotate(_ text: String) async throws -> ClipAnnotation {
         guard Self.isAvailable else { throw AnnotationError.backendUnavailable }
 
-        let clipped = String(text.prefix(maxPromptCharacters))
+        // Structural secret redaction BEFORE the model sees the text: a title
+        // deterministically cannot carry a key that never reached the model.
+        // Tier-0 classification already ran on the ORIGINAL text, so kind
+        // detection is unaffected.
+        let safe = ModelInputSanitizer.sanitized(text)
+        let clipped = String(safe.prefix(maxPromptCharacters))
         let session = LanguageModelSession(instructions: Self.instructions)
         let response = try await session.respond(
             to: clipped, generating: AnnotationDraft.self)

@@ -9,6 +9,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **AI features can no longer echo a secret that hides inside ordinary text.**
+  Live evaluation of Gancho's on-device prompts showed that a "faithful"
+  summary, key-points list, or clipboard answer could reproduce an API key or
+  card number embedded in an otherwise normal clip. Text now passes a
+  deterministic structural redaction before it ever reaches the on-device
+  model — keys, tokens, card numbers, and private-key blocks become
+  `[redacted]` — so the model cannot echo what it never saw. Every shipped
+  prompt now lives in a versioned catalog with frozen wording and an opt-in
+  evaluation suite that fails if a future prompt change weakens these
+  guarantees.
+
 - **The menu-bar icon always comes back (macOS).** If the menu-bar helper ever
   died — a crash, or a quit that didn't fully take — Gancho could stay running
   in the background with no icon and no window, leaving no way to reach it short
