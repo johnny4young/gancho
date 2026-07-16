@@ -55,6 +55,7 @@ private enum GanchoRuntime {
 
     static var needsRegularActivationForUITests: Bool {
         CommandLine.arguments.contains("-open-panel-on-launch")
+            || CommandLine.arguments.contains("-regular-activation-for-ui-tests")
     }
 
     #if DEBUG

@@ -10,7 +10,13 @@
 <meta property="og:title" content="gancho — your clipboard, everywhere" />
 <meta property="og:description" content="A private-by-design clipboard history and snippet library for Mac, iPhone, and iPad. Local-first, encrypted, on-device AI." />
 <meta property="og:url" content="https://gancho.app/" />
-<meta name="twitter:card" content="summary" />
+<meta property="og:image" content="https://gancho.app/assets/v0.7.0-release.png" />
+<meta property="og:image:width" content="976" />
+<meta property="og:image:height" content="648" />
+<meta property="og:image:alt" content="Gancho v0.7 Spotlight privacy controls on macOS" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://gancho.app/assets/v0.7.0-release.png" />
+<meta name="twitter:image:alt" content="Gancho v0.7 Spotlight privacy controls on macOS" />
 <link rel="icon" href="assets/gancho-mark.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="styles.css" />
 <style>
@@ -128,6 +134,17 @@
   .trust { display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: center; justify-content: center; padding: 22px 0; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
   .trust span { font-size: var(--text-title); font-weight: var(--weight-medium); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 8px; }
   .trust .mk { color: var(--sync-ok); }
+
+  /* ---- latest release: real product evidence + concise value story ---- */
+  .release-grid { display: grid; grid-template-columns: 0.88fr 1.12fr; gap: 42px; align-items: center; }
+  .release-copy .h2 { margin-top: 12px; }
+  .release-copy .lede { margin: 14px 0 0; }
+  .release-list { list-style: none; margin: 24px 0; padding: 0; border-top: 1px solid var(--hairline); }
+  .release-list li { padding: 13px 0; border-bottom: 1px solid var(--hairline); color: var(--text-secondary); font-size: var(--text-title); }
+  .release-list b { color: var(--text-primary); font-weight: var(--weight-semibold); }
+  .release-shot { margin: 0; padding: 10px; border: 1px solid var(--glass-stroke); border-radius: var(--radius-lg); background: var(--glass-tint); box-shadow: var(--shadow-panel); overflow: hidden; }
+  .release-shot img { display: block; width: 100%; height: auto; border-radius: calc(var(--radius-lg) - 6px); background: var(--surface-card); }
+  .release-shot figcaption { padding: 10px 4px 2px; color: var(--text-tertiary); font-size: var(--text-footnote); line-height: 1.45; }
 
   /* cards grid */
   .grid { display: grid; gap: 16px; margin-top: 38px; }
@@ -352,6 +369,7 @@
   }
   @media (max-width: 900px) {
     .hero-grid { grid-template-columns: 1fr; gap: 36px; }
+    .release-grid { grid-template-columns: 1fr; gap: 30px; }
     .panel { margin: 0 auto; }
     .grid.f3 { grid-template-columns: repeat(2, 1fr); }
     .worlds { grid-template-columns: 1fr; }
@@ -477,6 +495,28 @@
     <span><svg class="i mk" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg><span data-i18n="trust.4">Sin telemetría de contenido</span></span>
   </div>
 </div>
+
+<!-- ============ LATEST RELEASE ============ -->
+<section class="band band-tint" id="latest-release">
+  <div class="wrap release-grid">
+    <div class="release-copy">
+      <span class="kicker" data-i18n="rel.kicker">Nuevo en 0.7</span>
+      <h2 class="h2" data-i18n="rel.title">Menos trabajo repetitivo. Más control sobre lo que sale de tu historial.</h2>
+      <p class="lede" data-i18n="rel.lede">La versión 0.7 lleva la Library al sistema, convierte el panel en una herramienta por lotes y refuerza la frontera que protege tus secretos.</p>
+      <ul class="release-list">
+        <li data-i18n="rel.1"><b>Trabaja por lotes en Mac:</b> selecciona varios clips, envíalos al paste stack, archívalos en un board o bórralos con un solo Undo; los archivos seleccionados se arrastran juntos.</li>
+        <li data-i18n="rel.2"><b>Encuentra solo lo que elegiste conservar:</b> Spotlight indexa snippets y pins en Mac, iPhone y iPad, nunca el historial completo, secretos ni clips que expiran.</li>
+        <li data-i18n="rel.3"><b>IA que no ve tus credenciales:</b> claves, tokens, tarjetas y llaves privadas se reemplazan antes de llegar al modelo on-device.</li>
+        <li data-i18n="rel.4"><b>Rápido y recuperable:</b> boards paginados, búsqueda semántica p95 &lt;30 ms, vectores actualizables y una barra de menú que nunca deja el historial huérfano.</li>
+      </ul>
+      <a class="btn btn-ghost" href="#changelog" data-i18n="rel.cta">Ver todo lo que incluye 0.7</a>
+    </div>
+    <figure class="release-shot">
+      <img src="assets/v0.7.0-release.png" width="976" height="648" loading="lazy" decoding="async" alt="Ajustes de privacidad de Spotlight en Gancho v0.7 / Gancho v0.7 Spotlight privacy settings" />
+      <figcaption data-i18n="rel.caption">Build real de macOS capturado por XCUITest: el índice de Spotlight es explícito, limitado a la Library curada y reversible de inmediato.</figcaption>
+    </figure>
+  </div>
+</section>
 
 <!-- ============ PRIVACY ============ -->
 <section class="band band-tint" id="privacy">
@@ -884,10 +924,12 @@
         <div class="log-meta"><span class="ver">0.7.0</span><span class="dt" data-i18n="log.v070.d">Jul 2026 · pre-lanzamiento</span></div>
         <div class="log-body"><h3 data-i18n="log.v070.t">Tu biblioteca curada, en todo el sistema</h3><ul>
           <li data-i18n="log.v070.1"><b>Snippets y pins en Spotlight</b>: la búsqueda del sistema encuentra tu biblioteca curada en Mac, iPhone y iPad — nunca el historial completo, secretos ni clips que expiran, y con un interruptor que la retira de inmediato.</li>
-          <li data-i18n="log.v070.2"><b>La IA no puede ecoar tus secretos</b>: claves, tokens y tarjetas se redactan estructuralmente antes de llegar al modelo on-device, y cada prompt vive en un catálogo versionado con evaluación en vivo.</li>
-          <li data-i18n="log.v070.3"><b>Boards grandes abren al instante</b>: los clips de un board cargan por páginas en el panel, la lista de iOS, la Library y el teclado.</li>
-          <li data-i18n="log.v070.4"><b>Búsqueda semántica más rápida y a prueba de upgrades</b>: cada vector registra su versión de modelo y se re-indexa en segundo plano tras un upgrade; la selección de resultados medida a escala baja el p95 a menos de 30 ms.</li>
-          <li data-i18n="log.v070.5"><b>DMG firmado y notarizado</b>: v0.7.0 se publica por el mismo canal firmado, notarizado y stapled que produjo el artefacto v0.6.0 aceptado por Gatekeeper; la aceptación se re-verifica en cada publicación.</li>
+          <li data-i18n="log.v070.2"><b>Acciones por lotes en el panel de Mac</b>: Shift o Command seleccionan varios clips para enviarlos juntos al paste stack, archivarlos en un board o borrarlos con un único Undo; una selección formada solo por archivos se arrastra completa a Finder.</li>
+          <li data-i18n="log.v070.3"><b>La IA no puede ecoar tus secretos</b>: claves, tokens y tarjetas se redactan estructuralmente antes de llegar al modelo on-device, y cada prompt vive en un catálogo versionado con evaluación en vivo.</li>
+          <li data-i18n="log.v070.4"><b>Boards grandes abren al instante</b>: los clips de un board cargan por páginas en el panel, la lista de iOS, la Library y el teclado.</li>
+          <li data-i18n="log.v070.5"><b>Búsqueda semántica más rápida y a prueba de upgrades</b>: cada vector registra su versión de modelo y se re-indexa en segundo plano tras un upgrade; la selección de resultados medida a escala baja el p95 a menos de 30 ms.</li>
+          <li data-i18n="log.v070.6"><b>Privacidad y acceso sin callejones</b>: los JWT ya no aparecen en claro, el ícono de la barra de menú se recupera si su helper falla y Gancho termina si no queda ningún acceso visible, en vez de dejar el historial huérfano.</li>
+          <li data-i18n="log.v070.7"><b>DMG firmado y notarizado</b>: v0.7.0 se publica por el mismo canal firmado, notarizado y stapled que produjo el artefacto v0.6.0 aceptado por Gatekeeper; la aceptación se re-verifica en cada publicación.</li>
         </ul></div>
       </div>
       <div class="log-row">
@@ -1016,6 +1058,14 @@
       "panel.search": "Search your clipboard…", "panel.foot": "Synced · your iCloud, encrypted",
       "clip.code.t": "useEffect cleanup", "clip.secret.t": "OpenAI API key", "clip.url.t": "Privacy policy", "clip.color.t": "Brand green", "clip.image.t": "Launch mark", "clip.image.p": "PNG · 248 KB · 1640×1024 · encrypted",
       "trust.1": "Local-first", "trust.2": "Encrypted on device", "trust.3": "No middle servers", "trust.4": "No content telemetry",
+      "rel.kicker": "New in 0.7", "rel.title": "Less repetitive work. More control over what leaves your history.",
+      "rel.lede": "Version 0.7 brings the Library into the system, turns the panel into a batch tool, and strengthens the boundary that protects your secrets.",
+      "rel.1": "<b>Work in batches on Mac:</b> select several clips, send them to the paste stack, file them into a board, or delete them with one Undo; selected files drag together.",
+      "rel.2": "<b>Find only what you chose to keep:</b> Spotlight indexes snippets and pins on Mac, iPhone, and iPad — never raw history, secrets, or expiring clips.",
+      "rel.3": "<b>AI that never sees your credentials:</b> keys, tokens, cards, and private keys are replaced before they reach the on-device model.",
+      "rel.4": "<b>Fast and recoverable:</b> paged boards, semantic search p95 under 30 ms, upgradeable vectors, and a menu bar that never leaves history orphaned.",
+      "rel.cta": "See everything in 0.7",
+      "rel.caption": "Real macOS build captured by XCUITest: Spotlight indexing is explicit, limited to the curated Library, and immediately reversible.",
       "priv.kicker": "Privacy invariants", "priv.title": "It earns your trust before it earns your convenience.",
       "priv.lede": "gancho treats what you copy as private data. It observes metadata first, vetoes sensitive pasteboards before reading them, and keeps logs and diagnostics content-free.",
       "priv.c1.t": "Veto before read", "priv.c1.p": "Password-manager, transient, concealed, and auto-generated types are rejected before gancho reads a payload.", "priv.c1.tag": "Sensitive → skipped",
@@ -1074,10 +1124,12 @@
       "log.lede": "Each release's metadata is verified in CI: project.yml, CHANGELOG.md, GitHub tags, and artifacts all move together.",
       "log.v070.d": "Jul 2026 · pre-release", "log.v070.t": "Your curated library, system-wide",
       "log.v070.1": "<b>Snippets and pins in Spotlight</b>: system search finds your curated library on Mac, iPhone, and iPad — never raw history, secrets, or expiring clips, with a toggle that removes it all immediately.",
-      "log.v070.2": "<b>AI can't echo your secrets</b>: keys, tokens, and card numbers are structurally redacted before reaching the on-device model, and every prompt lives in a versioned catalog with live evaluation.",
-      "log.v070.3": "<b>Big boards open instantly</b>: a board's clips load in pages across the panel, the iOS list, the Library, and the keyboard.",
-      "log.v070.4": "<b>Semantic search, faster and upgrade-proof</b>: every vector records its model version and re-indexes in the background after an upgrade; result selection measured at scale brings p95 under 30 ms.",
-      "log.v070.5": "<b>Signed, notarized DMG</b>: v0.7.0 ships through the same signed, notarized, stapled lane that produced the Gatekeeper-accepted v0.6.0 artifact; acceptance is re-verified per published release.",
+      "log.v070.2": "<b>Batch actions in the Mac panel</b>: Shift or Command selects several clips to send to the paste stack, file into a board, or delete with one shared Undo; an all-file selection drags to Finder as a complete set.",
+      "log.v070.3": "<b>AI can't echo your secrets</b>: keys, tokens, and card numbers are structurally redacted before reaching the on-device model, and every prompt lives in a versioned catalog with live evaluation.",
+      "log.v070.4": "<b>Big boards open instantly</b>: a board's clips load in pages across the panel, the iOS list, the Library, and the keyboard.",
+      "log.v070.5": "<b>Semantic search, faster and upgrade-proof</b>: every vector records its model version and re-indexes in the background after an upgrade; result selection measured at scale brings p95 under 30 ms.",
+      "log.v070.6": "<b>Privacy and access without dead ends</b>: JWTs no longer appear in clear text, the menu-bar icon recovers if its helper fails, and Gancho terminates when no visible affordance survives instead of leaving history orphaned.",
+      "log.v070.7": "<b>Signed, notarized DMG</b>: v0.7.0 ships through the same signed, notarized, stapled lane that produced the Gatekeeper-accepted v0.6.0 artifact; acceptance is re-verified per published release.",
       "log.next.d": "Jul 2026 · pre-release", "log.next.t": "More control over everything you find and reuse",
       "log.next.1": "<b>Find by source app</b>: filter for Safari, Xcode, or another app and combine it with text, kind, board, and date on Mac, iPhone, or iPad.",
       "log.next.2": "<b>Name and refine your clips</b>: edit titles or text with an explicit Save/Cancel flow that refreshes search and syncs only after the local write succeeds.",

@@ -66,11 +66,26 @@ VERSION=0.1.0 ./scripts/package-macos-zip.sh
 1. Update `project.yml`:
    - `MARKETING_VERSION` to the semantic version you are shipping.
    - `CURRENT_PROJECT_VERSION` to a monotonically increasing build number.
-2. Move the relevant notes from `CHANGELOG.md`'s `[Unreleased]` section into a
-   dated `## [x.y.z] - YYYY-MM-DD` entry.
-3. Update `scripts/homebrew/gancho.rb` if the CLI formula template should point
+2. Audit the complete release range before writing the story. Do not rely only
+   on `[Unreleased]`; compare every merged commit since the previous tag:
+
+   ```bash
+   previous_tag="$(git describe --tags --abbrev=0)"
+   git log --oneline "${previous_tag}..HEAD"
+   ```
+
+   Turn that inventory into outcome-led copy for every shipped feature. Update
+   the dated `CHANGELOG.md` entry, the README's current-release section,
+   `docs/PRODUCT-TRUTH.md`, both website languages, and the pull request body.
+   Keep implementation detail as proof, not as the headline.
+3. Capture one privacy-safe, fixture-backed product screenshot from the release
+   build with a focused XCUITest. Publish it as
+   `site/assets/vX.Y.Z-release.png`, embed it in the README and website, and use
+   its absolute `https://gancho.app/...` URL for Open Graph and Twitter cards.
+   Crop through the tested app surface; never publish a full-desktop capture or
+   unrelated user content. Inspect the image at desktop and mobile breakpoints.
+4. Update `scripts/homebrew/gancho.rb` if the CLI formula template should point
    at the same version.
-4. Refresh the website copy in `site/` if the public status changed.
 5. Run the gates, sequentially:
 
    ```bash
@@ -83,7 +98,10 @@ VERSION=0.1.0 ./scripts/package-macos-zip.sh
    make build-ios
    ```
 
-6. Commit, tag, and push:
+6. Review the rendered README, website, social card, and release pull request as
+   a prospective user: the new capabilities, trust boundary, and reason to
+   upgrade should be clear without reading the diff.
+7. Commit, tag, and push:
 
    ```bash
    git tag v0.1.0
