@@ -124,6 +124,7 @@ final class IOSAppModel {
         }
     }
     var isTelemetryConsentPromptPresented = false
+    @ObservationIgnored var uiTestPrivateActivityReceiptSeedTask: Task<Void, Never>?
 
     #if DEBUG
         /// UI-test-only consent pin (see init). Nil when the launch argument
@@ -224,7 +225,7 @@ final class IOSAppModel {
         // refresh an open screen.
         recordStorageHealthIfNeeded()
         seedSampleClipsIfRequested()
-        seedDurableUITestFixturesIfRequested()
+        uiTestPrivateActivityReceiptSeedTask = seedDurableUITestFixturesIfRequested()
         telemetry.record(.appLaunched)
         #if DEBUG
             if CommandLine.arguments.contains("-show-telemetry-consent") {
@@ -297,11 +298,6 @@ final class IOSAppModel {
         }
     }
 
-    func requestTelemetryConsentAfterFirstValue() {
-        guard telemetryConsent == .notAsked else { return }
-        isTelemetryConsentPromptPresented = true
-    }
-
     func recordActivationMilestone(_ milestone: ActivationMilestone) {
         guard telemetryConsent != .disabled,
             let receipt = activationTracker.record(milestone)
@@ -312,33 +308,15 @@ final class IOSAppModel {
                 milestone: receipt.milestone, elapsedBucket: receipt.elapsedBucket))
     }
 
-    private func recordSuccessfulReuse(_ item: ClipItem) {
+    private func recordSuccessfulReuse(_ item: ClipItem) async {
+        try? await full?.recordPrivateReuse(
+            targetAppBundleID: nil, itemCount: 1, at: .now)
         recordActivationMilestone(.firstSuccessfulReuse)
         telemetry.record(
             .successfulReuse(
                 method: .copy, batchSize: .one,
                 ageBucket: .init(age: Date().timeIntervalSince(item.createdAt))))
         requestTelemetryConsentAfterFirstValue()
-    }
-
-    func completeOnboarding() {
-        recordActivationMilestone(.onboardingCompleted)
-    }
-
-    func forceSync() async {
-        // Start = "run a sync cycle now" on the boundary; the CloudKit
-        // adapter gives it real semantics during on-device verification.
-        await syncController.forceSync()
-        await refreshHints()
-    }
-
-    /// Pull the latest from iCloud (and push pending) when the app comes
-    /// forward, so another device's recent clips appear without a pull-to-
-    /// refresh. The engine is push-driven on its own; this is the latency
-    /// belt-and-braces for foregrounding (and pushes iOS coalesced while the
-    /// app was suspended). The status observer refreshes the list on settle.
-    func syncNow() {
-        syncController.syncNow()
     }
 
     /// Foreground maintenance: purge expired history (the "auto-expires after
@@ -362,7 +340,13 @@ final class IOSAppModel {
             return
         }
         let policy = RetentionPolicy.load(from: defaults)
-        _ = try? await RetentionEngine(store: grdb).runPurge(policy: policy)
+        let now = Date()
+        if let summary = try? await RetentionEngine(store: grdb).runPurge(
+            policy: policy, now: now)
+        {
+            try? await grdb.recordPrivateSensitiveExpiry(
+                count: summary.sensitiveExpired, at: now)
+        }
         // The purge tombstoned any synced victims; enqueue those deletions now
         // so they propagate immediately rather than at the next sync start().
         // Re-adding an already-pending deletion is a no-op in the engine, so
@@ -674,7 +658,7 @@ final class IOSAppModel {
         // Copying a clip is the truest "ready to paste" moment — it's on the
         // pasteboard now — so surface it on the Live Activity too.
         clipActivity.show(item, sync: ClipSyncBadge(syncStatus))
-        recordSuccessfulReuse(item)
+        await recordSuccessfulReuse(item)
         if let suggestion { await presentReuseSuggestion(suggestion) }
     }
 
@@ -988,6 +972,10 @@ final class IOSAppModel {
         }
         Signpost.captureToInsert.end(ingestInterval)
         if outcome.isNew { recordActivationMilestone(.firstCapture) }
+        try? await full?.recordPrivateCapture(
+            sourceAppBundleID: capture.sourceAppBundleID,
+            count: 1,
+            at: capture.capturedAt)
         flashNote(
             outcome.isNew
                 ? String(localized: "Saved") : String(localized: "Already in your history"))

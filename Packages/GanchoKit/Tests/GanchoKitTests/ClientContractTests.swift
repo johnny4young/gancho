@@ -36,10 +36,11 @@ struct ClientContractTests {
         let boards: any BoardStoring = store
         let snippets: any SnippetStoring = store
         let stats: any StoreStatsProviding = store
+        let privateReceipt: any PrivateActivityReceiptStoring = store
         let exporting: any ExportProviding = store
         let maintaining: any StoreMaintaining = store
         _ = (reading, searching, sourceApps, mutator, reuseSuggestions, enriching)
-        _ = (boards, snippets, stats, exporting, maintaining)
+        _ = (boards, snippets, stats, privateReceipt, exporting, maintaining)
 
         // The composed third-party client contract binds too (the surface a
         // future non-Apple client programs against; the refactor plan migrates

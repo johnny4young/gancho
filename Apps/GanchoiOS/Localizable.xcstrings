@@ -3351,6 +3351,126 @@
           }
         }
       }
+    },
+    "Captures skipped": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturas omitidas"
+          }
+        }
+      }
+    },
+    "Clear activity receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar recibo de actividad"
+          }
+        }
+      }
+    },
+    "Clear activity receipt?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Borrar el recibo de actividad?"
+          }
+        }
+      }
+    },
+    "Clear receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar recibo"
+          }
+        }
+      }
+    },
+    "Copies captured": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copias capturadas"
+          }
+        }
+      }
+    },
+    "Items reused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elementos reutilizados"
+          }
+        }
+      }
+    },
+    "On this iPhone now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora en este iPhone"
+          }
+        }
+      }
+    },
+    "Private activity receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recibo privado de actividad"
+          }
+        }
+      }
+    },
+    "Protected copies skipped": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copias protegidas omitidas"
+          }
+        }
+      }
+    },
+    "Sensitive items self-expired": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elementos sensibles autoexpirados"
+          }
+        }
+      }
+    },
+    "Stored only on this iPhone for a rolling 13 months. Protected copies are included in skipped captures. Per-app totals never sync, export, or enter diagnostics.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Almacenado solo en este iPhone durante un periodo móvil de 13 meses. Las copias protegidas están incluidas en las capturas omitidas. Los totales por app nunca se sincronizan, exportan ni incluyen en los diagnósticos."
+          }
+        }
+      }
+    },
+    "This erases local activity totals. Your clips and settings stay unchanged.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esto borra los totales de actividad local. Tus clips y ajustes no cambian."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

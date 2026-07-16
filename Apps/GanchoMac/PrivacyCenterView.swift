@@ -9,11 +9,10 @@ import SwiftUI
 /// optional diagnostics never carry clipboard content.
 struct PrivacyCenterView: View {
     @Environment(AppModel.self) private var model
-    @State private var captured = 0
+    @State private var receipt = PrivateActivityReceipt.empty()
     @State private var masked = 0
-    @State private var expired = 0
-    @State private var ignoredByReason: [CaptureIgnoreReason: Int] = [:]
     @State private var synced = 0
+    @State private var confirmsReceiptClear = false
     @State private var mcpAccesses: [MCPAccessEvent] = []
     @State private var mcpCalls = 0
     @State private var mcpResultsReturned = 0
@@ -53,18 +52,40 @@ struct PrivacyCenterView: View {
             }
 
             Form {
-                Section("This week, on this Mac") {
-                    LabeledContent("Clips captured", value: "\(captured)")
+                Section {
+                    LabeledContent("Items reused", value: "\(receipt.reusedItems)")
+                        .accessibilityIdentifier("private-receipt-reused-count")
+                    LabeledContent("Copies captured", value: "\(receipt.captures)")
+                        .accessibilityIdentifier("private-receipt-captured-count")
+                    LabeledContent("Captures skipped", value: "\(receipt.skippedCaptures)")
+                        .accessibilityIdentifier("private-receipt-skipped-count")
                     LabeledContent(
-                        "Copies ignored", value: "\(ignoredByReason.values.reduce(0, +))")
-                    ForEach(CaptureIgnoreReason.allCases, id: \.self) { reason in
-                        if let count = ignoredByReason[reason], count > 0 {
-                            LabeledContent(reasonLabel(reason), value: "\(count)")
-                                .padding(.leading, GanchoTokens.Spacing.md)
-                        }
+                        "Protected copies skipped", value: "\(receipt.protectedCaptures)"
+                    )
+                    .accessibilityIdentifier("private-receipt-protected-count")
+                    LabeledContent(
+                        "Sensitive items self-expired",
+                        value: "\(receipt.sensitiveItemsExpired)"
+                    )
+                    .accessibilityIdentifier("private-receipt-expired-count")
+                    Text(
+                        // swiftlint:disable:next line_length
+                        "Stored only on this Mac for a rolling 13 months. Protected copies are included in skipped captures. Per-app totals never sync, export, or enter diagnostics."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    Button("Clear activity receipt", role: .destructive) {
+                        confirmsReceiptClear = true
                     }
+                    .tint(GanchoTokens.Palette.danger)
+                    .accessibilityIdentifier("clear-private-receipt-button")
+                } header: {
+                    Text("Private activity receipt")
+                        .accessibilityIdentifier("private-receipt-section")
+                }
+
+                Section("On this Mac now") {
                     LabeledContent("Secrets masked", value: "\(masked)")
-                    LabeledContent("Items self-expired", value: "\(expired)")
                     LabeledContent("Items synchronized", value: "\(synced)")
                 }
 
@@ -223,16 +244,25 @@ struct PrivacyCenterView: View {
             .formStyle(.grouped)
         }
         .padding(GanchoTokens.Spacing.md)
-        .frame(width: 480, height: 560)
+        .frame(width: 480, height: 620)
         .accessibilityIdentifier("privacy-center")
         .task { await refresh() }
+        .alert("Clear activity receipt?", isPresented: $confirmsReceiptClear) {
+            Button("Clear receipt", role: .destructive) {
+                Task {
+                    await model.clearPrivateActivityReceipt()
+                    await refresh()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This erases local activity totals. Your clips and settings stay unchanged.")
+        }
     }
 
     private func refresh() async {
-        captured = (try? await model.store.count()) ?? 0
-        ignoredByReason = model.privacyEvents.countsByReason(since: weekAgo)
+        receipt = await model.privateActivityReceipt()
         if let grdb = model.grdbStore {
-            expired = (try? await grdb.purgedItemCount(since: weekAgo)) ?? 0
             synced = (try? await grdb.syncedCount()) ?? 0
             masked = (try? await grdb.sensitiveCount()) ?? 0
         }
@@ -292,14 +322,6 @@ struct PrivacyCenterView: View {
         }
     }
 
-    private func reasonLabel(_ reason: CaptureIgnoreReason) -> LocalizedStringKey {
-        switch reason {
-        case .sensitiveType: "From a password manager"
-        case .denylistedApp: "From an excluded app"
-        case .userIgnoredNext: "You said “ignore next”"
-        case .preferenceFiltered: "Type disabled in Settings"
-        }
-    }
 }
 
 /// Window host for the Privacy Center (menu-bar agent, no WindowGroup).

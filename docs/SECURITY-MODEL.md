@@ -24,10 +24,17 @@ flowchart LR
 Content exists in exactly four places: the pasteboard itself, the local
 store (rows + content-addressed blobs), the user's iCloud private database
 (opt-in, `encryptedValues`), and user-initiated exports. Everything else —
-ignore events, purge logs, activation metrics, and explicitly enabled telemetry
+ignore events, purge logs, private activity totals, activation metrics, and explicitly enabled telemetry
 — is counters and timestamps by construction (the types carry no content
 field). Telemetry is disabled until the user consents and stops immediately
 when consent is withdrawn.
+
+The private activity receipt is independent of optional diagnostics. Its
+`clip_app_stats` rows contain a validated, bounded bundle identifier, a UTC day,
+and integer capture/reuse/skip/protection/expiry counters only. Rows remain on
+that device, are pruned beyond a rolling 13 months, never sync or export, and
+can be erased from the Privacy Center without deleting clips or changing
+settings.
 
 ## Optional diagnostics lifecycle and deletion
 
@@ -40,7 +47,7 @@ when consent is withdrawn.
   pre-consent actions. Later events are closed enum values and coarse buckets.
   The transport uses only its app-scoped anonymous identifier; Gancho adds no
   account, email, advertising identifier, or cross-app identity.
-- The Privacy Center's per-event counters live in memory and reset on quit.
+- Optional diagnostics' per-event counters live in memory and reset on quit.
   Turning diagnostics off clears them, deletes the local activation receipt,
   detaches the sender, and terminates the SDK synchronously. Re-enabling starts
   a new local activation window; disabled-period actions are not backfilled.
@@ -64,6 +71,7 @@ when consent is withdrawn.
 | Exports grabbed by other software | exports are explicit user actions to user-chosen paths; no auto-export | settings/export code path |
 | Lost/stolen device | content sits in the OS user account protected by FileVault/iOS data protection; sensitive items already expired in minutes | retention engine tests |
 | Support bundles leaking content | support/diagnostics may include settings snapshot + counters ONLY (snapshot is content-free by schema); the in-app error log (`DiagnosticLog`, the Privacy Center "Recent issues" + "Copy for support") stores a category, a fixed operational message, and a timestamp only — never clip text, capped in memory, never persisted or uploaded | `SettingsSnapshotTests.contentFree`, `DiagnosticLogTests` |
+| Private activity receipt grows or becomes a shadow history | `clip_app_stats` accepts bounded bundle IDs plus UTC days and integer counters only; atomic upserts prune beyond 13 months; Privacy Center exposes an independent clear action; the table never syncs or exports | `PrivateActivityReceiptTests` schema, retention, concurrency, and clear coverage |
 | Consent withdrawal leaves analytics running | sender detaches under lock, SDK termination runs synchronously, session counters and local activation receipts are erased; a concurrently constructed sender is terminated instead of attached | `TelemetryTests.forwards`, disabled-state and activation-receipt tests |
 
 ## Release checklist (blocks the release if any item fails)

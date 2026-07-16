@@ -577,8 +577,9 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 t.column("uses", .integer).notNull().defaults(to: 1)
                 t.column("lastUsedAt", .datetime).notNull()
             }
-            // Per-app capture/paste counters for Insights — bundle id + counts
-            // only, ZERO content. The column set has no room for clip text.
+            // Per-app capture/reuse counters for the private activity receipt —
+            // bundle ID + counts only, ZERO content. The column set has no room
+            // for clip text.
             try db.create(table: "clip_app_stats") { t in
                 t.column("bundleID", .text).notNull()
                 t.column("day", .text).notNull()
@@ -604,6 +605,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             }
         }
         Self.registerMCPClientLedgerMigration(in: &migrator)
+        Self.registerPrivateActivityReceiptMigration(in: &migrator)
         return migrator
     }
 

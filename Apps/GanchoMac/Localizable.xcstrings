@@ -7010,6 +7010,126 @@
           }
         }
       }
+    },
+    "Private activity receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recibo privado de actividad"
+          }
+        }
+      }
+    },
+    "Items reused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elementos reutilizados"
+          }
+        }
+      }
+    },
+    "Copies captured": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copias capturadas"
+          }
+        }
+      }
+    },
+    "Captures skipped": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturas omitidas"
+          }
+        }
+      }
+    },
+    "Protected copies skipped": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copias protegidas omitidas"
+          }
+        }
+      }
+    },
+    "Sensitive items self-expired": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elementos sensibles autoexpirados"
+          }
+        }
+      }
+    },
+    "Clear activity receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar recibo de actividad"
+          }
+        }
+      }
+    },
+    "Clear activity receipt?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Borrar el recibo de actividad?"
+          }
+        }
+      }
+    },
+    "Clear receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar recibo"
+          }
+        }
+      }
+    },
+    "This erases local activity totals. Your clips and settings stay unchanged.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esto borra los totales de actividad local. Tus clips y ajustes no cambian."
+          }
+        }
+      }
+    },
+    "On this Mac now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora en este Mac"
+          }
+        }
+      }
+    },
+    "Stored only on this Mac for a rolling 13 months. Protected copies are included in skipped captures. Per-app totals never sync, export, or enter diagnostics.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Almacenado solo en este Mac durante un periodo móvil de 13 meses. Las copias protegidas están incluidas en las capturas omitidas. Los totales por app nunca se sincronizan, exportan ni incluyen en los diagnósticos."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

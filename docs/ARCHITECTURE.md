@@ -144,7 +144,7 @@ diagnostic, paywall, and toast behavior.
 
 ## Frozen client contract
 
-The store is not one wide class to everyone. `Packages/GanchoKit/Sources/GanchoKit/ClientContract.swift` splits it into eleven capability **facets** — `ClipReading`, `ClipSearching`, `SourceAppProviding`, `ClipMutating`, `ReuseSuggestionProviding`, `ClipEnriching`, `BoardStoring`, `SnippetStoring`, `StoreStatsProviding`, `ExportProviding`, `StoreMaintaining` — plus two compositions: `GanchoClientStore` (the read/search/board/export surface a third-party or cross-target client may depend on) and `FullClipStore` (everything the first-party apps hold, including content-free source-app discovery and atomic local reuse suggestions). Feature code takes the narrowest facet it needs; only the composition root sees the concrete `GRDBClipboardStore`.
+The store is not one wide class to everyone. `Packages/GanchoKit/Sources/GanchoKit/ClientContract.swift` splits it into twelve capability **facets** — `ClipReading`, `ClipSearching`, `SourceAppProviding`, `ClipMutating`, `ReuseSuggestionProviding`, `ClipEnriching`, `BoardStoring`, `SnippetStoring`, `StoreStatsProviding`, `PrivateActivityReceiptStoring`, `ExportProviding`, `StoreMaintaining` — plus two compositions: `GanchoClientStore` (the read/search/board/export surface a third-party or cross-target client may depend on) and `FullClipStore` (everything the first-party apps hold, including content-free source-app discovery, atomic local reuse suggestions, and the bounded local activity receipt). Feature code takes the narrowest facet it needs; only the composition root sees the concrete `GRDBClipboardStore`.
 
 That surface is **frozen**: it is the supported API, so changes to it are deliberate, documented, and reviewed. GRDB-shaped members that are not facet witnesses (`migrate()`, `thumbnailURL(for:)`) live behind `@_spi(GanchoInternal)` so they stay off the ambient app-facing and external surface; the few internal call sites (tests, the perf harness) opt in with `@_spi(GanchoInternal) import GanchoKit`. `ContractFreezeTests` enforces this in CI: every frozen facet stays declared, every requirement stays documented, and the SPI-gated members stay gated.
 
@@ -180,6 +180,8 @@ Store shape:
 - FTS5 tables for searchable text, titles, tags, and snippet bodies.
 - embedding tables for on-device semantic retrieval.
 - a `clip_board` junction plus board metadata and board tombstones.
+- `clip_app_stats`: local-only UTC-day integer aggregates for the 13-month,
+  explicitly clearable private activity receipt; no content-shaped columns.
 - tombstones for sync-compatible deletion.
 - an open JSON/CSV export so users can leave without data lock-in.
 

@@ -325,6 +325,38 @@ public protocol StoreStatsProviding: Sendable {
     func purgedItemCount(since date: Date) async throws -> Int
 }
 
+// MARK: - Private activity receipt
+
+/// Local-only activity aggregates for the first-party Privacy Center. This is
+/// deliberately separate from analytics and from `StoreStatsProviding`: it can
+/// mutate and clear a bounded receipt, while ordinary current-state counters
+/// remain read-only. No third-party client composition includes this facet.
+public protocol PrivateActivityReceiptStoring: Sendable {
+    /// Adds successful capture events to the source-app/day bucket.
+    func recordPrivateCapture(
+        sourceAppBundleID: String?, count: Int, at date: Date
+    ) async throws
+
+    /// Adds reused items to the target-app/day bucket.
+    func recordPrivateReuse(
+        targetAppBundleID: String?, itemCount: Int, at date: Date
+    ) async throws
+
+    /// Adds skipped captures; protected copies remain an explicit subset.
+    func recordPrivateSkippedCapture(
+        isProtected: Bool, count: Int, at date: Date
+    ) async throws
+
+    /// Adds the number of sensitive items removed by one retention pass.
+    func recordPrivateSensitiveExpiry(count: Int, at date: Date) async throws
+
+    /// Reads the rolling receipt, pruning expired day buckets first.
+    func privateActivityReceipt(now: Date) async throws -> PrivateActivityReceipt
+
+    /// Erases receipt rows only, leaving clips and configuration untouched.
+    func clearPrivateActivityReceipt() async throws
+}
+
 // MARK: - Export
 
 /// Whole-history export. Always available, on every tier — no data hostage.
@@ -379,7 +411,7 @@ public protocol StoreMaintaining: Sendable {
 public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring & ExportProviding
 
 /// The full first-party surface the Mac and iOS app models hold in place of the
-/// concrete `GRDBClipboardStore`: all eleven facets composed. App code downcasts
+/// concrete `GRDBClipboardStore`: all twelve facets composed. App code downcasts
 /// its `any ClipboardStore` to this ONCE at the composition root
 /// (`store as? any FullClipStore`, nil on the in-memory fallback) and reaches
 /// every capability through it; only engine construction and MCP/sync internals
@@ -388,12 +420,12 @@ public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring 
 /// `ClipboardStore` is intentionally NOT composed in: each of its requirements
 /// (`insert`, `count`, `content(for:)`, `delete`, `items(offset:limit:)`,
 /// `exportJSON`/`exportCSV`) is already restated by one of the facets, so adding
-/// it would only duplicate requirements in the existential. The eleven facets have
+/// it would only duplicate requirements in the existential. The twelve facets have
 /// no overlapping requirements among themselves, so member access on an
 /// `any FullClipStore` is unambiguous.
 public typealias FullClipStore = ClipReading & ClipSearching & ClipMutating & ClipEnriching
     & SourceAppProviding & ReuseSuggestionProviding & BoardStoring & SnippetStoring
-    & StoreStatsProviding & ExportProviding & StoreMaintaining
+    & StoreStatsProviding & PrivateActivityReceiptStoring & ExportProviding & StoreMaintaining
 
 // MARK: - Production conformances
 
@@ -410,5 +442,6 @@ extension GRDBClipboardStore: ClipEnriching {}
 extension GRDBClipboardStore: BoardStoring {}
 extension GRDBClipboardStore: SnippetStoring {}
 extension GRDBClipboardStore: StoreStatsProviding {}
+extension GRDBClipboardStore: PrivateActivityReceiptStoring {}
 extension GRDBClipboardStore: ExportProviding {}
 extension GRDBClipboardStore: StoreMaintaining {}

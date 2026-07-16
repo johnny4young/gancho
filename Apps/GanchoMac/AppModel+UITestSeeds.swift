@@ -21,7 +21,8 @@ extension AppModel {
             seedSourceAppsIfRequested(),
             seedReuseSuggestionIfRequested(),
             seedClipEditingIfRequested(),
-            seedMultiFileDragIfRequested()
+            seedMultiFileDragIfRequested(),
+            seedPrivateActivityReceiptIfRequested()
         ].compactMap { $0 }
     }
 
@@ -252,6 +253,28 @@ extension AppModel {
                 _ = try? await grdbStore.setPinned(id: stored.id, true)
             }
             await refreshRecents()
+        }
+    }
+
+    /// UI-test hook: a deterministic, content-free receipt in a throwaway
+    /// durable store. Both arguments are required so the production database is
+    /// never seeded even if a test-only flag leaks into a normal launch.
+    private func seedPrivateActivityReceiptIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-private-activity-receipt"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let grdbStore
+        else { return nil }
+        return Task {
+            let now = Date()
+            try? await grdbStore.recordPrivateCapture(
+                sourceAppBundleID: "com.apple.Safari", count: 12, at: now)
+            try? await grdbStore.recordPrivateReuse(
+                targetAppBundleID: "com.apple.dt.Xcode", itemCount: 8, at: now)
+            try? await grdbStore.recordPrivateSkippedCapture(
+                isProtected: false, count: 1, at: now)
+            try? await grdbStore.recordPrivateSkippedCapture(
+                isProtected: true, count: 2, at: now)
+            try? await grdbStore.recordPrivateSensitiveExpiry(count: 1, at: now)
         }
     }
 }

@@ -9,18 +9,14 @@ import UniformTypeIdentifiers
 import WidgetKit
 
 /// The trust dashboard on iPhone: the clipboard-content telemetry boundary,
-/// local counters from the on-device store, and an honest note on how capture
+/// local receipt from the on-device store, and an honest note on how capture
 /// works on iOS. Every number is computed locally.
-/// (macOS's Privacy Center has an "ignored" ledger and MCP log; iOS captures
-/// only on explicit intent, so those don't apply here.)
 struct IOSPrivacyCenterView: View {
     @Environment(IOSAppModel.self) private var model
-    @State private var captured = 0
+    @State private var receipt = PrivateActivityReceipt.empty()
     @State private var masked = 0
-    @State private var expired = 0
     @State private var synced = 0
-
-    private var weekAgo: Date { Date(timeIntervalSinceNow: -7 * 86_400) }
+    @State private var confirmsReceiptClear = false
 
     var body: some View {
         Form {
@@ -44,10 +40,39 @@ struct IOSPrivacyCenterView: View {
                 .listRowBackground(Rectangle().fill(GanchoTokens.Palette.success.gradient))
             }
 
-            Section("This week") {
-                LabeledContent("Clips captured", value: "\(captured)")
+            Section {
+                LabeledContent("Items reused", value: "\(receipt.reusedItems)")
+                    .accessibilityIdentifier("ios-private-receipt-reused-count")
+                LabeledContent("Copies captured", value: "\(receipt.captures)")
+                    .accessibilityIdentifier("ios-private-receipt-captured-count")
+                LabeledContent("Captures skipped", value: "\(receipt.skippedCaptures)")
+                    .accessibilityIdentifier("ios-private-receipt-skipped-count")
+                LabeledContent(
+                    "Protected copies skipped", value: "\(receipt.protectedCaptures)"
+                )
+                .accessibilityIdentifier("ios-private-receipt-protected-count")
+                LabeledContent(
+                    "Sensitive items self-expired", value: "\(receipt.sensitiveItemsExpired)"
+                )
+                .accessibilityIdentifier("ios-private-receipt-expired-count")
+                Text(
+                    // swiftlint:disable:next line_length
+                    "Stored only on this iPhone for a rolling 13 months. Protected copies are included in skipped captures. Per-app totals never sync, export, or enter diagnostics."
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                Button("Clear activity receipt", role: .destructive) {
+                    confirmsReceiptClear = true
+                }
+                .tint(GanchoTokens.Palette.danger)
+                .accessibilityIdentifier("ios-clear-private-receipt-button")
+            } header: {
+                Text("Private activity receipt")
+                    .accessibilityIdentifier("ios-private-receipt-section")
+            }
+
+            Section("On this iPhone now") {
                 LabeledContent("Secrets masked", value: "\(masked)")
-                LabeledContent("Items self-expired", value: "\(expired)")
                 LabeledContent("Items synchronized", value: "\(synced)")
             }
 
@@ -122,17 +147,24 @@ struct IOSPrivacyCenterView: View {
         .navigationTitle("Privacy Center")
         .accessibilityIdentifier("ios-privacy-center")
         .task { await refresh() }
+        .alert("Clear activity receipt?", isPresented: $confirmsReceiptClear) {
+            Button("Clear receipt", role: .destructive) {
+                Task {
+                    await model.clearPrivateActivityReceipt()
+                    await refresh()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This erases local activity totals. Your clips and settings stay unchanged.")
+        }
     }
 
     /// Every counter is a local query against the on-device store. No network.
     private func refresh() async {
-        captured = (try? await model.store.count()) ?? 0
+        receipt = await model.privateActivityReceipt()
         guard let full = model.full else { return }
         synced = (try? await full.syncedCount()) ?? 0
-        expired = (try? await full.purgedItemCount(since: weekAgo)) ?? 0
-        masked =
-            (try? await full.search(
-                ClipSearchQuery(text: "●●●●", mode: .exact), limit: 500
-            ).count) ?? 0
+        masked = (try? await full.sensitiveCount()) ?? 0
     }
 }
