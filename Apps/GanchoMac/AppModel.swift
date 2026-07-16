@@ -238,6 +238,8 @@ final class AppModel {
     // dedicated composition-root split lands.
     // swiftlint:disable:next cyclomatic_complexity function_body_length
     init() {
+        // Launch → durable store ready (the panel's first usable moment).
+        let launchInterval = Signpost.launchToStoreReady.begin()
         let appDefaults = Self.defaultsForLaunch()
         // One-way migration from versions that allowed a Dock override. Gancho
         // is now permanently menu-bar-only, so an existing `true` must not
@@ -470,6 +472,8 @@ final class AppModel {
                 }
             }
         }
+
+        Signpost.launchToStoreReady.end(launchInterval)
 
         // UI-test hook: deterministic panel access without the global hotkey.
         if CommandLine.arguments.contains("-open-panel-on-launch") {
@@ -838,11 +842,19 @@ final class AppModel {
     /// Paste a stored clip into the frontmost app (panel Enter / menu click).
     func paste(_ item: ClipItem, asPlainText: Bool = false) {
         Task {
-            guard let content = try? await store.content(for: item.id) else { return }
+            // Paste action → event posted; the target app's behavior is
+            // deliberately outside the interval. The failure path closes it
+            // too, so an unreadable clip never reads as an eternal paste.
+            let interval = Signpost.pasteDispatch.begin()
+            guard let content = try? await store.content(for: item.id) else {
+                Signpost.pasteDispatch.end(interval)
+                return
+            }
             panel.hide()
             // Give focus one beat to return to the previous app.
             try? await Task.sleep(for: .milliseconds(80))
             let pasteOutcome = pasteBack.paste(content, asPlainText: asPlainText)
+            Signpost.pasteDispatch.end(interval)
             switch pasteOutcome {
             case .copiedOnly:
                 showCopyOnlyToast()

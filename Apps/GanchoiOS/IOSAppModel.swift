@@ -591,7 +591,11 @@ final class IOSAppModel {
     /// `captures` narrowed by the kind filter — see `HistoryListViewModel`.
     var visibleClips: [ClipItem] { history.visibleClips }
 
-    func search() async { await history.search() }
+    func search() async {
+        let interval = Signpost.queryToResults.begin()
+        await history.search()
+        Signpost.queryToResults.end(interval)
+    }
 
     func refreshSourceApps() async { await history.refreshSourceApps() }
 
@@ -929,13 +933,20 @@ final class IOSAppModel {
             precomputedKind: precomputedKind,
             tier: tier,
             intelligence: intelligence)
+        let ingestInterval = Signpost.captureToInsert.begin()
         guard
             let outcome = try? await ingestionCoordinator.ingest(
                 capture,
                 configuration: configuration,
                 store: store,
                 syncEngine: syncController.engine)
-        else { return }
+        else {
+            // The failure path closes the interval too — a half-open interval
+            // would read as an eternal capture in Instruments.
+            Signpost.captureToInsert.end(ingestInterval)
+            return
+        }
+        Signpost.captureToInsert.end(ingestInterval)
         flashNote(
             outcome.isNew
                 ? String(localized: "Saved") : String(localized: "Already in your history"))

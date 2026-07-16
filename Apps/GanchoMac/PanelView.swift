@@ -192,7 +192,11 @@ struct PanelView: View {
                 searchHistory = []
                 recalledQuery = nil
             }
-            Task { await search.refresh() }
+            Task {
+                let interval = Signpost.queryToResults.begin()
+                await search.refresh()
+                Signpost.queryToResults.end(interval)
+            }
         }
         .onChange(of: model.recentItems) { _, _ in
             Task {
