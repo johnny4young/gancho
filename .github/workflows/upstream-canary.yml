@@ -1,0 +1,58 @@
+# Weekly upstream canary: reports when GRDB, SQLCipher.swift, Sparkle, Sauce,
+# or KeyboardShortcuts publishes a release newer than scripts/upstream-pins.env
+# — via one deduplicated issue, never a source edit or an auto-merge.
+name: Upstream canary
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Mondays 09:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  canary:
+    name: Compare pinned upstreams
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the canary
+        id: canary
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Without pipefail the pipeline would exit with tee's 0 and mask a
+          # drift report — the exact failure mode this canary exists to catch.
+          set -o pipefail
+          status=0
+          ./scripts/check-upstream-deps.sh | tee canary.txt || status=$?
+          {
+            echo "report<<EOF"
+            cat canary.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Open or update the drift issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPORT: ${{ steps.canary.outputs.report }}
+        run: |
+          title="Upstream dependency canary: a pinned upstream advanced"
+          body="The weekly canary found upstream releases newer than scripts/upstream-pins.env.
+
+          \`\`\`
+          ${REPORT}
+          \`\`\`
+
+          Follow docs/DEPENDENCIES.md for the per-dependency update runbook. Storage, encryption, signing, and updater changes are never auto-merged."
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body" --label dependencies
+          fi

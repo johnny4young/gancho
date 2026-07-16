@@ -1,0 +1,32 @@
+# Weekly, grouped dependency PRs. Security advisories arrive as their own
+# ungrouped PRs (the groups below apply to version updates only), so a
+# security fix is never buried inside a routine bump.
+#
+# NOTHING here can merge on its own — the repo has no auto-merge workflow, and
+# storage/encryption/signing/updater dependencies are excluded from Dependabot
+# entirely: the GRDB+SQLCipher fork is rebased by hand (docs/DEPENDENCIES.md)
+# and Sparkle is pinned by checksum in scripts/fetch-sparkle.sh. The weekly
+# upstream canary (upstream-canary.yml) reports when those advance.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns: ["*"]
+
+  - package-ecosystem: "swift"
+    directory: "/Packages/GanchoKit"
+    schedule:
+      interval: "weekly"
+    groups:
+      swift-packages:
+        applies-to: version-updates
+        patterns: ["*"]
+    ignore:
+      # The encrypted-store fork: hand-rebased only, never automated.
+      - dependency-name: "GRDB.swift"
+      - dependency-name: "SQLCipher.swift"

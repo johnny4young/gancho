@@ -138,6 +138,63 @@ struct ReleaseMetadataTests {
         #expect(site.contains("v\(marketingVersion)"))
     }
 
+    /// The upstream canary must (a) pass when the latest releases match the
+    /// pins and (b) DETECT a deliberately advanced upstream — both proven
+    /// offline via fixture files built from the real pins, no source edits.
+    @Test func upstreamCanaryDetectsAdvancedUpstreams() throws {
+        let pinsURL = Self.repositoryRoot.appendingPathComponent("scripts/upstream-pins.env")
+        let pinLines = try String(contentsOf: pinsURL, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+            .filter { !$0.hasPrefix("#") && $0.contains("=") }
+        #expect(pinLines.count == 5, "the canary tracks exactly five upstreams")
+
+        func runCanary(latest: [String]) throws -> (status: Int32, output: String) {
+            let fixture = FileManager.default.temporaryDirectory
+                .appendingPathComponent("canary-\(UUID().uuidString).env")
+            try latest.joined(separator: "\n").write(
+                to: fixture, atomically: true, encoding: .utf8)
+            defer { try? FileManager.default.removeItem(at: fixture) }
+            let process = Process()
+            process.executableURL = Self.repositoryRoot
+                .appendingPathComponent("scripts/check-upstream-deps.sh")
+            process.arguments = ["--latest", fixture.path]
+            process.currentDirectoryURL = Self.repositoryRoot
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = pipe
+            try process.run()
+            process.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            return (process.terminationStatus, String(bytes: data, encoding: .utf8) ?? "")
+        }
+
+        let current = try runCanary(latest: pinLines)
+        #expect(current.status == 0, Comment(rawValue: current.output))
+
+        let advanced = pinLines.map {
+            $0.hasPrefix("GRDB=") ? "GRDB=99.0.0" : $0
+        }
+        let stale = try runCanary(latest: advanced)
+        #expect(stale.status == 1, "an advanced upstream must fail the canary")
+        #expect(stale.output.contains("UPSTREAM ADVANCED: GRDB"), Comment(rawValue: stale.output))
+    }
+
+    /// Dependabot may never touch the encrypted-store fork: the automation's
+    /// scope is part of the security model, so its exclusions are pinned here.
+    @Test func dependabotExcludesTheEncryptedStoreFork() throws {
+        let config = try String(
+            contentsOf: Self.repositoryRoot.appendingPathComponent(".github/dependabot.yml"),
+            encoding: .utf8)
+        #expect(config.contains("- dependency-name: \"GRDB.swift\""))
+        #expect(config.contains("- dependency-name: \"SQLCipher.swift\""))
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: Self.repositoryRoot
+                    .appendingPathComponent(".github/workflows/auto-merge.yml").path),
+            "no auto-merge workflow may exist")
+    }
+
     @Test func productTruthGatePassesAgainstTrackedFiles() throws {
         let process = Process()
         process.executableURL = Self.repositoryRoot
