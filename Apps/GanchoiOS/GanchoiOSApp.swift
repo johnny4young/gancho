@@ -1,5 +1,6 @@
 import ClipboardCore
 import GanchoAI
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import GanchoTelemetry
@@ -92,6 +93,16 @@ struct GanchoiOSApp: App {
             .task {
                 guard let full = model.full else { return }
                 try? await full.backfillLegacyPreviews()
+            }
+            // An embedding-model bump leaves old vectors behind; re-embed them
+            // in the background (no-op while the pipeline version is
+            // unchanged). Cancelled with the scene — progress lives in the
+            // rows, so the next launch resumes where this one stopped.
+            .task(priority: .utility) {
+                guard model.intelligence.semanticSearch,
+                    let source = model.full as? any EmbeddingRefreshSource
+                else { return }
+                await EmbeddingRefreshService().run(store: source)
             }
             // Widget deep links (`gancho://clip/<id>`) open the right clip.
             .onOpenURL { model.handleDeepLink($0) }

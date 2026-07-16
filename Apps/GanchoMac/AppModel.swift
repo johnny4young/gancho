@@ -438,9 +438,19 @@ final class AppModel {
         let uiTestMultiFileDragSeedTask = seedMultiFileDragIfRequested()
         // Post-launch maintenance: the cosmetic legacy-preview backfill moved
         // off the synchronous store open (it scanned image rows on every
-        // launch); run it at utility priority once the UI is wired up.
+        // launch); run it at utility priority once the UI is wired up. The
+        // embedding refresh follows sequentially — an embedding-model bump
+        // leaves old vectors behind, and this pass re-embeds them without ever
+        // touching capture or the first panel open (no-op while the pipeline
+        // version is unchanged).
         if let grdb {
-            Task(priority: .utility) { try? await grdb.backfillLegacyPreviews() }
+            let refreshEmbeddings = intelligence.semanticSearch
+            Task(priority: .utility) {
+                try? await grdb.backfillLegacyPreviews()
+                if refreshEmbeddings {
+                    await EmbeddingRefreshService().run(store: grdb)
+                }
+            }
         }
 
         // UI-test hook: deterministic panel access without the global hotkey.
