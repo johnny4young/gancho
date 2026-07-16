@@ -15,8 +15,8 @@ import Observation
     func recentBrowse(offset: Int, limit: Int) async -> [ClipItem]
     /// The protocol store ordering — the in-memory fallback path.
     func items(offset: Int, limit: Int) async -> [ClipItem]
-    /// A board's curated set (durable stores only).
-    func boardItems(_ boardID: UUID) async -> [ClipItem]
+    /// One page of a board's curated set (durable stores only).
+    func boardItems(_ boardID: UUID, offset: Int, limit: Int) async -> [ClipItem]
     /// Ranked full-text search (durable stores only; [] otherwise).
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem]
     /// Content-free source-app options for the filter menu.
@@ -53,10 +53,16 @@ import Observation
         self.source = source
     }
 
-    /// The recent list (no query, no board) is the only date-grouped, paginated
-    /// view; a board loads whole, search returns ranked results.
+    /// The recent list (no query, no board) is the only date-grouped view;
+    /// boards paginate flat, search returns a bounded ranked set.
     public var isGroupedView: Bool {
         query.isEmpty && selectedBoardID == nil && selectedSourceAppBundleID == nil
+    }
+
+    /// The list appends pages on scroll: the recent browse or a board view.
+    /// A query or source-app filter is a bounded top-N set and never appends.
+    private var isPaginatedView: Bool {
+        query.isEmpty && selectedSourceAppBundleID == nil
     }
 
     /// `captures` narrowed by the kind filter — what the list actually shows.
@@ -75,8 +81,10 @@ import Observation
         let sourceApp = selectedSourceAppBundleID
         if query.isEmpty, sourceApp == nil {
             if let board = selectedBoardID, source.isDurable {
-                captures = await source.boardItems(board)
-                reachedEnd = true
+                // A board pages like the recent list — a curated set is still
+                // unbounded (a 10k-member board must not load whole on open).
+                captures = await source.boardItems(board, offset: 0, limit: Self.pageSize)
+                reachedEnd = captures.count < Self.pageSize
             } else {
                 captures = await loadRecentPage(offset: 0)
                 reachedEnd = captures.count < Self.pageSize
@@ -112,17 +120,23 @@ import Observation
     /// unless the grouped recent view has more to load.
     public func loadMoreIfNeeded(_ item: ClipItem) async {
         let visible = visibleClips
-        guard isGroupedView, !isLoadingMore, !reachedEnd,
+        guard isPaginatedView, !isLoadingMore, !reachedEnd,
             let index = visible.firstIndex(where: { $0.id == item.id }),
             index >= visible.count - 20
         else { return }
         isLoadingMore = true
         defer { isLoadingMore = false }
+        let board = selectedBoardID
         let offset = captures.count
-        let next = await loadRecentPage(offset: offset)
-        // The view may have changed during the await; only append if still
-        // extending the same list.
-        guard isGroupedView, captures.count == offset else { return }
+        let next: [ClipItem]
+        if let board, source.isDurable {
+            next = await source.boardItems(board, offset: offset, limit: Self.pageSize)
+        } else {
+            next = await loadRecentPage(offset: offset)
+        }
+        // The view may have changed during the await (query typed, board picked
+        // or switched); only append if still extending the same list.
+        guard isPaginatedView, selectedBoardID == board, captures.count == offset else { return }
         captures.append(contentsOf: next)
         if next.count < Self.pageSize { reachedEnd = true }
         rebuildSections()

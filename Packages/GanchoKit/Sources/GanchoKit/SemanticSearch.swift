@@ -2,6 +2,15 @@ import Accelerate
 import Foundation
 import GRDB
 
+/// The embedding PIPELINE's version — the model, its pooling, and the input
+/// truncation together. Bump it when any of those changes: vectors written by
+/// an older pipeline are not comparable to fresh query vectors, so queries
+/// serve current-version rows only and the background refresh pass re-embeds
+/// the rest. Existing rows are version 1 (the schema default).
+public enum EmbeddingModelInfo {
+    public static let currentVersion = 1
+}
+
 /// Persistence + query for semantic search: vectors live beside the clips,
 /// the in-memory `EmbeddingIndex`-style scan happens at query time (linear
 /// cosine is single-digit ms at history scale — measured in the AI spike).
@@ -11,9 +20,40 @@ extension GRDBClipboardStore {
         let dimension = vector.count
         try await writer.write { db in
             try db.execute(
-                sql:
-                    "INSERT OR REPLACE INTO clip_embedding (clipID, dimension, vector) VALUES (?, ?, ?)",
-                arguments: [clipID.uuidString, dimension, data])
+                sql: """
+                    INSERT OR REPLACE INTO clip_embedding
+                      (clipID, dimension, vector, modelVersion)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                arguments: [
+                    clipID.uuidString, dimension, data, EmbeddingModelInfo.currentVersion
+                ])
+        }
+    }
+
+    /// Clip IDs whose stored vector predates the current embedding pipeline —
+    /// one bounded batch at a time, so the background refresh never holds a
+    /// long read or materializes an unbounded id list. Archived clips are
+    /// excluded: they are invisible to search, so re-embedding them would
+    /// spend battery on rows no query can return. The sensitive exclusion is
+    /// belt-and-suspenders — capture never embeds sensitive clips, but this
+    /// query must not feed one to the re-embed loop even if some future path
+    /// flips `isSensitive` after a vector exists.
+    public func staleEmbeddingClipIDs(limit: Int) async throws -> [UUID] {
+        // SQLite treats a negative LIMIT as "no limit" — the exact unbounded
+        // read this API exists to prevent.
+        guard limit > 0 else { return [] }
+        return try await writer.read { db in
+            try String.fetchAll(
+                db,
+                sql: """
+                    SELECT e.clipID FROM clip_embedding e
+                    JOIN clip c ON c.id = e.clipID
+                    WHERE e.modelVersion < ? AND c.isArchived = 0 AND c.isSensitive = 0
+                    LIMIT ?
+                    """,
+                arguments: [EmbeddingModelInfo.currentVersion, limit]
+            ).compactMap(UUID.init(uuidString:))
         }
     }
 
@@ -37,9 +77,9 @@ extension GRDBClipboardStore {
                 sql: """
                     SELECT e.clipID, e.vector FROM clip_embedding e
                     JOIN clip c ON c.id = e.clipID
-                    WHERE c.isArchived = 0 AND e.dimension = ?
+                    WHERE c.isArchived = 0 AND e.dimension = ? AND e.modelVersion = ?
                     \(snippetsOnly ? "AND c.isSnippet = 1" : "")
-                    """, arguments: [queryVector.count]
+                    """, arguments: [queryVector.count, EmbeddingModelInfo.currentVersion]
             ).map { StoredEmbedding(id: $0["clipID"], vector: $0["vector"]) }
         }
         guard !rows.isEmpty else { return [] }

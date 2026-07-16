@@ -247,8 +247,10 @@ public protocol BoardStoring: Sendable {
     /// The boards a clip belongs to — drives the context-menu checkmarks.
     func boardIDs(forClip clipID: UUID) async throws -> Set<UUID>
 
-    /// A board's members, pinned first, most recently updated next.
-    func items(inBoard boardID: UUID) async throws -> [ClipItem]
+    /// One page of a board's members, pinned first, most recently updated
+    /// next. Boards are user-curated but unbounded, so every surface reads
+    /// them in pages instead of loading the whole set.
+    func items(inBoard boardID: UUID, offset: Int, limit: Int) async throws -> [ClipItem]
 
     /// How many clips a board holds — the board rail/home counters.
     func count(inBoard boardID: UUID) async throws -> Int

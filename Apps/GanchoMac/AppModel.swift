@@ -446,15 +446,22 @@ final class AppModel {
         let uiTestReuseSuggestionSeedTask = seedReuseSuggestionIfRequested()
         let uiTestClipEditingSeedTask = seedClipEditingIfRequested()
         let uiTestMultiFileDragSeedTask = seedMultiFileDragIfRequested()
-        // Post-launch maintenance: the cosmetic legacy-preview backfill moved
-        // off the synchronous store open (it scanned image rows on every
-        // launch); run it at utility priority once the UI is wired up. The
-        // Spotlight reconcile follows: it repairs any curation change the app
-        // missed (crash, direct DB edit) and applies the toggle state.
+        // Post-launch maintenance, sequential at utility priority once the UI
+        // is wired up: the cosmetic legacy-preview backfill (moved off the
+        // synchronous store open — it scanned image rows on every launch),
+        // then the embedding refresh (a model bump leaves old vectors behind;
+        // no-op while the pipeline version is unchanged), then the Spotlight
+        // reconcile (repairs any curation change the app missed and applies
+        // the toggle state). None of them ever touch capture or the first
+        // panel open.
         if let grdb {
+            let refreshEmbeddings = intelligence.semanticSearch
             let spotlightEnabled = spotlightIndexing
             Task(priority: .utility) {
                 try? await grdb.backfillLegacyPreviews()
+                if refreshEmbeddings {
+                    await EmbeddingRefreshService().run(store: grdb)
+                }
                 await LibrarySpotlightService(index: CoreSpotlightIndexer())
                     .reconcile(store: grdb, enabled: spotlightEnabled)
             }

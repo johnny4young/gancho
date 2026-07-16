@@ -66,4 +66,79 @@ struct SemanticSearchTests {
         // Query in a different dimension matches nothing.
         #expect(try await store.semanticSearch(queryVector: [1, 0, 0]).isEmpty)
     }
+
+    @Test("Every save stamps the current embedding model version")
+    func versionStamping() async throws {
+        let store = try makeStore()
+        let item = ClipItem(preview: "x", contentHash: "h")
+        try await store.insert(item, content: .text("x"))
+        try await store.saveEmbedding(clipID: item.id, vector: [1, 0])
+
+        let stamped = try await store.writer.read { db in
+            try Int.fetchOne(db, sql: "SELECT modelVersion FROM clip_embedding")
+        }
+        #expect(stamped == EmbeddingModelInfo.currentVersion)
+    }
+
+    @Test("Old-pipeline vectors serve no queries and surface in bounded stale batches")
+    func staleVectorLifecycle() async throws {
+        let store = try makeStore()
+        let fresh = ClipItem(preview: "fresh", contentHash: "f")
+        let stale = ClipItem(preview: "stale", contentHash: "s")
+        try await store.insert(fresh, content: .text("fresh"))
+        try await store.insert(stale, content: .text("stale"))
+        try await store.saveEmbedding(clipID: fresh.id, vector: [1, 0, 0])
+        try await store.saveEmbedding(clipID: stale.id, vector: [1, 0, 0])
+        // Simulate a vector left behind by an older pipeline.
+        try await store.writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip_embedding SET modelVersion = modelVersion - 1 WHERE clipID = ?",
+                arguments: [stale.id.uuidString])
+        }
+
+        // An old vector is not comparable to a fresh query vector — it must
+        // not rank, even though its clip is visible.
+        let hits = try await store.semanticSearch(queryVector: [1, 0, 0])
+        #expect(hits.map(\.preview) == ["fresh"])
+
+        // The stale row is queued for refresh, in bounded batches. A zero or
+        // negative limit is a no-op, never an unbounded read.
+        #expect(try await store.staleEmbeddingClipIDs(limit: 10) == [stale.id])
+        #expect(try await store.staleEmbeddingClipIDs(limit: 0).isEmpty)
+        #expect(try await store.staleEmbeddingClipIDs(limit: -1).isEmpty)
+
+        // Re-saving through the normal path clears the staleness.
+        try await store.saveEmbedding(clipID: stale.id, vector: [0, 1, 0])
+        #expect(try await store.staleEmbeddingClipIDs(limit: 10).isEmpty)
+        #expect(try await store.semanticSearch(queryVector: [1, 0, 0]).count == 2)
+    }
+
+    @Test("Archived clips never enter the stale-refresh queue")
+    func staleSkipsArchived() async throws {
+        let store = try makeStore()
+        let item = ClipItem(preview: "x", contentHash: "h")
+        try await store.insert(item, content: .text("x"))
+        try await store.saveEmbedding(clipID: item.id, vector: [1, 0])
+        try await store.writer.write { db in
+            try db.execute(sql: "UPDATE clip_embedding SET modelVersion = modelVersion - 1")
+            try db.execute(sql: "UPDATE clip SET isArchived = 1")
+        }
+        #expect(try await store.staleEmbeddingClipIDs(limit: 10).isEmpty)
+    }
+
+    @Test("Sensitive clips never enter the stale-refresh queue")
+    func staleSkipsSensitive() async throws {
+        // Capture never embeds a sensitive clip, so this state can only arise
+        // if a future path flips `isSensitive` after a vector exists — the
+        // query must hold the boundary on its own regardless.
+        let store = try makeStore()
+        let item = ClipItem(preview: "x", contentHash: "h")
+        try await store.insert(item, content: .text("x"))
+        try await store.saveEmbedding(clipID: item.id, vector: [1, 0])
+        try await store.writer.write { db in
+            try db.execute(sql: "UPDATE clip_embedding SET modelVersion = modelVersion - 1")
+            try db.execute(sql: "UPDATE clip SET isSensitive = 1")
+        }
+        #expect(try await store.staleEmbeddingClipIDs(limit: 10).isEmpty)
+    }
 }

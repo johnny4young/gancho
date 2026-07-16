@@ -579,7 +579,9 @@ struct LibraryView: View {
             clips = ((try? await model.store.items(offset: 0, limit: 200)) ?? []).filter(\.isPinned)
             editingSnippet = nil
         case .board(let id):
-            clips = (try? await model.grdbStore?.items(inBoard: id)) ?? []
+            // Bounded like the sibling scopes above — the Library is a manager,
+            // not a scroll-through; huge boards browse in the panel.
+            clips = (try? await model.grdbStore?.items(inBoard: id, offset: 0, limit: 200)) ?? []
             editingSnippet = nil
         case .snippet(let id):
             editingSnippet = snippets.first { $0.id == id }

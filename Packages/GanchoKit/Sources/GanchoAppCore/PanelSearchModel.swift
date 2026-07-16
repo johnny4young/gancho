@@ -17,8 +17,8 @@ import Observation
     /// The protocol store ordering — the in-memory fallback path and the source
     /// of the client-side `contains` search when no durable store is present.
     func items(offset: Int, limit: Int) async -> [ClipItem]
-    /// A board's curated set (durable stores only).
-    func boardItems(_ boardID: UUID) async -> [ClipItem]
+    /// One page of a board's curated set (durable stores only).
+    func boardItems(_ boardID: UUID, offset: Int, limit: Int) async -> [ClipItem]
     /// Ranked full-text search (durable stores only).
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem]
     /// Content-free source-app options for the filter menu.
@@ -157,9 +157,16 @@ public struct PanelDateGroup: Identifiable, Sendable {
         kindFilter != .all || selectedBoardID != nil || selectedSourceAppBundleID != nil
     }
 
-    /// The recent list is showing (paginates); a query or board is a bounded set.
+    /// The recent list is showing — the only date-grouped view. Boards
+    /// paginate too but render flat; a query is a bounded ranked set.
     public var isGroupedView: Bool {
         query.isEmpty && selectedBoardID == nil && selectedSourceAppBundleID == nil
+    }
+
+    /// The list appends pages on scroll: the recent browse or a board view.
+    /// A query or source-app filter is a bounded top-N set and never appends.
+    private var isPaginatedView: Bool {
+        query.isEmpty && selectedSourceAppBundleID == nil
     }
 
     /// Refreshes app choices independently from text search so typing never
@@ -196,8 +203,10 @@ public struct PanelDateGroup: Identifiable, Sendable {
         let sourceApp = selectedSourceAppBundleID
         if query.isEmpty, sourceApp == nil {
             if let board, source.isDurable {
-                results = await source.boardItems(board)
-                reachedEnd = true  // a board is a curated set — loaded whole
+                // A board pages like the recent list — a curated set is still
+                // unbounded (a 10k-member board must not load whole on open).
+                results = await source.boardItems(board, offset: 0, limit: Self.pageSize)
+                reachedEnd = results.count < Self.pageSize
             } else {
                 results = await loadRecentPage(offset: 0)
                 reachedEnd = results.count < Self.pageSize
@@ -246,14 +255,21 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     public func loadMore() async {
-        guard isGroupedView, !isLoadingMore, !reachedEnd else { return }
+        guard isPaginatedView, !isLoadingMore, !reachedEnd else { return }
+        let board = selectedBoardID
         let offset = results.count
         isLoadingMore = true
         defer { isLoadingMore = false }
-        let next = await loadRecentPage(offset: offset)
-        // The view may have changed during the await (query typed, board picked,
-        // a fresh refresh); only append if still extending the same list.
-        guard isGroupedView, results.count == offset else { return }
+        let next: [ClipItem]
+        if let board, source.isDurable {
+            next = await source.boardItems(board, offset: offset, limit: Self.pageSize)
+        } else {
+            next = await loadRecentPage(offset: offset)
+        }
+        // The view may have changed during the await (query typed, board picked
+        // or switched, a fresh refresh); only append if still extending the
+        // same list.
+        guard isPaginatedView, selectedBoardID == board, results.count == offset else { return }
         results.append(contentsOf: next)
         if next.count < Self.pageSize { reachedEnd = true }
         rebuildGroups()

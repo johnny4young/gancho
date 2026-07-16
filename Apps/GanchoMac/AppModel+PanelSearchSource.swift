@@ -20,9 +20,9 @@ extension AppModel: PanelSearchSource {
         (try? await store.items(offset: offset, limit: limit)) ?? []
     }
 
-    func boardItems(_ boardID: UUID) async -> [ClipItem] {
+    func boardItems(_ boardID: UUID, offset: Int, limit: Int) async -> [ClipItem] {
         guard let grdbStore else { return [] }
-        return (try? await grdbStore.items(inBoard: boardID)) ?? []
+        return (try? await grdbStore.items(inBoard: boardID, offset: offset, limit: limit)) ?? []
     }
 
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {

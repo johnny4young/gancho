@@ -16,6 +16,19 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   index. A new toggle in Settings turns this off and removes everything from
   Spotlight immediately.
 
+### Changed
+
+- **Big boards open instantly.** A board's clips now load in pages — in the
+  history panel, the iOS list, the Library, and the keyboard — instead of
+  loading the whole board at once, so a board with thousands of clips opens as
+  fast as a small one and keeps scrolling smoothly.
+- **Semantic search survives model upgrades.** Every stored search vector now
+  records which embedding model produced it; after a future model upgrade,
+  Gancho quietly re-indexes older clips in the background (only while the
+  device is idle-friendly: not thermally stressed and not in Low Power Mode)
+  instead of mixing incompatible results.
+- Updated the Sparkle auto-updater framework to 2.9.4.
+
 ### Fixed
 
 - **AI features can no longer echo a secret that hides inside ordinary text.**

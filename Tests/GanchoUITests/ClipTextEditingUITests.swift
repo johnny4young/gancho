@@ -20,7 +20,16 @@ final class ClipTextEditingUITests: XCTestCase {
 
         let edit = app.buttons["preview-edit-content"].firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
-        edit.click()
+        if edit.isHittable {
+            edit.click()
+        } else {
+            // The peek can expose the button to accessibility while XCUITest
+            // declines an element click (observed on a hosted runner). Once
+            // Gancho is proven frontmost, a center-coordinate click remains
+            // safely inside its own peek pane.
+            try SynthesizedInput.requireForeground(app)
+            edit.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        }
         let field = app.textViews["preview-content-field"].firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 2))
         field.click()

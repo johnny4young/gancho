@@ -17,6 +17,9 @@ import Testing
     var pending: Set<UUID> = []
     var sourceApps: [ClipSourceApp] = []
     var lastSearchQuery: ClipSearchQuery?
+    /// Runs inside `boardItems` — lets a test mutate the model "during" the
+    /// await, to exercise the stale-page guard.
+    var onBoardItems: (() -> Void)?
 
     func recentBrowse(offset: Int, limit: Int) async -> [ClipItem] {
         Array(recent.dropFirst(offset).prefix(limit))
@@ -24,7 +27,10 @@ import Testing
     func items(offset: Int, limit: Int) async -> [ClipItem] {
         Array(recent.dropFirst(offset).prefix(limit))
     }
-    func boardItems(_ boardID: UUID) async -> [ClipItem] { board }
+    func boardItems(_ boardID: UUID, offset: Int, limit: Int) async -> [ClipItem] {
+        onBoardItems?()
+        return Array(board.dropFirst(offset).prefix(limit))
+    }
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
         lastSearchQuery = query
         return Array(searchResults.prefix(limit))
@@ -218,7 +224,7 @@ struct PanelSearchModelTests {
         #expect(model.groups.isEmpty)  // grouping only applies to the recent list
     }
 
-    @Test func aSelectedBoardLoadsTheCuratedSetWhole() async {
+    @Test func aSmallBoardLoadsInOnePageAndFlagsTheEnd() async {
         let source = FakeSource()
         source.board = items(4)
         let model = PanelSearchModel(source: source)
@@ -227,6 +233,38 @@ struct PanelSearchModelTests {
         #expect(model.results.count == 4)
         #expect(model.reachedEnd)
         #expect(!model.isGroupedView)
+    }
+
+    @Test func aLargeBoardPagesLikeTheRecentList() async {
+        let source = FakeSource()
+        source.board = items(150)
+        let model = PanelSearchModel(source: source)
+        model.selectedBoardID = UUID()
+        await model.refresh()
+        #expect(model.results.count == 100)  // first page only, never the whole set
+        #expect(!model.reachedEnd)
+
+        await model.loadMore()
+        #expect(model.results.count == 150)
+        #expect(model.reachedEnd)  // last page (50) < pageSize → done
+
+        await model.loadMore()
+        #expect(model.results.count == 150)  // no-op once exhausted
+    }
+
+    @Test func aBoardPageArrivingAfterABoardSwitchIsDropped() async {
+        let source = FakeSource()
+        source.board = items(150)
+        let model = PanelSearchModel(source: source)
+        model.selectedBoardID = UUID()
+        await model.refresh()
+        #expect(model.results.count == 100)
+
+        // The user switches boards while the next page is in flight — the
+        // stale page must not append to the new board's list.
+        source.onBoardItems = { model.selectedBoardID = UUID() }
+        await model.loadMore()
+        #expect(model.results.count == 100)
     }
 
     @Test func snippetMatchIsSetOnlyForANonEmptyKeywordHit() async {

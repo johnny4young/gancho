@@ -23,7 +23,9 @@ import Testing
     }
     // Board queries and ranked search need a durable store — the real
     // `HistoryStoreSource` returns [] otherwise, so the fake mirrors that.
-    func boardItems(_ boardID: UUID) async -> [ClipItem] { isDurable ? board : [] }
+    func boardItems(_ boardID: UUID, offset: Int, limit: Int) async -> [ClipItem] {
+        isDurable ? Array(board.dropFirst(offset).prefix(limit)) : []
+    }
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
         lastSearchQuery = query
         return isDurable ? Array(searchResults.prefix(limit)) : []
@@ -149,7 +151,7 @@ struct HistoryListViewModelTests {
         #expect(model.sections.isEmpty)  // grouping only applies to the recent list
     }
 
-    @Test func aSelectedBoardLoadsTheCuratedSetWhole() async {
+    @Test func aSmallBoardLoadsInOnePage() async {
         let source = FakeSource()
         source.board = items(4)
         let model = HistoryListViewModel(source: source)
@@ -157,6 +159,21 @@ struct HistoryListViewModelTests {
         await model.search()
         #expect(model.captures.count == 4)
         #expect(!model.isGroupedView)
+    }
+
+    @Test func aLargeBoardPagesViaLoadMoreLikeTheRecentList() async {
+        let source = FakeSource()
+        source.board = items(150)
+        let model = HistoryListViewModel(source: source)
+        model.selectedBoardID = UUID()
+        await model.search()
+        #expect(model.captures.count == 100)  // first page only, never the whole set
+
+        await model.loadMoreIfNeeded(model.captures[85])
+        #expect(model.captures.count == 150)
+
+        await model.loadMoreIfNeeded(model.captures[140])
+        #expect(model.captures.count == 150)  // exhausted → no-op
     }
 
     @Test func rebuildSectionsPutsPinnedRowsInTheirOwnLeadingSection() async {

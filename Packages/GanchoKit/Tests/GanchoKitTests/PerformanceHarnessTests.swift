@@ -187,6 +187,42 @@ struct PerformanceHarnessTests {
         return ContinuousClock.now - start
     }
 
+    @Test("Board page reads stay interactive over a 10k-member board")
+    func boardPageBudget() async throws {
+        let boardScale = 10_000
+        let pageBudget = Duration.milliseconds(100)
+        let store = GRDBClipboardStore(
+            writer: try DatabaseQueue(),
+            blobs: BlobStore(
+                directory: FileManager.default.temporaryDirectory
+                    .appendingPathComponent("perf-board-\(UUID().uuidString)")))
+        try store.migrate()
+        let fixtures = ClipFixtures.make(count: boardScale)
+        try await store.importBatch(fixtures)
+        let board = try await store.createPinboard(name: "Everything")
+        let seedStart = ContinuousClock.now
+        try await store.setBoardMembership(
+            clipIDs: fixtures.map(\.item.id), boardID: board.id, member: true)
+        print("perf: board membership seeded \(boardScale) in \(ContinuousClock.now - seedStart)")
+
+        // The page a user sees on opening the board — the interactive path.
+        let firstStart = ContinuousClock.now
+        let firstPage = try await store.items(inBoard: board.id, limit: 100)
+        let firstCost = ContinuousClock.now - firstStart
+        #expect(firstPage.count == 100)
+        print("perf: board first page over \(boardScale) members: \(firstCost)")
+        #expect(firstCost < pageBudget)
+
+        // A deep page (the worst OFFSET) must not degrade past the same budget.
+        let deepStart = ContinuousClock.now
+        let deepPage = try await store.items(
+            inBoard: board.id, offset: boardScale - 50, limit: 100)
+        let deepCost = ContinuousClock.now - deepStart
+        #expect(deepPage.count == 50)
+        print("perf: board deep page (offset \(boardScale - 50)): \(deepCost)")
+        #expect(deepCost < pageBudget)
+    }
+
     @Test("FTS5 cold and warm search budgets hold over 100k clips")
     func searchBudget() async throws {
         let store = try await makeSeededStore()
