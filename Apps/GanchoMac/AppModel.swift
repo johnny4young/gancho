@@ -1175,7 +1175,7 @@ final class AppModel {
                 }
                 // After the COMMIT, not the intent — an undone delete must
                 // keep its Spotlight entry.
-                await refreshSpotlight()
+                refreshSpotlight()
             })
         toasts.show(
             GanchoToast(
