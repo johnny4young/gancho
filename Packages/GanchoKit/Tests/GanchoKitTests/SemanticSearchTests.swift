@@ -54,6 +54,12 @@ struct SemanticSearchTests {
         // cos = 1, 1/√2, 0 — and the zero vector is skipped, never NaN.
         let hits = try await store.semanticSearch(queryVector: [1, 0, 0])
         #expect(hits.map(\.preview) == ["close", "mid", "far"])
+
+        // topK smaller than the match count exercises the bounded partial
+        // selection: exactly the best K, still in descending order.
+        let topTwo = try await store.semanticSearch(queryVector: [1, 0, 0], topK: 2)
+        #expect(topTwo.map(\.preview) == ["close", "mid"])
+        #expect(try await store.semanticSearch(queryVector: [1, 0, 0], topK: 0).isEmpty)
     }
 
     @Test("Dimension mismatches and archived clips are excluded")

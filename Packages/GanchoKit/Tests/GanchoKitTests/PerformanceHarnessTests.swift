@@ -1,3 +1,5 @@
+import Accelerate
+import Darwin
 import Foundation
 import GRDB
 import Testing
@@ -185,6 +187,185 @@ struct PerformanceHarnessTests {
             try await Task.sleep(for: injectedSearchDelay)
         }
         return ContinuousClock.now - start
+    }
+
+    // MARK: - Semantic retrieval at scale
+
+    /// Seeds `count` synthetic 512-d embeddings behind real clip rows in ONE
+    /// write transaction — per-row `saveEmbedding` round-trips would dominate
+    /// the seeding, not the measurement. Vectors come from the seeded LCG so
+    /// runs are reproducible; the store is in-memory like the FTS harness, so
+    /// the phase numbers are a relative breakdown, not disk latencies.
+    private func seedEmbeddings(into store: GRDBClipboardStore, count: Int) async throws {
+        let fixtures = ClipFixtures.make(count: count)
+        try await store.importBatch(fixtures)
+        try await store.writer.write { db in
+            var generator = ClipFixtures.Generator(seed: 7)
+            for entry in fixtures {
+                var vector = [Float](repeating: 0, count: 512)
+                for lane in 0..<512 {
+                    vector[lane] = Float(generator.next(2_000)) / 1_000 - 1
+                }
+                let data = vector.withUnsafeBufferPointer { Data(buffer: $0) }
+                try db.execute(
+                    sql: """
+                        INSERT OR REPLACE INTO clip_embedding
+                          (clipID, dimension, vector, modelVersion)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                    arguments: [
+                        entry.item.id.uuidString, 512, data,
+                        EmbeddingModelInfo.currentVersion
+                    ])
+            }
+        }
+    }
+
+    private func queryVector() -> [Float] {
+        var generator = ClipFixtures.Generator(seed: 99)
+        return (0..<512).map { _ in Float(generator.next(2_000)) / 1_000 - 1 }
+    }
+
+    /// Current process physical footprint — the "bounded memory" evidence.
+    private func residentFootprint() -> Int {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(
+            MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        return result == KERN_SUCCESS ? Int(info.phys_footprint) : 0
+    }
+
+    /// The exact-linear-search phases, measured SEPARATELY on the same data
+    /// the production query reads (same SQL, same filters): raw row fetch,
+    /// Data→[Float] conversion, norm calculation, vectorized scoring, then
+    /// full sort vs bounded partial top-K selection. Production stays a single
+    /// linear pass — this breakdown is the evidence for (or against) caching a
+    /// normalized matrix or switching the selection, before any code changes.
+    private func measurePhases(
+        store: GRDBClipboardStore, query: [Float], topK: Int
+    ) async throws -> [(String, Duration)] {
+        var phases: [(String, Duration)] = []
+        let clock = ContinuousClock()
+
+        var start = clock.now
+        let rows = try await store.writer.read { db in
+            try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT e.clipID, e.vector FROM clip_embedding e
+                    JOIN clip c ON c.id = e.clipID
+                    WHERE c.isArchived = 0 AND e.dimension = ? AND e.modelVersion = ?
+                    """, arguments: [512, EmbeddingModelInfo.currentVersion]
+            ).map { (id: $0["clipID"] as String, vector: $0["vector"] as Data) }
+        }
+        phases.append(("db-fetch", clock.now - start))
+
+        start = clock.now
+        let vectors = rows.map { row in
+            row.vector.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+        }
+        phases.append(("convert", clock.now - start))
+
+        start = clock.now
+        let norms = vectors.map { sqrt(vDSP.sumOfSquares($0)) }
+        phases.append(("norms", clock.now - start))
+
+        start = clock.now
+        let queryNorm = sqrt(vDSP.sumOfSquares(query))
+        var scores = [Float](repeating: 0, count: vectors.count)
+        for (index, vector) in vectors.enumerated() {
+            var dot: Float = 0
+            vector.withUnsafeBufferPointer { v in
+                query.withUnsafeBufferPointer { q in
+                    vDSP_dotpr(v.baseAddress!, 1, q.baseAddress!, 1, &dot, vDSP_Length(v.count))
+                }
+            }
+            let denominator = norms[index] * queryNorm
+            scores[index] = denominator > 0 ? dot / denominator : 0
+        }
+        phases.append(("score", clock.now - start))
+
+        start = clock.now
+        let sorted = scores.indices.sorted { scores[$0] > scores[$1] }.prefix(topK)
+        phases.append(("full-sort", clock.now - start))
+
+        start = clock.now
+        // Bounded insertion selection: O(n·k) with k = topK, no full sort.
+        var top: [(offset: Int, element: Float)] = []
+        top.reserveCapacity(topK + 1)
+        for candidate in scores.enumerated() {
+            if top.count < topK {
+                top.append(candidate)
+                top.sort { $0.element > $1.element }
+            } else if candidate.element > top[topK - 1].element {
+                top[topK - 1] = candidate
+                top.sort { $0.element > $1.element }
+            }
+        }
+        phases.append(("partial-top-k", clock.now - start))
+
+        #expect(
+            Array(sorted) == top.map(\.offset),
+            "partial selection must pick exactly the full sort's top rows")
+        return phases
+    }
+
+    @Test("Semantic retrieval: 10k p95 under budget, 100k ceiling documented, memory bounded")
+    func semanticRetrievalBudget() async throws {
+        let warmRounds = 5
+        let tenKBudget = Duration.milliseconds(100)
+        let hundredKCeiling = Duration.seconds(2)
+
+        for scale in [10_000, 100_000] {
+            let store = GRDBClipboardStore(
+                writer: try DatabaseQueue(),
+                blobs: BlobStore(
+                    directory: FileManager.default.temporaryDirectory
+                        .appendingPathComponent("perf-sem-\(UUID().uuidString)")))
+            try store.migrate()
+            let footprintBefore = residentFootprint()
+            let seedStart = ContinuousClock.now
+            try await seedEmbeddings(into: store, count: scale)
+            print("perf: semantic seeded \(scale)x512 in \(ContinuousClock.now - seedStart)")
+
+            for (name, duration) in try await measurePhases(
+                store: store, query: queryVector(), topK: 10)
+            {
+                print("perf: semantic phase[\(name)] over \(scale): \(duration)")
+            }
+
+            // End-to-end through the PRODUCTION query, warm rounds — the cold
+            // first call doubles as the repeated-query comparison (no cache
+            // exists today; these numbers say whether one is worth building).
+            var latencies: [Duration] = []
+            for _ in 0..<warmRounds {
+                let start = ContinuousClock.now
+                let hits = try await store.semanticSearch(queryVector: queryVector(), topK: 10)
+                latencies.append(ContinuousClock.now - start)
+                #expect(hits.count == 10)
+            }
+            let summary = LatencySummary(latencies)
+            let footprintDelta = residentFootprint() - footprintBefore
+            print(
+                "perf: semantic end-to-end over \(scale): cold=\(latencies[0]) "
+                    + "p95=\(summary.p95) max=\(summary.maximum) "
+                    + "footprint-delta=\(footprintDelta / 1_048_576) MiB")
+
+            if scale == 10_000 {
+                #expect(summary.p95 < tenKBudget, "10k semantic p95 budget")
+            } else {
+                // The documented ceiling: a coarse regression tripwire, not a
+                // target — production caps history far below 100k embeddings.
+                #expect(summary.p95 < hundredKCeiling, "100k semantic ceiling")
+                #expect(
+                    footprintDelta < 1_200 * 1_048_576,
+                    "100k retrieval memory must stay bounded")
+            }
+        }
     }
 
     @Test("Board page reads stay interactive over a 10k-member board")
