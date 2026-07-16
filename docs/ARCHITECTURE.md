@@ -164,6 +164,8 @@ file. Read-only grants omit mutating tools at the protocol edge. Read-write
 grants may organize only inside their approved context and cannot create an
 arbitrary board or widen their own scope.
 
+Database internals are split by stable responsibility rather than hidden behind a generic repository. `GanchoDatabaseMigrator` is the only ordered registry for the append-only v1–v20 migration identifiers; feature-owned migration bodies can remain beside their feature but must source their identifier from that registry. `ClipRow` and `PinboardRow` are focused internal domain mappings, while `GRDBClipboardStore` owns the database handle and query/write behavior. `DatabaseMigrationTests` freezes the identifier sequence, upgrades plaintext and SQLCipher fixtures from v1, v8, and v16, and proves a failed DDL migration rolls back before a clean resume.
+
 ## Privacy invariants
 
 1. **Veto before read.** `ConcealedType`, `TransientType`, and
