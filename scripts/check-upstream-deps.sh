@@ -64,11 +64,20 @@ latest_for() {
 		sed -n "s/^${name}=//p" "$latest_file"
 		return
 	fi
+	# Non-fatal on purpose (despite set -e/pipefail): a transient API hiccup
+	# must degrade to the "?" report line, never abort the whole canary.
 	curl -fsSL --max-time 30 \
 		-H "Accept: application/vnd.github+json" \
 		${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
-		"https://api.github.com/repos/${repo}/releases/latest" \
-		| sed -n 's/.*"tag_name": *"v\{0,1\}\([^"]*\)".*/\1/p' | head -1
+		"https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+		| sed -n 's/.*"tag_name": *"v\{0,1\}\([^"]*\)".*/\1/p' | head -1 || true
+}
+
+# True when $1 is strictly newer than $2. Dot-field numeric comparison —
+# portable across BSD and GNU sort (no sort -V on stock macOS).
+version_gt() {
+	[ "$1" != "$2" ] \
+		&& [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)" = "$1" ]
 }
 
 status=0
@@ -78,9 +87,13 @@ report() {
 		echo "? $name: could not resolve the latest upstream release (pinned $pinned)"
 		return
 	fi
-	if [ "$latest" != "$pinned" ]; then
+	if version_gt "$latest" "$pinned"; then
 		echo "✗ UPSTREAM ADVANCED: $name pinned $pinned, latest $latest — see docs/DEPENDENCIES.md"
 		status=1
+	elif [ "$latest" != "$pinned" ]; then
+		# A pin AHEAD of the latest release (pre-release, fork tag, rollback)
+		# is deliberate state, not drift — report it without failing.
+		echo "• $name pinned ahead of the latest release ($pinned > $latest)"
 	else
 		echo "✓ $name up to date ($pinned)"
 	fi

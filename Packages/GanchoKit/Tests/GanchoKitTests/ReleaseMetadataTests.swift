@@ -178,6 +178,16 @@ struct ReleaseMetadataTests {
         let stale = try runCanary(latest: advanced)
         #expect(stale.status == 1, "an advanced upstream must fail the canary")
         #expect(stale.output.contains("UPSTREAM ADVANCED: GRDB"), Comment(rawValue: stale.output))
+
+        // A pin AHEAD of the latest release (pre-release, fork tag, rollback)
+        // is deliberate state, not drift — reported, never a failure.
+        let behind = pinLines.map {
+            $0.hasPrefix("GRDB=") ? "GRDB=1.0.0" : $0
+        }
+        let pinnedAhead = try runCanary(latest: behind)
+        #expect(pinnedAhead.status == 0, Comment(rawValue: pinnedAhead.output))
+        #expect(
+            pinnedAhead.output.contains("pinned ahead"), Comment(rawValue: pinnedAhead.output))
     }
 
     /// Dependabot may never touch the encrypted-store fork: the automation's

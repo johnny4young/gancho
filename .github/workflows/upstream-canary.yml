@@ -54,5 +54,9 @@ jobs:
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --body "$body"
           else
+            # The label may not exist yet; creating it is idempotent and must
+            # never block the drift report itself.
+            gh label create dependencies --color 0366d6 \
+              --description "Dependency updates and upstream drift" || true
             gh issue create --title "$title" --body "$body" --label dependencies
           fi
