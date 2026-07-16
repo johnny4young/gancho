@@ -16,7 +16,7 @@ security, architecture, release notes, and App Store copy.
 | Rich clipboard formats | `NSPasteboardReader`, `PasteBackService` | macOS captures RTF or HTML with a plain-text companion and can paste the stored rich representation back; plain-text paste is an explicit alternative | Pasteboard-fidelity and paste-back tests |
 | Paste stack | `PasteStackStrip`, `PasteStack` | Clips are queued from the panel, visible in its footer strip, and pasted with the configurable stack shortcut | Paste-stack unit tests and macOS UI coverage |
 | Package topology | `Packages/GanchoKit/Package.swift` | One package exposes eight libraries plus the `gancho` CLI | `ReleaseMetadataTests`, `scripts/check-product-truth.sh` |
-| Current direct download | GitHub release `v0.6.0`; last Gatekeeper-verified artifact `v0.5.0` | The Developer ID-signed, notarized, stapled lane that produced the accepted v0.5.0 DMG cuts v0.6.0 the same way; Gatekeeper acceptance is re-verified per published release | Version sync plus explicit release-copy assertions |
+| Current direct download | GitHub release `v0.7.0`; last Gatekeeper-verified artifact `v0.6.0` | The Developer ID-signed, notarized, stapled lane that produced the accepted v0.6.0 DMG cuts v0.7.0 the same way; Gatekeeper acceptance is re-verified per published release | Version sync plus explicit release-copy assertions |
 | Cross-device confidence | Sync tests and completed hardware smoke | A real-device pass has completed; repeat the full device matrix for every release candidate | Tests plus the manual release checklist |
 
 ## Maintenance rules

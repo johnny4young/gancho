@@ -18,8 +18,8 @@ and StoreKit purchase plumbing are implemented and covered by tests. Serialized
 purchase and restore automation verifies entitlement changes end to end. The
 release/versioning lane ships a signed, notarized, stapled direct-download DMG,
 a signed Sparkle appcast, version-sync guards, artifact QA, and the website. The
-v0.6.0 DMG ships through the same signed, notarized, stapled lane that produced
-the Gatekeeper-accepted v0.5.0 artifact; acceptance is re-verified per published
+v0.7.0 DMG ships through the same signed, notarized, stapled lane that produced
+the Gatekeeper-accepted v0.6.0 artifact; acceptance is re-verified per published
 release. What remains before 1.0 is repeating the real-device sync matrix for
 the release candidate, App Store submission, and the account-gated launch pieces
 (App Store products and TestFlight).
