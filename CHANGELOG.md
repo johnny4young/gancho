@@ -32,6 +32,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   device is idle-friendly: not thermally stressed and not in Low Power Mode)
   instead of mixing incompatible results.
 - Updated the Sparkle auto-updater framework to 2.9.4.
+- **Semantic search got faster at scale.** Measuring retrieval phase by phase
+  at 10k and 100k stored vectors showed the final sort dominating; results are
+  now picked with a bounded selection instead — the same top results, with the
+  10k search's 95th percentile dropping to under 30ms.
 
 ### Fixed
 
