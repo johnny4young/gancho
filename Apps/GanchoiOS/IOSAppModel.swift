@@ -12,6 +12,7 @@ import WidgetKit
 
 // IOSAppModel mirrors the iOS composition root; split persistence/sync/history
 // wiring separately so this SwiftLint adoption stays behavior-preserving.
+// swiftlint:disable file_length
 // swiftlint:disable type_body_length
 
 @Observable
@@ -112,6 +113,7 @@ final class IOSAppModel {
     }
     private let defaults = UserDefaults.standard
     let telemetry: TelemetryPipeline
+    private let activationTracker: ActivationTracker
     private(set) var telemetryConsent: TelemetryConsent {
         didSet {
             telemetryConsent.save(to: defaults)
@@ -149,6 +151,7 @@ final class IOSAppModel {
             pollStateStore: pollState)
     }
 
+    // swiftlint:disable:next function_body_length
     init() {
         let forceFreeTier = CommandLine.arguments.contains("-force-free-tier")
         intelligence = IntelligencePreferences.load(from: defaults)
@@ -164,9 +167,11 @@ final class IOSAppModel {
             }
         #endif
         self.telemetryConsent = telemetryConsent
+        activationTracker = ActivationTracker(defaults: defaults)
         telemetry = TelemetryPipeline(
             consent: telemetryConsent,
             senderFactory: { TelemetryDeckSender(appID: GanchoTelemetryConfig.appID) })
+        if telemetryConsent != .disabled { activationTracker.start() }
         // Resolve the capability handles once: feature code holds the facet
         // surface, only engine construction sees the concrete class.
         full = store as? any FullClipStore
@@ -282,13 +287,42 @@ final class IOSAppModel {
     #endif
 
     func setTelemetryConsent(_ consent: TelemetryConsent) {
-        guard consent != .notAsked else { return }
+        guard consent != .notAsked, consent != telemetryConsent else { return }
+        if consent == .enabled { activationTracker.start() }
         telemetryConsent = consent
+        if consent == .enabled {
+            telemetry.record(.activationSnapshot(activationTracker.snapshot()))
+        } else {
+            activationTracker.reset()
+        }
     }
 
     func requestTelemetryConsentAfterFirstValue() {
         guard telemetryConsent == .notAsked else { return }
         isTelemetryConsentPromptPresented = true
+    }
+
+    func recordActivationMilestone(_ milestone: ActivationMilestone) {
+        guard telemetryConsent != .disabled,
+            let receipt = activationTracker.record(milestone)
+        else { return }
+        guard telemetryConsent == .enabled else { return }
+        telemetry.record(
+            .activationMilestone(
+                milestone: receipt.milestone, elapsedBucket: receipt.elapsedBucket))
+    }
+
+    private func recordSuccessfulReuse(_ item: ClipItem) {
+        recordActivationMilestone(.firstSuccessfulReuse)
+        telemetry.record(
+            .successfulReuse(
+                method: .copy, batchSize: .one,
+                ageBucket: .init(age: Date().timeIntervalSince(item.createdAt))))
+        requestTelemetryConsentAfterFirstValue()
+    }
+
+    func completeOnboarding() {
+        recordActivationMilestone(.onboardingCompleted)
     }
 
     func forceSync() async {
@@ -397,6 +431,7 @@ final class IOSAppModel {
         guard let full else { return }
         switch await curationController.promoteToSnippet(item, tier: tier, store: full) {
         case .promoted:
+            recordActivationMilestone(.firstSnippetCreated)
             await search()
             refreshSpotlight()
             // Refresh first so the two-second confirmation remains visible
@@ -478,6 +513,7 @@ final class IOSAppModel {
                 recordBoardFailure("Couldn’t create the board.")
             }
             guard outcome != .blocked else { return }
+            if case .created = outcome { recordActivationMilestone(.firstBoardCreated) }
             await refreshBoards()
         }
     }
@@ -500,6 +536,7 @@ final class IOSAppModel {
         } else if case .created(_, filedClip: false) = outcome {
             recordBoardFailure("The board was created, but the clip couldn’t be added.")
         }
+        if case .created = outcome { recordActivationMilestone(.firstBoardCreated) }
         await refreshBoards()
         await search()
         guard case .created(let boardID, filedClip: true) = outcome else { return nil }
@@ -593,6 +630,9 @@ final class IOSAppModel {
 
     func search() async {
         let interval = Signpost.queryToResults.begin()
+        if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            recordActivationMilestone(.firstSearch)
+        }
         await history.search()
         Signpost.queryToResults.end(interval)
     }
@@ -634,7 +674,7 @@ final class IOSAppModel {
         // Copying a clip is the truest "ready to paste" moment — it's on the
         // pasteboard now — so surface it on the Live Activity too.
         clipActivity.show(item, sync: ClipSyncBadge(syncStatus))
-        requestTelemetryConsentAfterFirstValue()
+        recordSuccessfulReuse(item)
         if let suggestion { await presentReuseSuggestion(suggestion) }
     }
 
@@ -947,6 +987,7 @@ final class IOSAppModel {
             return
         }
         Signpost.captureToInsert.end(ingestInterval)
+        if outcome.isNew { recordActivationMilestone(.firstCapture) }
         flashNote(
             outcome.isNew
                 ? String(localized: "Saved") : String(localized: "Already in your history"))

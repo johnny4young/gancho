@@ -670,8 +670,14 @@ struct LibraryView: View {
             let item = ClipItem(
                 title: text, preview: text,
                 contentHash: ClipItem.hash(of: UUID().uuidString, kind: .text))
-            _ = try? await store.insert(item, content: .text(text))
-            try? await store.promoteToSnippet(id: item.id, title: text)
+            do {
+                _ = try await store.insert(item, content: .text(text))
+                try await store.promoteToSnippet(id: item.id, title: text)
+                model.recordActivationMilestone(.firstSnippetCreated)
+            } catch {
+                model.diagnostics.record("Snippets", "Couldn’t save the snippet.")
+                return
+            }
             snippets = (try? await store.snippets()) ?? []
             selection = .snippet(item.id)
             model.refreshSpotlight()

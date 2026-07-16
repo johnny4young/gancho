@@ -128,7 +128,10 @@ struct GanchoiOSApp: App {
                     get: { !hasSeenWelcome && !routeToPrivacyCenter && !skipWelcomeOnLaunch },
                     set: { showing in if !showing { hasSeenWelcome = true } })
             ) {
-                IOSOnboardingView { hasSeenWelcome = true }
+                IOSOnboardingView {
+                    model.completeOnboarding()
+                    hasSeenWelcome = true
+                }
             }
         }
         .onChange(of: scenePhase) { _, phase in

@@ -18,6 +18,10 @@ final class PrivacyCenterUITests: XCTestCase {
         XCTAssertTrue(
             privacyCenter.waitForExistence(timeout: 10),
             "the -open-privacy-center-on-launch hook must show the Privacy Center")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["ios-successful-reuse-count"].firstMatch
+                .waitForExistence(timeout: 5),
+            "the Privacy Center must expose the in-memory successful-reuse count")
 
         // The ephemeral-store launch logged an issue, so the "Recent issues"
         // section must surface it with the Copy-for-support button — the

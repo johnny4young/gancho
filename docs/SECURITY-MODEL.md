@@ -29,6 +29,27 @@ ignore events, purge logs, activation metrics, and explicitly enabled telemetry
 field). Telemetry is disabled until the user consents and stops immediately
 when consent is withdrawn.
 
+## Optional diagnostics lifecycle and deletion
+
+- Before consent, Gancho keeps only a local activation receipt: the first date
+  for each closed milestone and the start date used to derive a coarse
+  time-to-value bucket. It contains no clip, query, title, source application,
+  path, identifier, or hash. The telemetry SDK is not constructed and no event
+  is queued or sent.
+- Opting in sends one aggregate activation snapshot, not a replay of individual
+  pre-consent actions. Later events are closed enum values and coarse buckets.
+  The transport uses only its app-scoped anonymous identifier; Gancho adds no
+  account, email, advertising identifier, or cross-app identity.
+- The Privacy Center's per-event counters live in memory and reset on quit.
+  Turning diagnostics off clears them, deletes the local activation receipt,
+  detaches the sender, and terminates the SDK synchronously. Re-enabling starts
+  a new local activation window; disabled-period actions are not backfilled.
+- Events already delivered to the diagnostics provider cannot be recalled by
+  the client. Server-side retention and deletion are administered in Gancho's
+  provider workspace and published privacy policy; this source repository does
+  not claim a duration it cannot enforce. Removing Gancho or its preferences
+  deletes the remaining local consent and activation data.
+
 ## Threat table
 
 | Threat | Mitigation | Verified by |
@@ -43,6 +64,7 @@ when consent is withdrawn.
 | Exports grabbed by other software | exports are explicit user actions to user-chosen paths; no auto-export | settings/export code path |
 | Lost/stolen device | content sits in the OS user account protected by FileVault/iOS data protection; sensitive items already expired in minutes | retention engine tests |
 | Support bundles leaking content | support/diagnostics may include settings snapshot + counters ONLY (snapshot is content-free by schema); the in-app error log (`DiagnosticLog`, the Privacy Center "Recent issues" + "Copy for support") stores a category, a fixed operational message, and a timestamp only — never clip text, capped in memory, never persisted or uploaded | `SettingsSnapshotTests.contentFree`, `DiagnosticLogTests` |
+| Consent withdrawal leaves analytics running | sender detaches under lock, SDK termination runs synchronously, session counters and local activation receipts are erased; a concurrently constructed sender is terminated instead of attached | `TelemetryTests.forwards`, disabled-state and activation-receipt tests |
 
 ## Release checklist (blocks the release if any item fails)
 

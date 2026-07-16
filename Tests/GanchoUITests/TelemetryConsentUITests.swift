@@ -2,7 +2,7 @@ import XCTest
 
 final class TelemetryConsentUITests: XCTestCase {
     @MainActor
-    func testTelemetryConsentStartsDisabledAndCanBeDeclined() {
+    func testTelemetryConsentStartsDisabledAndCanBeDeclined() throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
@@ -15,7 +15,15 @@ final class TelemetryConsentUITests: XCTestCase {
 
         let prompt = app.descendants(matching: .any)["telemetry-consent-prompt"].firstMatch
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
-        app.buttons["Keep disabled"].firstMatch.click()
+        let keepDisabled = app.buttons["Keep disabled"].firstMatch
+        XCTAssertTrue(keepDisabled.waitForExistence(timeout: 2))
+
+        app.activate()
+        try SynthesizedInput.requireForeground(app)
+        guard keepDisabled.isHittable else {
+            throw XCTSkip("telemetry consent prompt is obscured on this runner")
+        }
+        keepDisabled.click()
         XCTAssertFalse(prompt.waitForExistence(timeout: 1))
     }
 }

@@ -27,6 +27,9 @@ extension AppModel: PanelSearchSource {
 
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
         guard let grdbStore else { return [] }
+        if !query.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            recordActivationMilestone(.firstSearch)
+        }
         return (try? await grdbStore.search(query, limit: limit)) ?? []
     }
 

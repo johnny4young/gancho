@@ -3331,6 +3331,26 @@
           }
         }
       }
+    },
+    "Session counts reset when Gancho quits. Turning diagnostics off also deletes the local activation receipt and terminates the analytics transport.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los conteos de la sesión se restablecen cuando Gancho se cierra. Desactivar los diagnósticos también elimina el recibo local de activación y finaliza el transporte de analíticas."
+          }
+        }
+      }
+    },
+    "Successful reuses this session": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reutilizaciones exitosas en esta sesión"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

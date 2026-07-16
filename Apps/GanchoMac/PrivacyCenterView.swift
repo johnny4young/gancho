@@ -187,9 +187,20 @@ struct PrivacyCenterView: View {
                             set: { model.setTelemetryConsent($0 ? .enabled : .disabled) })
                     )
                     .accessibilityIdentifier("privacy-telemetry-consent-toggle")
+                    LabeledContent(
+                        "Successful reuses this session",
+                        value: "\(model.telemetry.counts()["successful_reuse", default: 0])"
+                    )
+                    .accessibilityIdentifier("privacy-successful-reuse-count")
                     Text(
                         // swiftlint:disable:next line_length
                         "Anonymous feature counts and broad performance buckets are off until you allow them. Clipboard content, titles, searches, and source-app names are never sent."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    Text(
+                        // swiftlint:disable:next line_length
+                        "Session counts reset when Gancho quits. Turning diagnostics off also deletes the local activation receipt and terminates the analytics transport."
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)

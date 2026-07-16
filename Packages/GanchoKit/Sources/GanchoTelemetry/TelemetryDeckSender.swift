@@ -15,13 +15,17 @@ public enum GanchoTelemetryConfig {
 /// design there is no field clipboard content could ride through.
 public struct TelemetryDeckSender: TelemetrySending {
     /// Initializing configures the SDK once. Construct this ONLY when the
-    /// user has explicitly opted in. Before consent or after withdrawal, no
-    /// sender exists and the SDK is never initialized.
+    /// user has explicitly opted in. Before consent no sender exists; after
+    /// withdrawal `shutdown()` terminates the initialized SDK.
     public init(appID: String) {
         TelemetryDeck.initialize(config: TelemetryDeck.Config(appID: appID))
     }
 
-    public func send(name: String, parameters: [String: String]) async {
+    public func send(name: String, parameters: [String: String]) {
         TelemetryDeck.signal(name, parameters: parameters)
+    }
+
+    public func shutdown() {
+        TelemetryDeck.terminate()
     }
 }
