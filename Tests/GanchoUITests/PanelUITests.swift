@@ -95,7 +95,9 @@ final class PanelUITests: XCTestCase {
         }
 
         try openStatusMenuItem("Settings…", app: app)
-        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 5))
+        // 10s, not 5: a hosted runner's first Settings-scene open runs cold
+        // (observed >5s on CI while the click path itself succeeded).
+        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 10))
     }
 
     @MainActor
