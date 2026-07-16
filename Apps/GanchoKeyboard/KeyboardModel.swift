@@ -79,7 +79,8 @@ final class KeyboardModel: ObservableObject {
             // Strictly one small page — the keyboard extension runs under a
             // tight memory ceiling, and the store orders pinned-first so the
             // page keeps the pins on top.
-            let page = (try? await store.items(inBoard: selectedBoardID, limit: 60)) ?? []
+            let page =
+                (try? await store.items(inBoard: selectedBoardID, offset: 0, limit: 60)) ?? []
             entries = KeyboardClips.ordered(
                 pinned: page.filter(\.isPinned), recent: page.filter { !$0.isPinned })
             sections = []
