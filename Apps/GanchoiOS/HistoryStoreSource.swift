@@ -28,9 +28,9 @@ import GanchoKit
         (try? await store.items(offset: offset, limit: limit)) ?? []
     }
 
-    func boardItems(_ boardID: UUID) async -> [ClipItem] {
+    func boardItems(_ boardID: UUID, offset: Int, limit: Int) async -> [ClipItem] {
         guard let full else { return [] }
-        return (try? await full.items(inBoard: boardID)) ?? []
+        return (try? await full.items(inBoard: boardID, offset: offset, limit: limit)) ?? []
     }
 
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {

@@ -27,10 +27,12 @@ final class CaptureFlowUITests: XCTestCase {
         }
 
         // The seeded clips flow through the real capture path (ingest → store
-        // insert → search), so a `clip-row` must appear in the list.
+        // insert → search), so a `clip-row` must appear in the list. 15s, not
+        // 8: on a cold shared-CI simulator the seed→ingest→refresh chain has
+        // been observed to outlast the shorter wait while still succeeding.
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         XCTAssertTrue(
-            rows.firstMatch.waitForExistence(timeout: 8),
+            rows.firstMatch.waitForExistence(timeout: 15),
             "a seeded clip must appear in the history via the capture path")
     }
 

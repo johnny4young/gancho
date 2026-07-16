@@ -102,7 +102,7 @@ private actor FakeBoardStore: BoardStoring {
         if failures.contains(.removeAll) { throw FakeBoardError.failure }
     }
     func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> { [] }
-    func items(inBoard boardID: UUID) async throws -> [ClipItem] { [] }
+    func items(inBoard boardID: UUID, offset: Int, limit: Int) async throws -> [ClipItem] { [] }
     func count(inBoard boardID: UUID) async throws -> Int { 0 }
     func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws {}
 }

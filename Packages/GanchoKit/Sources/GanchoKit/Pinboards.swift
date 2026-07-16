@@ -205,14 +205,20 @@ extension GRDBClipboardStore {
         }
     }
 
-    public func items(inBoard boardID: UUID) async throws -> [ClipItem] {
+    /// The trailing `id` breaks `updatedAt` ties — batch assignment stamps one
+    /// timestamp across many rows, and without a total order two pages could
+    /// overlap or drop a row between them.
+    public func items(
+        inBoard boardID: UUID, offset: Int = 0, limit: Int
+    ) async throws -> [ClipItem] {
         try await writer.read { db in
             try ClipRow
                 .filter(
                     sql: "id IN (SELECT clipID FROM clip_board WHERE boardID = ?)",
                     arguments: [boardID.uuidString]
                 )
-                .order(Column("isPinned").desc, Column("updatedAt").desc)
+                .order(Column("isPinned").desc, Column("updatedAt").desc, Column("id"))
+                .limit(limit, offset: offset)
                 .fetchAll(db).map(\.item)
         }
     }

@@ -71,3 +71,46 @@ enum SynthesizedInput {
         up.post(tap: .cghidEventTap)
     }
 }
+
+/// Focuses `field` and types `text` character by character, guarded end to
+/// end: app frontmost, focus click, keyboard-focus grant, and a final value
+/// assert so dropped characters fail here instead of corrupting the caller's
+/// next assertion. Shared by every suite that fills a text field.
+@MainActor
+func typeTextReliably(
+    _ text: String,
+    into field: XCUIElement,
+    in app: XCUIApplication,
+    file: StaticString = #filePath,
+    line: UInt = #line
+) throws {
+    // ⌘A + delete + typing are app-LEVEL events: if Gancho isn't frontmost or
+    // the field never takes focus, they land on whatever app/element actually
+    // has the keyboard — select-all-deleting someone else's text. Skip (not
+    // fail) when the environment can't grant us the keyboard safely.
+    try SynthesizedInput.requireForeground(app)
+    if field.isHittable {
+        field.click()
+    } else {
+        // The field exists but isn't hittable (e.g. overlaid during a
+        // transition). With the app verified frontmost, its center coordinate
+        // is over OUR window, so the focus click is safe.
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+    }
+    guard SynthesizedInput.waitForKeyboardFocus(field, timeout: 2) else {
+        throw XCTSkip("keyboard focus not grantable to the field — skipping synthesized input")
+    }
+
+    app.typeKey("a", modifierFlags: .command)
+    app.typeKey(.delete, modifierFlags: [])
+    for character in text {
+        app.typeText(String(character))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+    }
+
+    XCTAssertEqual(
+        field.value as? String, text,
+        "text entry must not drop characters before asserting picker state",
+        file: file,
+        line: line)
+}

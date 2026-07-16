@@ -46,7 +46,7 @@ struct PinboardTests {
         let item = ClipItem(preview: "clip", contentHash: "h")
         try await store.insert(item, content: .text("clip"))
         try await store.assign(clipID: item.id, toBoard: work.id)
-        #expect(try await store.items(inBoard: work.id).map(\.preview) == ["clip"])
+        #expect(try await store.items(inBoard: work.id, limit: 10).map(\.preview) == ["clip"])
         #expect(try await store.count(inBoard: work.id) == 1)
         // Board membership is orthogonal to pinning — assigning does NOT pin.
         #expect(try await store.pinnedCount() == 0)
@@ -58,7 +58,45 @@ struct PinboardTests {
         try await store.deletePinboard(id: work.id)
         #expect(try await store.pinboards().filter { !$0.isSystem }.count == 1)
         #expect(try await store.count() == 1, "clips must survive board deletion")
-        #expect(try await store.items(inBoard: work.id).isEmpty, "membership cascades away")
+        #expect(
+            try await store.items(inBoard: work.id, limit: 10).isEmpty,
+            "membership cascades away")
+    }
+
+    @Test("Board pages conserve the set: no dupes, no gaps, even with tied timestamps")
+    func boardPaginationConservesTheSet() async throws {
+        let store = try makeStore()
+        let board = try await store.createPinboard(name: "Big")
+        var ids: [UUID] = []
+        for index in 0..<25 {
+            let item = ClipItem(preview: "clip \(index)", contentHash: "h\(index)")
+            try await store.insert(item, content: .text("clip \(index)"))
+            ids.append(item.id)
+        }
+        // Pins must float across a page boundary, and the batch assignment
+        // stamps ONE updatedAt on all 25 rows — the tie the ordering has to
+        // break deterministically for pages to be stable.
+        try await store.setPinned(id: ids[3], true)
+        try await store.setPinned(id: ids[17], true)
+        try await store.setBoardMembership(clipIDs: ids, boardID: board.id, member: true)
+
+        let whole = try await store.items(inBoard: board.id, limit: 1_000)
+        #expect(whole.count == 25)
+        let topTwoPinned = whole.prefix(2).allSatisfy(\.isPinned)
+        #expect(topTwoPinned, "pins stay on top")
+
+        var paged: [ClipItem] = []
+        var offset = 0
+        while true {
+            let page = try await store.items(inBoard: board.id, offset: offset, limit: 10)
+            paged.append(contentsOf: page)
+            offset += page.count
+            if page.count < 10 { break }
+        }
+        #expect(
+            paged.map(\.id) == whole.map(\.id),
+            "pages must concatenate into exactly the whole set, in order")
+        #expect(Set(paged.map(\.id)).count == 25, "no duplicates across page boundaries")
     }
 
     @Test("Favorites is a built-in board: present, first, immutable")
