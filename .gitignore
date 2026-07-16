@@ -10,6 +10,9 @@ xcuserdata/
 *.xcresult
 *.profraw
 
+# Local UI and browser validation evidence.
+output/
+
 # Vendored frameworks (fetched by scripts, never committed)
 Vendor/
 

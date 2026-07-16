@@ -7,8 +7,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-16
+
 ### Added
 
+- **Work with several clips at once on the Mac.** Shift-click/Shift-arrow now
+  selects a range and Command-click builds a non-contiguous selection. A compact
+  action bar can add the whole selection to the paste stack, file it into a
+  board, or delete it with one shared Undo. When every selected item is a file
+  reference, dragging any selected row sends the complete de-duplicated file
+  set to Finder or another file drop target; mixed selections safely keep the
+  one-row drag behavior.
 - **Find your snippets from Spotlight.** Snippets and pinned clips now appear
   in the system-wide Spotlight search on Mac, iPhone, and iPad. Opening a
   result jumps straight to the clip on iPhone and iPad, and brings up the
@@ -58,6 +67,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   didn't, falls back to a built-in menu-bar icon. Clicking Gancho in Finder or
   the Dock re-establishes the icon the same way, so you can always reach the
   menu (and "Quit Gancho") without touching Activity Monitor.
+  If every menu-bar affordance is removed anyway, the app terminates instead of
+  leaving clipboard history resident in an unreachable background process.
 - **JWT tokens no longer show in the clear in the history list.** A bare JWT
   copied to the clipboard is recognized as a token but wasn't flagged as a
   detected secret, so its row preview appeared unmasked in the history list

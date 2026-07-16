@@ -18,11 +18,36 @@ and StoreKit purchase plumbing are implemented and covered by tests. Serialized
 purchase and restore automation verifies entitlement changes end to end. The
 release/versioning lane ships a signed, notarized, stapled direct-download DMG,
 a signed Sparkle appcast, version-sync guards, artifact QA, and the website. The
-v0.6.0 DMG ships through the same signed, notarized, stapled lane that produced
-the Gatekeeper-accepted v0.5.0 artifact; acceptance is re-verified per published
+v0.7.0 DMG ships through the same signed, notarized, stapled lane that produced
+the Gatekeeper-accepted v0.6.0 artifact; acceptance is re-verified per published
 release. What remains before 1.0 is repeating the real-device sync matrix for
 the release candidate, App Store submission, and the account-gated launch pieces
 (App Store products and TestFlight).
+
+## What's new in 0.7
+
+- **Batch the busywork on Mac.** Select a range with Shift or build a selection
+  with Command-click, then send every clip to the paste stack, file them into a
+  board, or delete them with one shared Undo. A selected group of file clips
+  also drags to Finder as one de-duplicated file set.
+- **Find the Library from Spotlight.** Curated snippets and pins are searchable
+  across Mac, iPhone, and iPad while raw history, secrets, and expiring clips
+  stay out of the system index. One switch removes Gancho's Spotlight domain.
+- **Keep secrets outside the model.** Deterministic structural redaction now
+  replaces key-, token-, card-, and private-key-shaped text before on-device AI
+  sees it; every prompt is versioned and covered by an opt-in live evaluation.
+- **Stay fast as the Library grows.** Boards page through thousands of clips,
+  semantic vectors carry their model version for safe background refreshes,
+  and bounded top-K selection brings measured 10k-vector retrieval p95 below
+  30 ms.
+- **Never lose the way back to Gancho.** The menu-bar affordance recovers after
+  helper failure and the history process terminates if no affordance survives;
+  bare JWT previews are masked without disabling decode or paste.
+
+![Gancho v0.7 Spotlight privacy controls](site/assets/v0.7.0-release.png)
+
+*Real macOS v0.7 build captured by XCUITest. Spotlight indexing is explicit,
+limited to the curated Library, and immediately reversible.*
 
 ## Product goal
 
@@ -98,6 +123,11 @@ stay in reusable modules.
   emoji identity that persists and syncs across Mac, iPhone, and iPad. A local,
   one-time suggestion offers to promote a clip to a snippet after its third
   successful reuse.
+- Multi-selection via Shift or Command-click, with batch add-to-stack,
+  add-to-board, and delete-with-Undo actions. Selected file clips drag together
+  as independent file URLs when the whole selection is file-safe.
+- Curated snippets and pins can be donated to Spotlight with structural
+  redaction and a Settings switch that removes Gancho's system index immediately.
 
 **iPhone & iPad app**
 

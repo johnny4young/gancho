@@ -488,6 +488,7 @@ private struct PrivacySettingsTab: View {
             .font(.footnote)
             .foregroundStyle(.secondary)
             Toggle("Show snippets and pins in Spotlight", isOn: $model.spotlightIndexing)
+                .accessibilityIdentifier("spotlight-indexing-toggle")
             Text(
                 """
                 Only snippets and pinned clips reach the system index — never your raw \
@@ -497,6 +498,7 @@ private struct PrivacySettingsTab: View {
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
+            .accessibilityIdentifier("spotlight-indexing-privacy-note")
             Button("Open Privacy Center") {
                 model.privacyCenterWindow.show(model: model)
             }
