@@ -1864,21 +1864,9 @@
           }
         },
         "es": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld clip expuesto"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld clips expuestos"
-                }
-              }
-            }
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld clips expuestos"
           }
         }
       }
@@ -1998,7 +1986,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apagado"
+            "value": "Desactivado"
           }
         }
       }
@@ -2148,7 +2136,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encendido"
+            "value": "Activado"
           }
         }
       }
@@ -6499,6 +6487,476 @@
           "stringUnit": {
             "state": "translated",
             "value": "La importación se detuvo de forma segura antes de realizar cambios."
+          }
+        }
+      }
+    },
+    "Allow approved local AI clients": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permitir clientes de IA locales aprobados"
+          }
+        }
+      }
+    },
+    "Active client grants": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Concesiones de cliente activas"
+          }
+        }
+      }
+    },
+    "Every client has its own board, time window, expiry, and read/write policy.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada cliente tiene su propio tablero, ventana de tiempo, vencimiento y política de lectura/escritura."
+          }
+        }
+      }
+    },
+    "Create, copy, expire, and revoke client grants from MCP Access.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crea, copia, deja vencer y revoca concesiones de cliente desde Acceso MCP."
+          }
+        }
+      }
+    },
+    "Each client gets its own expiring grant. No client can fall back to ambient history.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada cliente recibe su propia concesión temporal. Ningún cliente puede recurrir al historial completo."
+          }
+        }
+      }
+    },
+    "No approved clients": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay clientes aprobados"
+          }
+        }
+      }
+    },
+    "Add a client to select exactly what it may access.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agrega un cliente para seleccionar exactamente a qué puede acceder."
+          }
+        }
+      }
+    },
+    "Add client…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar cliente…"
+          }
+        }
+      }
+    },
+    "Approved clients": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clientes aprobados"
+          }
+        }
+      }
+    },
+    "1 active": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 activo"
+          }
+        }
+      }
+    },
+    "%lld active": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld activos"
+          }
+        }
+      }
+    },
+    "Sensitive clips are vetoed for every client, including read-write grants.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los clips sensibles están vetados para todos los clientes, incluso con concesiones de lectura y escritura."
+          }
+        }
+      }
+    },
+    "Revoke interrupts the client's next call without restarting its server.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revocar bloquea la siguiente llamada del cliente sin reiniciar su servidor."
+          }
+        }
+      }
+    },
+    "Privacy boundary": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Límite de privacidad"
+          }
+        }
+      }
+    },
+    "Access ledger": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registro de acceso"
+          }
+        }
+      }
+    },
+    "Metadata only — never requests or clip content": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo metadatos, nunca solicitudes ni contenido de clips"
+          }
+        }
+      }
+    },
+    "Copy server command": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar comando del servidor"
+          }
+        }
+      }
+    },
+    "Revoke": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revocar"
+          }
+        }
+      }
+    },
+    "Unknown client": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cliente desconocido"
+          }
+        }
+      }
+    },
+    "1 clip exposed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 clip expuesto"
+          }
+        }
+      }
+    },
+    "Active": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activo"
+          }
+        }
+      }
+    },
+    "Expired": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vencido"
+          }
+        }
+      }
+    },
+    "Revoked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revocado"
+          }
+        }
+      }
+    },
+    "No expiry": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin vencimiento"
+          }
+        }
+      }
+    },
+    "Read only": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo lectura"
+          }
+        }
+      }
+    },
+    "Read and organize": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leer y organizar"
+          }
+        }
+      }
+    },
+    "Marked clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clips marcados"
+          }
+        }
+      }
+    },
+    "Full content in context": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contenido completo en el contexto"
+          }
+        }
+      }
+    },
+    "Last hour": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Última hora"
+          }
+        }
+      }
+    },
+    "Last day": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Último día"
+          }
+        }
+      }
+    },
+    "Last 7 days": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Últimos 7 días"
+          }
+        }
+      }
+    },
+    "Last 30 days": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Últimos 30 días"
+          }
+        }
+      }
+    },
+    "All time": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo el tiempo"
+          }
+        }
+      }
+    },
+    "Approve a local AI client": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aprobar un cliente de IA local"
+          }
+        }
+      }
+    },
+    "Choose the smallest context and shortest duration that client needs.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige el contexto más reducido y la duración más corta que necesite el cliente."
+          }
+        }
+      }
+    },
+    "Client name": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre del cliente"
+          }
+        }
+      }
+    },
+    "Board context": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contexto del tablero"
+          }
+        }
+      }
+    },
+    "Time window": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ventana de tiempo"
+          }
+        }
+      }
+    },
+    "Content access": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso al contenido"
+          }
+        }
+      }
+    },
+    "Actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acciones"
+          }
+        }
+      }
+    },
+    "Expires": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vence"
+          }
+        }
+      }
+    },
+    "Secrets remain blocked. Read-write only permits organization inside this context.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los secretos permanecen bloqueados. La lectura y escritura solo permite organizar dentro de este contexto."
+          }
+        }
+      }
+    },
+    "Create grant": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear concesión"
+          }
+        }
+      }
+    },
+    "1 hour": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 hora"
+          }
+        }
+      }
+    },
+    "1 day": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 día"
+          }
+        }
+      }
+    },
+    "Agent results returned": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resultados devueltos a agentes"
+          }
+        }
+      }
+    },
+    "Couldn’t save local agent access settings.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar la configuración de acceso de agentes locales."
           }
         }
       }

@@ -16,7 +16,7 @@ struct PrivacyCenterView: View {
     @State private var synced = 0
     @State private var mcpAccesses: [MCPAccessEvent] = []
     @State private var mcpCalls = 0
-    @State private var mcpBodiesExposed = 0
+    @State private var mcpResultsReturned = 0
     @State private var mcpDenied = 0
 
     private var weekAgo: Date { Date(timeIntervalSinceNow: -7 * 86_400) }
@@ -97,7 +97,7 @@ struct PrivacyCenterView: View {
                         }
                     }
                     LabeledContent("Agent calls this week", value: "\(mcpCalls)")
-                    LabeledContent("Content bodies exposed", value: "\(mcpBodiesExposed)")
+                    LabeledContent("Agent results returned", value: "\(mcpResultsReturned)")
                     LabeledContent("Denied by scope or veto", value: "\(mcpDenied)")
                     Button("Open MCP Access…") { model.mcpAccessWindow.show(model: model) }
                         .accessibilityIdentifier("open-mcp-access")
@@ -119,7 +119,12 @@ struct PrivacyCenterView: View {
                                 }
                             } label: {
                                 Label {
-                                    Text(verbatim: event.tool.rawValue).monospaced()
+                                    HStack(spacing: GanchoTokens.Spacing.xs) {
+                                        Text(
+                                            verbatim: event.clientName
+                                                ?? String(localized: "Unknown client"))
+                                        Text(verbatim: event.tool.rawValue).monospaced()
+                                    }
                                 } icon: {
                                     Image(systemName: mcpToolSymbol(event.tool))
                                 }
@@ -224,7 +229,7 @@ struct PrivacyCenterView: View {
         mcpAccesses = recent
         let thisWeek = recent.filter { $0.occurredAt >= weekAgo }
         mcpCalls = thisWeek.count
-        mcpBodiesExposed = thisWeek.reduce(0) { $0 + $1.resultCount }
+        mcpResultsReturned = thisWeek.reduce(0) { $0 + $1.resultCount }
         mcpDenied = thisWeek.filter(\.wasDenied).count
     }
 

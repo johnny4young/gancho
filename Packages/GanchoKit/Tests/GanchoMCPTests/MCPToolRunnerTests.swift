@@ -4,12 +4,21 @@ import Testing
 
 @testable import GanchoMCP
 
+// One @Test per enforcement rule keeps the security surface readable; the
+// struct legitimately exceeds the default body-length budget as a result.
+// swiftlint:disable type_body_length
 @Suite("MCP tool runner — scope, veto, logging")
 struct MCPToolRunnerTests {
-    private func runner(_ scope: MCPAccessScope, sink: EventSink) async throws -> MCPToolRunner {
+    private func runner(
+        _ scope: MCPAccessScope,
+        accessMode: MCPAccessMode = .readWrite,
+        sink: EventSink
+    ) async throws -> MCPToolRunner {
         let store = try MCPTestStore.make()
         try await store.seedFixtures()
-        return MCPToolRunner(store: store, scope: scope) { await sink.record($0) }
+        return MCPToolRunner(store: store, scope: scope, accessMode: accessMode) {
+            await sink.record($0)
+        }
     }
 
     // MARK: - search_clips
@@ -36,6 +45,23 @@ struct MCPToolRunnerTests {
         let json = try resultJSON(result)
         #expect(json["count"]?.intValue == 1)
         #expect(json["clips"]?.arrayValue?.first?["id"]?.stringValue == Fixture.pinned.uuidString)
+    }
+
+    @Test("boards scope also includes unpinned clips deliberately assigned to a board")
+    func searchBoardsScopeIncludesBoardMembers() async throws {
+        let sink = EventSink()
+        let store = try MCPTestStore.make()
+        try await store.seedFixtures()
+        try await store.assign(clipID: Fixture.plain, toBoard: Pinboard.favoritesID)
+        let runner = MCPToolRunner(store: store, scope: .boards) { await sink.record($0) }
+
+        let result = await runner.call(
+            tool: "search_clips", arguments: .object(["query": .string("alpha")]))
+        let ids = Set(
+            (try resultJSON(result)["clips"]?.arrayValue ?? [])
+                .compactMap { $0["id"]?.stringValue })
+
+        #expect(ids == Set([Fixture.plain.uuidString, Fixture.pinned.uuidString]))
     }
 
     // MARK: - get_clip
@@ -105,7 +131,9 @@ struct MCPToolRunnerTests {
         let sink = EventSink()
         let store = try MCPTestStore.make()
         try await store.seedFixtures()
-        let runner = MCPToolRunner(store: store, scope: .metadata) { await sink.record($0) }
+        let runner = MCPToolRunner(store: store, scope: .metadata, accessMode: .readWrite) {
+            await sink.record($0)
+        }
 
         let result = await runner.call(
             tool: "create_pin", arguments: .object(["id": .string(Fixture.plain.uuidString)]))
@@ -118,7 +146,9 @@ struct MCPToolRunnerTests {
         let sink = EventSink()
         let store = try MCPTestStore.make()
         try await store.seedFixtures()
-        let runner = MCPToolRunner(store: store, scope: .all) { await sink.record($0) }
+        let runner = MCPToolRunner(store: store, scope: .all, accessMode: .readWrite) {
+            await sink.record($0)
+        }
 
         let result = await runner.call(
             tool: "create_pin",
@@ -182,6 +212,21 @@ struct MCPToolRunnerTests {
         #expect(await sink.events.last?.wasDenied == true)
     }
 
+    @Test("paste_stack rejects oversized batches before reading clips")
+    func pasteStackRejectsOversizedBatch() async throws {
+        let sink = EventSink()
+        let runner = try await runner(.all, sink: sink)
+        let ids = Array(
+            repeating: JSONValue.string(Fixture.plain.uuidString),
+            count: MCPToolRunner.maximumPasteStackClips + 1)
+
+        let result = await runner.call(
+            tool: "paste_stack", arguments: .object(["ids": .array(ids)]))
+
+        #expect(result.isError == true)
+        #expect(await sink.events.last?.denialReason == .invalidArguments)
+    }
+
     // MARK: - list_boards
 
     @Test("list_boards returns board metadata and is allowed under metadata scope")
@@ -241,4 +286,231 @@ struct MCPToolRunnerTests {
         // Unknown tools are not logged (no MCPToolName to attribute them to).
         #expect(await sink.events.isEmpty)
     }
+
+    // MARK: - Live client grants
+
+    @Test("live revoke interrupts the next call and records the client-safe reason")
+    func liveRevoke() async throws {
+        let sink = EventSink()
+        let store = try MCPTestStore.make()
+        try await store.seedFixtures()
+        try await store.assign(clipID: Fixture.plain, toBoard: Pinboard.favoritesID)
+        var grant = liveGrant(scope: .all)
+        let box = GrantResolutionBox(.active(grant))
+        let runner = MCPToolRunner(
+            store: store,
+            grantProvider: { await box.get() },
+            log: { await sink.record($0) })
+
+        let first = await runner.call(
+            tool: "get_clip", arguments: .object(["id": .string(Fixture.plain.uuidString)]))
+        #expect(first.isError == false)
+
+        grant.revokedAt = Date()
+        await box.set(.revoked(grant))
+        let second = await runner.call(
+            tool: "get_clip", arguments: .object(["id": .string(Fixture.plain.uuidString)]))
+
+        #expect(second.isError == true)
+        #expect(await sink.events.last?.grantID == grant.id)
+        #expect(await sink.events.last?.clientName == "Claude Desktop")
+        #expect(await sink.events.last?.denialReason == .grantRevoked)
+    }
+
+    @Test("missing expired revoked disabled and contextless grants fail closed")
+    func invalidGrantStates() async throws {
+        let store = try MCPTestStore.make()
+        try await store.seedFixtures()
+        let grant = liveGrant(scope: .all)
+        let states: [(MCPGrantResolution, MCPAccessDenialReason)] = [
+            (.missing, .grantMissing),
+            (.expired(grant), .grantExpired),
+            (.revoked(grant), .grantRevoked),
+            (.disabled(grant), .serverDisabled),
+            (.invalidContext(grant), .outsideContext)
+        ]
+
+        for (resolution, expectedReason) in states {
+            let sink = EventSink()
+            let runner = MCPToolRunner(
+                store: store,
+                grantProvider: { resolution },
+                log: { await sink.record($0) })
+            let result = await runner.call(
+                tool: "search_clips", arguments: .object(["query": .string("alpha")]))
+            #expect(result.isError == true)
+            #expect(await sink.events.last?.denialReason == expectedReason)
+        }
+    }
+
+    @Test("read-only clients cannot mutate the store")
+    func readOnlyDeniesCreatePin() async throws {
+        let sink = EventSink()
+        let store = try MCPTestStore.make()
+        try await store.seedFixtures()
+        try await store.assign(clipID: Fixture.plain, toBoard: Pinboard.favoritesID)
+        let grant = liveGrant(scope: .all, accessMode: .readOnly)
+        let runner = MCPToolRunner(
+            store: store,
+            grantProvider: { .active(grant) },
+            log: { await sink.record($0) })
+
+        let result = await runner.call(
+            tool: "create_pin", arguments: .object(["id": .string(Fixture.plain.uuidString)]))
+
+        #expect(result.isError == true)
+        #expect(try await store.item(id: Fixture.plain)?.isPinned == false)
+        #expect(await sink.events.last?.denialReason == .readOnly)
+    }
+
+    @Test("the convenience initializer defaults to read-only (least privilege)")
+    func convenienceInitDefaultsToReadOnly() async throws {
+        // Guards the fail-closed default: an embedded caller that omits
+        // accessMode must never silently gain write access.
+        let sink = EventSink()
+        let store = try MCPTestStore.make()
+        try await store.seedFixtures()
+        let runner = MCPToolRunner(store: store, scope: .all) { await sink.record($0) }
+
+        let result = await runner.call(
+            tool: "create_pin", arguments: .object(["id": .string(Fixture.plain.uuidString)]))
+
+        #expect(result.isError == true)
+        #expect(try await store.item(id: Fixture.plain)?.isPinned == false)
+        #expect(await sink.events.last?.denialReason == .readOnly)
+    }
+
+    @Test("explicit board and time context filters search and direct reads")
+    func boardAndTimeContext() async throws {
+        let sink = EventSink()
+        let store = try MCPTestStore.make()
+        let now = Date(timeIntervalSince1970: 100_000)
+        let recent = ClipItem(
+            id: UUID(), createdAt: now.addingTimeInterval(-30 * 60),
+            preview: "context recent", contentHash: "context-recent")
+        let old = ClipItem(
+            id: UUID(), createdAt: now.addingTimeInterval(-2 * 60 * 60),
+            preview: "context old", contentHash: "context-old")
+        let outside = ClipItem(
+            id: UUID(), createdAt: now.addingTimeInterval(-10 * 60),
+            preview: "context outside", contentHash: "context-outside")
+        for item in [recent, old, outside] {
+            try await store.insert(item, content: .text(item.preview))
+        }
+        try await store.assign(clipID: recent.id, toBoard: Pinboard.favoritesID)
+        try await store.assign(clipID: old.id, toBoard: Pinboard.favoritesID)
+        let grant = MCPClientGrant(
+            clientName: "Claude Desktop",
+            scope: .all,
+            contextPack: MCPContextPack(
+                name: "Recent Favorites",
+                boardID: Pinboard.favoritesID,
+                boardName: "Favorites",
+                timeScope: .lastHour))
+        let runner = MCPToolRunner(
+            store: store,
+            grantProvider: { .active(grant) },
+            log: { await sink.record($0) },
+            now: { now })
+
+        let search = try resultJSON(
+            await runner.call(
+                tool: "search_clips", arguments: .object(["query": .string("context")])))
+        let ids = search["clips"]?.arrayValue?.compactMap { $0["id"]?.stringValue } ?? []
+        #expect(ids == [recent.id.uuidString])
+
+        let oldRead = await runner.call(
+            tool: "get_clip", arguments: .object(["id": .string(old.id.uuidString)]))
+        let outsideRead = await runner.call(
+            tool: "get_clip", arguments: .object(["id": .string(outside.id.uuidString)]))
+        #expect(oldRead.isError == true)
+        #expect(outsideRead.isError == true)
+    }
+
+    @Test("sensitive veto still wins inside an explicit all-content context")
+    func liveContextSensitiveVeto() async throws {
+        let sink = EventSink()
+        let store = try MCPTestStore.make()
+        try await store.seedFixtures()
+        try await store.assign(clipID: Fixture.secret, toBoard: Pinboard.favoritesID)
+        let grant = liveGrant(scope: .all)
+        let runner = MCPToolRunner(
+            store: store,
+            grantProvider: { .active(grant) },
+            log: { await sink.record($0) })
+
+        let result = await runner.call(
+            tool: "get_clip", arguments: .object(["id": .string(Fixture.secret.uuidString)]))
+
+        #expect(result.isError == true)
+        #expect(await sink.events.last?.denialReason == .sensitive)
+    }
+
+    @Test("outside-context denial does not reveal whether a clip is sensitive")
+    func outsideContextPrecedesSensitiveVeto() async throws {
+        let sink = EventSink()
+        let store = try MCPTestStore.make()
+        try await store.seedFixtures()
+        let grant = liveGrant(scope: .all)
+        let runner = MCPToolRunner(
+            store: store,
+            grantProvider: { .active(grant) },
+            log: { await sink.record($0) })
+
+        let read = await runner.call(
+            tool: "get_clip", arguments: .object(["id": .string(Fixture.secret.uuidString)]))
+        let pin = await runner.call(
+            tool: "create_pin", arguments: .object(["id": .string(Fixture.secret.uuidString)]))
+
+        #expect(read.isError == true)
+        #expect(pin.isError == true)
+        let reasons = await sink.events.suffix(2).map(\.denialReason)
+        #expect(reasons == [.outsideContext, .outsideContext])
+    }
+
+    @Test("curated search filters ids before applying the result limit")
+    func curatedSearchAppliesContextBeforeLimit() async throws {
+        let store = try MCPTestStore.make()
+        let allowed = ClipItem(preview: "curated match", contentHash: "curated-allowed")
+        let ambient = ClipItem(preview: "curated match", contentHash: "curated-ambient")
+        try await store.insert(ambient, content: .text(ambient.preview))
+        try await store.insert(allowed, content: .text(allowed.preview))
+        let grant = MCPClientGrant(
+            clientName: "Curated client",
+            scope: .all,
+            contextPack: MCPContextPack(name: "Selection", clipIDs: [allowed.id]))
+        let runner = MCPToolRunner(store: store, grantProvider: { .active(grant) })
+
+        let result = try resultJSON(
+            await runner.call(
+                tool: "search_clips",
+                arguments: .object(["query": .string("curated"), "limit": .int(1)])))
+
+        #expect(
+            result["clips"]?.arrayValue?.map { $0["id"]?.stringValue } == [allowed.id.uuidString])
+    }
+
+    private func liveGrant(
+        scope: MCPAccessScope,
+        accessMode: MCPAccessMode = .readWrite
+    ) -> MCPClientGrant {
+        MCPClientGrant(
+            clientName: "Claude Desktop",
+            scope: scope,
+            accessMode: accessMode,
+            contextPack: MCPContextPack(
+                name: "Favorites",
+                boardID: Pinboard.favoritesID,
+                boardName: "Favorites"))
+    }
+}
+// swiftlint:enable type_body_length
+
+private actor GrantResolutionBox {
+    private var resolution: MCPGrantResolution
+
+    init(_ resolution: MCPGrantResolution) { self.resolution = resolution }
+
+    func get() -> MCPGrantResolution { resolution }
+    func set(_ resolution: MCPGrantResolution) { self.resolution = resolution }
 }

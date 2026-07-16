@@ -23,6 +23,14 @@ public struct ClipSearchQuery: Sendable, Equatable {
     public var dateRange: ClosedRange<Date>?
     /// Restrict to clips that belong to this board (nil = any board).
     public var boardID: UUID?
+    /// Restrict to user-marked clips: pinned or assigned to at least one board.
+    public var markedOnly: Bool
+    /// Restrict to an explicit local id set (nil = any id). Used by curated
+    /// context packs so unauthorized rows cannot consume the result limit.
+    public var includedIDs: Set<UUID>?
+    /// Veto detector-flagged rows in SQL rather than filtering them after the
+    /// limit. Normal history search keeps its existing inclusive default.
+    public var excludesSensitive: Bool
 
     public init(
         text: String,
@@ -30,7 +38,10 @@ public struct ClipSearchQuery: Sendable, Equatable {
         kinds: Set<ClipContentKind>? = nil,
         sourceAppBundleID: String? = nil,
         dateRange: ClosedRange<Date>? = nil,
-        boardID: UUID? = nil
+        boardID: UUID? = nil,
+        markedOnly: Bool = false,
+        includedIDs: Set<UUID>? = nil,
+        excludesSensitive: Bool = false
     ) {
         self.text = text
         self.mode = mode
@@ -38,6 +49,9 @@ public struct ClipSearchQuery: Sendable, Equatable {
         self.sourceAppBundleID = sourceAppBundleID
         self.dateRange = dateRange
         self.boardID = boardID
+        self.markedOnly = markedOnly
+        self.includedIDs = includedIDs
+        self.excludesSensitive = excludesSensitive
     }
 
     /// Builds the FTS5 MATCH expression. Every token is double-quoted (with

@@ -582,61 +582,24 @@ private struct IntegrationsSettingsTab: View {
         Form {
             Section("Local MCP server") {
                 Toggle(
-                    "Allow local AI agents (MCP)",
+                    "Allow approved local AI clients",
                     isOn: Binding(
                         get: { model.mcpConfig.isEnabled },
                         set: { model.setMCPEnabled($0) }))
-                Picker(
-                    "Access scope",
-                    selection: Binding(
-                        get: { model.mcpConfig.scope },
-                        set: { model.setMCPScope($0) })
-                ) {
-                    Text("Metadata only").tag(MCPAccessScope.metadata)
-                    Text("Marked boards only").tag(MCPAccessScope.boards)
-                    Text("Everything").tag(MCPAccessScope.all)
-                }
-                .disabled(!model.mcpConfig.isEnabled)
+                LabeledContent(
+                    "Active client grants", value: "\(model.mcpConfig.activeGrants.count)")
                 Text(
-                    // swiftlint:disable:next line_length
-                    "Lets local AI agents (Claude, Cursor) read your clipboard over a local connection — no network. Off by default."
+                    "Every client has its own board, time window, expiry, and read/write policy."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                if model.mcpConfig.isEnabled {
-                    Text("Scope changes apply the next time the gancho mcp server starts.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
                 Button("Open MCP Access…") { model.mcpAccessWindow.show(model: model) }
                     .accessibilityIdentifier("open-mcp-access")
                 Text(
-                    // swiftlint:disable:next line_length
-                    "The exposed tools, the metadata-only access log, and the sensitive-veto guarantee live in MCP Access."
+                    "Create, copy, expire, and revoke client grants from MCP Access."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            }
-
-            if model.mcpConfig.isEnabled {
-                Section("Connect an agent") {
-                    Text(
-                        // swiftlint:disable:next line_length
-                        "Turning this on only allows access — your agent runs the server. Install the gancho CLI, then point your agent at it:"
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    Text(verbatim: "brew install johnny4young/tap/gancho")
-                        .font(.footnote.monospaced()).textSelection(.enabled)
-                    Text(verbatim: "claude mcp add gancho -- gancho mcp")
-                        .font(.footnote.monospaced()).textSelection(.enabled)
-                    Button("Copy connect command") {
-                        SystemPasteboardWriter().write(
-                            .text("claude mcp add gancho -- gancho mcp"), asPlainText: true)
-                        model.toasts.show(GanchoToast(message: "Copied"))
-                    }
-                    .accessibilityIdentifier("copy-mcp-connect")
-                }
             }
         }
         .formStyle(.grouped)
