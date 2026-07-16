@@ -1,5 +1,6 @@
 import AppKit
 import ClipboardCore
+import CoreSpotlight
 import GanchoDesign
 import GanchoKit
 import KeyboardShortcuts
@@ -302,6 +303,22 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, open urls: [URL]) {
         urls.forEach(GanchoDeepLinks.open)
+    }
+
+    /// A curated snippet opened from Spotlight brings the history panel up —
+    /// the donation's identifier is the clip id, so row-level reveal can layer
+    /// on later without re-donating anything.
+    func application(
+        _ application: NSApplication,
+        continue userActivity: NSUserActivity,
+        restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void
+    ) -> Bool {
+        guard userActivity.activityType == CSSearchableItemActionType,
+            let model = GanchoRuntime.model
+        else { return false }
+        NSApp.activate(ignoringOtherApps: true)
+        model.panel.show(model: model)
+        return true
     }
 }
 

@@ -197,6 +197,15 @@ final class AppModel {
         didSet { intelligence.save(to: defaults) }
     }
 
+    /// Curated-Library Spotlight donation (snippets + pins only — never raw
+    /// history). Turning it off wipes Gancho's Spotlight domain immediately.
+    var spotlightIndexing: Bool {
+        didSet {
+            defaults.set(spotlightIndexing, forKey: "spotlightIndexing")
+            refreshSpotlight()
+        }
+    }
+
     var retentionPolicy: RetentionPolicy {
         didSet { retentionPolicy.save(to: defaults) }
     }
@@ -289,6 +298,7 @@ final class AppModel {
             }
         #endif
         intelligence = IntelligencePreferences.load(from: appDefaults)
+        spotlightIndexing = appDefaults.object(forKey: "spotlightIndexing") as? Bool ?? true
         retentionPolicy = RetentionPolicy.load(from: appDefaults)
         appearance =
             AppearancePreference(rawValue: appDefaults.string(forKey: "appearance") ?? "")
@@ -436,19 +446,27 @@ final class AppModel {
         let uiTestReuseSuggestionSeedTask = seedReuseSuggestionIfRequested()
         let uiTestClipEditingSeedTask = seedClipEditingIfRequested()
         let uiTestMultiFileDragSeedTask = seedMultiFileDragIfRequested()
-        // Post-launch maintenance: the cosmetic legacy-preview backfill moved
-        // off the synchronous store open (it scanned image rows on every
-        // launch); run it at utility priority once the UI is wired up. The
-        // embedding refresh follows sequentially — an embedding-model bump
-        // leaves old vectors behind, and this pass re-embeds them without ever
-        // touching capture or the first panel open (no-op while the pipeline
-        // version is unchanged).
+        // Post-launch maintenance, sequential at utility priority once the UI
+        // is wired up: the cosmetic legacy-preview backfill (moved off the
+        // synchronous store open — it scanned image rows on every launch),
+        // then the embedding refresh (a model bump leaves old vectors behind;
+        // no-op while the pipeline version is unchanged), then the Spotlight
+        // reconcile (repairs any curation change the app missed and applies
+        // the toggle state). None of them ever touch capture or the first
+        // panel open.
         if let grdb {
             let refreshEmbeddings = intelligence.semanticSearch
+            let spotlightEnabled = spotlightIndexing
+            let launchDiagnostics = diagnostics
             Task(priority: .utility) {
                 try? await grdb.backfillLegacyPreviews()
                 if refreshEmbeddings {
                     await EmbeddingRefreshService().run(store: grdb)
+                }
+                let landed = await LibrarySpotlightService(index: CoreSpotlightIndexer())
+                    .reconcile(store: grdb, enabled: spotlightEnabled)
+                if !landed {
+                    launchDiagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
                 }
             }
         }
@@ -1155,6 +1173,9 @@ final class AppModel {
                 } else {
                     for id in ids { _ = try? await store.delete(id: id) }
                 }
+                // After the COMMIT, not the intent — an undone delete must
+                // keep its Spotlight entry.
+                refreshSpotlight()
             })
         toasts.show(
             GanchoToast(
@@ -1339,6 +1360,8 @@ final class AppModel {
         {
         case .saved:
             await refreshRecents()
+            // The donated title/preview may have just changed.
+            refreshSpotlight()
             return true
         case .unchanged:
             return true
@@ -1362,6 +1385,8 @@ final class AppModel {
         {
         case .saved:
             await refreshRecents()
+            // The donated title/preview may have just changed.
+            refreshSpotlight()
             return true
         case .unchanged:
             return true
@@ -1389,9 +1414,11 @@ final class AppModel {
             case .pinned:
                 toasts.show(GanchoToast(message: "Pinned"))
                 await refreshRecents()
+                refreshSpotlight()
             case .unpinned:
                 toasts.show(GanchoToast(message: "Unpinned"))
                 await refreshRecents()
+                refreshSpotlight()
             case .alreadyPinned, .alreadyUnpinned, .clipUnavailable:
                 // Reconcile a stale row snapshot without claiming a mutation.
                 await refreshRecents()
@@ -1413,12 +1440,29 @@ final class AppModel {
             case .promoted:
                 toasts.show(GanchoToast(message: "Saved as snippet"))
                 await refreshRecents()
+                refreshSpotlight()
             case .freeLimitReached:
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
             case .clipUnavailable:
                 await refreshRecents()
             case .failed:
                 diagnostics.record("Snippets", "Couldn’t save the snippet.")
+            }
+        }
+    }
+
+    /// Re-donates the curated Library to Spotlight (or wipes the domain when
+    /// the toggle is off). Fire-and-forget at utility priority — a reconcile
+    /// recomputes the whole small curated set, so it never needs to know WHAT
+    /// changed and never rides a user interaction's critical path.
+    func refreshSpotlight() {
+        guard let grdbStore else { return }
+        let enabled = spotlightIndexing
+        Task(priority: .utility) {
+            let landed = await LibrarySpotlightService(index: CoreSpotlightIndexer())
+                .reconcile(store: grdbStore, enabled: enabled)
+            if !landed {
+                diagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
             }
         }
     }

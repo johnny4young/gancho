@@ -101,6 +101,15 @@ final class IOSAppModel {
     var intelligence: IntelligencePreferences {
         didSet { intelligence.save(to: defaults) }
     }
+
+    /// Curated-Library Spotlight donation (snippets + pins only — never raw
+    /// history). Turning it off wipes Gancho's Spotlight domain immediately.
+    var spotlightIndexing: Bool {
+        didSet {
+            defaults.set(spotlightIndexing, forKey: "spotlightIndexing")
+            refreshSpotlight()
+        }
+    }
     private let defaults = UserDefaults.standard
     let telemetry: TelemetryPipeline
     private(set) var telemetryConsent: TelemetryConsent {
@@ -143,6 +152,8 @@ final class IOSAppModel {
     init() {
         let forceFreeTier = CommandLine.arguments.contains("-force-free-tier")
         intelligence = IntelligencePreferences.load(from: defaults)
+        spotlightIndexing =
+            UserDefaults.standard.object(forKey: "spotlightIndexing") as? Bool ?? true
         var telemetryConsent = TelemetryConsent.load(from: defaults)
         #if DEBUG
             // UI-test hook: `-telemetry-consent <notAsked|enabled|disabled>`
@@ -387,6 +398,7 @@ final class IOSAppModel {
         switch await curationController.promoteToSnippet(item, tier: tier, store: full) {
         case .promoted:
             await search()
+            refreshSpotlight()
             // Refresh first so the two-second confirmation remains visible
             // after the durable mutation has settled and the UI is idle.
             flashNote(String(localized: "Saved as snippet"))
@@ -408,6 +420,8 @@ final class IOSAppModel {
         {
         case .saved:
             await search()
+            // The donated title/preview may have just changed.
+            refreshSpotlight()
             return true
         case .unchanged:
             return true
@@ -431,6 +445,8 @@ final class IOSAppModel {
         {
         case .saved:
             await search()
+            // The donated title/preview may have just changed.
+            refreshSpotlight()
             return true
         case .unchanged:
             return true
@@ -708,6 +724,7 @@ final class IOSAppModel {
         {
         case .pinned, .unpinned, .alreadyPinned, .alreadyUnpinned, .clipUnavailable:
             await search()
+            refreshSpotlight()
         case .freeLimitReached:
             proGateTick += 1
         case .failed:
@@ -724,6 +741,23 @@ final class IOSAppModel {
         }
         await search()
         reloadWidgets()
+        refreshSpotlight()
+    }
+
+    /// Re-donates the curated Library to Spotlight (or wipes the domain when
+    /// the toggle is off). Fire-and-forget at utility priority — a reconcile
+    /// recomputes the whole small curated set, so it never needs to know WHAT
+    /// changed and never rides a user interaction's critical path.
+    func refreshSpotlight() {
+        guard let full else { return }
+        let enabled = spotlightIndexing
+        Task(priority: .utility) {
+            let landed = await LibrarySpotlightService(index: CoreSpotlightIndexer())
+                .reconcile(store: full, enabled: enabled)
+            if !landed {
+                diagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
+            }
+        }
     }
 
     private let source = IntentionalPasteboardSource()

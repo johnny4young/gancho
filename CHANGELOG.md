@@ -7,6 +7,19 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Find your snippets from Spotlight.** Snippets and pinned clips now appear
+  in the system-wide Spotlight search on Mac, iPhone, and iPad. Opening a
+  result jumps straight to the clip on iPhone and iPad, and brings up the
+  history panel on the Mac. Only the curated Library is indexed: raw history,
+  secret and masked-credential clips, and expiring clips never reach the
+  system index — and even inside an ordinary snippet, key- and card-shaped
+  text is replaced with `[redacted]` before anything is donated. A new toggle
+  in Settings turns this off and removes everything from Spotlight
+  immediately; if that removal ever fails, Gancho records a content-free
+  entry in Recent issues instead of failing silently.
+
 ### Changed
 
 - **Big boards open instantly.** A board's clips now load in pages — in the
@@ -21,6 +34,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated the Sparkle auto-updater framework to 2.9.4.
 
 ### Fixed
+
+- **AI features can no longer echo a secret that hides inside ordinary text.**
+  Live evaluation of Gancho's on-device prompts showed that a "faithful"
+  summary, key-points list, or clipboard answer could reproduce an API key or
+  card number embedded in an otherwise normal clip. Text now passes a
+  deterministic structural redaction before it ever reaches the on-device
+  model — keys, tokens, card numbers, and private-key blocks become
+  `[redacted]` — so the model cannot echo what it never saw. Every shipped
+  prompt now lives in a versioned catalog with frozen wording and an opt-in
+  evaluation suite that fails if a future prompt change weakens these
+  guarantees.
 
 - **The menu-bar icon always comes back (macOS).** If the menu-bar helper ever
   died — a crash, or a quit that didn't fully take — Gancho could stay running

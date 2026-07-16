@@ -61,6 +61,20 @@ struct IOSSettingsView: View {
                     }
                 }
                 Section("Your history") {
+                    Toggle(
+                        "Show snippets and pins in Spotlight",
+                        isOn: Binding(
+                            get: { model.spotlightIndexing },
+                            set: { model.spotlightIndexing = $0 }))
+                    Text(
+                        """
+                        Only snippets and pinned clips reach the system index — never your \
+                        raw history, secrets, or expiring clips. Turning this off removes \
+                        them from Spotlight immediately.
+                        """
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                     Button {
                         startBackup()
                     } label: {

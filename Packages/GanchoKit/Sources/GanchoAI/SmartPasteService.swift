@@ -45,45 +45,11 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
         }
     }
 
-    /// The on-device model's system instructions for this action. Pure (no I/O)
+    /// The on-device model's system instructions for this action — owned by
+    /// `PromptCatalog` (frozen wording + version + evaluation). Pure (no I/O)
     /// so it is unit-tested directly. Always forbids leaking secret material.
     public var instructions: String {
-        let guardrail =
-            " Never include passwords, card numbers, API keys, or other secret material."
-        switch self {
-        case .summarize:
-            return
-                // swiftlint:disable:next line_length
-                "Summarize the user's text in one to three clear sentences. Stay faithful to the meaning. Output only the summary, nothing else."
-                + guardrail
-        case .proofread:
-            return
-                // swiftlint:disable:next line_length
-                "Correct the spelling, grammar, and punctuation of the user's text. Preserve its meaning, tone, and line breaks. Output only the corrected text, nothing else."
-                + guardrail
-        case .formal:
-            return
-                // swiftlint:disable:next line_length
-                "Rewrite the user's text in a clear, professional, formal tone. Preserve its meaning. Output only the rewritten text, nothing else."
-                + guardrail
-        case .friendly:
-            return
-                // swiftlint:disable:next line_length
-                "Rewrite the user's text in a warm, friendly, conversational tone. Preserve its meaning. Output only the rewritten text, nothing else."
-                + guardrail
-        case .keyPoints:
-            return
-                // swiftlint:disable:next line_length
-                "Extract the key points from the user's text as a short bullet list, one point per line beginning with \"- \". Output only the list, nothing else."
-                + guardrail
-        case .redactPII:
-            // Primary path is the deterministic `PIIRedactor`; these instructions
-            // describe the same intent and exist as a model fallback.
-            return
-                // swiftlint:disable:next line_length
-                "Rewrite the user's text with every piece of personally identifiable information — names, emails, phone numbers, postal addresses, and account or ID numbers — replaced by a bracketed placeholder such as [name] or [email]. Preserve everything else exactly. Output only the redacted text, nothing else."
-                + guardrail
-        }
+        PromptCatalog.smartPaste(self).instructions
     }
 }
 
@@ -106,16 +72,19 @@ public struct SmartPasteService: Sendable {
 
     /// Translation instructions for a target language (pure → unit-tested).
     /// `language` is an English language name (e.g. "Spanish") so the on-device
-    /// model has an unambiguous target.
+    /// model has an unambiguous target. Wording owned by `PromptCatalog`.
     public static func translateInstructions(to language: String) -> String {
-        "Translate the user's text into \(language). Preserve its meaning, tone, and line breaks. Output only the translation, nothing else. Never include passwords, card numbers, API keys, or other secret material."
+        PromptCatalog.translateInstructions(to: language)
     }
 
     /// On-device translation (via the same system model). Kept separate from
     /// `SmartPasteAction` because it carries a target language.
     public func translate(_ text: String, to language: String) async throws -> String {
         guard Self.isAvailable else { throw AnnotationError.backendUnavailable }
-        let clipped = String(text.prefix(maxPromptCharacters))
+        // Structural secret redaction BEFORE the model sees the text — the
+        // live evaluation proved instructions alone don't stop echo.
+        let safe = ModelInputSanitizer.sanitized(text)
+        let clipped = String(safe.prefix(maxPromptCharacters))
         let session = LanguageModelSession(instructions: Self.translateInstructions(to: language))
         let response = try await session.respond(to: clipped)
         return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -130,7 +99,11 @@ public struct SmartPasteService: Sendable {
         // exactly except for PII, and must not depend on the model running.
         if action == .redactPII { return PIIRedactor.redact(text) }
         guard Self.isAvailable else { throw AnnotationError.backendUnavailable }
-        let clipped = String(text.prefix(maxPromptCharacters))
+        // Structural secret redaction BEFORE the model sees the text — a
+        // "faithful" summary of a memo with a key line would otherwise carry
+        // the key into pasted output (caught live by the prompt evaluation).
+        let safe = ModelInputSanitizer.sanitized(text)
+        let clipped = String(safe.prefix(maxPromptCharacters))
         let session = LanguageModelSession(instructions: action.instructions)
         let response = try await session.respond(to: clipped)
         return response.content.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -22,13 +22,8 @@ public struct ClipboardQAService: Sendable {
         self.maxSources = maxSources
     }
 
-    public static let instructions = """
-        You answer the user's question using ONLY the clipboard items provided as \
-        context. If the answer is not in them, say you couldn't find it in the \
-        clipboard history — never guess or invent. Be concise (one or two \
-        sentences) and refer to an item by its number when useful. Never reveal \
-        passwords, card numbers, API keys, or other secret material.
-        """
+    /// Owned by `PromptCatalog` (frozen wording + version + evaluation).
+    public static let instructions = PromptCatalog.askClipboard.instructions
 
     /// Pure prompt builder (numbered context + the question) — unit-tested.
     public static func prompt(question: String, sources: [String]) -> String {
@@ -43,9 +38,14 @@ public struct ClipboardQAService: Sendable {
 
     /// Answers grounded in `sources` (already retrieved + sensitive-filtered by
     /// the caller). Throws `backendUnavailable` when Apple Intelligence is off.
+    /// Sources additionally pass structural secret redaction: a key line inside
+    /// an otherwise ordinary clip can never be disclosed, no matter what the
+    /// question asks — the model never sees it.
     public func answer(question: String, sources: [String]) async throws -> String {
         guard Self.isAvailable else { throw AnnotationError.backendUnavailable }
-        let clipped = sources.prefix(maxSources).map { String($0.prefix(maxSourceCharacters)) }
+        let clipped = sources.prefix(maxSources).map {
+            String(ModelInputSanitizer.sanitized($0).prefix(maxSourceCharacters))
+        }
         let session = LanguageModelSession(instructions: Self.instructions)
         let response = try await session.respond(
             to: Self.prompt(question: question, sources: Array(clipped)))
