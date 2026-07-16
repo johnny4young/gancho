@@ -146,6 +146,18 @@
   .release-shot img { display: block; width: 100%; height: auto; border-radius: calc(var(--radius-lg) - 6px); background: var(--surface-card); }
   .release-shot figcaption { padding: 10px 4px 2px; color: var(--text-tertiary); font-size: var(--text-footnote); line-height: 1.45; }
 
+  /* ---- release evolution: recent milestones without a wall of history ---- */
+  .evolution-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 36px; }
+  .milestone-card { display: flex; flex-direction: column; min-width: 0; padding: 24px; background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+  .milestone-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .milestone-version { display: inline-flex; align-items: center; padding: 3px 10px; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: var(--radius-pill); font-size: var(--text-footnote); font-weight: var(--weight-bold); }
+  .milestone-date { color: var(--text-tertiary); font-size: var(--text-footnote); }
+  .milestone-card h3 { margin: 14px 0 10px; font-size: var(--text-headline); font-weight: var(--weight-semibold); letter-spacing: -0.01em; }
+  .milestone-card ul { display: flex; flex-direction: column; gap: 7px; margin: 0 0 20px; padding-left: 18px; }
+  .milestone-card li { color: var(--text-secondary); font-size: var(--text-title); }
+  .milestone-link { align-self: flex-start; margin-top: auto; color: var(--accent); font-size: var(--text-title); font-weight: var(--weight-semibold); }
+  .milestone-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
   /* cards grid */
   .grid { display: grid; gap: 16px; margin-top: 38px; }
   .grid.f3 { grid-template-columns: repeat(3, 1fr); }
@@ -253,13 +265,21 @@
   pre.code .b { color: var(--kind-file); }
   pre.code .p { color: var(--kind-uuid); }
 
-  /* changelog */
+  /* changelog: newest first, progressively disclosed */
   .log { margin-top: 36px; display: flex; flex-direction: column; }
-  .log-row { display: grid; grid-template-columns: 132px 1fr; gap: 22px; padding: 22px 0; border-top: 1px solid var(--hairline); }
-  .log-row:first-child { border-top: none; }
+  .release-detail { scroll-margin-top: 92px; border-top: 1px solid var(--hairline); }
+  .release-detail:first-child { border-top: none; }
+  .release-detail summary { display: grid; grid-template-columns: 132px minmax(0, 1fr) 24px; gap: 22px; align-items: center; padding: 22px 0; cursor: pointer; list-style: none; }
+  .release-detail summary::-webkit-details-marker { display: none; }
+  .release-detail summary:hover .release-summary-title { color: var(--accent); }
+  .release-detail summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 5px; border-radius: var(--radius-sm); }
+  .release-summary-title { min-width: 0; font-size: var(--text-headline); font-weight: var(--weight-semibold); transition: color 150ms ease; }
+  .release-chevron { color: var(--text-tertiary); transition: transform 180ms ease; }
+  .release-detail[open] .release-chevron { transform: rotate(180deg); }
+  .release-detail .log-body { display: grid; grid-template-columns: 132px minmax(0, 1fr) 24px; gap: 22px; padding: 0 0 24px; }
+  .release-detail .log-body ul { grid-column: 2; }
   .log-meta .ver { display: inline-flex; align-items: center; font-size: var(--text-footnote); font-weight: var(--weight-bold); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 3px 10px; border-radius: var(--radius-pill); }
   .log-meta .dt { display: block; margin-top: 8px; font-size: var(--text-footnote); color: var(--text-tertiary); }
-  .log-body h3 { margin: 0 0 8px; font-size: var(--text-headline); font-weight: var(--weight-semibold); }
   .log-body ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
   .log-body li { font-size: var(--text-title); color: var(--text-secondary); }
   .log-body li b { color: var(--text-primary); font-weight: var(--weight-semibold); }
@@ -382,7 +402,12 @@
   }
   @media (max-width: 680px) {
     .grid.f3, .grid.f2 { grid-template-columns: 1fr; }
-    .log-row { grid-template-columns: 1fr; gap: 10px; }
+    .evolution-grid { grid-template-columns: 1fr; }
+    .release-detail summary { grid-template-columns: minmax(0, 1fr) 24px; gap: 10px; }
+    .release-detail summary .log-meta { grid-column: 1; }
+    .release-summary-title { grid-column: 1; }
+    .release-chevron { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+    .release-detail .log-body { display: block; padding: 0 0 22px; }
     .board-grid { grid-template-columns: 1fr; }
     .seg .lbl-long { display: none; }
   }
@@ -509,12 +534,51 @@
         <li data-i18n="rel.3"><b>IA que no ve tus credenciales:</b> claves, tokens, tarjetas y llaves privadas se reemplazan antes de llegar al modelo on-device.</li>
         <li data-i18n="rel.4"><b>Rápido y recuperable:</b> boards paginados, búsqueda semántica p95 &lt;30 ms, vectores actualizables y una barra de menú que nunca deja el historial huérfano.</li>
       </ul>
-      <a class="btn btn-ghost" href="#changelog" data-i18n="rel.cta">Ver todo lo que incluye 0.7</a>
+      <a class="btn btn-ghost" href="#release-0-7-0" data-i18n="rel.cta">Ver todo lo que incluye 0.7</a>
     </div>
     <figure class="release-shot">
       <img src="assets/v0.7.0-release.png" width="976" height="648" loading="lazy" decoding="async" alt="Ajustes de privacidad de Spotlight en Gancho v0.7 / Gancho v0.7 Spotlight privacy settings" />
       <figcaption data-i18n="rel.caption">Build real de macOS capturado por XCUITest: el índice de Spotlight es explícito, limitado a la Library curada y reversible de inmediato.</figcaption>
     </figure>
+  </div>
+</section>
+
+<!-- ============ RELEASE EVOLUTION ============ -->
+<section class="band" id="release-evolution">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker" data-i18n="evo.kicker">Evolución reciente</span>
+      <h2 class="h2" data-i18n="evo.title">Cada versión amplía lo que Gancho puede recordar por ti.</h2>
+      <p class="lede" data-i18n="evo.lede">0.7 es el presente. Estos hitos muestran cómo Gancho pasó de una memoria local a una biblioteca privada, rápida y disponible en todos tus dispositivos.</p>
+    </div>
+    <div class="evolution-grid">
+      <article class="milestone-card">
+        <div class="milestone-meta">
+          <span class="milestone-version">0.6.0</span>
+          <span class="milestone-date" data-i18n="evo.v060.d">Jul 2026 · control y reutilización</span>
+        </div>
+        <h3 data-i18n="evo.v060.t">Encuentra, revisa y convierte clips en una biblioteca.</h3>
+        <ul>
+          <li data-i18n="evo.v060.1">Filtra por aplicación de origen y combina texto, tipo, board y fecha.</li>
+          <li data-i18n="evo.v060.2">Edita con seguridad, previsualiza con ⌘Y y convierte usos repetidos en snippets.</li>
+          <li data-i18n="evo.v060.3">Reconoce boards por color y emoji mientras la búsqueda sigue rápida al crecer.</li>
+        </ul>
+        <a class="milestone-link" href="#release-0-6-0" data-i18n="evo.v060.cta">Ver todo lo nuevo de 0.6 →</a>
+      </article>
+      <article class="milestone-card">
+        <div class="milestone-meta">
+          <span class="milestone-version">0.5.0</span>
+          <span class="milestone-date" data-i18n="evo.v050.d">Jul 2026 · flujo diario</span>
+        </div>
+        <h3 data-i18n="evo.v050.t">Pega en secuencia y conserva más, sin perder control.</h3>
+        <ul>
+          <li data-i18n="evo.v050.1">Encola, reordena y pega varios clips desde una pila visible en el panel.</li>
+          <li data-i18n="evo.v050.2">Ve cuándo expira un clip y conserva hasta un año o 10.000 ítems gratis.</li>
+          <li data-i18n="evo.v050.3">El canal directo guarda el historial de forma duradera, sale por completo y restaura el ícono al reabrir.</li>
+        </ul>
+        <a class="milestone-link" href="#release-0-5-0" data-i18n="evo.v050.cta">Ver todo lo nuevo de 0.5 →</a>
+      </article>
+    </div>
   </div>
 </section>
 
@@ -916,13 +980,17 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="kicker" data-i18n="log.kicker">Novedades</span>
-      <h2 class="h2" data-i18n="log.title">Versionado como un producto, antes del lanzamiento público.</h2>
-      <p class="lede" data-i18n="log.lede">Los metadatos de cada versión se verifican en CI: project.yml, CHANGELOG.md, los tags de GitHub y los artefactos se mueven juntos.</p>
+      <h2 class="h2" data-i18n="log.title">Todo el recorrido, sin convertir la página en un muro de texto.</h2>
+      <p class="lede" data-i18n="log.lede">Explora cada versión, de la más reciente a la primera. Abre solo el hito que quieras conocer; sus metadatos y artefactos se verifican juntos en CI.</p>
     </div>
     <div class="log">
-      <div class="log-row">
-        <div class="log-meta"><span class="ver">0.7.0</span><span class="dt" data-i18n="log.v070.d">Jul 2026 · pre-lanzamiento</span></div>
-        <div class="log-body"><h3 data-i18n="log.v070.t">Tu biblioteca curada, en todo el sistema</h3><ul>
+      <details class="release-detail" id="release-0-7-0">
+        <summary>
+          <span class="log-meta"><span class="ver">0.7.0</span><span class="dt" data-i18n="log.v070.d">Jul 2026 · pre-lanzamiento</span></span>
+          <span class="release-summary-title" data-i18n="log.v070.t">Tu biblioteca curada, en todo el sistema</span>
+          <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="log-body"><ul>
           <li data-i18n="log.v070.1"><b>Snippets y pins en Spotlight</b>: la búsqueda del sistema encuentra tu biblioteca curada en Mac, iPhone y iPad — nunca el historial completo, secretos ni clips que expiran, y con un interruptor que la retira de inmediato.</li>
           <li data-i18n="log.v070.2"><b>Acciones por lotes en el panel de Mac</b>: Shift o Command seleccionan varios clips para enviarlos juntos al paste stack, archivarlos en un board o borrarlos con un único Undo; una selección formada solo por archivos se arrastra completa a Finder.</li>
           <li data-i18n="log.v070.3"><b>La IA no puede ecoar tus secretos</b>: claves, tokens y tarjetas se redactan estructuralmente antes de llegar al modelo on-device, y cada prompt vive en un catálogo versionado con evaluación en vivo.</li>
@@ -931,10 +999,14 @@
           <li data-i18n="log.v070.6"><b>Privacidad y acceso sin callejones</b>: los JWT ya no aparecen en claro, el ícono de la barra de menú se recupera si su helper falla y Gancho termina si no queda ningún acceso visible, en vez de dejar el historial huérfano.</li>
           <li data-i18n="log.v070.7"><b>DMG firmado y notarizado</b>: v0.7.0 se publica por el mismo canal firmado, notarizado y stapled que produjo el artefacto v0.6.0 aceptado por Gatekeeper; la aceptación se re-verifica en cada publicación.</li>
         </ul></div>
-      </div>
-      <div class="log-row">
-        <div class="log-meta"><span class="ver">0.6.0</span><span class="dt" data-i18n="log.next.d">Jul 2026 · pre-lanzamiento</span></div>
-        <div class="log-body"><h3 data-i18n="log.next.t">Más control sobre todo lo que encuentras y reutilizas</h3><ul>
+      </details>
+      <details class="release-detail" id="release-0-6-0">
+        <summary>
+          <span class="log-meta"><span class="ver">0.6.0</span><span class="dt" data-i18n="log.next.d">Jul 2026 · pre-lanzamiento</span></span>
+          <span class="release-summary-title" data-i18n="log.next.t">Más control sobre todo lo que encuentras y reutilizas</span>
+          <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="log-body"><ul>
           <li data-i18n="log.next.1"><b>Encuentra por aplicación de origen</b>: filtra por Safari, Xcode u otra app y combínalo con texto, tipo, board y fecha en Mac, iPhone o iPad.</li>
           <li data-i18n="log.next.2"><b>Nombra y refina tus clips</b>: edita títulos o texto con un flujo explícito Guardar/Cancelar que actualiza búsqueda y sincroniza solo después de guardar localmente.</li>
           <li data-i18n="log.next.3"><b>Vista previa completa con ⌘Y</b>: inspecciona texto, código, color, rich text, imágenes y archivos en una ventana de solo lectura que bloquea secretos antes de leer el contenido.</li>
@@ -942,72 +1014,104 @@
           <li data-i18n="log.next.5"><b>Boards reconocibles y búsqueda más rápida</b>: colores y emoji accesibles viajan entre dispositivos, mientras nuevos índices mantienen ágil la búsqueda difusa al crecer el historial.</li>
           <li data-i18n="log.next.6"><b>DMG firmado y notarizado</b>: v0.6.0 se publica por el mismo canal firmado, notarizado y stapled que produjo el artefacto v0.5.0 aceptado por Gatekeeper; la aceptación se re-verifica en cada publicación.</li>
         </ul></div>
-      </div>
-      <div class="log-row">
-        <div class="log-meta"><span class="ver">0.5.0</span><span class="dt" data-i18n="log.7.d">Jul 2026 · pre-lanzamiento</span></div>
-        <div class="log-body"><h3 data-i18n="log.7.t">Pila de pegado visible, cuenta atrás de expiración y plan gratis más generoso</h3><ul>
+      </details>
+      <details class="release-detail" id="release-0-5-0">
+        <summary>
+          <span class="log-meta"><span class="ver">0.5.0</span><span class="dt" data-i18n="log.7.d">Jul 2026 · pre-lanzamiento</span></span>
+          <span class="release-summary-title" data-i18n="log.7.t">Pila de pegado visible, cuenta atrás de expiración y plan gratis más generoso</span>
+          <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="log-body"><ul>
           <li data-i18n="log.7.1"><b>La pila de pegado es visible</b> (macOS): encola varios clips y pégalos en orden desde una tira compacta en el pie del panel — reordena, quita o vacía; <b>⌥⌘Return</b> añade el clip seleccionado. La cola es local a la sesión y nunca sale de tu Mac.</li>
           <li data-i18n="log.7.2"><b>Cuenta atrás de expiración</b>: los clips a punto de caducar — los sensibles sobre todo — muestran un temporizador «expira en» en su fila, en Mac y en iPhone/iPad.</li>
           <li data-i18n="log.7.3"><b>Plan gratis mucho más generoso</b>: la ventana de historial pasa de 30 días / 2.000 ítems a <b>1 año / 10.000 ítems</b>. Lo básico local nunca debería ser el muro; Pro sigue siendo ilimitado.</li>
           <li data-i18n="log.7.4"><b>La app de descarga directa ya guarda el historial</b>: la clave de cifrado se guarda local al dispositivo cuando el build no puede usar iCloud Keychain, y «Salir de Gancho» ahora cierra del todo y reabrir trae el ícono de vuelta.</li>
         </ul></div>
-      </div>
-      <div class="log-row">
-        <div class="log-meta"><span class="ver">0.4.1</span><span class="dt" data-i18n="log.0.d">Jul 2026 · pre-lanzamiento</span></div>
-        <div class="log-body"><h3 data-i18n="log.0.t">Sincronización reactiva entre tus dispositivos</h3><ul>
+      </details>
+      <details class="release-detail" id="release-0-4-1">
+        <summary>
+          <span class="log-meta"><span class="ver">0.4.1</span><span class="dt" data-i18n="log.0.d">Jul 2026 · pre-lanzamiento</span></span>
+          <span class="release-summary-title" data-i18n="log.0.t">Sincronización reactiva entre tus dispositivos</span>
+          <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="log-body"><ul>
           <li data-i18n="log.0.1"><b>Sync de iCloud reactivo en ambos sentidos</b>: un clip copiado en un dispositivo llega solo a los demás, sin empujar nada. Se corrigieron la clave de push de macOS (se descartaba al firmar), el registro con APNs en ambas apps, y que el agente de la barra de menú no es un destino de push fiable — ahora también jala del servidor por su cuenta.</li>
           <li data-i18n="log.0.2"><b>Los títulos con IA y el texto OCR cruzan fiable</b>: el enriquecimiento que un clip gana un instante después de capturarlo ya no se pierde en una carrera con la primera subida — el conflicto se resuelve y el cambio se reencola.</li>
           <li data-i18n="log.0.3"><b>La pertenencia a tableros sincroniza</b>: archivar un clip en un tablero (o quitarlo) se propaga a tus otros dispositivos.</li>
           <li data-i18n="log.0.4">El filtro por tipo ya no frena el scroll infinito, y «Incidencias recientes» del Centro de privacidad registra problemas de sync sin contenido para diagnosticar de un vistazo.</li>
         </ul></div>
-      </div>
-      <div class="log-row">
-        <div class="log-meta"><span class="ver">0.4.0</span><span class="dt" data-i18n="log.1.d">Jul 2026 · pre-lanzamiento</span></div>
-        <div class="log-body"><h3 data-i18n="log.1.t">Selector de idioma, pantalla About y pulido de UX</h3><ul>
+      </details>
+      <details class="release-detail" id="release-0-4-0">
+        <summary>
+          <span class="log-meta"><span class="ver">0.4.0</span><span class="dt" data-i18n="log.1.d">Jul 2026 · pre-lanzamiento</span></span>
+          <span class="release-summary-title" data-i18n="log.1.t">Selector de idioma, pantalla About y pulido de UX</span>
+          <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="log-body"><ul>
           <li data-i18n="log.1.1"><b>Selector de idioma</b> (Ajustes → General): System / English / Español, aplicado al instante a toda la app, sin reiniciar.</li>
           <li data-i18n="log.1.2"><b>Pantalla «About»</b> con versión y build, autor, licencia MIT y enlaces al sitio y al código.</li>
           <li data-i18n="log.1.3"><b>Sincronización cifrada por iCloud</b> ahora lleva consigo el enriquecimiento del clip: el título con IA y el texto OCR buscable que un clip gana en un dispositivo aparecen en los demás. Función Pro, cifrada de extremo a extremo.</li>
           <li data-i18n="log.1.4"><b>Pulido de UX</b>: selección instantánea del clip, ⌘V pega en la app enfocada (no en la búsqueda), vista previa del texto restaurada en el peek y toast «Deleted · Undo» al borrar.</li>
         </ul></div>
-      </div>
-      <div class="log-row">
-        <div class="log-meta"><span class="ver">0.3.2</span><span class="dt" data-i18n="log.2.d">Jun 2026 · pre-lanzamiento</span></div>
-        <div class="log-body"><h3 data-i18n="log.2.t">Undo al borrar, accesibilidad y Pro en iOS</h3><ul>
+      </details>
+      <details class="release-detail" id="release-0-3-2">
+        <summary>
+          <span class="log-meta"><span class="ver">0.3.2</span><span class="dt" data-i18n="log.2.d">Jun 2026 · pre-lanzamiento</span></span>
+          <span class="release-summary-title" data-i18n="log.2.t">Undo al borrar, accesibilidad y Pro en iOS</span>
+          <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="log-body"><ul>
           <li data-i18n="log.2.1"><b>Deshacer al borrar</b> (macOS): el clip se va al instante, pero el borrado real — y su tombstone de sincronización — solo se confirma tras unos segundos, con un toast «Deleted · Undo».</li>
           <li data-i18n="log.2.2"><b>Pantalla de gancho Pro en iPhone/iPad</b> (Ajustes → gancho Pro): qué desbloquea Pro, tu plan actual y restaurar compra — se abre sola al topar un límite, sin dead-ends.</li>
           <li data-i18n="log.2.3"><b>Anuncios de VoiceOver</b> en las confirmaciones (copiar, pegar, guardar, fijar, borrar, «Synced») en Mac, iPhone y teclado; y conteos pluralizados («1 clip», no «1 clips»).</li>
         </ul></div>
-      </div>
-      <div class="log-row">
-        <div class="log-meta"><span class="ver">0.3.1</span><span class="dt" data-i18n="log.3.d">Jun 2026</span></div>
-        <div class="log-body"><h3 data-i18n="log.3.t">Pro de canal directo</h3><ul>
+      </details>
+      <details class="release-detail" id="release-0-3-1">
+        <summary>
+          <span class="log-meta"><span class="ver">0.3.1</span><span class="dt" data-i18n="log.3.d">Jun 2026</span></span>
+          <span class="release-summary-title" data-i18n="log.3.t">Pro de canal directo</span>
+          <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="log-body"><ul>
           <li data-i18n="log.3.1"><b>gancho Pro</b> ya se puede comprar: el paywall abre el checkout y activa tu licencia al instante.</li>
           <li data-i18n="log.3.2">El DMG v0.5.0 está firmado, notarizado y stapled; Gatekeeper acepta el artefacto publicado.</li>
         </ul></div>
-      </div>
-      <div class="log-row">
-        <div class="log-meta"><span class="ver">0.3.0</span><span class="dt" data-i18n="log.4.d">Jun 2026</span></div>
-        <div class="log-body"><h3 data-i18n="log.4.t">Backup en iOS, teclado de iPad y error-log</h3><ul>
+      </details>
+      <details class="release-detail" id="release-0-3-0">
+        <summary>
+          <span class="log-meta"><span class="ver">0.3.0</span><span class="dt" data-i18n="log.4.d">Jun 2026</span></span>
+          <span class="release-summary-title" data-i18n="log.4.t">Backup en iOS, teclado de iPad y error-log</span>
+          <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="log-body"><ul>
           <li data-i18n="log.4.1"><b>Backup y restauración</b> del historial en iPhone/iPad — formato <span class="mono">.ganchoarchive</span> portable que cruza de un dispositivo a otro.</li>
           <li data-i18n="log.4.2"><b>Atajos de teclado físico en iPad</b>: ⌘F para buscar, ⌘1–9 para copiar, ⌘↩ para el clip seleccionado.</li>
           <li data-i18n="log.4.3"><b>Error-log sin contenido</b> («Recent issues») en el Centro de privacidad de macOS e iOS.</li>
         </ul></div>
-      </div>
-      <div class="log-row">
-        <div class="log-meta"><span class="ver">0.2.0</span><span class="dt" data-i18n="log.5.d">Jun 2026</span></div>
-        <div class="log-body"><h3 data-i18n="log.5.t">Shortcuts, IA y un plan gratis más generoso</h3><ul>
+      </details>
+      <details class="release-detail" id="release-0-2-0">
+        <summary>
+          <span class="log-meta"><span class="ver">0.2.0</span><span class="dt" data-i18n="log.5.d">Jun 2026</span></span>
+          <span class="release-summary-title" data-i18n="log.5.t">Shortcuts, IA y un plan gratis más generoso</span>
+          <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="log-body"><ul>
           <li data-i18n="log.5.1"><b>Intents de Shortcuts/Siri</b>: buscar clips con filtro de tipo y <b>Pregúntale a tu portapapeles</b> (respuesta on-device, secretos excluidos).</li>
           <li data-i18n="log.5.2"><b>Prueba gratis de IA on-device</b>: tus primeros 25 clips de texto reciben un título con IA.</li>
           <li data-i18n="log.5.3">Plan gratis más generoso (30 días / 2.000 ítems, 15 pins, 3 boards) e icono de la app.</li>
         </ul></div>
-      </div>
-      <div class="log-row">
-        <div class="log-meta"><span class="ver">0.1.0</span><span class="dt" data-i18n="log.6.d">Jun 2026</span></div>
-        <div class="log-body"><h3 data-i18n="log.6.t">Base inicial</h3><ul>
+      </details>
+      <details class="release-detail" id="release-0-1-0">
+        <summary>
+          <span class="log-meta"><span class="ver">0.1.0</span><span class="dt" data-i18n="log.6.d">Jun 2026</span></span>
+          <span class="release-summary-title" data-i18n="log.6.t">Base inicial</span>
+          <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="log-body"><ul>
           <li data-i18n="log.6.1">Captura en macOS, almacén local cifrado, búsqueda FTS, retención, paste-back, pins, boards, snippets y MCP/CLI local.</li>
           <li data-i18n="log.6.2">App de iPhone/iPad con share, teclado, widgets y plumbing de sincronización por iCloud.</li>
         </ul></div>
-      </div>
+      </details>
     </div>
   </div>
 </section>
@@ -1066,6 +1170,18 @@
       "rel.4": "<b>Fast and recoverable:</b> paged boards, semantic search p95 under 30 ms, upgradeable vectors, and a menu bar that never leaves history orphaned.",
       "rel.cta": "See everything in 0.7",
       "rel.caption": "Real macOS build captured by XCUITest: Spotlight indexing is explicit, limited to the curated Library, and immediately reversible.",
+      "evo.kicker": "Recent evolution", "evo.title": "Every release expands what Gancho can remember for you.",
+      "evo.lede": "0.7 is the present. These milestones show how Gancho grew from local memory into a private, fast library available across your devices.",
+      "evo.v060.d": "Jul 2026 · control and reuse", "evo.v060.t": "Find, review, and turn clips into a library.",
+      "evo.v060.1": "Filter by source app and combine text, kind, board, and date.",
+      "evo.v060.2": "Edit safely, preview with ⌘Y, and turn repeated use into snippets.",
+      "evo.v060.3": "Recognize boards by color and emoji while search stays fast as history grows.",
+      "evo.v060.cta": "See everything new in 0.6 →",
+      "evo.v050.d": "Jul 2026 · daily flow", "evo.v050.t": "Paste in sequence and keep more, without losing control.",
+      "evo.v050.1": "Queue, reorder, and paste several clips from a visible stack in the panel.",
+      "evo.v050.2": "See when a clip expires and keep up to one year or 10,000 items for free.",
+      "evo.v050.3": "The direct channel keeps history durably, fully quits, and restores the icon on reopen.",
+      "evo.v050.cta": "See everything new in 0.5 →",
       "priv.kicker": "Privacy invariants", "priv.title": "It earns your trust before it earns your convenience.",
       "priv.lede": "gancho treats what you copy as private data. It observes metadata first, vetoes sensitive pasteboards before reading them, and keeps logs and diagnostics content-free.",
       "priv.c1.t": "Veto before read", "priv.c1.p": "Password-manager, transient, concealed, and auto-generated types are rejected before gancho reads a payload.", "priv.c1.tag": "Sensitive → skipped",
@@ -1120,8 +1236,8 @@
       "int.lede": "The gancho CLI and local MCP server expose user-approved context to local agents and editors. Opt-in, scope-limited, and sensitive clips always excluded.",
       "int.demo.1": "# metadata-scoped search · no sensitive content",
       "int.demo.2": "# the MCP server is opt-in and logs metadata only",
-      "log.kicker": "Changelog", "log.title": "Versioned like a product, even before public launch.",
-      "log.lede": "Each release's metadata is verified in CI: project.yml, CHANGELOG.md, GitHub tags, and artifacts all move together.",
+      "log.kicker": "Changelog", "log.title": "The full journey, without turning the page into a wall of text.",
+      "log.lede": "Explore every release from newest to first. Open only the milestone you want to know; its metadata and artifacts are verified together in CI.",
       "log.v070.d": "Jul 2026 · pre-release", "log.v070.t": "Your curated library, system-wide",
       "log.v070.1": "<b>Snippets and pins in Spotlight</b>: system search finds your curated library on Mac, iPhone, and iPad — never raw history, secrets, or expiring clips, with a toggle that removes it all immediately.",
       "log.v070.2": "<b>Batch actions in the Mac panel</b>: Shift or Command selects several clips to send to the paste stack, file into a board, or delete with one shared Undo; an all-file selection drags to Finder as a complete set.",
@@ -1222,9 +1338,19 @@
   // tapping outside the open menu closes it
   document.addEventListener("click", e => { if (navInner.classList.contains("open") && !navInner.contains(e.target)) setNav(false); });
 
+  /* ---------- release deep links ---------- */
+  function openLinkedRelease(hash = window.location.hash) {
+    if (!hash.startsWith("#release-")) return;
+    const release = document.getElementById(hash.slice(1));
+    if (release instanceof HTMLDetailsElement) release.open = true;
+  }
+  document.querySelectorAll('a[href^="#release-"]').forEach(a => a.addEventListener("click", () => openLinkedRelease(a.hash)));
+  window.addEventListener("hashchange", () => openLinkedRelease());
+
   let t = "auto", l = "es";
   try { t = localStorage.getItem(LS_THEME) || "auto"; l = localStorage.getItem(LS_LANG) || "es"; } catch (e) {}
   applyTheme(t); applyLang(l);
+  openLinkedRelease();
 </script>
 </body>
 </html>

@@ -34,6 +34,31 @@ grep -Fq "src=\"${release_asset}\"" site/index.html \
 grep -Fq "https://gancho.app/${release_asset}" site/index.html \
 	|| fail "site/index.html must use the current release screenshot in social metadata"
 
+# Keep release storytelling scannable: the current release leads, two recent
+# milestones summarize product evolution, and the full archive is progressively
+# disclosed in newest-first native details elements.
+latest_line="$(grep -n 'id="latest-release"' site/index.html | head -1 | cut -d: -f1 || true)"
+evolution_line="$(grep -n 'id="release-evolution"' site/index.html | head -1 | cut -d: -f1 || true)"
+changelog_line="$(grep -n 'id="changelog"' site/index.html | head -1 | cut -d: -f1 || true)"
+[ -n "$latest_line" ] && [ -n "$evolution_line" ] && [ -n "$changelog_line" ] \
+	|| fail "site/index.html must include current, recent evolution, and changelog sections"
+((latest_line < evolution_line && evolution_line < changelog_line)) \
+	|| fail "release story must render current, then recent evolution, then changelog"
+grep -q '<details class="release-detail" id="release-0-7-0">' site/index.html \
+	|| fail "the release archive must use native progressive disclosure"
+! grep -q 'class="log-row"' site/index.html \
+	|| fail "the release archive must not render every version expanded"
+
+previous_line=0
+for release_id in \
+	release-0-7-0 release-0-6-0 release-0-5-0 release-0-4-1 release-0-4-0 \
+	release-0-3-2 release-0-3-1 release-0-3-0 release-0-2-0 release-0-1-0; do
+	release_line="$(grep -n "id=\"${release_id}\"" site/index.html | head -1 | cut -d: -f1 || true)"
+	[ -n "$release_line" ] || fail "site/index.html is missing ${release_id}"
+	((release_line > previous_line)) || fail "release archive must remain newest first"
+	previous_line="$release_line"
+done
+
 # Every local image or stylesheet reference in the page must resolve inside
 # site/. This catches renamed screenshots before Pages deploys a broken card.
 while IFS= read -r asset; do

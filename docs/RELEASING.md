@@ -84,9 +84,14 @@ VERSION=0.1.0 ./scripts/package-macos-zip.sh
    its absolute `https://gancho.app/...` URL for Open Graph and Twitter cards.
    Crop through the tested app surface; never publish a full-desktop capture or
    unrelated user content. Inspect the image at desktop and mobile breakpoints.
-4. Update `scripts/homebrew/gancho.rb` if the CLI formula template should point
+4. Keep the website's release hierarchy current: feature the version being
+   shipped with its screenshot, move the previous current release into the
+   compact recent-evolution milestones, and keep the full collapsible archive
+   newest first. Do not invent historical screenshots when authentic product
+   evidence is unavailable.
+5. Update `scripts/homebrew/gancho.rb` if the CLI formula template should point
    at the same version.
-5. Run the gates, sequentially:
+6. Run the gates, sequentially:
 
    ```bash
    make release-check
@@ -98,10 +103,10 @@ VERSION=0.1.0 ./scripts/package-macos-zip.sh
    make build-ios
    ```
 
-6. Review the rendered README, website, social card, and release pull request as
+7. Review the rendered README, website, social card, and release pull request as
    a prospective user: the new capabilities, trust boundary, and reason to
    upgrade should be clear without reading the diff.
-7. Commit, tag, and push:
+8. Commit, tag, and push:
 
    ```bash
    git tag v0.1.0
