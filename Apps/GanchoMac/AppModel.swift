@@ -85,12 +85,19 @@ final class AppModel {
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
     let toasts = ToastPresenter()
     /// Content-free store-mutation fan-out. Mutation sites post here instead of
-    /// each remembering to call every reconciler; a debounced subscriber
-    /// (`startStoreChangeReconcilers`) rebuilds the curated Spotlight set once
-    /// per burst. This closes the "forgot to refresh X" class of bug (the two
-    /// Spotlight-staleness blockers were exactly that).
+    /// each remembering to call every reconciler; the `SpotlightCoordinator`
+    /// subscribes and rebuilds the curated Spotlight set once per burst. This
+    /// closes the "forgot to refresh X" class of bug (the two Spotlight-
+    /// staleness blockers were exactly that).
     let storeChanges = StoreChangeBus()
-    private var spotlightReconciler: Task<Void, Never>?
+    /// Owns the curated-Spotlight reconcile (bus subscription + debounce + the
+    /// single donate/wipe worker). Reads the store and toggle at reconcile
+    /// time, so it always donates the current curated set. Built and retained in
+    /// `init` (not an inline property initializer: its `@MainActor` reconcile
+    /// closures can only be formed inside an isolated body, never a default-
+    /// argument context). `@ObservationIgnored` — it is infrastructure, never
+    /// observed.
+    @ObservationIgnored private var spotlightCoordinator: SpotlightCoordinator?
     let welcomeWindow = WelcomeWindowController()
     let privacyCenterWindow = PrivacyCenterWindowController()
     let paywallWindow = PaywallWindowController()
@@ -463,26 +470,38 @@ final class AppModel {
         // reconcile (repairs any curation change the app missed and applies
         // the toggle state). None of them ever touch capture or the first
         // panel open.
+        // Curated-Spotlight coordinator: one reconcile worker for both the
+        // launch repair and the bus-driven refresh. Reads the store and toggle
+        // at reconcile time via `[weak self]`, so it always donates the current
+        // set (and stays correct across a store re-key).
+        let coordinator = SpotlightCoordinator(
+            coalescer: SpotlightCoordinator.defaultCoalescer,
+            reconcile: { [weak self] in
+                guard let self, let store = grdbStore else { return nil }
+                return await LibrarySpotlightService(index: CoreSpotlightIndexer())
+                    .reconcile(store: store, enabled: spotlightIndexing)
+            },
+            onFailure: { [weak self] in
+                self?.diagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
+            })
+        spotlightCoordinator = coordinator
+
         if let grdb {
             let refreshEmbeddings = intelligence.semanticSearch
-            let spotlightEnabled = spotlightIndexing
-            let launchDiagnostics = diagnostics
             Task(priority: .utility) {
                 try? await grdb.backfillLegacyPreviews()
                 if refreshEmbeddings {
                     await EmbeddingRefreshService().run(store: grdb)
                 }
-                let landed = await LibrarySpotlightService(index: CoreSpotlightIndexer())
-                    .reconcile(store: grdb, enabled: spotlightEnabled)
-                if !landed {
-                    launchDiagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
-                }
+                // Same reconcile worker the bus uses — repairs any curation
+                // change missed while not running and applies the toggle state.
+                await coordinator.reconcileNow()
             }
         }
 
         Signpost.launchToStoreReady.end(launchInterval)
 
-        startStoreChangeReconcilers()
+        coordinator.start(subscribingTo: storeChanges)
 
         // UI-test hook: deterministic panel access without the global hotkey.
         if CommandLine.arguments.contains("-open-panel-on-launch") {
@@ -1480,34 +1499,6 @@ final class AppModel {
     /// 50-clip batch delete — collapse into one reconcile.
     func refreshSpotlight() {
         storeChanges.post(.curation)
-    }
-
-    /// Subscribes the curated-Spotlight reconciler to the store-change bus:
-    /// any debounced batch touching curation or clips (snippets and pins are
-    /// the donated set; a delete can remove one) rebuilds the domain once.
-    private func startStoreChangeReconcilers() {
-        let stream = storeChanges.subscribe()
-        let coalescer = StoreChangeCoalescer()
-        spotlightReconciler = Task { [weak self] in
-            for await batch in coalescer.batches(of: stream) {
-                guard batch.contains(.curation) || batch.contains(.clips) else { continue }
-                self?.reconcileSpotlightNow()
-            }
-        }
-    }
-
-    /// The actual reconcile worker — recomputes the curated set and replaces
-    /// the Spotlight domain, off the interaction path at utility priority.
-    private func reconcileSpotlightNow() {
-        guard let grdbStore else { return }
-        let enabled = spotlightIndexing
-        Task(priority: .utility) {
-            let landed = await LibrarySpotlightService(index: CoreSpotlightIndexer())
-                .reconcile(store: grdbStore, enabled: enabled)
-            if !landed {
-                diagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
-            }
-        }
     }
 
     func refreshBoards() async {
