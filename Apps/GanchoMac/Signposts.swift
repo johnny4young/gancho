@@ -9,6 +9,8 @@ import OSLog
 enum Signpost {
     /// App launch to the durable store being ready.
     case launchToStoreReady
+    /// Panel requested to its first visible frame (the <100ms warm SLO).
+    case panelToFirstFrame
     /// Query change to results applied.
     case queryToResults
     /// Paste action to the paste event being dispatched.
@@ -21,6 +23,8 @@ enum Signpost {
         switch self {
         case .launchToStoreReady:
             Self.signposter.beginInterval("launch-to-store-ready")
+        case .panelToFirstFrame:
+            Self.signposter.beginInterval("panel-to-first-frame")
         case .queryToResults:
             Self.signposter.beginInterval("query-to-results")
         case .pasteDispatch:
@@ -32,6 +36,8 @@ enum Signpost {
         switch self {
         case .launchToStoreReady:
             Self.signposter.endInterval("launch-to-store-ready", state)
+        case .panelToFirstFrame:
+            Self.signposter.endInterval("panel-to-first-frame", state)
         case .queryToResults:
             Self.signposter.endInterval("query-to-results", state)
         case .pasteDispatch:
