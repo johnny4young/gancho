@@ -84,6 +84,13 @@ final class AppModel {
     let panel = PanelController()
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
     let toasts = ToastPresenter()
+    /// Content-free store-mutation fan-out. Mutation sites post here instead of
+    /// each remembering to call every reconciler; a debounced subscriber
+    /// (`startStoreChangeReconcilers`) rebuilds the curated Spotlight set once
+    /// per burst. This closes the "forgot to refresh X" class of bug (the two
+    /// Spotlight-staleness blockers were exactly that).
+    let storeChanges = StoreChangeBus()
+    private var spotlightReconciler: Task<Void, Never>?
     let welcomeWindow = WelcomeWindowController()
     let privacyCenterWindow = PrivacyCenterWindowController()
     let paywallWindow = PaywallWindowController()
@@ -474,6 +481,8 @@ final class AppModel {
         }
 
         Signpost.launchToStoreReady.end(launchInterval)
+
+        startStoreChangeReconcilers()
 
         // UI-test hook: deterministic panel access without the global hotkey.
         if CommandLine.arguments.contains("-open-panel-on-launch") {
@@ -1466,8 +1475,30 @@ final class AppModel {
     /// Re-donates the curated Library to Spotlight (or wipes the domain when
     /// the toggle is off). Fire-and-forget at utility priority — a reconcile
     /// recomputes the whole small curated set, so it never needs to know WHAT
-    /// changed and never rides a user interaction's critical path.
+    /// changed and never rides a user interaction's critical path. Posting to
+    /// the bus (rather than reconciling inline) lets a burst — e.g. a
+    /// 50-clip batch delete — collapse into one reconcile.
     func refreshSpotlight() {
+        storeChanges.post(.curation)
+    }
+
+    /// Subscribes the curated-Spotlight reconciler to the store-change bus:
+    /// any debounced batch touching curation or clips (snippets and pins are
+    /// the donated set; a delete can remove one) rebuilds the domain once.
+    private func startStoreChangeReconcilers() {
+        let stream = storeChanges.subscribe()
+        let coalescer = StoreChangeCoalescer()
+        spotlightReconciler = Task { [weak self] in
+            for await batch in coalescer.batches(of: stream) {
+                guard batch.contains(.curation) || batch.contains(.clips) else { continue }
+                self?.reconcileSpotlightNow()
+            }
+        }
+    }
+
+    /// The actual reconcile worker — recomputes the curated set and replaces
+    /// the Spotlight domain, off the interaction path at utility priority.
+    private func reconcileSpotlightNow() {
         guard let grdbStore else { return }
         let enabled = spotlightIndexing
         Task(priority: .utility) {
