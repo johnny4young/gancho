@@ -487,16 +487,24 @@ final class AppModel {
         spotlightCoordinator = coordinator
 
         if let grdb {
-            let refreshEmbeddings = intelligence.semanticSearch
-            Task(priority: .utility) {
-                try? await grdb.backfillLegacyPreviews()
-                if refreshEmbeddings {
+            // The ordered post-launch maintenance pipeline (backfill → optional
+            // embedding refresh → Spotlight reconcile). The order and the
+            // gating live in the declared steps, not an inline Task, so they
+            // are unit-tested in MaintenanceRunnerTests.
+            let steps = [
+                MaintenanceStep("legacy-preview-backfill") {
+                    try? await grdb.backfillLegacyPreviews()
+                },
+                MaintenanceStep("embedding-refresh", isEnabled: intelligence.semanticSearch) {
                     await EmbeddingRefreshService().run(store: grdb)
-                }
+                },
                 // Same reconcile worker the bus uses — repairs any curation
                 // change missed while not running and applies the toggle state.
-                await coordinator.reconcileNow()
-            }
+                MaintenanceStep("spotlight-reconcile") {
+                    await coordinator.reconcileNow()
+                }
+            ]
+            Task(priority: .utility) { await MaintenanceRunner().run(steps) }
         }
 
         Signpost.launchToStoreReady.end(launchInterval)

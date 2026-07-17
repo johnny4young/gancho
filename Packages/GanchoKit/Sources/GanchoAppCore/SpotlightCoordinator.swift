@@ -6,7 +6,7 @@ import Foundation
 /// duplicate reconcile inlined in the launch maintenance task. One type now
 /// holds the bus subscription, the debounce, and the single reconcile worker,
 /// so the "donate curation to Spotlight" policy lives in one place the package
-/// can unit-test — a step of the AppModel-facade extraction (ARC-03).
+/// can unit-test — a step of the ongoing AppModel-facade extraction.
 ///
 /// The reconcile itself is injected as a closure: the coordinator never sees
 /// the store or the toggle, only "run the reconcile for the current state and
