@@ -128,17 +128,21 @@ public struct StoreChangeCoalescer: Sendable {
         let window = self.window
         return AsyncStream { continuation in
             let task = Task {
-                await withTaskGroup(of: Void.self) { group in
-                    for await change in source {
-                        let ticket = await accumulator.add(change)
-                        group.addTask {
-                            guard (try? await sleep(window)) != nil else { return }
-                            if let batch = await accumulator.flush(ticket: ticket) {
-                                continuation.yield(batch)
-                            }
+                var debounceTask: Task<Void, Never>?
+                for await change in source {
+                    let ticket = await accumulator.add(change)
+                    debounceTask?.cancel()
+                    debounceTask = Task {
+                        guard (try? await sleep(window)) != nil,
+                            !Task.isCancelled
+                        else { return }
+                        if let batch = await accumulator.flush(ticket: ticket) {
+                            continuation.yield(batch)
                         }
                     }
                 }
+                if Task.isCancelled { debounceTask?.cancel() }
+                await debounceTask?.value
                 continuation.finish()
             }
             continuation.onTermination = { _ in task.cancel() }

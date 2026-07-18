@@ -53,20 +53,44 @@ struct SpotlightCoordinatorTests {
     func busBurstReconcilesOnce() async {
         let bus = StoreChangeBus()
         var reconciles = 0
-        // Instant debounce so the burst coalesces without real waiting.
+        // Yielding debounce plus bounded polling avoids wall-clock timing.
         let coordinator = SpotlightCoordinator(
-            coalescer: StoreChangeCoalescer(window: .zero, sleep: { _ in }),
+            coalescer: StoreChangeCoalescer(window: .zero, sleep: { _ in await Task.yield() }),
             reconcile: {
                 reconciles += 1
                 return true
             }, onFailure: {})
         coordinator.start(subscribingTo: bus)
         for _ in 0..<10 { bus.post(.curation) }
-        // Let the coalescer's quiet window elapse and the reconcile run.
-        try? await Task.sleep(for: .milliseconds(50))
+        var attempts = 1_000
+        while reconciles == 0, attempts > 0 {
+            await Task.yield()
+            attempts -= 1
+        }
         coordinator.stop()
-        #expect(reconciles >= 1)
-        #expect(reconciles <= 2, "a single burst must not fan out per event")
+        #expect(reconciles == 1, "a single burst must drive exactly one reconcile")
+    }
+
+    @Test("Starting again replaces the previous bus subscription")
+    func restartingReplacesSubscription() async {
+        let firstBus = StoreChangeBus()
+        let secondBus = StoreChangeBus()
+        let coordinator = SpotlightCoordinator(
+            coalescer: SpotlightCoordinator.defaultCoalescer,
+            reconcile: { true }, onFailure: {})
+
+        coordinator.start(subscribingTo: firstBus)
+        #expect(firstBus.subscriberCount == 1)
+        coordinator.start(subscribingTo: secondBus)
+
+        var attempts = 1_000
+        while firstBus.subscriberCount != 0, attempts > 0 {
+            await Task.yield()
+            attempts -= 1
+        }
+        #expect(firstBus.subscriberCount == 0)
+        #expect(secondBus.subscriberCount == 1)
+        coordinator.stop()
     }
 
     @Test("A board-only burst drives no reconcile")

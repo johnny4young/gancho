@@ -25,9 +25,10 @@ public enum Hint: String, Sendable, CaseIterable {
     }
 }
 
-/// The minimal persistence the hint model needs — a bool store keyed by
-/// string. `UserDefaults` conforms in the shells; tests pass an in-memory fake,
-/// so the "fires exactly once" rule is verified without touching real defaults.
+/// The minimal persistence the hint model needs — bool and integer values keyed
+/// by string. App shells can provide a narrow `UserDefaults` adapter when they
+/// wire presentation; tests use an in-memory fake so the "fires exactly once"
+/// rule is verified without touching real defaults.
 public protocol HintStore: AnyObject, Sendable {
     func bool(forKey key: String) -> Bool
     func set(_ value: Bool, forKey key: String)

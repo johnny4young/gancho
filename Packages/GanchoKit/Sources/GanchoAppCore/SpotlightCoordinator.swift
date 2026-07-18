@@ -66,6 +66,7 @@ public final class SpotlightCoordinator {
     /// the reconcile in the loop also serializes them, so two bursts can never
     /// race overlapping index writes.
     public func start(subscribingTo bus: StoreChangeBus) {
+        task?.cancel()
         let stream = bus.subscribe()
         let coalescer = self.coalescer
         task = Task(priority: .utility) { [weak self] in

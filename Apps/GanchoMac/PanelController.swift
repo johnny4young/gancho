@@ -94,8 +94,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         // Panel request → first visible frame: begin here, end at the panel's
         // first onAppear (`notePanelDidAppear`). A reopen that skips the
         // onAppear (already visible) closes the interval synchronously below.
-        firstFrameInterval = Signpost.panelToFirstFrame.begin()
-        firstFrameClock = ContinuousClock.now
+        if firstFrameInterval == nil {
+            firstFrameInterval = Signpost.panelToFirstFrame.begin()
+            firstFrameClock = ContinuousClock.now
+        }
         let wasVisible = panel?.isVisible == true
         let panel = ensurePanel(model: model)
         place(panel)

@@ -85,8 +85,9 @@ struct StoreChangeBusTests {
 
     @Test("A quiet-separated burst emits exactly one coalesced batch")
     func coalescerEmitsOneBatchPerBurst() async {
-        // Injected sleep resolves instantly, so the flush fires right after each
-        // change; the generation guard still collapses the burst to one batch.
+        // The source is fully buffered before consumption. The injected yield
+        // lets each replaced debounce task observe cancellation without using
+        // wall-clock timing.
         let coalescer = StoreChangeCoalescer(
             window: .zero, sleep: { _ in await Task.yield() })
         let (source, continuation) = AsyncStream.makeStream(of: StoreChange.self)
@@ -100,9 +101,6 @@ struct StoreChangeBusTests {
         for await batch in coalescer.batches(of: source) {
             batches.append(batch)
         }
-        // One non-empty union; duplicates and separate posts collapse.
-        let union = batches.reduce(into: StoreChangeBatch()) { $0.formUnion($1) }
-        #expect(union == [.clips, .boards])
-        #expect(batches.allSatisfy { !$0.isEmpty })
+        #expect(batches == [[.clips, .boards]])
     }
 }

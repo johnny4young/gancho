@@ -976,7 +976,7 @@ final class AppModel {
                 }
                 // After the COMMIT, not the intent — an undone delete must
                 // keep its Spotlight entry.
-                refreshSpotlight()
+                refreshSpotlight(for: .clips)
             })
         toasts.show(
             GanchoToast(
@@ -1162,7 +1162,7 @@ final class AppModel {
         case .saved:
             await refreshRecents()
             // The donated title/preview may have just changed.
-            refreshSpotlight()
+            refreshSpotlight(for: .clips)
             return true
         case .unchanged:
             return true
@@ -1187,7 +1187,7 @@ final class AppModel {
         case .saved:
             await refreshRecents()
             // The donated title/preview may have just changed.
-            refreshSpotlight()
+            refreshSpotlight(for: .clips)
             return true
         case .unchanged:
             return true
@@ -1258,8 +1258,8 @@ final class AppModel {
     /// changed and never rides a user interaction's critical path. Posting to
     /// the bus (rather than reconciling inline) lets a burst — e.g. a
     /// 50-clip batch delete — collapse into one reconcile.
-    func refreshSpotlight() {
-        storeChanges.post(.curation)
+    func refreshSpotlight(for change: StoreChange = .curation) {
+        storeChanges.post(change)
     }
 
     func refreshBoards() async {
