@@ -167,11 +167,15 @@ public struct MCPToolRunner: Sendable {
 
         let summary = ClipSummary(item: item)
         if grant.scope == .metadata {
-            await record(.getClip, grant: grant, denial: .scope)
+            // A metadata summary WAS returned to the agent, so it counts as one
+            // result even though the content body is withheld by scope — this
+            // keeps "Agent results returned" honest. The .scope denial still
+            // records that the body itself was never exposed.
+            await record(.getClip, grant: grant, count: 1, denial: .scope)
             return ok(ClipDetail(summary: summary, content: nil, contentWithheld: true))
         }
         if grant.scope == .boards, !(try await isMarked(item)) {
-            await record(.getClip, grant: grant, denial: .scope)
+            await record(.getClip, grant: grant, count: 1, denial: .scope)
             return ok(ClipDetail(summary: summary, content: nil, contentWithheld: true))
         }
         let body = try await contentText(for: id)
@@ -217,7 +221,11 @@ public struct MCPToolRunner: Sendable {
         // context board; curated packs may only pin.
         let requestedBoard = args.board?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let requestedBoard, !requestedBoard.isEmpty {
-            guard let selectedName = grant.contextPack?.boardName,
+            // Only a board-scoped pack authorizes organizing into that board. A
+            // curated (clip-ids) pack may carry a display name but has no
+            // boardID — it may only pin, never target a board.
+            guard let pack = grant.contextPack, pack.boardID != nil,
+                let selectedName = pack.boardName,
                 requestedBoard.caseInsensitiveCompare(selectedName) == .orderedSame
             else {
                 await record(.createPin, grant: grant, denial: .outsideContext)
@@ -229,9 +237,10 @@ public struct MCPToolRunner: Sendable {
 
         try await store.setPinned(id: id, true)
         await record(.createPin, grant: grant)
-        return ok(
-            CreatePinResult(
-                id: args.id, pinned: true, board: grant.contextPack?.boardName))
+        // Report a board only for a genuine board pack, so a curated pack that
+        // merely carries a name never claims an assignment that never happened.
+        let reportedBoard = grant.contextPack?.boardID != nil ? grant.contextPack?.boardName : nil
+        return ok(CreatePinResult(id: args.id, pinned: true, board: reportedBoard))
     }
 
     private func pasteStack(

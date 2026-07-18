@@ -490,6 +490,41 @@ struct MCPToolRunnerTests {
             result["clips"]?.arrayValue?.map { $0["id"]?.stringValue } == [allowed.id.uuidString])
     }
 
+    @Test("a curated pack cannot pin into a board even if it carries a matching name")
+    func createPinCuratedPackRejectsBoardRequest() async throws {
+        let store = try MCPTestStore.make()
+        let allowed = ClipItem(preview: "curated pin", contentHash: "curated-pin")
+        try await store.insert(allowed, content: .text(allowed.preview))
+        // Curated pack: clip-ids only, no boardID — but it carries a display
+        // name that matches the requested board. It must still be pin-only.
+        let grant = MCPClientGrant(
+            clientName: "Curated client",
+            scope: .all,
+            contextPack: MCPContextPack(
+                name: "Selection", boardName: "Work", clipIDs: [allowed.id]))
+        let runner = MCPToolRunner(store: store, grantProvider: { .active(grant) })
+
+        let result = await runner.call(
+            tool: "create_pin",
+            arguments: .object([
+                "id": .string(allowed.id.uuidString), "board": .string("Work")
+            ]))
+        #expect(result.isError == true)
+        #expect(try await store.item(id: allowed.id)?.isPinned != true)
+    }
+
+    @Test("a metadata-scope get_clip returns a metadata summary, so it counts as one result")
+    func getClipMetadataCountsAsResult() async throws {
+        let sink = EventSink()
+        let runner = try await runner(.metadata, sink: sink)
+        _ = await runner.call(
+            tool: "get_clip", arguments: .object(["id": .string(Fixture.plain.uuidString)]))
+        // The summary reached the agent → one result returned…
+        #expect(await sink.events.last?.resultCount == 1)
+        // …but the content body was still withheld by scope.
+        #expect(await sink.events.last?.wasDenied == true)
+    }
+
     private func liveGrant(
         scope: MCPAccessScope,
         accessMode: MCPAccessMode = .readWrite
