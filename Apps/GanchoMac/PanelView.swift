@@ -257,6 +257,9 @@ struct PanelView: View {
             await loadSelectedText()
         }
         .onAppear {
+            // First visible frame: close the panel-open latency interval the
+            // controller began in show().
+            model.panel.notePanelDidAppear()
             // Defer one runloop: on the FIRST open the field editor isn't
             // ready when onAppear fires, so an immediate focus is dropped
             // (arrow keys beep). The notification below re-grabs it on every

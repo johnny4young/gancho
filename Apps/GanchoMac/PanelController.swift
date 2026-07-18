@@ -2,6 +2,7 @@ import AppKit
 import GanchoDesign
 import GanchoKit
 import KeyboardShortcuts
+import OSLog
 import SwiftUI
 
 extension KeyboardShortcuts.Name {
@@ -33,6 +34,15 @@ final class PanelController: NSObject, NSWindowDelegate {
     private var largePreviewWindow: NSWindow?
     private weak var model: AppModel?
     private var activeFileDragSource: MultiFileDragSource?
+
+    /// The open interval, from `show()` to the panel's first `onAppear`. Held
+    /// across the two callbacks so Instruments (and the `-measure-panel`
+    /// baseline) see the true request→first-frame latency, not just the
+    /// synchronous ordering cost.
+    private var firstFrameInterval: OSSignpostIntervalState?
+    private var firstFrameClock: ContinuousClock.Instant?
+    private static let measuresFirstFrame =
+        CommandLine.arguments.contains("-measure-panel")
     #if DEBUG
         private var uiTestMultiFileDropOverlay: UITestMultiFileDropOverlay?
     #endif
@@ -81,7 +91,14 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func show(model: AppModel) {
-        let clock = ContinuousClock.now
+        // Panel request → first visible frame: begin here, end at the panel's
+        // first onAppear (`notePanelDidAppear`). A reopen that skips the
+        // onAppear (already visible) closes the interval synchronously below.
+        if firstFrameInterval == nil {
+            firstFrameInterval = Signpost.panelToFirstFrame.begin()
+            firstFrameClock = ContinuousClock.now
+        }
+        let wasVisible = panel?.isVisible == true
         let panel = ensurePanel(model: model)
         place(panel)
         panel.makeKeyAndOrderFront(nil)
@@ -95,10 +112,22 @@ final class PanelController: NSObject, NSWindowDelegate {
         // settle. The engine is push-driven on its own; this is the latency
         // belt-and-braces for the moment the user is actually looking.
         model.syncNow()
-        // Latency telemetry for the <100ms budget (debug builds only).
-        #if DEBUG
-            print("panel: open took \(ContinuousClock.now - clock)")
-        #endif
+        // An already-visible panel re-order fires no onAppear; close the
+        // interval now so it never dangles as an eternal open.
+        if wasVisible { notePanelDidAppear() }
+    }
+
+    /// Called from `PanelView.onAppear` when the panel's content first renders.
+    /// Ends the request→first-frame interval and, under `-measure-panel`,
+    /// prints the wall-clock latency so a warm run collects an SLO baseline.
+    func notePanelDidAppear() {
+        guard let interval = firstFrameInterval else { return }
+        Signpost.panelToFirstFrame.end(interval)
+        firstFrameInterval = nil
+        if Self.measuresFirstFrame, let start = firstFrameClock {
+            print("panel-first-frame: \(ContinuousClock.now - start)")
+        }
+        firstFrameClock = nil
     }
 
     func hide() {

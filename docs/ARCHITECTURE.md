@@ -328,3 +328,23 @@ becomes a planned workstream after an explicit product decision.
    platform idioms are not polish; they are part of the product surface.
 6. **No backend by default.** A future backend must be a sync implementation,
    not a prerequisite for the product to function.
+
+## Performance signposts and SLOs
+
+The interactive-latency budgets, and the content-free `OSSignposter` intervals
+that measure them (see `Apps/Gancho*/Signposts.swift`; the API takes no strings
+or values, enforced by `SignpostHygieneTests`):
+
+| Interval (signpost) | Budget (warm p95) | Where it begins → ends |
+| --- | ---: | --- |
+| `panel-to-first-frame` | < 100 ms | `PanelController.show()` → `PanelView.onAppear` |
+| `query-to-results` | < 75 ms | search field change → results applied |
+| `launch-to-store-ready` | — (cold) | `AppModel.init` start → durable store ready |
+| `paste-dispatch` | < 100 ms | paste action → `⌘V` event posted (target-app time excluded) |
+| iOS `capture-to-insert` | < 250 ms | ingest accepted → durable insert |
+
+Baselines are collected from real warm runs, not asserted in CI (device- and
+thermal-dependent). `-measure-panel` prints the panel first-frame wall-clock so
+a manual/UI run collects samples; the opt-in `GANCHO_PERF=1` harness holds the
+scale budgets (FTS, semantic retrieval, board paging). Instruments/energy
+traces (30-min idle CPU, repeated-round RSS) are reference-Mac evidence.
