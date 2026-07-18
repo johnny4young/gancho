@@ -110,6 +110,38 @@ struct ClipMigrationCoordinatorTests {
         #expect(!imported.isSensitive)
     }
 
+    @Test("A secret in source metadata does not shorten ordinary content retention")
+    func sensitiveTitleProtectsMetadataOnly() async throws {
+        let store = InMemoryClipboardStore()
+        let coordinator = ClipMigrationCoordinator()
+        let document = ClipImporter.Document(candidates: [
+            .init(
+                text: "ordinary text",
+                title: "OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz123456",
+                isPinned: true)
+        ])
+
+        let plan = try await coordinator.preview(
+            document,
+            sourceName: "migration.csv",
+            configuration: .init(sensitiveLifetime: 90),
+            store: store)
+
+        #expect(plan.preview.protectedCount == 1)
+        let summary = try await coordinator.execute(
+            plan,
+            store: store,
+            syncEngine: ImportSyncSpy())
+        #expect(summary.protectedCount == 1)
+        let imported = try #require(await store.items().first)
+        #expect(imported.title.isEmpty)
+        #expect(!imported.isPinned)
+        #expect(!imported.isSensitive)
+        #expect(imported.kind == .text)
+        #expect(imported.expiresAt == nil)
+        #expect(imported.preview == "ordinary text")
+    }
+
     @Test("A cancelled batch leaves the destination unchanged")
     func cancellationRollsBack() async throws {
         let store = InMemoryClipboardStore()
@@ -123,7 +155,7 @@ struct ClipMigrationCoordinatorTests {
             await gate.wait()
             return try await store.importTextBatch([record])
         }
-        await Task.yield()
+        await gate.waitUntilBlocked()
         task.cancel()
         await gate.open()
 
@@ -131,6 +163,26 @@ struct ClipMigrationCoordinatorTests {
             _ = try await task.value
         }
         #expect(try await store.count() == 0)
+    }
+
+    @Test("Cancelling a CSV load stops before decoding")
+    func csvLoadCancellation() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cancelled-\(UUID().uuidString).csv")
+        try Data("text\nnot imported".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let gate = MigrationCancellationGate()
+        let task = Task {
+            await gate.wait()
+            return try await ClipMigrationCoordinator().load(.csv(url))
+        }
+        await gate.waitUntilBlocked()
+        task.cancel()
+        await gate.open()
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await task.value
+        }
     }
 }
 
@@ -147,11 +199,19 @@ private actor ImportSyncSpy: SyncEngine {
 
 private actor MigrationCancellationGate {
     private var continuation: CheckedContinuation<Void, Never>?
+    private var blockedContinuation: CheckedContinuation<Void, Never>?
     private var isOpen = false
 
     func wait() async {
         guard !isOpen else { return }
+        blockedContinuation?.resume()
+        blockedContinuation = nil
         await withCheckedContinuation { continuation = $0 }
+    }
+
+    func waitUntilBlocked() async {
+        guard continuation == nil else { return }
+        await withCheckedContinuation { blockedContinuation = $0 }
     }
 
     func open() {

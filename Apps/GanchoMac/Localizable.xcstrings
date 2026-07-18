@@ -6283,12 +6283,12 @@
         }
       }
     },
-    "Protected items keep Gancho’s masking and expiry rules.": {
+    "Protected source metadata is discarded; sensitive content keeps Gancho’s masking and expiry rules.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los elementos protegidos mantienen las reglas de enmascaramiento y caducidad de Gancho."
+            "value": "Los metadatos protegidos del origen se descartan; el contenido sensible mantiene las reglas de enmascaramiento y caducidad de Gancho."
           }
         }
       }

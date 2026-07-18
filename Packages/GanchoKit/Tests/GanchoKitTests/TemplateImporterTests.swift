@@ -97,9 +97,54 @@ struct ClipImporterTests {
         }
     }
 
+    @Test("Cancelling a Maccy preview preserves task cancellation")
+    func cancelledMaccy() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cancelled-\(UUID().uuidString).sqlite")
+        let source = try DatabaseQueue(path: url.path)
+        try await source.write { database in
+            try database.execute(
+                sql: "CREATE TABLE ZHISTORYITEMCONTENT (ZTYPE TEXT, ZVALUE BLOB)")
+        }
+        defer { try? FileManager.default.removeItem(at: url) }
+        let gate = ImportCancellationGate()
+        let task = Task {
+            await gate.wait()
+            return try await ClipImporter.readMaccy(databaseAt: url)
+        }
+        await gate.waitUntilBlocked()
+        task.cancel()
+        await gate.open()
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await task.value
+        }
+    }
+
     private func fileHash(_ url: URL) throws -> String {
         SHA256.hash(data: try Data(contentsOf: url))
             .map { String(format: "%02x", $0) }
             .joined()
+    }
+}
+
+private actor ImportCancellationGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var blockedContinuation: CheckedContinuation<Void, Never>?
+
+    func wait() async {
+        blockedContinuation?.resume()
+        blockedContinuation = nil
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func waitUntilBlocked() async {
+        guard continuation == nil else { return }
+        await withCheckedContinuation { blockedContinuation = $0 }
+    }
+
+    func open() {
+        continuation?.resume()
+        continuation = nil
     }
 }

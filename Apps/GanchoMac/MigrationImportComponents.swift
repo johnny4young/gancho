@@ -154,7 +154,7 @@ struct MigrationImportReview: View {
                     tint: .red, identifier: "migration-protected-count")
             }
             Label(
-                "Protected items keep Gancho’s masking and expiry rules.",
+                "Protected source metadata is discarded; sensitive content keeps Gancho’s masking and expiry rules.",
                 systemImage: "hand.raised.fill"
             )
             .font(.callout)

@@ -142,6 +142,8 @@ public enum ClipImporter {
                     candidates: candidates,
                     unsupportedCount: max(0, total - candidates.count))
             }
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw ImportError.unreadable(.unexpectedMaccySchema)
         }

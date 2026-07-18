@@ -113,6 +113,7 @@ public struct ClipMigrationCoordinator: Sendable {
         case .csv(let url):
             let data: Data
             do {
+                try Task.checkCancellation()
                 data = try await Task.detached(priority: .userInitiated) {
                     try Data(contentsOf: url, options: .mappedIfSafe)
                 }.value
@@ -121,16 +122,19 @@ public struct ClipMigrationCoordinator: Sendable {
             } catch {
                 throw ClipImporter.ImportError.unreadable(.cannotOpenCSVFile)
             }
+            try Task.checkCancellation()
             return try ClipImporter.readCSV(data)
         case .maccy(let url):
             return try await ClipImporter.readMaccy(databaseAt: url)
         }
     }
 
-    /// Applies the same classifier and sensitive-ingestion policy as capture,
-    /// then compares hashes without loading destination content. Source titles
-    /// and pin flags are discarded for protected rows so a foreign field cannot
-    /// leak or permanently retain secret material.
+    /// Applies the same classifier and content-sensitive ingestion policy as
+    /// capture, then compares hashes without loading destination content. A
+    /// sensitive source title protects the foreign metadata without changing
+    /// ordinary content retention or presentation. Source titles and pin flags
+    /// are discarded for protected rows so a foreign field cannot leak or
+    /// permanently retain secret material.
     public func preview(
         _ document: ClipImporter.Document,
         sourceName: String,
@@ -151,18 +155,11 @@ public struct ClipMigrationCoordinator: Sendable {
                 sensitiveLifetime: configuration.sensitiveLifetime,
                 detectSecrets: configuration.detectSecrets)
 
-            if configuration.detectSecrets,
-                let title = candidate.title,
-                let titleFinding = detector.detect(title)
-            {
-                item = SensitiveIngestionPolicy.decorate(
-                    item,
-                    finding: titleFinding,
-                    originalText: candidate.text,
-                    sensitiveLifetime: configuration.sensitiveLifetime)
-            }
-
-            let isProtected = item.isSensitive || item.kind.prefersMaskedPreview
+            let titleIsSensitive =
+                configuration.detectSecrets
+                && candidate.title.map { detector.detect($0) != nil } == true
+            let isProtected =
+                titleIsSensitive || item.isSensitive || item.kind.prefersMaskedPreview
             if isProtected {
                 item.title = ""
                 item.isPinned = false
