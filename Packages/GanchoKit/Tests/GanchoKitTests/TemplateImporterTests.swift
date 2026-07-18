@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import GRDB
 import Testing
@@ -29,42 +30,35 @@ struct SnippetTemplateTests {
 
 @Suite("Importers")
 struct ClipImporterTests {
-    private func makeStore() throws -> GRDBClipboardStore {
-        let store = GRDBClipboardStore(
-            writer: try DatabaseQueue(),
-            blobs: BlobStore(
-                directory: FileManager.default.temporaryDirectory
-                    .appendingPathComponent("imp-\(UUID().uuidString)")))
-        try store.migrate()
-        return store
-    }
-
-    @Test("CSV imports with quotes/newlines, dedupes, flags pins")
-    func csv() async throws {
-        let store = try makeStore()
+    @Test("CSV preview decodes quotes/newlines and reports unsupported rows")
+    func csv() throws {
         let csv = """
             text,title,pinned
             "hello, world",Greeting,true
             "multi
             line",,false
-            "hello, world",Greeting,true
+            ,Missing,false
             """
-        let summary = try await ClipImporter.importCSV(Data(csv.utf8), into: store)
-        #expect(summary.imported == 2)
-        #expect(summary.skippedDuplicates == 1)
-        let items = try await store.items()
-        #expect(items.contains { $0.preview == "hello, world" && $0.isPinned })
+        let document = try ClipImporter.readCSV(Data(csv.utf8))
+        #expect(document.candidates.count == 2)
+        #expect(document.unsupportedCount == 1)
+        #expect(
+            document.candidates[0] == .init(text: "hello, world", title: "Greeting", isPinned: true)
+        )
+        #expect(document.candidates[1].text == "multi\nline")
     }
 
     @Test("Bad CSV throws a typed error")
-    func badCSV() async throws {
-        let store = try makeStore()
-        await #expect(throws: ClipImporter.ImportError.self) {
-            _ = try await ClipImporter.importCSV(Data("nope,really\n1,2".utf8), into: store)
+    func badCSV() {
+        #expect(throws: ClipImporter.ImportError.unreadable(.missingTextColumn)) {
+            _ = try ClipImporter.readCSV(Data("nope,really\n1,2".utf8))
+        }
+        #expect(throws: ClipImporter.ImportError.unreadable(.unclosedQuotedField)) {
+            _ = try ClipImporter.readCSV(Data("text\n\"unfinished".utf8))
         }
     }
 
-    @Test("Maccy import reads a synthesized source database read-only")
+    @Test("Maccy preview is read-only and counts unsupported representations")
     func maccy() async throws {
         // Synthesize Maccy's Core Data shape.
         let dir = FileManager.default.temporaryDirectory
@@ -84,9 +78,73 @@ struct ClipImporterTests {
                 arguments: [Data([1, 2])])
         }
 
-        let store = try makeStore()
-        let summary = try await ClipImporter.importMaccy(databaseAt: dbURL, into: store)
-        #expect(summary.imported == 1)
-        #expect(try await store.items().first?.preview == "from maccy")
+        let hashBefore = try fileHash(dbURL)
+        let document = try await ClipImporter.readMaccy(databaseAt: dbURL)
+        let hashAfter = try fileHash(dbURL)
+        #expect(document.candidates == [.init(text: "from maccy")])
+        #expect(document.unsupportedCount == 1)
+        #expect(hashAfter == hashBefore)
+    }
+
+    @Test("Corrupt Maccy source returns a stable content-free reason")
+    func corruptMaccy() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("corrupt-\(UUID().uuidString).sqlite")
+        try Data("not sqlite".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        await #expect(throws: ClipImporter.ImportError.self) {
+            _ = try await ClipImporter.readMaccy(databaseAt: url)
+        }
+    }
+
+    @Test("Cancelling a Maccy preview preserves task cancellation")
+    func cancelledMaccy() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cancelled-\(UUID().uuidString).sqlite")
+        let source = try DatabaseQueue(path: url.path)
+        try await source.write { database in
+            try database.execute(
+                sql: "CREATE TABLE ZHISTORYITEMCONTENT (ZTYPE TEXT, ZVALUE BLOB)")
+        }
+        defer { try? FileManager.default.removeItem(at: url) }
+        let gate = ImportCancellationGate()
+        let task = Task {
+            await gate.wait()
+            return try await ClipImporter.readMaccy(databaseAt: url)
+        }
+        await gate.waitUntilBlocked()
+        task.cancel()
+        await gate.open()
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await task.value
+        }
+    }
+
+    private func fileHash(_ url: URL) throws -> String {
+        SHA256.hash(data: try Data(contentsOf: url))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+}
+
+private actor ImportCancellationGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var blockedContinuation: CheckedContinuation<Void, Never>?
+
+    func wait() async {
+        blockedContinuation?.resume()
+        blockedContinuation = nil
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func waitUntilBlocked() async {
+        guard continuation == nil else { return }
+        await withCheckedContinuation { blockedContinuation = $0 }
+    }
+
+    func open() {
+        continuation?.resume()
+        continuation = nil
     }
 }

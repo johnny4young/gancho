@@ -6082,6 +6082,426 @@
           }
         }
       }
+    },
+    "Import clipboard history": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importar historial del portapapeles"
+          }
+        }
+      }
+    },
+    "Import clipboard history…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importar historial del portapapeles…"
+          }
+        }
+      }
+    },
+    "Preview first. Nothing changes until you approve the import.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primero se muestra una vista previa. Nada cambia hasta que apruebes la importación."
+          }
+        }
+      }
+    },
+    "Checking source…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisando origen…"
+          }
+        }
+      }
+    },
+    "Counting supported items and duplicates without changing history.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contando elementos compatibles y duplicados sin cambiar el historial."
+          }
+        }
+      }
+    },
+    "Importing…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importando…"
+          }
+        }
+      }
+    },
+    "Gancho is applying its normal privacy and deduplication rules.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho está aplicando sus reglas normales de privacidad y deduplicación."
+          }
+        }
+      }
+    },
+    "Choose a source": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige un origen"
+          }
+        }
+      }
+    },
+    "Maccy database": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Base de datos de Maccy"
+          }
+        }
+      }
+    },
+    "Choose Maccy’s Storage.sqlite file.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige el archivo Storage.sqlite de Maccy."
+          }
+        }
+      }
+    },
+    "CSV file": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivo CSV"
+          }
+        }
+      }
+    },
+    "Requires text; title and pinned are optional.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requiere la columna text; title y pinned son opcionales."
+          }
+        }
+      }
+    },
+    "Nothing is uploaded. Gancho reads the selected source only after you approve it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada se sube. Gancho lee el origen seleccionado solo después de que lo apruebas."
+          }
+        }
+      }
+    },
+    "Choose…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir…"
+          }
+        }
+      }
+    },
+    "Review before importing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisar antes de importar"
+          }
+        }
+      }
+    },
+    "Dry run complete": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simulación completada"
+          }
+        }
+      }
+    },
+    "Ready": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listos"
+          }
+        }
+      }
+    },
+    "Duplicates": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicados"
+          }
+        }
+      }
+    },
+    "Unsupported": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No compatibles"
+          }
+        }
+      }
+    },
+    "Protected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protegidos"
+          }
+        }
+      }
+    },
+    "Protected source metadata is discarded; sensitive content keeps Gancho’s masking and expiry rules.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los metadatos protegidos del origen se descartan; el contenido sensible mantiene las reglas de enmascaramiento y caducidad de Gancho."
+          }
+        }
+      }
+    },
+    "No history has changed. Duplicates will stay exactly as they are.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El historial no ha cambiado. Los duplicados quedarán exactamente como están."
+          }
+        }
+      }
+    },
+    "Memory ready": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memoria lista"
+          }
+        }
+      }
+    },
+    "Imported": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importados"
+          }
+        }
+      }
+    },
+    "Duplicates skipped": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicados omitidos"
+          }
+        }
+      }
+    },
+    "Your source was read-only and remains unchanged.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu origen se abrió en modo de solo lectura y permanece sin cambios."
+          }
+        }
+      }
+    },
+    "Unsupported representations were left in the source.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las representaciones no compatibles se dejaron en el origen."
+          }
+        }
+      }
+    },
+    "Couldn’t read this source": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer este origen"
+          }
+        }
+      }
+    },
+    "Import another": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importar otro"
+          }
+        }
+      }
+    },
+    "Import": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importar"
+          }
+        }
+      }
+    },
+    "Back": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atrás"
+          }
+        }
+      }
+    },
+    "Choose a CSV export": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir una exportación CSV"
+          }
+        }
+      }
+    },
+    "Choose Maccy’s Storage.sqlite": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir el archivo Storage.sqlite de Maccy"
+          }
+        }
+      }
+    },
+    "Gancho opens the database read-only.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho abre la base de datos en modo de solo lectura."
+          }
+        }
+      }
+    },
+    "The CSV file isn’t valid UTF-8.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo CSV no es UTF-8 válido."
+          }
+        }
+      }
+    },
+    "The CSV file is empty.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo CSV está vacío."
+          }
+        }
+      }
+    },
+    "The CSV header needs a text column.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El encabezado CSV necesita una columna text."
+          }
+        }
+      }
+    },
+    "The CSV contains an unfinished quoted field.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El CSV contiene un campo entre comillas sin terminar."
+          }
+        }
+      }
+    },
+    "Gancho couldn’t open the selected CSV file.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho no pudo abrir el archivo CSV seleccionado."
+          }
+        }
+      }
+    },
+    "Gancho couldn’t open the selected Maccy database.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho no pudo abrir la base de datos de Maccy seleccionada."
+          }
+        }
+      }
+    },
+    "This file doesn’t contain a supported Maccy history.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo no contiene un historial de Maccy compatible."
+          }
+        }
+      }
+    },
+    "The import stopped safely before making changes.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La importación se detuvo de forma segura antes de realizar cambios."
+          }
+        }
+      }
     }
   },
   "version": "1.1"
