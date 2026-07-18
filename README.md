@@ -10,6 +10,12 @@
 
 **[gancho.app](https://gancho.app)** · [Releases](https://github.com/johnny4young/gancho/releases) · [Changelog](CHANGELOG.md)
 
+[![CI](https://github.com/johnny4young/gancho/actions/workflows/ci.yml/badge.svg)](https://github.com/johnny4young/gancho/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/johnny4young/gancho?sort=semver)](https://github.com/johnny4young/gancho/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/johnny4young/gancho)](LICENSE)
+![Platforms](https://img.shields.io/badge/platforms-macOS%20·%20iOS%20·%20iPadOS-blue)
+![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
+
 **Status: in active development (pre-release).** The capture engine, local
 GRDB/SQLite storage with FTS5 search, the Liquid Glass history panel,
 paste-back, pins and boards, the retention engine, the on-device intelligence
@@ -23,6 +29,19 @@ the Gatekeeper-accepted v0.6.0 artifact; acceptance is re-verified per published
 release. What remains before 1.0 is repeating the real-device sync matrix for
 the release candidate, App Store submission, and the account-gated launch pieces
 (App Store products and TestFlight).
+
+## Contents
+
+- [What's new in 0.7](#whats-new-in-07)
+- [Product goal](#product-goal)
+- [Platform plan](#platform-plan)
+- [Current capabilities](#current-capabilities)
+- [Setup (< 10 min)](#setup--10-min)
+- [Layout](#layout)
+- [Privacy invariants](#privacy-invariants)
+- [Contributing](#contributing)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
 
 ## What's new in 0.7
 
@@ -287,6 +306,16 @@ project.yml             XcodeGen source of truth for Gancho.xcodeproj
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture and
 platform strategy.
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the full
+guide. In short: branch off `main`, keep the change coherent, open a PR against
+`main`, and get CI green (macOS + iOS builds, package tests with an 80% coverage
+floor, swift-format + SwiftLint, and the metadata/site/product-truth gates).
+PRs squash-merge and their branch is deleted automatically on merge. Please read
+the [Code of Conduct](CODE_OF_CONDUCT.md); report security issues per the
+[Security Policy](SECURITY.md).
 
 ## Acknowledgements
 
