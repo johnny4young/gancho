@@ -16,8 +16,9 @@ import GanchoMCP
 ///   gancho export [--csv] [--include-sensitive] [--out <path>]
 ///   gancho boards [--json]
 ///   gancho pin <clip-id> | unpin <clip-id>
-///   gancho mcp                      # run the stdio MCP server
-///   gancho status | enable [--scope metadata|boards|all] | disable
+///   gancho mcp --grant <grant-id>   # run one authorized stdio MCP session
+///   gancho grant --client <name> --board <board-id> [policy options]
+///   gancho status | enable | disable | revoke <grant-id>
 ///
 /// `search`/`copy`/`save`/`export`/`boards`/`pin` are the user's own actions
 /// and are not logged; the `mcp` server (which serves automated agents) logs
@@ -44,10 +45,12 @@ struct GanchoCLI {
             case "boards": try await runBoards(args)
             case "pin": try await runSetPinned(args, pinned: true)
             case "unpin": try await runSetPinned(args, pinned: false)
-            case "mcp": await runMCP()
+            case "mcp": await runMCP(args)
             case "status": try await runStatus()
             case "enable": try runEnable(args)
             case "disable": try runDisable()
+            case "grant": try await runGrant(args)
+            case "revoke": try runRevoke(args)
             case "help", "--help", "-h": printUsage()
             default:
                 printErr("Unknown command: \(command)\n")
@@ -221,30 +224,47 @@ struct GanchoCLI {
         print("\(pinned ? "Pinned" : "Unpinned") clip \(raw).")
     }
 
-    private static func runMCP() async {
+    private static func runMCP(_ args: [String]) async {
         let directory = storeDirectory()
-        let config = MCPServerConfig.load(fromStoreDirectory: directory)
+        let options = Options(args)
+        let grantID = options.value("grant").flatMap(UUID.init(uuidString:))
         guard let store = try? GRDBClipboardStore.encrypted(directory: directory) else {
             printErr("gancho: could not open the store at \(directory.path).\n")
             exit(1)
         }
-        let runner = MCPToolRunner(store: store, scope: config.scope) { event in
-            try? await store.recordMCPAccess(event)
-        }
-        let server = MCPServer(runner: runner, isEnabled: config.isEnabled)
-        printErr(
-            "gancho mcp: ready (access \(config.isEnabled ? "ON, scope \(config.scope.rawValue)" : "OFF")).\n"
-        )
-        // Elevated exposure is made loud, not gated: the config file is
-        // plaintext, so any local process could have raised the scope.
-        if config.isEnabled, config.isElevated {
-            let exposure =
-                config.scope == .all
-                ? "the full content of ALL non-sensitive clips"
-                : "the full content of pinned/board clips"
+        let runner = MCPToolRunner(
+            store: store,
+            grantProvider: {
+                MCPServerConfig.load(fromStoreDirectory: directory).resolveGrant(id: grantID)
+            },
+            log: { event in
+                try? await store.recordMCPAccess(event)
+            })
+        // The runner owns the live enabled/grant checks. Keep the protocol edge
+        // open so enabling or renewing can take effect without restarting stdio.
+        let server = MCPServer(runner: runner, isEnabled: true)
+        let resolution = MCPServerConfig.load(fromStoreDirectory: directory)
+            .resolveGrant(id: grantID)
+        switch resolution {
+        case .active(let grant):
             printErr(
-                "gancho mcp: ⚠ scope=\(config.scope.rawValue) exposes \(exposure) to any "
-                    + "connected client. Run `gancho enable --scope metadata` to restrict.\n")
+                "gancho mcp: ready for \(grant.safeClientName) "
+                    + "(\(grant.scope.rawValue), \(grant.accessMode.rawValue)).\n")
+            if grant.scope != .metadata {
+                printErr(
+                    "gancho mcp: content access is limited to the approved context pack.\n")
+            }
+        case .disabled:
+            printErr("gancho mcp: ready, but MCP access is off in Gancho Settings.\n")
+        case .missing:
+            printErr(
+                "gancho mcp: no valid --grant id; create a client grant in Gancho Settings.\n")
+        case .invalidContext:
+            printErr("gancho mcp: the selected grant has no explicit context pack.\n")
+        case .expired:
+            printErr("gancho mcp: the selected client grant expired.\n")
+        case .revoked:
+            printErr("gancho mcp: the selected client grant was revoked.\n")
         }
         await MCPStdioTransport(server: server).run()
     }
@@ -257,22 +277,112 @@ struct GanchoCLI {
         print("store:   \(directory.path)")
         print("clips:   \(count)")
         print(
-            "mcp:     \(config.isEnabled ? "enabled" : "disabled") (scope: \(config.scope.rawValue))"
+            "mcp:     \(config.isEnabled ? "enabled" : "disabled") "
+                + "(\(config.activeGrants.count) active client grants)"
         )
+        for grant in config.grants {
+            print(
+                "grant:   \(grant.id.uuidString)\t\(grant.state().rawValue)\t"
+                    + "\(grant.accessMode.rawValue)\t\(grant.scope.rawValue)\t"
+                    + grant.safeClientName)
+        }
     }
 
-    private static func runEnable(_ args: [String]) throws {
-        let options = Options(args)
-        let scope = MCPAccessScope(rawValue: options.value("scope") ?? "metadata") ?? .metadata
-        try MCPServerConfig(isEnabled: true, scope: scope).save(toStoreDirectory: storeDirectory())
-        print("MCP access enabled (scope: \(scope.rawValue)).")
+    private static func runEnable(_: [String]) throws {
+        let directory = storeDirectory()
+        var config = MCPServerConfig.load(fromStoreDirectory: directory)
+        config.isEnabled = true
+        try config.save(toStoreDirectory: directory)
+        print("MCP access enabled. Each client still needs an active grant.")
     }
 
     private static func runDisable() throws {
         let current = MCPServerConfig.load(fromStoreDirectory: storeDirectory())
-        try MCPServerConfig(isEnabled: false, scope: current.scope)
-            .save(toStoreDirectory: storeDirectory())
+        var updated = current
+        updated.isEnabled = false
+        try updated.save(toStoreDirectory: storeDirectory())
         print("MCP access disabled.")
+    }
+
+    private static func runGrant(_ args: [String]) async throws {
+        let options = Options(args)
+        guard
+            let rawClient = options.value("client")?.trimmingCharacters(
+                in: .whitespacesAndNewlines),
+            !rawClient.isEmpty,
+            let rawBoard = options.value("board"),
+            let boardID = UUID(uuidString: rawBoard)
+        else {
+            printErr(
+                "usage: gancho grant --client <name> --board <board-id> "
+                    + "[--scope metadata|boards|all] [--write] "
+                    + "[--time last-hour|last-day|last-week|last-month|all-time] "
+                    + "[--expires-hours N]\n")
+            exit(2)
+        }
+
+        let store = try openStore()
+        guard let board = try await store.pinboards().first(where: { $0.id == boardID }) else {
+            printErr("No board with id \(rawBoard). Run `gancho boards --json` first.\n")
+            exit(2)
+        }
+        let rawScope = options.value("scope") ?? MCPAccessScope.metadata.rawValue
+        guard let scope = MCPAccessScope(rawValue: rawScope) else {
+            printErr("Invalid --scope value: \(rawScope). Use metadata, boards, or all.\n")
+            exit(2)
+        }
+        let rawTimeScope = options.value("time") ?? MCPTimeScope.lastWeek.rawValue
+        guard let timeScope = MCPTimeScope(rawValue: rawTimeScope) else {
+            printErr(
+                "Invalid --time value: \(rawTimeScope). Use last-hour, last-day, "
+                    + "last-week, last-month, or all-time.\n")
+            exit(2)
+        }
+        let requestedExpiryHours: Int
+        if let rawExpiry = options.value("expires-hours") {
+            guard let parsed = Int(rawExpiry), parsed > 0 else {
+                printErr("Invalid --expires-hours value: \(rawExpiry). Use a positive integer.\n")
+                exit(2)
+            }
+            requestedExpiryHours = parsed
+        } else {
+            requestedExpiryHours = 168
+        }
+        let expiryHours = min(requestedExpiryHours, 24 * 365)
+        let grant = MCPClientGrant(
+            clientName: String(rawClient.prefix(MCPClientGrant.maximumClientNameLength)),
+            scope: scope,
+            accessMode: options.flag("write") ? .readWrite : .readOnly,
+            contextPack: MCPContextPack(
+                name: board.name,
+                boardID: board.id,
+                boardName: board.name,
+                timeScope: timeScope),
+            expiresAt: Date().addingTimeInterval(Double(expiryHours) * 60 * 60))
+
+        let directory = storeDirectory()
+        var config = MCPServerConfig.load(fromStoreDirectory: directory)
+        config.isEnabled = true
+        config.grants.append(grant)
+        try config.save(toStoreDirectory: directory)
+        print("Created grant \(grant.id.uuidString) for \(grant.safeClientName).")
+        print("Connect with: gancho mcp --grant \(grant.id.uuidString)")
+    }
+
+    private static func runRevoke(_ args: [String]) throws {
+        guard let rawID = args.first, let id = UUID(uuidString: rawID) else {
+            printErr("usage: gancho revoke <grant-id>\n")
+            exit(2)
+        }
+        let directory = storeDirectory()
+        var config = MCPServerConfig.load(fromStoreDirectory: directory)
+        guard let index = config.grants.firstIndex(where: { $0.id == id }) else {
+            printErr("No client grant with id \(rawID).\n")
+            exit(2)
+        }
+        config.grants[index].revokedAt = .now
+        try config.save(toStoreDirectory: directory)
+        print("Revoked client grant \(rawID). New calls now fail closed.")
     }
 
     // MARK: - Helpers
@@ -333,14 +443,19 @@ struct GanchoCLI {
               gancho boards [--json]
               gancho pin <clip-id>
               gancho unpin <clip-id>
-              gancho mcp
+              gancho mcp --grant <grant-id>
               gancho status
-              gancho enable [--scope metadata|boards|all]
+              gancho enable
               gancho disable
+              gancho grant --client <name> --board <board-id> [--scope metadata|boards|all]
+                           [--write] [--time last-hour|last-day|last-week|last-month|all-time]
+                           [--expires-hours N]
+              gancho revoke <grant-id>
 
             Exports skip detector-flagged sensitive clips unless you pass
             --include-sensitive. The MCP server (gancho mcp) is opt-in and OFF
-            by default; enable it from Gancho → Settings or with `gancho enable`.
+            by default. Each MCP process needs a client grant created in Gancho
+            Settings or with `gancho grant`; revoke applies to its next call.
             """)
     }
 }

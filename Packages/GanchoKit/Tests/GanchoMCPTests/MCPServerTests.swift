@@ -9,7 +9,7 @@ struct MCPServerTests {
     private func server(enabled: Bool) async throws -> MCPServer {
         let store = try MCPTestStore.make()
         try await store.seedFixtures()
-        let runner = MCPToolRunner(store: store, scope: .all)
+        let runner = MCPToolRunner(store: store, scope: .all, accessMode: .readWrite)
         return MCPServer(runner: runner, isEnabled: enabled)
     }
 
@@ -56,6 +56,44 @@ struct MCPServerTests {
         #expect(tools?.count == 5)
         let names = (tools ?? []).compactMap { $0["name"]?.stringValue }
         #expect(names.contains("list_boards"))
+    }
+
+    @Test("read-only client does not advertise the mutating tool")
+    func toolsListReadOnly() async throws {
+        let store = try MCPTestStore.make()
+        let grant = MCPClientGrant(
+            clientName: "Read only",
+            scope: .all,
+            accessMode: .readOnly,
+            contextPack: MCPContextPack(
+                name: "Favorites", boardID: Pinboard.favoritesID))
+        let runner = MCPToolRunner(store: store, grantProvider: { .active(grant) })
+        let server = MCPServer(runner: runner, isEnabled: true)
+
+        let response = await server.handle(
+            JSONRPCRequest(id: .int(40), method: "tools/list", params: nil))
+        let names = (response?.result?["tools"]?.arrayValue ?? [])
+            .compactMap { $0["name"]?.stringValue }
+
+        #expect(names.count == 4)
+        #expect(!names.contains("create_pin"))
+    }
+
+    @Test("revoked live client advertises zero tools")
+    func toolsListRevoked() async throws {
+        let store = try MCPTestStore.make()
+        let grant = MCPClientGrant(
+            clientName: "Revoked",
+            contextPack: MCPContextPack(
+                name: "Favorites", boardID: Pinboard.favoritesID),
+            revokedAt: .now)
+        let runner = MCPToolRunner(store: store, grantProvider: { .revoked(grant) })
+        let server = MCPServer(runner: runner, isEnabled: true)
+
+        let response = await server.handle(
+            JSONRPCRequest(id: .int(41), method: "tools/list", params: nil))
+
+        #expect(response?.result?["tools"]?.arrayValue?.isEmpty == true)
     }
 
     @Test("tools/call routes to the runner and returns content")
