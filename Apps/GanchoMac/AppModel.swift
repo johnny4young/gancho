@@ -166,6 +166,7 @@ final class AppModel {
     private let editingController = ClipEditingController()
     private let ingestionCoordinator = ClipIngestionCoordinator()
     private let defaults: UserDefaults
+    private let activationTracker: ActivationTracker
     private var retentionTimer: Timer?
     /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
     private var syncPollTimer: Timer?
@@ -265,6 +266,7 @@ final class AppModel {
         // survive as latent configuration or reappear in an exported snapshot.
         appDefaults.removeObject(forKey: "show-in-dock")
         defaults = appDefaults
+        activationTracker = ActivationTracker(defaults: appDefaults)
         let directory = SharedStorageLocation.macAppStoreDirectory
         // Test hook: force the in-memory fallback so the "history isn't being
         // saved" warning path is drivable by a UI test (mirrors a real failure
@@ -378,6 +380,7 @@ final class AppModel {
         telemetry = TelemetryPipeline(
             consent: telemetryConsent,
             senderFactory: { TelemetryDeckSender(appID: GanchoTelemetryConfig.appID) })
+        if telemetryConsent != .disabled { activationTracker.start() }
 
         let pasteboardAccessPolicy: any PasteboardAccessPolicy
         #if DEBUG
@@ -621,6 +624,7 @@ final class AppModel {
                 .itemCaptured(
                     type: outcome.item.kind,
                     lengthBucket: .init(characterCount: outcome.contentLength)))
+            if outcome.isNew { recordActivationMilestone(.firstCapture) }
             await refreshRecents()
             enrich(outcome)
         }
@@ -735,10 +739,7 @@ final class AppModel {
             }
             defaults.set(
                 defaults.integer(forKey: "pasteback-count") + 1, forKey: "pasteback-count")
-            telemetry.record(
-                .itemPastedBack(
-                    ageBucket: .init(age: Date().timeIntervalSince(item.createdAt))))
-            requestTelemetryConsentAfterFirstValue()
+            recordSuccessfulReuse(.paste, items: [item])
             if let suggestion = await reuseController.recordPaste(of: item),
                 shouldPresentReuseSuggestion(after: pasteOutcome)
             {
@@ -748,13 +749,50 @@ final class AppModel {
     }
 
     func setTelemetryConsent(_ consent: TelemetryConsent) {
-        guard consent != .notAsked else { return }
+        guard consent != .notAsked, consent != telemetryConsent else { return }
+        if consent == .enabled { activationTracker.start() }
         telemetryConsent = consent
+        if consent == .enabled {
+            telemetry.record(.activationSnapshot(activationTracker.snapshot()))
+        } else {
+            activationTracker.reset()
+        }
     }
 
     func requestTelemetryConsentAfterFirstValue() {
         guard telemetryConsent == .notAsked else { return }
         isTelemetryConsentPromptPresented = true
+    }
+
+    func recordActivationMilestone(_ milestone: ActivationMilestone) {
+        guard telemetryConsent != .disabled,
+            let receipt = activationTracker.record(milestone)
+        else { return }
+        guard telemetryConsent == .enabled else { return }
+        telemetry.record(
+            .activationMilestone(
+                milestone: receipt.milestone, elapsedBucket: receipt.elapsedBucket))
+    }
+
+    private func recordSuccessfulReuse(
+        _ method: SuccessfulReuseMethod, items: [ClipItem]
+    ) {
+        guard !items.isEmpty else { return }
+        recordActivationMilestone(.firstSuccessfulReuse)
+        let ageBucket: TelemetryEvent.AgeBucket =
+            items.count == 1
+            ? .init(age: Date().timeIntervalSince(items[0].createdAt)) : .unknown
+        telemetry.record(
+            .successfulReuse(
+                method: method, batchSize: .init(count: items.count), ageBucket: ageBucket))
+        requestTelemetryConsentAfterFirstValue()
+    }
+
+    func finishOnboarding(completed: Bool, openPanel: Bool) {
+        defaults.set(true, forKey: "has-seen-welcome")
+        if completed { recordActivationMilestone(.onboardingCompleted) }
+        welcomeWindow.close()
+        if openPanel { panel.show(model: self) }
     }
 
     /// The ⌘↑ recall list for the panel's search field, newest first.
@@ -774,6 +812,7 @@ final class AppModel {
     /// Records every clip represented by one successful multi-file drop while
     /// presenting at most one reuse suggestion for the session.
     func noteDragOutDelivered(_ items: [ClipItem]) async {
+        guard !items.isEmpty else { return }
         var firstSuggestion: ClipItem?
         for item in items {
             if let suggestion = await reuseController.recordDragDelivery(of: item),
@@ -783,7 +822,7 @@ final class AppModel {
             }
         }
         if let firstSuggestion { await presentReuseSuggestion(firstSuggestion) }
-        requestTelemetryConsentAfterFirstValue()
+        recordSuccessfulReuse(.drag, items: items)
     }
 
     /// Paste with a pure transform applied at paste time.
@@ -800,7 +839,7 @@ final class AppModel {
             if pasteOutcome == .copiedOnly {
                 showCopyOnlyToast()
             }
-            requestTelemetryConsentAfterFirstValue()
+            recordSuccessfulReuse(.transform, items: [item])
             if let suggestion = await reuseController.recordPaste(of: item),
                 shouldPresentReuseSuggestion(after: pasteOutcome)
             {
@@ -900,7 +939,7 @@ final class AppModel {
             if pasteBack.paste(.text(filled), asPlainText: false) == .copiedOnly {
                 showCopyOnlyToast()
             }
-            requestTelemetryConsentAfterFirstValue()
+            recordSuccessfulReuse(.snippet, items: [snippet])
             await reuseController.recordSnippetPaste(of: snippet)
         }
     }
@@ -982,6 +1021,10 @@ final class AppModel {
             if pasteBack.paste(.text(text), asPlainText: false) == .copiedOnly {
                 showCopyOnlyToast()
             }
+            recordActivationMilestone(.firstSuccessfulReuse)
+            telemetry.record(
+                .successfulReuse(method: .smartPaste, batchSize: .one, ageBucket: .unknown))
+            requestTelemetryConsentAfterFirstValue()
         }
     }
 
@@ -1357,6 +1400,7 @@ final class AppModel {
             {
             case .promoted:
                 toasts.show(GanchoToast(message: "Saved as snippet"))
+                recordActivationMilestone(.firstSnippetCreated)
                 await refreshRecents()
                 refreshSpotlight()
             case .freeLimitReached:
@@ -1459,6 +1503,7 @@ final class AppModel {
             recordBoardFailure("The board was created, but the clip couldn’t be added.")
         }
         guard outcome != .blocked else { return outcome }
+        if case .created = outcome { recordActivationMilestone(.firstBoardCreated) }
         await refreshBoards()
         if case .created(let boardID, filedClip: true) = outcome {
             lastAssignedBoardID = boardID

@@ -5,6 +5,9 @@ import Foundation
 /// string field a clip could travel through. The NOTES schema (decided
 /// 2026-06): app_launched, item_captured{type,length_bucket},
 /// item_pasted_back{age_bucket}, item_pinned, item_deleted,
+/// activation_milestone{milestone,elapsed_bucket},
+/// activation_snapshot{closed milestone states,time_to_first_reuse},
+/// successful_reuse{method,batch_size,age_bucket},
 /// search_performed, ai_action_used, sync_event, free_limit_reached,
 /// paywall_shown{trigger}, upgrade_started/completed{plan},
 /// settings_changed{key}.
@@ -12,6 +15,10 @@ public enum TelemetryEvent: Sendable, Equatable {
     case appLaunched
     case itemCaptured(type: ClipContentKind, lengthBucket: LengthBucket)
     case itemPastedBack(ageBucket: AgeBucket)
+    case activationMilestone(milestone: ActivationMilestone, elapsedBucket: ActivationTimeBucket)
+    case activationSnapshot(ActivationSnapshot)
+    case successfulReuse(
+        method: SuccessfulReuseMethod, batchSize: BatchSizeBucket, ageBucket: AgeBucket)
     case itemPinned
     case itemDeleted
     case searchPerformed
@@ -48,7 +55,7 @@ public enum TelemetryEvent: Sendable, Equatable {
     }
 
     public enum AgeBucket: String, Sendable, Equatable, CaseIterable {
-        case minutes, hours, today, thisWeek, older
+        case minutes, hours, today, thisWeek, older, unknown
 
         public init(age: TimeInterval) {
             switch age {
@@ -61,6 +68,18 @@ public enum TelemetryEvent: Sendable, Equatable {
         }
     }
 
+    public enum BatchSizeBucket: String, Sendable, Equatable, CaseIterable {
+        case one, few, many
+
+        public init(count: Int) {
+            switch count {
+            case ...1: self = .one
+            case 2...5: self = .few
+            default: self = .many
+            }
+        }
+    }
+
     /// Wire name + bucket parameters — the ONLY data that ever leaves.
     public var encoded: (name: String, parameters: [String: String]) {
         switch self {
@@ -69,6 +88,22 @@ public enum TelemetryEvent: Sendable, Equatable {
             ("item_captured", ["type": type.rawValue, "length_bucket": bucket.rawValue])
         case .itemPastedBack(let bucket):
             ("item_pasted_back", ["age_bucket": bucket.rawValue])
+        case .activationMilestone(let milestone, let bucket):
+            (
+                "activation_milestone",
+                ["milestone": milestone.rawValue, "elapsed_bucket": bucket.rawValue]
+            )
+        case .activationSnapshot(let snapshot):
+            ("activation_snapshot", snapshot.encodedParameters)
+        case .successfulReuse(let method, let batchSize, let ageBucket):
+            (
+                "successful_reuse",
+                [
+                    "method": method.rawValue,
+                    "batch_size": batchSize.rawValue,
+                    "age_bucket": ageBucket.rawValue
+                ]
+            )
         case .itemPinned: ("item_pinned", [:])
         case .itemDeleted: ("item_deleted", [:])
         case .searchPerformed: ("search_performed", [:])
@@ -86,7 +121,40 @@ public enum TelemetryEvent: Sendable, Equatable {
 /// Transport seam. Implementations receive only the closed event schema above;
 /// an explicitly enabled pipeline may omit a transport for local-only counts.
 public protocol TelemetrySending: Sendable {
-    func send(name: String, parameters: [String: String]) async
+    /// Enqueues one signal synchronously. Keeping this boundary synchronous lets
+    /// consent withdrawal form a hard barrier around every transport call.
+    func send(name: String, parameters: [String: String])
+    /// Immediately releases transport resources when consent is withdrawn.
+    func shutdown()
+}
+
+extension TelemetrySending {
+    public func shutdown() {}
+}
+
+private final class TelemetryTransportSession: @unchecked Sendable {
+    private let sender: any TelemetrySending
+    private let lock = NSLock()
+    private var isActive = true
+
+    init(sender: any TelemetrySending) {
+        self.sender = sender
+    }
+
+    func send(name: String, parameters: [String: String]) {
+        lock.withLock {
+            guard isActive else { return }
+            sender.send(name: name, parameters: parameters)
+        }
+    }
+
+    func shutdown() {
+        lock.withLock {
+            guard isActive else { return }
+            isActive = false
+            sender.shutdown()
+        }
+    }
 }
 
 /// Explicit consent for optional, content-free product diagnostics.
@@ -130,7 +198,7 @@ public final class TelemetryPipeline: @unchecked Sendable {
 
     private let lock = NSLock()
     private let senderFactory: SenderFactory?
-    private var sender: (any TelemetrySending)?
+    private var sender: TelemetryTransportSession?
     private var isCreatingSender = false
     private var consent: TelemetryConsent
     private var localCounts: [String: Int] = [:]
@@ -141,15 +209,21 @@ public final class TelemetryPipeline: @unchecked Sendable {
     ) {
         self.consent = consent
         self.senderFactory = senderFactory
-        sender = consent == .enabled ? senderFactory?() : nil
+        sender =
+            consent == .enabled
+            ? senderFactory.map { TelemetryTransportSession(sender: $0()) } : nil
     }
 
     public func setConsent(_ consent: TelemetryConsent) {
         guard consent == .enabled else {
-            lock.withLock {
+            let detached = lock.withLock { () -> TelemetryTransportSession? in
                 self.consent = consent
+                let detached = sender
                 sender = nil
+                localCounts.removeAll(keepingCapacity: false)
+                return detached
             }
+            detached?.shutdown()
             return
         }
 
@@ -163,23 +237,25 @@ public final class TelemetryPipeline: @unchecked Sendable {
 
         // External SDK initialization must not run while holding the pipeline
         // lock. A factory may do synchronous work or call back into the app.
-        let candidate = senderFactory?()
-        lock.withLock {
+        let candidate = senderFactory.map { TelemetryTransportSession(sender: $0()) }
+        let accepted = lock.withLock {
             isCreatingSender = false
-            guard self.consent == .enabled, sender == nil else { return }
+            guard self.consent == .enabled, sender == nil else { return false }
             sender = candidate
+            return true
         }
+        if !accepted { candidate?.shutdown() }
     }
 
     public func record(_ event: TelemetryEvent) {
         let (name, parameters) = event.encoded
-        let sender = lock.withLock { () -> (any TelemetrySending)? in
+        let sender = lock.withLock { () -> TelemetryTransportSession? in
             guard consent == .enabled else { return nil }
             localCounts[name, default: 0] += 1
             return self.sender
         }
         guard let sender else { return }
-        Task { await sender.send(name: name, parameters: parameters) }
+        sender.send(name: name, parameters: parameters)
     }
 
     /// Privacy Center: events recorded this session, by name.

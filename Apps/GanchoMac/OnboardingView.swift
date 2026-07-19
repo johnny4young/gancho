@@ -25,11 +25,15 @@ struct OnboardingView: View {
             }
 
             HStack {
-                Button("Skip") { finish() }
+                Button("Skip") { finish(completed: false, openPanel: false) }
                     .accessibilityIdentifier("onboarding-skip")
                 Spacer()
-                Button(step < 2 ? "Continue" : "Start using Gancho") {
-                    if step < 2 { step += 1 } else { finish() }
+                Button(step < 2 ? "Continue" : "Open Gancho panel") {
+                    if step < 2 {
+                        step += 1
+                    } else {
+                        finish(completed: true, openPanel: true)
+                    }
                 }
                 .keyboardShortcut(.defaultAction)
                 .accessibilityIdentifier("onboarding-continue")
@@ -144,24 +148,20 @@ struct OnboardingView: View {
             .multilineTextAlignment(.center)
 
             Label(
-                "Forgot the shortcut? Gancho also lives in your menu bar — click its icon anytime.",
-                systemImage: "menubar.rectangle"
+                "The real panel opens next so you can search and reuse a clip now.",
+                systemImage: "arrow.right.circle"
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
+
+            Text("If direct paste is unavailable, Gancho copies the clip so you can press ⌘V.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
-    private func finish() {
-        UserDefaults.standard.set(true, forKey: "has-seen-welcome")
-        // Local activation metric: onboarding completion timestamp; the
-        // first paste-back timestamp pairs with it (privacy-first telemetry
-        // ships the BUCKETS later, never the events' content).
-        if UserDefaults.standard.object(forKey: "onboarding-completed-at") == nil {
-            UserDefaults.standard.set(
-                Date().timeIntervalSince1970, forKey: "onboarding-completed-at")
-        }
-        model.welcomeWindow.close()
+    private func finish(completed: Bool, openPanel: Bool) {
+        model.finishOnboarding(completed: completed, openPanel: openPanel)
     }
 }
 
