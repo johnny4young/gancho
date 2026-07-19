@@ -158,7 +158,12 @@ struct PrivateActivityReceiptTests {
         #expect(storedIDs == ["__gancho.unknown__"])
         #expect(!storedIDs.contains { $0.contains("password") })
         #expect(indexNames.contains("idx_clip_app_stats_day"))
-        #expect(try await store.privateActivityReceipt().captures == 1_000_000)
+        let receipt = try await store.privateActivityReceipt()
+        #expect(receipt.captures == 1_000_000)
+        #expect(
+            receipt.appStats == [
+                PrivateActivityAppStat(bundleID: nil, captures: 1_000_000, reuses: 2)
+            ])
     }
 
     @Test("Cross-app totals saturate instead of overflowing SQLite SUM")

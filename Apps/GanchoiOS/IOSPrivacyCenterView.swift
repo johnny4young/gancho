@@ -71,6 +71,37 @@ struct IOSPrivacyCenterView: View {
                     .accessibilityIdentifier("ios-private-receipt-section")
             }
 
+            Section("Activity by app") {
+                if receipt.appStats.isEmpty {
+                    Text("No per-app activity recorded.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(Array(receipt.appStats.enumerated()), id: \.offset) {
+                        index, stat in
+                        LabeledContent {
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("\(stat.captures) captures")
+                                Text("\(stat.reuses) reuses")
+                            }
+                            .monospacedDigit()
+                        } label: {
+                            if let bundleID = stat.bundleID {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(verbatim: SourceApp.fallbackName(forBundleID: bundleID))
+                                    Text(verbatim: bundleID)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else {
+                                Text("Unknown app")
+                            }
+                        }
+                        .accessibilityIdentifier("ios-private-receipt-app-\(index)-row")
+                    }
+                }
+            }
+
             Section("On this iPhone now") {
                 LabeledContent("Secrets masked", value: "\(masked)")
                 LabeledContent("Items synchronized", value: "\(synced)")

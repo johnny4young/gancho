@@ -20,10 +20,18 @@ final class PrivacyCenterUITests: XCTestCase {
             "ios-private-receipt-reused-count"
         ].firstMatch
         XCTAssertTrue(reused.waitForExistence(timeout: 5))
-        XCTAssertTrue(accessibleText(of: reused).contains("8"))
-        XCTAssertTrue(value(of: "ios-private-receipt-captured-count", in: app).contains("12"))
-        XCTAssertTrue(value(of: "ios-private-receipt-skipped-count", in: app).contains("2"))
-        XCTAssertTrue(value(of: "ios-private-receipt-protected-count", in: app).contains("2"))
+        XCTAssertEqual(integerValue(of: reused), 8)
+        XCTAssertEqual(count(of: "ios-private-receipt-captured-count", in: app), 12)
+        XCTAssertEqual(count(of: "ios-private-receipt-skipped-count", in: app), 2)
+        XCTAssertEqual(count(of: "ios-private-receipt-protected-count", in: app), 2)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["ios-private-receipt-app-0-row"].firstMatch
+                .waitForExistence(timeout: 3))
+        let secondApp = app.descendants(matching: .any)[
+            "ios-private-receipt-app-1-row"
+        ].firstMatch
+        for _ in 0..<3 where !secondApp.exists { privacyCenter.swipeUp() }
+        XCTAssertTrue(secondApp.waitForExistence(timeout: 3))
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "iOS private activity receipt"
@@ -31,7 +39,10 @@ final class PrivacyCenterUITests: XCTestCase {
         add(attachment)
 
         let clear = app.buttons["ios-clear-private-receipt-button"].firstMatch
-        for _ in 0..<3 where !clear.isHittable { privacyCenter.swipeUp() }
+        // Return the lazy Form to its resting top position. A merely hittable
+        // row can still sit beneath the translucent navigation bar after one
+        // reverse swipe, where XCTest synthesizes a tap without firing it.
+        for _ in 0..<3 { privacyCenter.swipeDown() }
         XCTAssertTrue(clear.waitForExistence(timeout: 3))
         XCTAssertTrue(clear.isHittable)
         clear.tap()
@@ -42,22 +53,37 @@ final class PrivacyCenterUITests: XCTestCase {
         let cleared = XCTNSPredicateExpectation(
             predicate: NSPredicate { element, _ in
                 guard let element = element as? XCUIElement else { return false }
-                return self.accessibleText(of: element).contains("0")
+                return Self.integer(in: Self.accessibleText(of: element)) == 0
             },
             object: reused)
         XCTAssertEqual(XCTWaiter().wait(for: [cleared], timeout: 5), .completed)
-        XCTAssertTrue(value(of: "ios-private-receipt-captured-count", in: app).contains("0"))
+        XCTAssertEqual(count(of: "ios-private-receipt-captured-count", in: app), 0)
     }
 
     @MainActor
     private func value(of identifier: String, in app: XCUIApplication) -> String {
         let element = app.descendants(matching: .any)[identifier].firstMatch
         XCTAssertTrue(element.waitForExistence(timeout: 5), "Missing element: \(identifier)")
-        return accessibleText(of: element)
+        return Self.accessibleText(of: element)
     }
 
-    private func accessibleText(of element: XCUIElement) -> String {
+    @MainActor
+    private func count(of identifier: String, in app: XCUIApplication) -> Int? {
+        Self.integer(in: value(of: identifier, in: app))
+    }
+
+    @MainActor
+    private func integerValue(of element: XCUIElement) -> Int? {
+        Self.integer(in: Self.accessibleText(of: element))
+    }
+
+    @MainActor
+    private static func accessibleText(of element: XCUIElement) -> String {
         (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
+    }
+
+    private static func integer(in text: String) -> Int? {
+        text.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }.first
     }
 
     @MainActor

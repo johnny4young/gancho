@@ -5,8 +5,8 @@ import GRDB
 /// receipt. Bundle identifiers are retained only on this device and never ride
 /// sync, telemetry, support bundles, or export.
 public struct PrivateActivityAppStat: Sendable, Equatable {
-    /// Nil is the honest bucket for a source or destination app the platform
-    /// could not identify (not a fabricated application identity).
+    /// Nil is the honest bucket when the platform supplied no identifier or
+    /// when the content-free identifier whitelist rejected the supplied value.
     public let bundleID: String?
     public let captures: Int
     public let reuses: Int

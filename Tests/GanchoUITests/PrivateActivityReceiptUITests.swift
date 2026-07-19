@@ -23,10 +23,16 @@ final class PrivateActivityReceiptUITests: XCTestCase {
 
         let receipt = app.descendants(matching: .any)["private-receipt-section"].firstMatch
         XCTAssertTrue(receipt.waitForExistence(timeout: 8))
-        XCTAssertTrue(value(of: "private-receipt-reused-count", in: app).contains("8"))
-        XCTAssertTrue(value(of: "private-receipt-captured-count", in: app).contains("12"))
-        XCTAssertTrue(value(of: "private-receipt-skipped-count", in: app).contains("3"))
-        XCTAssertTrue(value(of: "private-receipt-protected-count", in: app).contains("2"))
+        XCTAssertEqual(count(of: "private-receipt-reused-count", in: app), 8)
+        XCTAssertEqual(count(of: "private-receipt-captured-count", in: app), 12)
+        XCTAssertEqual(count(of: "private-receipt-skipped-count", in: app), 3)
+        XCTAssertEqual(count(of: "private-receipt-protected-count", in: app), 2)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["private-receipt-app-0-row"].firstMatch
+                .waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["private-receipt-app-1-row"].firstMatch
+                .waitForExistence(timeout: 3))
 
         let attachment = XCTAttachment(screenshot: app.windows["Privacy Center"].screenshot())
         attachment.name = "macOS private activity receipt"
@@ -40,8 +46,7 @@ final class PrivateActivityReceiptUITests: XCTestCase {
             throw XCTSkip("Another desktop window obscured the receipt clear action")
         }
         clear.click()
-        // SwiftUI presents macOS alerts as window sheets in the AX hierarchy.
-        let confirmation = app.sheets.firstMatch
+        let confirmation = app.windows["Privacy Center"].sheets.firstMatch
         XCTAssertTrue(confirmation.waitForExistence(timeout: 3))
         confirmation.buttons["Clear receipt"].click()
 
@@ -49,20 +54,31 @@ final class PrivateActivityReceiptUITests: XCTestCase {
         let cleared = XCTNSPredicateExpectation(
             predicate: NSPredicate { element, _ in
                 guard let element = element as? XCUIElement else { return false }
-                let text =
-                    (element.value as? String).flatMap { $0.isEmpty ? nil : $0 }
-                    ?? element.label
-                return text.contains("0")
+                return Self.integer(in: Self.accessibleText(of: element)) == 0
             },
             object: reused)
         XCTAssertEqual(XCTWaiter().wait(for: [cleared], timeout: 5), .completed)
-        XCTAssertTrue(value(of: "private-receipt-captured-count", in: app).contains("0"))
+        XCTAssertEqual(count(of: "private-receipt-captured-count", in: app), 0)
     }
 
     @MainActor
     private func value(of identifier: String, in app: XCUIApplication) -> String {
         let element = app.descendants(matching: .any)[identifier].firstMatch
         XCTAssertTrue(element.waitForExistence(timeout: 5), "Missing element: \(identifier)")
-        return (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
+        return Self.accessibleText(of: element)
+    }
+
+    @MainActor
+    private func count(of identifier: String, in app: XCUIApplication) -> Int? {
+        Self.integer(in: value(of: identifier, in: app))
+    }
+
+    @MainActor
+    private static func accessibleText(of element: XCUIElement) -> String {
+        (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
+    }
+
+    private static func integer(in text: String) -> Int? {
+        text.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }.first
     }
 }
