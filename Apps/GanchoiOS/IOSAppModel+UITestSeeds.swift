@@ -5,11 +5,12 @@ extension IOSAppModel {
     /// Centralizes durable synthetic fixtures outside the production
     /// composition-root initializer. Every helper independently requires the
     /// throwaway-store launch argument before writing anything.
-    func seedDurableUITestFixturesIfRequested() {
+    func seedDurableUITestFixturesIfRequested() -> Task<Void, Never>? {
         seedSampleBoardsIfRequested()
         seedSourceAppsIfRequested()
         seedReuseSuggestionIfRequested()
         seedClipEditingIfRequested()
+        return seedPrivateActivityReceiptIfRequested()
     }
 
     private func seedSampleBoardsIfRequested() {
@@ -86,6 +87,23 @@ extension IOSAppModel {
                 content: .text(
                     "Yesterday: fixed search\nToday: improve editing\nBlockers: none"))
             await search()
+        }
+    }
+
+    private func seedPrivateActivityReceiptIfRequested() -> Task<Void, Never>? {
+        guard ProcessInfo.processInfo.arguments.contains("-seed-private-activity-receipt"),
+            ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
+            let full
+        else { return nil }
+        return Task {
+            let now = Date()
+            try? await full.recordPrivateCapture(
+                sourceAppBundleID: "com.apple.mobilesafari", count: 12, at: now)
+            try? await full.recordPrivateReuse(
+                targetAppBundleID: nil, itemCount: 8, at: now)
+            try? await full.recordPrivateSkippedCapture(
+                isProtected: true, count: 2, at: now)
+            try? await full.recordPrivateSensitiveExpiry(count: 1, at: now)
         }
     }
 }

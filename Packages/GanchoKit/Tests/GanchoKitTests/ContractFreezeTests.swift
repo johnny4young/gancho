@@ -1,20 +1,21 @@
 import Foundation
 import Testing
 
-/// The frozen client contract gate. The eleven
-/// store facets + `GanchoClientStore` are the surface third-party / cross-target
-/// code is allowed to depend on; GRDB-shaped members live behind
-/// `@_spi(GanchoInternal)`. These tests run in the normal package test job, so
-/// they act as the CI doc-coverage + freeze gate without a separate DocC step:
-/// renaming a frozen facet, un-documenting a requirement, or promoting a
-/// GRDB-shaped member back onto the ambient public surface fails the build.
+/// The frozen store contract gate. `GanchoClientStore` is the supported
+/// third-party / cross-target subset; `FullClipStore` also composes first-party
+/// facets. GRDB-shaped members live behind `@_spi(GanchoInternal)`. These tests
+/// run in the normal package test job, so they act as the CI doc-coverage +
+/// freeze gate without a separate DocC step: renaming a frozen facet,
+/// un-documenting a requirement, or promoting a GRDB-shaped member back onto
+/// the ambient public surface fails the build.
 @Suite("Frozen client contract")
 struct ContractFreezeTests {
-    /// The eleven facets and two compositions that make up the frozen surface.
+    /// The twelve facets and two compositions that make up the frozen surface.
     static let facets = [
         "ClipReading", "ClipSearching", "SourceAppProviding", "ClipMutating",
         "ReuseSuggestionProviding", "ClipEnriching", "BoardStoring", "SnippetStoring",
-        "StoreStatsProviding", "ExportProviding", "StoreMaintaining"
+        "StoreStatsProviding", "PrivateActivityReceiptStoring", "ExportProviding",
+        "StoreMaintaining"
     ]
     static let compositions = ["GanchoClientStore", "FullClipStore"]
 

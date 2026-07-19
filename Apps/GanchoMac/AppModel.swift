@@ -411,7 +411,12 @@ final class AppModel {
             self?.ingest(capture)
         }
         monitor.onIgnore = { [weak self] reason in
-            self?.privacyEvents.record(IgnoredCaptureEvent(reason: reason))
+            guard let self else { return }
+            privacyEvents.record(IgnoredCaptureEvent(reason: reason))
+            Task {
+                try? await grdbStore?.recordPrivateSkippedCapture(
+                    isProtected: reason == .sensitiveType, count: 1, at: .now)
+            }
         }
         reuseController.setRecentItemsObserver { [weak self] _ in
             self?.publishLastCopied()
@@ -574,6 +579,10 @@ final class AppModel {
         if CommandLine.arguments.contains("-open-privacy-center-on-launch") {
             NSApplication.shared.setActivationPolicy(.regular)
             Task { @MainActor in
+                // Wait for the durable seeds (incl. the private-activity-receipt
+                // fixture) before opening the Privacy Center. The non-receipt
+                // seeds are no-ops when their launch args are absent.
+                for task in uiTestSeedTasks { await task.value }
                 try? await Task.sleep(for: .milliseconds(300))
                 privacyCenterWindow.show(model: self)
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
@@ -625,6 +634,10 @@ final class AppModel {
                     type: outcome.item.kind,
                     lengthBucket: .init(characterCount: outcome.contentLength)))
             if outcome.isNew { recordActivationMilestone(.firstCapture) }
+            try? await grdbStore?.recordPrivateCapture(
+                sourceAppBundleID: capture.sourceAppBundleID,
+                count: 1,
+                at: capture.capturedAt)
             await refreshRecents()
             enrich(outcome)
         }
@@ -713,6 +726,7 @@ final class AppModel {
 
     /// Paste a stored clip into the frontmost app (panel Enter / menu click).
     func paste(_ item: ClipItem, asPlainText: Bool = false) {
+        let intendedTargetBundleID = currentReuseTargetBundleID()
         Task {
             // Paste action → event posted; the target app's behavior is
             // deliberately outside the interval. The failure path closes it
@@ -739,7 +753,10 @@ final class AppModel {
             }
             defaults.set(
                 defaults.integer(forKey: "pasteback-count") + 1, forKey: "pasteback-count")
-            recordSuccessfulReuse(.paste, items: [item])
+            await recordSuccessfulReuse(
+                .paste,
+                items: [item],
+                targetBundleID: pasteOutcome == .pasted ? intendedTargetBundleID : nil)
             if let suggestion = await reuseController.recordPaste(of: item),
                 shouldPresentReuseSuggestion(after: pasteOutcome)
             {
@@ -764,6 +781,14 @@ final class AppModel {
         isTelemetryConsentPromptPresented = true
     }
 
+    func privateActivityReceipt() async -> PrivateActivityReceipt {
+        (try? await grdbStore?.privateActivityReceipt(now: .now)) ?? .empty()
+    }
+
+    func clearPrivateActivityReceipt() async {
+        try? await grdbStore?.clearPrivateActivityReceipt()
+    }
+
     func recordActivationMilestone(_ milestone: ActivationMilestone) {
         guard telemetryConsent != .disabled,
             let receipt = activationTracker.record(milestone)
@@ -775,17 +800,33 @@ final class AppModel {
     }
 
     private func recordSuccessfulReuse(
-        _ method: SuccessfulReuseMethod, items: [ClipItem]
-    ) {
-        guard !items.isEmpty else { return }
+        _ method: SuccessfulReuseMethod,
+        items: [ClipItem],
+        itemCount: Int? = nil,
+        targetBundleID: String?
+    ) async {
+        let count = itemCount ?? items.count
+        guard count > 0 else { return }
+        try? await grdbStore?.recordPrivateReuse(
+            targetAppBundleID: targetBundleID, itemCount: count, at: .now)
         recordActivationMilestone(.firstSuccessfulReuse)
         let ageBucket: TelemetryEvent.AgeBucket =
             items.count == 1
             ? .init(age: Date().timeIntervalSince(items[0].createdAt)) : .unknown
         telemetry.record(
             .successfulReuse(
-                method: method, batchSize: .init(count: items.count), ageBucket: ageBucket))
+                method: method, batchSize: .init(count: count), ageBucket: ageBucket))
         requestTelemetryConsentAfterFirstValue()
+    }
+
+    /// The production panel is nonactivating, so the OS frontmost application
+    /// remains the intended destination while Gancho floats above it. UI tests
+    /// activate Gancho itself; treat that as unknown rather than recording a
+    /// false self-target.
+    private func currentReuseTargetBundleID() -> String? {
+        let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        guard bundleID != Bundle.main.bundleIdentifier else { return nil }
+        return bundleID
     }
 
     func finishOnboarding(completed: Bool, openPanel: Bool) {
@@ -813,6 +854,7 @@ final class AppModel {
     /// presenting at most one reuse suggestion for the session.
     func noteDragOutDelivered(_ items: [ClipItem]) async {
         guard !items.isEmpty else { return }
+        let targetBundleID = currentReuseTargetBundleID()
         var firstSuggestion: ClipItem?
         for item in items {
             if let suggestion = await reuseController.recordDragDelivery(of: item),
@@ -822,11 +864,12 @@ final class AppModel {
             }
         }
         if let firstSuggestion { await presentReuseSuggestion(firstSuggestion) }
-        recordSuccessfulReuse(.drag, items: items)
+        await recordSuccessfulReuse(.drag, items: items, targetBundleID: targetBundleID)
     }
 
     /// Paste with a pure transform applied at paste time.
     func paste(_ item: ClipItem, transform: PasteTransform) {
+        let intendedTargetBundleID = currentReuseTargetBundleID()
         Task {
             guard case .text(let text)? = try? await store.content(for: item.id) else {
                 paste(item, asPlainText: transform == .plainText)
@@ -839,7 +882,10 @@ final class AppModel {
             if pasteOutcome == .copiedOnly {
                 showCopyOnlyToast()
             }
-            recordSuccessfulReuse(.transform, items: [item])
+            await recordSuccessfulReuse(
+                .transform,
+                items: [item],
+                targetBundleID: pasteOutcome == .pasted ? intendedTargetBundleID : nil)
             if let suggestion = await reuseController.recordPaste(of: item),
                 shouldPresentReuseSuggestion(after: pasteOutcome)
             {
@@ -931,15 +977,20 @@ final class AppModel {
     /// non-template snippet (or fields left blank → their defaults apply).
     func pasteSnippet(_ snippet: ClipItem, values: [String: String]) {
         guard grdbStore != nil else { return }
+        let intendedTargetBundleID = currentReuseTargetBundleID()
         Task {
             guard case .text(let body)? = try? await store.content(for: snippet.id) else { return }
             let filled = SnippetTemplate.fill(body, values: values)
             panel.hide()
             try? await Task.sleep(for: .milliseconds(80))
-            if pasteBack.paste(.text(filled), asPlainText: false) == .copiedOnly {
+            let pasteOutcome = pasteBack.paste(.text(filled), asPlainText: false)
+            if pasteOutcome == .copiedOnly {
                 showCopyOnlyToast()
             }
-            recordSuccessfulReuse(.snippet, items: [snippet])
+            await recordSuccessfulReuse(
+                .snippet,
+                items: [snippet],
+                targetBundleID: pasteOutcome == .pasted ? intendedTargetBundleID : nil)
             await reuseController.recordSnippetPaste(of: snippet)
         }
     }
@@ -1015,16 +1066,19 @@ final class AppModel {
     /// Pastes arbitrary text (a Smart Paste or filled-snippet result) into the
     /// frontmost app via the same paste-back path as a normal paste.
     func pasteText(_ text: String) {
+        let intendedTargetBundleID = currentReuseTargetBundleID()
         Task {
             panel.hide()
             try? await Task.sleep(for: .milliseconds(80))
-            if pasteBack.paste(.text(text), asPlainText: false) == .copiedOnly {
+            let pasteOutcome = pasteBack.paste(.text(text), asPlainText: false)
+            if pasteOutcome == .copiedOnly {
                 showCopyOnlyToast()
             }
-            recordActivationMilestone(.firstSuccessfulReuse)
-            telemetry.record(
-                .successfulReuse(method: .smartPaste, batchSize: .one, ageBucket: .unknown))
-            requestTelemetryConsentAfterFirstValue()
+            await recordSuccessfulReuse(
+                .smartPaste,
+                items: [],
+                itemCount: 1,
+                targetBundleID: pasteOutcome == .pasted ? intendedTargetBundleID : nil)
         }
     }
 
@@ -1729,7 +1783,13 @@ final class AppModel {
         let policy = retentionPolicy
         let tier = tier
         Task {
-            _ = try? await RetentionEngine(store: grdbForEngines).runPurge(policy: policy)
+            let now = Date()
+            if let summary = try? await RetentionEngine(store: grdbForEngines).runPurge(
+                policy: policy, now: now)
+            {
+                try? await grdbForEngines.recordPrivateSensitiveExpiry(
+                    count: summary.sensitiveExpired, at: now)
+            }
             // The purge tombstoned any synced victims; enqueue those deletions
             // now so they propagate immediately rather than at the next sync
             // start(). Re-adding an already-pending deletion is a no-op in the
