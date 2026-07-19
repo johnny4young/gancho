@@ -127,9 +127,10 @@ final class AppModel {
     /// Current sync state for the UI (panel indicator + Privacy Center).
     private(set) var syncStatus: SyncStatus = .idle
 
-    /// Local MCP server opt-in + scope, persisted as a file in the store
-    /// directory (the `gancho` CLI reads the same file). OFF by default.
+    /// Local MCP server opt-in + per-client grants, persisted beside the store
+    /// so the `gancho` CLI and app resolve the same live authorization state.
     private(set) var mcpConfig: MCPServerConfig = .init()
+    private let mcpConfigDirectory: URL
 
     /// Entitlement — StoreKit is the source of truth; the persisted value is
     /// only the cached default used until StoreKit answers on launch.
@@ -275,14 +276,22 @@ final class AppModel {
         // `GRDBClipboardStore` (so `grdbStore` is non-nil and board creation / the
         // free-tier paywall are reachable, unlike the ephemeral store) that never
         // touches the user's data. Takes precedence over `-force-ephemeral-store`.
+        let tempStoreDirectory = Self.temporaryDurableStoreDirectory()
         let grdb: GRDBClipboardStore?
-        if let tempDir = Self.temporaryDurableStoreDirectory() {
+        if let tempDir = tempStoreDirectory {
             grdb = try? GRDBClipboardStore.encrypted(directory: tempDir)
         } else if forceEphemeral {
             grdb = nil
         } else {
             grdb = try? GRDBClipboardStore.encrypted(directory: directory)
         }
+        let mcpConfigDirectory =
+            tempStoreDirectory
+            ?? (forceEphemeral
+                ? FileManager.default.temporaryDirectory.appendingPathComponent(
+                    "gancho-uitest-mcp-\(UUID().uuidString)", isDirectory: true)
+                : directory)
+        self.mcpConfigDirectory = mcpConfigDirectory
         self.grdbStore = grdb
         self.grdbForEngines = grdb
         if let grdb {
@@ -316,7 +325,16 @@ final class AppModel {
             }
             return nil
         })
-        self.mcpConfig = MCPServerConfig.load(fromStoreDirectory: directory)
+        var loadedMCPConfig = MCPServerConfig.load(fromStoreDirectory: mcpConfigDirectory)
+        #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-seed-mcp-grants"),
+                tempStoreDirectory != nil
+            {
+                loadedMCPConfig = Self.sampleMCPConfig()
+                try? loadedMCPConfig.save(toStoreDirectory: mcpConfigDirectory)
+            }
+        #endif
+        self.mcpConfig = loadedMCPConfig
 
         var loadedPreferences = CapturePreferences.load(from: appDefaults)
         #if DEBUG
@@ -561,6 +579,15 @@ final class AppModel {
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             }
         }
+        if CommandLine.arguments.contains("-open-mcp-access-on-launch") {
+            NSApplication.shared.setActivationPolicy(.regular)
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(300))
+                await refreshBoards()
+                mcpAccessWindow.show(model: self)
+                _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+            }
+        }
     }
 
     private func applyAppearance() {
@@ -603,6 +630,45 @@ final class AppModel {
         }
     }
 
+    #if DEBUG
+        private static func sampleMCPConfig() -> MCPServerConfig {
+            let now = Date()
+            let context = MCPContextPack(
+                name: "Favorites · last 7 days",
+                boardID: Pinboard.favoritesID,
+                boardName: "Favorites",
+                timeScope: .lastWeek)
+            return MCPServerConfig(
+                isEnabled: true,
+                grants: [
+                    MCPClientGrant(
+                        id: UUID(uuidString: "A1000000-0000-4000-8000-000000000001")!,
+                        clientName: "Claude Desktop",
+                        scope: .all,
+                        accessMode: .readOnly,
+                        contextPack: context,
+                        createdAt: now.addingTimeInterval(-3_600),
+                        expiresAt: now.addingTimeInterval(6 * 86_400)),
+                    MCPClientGrant(
+                        id: UUID(uuidString: "A1000000-0000-4000-8000-000000000002")!,
+                        clientName: "Cursor",
+                        scope: .metadata,
+                        accessMode: .readOnly,
+                        contextPack: context,
+                        createdAt: now.addingTimeInterval(-10 * 86_400),
+                        expiresAt: now.addingTimeInterval(-3 * 86_400)),
+                    MCPClientGrant(
+                        id: UUID(uuidString: "A1000000-0000-4000-8000-000000000003")!,
+                        clientName: "Local scripts",
+                        scope: .boards,
+                        accessMode: .readWrite,
+                        contextPack: context,
+                        createdAt: now.addingTimeInterval(-2 * 86_400),
+                        expiresAt: now.addingTimeInterval(5 * 86_400),
+                        revokedAt: now.addingTimeInterval(-300))
+                ])
+        }
+    #endif
     /// Pro-tier async enrichment — never blocks capture: OCR makes image
     /// clips searchable; the tiered annotator titles text clips.
     private func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
@@ -1146,15 +1212,53 @@ final class AppModel {
         updateMCPConfig { $0.isEnabled = enabled }
     }
 
-    func setMCPScope(_ scope: MCPAccessScope) {
-        updateMCPConfig { $0.scope = scope }
+    @discardableResult
+    func createMCPGrant(
+        clientName: String,
+        scope: MCPAccessScope,
+        accessMode: MCPAccessMode,
+        board: Pinboard,
+        timeScope: MCPTimeScope,
+        expiresAt: Date?
+    ) -> MCPClientGrant {
+        let contextName = "\(board.name) · \(timeScope.rawValue)"
+        let grant = MCPClientGrant(
+            clientName: String(
+                clientName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .prefix(MCPClientGrant.maximumClientNameLength)),
+            scope: scope,
+            accessMode: accessMode,
+            contextPack: MCPContextPack(
+                name: contextName,
+                boardID: board.id,
+                boardName: board.name,
+                timeScope: timeScope),
+            expiresAt: expiresAt)
+        updateMCPConfig {
+            $0.isEnabled = true
+            $0.grants.append(grant)
+        }
+        return grant
+    }
+
+    func revokeMCPGrant(id: UUID) {
+        updateMCPConfig { config in
+            guard let index = config.grants.firstIndex(where: { $0.id == id }) else { return }
+            config.grants[index].revokedAt = .now
+        }
     }
 
     private func updateMCPConfig(_ mutate: (inout MCPServerConfig) -> Void) {
         var config = mcpConfig
         mutate(&config)
-        mcpConfig = config
-        try? config.save(toStoreDirectory: SharedStorageLocation.macAppStoreDirectory)
+        do {
+            try config.save(toStoreDirectory: mcpConfigDirectory)
+            mcpConfig = config
+        } catch {
+            diagnostics.record(
+                String(localized: "MCP Access"),
+                String(localized: "Couldn’t save local agent access settings."))
+        }
     }
 
     /// Recent MCP/CLI accesses for the Privacy Center (metadata only).

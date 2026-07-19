@@ -215,6 +215,52 @@ struct ClipSearchTests {
         #expect(dated.count == 2, "only the two clips created before the cutoff")
     }
 
+    @Test("Marked filter includes pinned and board-only clips")
+    func markedFilter() async throws {
+        let store = try makeStore()
+        let pinned = ClipItem(
+            preview: "marked sample", contentHash: "marked-pinned", isPinned: true)
+        let boarded = ClipItem(preview: "marked sample", contentHash: "marked-boarded")
+        let plain = ClipItem(preview: "marked sample", contentHash: "marked-plain")
+        for item in [pinned, boarded, plain] {
+            try await store.insert(item, content: .text(item.preview))
+        }
+        try await store.assign(clipID: boarded.id, toBoard: Pinboard.favoritesID)
+
+        let hits = try await store.search(
+            ClipSearchQuery(text: "marked", markedOnly: true))
+
+        #expect(Set(hits.map(\.id)) == [pinned.id, boarded.id])
+        #expect(hits.allSatisfy { $0.id != plain.id })
+    }
+
+    @Test("Explicit id and sensitive filters apply before the result limit")
+    func authorizationFilters() async throws {
+        let store = try makeStore()
+        let allowed = ClipItem(preview: "policy sample", contentHash: "policy-allowed")
+        let ambient = ClipItem(preview: "policy sample", contentHash: "policy-ambient")
+        let sensitive = ClipItem(
+            preview: "policy sample", contentHash: "policy-sensitive", isSensitive: true)
+        for item in [allowed, ambient, sensitive] {
+            try await store.insert(item, content: .text(item.preview))
+        }
+
+        let curated = try await store.search(
+            ClipSearchQuery(
+                text: "policy", includedIDs: [allowed.id], excludesSensitive: true),
+            limit: 1)
+        let vetoed = try await store.search(
+            ClipSearchQuery(
+                text: "policy", includedIDs: [sensitive.id], excludesSensitive: true),
+            limit: 1)
+        let empty = try await store.search(
+            ClipSearchQuery(text: "policy", includedIDs: []), limit: 1)
+
+        #expect(curated.map(\.id) == [allowed.id])
+        #expect(vetoed.isEmpty)
+        #expect(empty.isEmpty)
+    }
+
     @Test("An empty search composes metadata filters without invoking FTS")
     func emptyFilterOnlySearch() async throws {
         let store = try makeStore()

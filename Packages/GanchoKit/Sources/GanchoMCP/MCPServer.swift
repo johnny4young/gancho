@@ -1,4 +1,5 @@
 import Foundation
+import GanchoKit
 
 /// JSON-RPC 2.0 dispatcher implementing the slice of MCP a clipboard server
 /// needs: `initialize`, `tools/list`, `tools/call`, and `ping`. Transport is
@@ -32,11 +33,12 @@ public struct MCPServer: Sendable {
 
         switch request.method {
         case "initialize":
-            return JSONRPCResponse(id: id, result: initializeResult(params: request.params))
+            return JSONRPCResponse(
+                id: id, result: await initializeResult(params: request.params))
         case "ping":
             return JSONRPCResponse(id: id, result: .object([:]))
         case "tools/list":
-            return JSONRPCResponse(id: id, result: toolsListResult())
+            return JSONRPCResponse(id: id, result: await toolsListResult())
         case "tools/call":
             return await toolsCallResult(id: id, params: request.params)
         default:
@@ -46,8 +48,29 @@ public struct MCPServer: Sendable {
 
     // MARK: - Methods
 
-    private func initializeResult(params: JSONValue?) -> JSONValue {
+    private func initializeResult(params: JSONValue?) async -> JSONValue {
         let version = params?["protocolVersion"]?.stringValue ?? Self.defaultProtocolVersion
+        let resolution = await runner.grantResolution()
+        let instructions: String
+        if !isEnabled {
+            instructions = "Gancho MCP access is currently off. Enable it in Gancho Settings."
+        } else {
+            instructions =
+                switch resolution {
+                case .active(let grant):
+                    "Gancho client \(grant.safeClientName) is approved with \(grant.scope.rawValue) scope and \(grant.accessMode.rawValue) access."
+                case .disabled:
+                    "Gancho MCP access is currently off. Enable it in Gancho Settings."
+                case .missing:
+                    "This MCP process has no approved client grant. Create one in Gancho Settings."
+                case .invalidContext:
+                    "This MCP client grant has no explicit context. Create a new grant in Gancho Settings."
+                case .expired:
+                    "This MCP client grant expired. Renew it in Gancho Settings."
+                case .revoked:
+                    "This MCP client grant was revoked. Create a new grant in Gancho Settings."
+                }
+        }
         return .object([
             "protocolVersion": .string(version),
             "capabilities": .object(["tools": .object([:])]),
@@ -55,15 +78,21 @@ public struct MCPServer: Sendable {
                 "name": .string("gancho"),
                 "version": .string(serverVersion)
             ]),
-            "instructions": .string(
-                isEnabled
-                    ? "Gancho exposes your clipboard history. Scope: \(runner.scope.rawValue)."
-                    : "Gancho MCP access is currently OFF. Enable it in Gancho → Settings.")
+            "instructions": .string(instructions)
         ])
     }
 
-    private func toolsListResult() -> JSONValue {
-        let tools = isEnabled ? MCPToolRunner.toolDescriptors : []
+    private func toolsListResult() async -> JSONValue {
+        let resolution = await runner.grantResolution()
+        let tools: [MCPToolDescriptor]
+        if isEnabled, case .active(let grant) = resolution {
+            tools = MCPToolRunner.toolDescriptors.filter { descriptor in
+                grant.accessMode.allowsWrites
+                    || descriptor.name != MCPToolName.createPin.rawValue
+            }
+        } else {
+            tools = []
+        }
         return (try? JSONValue(encoding: ToolsList(tools: tools))) ?? .object(["tools": .array([])])
     }
 

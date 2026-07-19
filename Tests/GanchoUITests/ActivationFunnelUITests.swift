@@ -21,23 +21,34 @@ final class ActivationFunnelUITests: XCTestCase {
 
         let continueButton = app.buttons["onboarding-continue"].firstMatch
         XCTAssertTrue(continueButton.waitForExistence(timeout: 8))
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         continueButton.click()
+        let accessibilitySettings = app.buttons["open-accessibility-settings"].firstMatch
+        let permissionGranted = app.staticTexts["Permission granted"].firstMatch
         XCTAssertTrue(
-            app.buttons["open-accessibility-settings"].firstMatch.exists
-                || app.staticTexts["Permission granted"].firstMatch.exists)
+            accessibilitySettings.waitForExistence(timeout: 5)
+                || permissionGranted.waitForExistence(timeout: 5),
+            "The Accessibility onboarding step must finish rendering")
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         continueButton.click()
 
-        XCTAssertEqual(continueButton.label, "Open Gancho panel")
+        let copyFallback = app.staticTexts[
+            "If direct paste is unavailable, Gancho copies the clip so you can press ⌘V."
+        ].firstMatch
         XCTAssertTrue(
-            app.staticTexts[
-                "If direct paste is unavailable, Gancho copies the clip so you can press ⌘V."
-            ].firstMatch.waitForExistence(timeout: 3))
+            copyFallback.waitForExistence(timeout: 5),
+            "The activation handoff step must finish rendering")
+        XCTAssertEqual(continueButton.label, "Open Gancho panel")
 
         let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         attachment.name = "macOS activation onboarding handoff"
         attachment.lifetime = .keepAlways
         add(attachment)
 
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         continueButton.click()
         XCTAssertTrue(
             app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8),

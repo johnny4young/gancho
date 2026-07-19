@@ -603,6 +603,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 t.column("contentText")
             }
         }
+        Self.registerMCPClientLedgerMigration(in: &migrator)
         return migrator
     }
 
@@ -678,31 +679,6 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 }
             }
             return results
-        }
-    }
-
-    /// Shared WHERE clauses for kind / source app / date filters.
-    static func appendFilters(
-        for query: ClipSearchQuery, to sql: inout String,
-        arguments: inout [any DatabaseValueConvertible]
-    ) {
-        if let kinds = query.kinds, !kinds.isEmpty {
-            let placeholders = Array(repeating: "?", count: kinds.count).joined(separator: ",")
-            sql += " AND clip.kind IN (\(placeholders))"
-            arguments.append(contentsOf: kinds.map(\.rawValue).sorted())
-        }
-        if let app = query.sourceAppBundleID {
-            sql += " AND clip.sourceAppBundleID = ?"
-            arguments.append(app)
-        }
-        if let range = query.dateRange {
-            sql += " AND clip.createdAt BETWEEN ? AND ?"
-            arguments.append(range.lowerBound)
-            arguments.append(range.upperBound)
-        }
-        if let boardID = query.boardID {
-            sql += " AND clip.id IN (SELECT clipID FROM clip_board WHERE boardID = ?)"
-            arguments.append(boardID.uuidString)
         }
     }
 

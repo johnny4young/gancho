@@ -16,8 +16,8 @@ struct GetClipArgs: Decodable {
 
 struct CreatePinArgs: Decodable {
     let id: String
-    /// Optional board name; created if it doesn't exist. Without it the clip
-    /// is pinned to plain history.
+    /// Optional board name. Live grants accept only their approved context
+    /// board; static embedded policy may create the board when needed.
     let board: String?
 }
 
@@ -83,8 +83,9 @@ struct PasteStackResult: Encodable {
     let count: Int
 }
 
-/// Board metadata — the only shape `list_boards` returns. Names and glyphs
-/// are organization, never clip content, so every scope may see them.
+/// Board metadata — the only shape `list_boards` returns. Live grants expose
+/// only their selected context board; curated clip sets expose no ambient
+/// board list.
 struct BoardSummary: Encodable {
     let id: String
     let name: String
@@ -105,8 +106,8 @@ struct ListBoardsResult: Encodable {
 // MARK: - Tool catalog (advertised by `tools/list`)
 
 extension MCPToolRunner {
-    /// The five tools, with JSON Schemas for their arguments. Static metadata
-    /// — independent of scope; the scope governs what each call returns.
+    /// The five tools, with JSON Schemas for their arguments. Read-only grants
+    /// omit `create_pin` at the protocol edge; scope governs returned content.
     public static let toolDescriptors: [MCPToolDescriptor] = [
         MCPToolDescriptor(
             name: MCPToolName.searchClips.rawValue,
@@ -131,11 +132,11 @@ extension MCPToolRunner {
             name: MCPToolName.createPin.rawValue,
             description:
                 // swiftlint:disable:next line_length
-                "Pin a clip so it survives history retention. Optionally place it on a named board (created if missing).",
+                "Pin a clip inside the client’s approved context. Requires an explicit read-write grant; arbitrary board creation is not allowed.",
             inputSchema: schema(
                 properties: [
                     "id": property("string", "The clip id to pin."),
-                    "board": property("string", "Optional board name to add the clip to.")
+                    "board": property("string", "Optional approved context-board name.")
                 ], required: ["id"])),
         MCPToolDescriptor(
             name: MCPToolName.pasteStack.rawValue,
@@ -147,6 +148,7 @@ extension MCPToolRunner {
                     "ids": .object([
                         "type": .string("array"),
                         "items": .object(["type": .string("string")]),
+                        "maxItems": .int(MCPToolRunner.maximumPasteStackClips),
                         "description": .string("Clip ids in paste order.")
                     ])
                 ], required: ["ids"])),
