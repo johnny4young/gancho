@@ -122,37 +122,73 @@ if [ -n "${CODE_SIGN_IDENTITY:-}" ] && [ -n "$PROVISIONING_PROFILE" ]; then
 		|| { echo "error: could not read signed app entitlements" >&2; exit 1; }
 	plutil -lint "$GENERATED_ENTITLEMENTS" >/dev/null \
 		|| { echo "error: extracted app entitlements are not a valid plist" >&2; exit 1; }
+	# `xcodebuild build` injects com.apple.security.get-task-allow (a debugging
+	# entitlement) that notarization rejects; drop it before the main binary is
+	# re-sealed with these entitlements. plutil key paths use "." as a level
+	# separator, so the dotted entitlement key must be escaped.
+	plutil -remove 'com\.apple\.security\.get-task-allow' "$GENERATED_ENTITLEMENTS" \
+		2>/dev/null || true
 	RESOLVED_ENTITLEMENTS="$GENERATED_ENTITLEMENTS"
 	cp "$PROVISIONING_PROFILE" "$APP_PATH/Contents/embedded.provisionprofile"
 fi
 
-# Re-sign Sparkle's nested helpers. Xcode's Embed & Sign re-signs the framework
-# bundle with our identity but leaves the XPC services, Autoupdate, and
-# Updater.app ad-hoc signed — notarization rejects ad-hoc nested executables.
-# Sign inside-out, then re-seal the app over them. A forced re-sign drops
-# entitlements, so re-apply the source ones. The app is not sandboxed, so the
-# helpers need no sandbox/network entitlements.
-sign_sparkle_helpers() {
-	local spk="$APP_PATH/Contents/Frameworks/Sparkle.framework"
-	[ -d "$spk" ] || return 0
-	printf '==> Re-signing Sparkle helpers (%s)\n' "$CODE_SIGN_IDENTITY"
-	local v="$spk/Versions/Current" item
-	for item in \
-		"$v/XPCServices/Downloader.xpc" \
-		"$v/XPCServices/Installer.xpc" \
-		"$v/Autoupdate" \
-		"$v/Updater.app" \
-		"$spk"; do
-		[ -e "$item" ] && codesign --force --options runtime --timestamp \
-			--sign "$CODE_SIGN_IDENTITY" "$item"
+# Strip com.apple.security.get-task-allow from an already-signed executable and
+# re-sign it. `xcodebuild build` (unlike `archive`) injects that debugging
+# entitlement into every executable, and notarization rejects it. Preserve any
+# other entitlements the binary already carries.
+strip_get_task_allow_and_resign() {
+	local target="$1" ents
+	ents="$(mktemp -t gancho-strip.XXXXXX).plist"
+	if codesign --display --entitlements :- "$target" > "$ents" 2>/dev/null \
+		&& [ -s "$ents" ] && plutil -lint "$ents" >/dev/null 2>&1; then
+		# Escape the dots: plutil treats "." in a key path as a level separator.
+		plutil -remove 'com\.apple\.security\.get-task-allow' "$ents" 2>/dev/null || true
+		codesign --force --options runtime --timestamp \
+			--entitlements "$ents" --sign "$CODE_SIGN_IDENTITY" "$target"
+	else
+		codesign --force --options runtime --timestamp \
+			--sign "$CODE_SIGN_IDENTITY" "$target"
+	fi
+	rm -f "$ents"
+}
+
+# Re-sign inside-out, then re-seal the app over everything. Two notarization
+# blockers are handled here: (1) the auxiliary executables in Contents/MacOS (the
+# embedded CLI and the menu-bar helper) carry the build-injected get-task-allow,
+# stripped and re-signed above; (2) Xcode's Embed & Sign leaves Sparkle's nested
+# XPC services, Autoupdate, and Updater.app ad-hoc signed, which notarization
+# also rejects. The main binary is re-sealed last with the get-task-allow-free
+# entitlements. The app is not sandboxed, so the helpers need no sandbox/network
+# entitlements.
+finalize_app_signing() {
+	local exe
+	for exe in "$APP_PATH/Contents/MacOS/"*; do
+		[ -f "$exe" ] || continue
+		[ "$(basename "$exe")" = "Gancho" ] && continue
+		printf '==> Re-signing %s (drop get-task-allow)\n' "$(basename "$exe")"
+		strip_get_task_allow_and_resign "$exe"
 	done
+	local spk="$APP_PATH/Contents/Frameworks/Sparkle.framework"
+	if [ -d "$spk" ]; then
+		printf '==> Re-signing Sparkle helpers (%s)\n' "$CODE_SIGN_IDENTITY"
+		local v="$spk/Versions/Current" item
+		for item in \
+			"$v/XPCServices/Downloader.xpc" \
+			"$v/XPCServices/Installer.xpc" \
+			"$v/Autoupdate" \
+			"$v/Updater.app" \
+			"$spk"; do
+			[ -e "$item" ] && codesign --force --options runtime --timestamp \
+				--sign "$CODE_SIGN_IDENTITY" "$item"
+		done
+	fi
 	codesign --force --options runtime --timestamp \
 		--entitlements "$RESOLVED_ENTITLEMENTS" \
 		--sign "$CODE_SIGN_IDENTITY" "$APP_PATH"
 }
 
 if [ -n "${CODE_SIGN_IDENTITY:-}" ]; then
-	sign_sparkle_helpers
+	finalize_app_signing
 fi
 
 notary_args=()
