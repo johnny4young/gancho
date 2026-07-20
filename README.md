@@ -57,7 +57,7 @@ account-gated launch pieces (App Store products and TestFlight).
   access ledger. No process can fall back to ambient history.
 - **Make first value visible without pre-consent tracking.** Onboarding records
   only closed, content-free activation milestones locally; optional diagnostics
-  receives one coarse aggregate only after explicit consent.
+  receive one coarse aggregate only after explicit consent.
 - **See private reuse without creating another history.** The Privacy Center on
   Mac, iPhone, and iPad shows bounded per-app capture, reuse, protected/ignored,
   and sensitive-expiry totals. The receipt stays on that device for 13 rolling
