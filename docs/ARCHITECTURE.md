@@ -148,6 +148,22 @@ The store is not one wide class to everyone. `Packages/GanchoKit/Sources/GanchoK
 
 That surface is **frozen**: it is the supported API, so changes to it are deliberate, documented, and reviewed. GRDB-shaped members that are not facet witnesses (`migrate()`, `thumbnailURL(for:)`) live behind `@_spi(GanchoInternal)` so they stay off the ambient app-facing and external surface; the few internal call sites (tests, the perf harness) opt in with `@_spi(GanchoInternal) import GanchoKit`. `ContractFreezeTests` enforces this in CI: every frozen facet stays declared, every requirement stays documented, and the SPI-gated members stay gated.
 
+### Local-agent authorization boundary
+
+The MCP server has no ambient authority. Enabling it only opens the protocol
+edge; each process must select an `MCPClientGrant` with an expiry, explicit
+`MCPContextPack`, exposure scope, and independent read/write mode. The runner
+reloads that grant before every tool call, so disable, expiry, and revoke affect
+already-running stdio clients. Context filters are expressed in the store query
+where possible and rechecked before content reads; an out-of-context identifier
+is indistinguishable from a missing one. Sensitive clips are excluded under all
+grants, and the ledger schema can carry policy/count/denial metadata only.
+
+The CLI and Settings UI are two control surfaces over the same owner-only config
+file. Read-only grants omit mutating tools at the protocol edge. Read-write
+grants may organize only inside their approved context and cannot create an
+arbitrary board or widen their own scope.
+
 ## Privacy invariants
 
 1. **Veto before read.** `ConcealedType`, `TransientType`, and

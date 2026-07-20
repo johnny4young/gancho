@@ -5,14 +5,15 @@ import Foundation
 /// unit-testable without a database, timers, or I/O.
 ///
 /// The store still owns the row READ — a streaming `fetchCursor` for CSV, one
-/// exactly-sized array for JSON (see ``GRDBClipboardStore/exportJSON(excludeSensitive:)``
-/// and `.audit/21-store-finish.md`). This type only turns already-fetched rows
-/// into bytes, and it is deliberately pure: the `exportedAt` timestamp is a
-/// side value the store passes in (`.now`), never read here.
+/// exactly-sized array for JSON (see
+/// ``GRDBClipboardStore/exportJSON(excludeSensitive:)``). This type only turns
+/// already-fetched rows into bytes, and it is deliberately pure: the
+/// `exportedAt` timestamp is a side value the store passes in (`.now`), never
+/// read here.
 ///
 /// Internal to the module because the row-taking entry points speak `ClipRow`,
-/// which is a storage detail. The wider URL-streaming reshape (a public facet)
-/// is deferred (PR-K, `.audit/09` §8).
+/// which is a storage detail. A future public streaming API must not expose that
+/// representation or silently change the byte-compatible document formats.
 enum ClipExporter {
     /// The exact CSV header line, terminated by a newline. Field order and
     /// spelling are frozen: existing exports and their tests are byte-sensitive.
@@ -39,8 +40,8 @@ enum ClipExporter {
     /// dates and `[.prettyPrinted, .sortedKeys]`. Encoded whole — not streamed —
     /// on purpose: the pretty/sorted layout is implementation-defined Foundation
     /// behavior, and hand-assembling it would break existing exports' byte-compat
-    /// (see `.audit/21-store-finish.md`). `exportedAt` is supplied by the caller
-    /// so this stays pure and testable.
+    /// with earlier Gancho exports. `exportedAt` is supplied by the caller so
+    /// this stays pure and testable.
     static func json(rows: [ClipRow], exportedAt: Date) throws -> Data {
         let payload = ExportDocument(version: 1, exportedAt: exportedAt, clips: rows)
         let encoder = JSONEncoder()

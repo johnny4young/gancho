@@ -7,8 +7,8 @@
 # another's (a plain `swift build` stops at the first broken module and hides
 # everything downstream). The manifest is always restored, even on interrupt.
 #
-# This script only REPORTS. It never edits source, and its findings are the
-# backlog for the availability-gate work.
+# This script only REPORTS. It never edits source; use its findings to decide
+# where availability gates are required before changing deployment targets.
 #
 #   scripts/check-deployment-floor.sh                  # default probe: macOS 15
 #   scripts/check-deployment-floor.sh --macos 14

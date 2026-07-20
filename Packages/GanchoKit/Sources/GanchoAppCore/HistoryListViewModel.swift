@@ -6,7 +6,7 @@ import Observation
 /// The data the iOS history list needs from the app shell. `IOSAppModel`
 /// conforms to it in production; tests pass an in-memory fake. Mirrors
 /// `PanelSearchSource` (macOS) minus the snippet/deletion hooks iOS doesn't use
-/// — kept separate rather than pre-abstracted (see `.audit/09` PR-I note).
+/// because the two shells have different mutation and presentation contracts.
 @MainActor public protocol HistoryListSource: AnyObject {
     /// True when a durable (GRDB) store backs the app; false on the in-memory
     /// fallback, which has neither board queries nor ranked search.

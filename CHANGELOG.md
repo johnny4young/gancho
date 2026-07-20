@@ -7,6 +7,43 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Import an existing clipboard history with a safety preview.** The Mac app
+  accepts Maccy archives and CSV, previews what can be imported without writing,
+  rejects protected or malformed source rows, deduplicates in one transaction,
+  supports cancellation, and reports exact imported and skipped totals.
+- **Approve local AI clients one at a time.** Every MCP process now requires an
+  expiring, revocable client grant with an explicit board/time context and an
+  independent read-only or read-write policy. Authorization is re-read on every
+  call, database filters fail closed, sensitive clips remain excluded, and the
+  access ledger contains metadata only.
+- **Understand activation without tracking content.** Gancho records a closed
+  set of local, content-free first-value milestones before diagnostics consent.
+  If the user later opts in, diagnostics receives one coarse aggregate rather
+  than a replay of pre-consent actions.
+- **Review private activity on every device.** The Mac and iOS Privacy Centers
+  show per-app capture, reuse, ignored/protected-copy, and sensitive-expiry
+  totals from a bounded on-device receipt. It retains 13 rolling months, never
+  syncs or exports, and can be cleared without deleting history.
+
+### Changed
+
+- Extracted Spotlight reconciliation, launch maintenance, UI-test fixtures,
+  store-change routing, and one-shot hint policy from the macOS application
+  facade into focused, testable collaborators.
+- Added content-free panel-to-first-frame instrumentation and a deployment-floor
+  inventory so future compatibility decisions use measured runtime evidence.
+
+### Fixed
+
+- History imports now preserve cancellation and protected-content semantics,
+  including source-file safety checks and atomic duplicate handling.
+- Store-change reconciliation now coalesces updates through one restart-safe
+  path instead of creating unbounded debounce work.
+- Onboarding UI automation now waits for real transitions and foreground
+  activation instead of racing the next screen.
+
 ## [0.7.0] - 2026-07-16
 
 ### Added

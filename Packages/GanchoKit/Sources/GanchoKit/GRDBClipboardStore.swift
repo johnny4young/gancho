@@ -52,8 +52,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         // reader head-of-line-block the rest. 8 matches that fan-out without
         // over-provisioning (each reader is a connection + page cache). Heavy
         // scans stay off the interactive budget by their own bounds: regex
-        // sweeps run under the A-2 ceiling and exports stream through a
-        // single read (`.audit/14` B-10).
+        // sweeps have an explicit candidate ceiling and exports stream through
+        // a single read.
         configuration.maximumReaderCount = 8
         let blobEncryptionKeyData: Data?
         #if SQLITE_HAS_CODEC
@@ -102,8 +102,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     ///   (`encryptedRawKeyAdopting(directory:passphrase:allowingRawKeyMigration:)`),
     ///   which skips SQLCipher's per-connection PBKDF2 for our random 256-bit
     ///   keys and migrates the file to the raw key form in place. OFF by
-    ///   default; flip it only per the on-device rollout checklist in
-    ///   `.audit/06-sqlcipher-rawkey-rekey.md` §5.
+    ///   default; enable it only for a staged release after derived-key open,
+    ///   in-place rekey, relaunch, rollback, and cross-process device checks.
     public static func encrypted(
         directory: URL,
         keychainAccessGroup: String? = nil
@@ -910,7 +910,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// document is still encoded in ONE shot, deliberately: streaming the
     /// encoder would mean hand-assembling the `.prettyPrinted`/`.sortedKeys`
     /// layout byte-for-byte, which is implementation-defined and would break
-    /// existing exports' byte-compat (see `.audit/21-store-finish.md`).
+    /// byte compatibility with existing exports.
     /// ``exportCSV(excludeSensitive:)`` is the fully streamed format.
     public func exportJSON(excludeSensitive: Bool) async throws -> Data {
         let rows = try await writer.read { db -> [ClipRow] in
