@@ -124,7 +124,9 @@ extension GRDBClipboardStore {
     /// content-free schema for the private receipt and adds a day-led index so
     /// rolling retention prunes do not scan the composite bundle-first key.
     static func registerPrivateActivityReceiptMigration(in migrator: inout DatabaseMigrator) {
-        migrator.registerMigration("v20-private-activity-receipt") { db in
+        migrator.registerMigration(
+            GanchoDatabaseMigrator.Identifier.privateActivityReceipt.rawValue
+        ) { db in
             try db.alter(table: "clip_app_stats") { table in
                 table.add(column: "skippedCaptures", .integer).notNull().defaults(to: 0)
                 table.add(column: "protectedCaptures", .integer).notNull().defaults(to: 0)

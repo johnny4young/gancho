@@ -8,7 +8,9 @@ extension GRDBClipboardStore: MCPClipStore {
     /// Kept with the MCP adapter rather than the core store migrations so the
     /// ledger schema and its row mapping evolve together.
     static func registerMCPClientLedgerMigration(in migrator: inout DatabaseMigrator) {
-        migrator.registerMigration("v19-mcp-client-ledger") { db in
+        migrator.registerMigration(
+            GanchoDatabaseMigrator.Identifier.mcpClientLedger.rawValue
+        ) { db in
             // Client/grant identity and policy outcome only. These optional
             // columns preserve every v9 row while making revoke/expiry and
             // read-only denials explainable without storing request content.
