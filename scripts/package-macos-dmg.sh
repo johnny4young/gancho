@@ -112,11 +112,18 @@ fi
 RESOLVED_ENTITLEMENTS="$ENTITLEMENTS"
 GENERATED_ENTITLEMENTS=""
 if [ -n "${CODE_SIGN_IDENTITY:-}" ] && [ -n "$PROVISIONING_PROFILE" ]; then
-	cp "$PROVISIONING_PROFILE" "$APP_PATH/Contents/embedded.provisionprofile"
+	# Capture the entitlements Xcode actually signed (production CloudKit/Push
+	# plus the base-injected identifier/team keys) while the bundle seal is
+	# still intact, then embed the profile. Copying embedded.provisionprofile
+	# into the bundle first would break the seal before we read it. Fail closed
+	# if extraction yields anything but a valid entitlements plist.
 	GENERATED_ENTITLEMENTS="$(mktemp -t gancho-signed-entitlements.XXXXXX).plist"
-	codesign --display --entitlements :- "$APP_PATH" > "$GENERATED_ENTITLEMENTS" 2>/dev/null
-	plutil -lint "$GENERATED_ENTITLEMENTS" >/dev/null
+	codesign --display --entitlements :- "$APP_PATH" > "$GENERATED_ENTITLEMENTS" 2>/dev/null \
+		|| { echo "error: could not read signed app entitlements" >&2; exit 1; }
+	plutil -lint "$GENERATED_ENTITLEMENTS" >/dev/null \
+		|| { echo "error: extracted app entitlements are not a valid plist" >&2; exit 1; }
 	RESOLVED_ENTITLEMENTS="$GENERATED_ENTITLEMENTS"
+	cp "$PROVISIONING_PROFILE" "$APP_PATH/Contents/embedded.provisionprofile"
 fi
 
 # Re-sign Sparkle's nested helpers. Xcode's Embed & Sign re-signs the framework
