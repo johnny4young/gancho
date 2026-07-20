@@ -13,7 +13,7 @@ private let onePixelPNG = Data(
 
 /// The shared thumbnail cache both apps wrap: load gating (kind/sensitive/
 /// in-flight), idempotence, and the FIFO cap that keeps a long-lived session's
-/// memory bounded (A3-1.15/A3-2.7).
+/// memory bounded.
 @Suite("ClipThumbnailStore")
 @MainActor
 struct ClipThumbnailStoreTests {

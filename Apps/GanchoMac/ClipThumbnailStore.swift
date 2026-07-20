@@ -2,8 +2,8 @@ import Foundation
 import GanchoDesign
 
 /// The panel's thumbnail cache is the shared `GanchoDesign.ClipThumbnailStore`
-/// (one implementation for both apps — A3-2.7/F-1.3); this file only bakes in
-/// the macOS policy so every existing call site is unchanged.
+/// (one implementation for both apps); this file only bakes in the macOS policy
+/// so every existing call site is unchanged.
 typealias ClipThumbnailStore = GanchoDesign.ClipThumbnailStore
 
 extension ClipThumbnailStore {

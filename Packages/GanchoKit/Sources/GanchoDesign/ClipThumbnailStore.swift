@@ -14,7 +14,7 @@ import UniformTypeIdentifiers
 
 /// Lazily decodes and caches small `SwiftUI.Image` thumbnails for image clips —
 /// the one thumbnail cache shared by the macOS panel/peek and the iOS history/
-/// detail views (previously two near-identical per-app copies; A3-2.7/F-1.3).
+/// detail views, replacing two near-identical per-app copies.
 ///
 /// Each image is decoded once, off the main actor, via ImageIO so only a
 /// downscaled thumbnail is ever produced (never the full-resolution bitmap),
