@@ -26,6 +26,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   show per-app capture, reuse, ignored/protected-copy, and sensitive-expiry
   totals from a bounded on-device receipt. It retains 13 rolling months, never
   syncs or exports, and can be cleared without deleting history.
+- **Fit the Mac panel to your workspace.** The history window now resizes from
+  its edges, offers Compact, Standard, and Large shortcuts, remembers manual
+  geometry across relaunches, and scales every semantic text style with a
+  persistent Small, Standard, or Large preference.
 
 ### Changed
 
@@ -34,6 +38,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   facade into focused, testable collaborators.
 - Added content-free panel-to-first-frame instrumentation and a deployment-floor
   inventory so future compatibility decisions use measured runtime evidence.
+- Made the public DMG lane fail closed: a tag now requires Developer ID signing,
+  notarization, an embedded production CloudKit/Push provisioning profile, a
+  signed Sparkle appcast, and mounted-artifact QA. Public builds reject the
+  legacy private license signer. Until secure activation exists, a fresh public
+  direct install remains Free and its Pro-only sync transport stays disabled.
 
 ### Fixed
 

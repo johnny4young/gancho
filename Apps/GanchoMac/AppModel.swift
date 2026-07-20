@@ -4,6 +4,7 @@ import ApplicationServices
 import ClipboardCore
 import GanchoAI
 import GanchoAppCore
+import GanchoDesign
 import GanchoKit
 import GanchoSync
 import GanchoTelemetry
@@ -85,7 +86,7 @@ final class AppModel {
     /// open, a sync that failed) for the Privacy Center and support — never any
     /// clip text, never persisted or uploaded.
     let diagnostics = DiagnosticLog()
-    let panel = PanelController()
+    let panel: PanelController
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
     let toasts = ToastPresenter()
     /// Content-free store-mutation fan-out. Mutation sites post here instead of
@@ -266,6 +267,7 @@ final class AppModel {
         // survive as latent configuration or reappear in an exported snapshot.
         appDefaults.removeObject(forKey: "show-in-dock")
         defaults = appDefaults
+        panel = PanelController(defaults: appDefaults)
         activationTracker = ActivationTracker(defaults: appDefaults)
         let directory = SharedStorageLocation.macAppStoreDirectory
         // Test hook: force the in-memory fallback so the "history isn't being
@@ -351,14 +353,13 @@ final class AppModel {
             AppearancePreference(rawValue: appDefaults.string(forKey: "appearance") ?? "")
             ?? .auto
         #if DEBUG
-            let disableScreenShareAutoPause = CommandLine.arguments.contains(
-                "-disable-screen-share-auto-pause")
+            let loadedAutoPauseOnScreenShare =
+                CommandLine.arguments.contains("-disable-screen-share-auto-pause")
+                ? false : appDefaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
         #else
-            let disableScreenShareAutoPause = false
+            let loadedAutoPauseOnScreenShare =
+                appDefaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
         #endif
-        let loadedAutoPauseOnScreenShare =
-            disableScreenShareAutoPause
-            ? false : appDefaults.object(forKey: "auto-pause-screen-share") as? Bool ?? true
         // Test hook: pin the FREE tier so the paywall flow is deterministic even
         // when `gancho-force-pro` is set in the environment (which would otherwise
         // force Pro and make `PaywallGatekeeper` suppress every trigger).
@@ -1730,6 +1731,9 @@ final class AppModel {
             capturePreferencesJSON: (try? JSONEncoder().encode(preferences)) ?? Data(),
             appSettings: [
                 "panel-position": panel.position.rawValue,
+                PanelTextSize.storageKey: panel.textSize.rawValue,
+                "panel-content-width": String(describing: panel.preferredContentSize.width),
+                "panel-content-height": String(describing: panel.preferredContentSize.height),
                 "appearance": appearance.rawValue
             ])
     }
@@ -1750,6 +1754,15 @@ final class AppModel {
             let value = AppearancePreference(rawValue: raw)
         {
             appearance = value
+        }
+        if let raw = snapshot.appSettings[PanelTextSize.storageKey] {
+            panel.textSize = PanelTextSize.resolved(raw)
+        }
+        if let widthRaw = snapshot.appSettings["panel-content-width"],
+            let heightRaw = snapshot.appSettings["panel-content-height"],
+            let width = Double(widthRaw), let height = Double(heightRaw)
+        {
+            panel.resizeContent(to: CGSize(width: width, height: height))
         }
     }
 

@@ -69,32 +69,16 @@ targets:
         # signing key. Both stay empty for App Store and from-source builds.
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) ${GANCHO_COMPILATION_CONDITIONS}
         GANCHO_LICENSE_SIGNING_KEY: ${GANCHO_LICENSE_SIGNING_KEY}
+        # Keep signing inputs behind app-only indirection. The direct-download
+        # packaging lane overrides these custom settings at build time; unlike
+        # passing CODE_SIGN_ENTITLEMENTS or PROVISIONING_PROFILE_SPECIFIER on
+        # the command line, the restricted values cannot leak to dependencies.
+        GANCHO_MAC_ENTITLEMENTS_PATH: Apps/GanchoMac/Gancho.entitlements
+        GANCHO_PROVISIONING_PROFILE_SPECIFIER: ""
+        CODE_SIGN_ENTITLEMENTS: $(GANCHO_MAC_ENTITLEMENTS_PATH)
+        PROVISIONING_PROFILE_SPECIFIER: $(GANCHO_PROVISIONING_PROFILE_SPECIFIER)
     sources:
       - path: Apps/GanchoMac
-    entitlements:
-      path: Apps/GanchoMac/Gancho.entitlements
-      properties:
-        # Encrypted iCloud history sync (Pro). The container mirrors the
-        # bundle id; CKSyncEngine needs push to learn about remote changes.
-        # On macOS the push entitlement key is `com.apple.developer.aps-environment`
-        # — NOT iOS's bare `aps-environment`, which codesign drops here (the app
-        # then never hears about remote changes and inbound sync goes silent).
-        com.apple.developer.icloud-container-identifiers:
-          - iCloud.com.johnny4young.gancho
-        com.apple.developer.icloud-services:
-          - CloudKit
-        com.apple.developer.aps-environment: development
-        # NOTE: the menu-bar helper bridge is privacy-bounded: command/status
-        # metadata is content-free, while its only clip-derived value is one
-        # masked recent preview (omitted in private mode). It runs over a shared
-        # `UserDefaults(suiteName:)`; in Debug / Developer ID that resolves to a
-        # shared preferences domain (no entitlement needed). For the sandboxed
-        # App Store build, add the
-        # `com.apple.security.application-groups` (group.com.johnny4young.gancho)
-        # + `com.apple.security.app-sandbox` entitlements at archive time so it
-        # resolves to the App Group container — kept out of the baked Debug set
-        # because an unprovisioned app-group entitlement makes the UI-test build
-        # launch without accessibility.
     dependencies:
       - package: GanchoKit
         products:

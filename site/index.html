@@ -458,7 +458,7 @@
     <div>
       <span class="eyebrow"><span class="dot"></span><span data-i18n="hero.badge">Privado por diseño · pre-lanzamiento</span></span>
       <h1 class="display"><span data-i18n="hero.title">Tu portapapeles, en todas partes</span><span style="color:var(--text-tertiary)" data-i18n="hero.title2"> — privado por diseño.</span></h1>
-      <p class="lede" data-i18n="hero.lede">gancho convierte lo que copias en tu Mac, iPhone y iPad en una memoria privada: historial local, búsqueda instantánea y una biblioteca de snippets curada. El contenido se queda en tus dispositivos o, si activas sync, en tu base privada de iCloud.</p>
+      <p class="lede" data-i18n="hero.lede">gancho convierte lo que copias en una memoria privada: historial local, búsqueda instantánea y una biblioteca de snippets curada. El DMG actual mantiene el contenido cifrado en tu Mac; el sync Pro por iCloud aún requiere una activación segura y validación de la candidata firmada.</p>
       <div class="hero-cta">
         <a class="btn btn-accent" href="https://github.com/johnny4young/gancho/releases/latest" data-i18n="hero.cta1">Descargar para macOS</a>
         <a class="btn btn-ghost" href="#features" data-i18n="hero.cta2">Ver las funciones</a>
@@ -505,7 +505,7 @@
       </div>
       <div class="panel-foot">
         <span class="ok"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a4 4 0 0 1 1-7.5A5.5 5.5 0 0 1 16 6.5 4 4 0 0 1 19 14H6.5"/><path d="M9 16.5l2 2 4-4.5"/></svg></span>
-        <span data-i18n="panel.foot">Sincronizado · tu iCloud, cifrado</span>
+        <span data-i18n="panel.foot">Local · cifrado en este Mac</span>
       </div>
     </div>
   </div>
@@ -539,6 +539,28 @@
     <figure class="release-shot">
       <img src="assets/v0.7.0-release.png" width="976" height="648" loading="lazy" decoding="async" alt="Ajustes de privacidad de Spotlight en Gancho v0.7 / Gancho v0.7 Spotlight privacy settings" />
       <figcaption data-i18n="rel.caption">Build real de macOS capturado por XCUITest: el índice de Spotlight es explícito, limitado a la Library curada y reversible de inmediato.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============ NEXT RELEASE PREVIEW ============ -->
+<section class="band" id="next-release">
+  <div class="wrap release-grid">
+    <div class="release-copy">
+      <span class="kicker" data-i18n="next.kicker">Próximo en 0.8</span>
+      <h2 class="h2" data-i18n="next.title">Un panel que se adapta a tu día. Una distribución que falla de forma segura.</h2>
+      <p class="lede" data-i18n="next.lede">La candidata 0.8 reúne migración guiada, permisos locales más estrictos y controles persistentes del panel. El DMG 0.7 sigue siendo local-only; prometer sync directo también exige activación Pro segura y una matriz firmada en dos Macs.</p>
+      <ul class="release-list">
+        <li data-i18n="next.1"><b>Haz tuyo el panel:</b> ajusta el tamaño desde los bordes o usa presets Compacto, Estándar y Grande; el tamaño del texto y la geometría sobreviven cada relanzamiento.</li>
+        <li data-i18n="next.2"><b>Migra con vista previa:</b> importa archivos de Maccy o CSV después de revisar qué filas son válidas, protegidas, duplicadas o incompatibles.</li>
+        <li data-i18n="next.3"><b>Conecta cada cliente con el mínimo permiso:</b> los procesos MCP reciben grants revocables, con alcance y duración explícitos.</li>
+        <li data-i18n="next.4"><b>Publica solo con evidencia:</b> los tags exigen firma, notarización, perfil CloudKit/Push y appcast; el sync además exige activación Pro segura y QA en dos Macs.</li>
+      </ul>
+      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/blob/main/CHANGELOG.md#unreleased" data-i18n="next.cta">Ver los cambios aún no publicados</a>
+    </div>
+    <figure class="release-shot">
+      <img src="assets/v0.8.0-panel-preview.png" width="1080" height="680" loading="lazy" decoding="async" alt="Panel grande de Gancho con texto ampliado y datos sintéticos / Large Gancho panel with enlarged text and synthetic data" />
+      <figcaption data-i18n="next.caption">Build real de macOS capturado por XCUITest con fixtures sintéticos: tamaño Grande, texto Grande y persistencia verificada tras relanzar.</figcaption>
     </figure>
   </div>
 </section>
@@ -650,7 +672,7 @@
       <div class="card">
         <div class="ic" style="background:color-mix(in srgb,var(--sync-ok) 16%,transparent);color:var(--sync-ok)"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a4 4 0 0 1 1-7.7A5.5 5.5 0 0 1 16 6.6 4 4 0 0 1 19 15Z"/><path d="M12 11v7M9 15l3 3 3-3"/></svg></div>
         <h3 data-i18n="feat.6.t">Sync por tu iCloud</h3>
-        <p data-i18n="feat.6.p">Registros cifrados en tu propia cuenta de iCloud con CKSyncEngine. Sin servidores intermedios: tu contenido es tuyo.</p>
+        <p data-i18n="feat.6.p">Sync Pro con CKSyncEngine en tu cuenta privada de iCloud, sin servidores intermedios. La activación segura del canal directo aún está en preparación.</p>
       </div>
     </div>
   </div>
@@ -944,32 +966,30 @@
   <div class="wrap">
     <div class="sec-head" style="margin:0 auto;text-align:center">
       <span class="kicker" data-i18n="pro.kicker">Precios</span>
-      <h2 class="h2" data-i18n="pro.title">Gratis para siempre. Pro cuando quieras más.</h2>
-      <p class="lede" data-i18n="pro.lede" style="margin-left:auto;margin-right:auto">gancho es gratis y de código abierto. Pro es una licencia de <b>pago único</b> — sin suscripción. El plan gratis no pierde nada: sin marcas de agua, sin límites de resolución, sin molestias.</p>
+      <h2 class="h2" data-i18n="pro.title">Gratis hoy. Pro cuando la activación sea segura.</h2>
+      <p class="lede" data-i18n="pro.lede" style="margin-left:auto;margin-right:auto">gancho es gratis y de código abierto. La venta de Pro sigue cerrada hasta que la emisión de licencias viva fuera de la app distribuida. No cobraremos por una activación que todavía no podemos operar de forma segura.</p>
     </div>
     <div class="price-wrap">
       <div class="price-card">
-        <span class="price-tier" data-i18n="pro.tier">gancho Pro · licencia de por vida</span>
+        <span class="price-tier" data-i18n="pro.tier">gancho Pro · en preparación</span>
         <div class="price-row">
-          <span class="price-now">$19.99</span>
-          <span class="price-was">$25</span>
-          <span class="price-badge" data-i18n="pro.badge">Early bird · solo 2026</span>
+          <span class="price-now" data-i18n="pro.soon">Próximamente</span>
         </div>
-        <p class="price-note" data-i18n="pro.note">El precio normal es <b>$25</b>. Durante 2026 cuesta <b>$19.99</b> como precio de lanzamiento — sin códigos.</p>
+        <p class="price-note" data-i18n="pro.note">El historial local sigue disponible gratis mientras terminamos la emisión, recuperación y revocación segura de licencias.</p>
         <ul class="price-list">
           <li><span class="ck"><svg class="i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span data-i18n="pro.l1"><b>Historial ilimitado</b> — guarda todo, sin el tope de 1 año / 10.000 ítems del plan gratis.</span></li>
           <li><span class="ck"><svg class="i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span data-i18n="pro.l2"><b>Pins y boards ilimitados</b> — sin el límite de 15 pins en 3 boards.</span></li>
           <li><span class="ck"><svg class="i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span data-i18n="pro.l3"><b>IA on-device completa</b> — Ask your clipboard, sugerencias semánticas de boards y OCR de capturas, además de títulos con IA sin límite.</span></li>
         </ul>
         <div class="price-actions">
-          <a class="btn btn-accent" href="https://johnny4young.lemonsqueezy.com/checkout/buy/be41fa28-055d-4803-893d-9ddada3cc89d" data-i18n="pro.cta">Obtener gancho Pro</a>
+          <span class="btn btn-accent" aria-disabled="true" data-i18n="pro.cta">Pro próximamente</span>
           <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/releases/latest" data-i18n="pro.cta2">Descargar gratis</a>
         </div>
-        <p class="price-fine" data-i18n="pro.fine">Pago único vía Lemon Squeezy · activa tu licencia dentro de la app · sin suscripción.</p>
+        <p class="price-fine" data-i18n="pro.fine">Ventas y activación deshabilitadas hasta completar la frontera segura de emisión.</p>
       </div>
       <div class="price-free">
         <svg class="mk i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3Z"/></svg>
-        <span data-i18n="pro.free">Pro incluye sincronización cifrada mediante tu base privada de iCloud. La versión gratis sigue siendo completa: 1 año / 10.000 ítems, 15 pins y 3 boards.</span>
+        <span data-i18n="pro.free">El DMG v0.7 es local-only. El sync Pro directo exige activación segura, un perfil de producción y evidencia firmada en dos Macs.</span>
       </div>
     </div>
   </div>
@@ -1073,7 +1093,7 @@
           <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
         <div class="log-body"><ul>
-          <li data-i18n="log.3.1"><b>gancho Pro</b> ya se puede comprar: el paywall abre el checkout y activa tu licencia al instante.</li>
+          <li data-i18n="log.3.1"><b>La superficie de gancho Pro quedó preparada</b>: el paywall y la activación existen, pero las ventas públicas permanecen cerradas hasta mover la emisión de licencias fuera de la app.</li>
           <li data-i18n="log.3.2">El DMG v0.5.0 está firmado, notarizado y stapled; Gatekeeper acepta el artefacto publicado.</li>
         </ul></div>
       </details>
@@ -1156,10 +1176,10 @@
       "nav.privacy": "Privacy", "nav.features": "Features", "nav.worlds": "How it works", "nav.platforms": "Platforms", "nav.pricing": "Pricing", "nav.changelog": "Changelog", "nav.download": "Download",
       "hero.badge": "Private by design · pre-release",
       "hero.title": "Your clipboard, everywhere", "hero.title2": " — private by design.",
-      "hero.lede": "gancho turns what you copy on Mac, iPhone, and iPad into a private memory: local history, instant search, and a curated snippet library. Content stays on your devices or, when you enable sync, in your private iCloud database.",
+      "hero.lede": "gancho turns what you copy into a private memory: local history, instant search, and a curated snippet library. The current DMG keeps content encrypted on your Mac; Pro iCloud sync still requires secure activation and validation of the signed candidate.",
       "hero.cta1": "Download for macOS", "hero.cta2": "See the features",
       "hero.f1": "macOS 26+ · iOS 26+", "hero.f2": "Free & open source", "hero.f3": "No middle servers · no content telemetry",
-      "panel.search": "Search your clipboard…", "panel.foot": "Synced · your iCloud, encrypted",
+      "panel.search": "Search your clipboard…", "panel.foot": "Local · encrypted on this Mac",
       "clip.code.t": "useEffect cleanup", "clip.secret.t": "OpenAI API key", "clip.url.t": "Privacy policy", "clip.color.t": "Brand green", "clip.image.t": "Launch mark", "clip.image.p": "PNG · 248 KB · 1640×1024 · encrypted",
       "trust.1": "Local-first", "trust.2": "Encrypted on device", "trust.3": "No middle servers", "trust.4": "No content telemetry",
       "rel.kicker": "New in 0.7", "rel.title": "Less repetitive work. More control over what leaves your history.",
@@ -1170,6 +1190,14 @@
       "rel.4": "<b>Fast and recoverable:</b> paged boards, semantic search p95 under 30 ms, upgradeable vectors, and a menu bar that never leaves history orphaned.",
       "rel.cta": "See everything in 0.7",
       "rel.caption": "Real macOS build captured by XCUITest: Spotlight indexing is explicit, limited to the curated Library, and immediately reversible.",
+      "next.kicker": "Next in 0.8", "next.title": "A panel that fits your day. A distribution lane that fails closed.",
+      "next.lede": "The 0.8 candidate brings together guided migration, stricter local permissions, and persistent panel controls. The 0.7 DMG remains local-only; promising direct sync also requires secure Pro activation and a signed two-Mac matrix.",
+      "next.1": "<b>Make the panel yours:</b> resize from any edge or use Compact, Standard, and Large presets; text scale and geometry survive every relaunch.",
+      "next.2": "<b>Migrate with a preview:</b> import Maccy archives or CSV only after reviewing valid, protected, duplicate, and incompatible rows.",
+      "next.3": "<b>Connect every client with least privilege:</b> MCP processes receive revocable grants with explicit scope and duration.",
+      "next.4": "<b>Publish only with evidence:</b> tags require signing, notarization, a CloudKit/Push profile, and a signed appcast; sync also requires secure Pro activation and two-Mac QA.",
+      "next.cta": "Review the unreleased changes",
+      "next.caption": "Real macOS build captured by XCUITest with synthetic fixtures: Large geometry, Large text, and persistence verified after relaunch.",
       "evo.kicker": "Recent evolution", "evo.title": "Every release expands what Gancho can remember for you.",
       "evo.lede": "0.7 is the present. These milestones show how Gancho grew from local memory into a private, fast library available across your devices.",
       "evo.v060.d": "Jul 2026 · control and reuse", "evo.v060.t": "Find, review, and turn clips into a library.",
@@ -1194,7 +1222,7 @@
       "feat.3.t": "Smart Actions", "feat.3.p": "Pure, offline per-kind transforms: decode a JWT, pretty-print JSON, base64, parse a URL, convert a color. No network, ever.",
       "feat.4.t": "Promote to Library", "feat.4.p": "The signature gesture: one shortcut turns an ephemeral history clip into a permanent, curated snippet. <i>It hooks you.</i>",
       "feat.5.t": "Paste stack", "feat.5.p": "Add clips from the panel, inspect the queue in its footer strip, and paste them in order with the configurable stack shortcut.",
-      "feat.6.t": "Sync via your iCloud", "feat.6.p": "Encrypted records in your own iCloud account with CKSyncEngine. No middle servers — your content is yours.",
+      "feat.6.t": "Sync via your iCloud", "feat.6.p": "Pro sync with CKSyncEngine in your private iCloud account, with no intermediary servers. Secure direct-channel activation is still in preparation.",
       "worlds.kicker": "How it works", "worlds.title": "Two worlds, one gesture that joins them.",
       "worlds.lede": "History captures only; the Library saves with intent. One shortcut promotes the ephemeral into the permanent.",
       "worlds.h.lab": "Ephemeral · automatic", "worlds.h.t": "History", "worlds.h.p": "Everything you copy, captured in the background and sorted by kind. Instantly searchable, with retention you control.",
@@ -1273,7 +1301,7 @@
       "log.2.2": "<b>A Gancho Pro screen on iPhone/iPad</b> (Settings → Gancho Pro): what Pro unlocks, your current plan, and Restore Purchase — it opens automatically when you hit a limit, no dead-ends.",
       "log.2.3": "<b>VoiceOver announcements</b> for confirmations (copy, paste, save, pin, delete, “Synced”) on Mac, iPhone, and the keyboard; plus pluralized counts (“1 clip”, not “1 clips”).",
       "log.3.d": "Jun 2026", "log.3.t": "Direct-download Pro",
-      "log.3.1": "<b>gancho Pro</b> is now purchasable: the paywall opens the checkout and activates your license on the spot.",
+      "log.3.1": "<b>The gancho Pro surface is prepared</b>: paywall and activation plumbing exist, but public sales stay closed until license issuance moves outside the distributed app.",
       "log.3.2": "The v0.5.0 DMG is signed, notarized, and stapled; Gatekeeper accepts the published artifact.",
       "log.4.d": "Jun 2026", "log.4.t": "iOS backup, iPad keyboard & error log",
       "log.4.1": "<b>Back up &amp; restore</b> your history on iPhone/iPad — a portable <span class=\"mono\">.ganchoarchive</span> that imports across devices.",
@@ -1286,17 +1314,17 @@
       "log.6.d": "Jun 2026", "log.6.t": "Initial baseline",
       "log.6.1": "macOS capture, encrypted local store, FTS search, retention, paste-back, pins, boards, snippets, and a local MCP/CLI.",
       "log.6.2": "iPhone/iPad companion with share, keyboard, widgets, and iCloud sync plumbing.",
-      "pro.kicker": "Pricing", "pro.title": "Free forever. Pro when you want more.",
-      "pro.lede": "gancho is free and open source. Pro is an optional <b>one-time</b> license — no subscription. The free tier loses nothing: no watermark, no resolution cap, no nags.",
-      "pro.tier": "gancho Pro · lifetime license",
-      "pro.badge": "Early bird · 2026 only",
-      "pro.note": "Regular price is <b>$25</b>. Through 2026 it's <b>$19.99</b> as a launch price — no code needed.",
+      "pro.kicker": "Pricing", "pro.title": "Free today. Pro when activation is safe.",
+      "pro.lede": "gancho is free and open source. Pro sales stay closed until license issuance lives outside the distributed app. We will not charge for an activation path we cannot operate safely yet.",
+      "pro.tier": "gancho Pro · in preparation",
+      "pro.soon": "Coming soon",
+      "pro.note": "Local history remains free while secure license issuance, recovery, and revocation are completed.",
       "pro.l1": "<b>Unlimited history</b> — keep everything, with no 1-year / 10,000-item cap.",
       "pro.l2": "<b>Unlimited pins &amp; boards</b> — past the free 15 pins across 3 boards.",
       "pro.l3": "<b>Full on-device AI</b> — Ask your clipboard, semantic board suggestions, screenshot OCR, and unlimited AI titles.",
-      "pro.cta": "Get gancho Pro", "pro.cta2": "Download for free",
-      "pro.fine": "One-time payment via Lemon Squeezy · activate your license in the app · no subscription.",
-      "pro.free": "Pro includes encrypted sync through your private iCloud database. The free tier stays complete: 1-year / 10,000-item, 15 pins, and 3 boards.",
+      "pro.cta": "Pro coming soon", "pro.cta2": "Download for free",
+      "pro.fine": "Sales and activation are disabled until the secure issuance boundary is complete.",
+      "pro.free": "The v0.7 DMG is local-only. Direct Pro sync requires secure activation, a production profile, and signed two-Mac evidence.",
       "cta.title": "Try gancho today.", "cta.lede": "A signed and notarized macOS release is available now; TestFlight and the App Store launch remain in preparation.",
       "cta.1": "Download the latest build", "cta.2": "View on GitHub",
       "foot.note": "Open source under the MIT license · pre-release. No trackers or content analytics; optional anonymous app diagnostics are off by default."

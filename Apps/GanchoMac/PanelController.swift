@@ -30,10 +30,25 @@ enum PanelPosition: String, CaseIterable {
 /// orderFront, which is what keeps open latency far under the 100ms budget.
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
+    private enum PreferenceKey {
+        static let position = "panel-position"
+        static let contentWidth = "panel-content-width"
+        static let contentHeight = "panel-content-height"
+    }
+
+    private static let minimumContentSize = CGSize(width: 720, height: 460)
+    private static let maximumContentSize = CGSize(width: 1_400, height: 900)
+
     private var panel: KeyPanel?
     private var largePreviewWindow: NSWindow?
     private weak var model: AppModel?
     private var activeFileDragSource: MultiFileDragSource?
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        super.init()
+    }
 
     /// The open interval, from `show()` to the panel's first `onAppear`. Held
     /// across the two callbacks so Instruments (and the `-measure-panel`
@@ -67,10 +82,29 @@ final class PanelController: NSObject, NSWindowDelegate {
     var position: PanelPosition {
         get {
             PanelPosition(
-                rawValue: UserDefaults.standard.string(forKey: "panel-position") ?? "")
+                rawValue: defaults.string(forKey: PreferenceKey.position) ?? "")
                 ?? .centered
         }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "panel-position") }
+        set { defaults.set(newValue.rawValue, forKey: PreferenceKey.position) }
+    }
+
+    var textSize: PanelTextSize {
+        get { PanelTextSize.resolved(defaults.string(forKey: PanelTextSize.storageKey)) }
+        set {
+            defaults.set(newValue.rawValue, forKey: PanelTextSize.storageKey)
+            #if DEBUG
+                // UI automation observes the semantic preference without
+                // flattening the SwiftUI hierarchy into a test-only wrapper.
+                panel?.setAccessibilityValue(newValue.rawValue)
+            #endif
+        }
+    }
+
+    var preferredContentSize: CGSize {
+        let width = defaults.double(forKey: PreferenceKey.contentWidth)
+        let height = defaults.double(forKey: PreferenceKey.contentHeight)
+        guard width > 0, height > 0 else { return PanelSizePreset.standard.contentSize }
+        return Self.clampedContentSize(CGSize(width: width, height: height))
     }
 
     /// Registers the global shortcut. Called once from AppModel.init.
@@ -133,6 +167,31 @@ final class PanelController: NSObject, NSWindowDelegate {
     func hide() {
         closeLargePreview()
         panel?.orderOut(nil)
+    }
+
+    /// Applies a convenient starting size without disabling ordinary AppKit
+    /// edge resizing. The resulting live/manual size is persisted separately
+    /// from the screen-specific frame so it also survives display changes.
+    func resize(to preset: PanelSizePreset) {
+        resizeContent(to: preset.contentSize)
+    }
+
+    func resizeContent(to requestedSize: CGSize) {
+        let size = Self.clampedContentSize(requestedSize)
+        persistContentSize(size)
+        guard let model else { return }
+        let panel = ensurePanel(model: model)
+        var target = panel.frameRect(
+            forContentRect: NSRect(
+                origin: .zero, size: NSSize(width: size.width, height: size.height)))
+        let current = panel.frame
+        target.origin = NSPoint(
+            x: current.midX - target.width / 2,
+            y: current.midY - target.height / 2)
+        if let screen = panel.screen ?? Self.targetScreen {
+            target = panel.constrainFrameRect(target, to: screen)
+        }
+        panel.setFrame(target, display: true, animate: panel.isVisible)
     }
 
     /// Presents the selected clip as an attached, resizable sheet. Attaching it
@@ -279,19 +338,24 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.orderOut(nil)
     }
 
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        persistContentSize(window.contentRect(forFrameRect: window.frame).size)
+    }
+
     private func ensurePanel(model: AppModel) -> KeyPanel {
         if let panel { return panel }
         let hosting = NSHostingView(
-            rootView: PanelView(model: model)
+            rootView: PanelView(model: model, displayDefaults: defaults)
                 .environment(model)
                 .ganchoTinted())
         let styleMask: NSWindow.StyleMask =
             Self.isUITestLaunch
-            ? [.titled, .closable, .fullSizeContentView]
-            : [.titled, .nonactivatingPanel, .fullSizeContentView]
+            ? [.titled, .closable, .resizable, .fullSizeContentView]
+            : [.titled, .nonactivatingPanel, .resizable, .fullSizeContentView]
+        let preferredSize = preferredContentSize
         let created = KeyPanel(
-            // Wide enough for the list + the peek column beside it.
-            contentRect: NSRect(x: 0, y: 0, width: 864, height: 540),
+            contentRect: NSRect(origin: .zero, size: preferredSize),
             // Chromeless floating panel (Spotlight-style): titled so AppKit
             // reliably creates and orders it, with the title bar made
             // transparent and controls hidden below. Dismissed with Escape.
@@ -299,6 +363,9 @@ final class PanelController: NSObject, NSWindowDelegate {
             backing: .buffered, defer: false)
         created.title = "Gancho"
         created.setAccessibilityIdentifier("history-panel")
+        #if DEBUG
+            created.setAccessibilityValue(textSize.rawValue)
+        #endif
         created.titleVisibility = .hidden
         created.titlebarAppearsTransparent = true
         created.isMovableByWindowBackground = true
@@ -316,14 +383,48 @@ final class PanelController: NSObject, NSWindowDelegate {
         // Active-space behavior: the panel follows the user, never drags
         // them to another space.
         created.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-        created.isOpaque = false
-        created.backgroundColor = .clear
+        #if DEBUG
+            let usesOpaqueUITestBackground =
+                CommandLine.arguments.contains("-opaque-panel-for-ui-test")
+            created.isOpaque = usesOpaqueUITestBackground
+            created.backgroundColor =
+                usesOpaqueUITestBackground ? .windowBackgroundColor : .clear
+        #else
+            created.isOpaque = false
+            created.backgroundColor = .clear
+        #endif
         created.contentView = hosting
-        created.setFrameAutosaveName("gancho-panel")
+        created.contentMinSize = NSSize(
+            width: Self.minimumContentSize.width, height: Self.minimumContentSize.height)
+        created.contentMaxSize = NSSize(
+            width: Self.maximumContentSize.width, height: Self.maximumContentSize.height)
+        // UI tests use a disposable defaults suite; do not let them read or
+        // mutate the developer's screen-specific NSWindow autosave domain.
+        #if DEBUG
+            if AppModel.uiTestDefaultsSuiteName() == nil {
+                created.setFrameAutosaveName("gancho-panel")
+            }
+        #else
+            created.setFrameAutosaveName("gancho-panel")
+        #endif
         created.isReleasedWhenClosed = false
         created.delegate = self
         panel = created
         return created
+    }
+
+    private func persistContentSize(_ requestedSize: CGSize) {
+        let size = Self.clampedContentSize(requestedSize)
+        defaults.set(size.width, forKey: PreferenceKey.contentWidth)
+        defaults.set(size.height, forKey: PreferenceKey.contentHeight)
+    }
+
+    private static func clampedContentSize(_ requestedSize: CGSize) -> CGSize {
+        CGSize(
+            width: min(
+                max(requestedSize.width, minimumContentSize.width), maximumContentSize.width),
+            height: min(
+                max(requestedSize.height, minimumContentSize.height), maximumContentSize.height))
     }
 
     private static var isUITestLaunch: Bool {

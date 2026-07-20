@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# QA a Gancho release ZIP or app bundle without depending on DerivedData.
+# QA a Gancho release DMG, ZIP, or app bundle without depending on DerivedData.
 set -euo pipefail
 
 APP_FAILURES=0
 SIGNING_FAILURES=0
 WARNINGS=0
 TEMP_DIR=""
+MOUNT_POINT=""
 
 bold() { printf '\033[1m%s\033[0m\n' "$1"; }
 section() { printf '\n'; bold "==> $1"; }
@@ -16,6 +17,9 @@ fail_signing() { printf '  \033[31m✗ [SIGNING]\033[0m %s\n' "$1"; SIGNING_FAIL
 note() { printf '    %s\n' "$1"; }
 
 cleanup() {
+	if [ -n "$MOUNT_POINT" ]; then
+		hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
+	fi
 	if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
 		rm -rf "$TEMP_DIR"
 	fi
@@ -25,7 +29,7 @@ trap cleanup EXIT
 artifact="${1:-}"
 if [ -z "$artifact" ]; then
 	newest_mtime=0
-	for candidate in dist/Gancho-*.zip; do
+	for candidate in dist/Gancho-*.dmg dist/Gancho-*.zip; do
 		[ -e "$candidate" ] || continue
 		mtime="$(stat -f %m "$candidate" 2>/dev/null || echo 0)"
 		if [ "$mtime" -ge "$newest_mtime" ]; then
@@ -36,12 +40,31 @@ if [ -z "$artifact" ]; then
 fi
 
 if [ -z "$artifact" ]; then
-	echo "usage: $0 <Gancho-VERSION.zip | Gancho.app>" >&2
+	echo "usage: $0 <Gancho-VERSION.dmg | Gancho-VERSION.zip | Gancho.app>" >&2
 	exit 1
 fi
 [ -e "$artifact" ] || { echo "error: artifact not found: $artifact" >&2; exit 1; }
 
 case "$artifact" in
+*.dmg)
+	section "Mounting DMG read-only"
+	TEMP_DIR="$(mktemp -d /tmp/gancho-qa.XXXXXX)"
+	attach_plist="$TEMP_DIR/attach.plist"
+	if hdiutil attach -readonly -nobrowse -plist "$artifact" > "$attach_plist"; then
+		pass "DMG mounted read-only"
+	else
+		fail_app "DMG failed to mount"
+		exit 3
+	fi
+	for index in $(seq 0 12); do
+		MOUNT_POINT="$(plutil -extract "system-entities.$index.mount-point" raw -o - \
+			"$attach_plist" 2>/dev/null || true)"
+		[ -z "$MOUNT_POINT" ] || break
+	done
+	[ -n "$MOUNT_POINT" ] || { fail_app "DMG mounted without a readable volume"; exit 3; }
+	APP="$MOUNT_POINT/Gancho.app"
+	[ -d "$APP" ] || { fail_app "Gancho.app was not found in the DMG"; exit 3; }
+	;;
 *.zip)
 	section "Unpacking ZIP"
 	TEMP_DIR="$(mktemp -d /tmp/gancho-qa.XXXXXX)"
@@ -58,7 +81,7 @@ case "$artifact" in
 	APP="$artifact"
 	;;
 *)
-	echo "error: artifact must be a .zip or .app: $artifact" >&2
+	echo "error: artifact must be a .dmg, .zip, or .app: $artifact" >&2
 	exit 1
 	;;
 esac
@@ -100,17 +123,39 @@ fi
 
 section "Signing and Gatekeeper"
 SIGNED=0
-if codesign --display --verbose=2 "$APP" 2>&1 | grep -q '^Authority=Developer ID Application'; then
+signature_details="$(codesign --display --verbose=2 "$APP" 2>&1 || true)"
+if grep -q '^Authority=Developer ID Application' <<< "$signature_details"; then
 	SIGNED=1
 fi
 
 if [ "$SIGNED" -eq 1 ]; then
 	if codesign --verify --deep --strict --verbose=2 "$APP" >/dev/null 2>&1; then pass "Developer ID signature verifies"; else fail_signing "codesign --verify --deep --strict failed"; fi
-	if codesign --display --verbose=2 "$APP" 2>&1 | grep -q 'flags=.*runtime'; then pass "Hardened runtime is enabled"; else fail_signing "hardened runtime is missing"; fi
+	if grep -q 'flags=.*runtime' <<< "$signature_details"; then pass "Hardened runtime is enabled"; else fail_signing "hardened runtime is missing"; fi
 	if xcrun stapler validate "$APP" >/dev/null 2>&1; then pass "Stapled notarization ticket validates"; else fail_signing "stapled notarization ticket is missing or invalid"; fi
 	if spctl -a -vv "$APP" >/dev/null 2>&1; then pass "Gatekeeper assessment passes"; else fail_signing "Gatekeeper assessment failed"; fi
+	EMBEDDED_PROFILE="$APP/Contents/embedded.provisionprofile"
+	if [ -f "$EMBEDDED_PROFILE" ]; then
+		if ./scripts/validate-macos-release-profile.sh "$EMBEDDED_PROFILE" --app "$APP"; then
+			pass "Production CloudKit/Push profile and signed entitlements match"
+		else
+			fail_signing "production CloudKit/Push profile validation failed"
+		fi
+	elif [ "${REQUIRE_SYNC_ENTITLEMENTS:-0}" = "1" ]; then
+		fail_signing "sync-enabled release is missing embedded.provisionprofile"
+	else
+		warn "No embedded provisioning profile; cross-device CloudKit sync is unavailable"
+	fi
 else
 	warn "Artifact is unsigned or not Developer ID-signed; this is development-only and not production-ready"
+	if [ "${REQUIRE_SYNC_ENTITLEMENTS:-0}" = "1" ]; then
+		fail_signing "production sync release must be Developer ID-signed"
+	fi
+fi
+
+if [[ "$artifact" = *.dmg ]] && [ "$SIGNED" -eq 1 ]; then
+	if codesign --verify --strict --verbose=2 "$artifact" >/dev/null 2>&1; then pass "DMG signature verifies"; else fail_signing "DMG signature verification failed"; fi
+	if xcrun stapler validate "$artifact" >/dev/null 2>&1; then pass "DMG notarization ticket validates"; else fail_signing "DMG notarization ticket is missing or invalid"; fi
+	if spctl -a -t open --context context:primary-signature -vv "$artifact" >/dev/null 2>&1; then pass "Gatekeeper accepts the DMG"; else fail_signing "Gatekeeper rejected the DMG"; fi
 fi
 
 section "Manual release smoke"

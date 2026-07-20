@@ -140,13 +140,13 @@ release-check: warnings-check ## Verify release metadata/version sync before tag
 package-macos: release-check project ## Build and package the macOS Release app as dist/Gancho-<version>.zip
 	./scripts/package-macos-zip.sh
 
-package-dmg: release-check ## Build the direct-download (license) flavor and package it as a signed DMG
+package-dmg: release-check ## Build the direct-download flavor and package it as a signed DMG
 	./scripts/package-macos-dmg.sh
 
 appcast: ## Sign the dist/*.dmg and refresh site/appcast.xml (maintainer Keychain EdDSA key)
 	./scripts/generate-appcast.sh
 
-qa-release: ## QA the newest dist/Gancho-*.zip or a provided ARTIFACT=/path/to/Gancho.app
+qa-release: ## QA the newest DMG/ZIP or a provided ARTIFACT=/path/to/Gancho.app
 	./scripts/qa-release.sh $${ARTIFACT:-}
 
 site-check: ## Verify the static GitHub Pages site structure

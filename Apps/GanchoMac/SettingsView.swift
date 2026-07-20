@@ -286,6 +286,27 @@ private struct GeneralSettingsTab: View {
                 Text("Last position").tag(PanelPosition.lastPosition)
             }
 
+            Section("Panel") {
+                Picker("Text size", selection: textSizeBinding) {
+                    Text("Small").tag(PanelTextSize.small)
+                    Text("Standard").tag(PanelTextSize.standard)
+                    Text("Large").tag(PanelTextSize.large)
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("panel-text-size")
+
+                LabeledContent("Panel size") {
+                    HStack {
+                        panelSizeButton("Compact", preset: .compact)
+                        panelSizeButton("Standard", preset: .standard)
+                        panelSizeButton("Large", preset: .large)
+                    }
+                }
+                Text("Manual resizing is remembered automatically.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
             Picker("Appearance", selection: $model.appearance) {
                 Text("Auto").tag(AppearancePreference.auto)
                 Text("Light").tag(AppearancePreference.light)
@@ -333,6 +354,19 @@ private struct GeneralSettingsTab: View {
         Binding(
             get: { model.panel.position },
             set: { model.panel.position = $0 })
+    }
+
+    private var textSizeBinding: Binding<PanelTextSize> {
+        Binding(
+            get: { model.panel.textSize },
+            set: { model.panel.textSize = $0 })
+    }
+
+    private func panelSizeButton(
+        _ title: LocalizedStringKey, preset: PanelSizePreset
+    ) -> some View {
+        Button(title) { model.panel.resize(to: preset) }
+            .accessibilityIdentifier("panel-size-\(preset.rawValue)")
     }
 
     private func exportSettings() {

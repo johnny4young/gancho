@@ -1,9 +1,8 @@
 # Releasing Gancho
 
-Gancho is still pre-release, so the release lane starts with the professional
-infrastructure that should exist before the first public build: one source of
-truth for versions, an auditable changelog, a tagged GitHub Release workflow,
-a reproducible macOS app ZIP, artifact QA, and a GitHub Pages landing site.
+Gancho's release lane is fail-closed: one source of truth for versions, an
+auditable changelog, a tagged GitHub Release workflow, a reproducible macOS DMG,
+artifact QA, and a signed Sparkle update feed.
 
 The App Store/TestFlight submission path and any production payment/account
 setup remain owner-gated. This runbook covers the repository mechanics that keep
@@ -13,8 +12,8 @@ release metadata synchronized.
 
 | Artifact | Status | Produced by |
 | --- | --- | --- |
-| macOS `Gancho.app` ZIP | Starter direct-download artifact; signed/notarized when secrets are configured | `scripts/package-macos-zip.sh` / `.github/workflows/release.yml` |
-| macOS `Gancho.dmg` (direct-download channel) | License + Sparkle auto-update build (`GANCHO_DIRECT_DOWNLOAD`); signed/notarized when an identity is present | `scripts/package-macos-dmg.sh` |
+| macOS `Gancho.app` ZIP | Local/fork development artifact | `scripts/package-macos-zip.sh` |
+| macOS `Gancho.dmg` (direct-download channel) | Developer ID + notarization + Sparkle + production CloudKit build (`GANCHO_DIRECT_DOWNLOAD`) | `scripts/package-macos-dmg.sh` / `.github/workflows/release.yml` |
 | Sparkle `appcast.xml` | EdDSA-signed update feed served from `site/` at the app's `SUFeedURL` | `scripts/generate-appcast.sh` |
 | GitHub release notes | Generated from the tag plus `CHANGELOG.md` | `.github/workflows/release.yml` |
 | Homebrew cask (`gancho`) | `brew install --cask gancho` installs the GUI app **and** the bundled `gancho` CLI (symlinked onto PATH) from the notarized DMG; the cask is edited in `packaging/Casks/gancho.rb` and `update-cask.yml` regenerates and pushes it to [johnny4young/homebrew-tap](https://github.com/johnny4young/homebrew-tap) | `packaging/Casks/gancho.rb` + `update-cask.yml` |
@@ -22,8 +21,9 @@ release metadata synchronized.
 | GitHub Pages website | Static landing page deployed from `site/` | `.github/workflows/pages.yml` |
 
 The unsigned ZIP path is for local and fork validation only. A production direct
-download must use a Developer ID Application certificate and notarization
-credentials so Gatekeeper accepts first launch.
+download must use a Developer ID Application certificate, a matching production
+CloudKit/Push provisioning profile, and notarization credentials. The tagged
+workflow refuses to publish if any of these or the Sparkle signing key is absent.
 
 ## Version sources of truth
 
@@ -115,17 +115,22 @@ VERSION=0.1.0 ./scripts/package-macos-zip.sh
 
 The release workflow re-runs the sync guard, lint, tests, and both app builds on
 the tagged commit before publishing. The publish job packages the macOS app,
-computes a SHA-256 sidecar, runs artifact QA, and attaches the ZIP and checksum
-to the GitHub Release.
+computes a SHA-256 sidecar, validates the mounted DMG and its embedded profile,
+and attaches the DMG, checksum, cask update, and signed appcast.
 
 ## Direct-download channel (DMG + Sparkle auto-update)
 
-The direct-download build turns on `GANCHO_DIRECT_DOWNLOAD`: Pro unlocks with a
-Lemon Squeezy license key instead of StoreKit, and the app updates itself with
-[Sparkle](https://sparkle-project.org). The App Store build never links the
-updater. `Sparkle.framework` and its CLI tools are fetched (checksum-pinned)
+The direct-download build turns on `GANCHO_DIRECT_DOWNLOAD` and updates itself
+with [Sparkle](https://sparkle-project.org). The public build remains Free until
+license issuance moves behind the server boundary described below. The App Store
+build never links the updater. `Sparkle.framework` and its CLI tools are fetched (checksum-pinned)
 into the git-ignored `Vendor/` by `scripts/fetch-sparkle.sh`; `make project`,
 CI, and the packaging scripts all run it first.
+
+The production profile makes the artifact capable of connecting to CloudKit;
+it does not grant product access. `SyncEnablement` also requires the Pro tier, so
+a clean public direct install remains local-only until secure activation can
+persist a valid entitlement (or the product intentionally changes that policy).
 
 ### Sparkle update keys
 
@@ -143,14 +148,25 @@ CI, and the packaging scripts all run it first.
 
 ### App signing entitlements
 
-The direct-download build signs with `Apps/GanchoMac/Gancho-DirectDownload.entitlements`,
-a deliberately minimal file (no iCloud/Push). Manual Developer ID signing of the
-App Store entitlements would demand a provisioning profile; dropping iCloud/Push
-removes that requirement, and the runtime already disables CloudKit sync when the
-entitlement is absent (`GanchoSync.CloudKitEntitlements.currentTaskAllowsSync`).
-So the direct channel ships **without** sync for now; when it needs sync, add a
-Developer ID provisioning profile with iCloud + Push and point `ENTITLEMENTS` at
-a profile-backed entitlements file.
+The direct-download build signs with
+`Apps/GanchoMac/Gancho-DirectDownload.entitlements`, which requests the production
+CloudKit container and push environment. Apple treats these as restricted
+entitlements, so the app must embed a matching Developer ID provisioning profile
+at `Gancho.app/Contents/embedded.provisionprofile`. The packaging and QA scripts
+validate the profile team, app identifier, expiration, CloudKit container,
+production environment, push environment, and final signed entitlements.
+
+Before cutting the first sync-enabled direct release, the owner must:
+
+1. enable iCloud/CloudKit and Push Notifications for the explicit macOS App ID;
+2. create and download a Developer ID provisioning profile for
+   `com.johnny4young.gancho` with those capabilities;
+3. deploy the required CloudKit schema to the production environment;
+4. activate Pro through a production-safe path on a clean install and confirm
+   the entitlement survives relaunch and update without any private signing key
+   in the application;
+5. run the signed release candidate on two Macs using the same Apple Account and
+   verify capture, update, deletion, retention, and relaunch convergence.
 
 ### Notarization credentials
 
@@ -177,15 +193,21 @@ The local flow below stays available for **testing** the artifacts before a tag
 (or as a fallback if the CI secrets aren't set). The Sparkle signature is over
 the DMG bytes, so the DMG signed for the appcast must be the exact file uploaded
 to the release — do not rebuild it in between. One-time local prerequisites: the
-Developer ID cert in the Keychain, the `gancho-notary` notary profile (above).
-Fill the two placeholders and run the rest verbatim:
+Developer ID cert in the Keychain, the `gancho-notary` notary profile (above),
+and the Developer ID provisioning profile. Fill the placeholders and run:
 
 ```bash
 ID=<developer-id-sha1-hash>     # security find-identity -v -p codesigning
 VERSION=<x.y.z>                 # must equal MARKETING_VERSION in project.yml
+PROFILE="$HOME/Downloads/Gancho.provisionprofile"
 
 # 1. Build the signed/notarized DMG + the EdDSA-signed appcast (local).
-CODE_SIGN_IDENTITY="$ID" MACOS_NOTARY_KEYCHAIN_PROFILE=gancho-notary make package-dmg
+CODE_SIGN_IDENTITY="$ID" \
+MACOS_SIGN_TEAM_ID=JGWX5ZT2N2 \
+MACOS_PROVISIONING_PROFILE="$PROFILE" \
+MACOS_NOTARY_KEYCHAIN_PROFILE=gancho-notary \
+REQUIRE_PRODUCTION_RELEASE=1 make package-dmg
+REQUIRE_SYNC_ENTITLEMENTS=1 ./scripts/qa-release.sh "dist/Gancho-$VERSION.dmg"
 make appcast
 
 # 2. Tag and push — release.yml creates the GitHub release.
@@ -203,8 +225,9 @@ gh workflow run update-cask.yml -f tag="v$VERSION"
 
 Notes:
 
-- Without `CODE_SIGN_IDENTITY` the script builds an unsigned dev artifact; without
-  notary credentials it skips stapling. A production build needs both. The
+- Without `REQUIRE_PRODUCTION_RELEASE=1`, the script can still build an unsigned
+  local artifact. Production mode requires identity, team, provisioning profile,
+  and notary credentials and rejects an embedded private license signer. The
   `MACOS_NOTARY_KEY_*` App Store Connect API-key variables are an alternative to
   the Keychain notary profile.
 - Step 4 downloads the released DMG, re-hashes it, regenerates the cask from
@@ -217,15 +240,18 @@ Notes:
 
 ## GitHub Actions secrets
 
-The workflow degrades gracefully when signing secrets are absent, but public
-production downloads require them.
+The tagged workflow fails closed when a production secret is absent; it never
+publishes a DMG that is unsigned, unnotarized, missing its required production
+profile, or unable to verify Sparkle updates. End-user sync readiness still
+requires the separate Pro activation and two-device evidence described above.
 
 | Secret | Purpose |
 | --- | --- |
 | `MACOS_CODE_SIGN_IDENTITY` | Developer ID Application identity name used by `xcodebuild` |
 | `MACOS_CERTIFICATE_P12` | Base64-encoded `.p12` export of the Developer ID certificate and private key |
 | `MACOS_CERTIFICATE_PASSWORD` | Password for the `.p12` export |
-| `MACOS_SIGN_TEAM_ID` | Optional Developer Team ID used for signing builds |
+| `MACOS_SIGN_TEAM_ID` | Developer Team ID used for signing and profile validation |
+| `MACOS_PROVISIONING_PROFILE_BASE64` | Base64-encoded Developer ID profile for `com.johnny4young.gancho`, with production CloudKit + Push |
 | `MACOS_NOTARY_KEY_P8` | Base64-encoded App Store Connect API private key for notarization |
 | `MACOS_NOTARY_KEY_ID` | App Store Connect API key ID |
 | `MACOS_NOTARY_KEY_ISSUER_ID` | App Store Connect issuer ID |
@@ -233,7 +259,7 @@ production downloads require them.
 | `MACOS_NOTARY_PASSWORD` | App-specific password fallback for `notarytool` |
 | `MACOS_NOTARY_TEAM_ID` | Team ID for Apple ID notarization fallback |
 | `TAP_DEPLOY_KEY` | SSH deploy key with write access on `johnny4young/homebrew-tap` (scoped to that one repo, unlike a PAT), used to push the cask bump — the same key style Vitrine uses for its tap |
-| `SPARKLE_EDDSA_PRIVATE_KEY` | The EdDSA private key (`Vendor/bin/generate_keys -x`) that signs the appcast in CI. Its public half is the `SUPublicEDKey` in `Info.plist`. Absent → the release publishes a DMG with no appcast update entry |
+| `SPARKLE_EDDSA_PRIVATE_KEY` | The EdDSA private key (`Vendor/bin/generate_keys -x`) that signs the appcast in CI. Its public half is the `SUPublicEDKey` in `Info.plist`; required for a tag |
 | `GANCHO_LICENSE_SIGNING_KEY` | Legacy development-only activation signer. **Do not configure it for a public release:** the current build wiring embeds it in the app. Absent → the build stays Free and the paywall shows "Pro is coming soon". Public direct-license issuance requires the server boundary below. |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Deploy the marketing landing to Cloudflare Pages (`gancho-web` → gancho.app) from the Website workflow |
 
@@ -266,11 +292,12 @@ The App Store build continues to use StoreKit and never needs this signing key.
 
 ## Artifact QA
 
-`scripts/qa-release.sh` accepts a `.zip` or `.app`. It validates the bundle
+`scripts/qa-release.sh` accepts a `.dmg`, `.zip`, or `.app`. DMGs are mounted
+read-only. The gate validates the bundle
 structure, version/build metadata, `LSUIElement`, executable presence, signature
-state, hardened runtime, stapling, and Gatekeeper assessment when the artifact is
-Developer ID-signed. It also prints the manual release smoke that must be walked
-on a clean compatible Mac:
+state, hardened runtime, app and DMG stapling, Gatekeeper, and the production
+CloudKit/Push profile when `REQUIRE_SYNC_ENTITLEMENTS=1`. It also prints the
+manual release smoke that must be walked on a clean compatible Mac:
 
 1. Launch Gancho from the installed app and confirm no Dock icon appears.
 2. Confirm the menu-bar item appears and the history panel opens with the
@@ -279,8 +306,9 @@ on a clean compatible Mac:
 4. Copy from a password manager or an item carrying sensitive pasteboard markers
    and confirm Gancho does not store it.
 5. Paste a selected history item back into a text field.
-6. If sync is part of the release, repeat capture/retention checks on a second
-   device with the same iCloud account.
+6. If sync is part of the release, activate a production-safe Pro entitlement,
+   then repeat capture/retention checks on a second device with the same iCloud
+   account.
 
 Record the macOS build, hardware architecture, app version, artifact checksum,
 and manual smoke result in the release notes before publishing broadly.

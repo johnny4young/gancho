@@ -3,7 +3,7 @@
 # Publish a Homebrew cask/formula bump to a central tap from a released artifact.
 #
 # This is the reusable core of the "each app repo bumps its own entry in the shared
-# tap on release" pattern (CS-063). It regenerates the tap's cask (or formula) from
+# tap on release" pattern. It regenerates the tap's cask (or formula) from
 # the in-repo source template with the published version + checksum, validates the
 # result, and pushes it to the tap over a write-enabled SSH deploy key. The logic is
 # deliberately app-agnostic so a sibling repo (gos, …) can vendor this script verbatim

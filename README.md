@@ -26,10 +26,16 @@ release/versioning lane ships a signed, notarized, stapled direct-download DMG,
 a signed Sparkle appcast, version-sync guards, artifact QA, and the website. The
 v0.7.0 DMG ships through the same signed, notarized, stapled lane that produced
 the Gatekeeper-accepted v0.6.0 artifact; acceptance is re-verified per published
-release. What remains before 1.0 is repeating the real-device sync matrix for
-the release candidate, moving direct-license issuance outside distributed
-builds, validating CloudKit production recovery, App Store submission, and the
-account-gated launch pieces (App Store products and TestFlight).
+release. The published v0.7.0 DMG is local-only: it preserves its encrypted
+history across app updates but intentionally lacks a CloudKit provisioning
+profile. The next direct release is now gated on an embedded production
+CloudKit/Push profile, the production schema, a usable Pro entitlement path,
+and a signed two-Mac sync matrix. A profile-backed build is only sync-capable:
+because sync is a Pro entitlement, a fresh public direct install remains
+local-only while secure activation is unavailable. What remains before 1.0 is
+passing that signed release-candidate matrix, moving direct-license issuance
+outside distributed builds, App Store submission, and the account-gated launch
+pieces (App Store products and TestFlight).
 
 ## Contents
 
@@ -50,7 +56,12 @@ account-gated launch pieces (App Store products and TestFlight).
 - **Bring an existing history with you.** A guided Mac import previews Maccy
   archives or CSV files before writing, rejects protected and malformed rows,
   deduplicates atomically, supports cancellation, and finishes with an exact
-  imported/skipped summary.
+  imported/skipped summary. Raycast is not currently an import source: its
+  [documented clipboard API](https://developers.raycast.com/api-reference/clipboard)
+  exposes only six recent entries, while its
+  [encrypted `.rayconfig` backup](https://manual.raycast.com/import-export) has
+  no documented third-party decoding schema. Gancho does not inspect private
+  encrypted app storage.
 - **Give each local AI client only the context it needs.** MCP access now uses
   expiring, revocable per-client grants with an explicit board/time context,
   independent read/write policy, fail-closed SQL filtering, and a content-free
@@ -62,6 +73,9 @@ account-gated launch pieces (App Store products and TestFlight).
   Mac, iPhone, and iPad shows bounded per-app capture, reuse, protected/ignored,
   and sensitive-expiry totals. The receipt stays on that device for 13 rolling
   months, never syncs or exports, and has an independent clear action.
+- **Make the Mac panel yours.** Resize the history window freely or jump to a
+  Compact, Standard, or Large preset; Gancho remembers the geometry and a
+  Small, Standard, or Large semantic text preference across relaunches.
 
 ## What's new in 0.7
 
@@ -151,12 +165,13 @@ stay in reusable modules.
 
 **macOS app**
 
-- Menu-bar agent and Liquid Glass floating panel (⇧⌘V): keyboard-first,
+- Menu-bar agent and resizable Liquid Glass floating panel (⇧⌘V): keyboard-first,
   type-to-search, composable source/kind/board/date filters, editable titles and
   explicit Save/Cancel text refinement, per-kind previews, a privacy-safe
   read-only full-content preview (⌘Y), paste-back via synthetic ⌘V
   (layout-aware keycodes, plain-text paste, restore-previous), onboarding,
-  Settings, and the Privacy Center.
+  Settings, and the Privacy Center. Compact/Standard/Large geometry shortcuts
+  and semantic text-size controls persist across relaunches.
 - Pins and boards (multi-membership collections) and a unified Library for
   boards and snippets. Boards can use a fixed accessible color and an optional
   emoji identity that persists and syncs across Mac, iPhone, and iPad. A local,
