@@ -24,23 +24,23 @@ and StoreKit purchase plumbing are implemented and covered by tests. Serialized
 purchase and restore automation verifies entitlement changes end to end. The
 release/versioning lane ships a signed, notarized, stapled direct-download DMG,
 a signed Sparkle appcast, version-sync guards, artifact QA, and the website. The
-v0.7.0 DMG ships through the same signed, notarized, stapled lane that produced
-the Gatekeeper-accepted v0.6.0 artifact; acceptance is re-verified per published
-release. The published v0.7.0 DMG is local-only: it preserves its encrypted
-history across app updates but intentionally lacks a CloudKit provisioning
-profile. The next direct release is now gated on an embedded production
-CloudKit/Push profile, the production schema, a usable Pro entitlement path,
-and a signed two-Mac sync matrix. A profile-backed build is only sync-capable:
-because sync is a Pro entitlement, a fresh public direct install remains
-local-only while secure activation is unavailable. What remains before 1.0 is
+v0.8.0 DMG ships through the same signed, notarized, stapled lane that produced
+the Gatekeeper-accepted v0.7.0 artifact; acceptance is re-verified per published
+release. v0.8.0 is the first direct release built against an embedded production
+CloudKit/Push provisioning profile, so the artifact is sync-capable and its
+signed entitlements are validated against the profile at package and QA time.
+Because sync is a Pro entitlement and secure direct activation is not yet
+available, a fresh public direct install still runs local-only: it preserves its
+encrypted history across app updates. Promising end-user sync on the direct
+channel still needs the production CloudKit schema, a usable Pro entitlement
+path, and a signed two-Mac sync matrix. What remains before 1.0 is
 passing that signed release-candidate matrix, moving direct-license issuance
 outside distributed builds, App Store submission, and the account-gated launch
 pieces (App Store products and TestFlight).
 
 ## Contents
 
-- [Unreleased on main](#unreleased-on-main)
-- [What's new in 0.7](#whats-new-in-07)
+- [What's new in 0.8](#whats-new-in-08)
 - [Product goal](#product-goal)
 - [Platform plan](#platform-plan)
 - [Current capabilities](#current-capabilities)
@@ -51,7 +51,7 @@ pieces (App Store products and TestFlight).
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 
-## Unreleased on main
+## What's new in 0.8
 
 - **Bring an existing history with you.** A guided Mac import previews Maccy
   archives or CSV files before writing, rejects protected and malformed rows,
@@ -77,30 +77,11 @@ pieces (App Store products and TestFlight).
   Compact, Standard, or Large preset; Gancho remembers the geometry and a
   Small, Standard, or Large semantic text preference across relaunches.
 
-## What's new in 0.7
+![Gancho v0.8 resizable history panel](site/assets/v0.8.0-release.png)
 
-- **Batch the busywork on Mac.** Select a range with Shift or build a selection
-  with Command-click, then send every clip to the paste stack, file them into a
-  board, or delete them with one shared Undo. A selected group of file clips
-  also drags to Finder as one de-duplicated file set.
-- **Find the Library from Spotlight.** Curated snippets and pins are searchable
-  across Mac, iPhone, and iPad while raw history, secrets, and expiring clips
-  stay out of the system index. One switch removes Gancho's Spotlight domain.
-- **Keep secrets outside the model.** Deterministic structural redaction now
-  replaces key-, token-, card-, and private-key-shaped text before on-device AI
-  sees it; every prompt is versioned and covered by an opt-in live evaluation.
-- **Stay fast as the Library grows.** Boards page through thousands of clips,
-  semantic vectors carry their model version for safe background refreshes,
-  and bounded top-K selection brings measured 10k-vector retrieval p95 below
-  30 ms.
-- **Never lose the way back to Gancho.** The menu-bar affordance recovers after
-  helper failure and the history process terminates if no affordance survives;
-  bare JWT previews are masked without disabling decode or paste.
-
-![Gancho v0.7 Spotlight privacy controls](site/assets/v0.7.0-release.png)
-
-*Real macOS v0.7 build captured by XCUITest. Spotlight indexing is explicit,
-limited to the curated Library, and immediately reversible.*
+*Real macOS v0.8 build captured by XCUITest with synthetic fixtures. The history
+panel resizes from its edges, scales its semantic text, and remembers your
+layout across relaunches.*
 
 ## Product goal
 

@@ -53,6 +53,19 @@ array_contains() {
 	grep -Fq "\"$expected\"" <<< "$json"
 }
 
+# com.apple.developer.icloud-services is an explicit ["CloudKit"] array in a
+# Mac App Store profile but the "*" wildcard (all iCloud services) in a
+# Developer ID profile. Both authorize CloudKit; accept either shape. Use xml1,
+# not json: `plutil -extract … json` cannot serialize the bare "*" scalar and
+# errors out ("Invalid object in plist for JSON format").
+profile_authorizes_cloudkit() {
+	local plist="$1" xml
+	xml="$(plutil -extract 'Entitlements.com\.apple\.developer\.icloud-services' \
+		xml1 -o - "$plist" 2>/dev/null || true)"
+	grep -Fq '<string>CloudKit</string>' <<< "$xml" \
+		|| grep -Fq '<string>*</string>' <<< "$xml"
+}
+
 security cms -D -i "$PROFILE" > "$PROFILE_PLIST" 2>/dev/null \
 	|| fail "provisioning profile is not a valid Apple CMS payload"
 plutil -lint "$PROFILE_PLIST" >/dev/null \
@@ -74,8 +87,7 @@ array_contains \
 	"$PROFILE_PLIST" 'Entitlements.com\.apple\.developer\.icloud-container-identifiers' \
 	"$CLOUD_CONTAINER" \
 	|| fail "profile does not authorize $CLOUD_CONTAINER"
-array_contains \
-	"$PROFILE_PLIST" 'Entitlements.com\.apple\.developer\.icloud-services' CloudKit \
+profile_authorizes_cloudkit "$PROFILE_PLIST" \
 	|| fail "profile does not authorize CloudKit"
 [ "$(profile_value 'Entitlements.com\.apple\.developer\.icloud-container-environment')" = "Production" ] \
 	|| fail "profile CloudKit environment must be Production"
