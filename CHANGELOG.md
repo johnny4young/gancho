@@ -7,6 +7,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-20
+
 ### Added
 
 - **Import an existing clipboard history with a safety preview.** The Mac app

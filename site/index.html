@@ -10,13 +10,13 @@
 <meta property="og:title" content="gancho — your clipboard, everywhere" />
 <meta property="og:description" content="A private-by-design clipboard history and snippet library for Mac, iPhone, and iPad. Local-first, encrypted, on-device AI." />
 <meta property="og:url" content="https://gancho.app/" />
-<meta property="og:image" content="https://gancho.app/assets/v0.7.0-release.png" />
-<meta property="og:image:width" content="976" />
-<meta property="og:image:height" content="648" />
-<meta property="og:image:alt" content="Gancho v0.7 Spotlight privacy controls on macOS" />
+<meta property="og:image" content="https://gancho.app/assets/v0.8.0-release.png" />
+<meta property="og:image:width" content="1080" />
+<meta property="og:image:height" content="680" />
+<meta property="og:image:alt" content="Gancho v0.8 resizable history panel on macOS" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="https://gancho.app/assets/v0.7.0-release.png" />
-<meta name="twitter:image:alt" content="Gancho v0.7 Spotlight privacy controls on macOS" />
+<meta name="twitter:image" content="https://gancho.app/assets/v0.8.0-release.png" />
+<meta name="twitter:image:alt" content="Gancho v0.8 resizable history panel on macOS" />
 <link rel="icon" href="assets/gancho-mark.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="styles.css" />
 <style>
@@ -525,42 +525,20 @@
 <section class="band band-tint" id="latest-release">
   <div class="wrap release-grid">
     <div class="release-copy">
-      <span class="kicker" data-i18n="rel.kicker">Nuevo en 0.7</span>
-      <h2 class="h2" data-i18n="rel.title">Menos trabajo repetitivo. Más control sobre lo que sale de tu historial.</h2>
-      <p class="lede" data-i18n="rel.lede">La versión 0.7 lleva la Library al sistema, convierte el panel en una herramienta por lotes y refuerza la frontera que protege tus secretos.</p>
+      <span class="kicker" data-i18n="rel.kicker">Nuevo en 0.8</span>
+      <h2 class="h2" data-i18n="rel.title">Un panel que se adapta a tu día. Una distribución que falla de forma segura.</h2>
+      <p class="lede" data-i18n="rel.lede">La versión 0.8 hace del panel una herramienta que cabe en tu pantalla, suma migración guiada y permisos locales más estrictos, y publica por un canal que falla de forma segura. El DMG ya embebe el perfil CloudKit de producción, pero como el sync es Pro y la activación directa segura aún no existe, una instalación pública nueva sigue siendo local-only.</p>
       <ul class="release-list">
-        <li data-i18n="rel.1"><b>Trabaja por lotes en Mac:</b> selecciona varios clips, envíalos al paste stack, archívalos en un board o bórralos con un solo Undo; los archivos seleccionados se arrastran juntos.</li>
-        <li data-i18n="rel.2"><b>Encuentra solo lo que elegiste conservar:</b> Spotlight indexa snippets y pins en Mac, iPhone y iPad, nunca el historial completo, secretos ni clips que expiran.</li>
-        <li data-i18n="rel.3"><b>IA que no ve tus credenciales:</b> claves, tokens, tarjetas y llaves privadas se reemplazan antes de llegar al modelo on-device.</li>
-        <li data-i18n="rel.4"><b>Rápido y recuperable:</b> boards paginados, búsqueda semántica p95 &lt;30 ms, vectores actualizables y una barra de menú que nunca deja el historial huérfano.</li>
+        <li data-i18n="rel.1"><b>Haz tuyo el panel:</b> ajusta el tamaño desde los bordes o usa presets Compacto, Estándar y Grande; el tamaño del texto y la geometría sobreviven cada relanzamiento.</li>
+        <li data-i18n="rel.2"><b>Migra con vista previa:</b> importa archivos de Maccy o CSV después de revisar qué filas son válidas, protegidas, duplicadas o incompatibles.</li>
+        <li data-i18n="rel.3"><b>Conecta cada cliente con el mínimo permiso:</b> los procesos MCP reciben grants revocables, con alcance y duración explícitos, y una IA local nunca ve secretos.</li>
+        <li data-i18n="rel.4"><b>Publica solo con evidencia:</b> los tags exigen firma, notarización, perfil CloudKit/Push de producción y appcast; el sync además exige activación Pro segura y QA en dos Macs.</li>
       </ul>
-      <a class="btn btn-ghost" href="#release-0-7-0" data-i18n="rel.cta">Ver todo lo que incluye 0.7</a>
+      <a class="btn btn-ghost" href="#release-0-8-0" data-i18n="rel.cta">Ver todo lo que incluye 0.8</a>
     </div>
     <figure class="release-shot">
-      <img src="assets/v0.7.0-release.png" width="976" height="648" loading="lazy" decoding="async" alt="Ajustes de privacidad de Spotlight en Gancho v0.7 / Gancho v0.7 Spotlight privacy settings" />
-      <figcaption data-i18n="rel.caption">Build real de macOS capturado por XCUITest: el índice de Spotlight es explícito, limitado a la Library curada y reversible de inmediato.</figcaption>
-    </figure>
-  </div>
-</section>
-
-<!-- ============ NEXT RELEASE PREVIEW ============ -->
-<section class="band" id="next-release">
-  <div class="wrap release-grid">
-    <div class="release-copy">
-      <span class="kicker" data-i18n="next.kicker">Próximo en 0.8</span>
-      <h2 class="h2" data-i18n="next.title">Un panel que se adapta a tu día. Una distribución que falla de forma segura.</h2>
-      <p class="lede" data-i18n="next.lede">La candidata 0.8 reúne migración guiada, permisos locales más estrictos y controles persistentes del panel. El DMG 0.7 sigue siendo local-only; prometer sync directo también exige activación Pro segura y una matriz firmada en dos Macs.</p>
-      <ul class="release-list">
-        <li data-i18n="next.1"><b>Haz tuyo el panel:</b> ajusta el tamaño desde los bordes o usa presets Compacto, Estándar y Grande; el tamaño del texto y la geometría sobreviven cada relanzamiento.</li>
-        <li data-i18n="next.2"><b>Migra con vista previa:</b> importa archivos de Maccy o CSV después de revisar qué filas son válidas, protegidas, duplicadas o incompatibles.</li>
-        <li data-i18n="next.3"><b>Conecta cada cliente con el mínimo permiso:</b> los procesos MCP reciben grants revocables, con alcance y duración explícitos.</li>
-        <li data-i18n="next.4"><b>Publica solo con evidencia:</b> los tags exigen firma, notarización, perfil CloudKit/Push y appcast; el sync además exige activación Pro segura y QA en dos Macs.</li>
-      </ul>
-      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/blob/main/CHANGELOG.md#unreleased" data-i18n="next.cta">Ver los cambios aún no publicados</a>
-    </div>
-    <figure class="release-shot">
-      <img src="assets/v0.8.0-panel-preview.png" width="1080" height="680" loading="lazy" decoding="async" alt="Panel grande de Gancho con texto ampliado y datos sintéticos / Large Gancho panel with enlarged text and synthetic data" />
-      <figcaption data-i18n="next.caption">Build real de macOS capturado por XCUITest con fixtures sintéticos: tamaño Grande, texto Grande y persistencia verificada tras relanzar.</figcaption>
+      <img src="assets/v0.8.0-release.png" width="1080" height="680" loading="lazy" decoding="async" alt="Panel grande de Gancho con texto ampliado y datos sintéticos / Large Gancho panel with enlarged text and synthetic data" />
+      <figcaption data-i18n="rel.caption">Build real de macOS capturado por XCUITest con fixtures sintéticos: tamaño Grande, texto Grande y persistencia verificada tras relanzar.</figcaption>
     </figure>
   </div>
 </section>
@@ -571,9 +549,22 @@
     <div class="sec-head">
       <span class="kicker" data-i18n="evo.kicker">Evolución reciente</span>
       <h2 class="h2" data-i18n="evo.title">Cada versión amplía lo que Gancho puede recordar por ti.</h2>
-      <p class="lede" data-i18n="evo.lede">0.7 es el presente. Estos hitos muestran cómo Gancho pasó de una memoria local a una biblioteca privada, rápida y disponible en todos tus dispositivos.</p>
+      <p class="lede" data-i18n="evo.lede">0.8 es el presente. Estos hitos muestran cómo Gancho pasó de una memoria local a una biblioteca privada, rápida y disponible en todos tus dispositivos.</p>
     </div>
     <div class="evolution-grid">
+      <article class="milestone-card">
+        <div class="milestone-meta">
+          <span class="milestone-version">0.7.0</span>
+          <span class="milestone-date" data-i18n="evo.v070.d">Jul 2026 · biblioteca al sistema</span>
+        </div>
+        <h3 data-i18n="evo.v070.t">Tu biblioteca curada, disponible en todo el sistema.</h3>
+        <ul>
+          <li data-i18n="evo.v070.1">Spotlight indexa snippets y pins en Mac, iPhone y iPad, nunca el historial completo ni los secretos.</li>
+          <li data-i18n="evo.v070.2">Selección por lotes en el panel: envía al stack, archiva en un board o borra con un solo Undo.</li>
+          <li data-i18n="evo.v070.3">La IA on-device nunca recibe claves ni tokens, y la búsqueda semántica baja el p95 a menos de 30 ms.</li>
+        </ul>
+        <a class="milestone-link" href="#release-0-7-0" data-i18n="evo.v070.cta">Ver todo lo nuevo de 0.7 →</a>
+      </article>
       <article class="milestone-card">
         <div class="milestone-meta">
           <span class="milestone-version">0.6.0</span>
@@ -586,19 +577,6 @@
           <li data-i18n="evo.v060.3">Reconoce boards por color y emoji mientras la búsqueda sigue rápida al crecer.</li>
         </ul>
         <a class="milestone-link" href="#release-0-6-0" data-i18n="evo.v060.cta">Ver todo lo nuevo de 0.6 →</a>
-      </article>
-      <article class="milestone-card">
-        <div class="milestone-meta">
-          <span class="milestone-version">0.5.0</span>
-          <span class="milestone-date" data-i18n="evo.v050.d">Jul 2026 · flujo diario</span>
-        </div>
-        <h3 data-i18n="evo.v050.t">Pega en secuencia y conserva más, sin perder control.</h3>
-        <ul>
-          <li data-i18n="evo.v050.1">Encola, reordena y pega varios clips desde una pila visible en el panel.</li>
-          <li data-i18n="evo.v050.2">Ve cuándo expira un clip y conserva hasta un año o 10.000 ítems gratis.</li>
-          <li data-i18n="evo.v050.3">El canal directo guarda el historial de forma duradera, sale por completo y restaura el ícono al reabrir.</li>
-        </ul>
-        <a class="milestone-link" href="#release-0-5-0" data-i18n="evo.v050.cta">Ver todo lo nuevo de 0.5 →</a>
       </article>
     </div>
   </div>
@@ -1004,6 +982,21 @@
       <p class="lede" data-i18n="log.lede">Explora cada versión, de la más reciente a la primera. Abre solo el hito que quieras conocer; sus metadatos y artefactos se verifican juntos en CI.</p>
     </div>
     <div class="log">
+      <details class="release-detail" id="release-0-8-0">
+        <summary>
+          <span class="log-meta"><span class="ver">0.8.0</span><span class="dt" data-i18n="log.v080.d">Jul 2026 · daily driver</span></span>
+          <span class="release-summary-title" data-i18n="log.v080.t">Un panel que cabe en tu día y una distribución que falla de forma segura</span>
+          <svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="log-body"><ul>
+          <li data-i18n="log.v080.1"><b>Ajusta el panel a tu pantalla</b>: la ventana de historial se redimensiona desde los bordes, ofrece presets Compacto, Estándar y Grande, recuerda la geometría manual entre relanzamientos y escala cada estilo de texto con una preferencia Pequeño, Estándar o Grande.</li>
+          <li data-i18n="log.v080.2"><b>Importa un historial existente con vista previa segura</b>: el Mac acepta archivos de Maccy y CSV, muestra qué se importará sin escribir, rechaza filas protegidas o corruptas, deduplica en una sola transacción y reporta los totales exactos de importadas y omitidas.</li>
+          <li data-i18n="log.v080.3"><b>Aprueba cada cliente de IA local de uno en uno</b>: todo proceso MCP requiere un grant revocable y con caducidad, con contexto explícito de board y tiempo y una política independiente de solo lectura o lectura-escritura; los clips sensibles quedan siempre excluidos.</li>
+          <li data-i18n="log.v080.4"><b>Entiende la activación sin rastrear contenido</b>: Gancho registra un conjunto cerrado de hitos locales de primer valor antes del consentimiento de diagnóstico; si luego optas por participar, recibe un agregado grueso, no una repetición de tus acciones previas.</li>
+          <li data-i18n="log.v080.5"><b>Revisa tu actividad privada en cada dispositivo</b>: los Centros de Privacidad de Mac e iOS muestran totales por app de captura, reutilización y expiración desde un recibo on-device de 13 meses que nunca sincroniza ni exporta.</li>
+          <li data-i18n="log.v080.6"><b>El canal público falla de forma segura</b>: un tag ahora exige firma Developer ID, notarización, perfil CloudKit/Push de producción embebido, appcast firmado y QA del artefacto montado; los builds públicos rechazan el firmante de licencia privado y una instalación nueva sigue siendo local-only hasta que exista activación segura.</li>
+        </ul></div>
+      </details>
       <details class="release-detail" id="release-0-7-0">
         <summary>
           <span class="log-meta"><span class="ver">0.7.0</span><span class="dt" data-i18n="log.v070.d">Jul 2026 · pre-lanzamiento</span></span>
@@ -1182,14 +1175,14 @@
       "panel.search": "Search your clipboard…", "panel.foot": "Local · encrypted on this Mac",
       "clip.code.t": "useEffect cleanup", "clip.secret.t": "OpenAI API key", "clip.url.t": "Privacy policy", "clip.color.t": "Brand green", "clip.image.t": "Launch mark", "clip.image.p": "PNG · 248 KB · 1640×1024 · encrypted",
       "trust.1": "Local-first", "trust.2": "Encrypted on device", "trust.3": "No middle servers", "trust.4": "No content telemetry",
-      "rel.kicker": "New in 0.7", "rel.title": "Less repetitive work. More control over what leaves your history.",
-      "rel.lede": "Version 0.7 brings the Library into the system, turns the panel into a batch tool, and strengthens the boundary that protects your secrets.",
-      "rel.1": "<b>Work in batches on Mac:</b> select several clips, send them to the paste stack, file them into a board, or delete them with one Undo; selected files drag together.",
-      "rel.2": "<b>Find only what you chose to keep:</b> Spotlight indexes snippets and pins on Mac, iPhone, and iPad — never raw history, secrets, or expiring clips.",
-      "rel.3": "<b>AI that never sees your credentials:</b> keys, tokens, cards, and private keys are replaced before they reach the on-device model.",
-      "rel.4": "<b>Fast and recoverable:</b> paged boards, semantic search p95 under 30 ms, upgradeable vectors, and a menu bar that never leaves history orphaned.",
-      "rel.cta": "See everything in 0.7",
-      "rel.caption": "Real macOS build captured by XCUITest: Spotlight indexing is explicit, limited to the curated Library, and immediately reversible.",
+      "rel.kicker": "New in 0.8", "rel.title": "A panel that fits your day. A distribution lane that fails closed.",
+      "rel.lede": "Version 0.8 makes the panel fit your screen, adds guided migration and stricter local permissions, and publishes through a lane that fails closed. The DMG now embeds the production CloudKit profile, but because sync is Pro and secure direct activation does not yet exist, a fresh public install still runs local-only.",
+      "rel.1": "<b>Make the panel yours:</b> resize from any edge or use Compact, Standard, and Large presets; text scale and geometry survive every relaunch.",
+      "rel.2": "<b>Migrate with a preview:</b> import Maccy archives or CSV only after reviewing valid, protected, duplicate, and incompatible rows.",
+      "rel.3": "<b>Connect every client with least privilege:</b> MCP processes receive revocable grants with explicit scope and duration, and a local AI never sees secrets.",
+      "rel.4": "<b>Publish only with evidence:</b> tags require signing, notarization, a production CloudKit/Push profile, and a signed appcast; sync also requires secure Pro activation and two-Mac QA.",
+      "rel.cta": "See everything in 0.8",
+      "rel.caption": "Real macOS build captured by XCUITest with synthetic fixtures: Large geometry, Large text, and persistence verified after relaunch.",
       "next.kicker": "Next in 0.8", "next.title": "A panel that fits your day. A distribution lane that fails closed.",
       "next.lede": "The 0.8 candidate brings together guided migration, stricter local permissions, and persistent panel controls. The 0.7 DMG remains local-only; promising direct sync also requires secure Pro activation and a signed two-Mac matrix.",
       "next.1": "<b>Make the panel yours:</b> resize from any edge or use Compact, Standard, and Large presets; text scale and geometry survive every relaunch.",
@@ -1199,7 +1192,12 @@
       "next.cta": "Review the unreleased changes",
       "next.caption": "Real macOS build captured by XCUITest with synthetic fixtures: Large geometry, Large text, and persistence verified after relaunch.",
       "evo.kicker": "Recent evolution", "evo.title": "Every release expands what Gancho can remember for you.",
-      "evo.lede": "0.7 is the present. These milestones show how Gancho grew from local memory into a private, fast library available across your devices.",
+      "evo.lede": "0.8 is the present. These milestones show how Gancho grew from local memory into a private, fast library available across your devices.",
+      "evo.v070.d": "Jul 2026 · library into the system", "evo.v070.t": "Your curated library, available system-wide.",
+      "evo.v070.1": "Spotlight indexes snippets and pins on Mac, iPhone, and iPad — never raw history or secrets.",
+      "evo.v070.2": "Batch selection in the panel: send to the stack, file into a board, or delete with a single Undo.",
+      "evo.v070.3": "The on-device AI never receives keys or tokens, and semantic search drops p95 under 30 ms.",
+      "evo.v070.cta": "See everything new in 0.7 →",
       "evo.v060.d": "Jul 2026 · control and reuse", "evo.v060.t": "Find, review, and turn clips into a library.",
       "evo.v060.1": "Filter by source app and combine text, kind, board, and date.",
       "evo.v060.2": "Edit safely, preview with ⌘Y, and turn repeated use into snippets.",
@@ -1266,6 +1264,13 @@
       "int.demo.2": "# the MCP server is opt-in and logs metadata only",
       "log.kicker": "Changelog", "log.title": "The full journey, without turning the page into a wall of text.",
       "log.lede": "Explore every release from newest to first. Open only the milestone you want to know; its metadata and artifacts are verified together in CI.",
+      "log.v080.d": "Jul 2026 · daily driver", "log.v080.t": "A panel that fits your day and a distribution lane that fails closed",
+      "log.v080.1": "<b>Fit the panel to your screen</b>: the history window resizes from its edges, offers Compact, Standard, and Large presets, remembers manual geometry across relaunches, and scales every text style with a Small, Standard, or Large preference.",
+      "log.v080.2": "<b>Import an existing history with a safe preview</b>: the Mac accepts Maccy archives and CSV, shows what will import without writing, rejects protected or malformed rows, deduplicates in one transaction, and reports exact imported and skipped totals.",
+      "log.v080.3": "<b>Approve each local AI client one at a time</b>: every MCP process requires an expiring, revocable grant with explicit board and time context and an independent read-only or read-write policy; sensitive clips stay excluded.",
+      "log.v080.4": "<b>Understand activation without tracking content</b>: Gancho records a closed set of local first-value milestones before diagnostics consent; if you later opt in, it receives one coarse aggregate, not a replay of your prior actions.",
+      "log.v080.5": "<b>Review your private activity on every device</b>: the Mac and iOS Privacy Centers show per-app capture, reuse, and expiry totals from a 13-month on-device receipt that never syncs or exports.",
+      "log.v080.6": "<b>The public channel fails closed</b>: a tag now requires Developer ID signing, notarization, an embedded production CloudKit/Push profile, a signed appcast, and mounted-artifact QA; public builds reject the private license signer and a fresh install stays local-only until secure activation exists.",
       "log.v070.d": "Jul 2026 · pre-release", "log.v070.t": "Your curated library, system-wide",
       "log.v070.1": "<b>Snippets and pins in Spotlight</b>: system search finds your curated library on Mac, iPhone, and iPad — never raw history, secrets, or expiring clips, with a toggle that removes it all immediately.",
       "log.v070.2": "<b>Batch actions in the Mac panel</b>: Shift or Command selects several clips to send to the paste stack, file into a board, or delete with one shared Undo; an all-file selection drags to Finder as a complete set.",
