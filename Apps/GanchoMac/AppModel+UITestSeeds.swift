@@ -66,7 +66,9 @@ extension AppModel {
             guard let suiteName = uiTestDefaultsSuiteName(),
                 let defaults = UserDefaults(suiteName: suiteName)
             else { return .standard }
-            defaults.removePersistentDomain(forName: suiteName)
+            if !CommandLine.arguments.contains("-preserve-ui-test-defaults") {
+                defaults.removePersistentDomain(forName: suiteName)
+            }
             return defaults
         #else
             return .standard

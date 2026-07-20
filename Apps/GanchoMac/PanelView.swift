@@ -110,9 +110,14 @@ struct PanelView: View {
     @State private var uiTestDroppedFileCount = 0
     @State private var uiTestPreparedFileCount = 0
     @State private var uiTestStartedFileCount = 0
+    @AppStorage private var panelTextSizeRaw: String
 
-    init(model: AppModel) {
+    init(model: AppModel, displayDefaults: UserDefaults = .standard) {
         _search = State(wrappedValue: PanelSearchModel(source: model))
+        _panelTextSizeRaw = AppStorage(
+            wrappedValue: PanelTextSize.standard.rawValue,
+            PanelTextSize.storageKey,
+            store: displayDefaults)
     }
 
     /// Zero-size buttons that claim command-level shortcuts. The search
@@ -141,9 +146,10 @@ struct PanelView: View {
     }
 
     var body: some View {
+        let panelTextSize = PanelTextSize.resolved(panelTextSizeRaw)
         HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
             listColumn
-                .frame(width: 440)
+                .frame(minWidth: 360, idealWidth: 440, maxWidth: .infinity)
             // The peek opens BESIDE the list (not a modal) and follows the
             // hovered / selected clip — Quick-Look-style.
             if let selected = search.selectedItem {
@@ -157,17 +163,25 @@ struct PanelView: View {
                 // Drafts, async save callbacks, and action state belong to one
                 // clip only. A new selection gets a fresh preview identity.
                 .id(selected.id)
-                .frame(width: 400)
+                .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
                 .ganchoSurface(radius: GanchoTokens.Radius.lg)
                 .transition(.opacity)
             }
         }
         .padding(GanchoTokens.Spacing.sm)
-        .frame(minWidth: search.selectedItem == nil ? 472 : 864, minHeight: 520)
+        .frame(minWidth: 720, minHeight: 460)
+        .dynamicTypeSize(panelTextSize.dynamicTypeSize)
         .overlay { shortcutsOverlay }
         .overlay { boardPickerOverlay }
         .overlay { telemetryConsentPrompt }
         .overlay(alignment: .top) { uiTestMultiFileDropTarget }
+        .background {
+            #if DEBUG
+                if CommandLine.arguments.contains("-opaque-panel-for-ui-test") {
+                    Color(nsColor: .windowBackgroundColor)
+                }
+            #endif
+        }
         .background { commandShortcutButtons }
         .animation(.snappy(duration: 0.12), value: showShortcuts)
         .task {
@@ -1138,7 +1152,18 @@ struct PanelView: View {
 
     private var captureNotice: CaptureNotice? {
         // Data loss outranks everything: the user must know nothing is persisting.
-        if model.storageIsEphemeral { return .storageEphemeral }
+        #if DEBUG
+            // Privacy-safe marketing evidence uses a deliberately in-memory,
+            // synthetic store. Suppress only that expected warning for the
+            // dedicated screenshot flow; production builds ignore the flag.
+            let suppressExpectedEphemeralNotice =
+                CommandLine.arguments.contains("-suppress-storage-notice-for-ui-test")
+            if model.storageIsEphemeral, !suppressExpectedEphemeralNotice {
+                return .storageEphemeral
+            }
+        #else
+            if model.storageIsEphemeral { return .storageEphemeral }
+        #endif
         if model.monitorStatus == .deniedByPrivacySettings { return .denied }
         if model.preferences.isPrivateModePaused { return .privateMode }
         if model.monitorStatus == .pausedByScreenShare { return .screenShare }
