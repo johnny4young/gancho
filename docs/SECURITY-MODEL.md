@@ -82,9 +82,9 @@ settings.
    the sweep enforces this automatically.
 3. Any NEW telemetry event ships counters/buckets only, remains behind explicit
    consent, and has its schema reviewed against this document.
-4. PrivacyInfo.xcprivacy matches reality (validation lands with the App
-   Store compliance ticket).
-5. Manual VoiceOver + 1Password smoke (docs/ACCESSIBILITY.md, NOTES queue).
+4. PrivacyInfo.xcprivacy matches reality before App Store submission.
+5. Complete the manual VoiceOver + 1Password smoke in
+   `docs/ACCESSIBILITY.md` and attach the evidence to the release record.
 
 ## Public derivability
 

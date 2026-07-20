@@ -234,34 +234,35 @@ production downloads require them.
 | `MACOS_NOTARY_TEAM_ID` | Team ID for Apple ID notarization fallback |
 | `TAP_DEPLOY_KEY` | SSH deploy key with write access on `johnny4young/homebrew-tap` (scoped to that one repo, unlike a PAT), used to push the cask bump — the same key style Vitrine uses for its tap |
 | `SPARKLE_EDDSA_PRIVATE_KEY` | The EdDSA private key (`Vendor/bin/generate_keys -x`) that signs the appcast in CI. Its public half is the `SUPublicEDKey` in `Info.plist`. Absent → the release publishes a DMG with no appcast update entry |
-| `GANCHO_LICENSE_SIGNING_KEY` | The Ed25519 private key that turns on **direct-download Pro**: XcodeGen bakes it into the build's `GanchoLicenseSigningKey` so the app can mint + verify license activation tokens. Absent → the build stays Free and the paywall shows "Pro is coming soon" |
+| `GANCHO_LICENSE_SIGNING_KEY` | Legacy development-only activation signer. **Do not configure it for a public release:** the current build wiring embeds it in the app. Absent → the build stays Free and the paywall shows "Pro is coming soon". Public direct-license issuance requires the server boundary below. |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Deploy the marketing landing to Cloudflare Pages (`gancho-web` → gancho.app) from the Website workflow |
 
 The App Store Connect API-key path wins when both notarization credential styles
 are configured.
 
-### Enabling direct-download Pro (payments)
+### Direct-download Pro status (payments)
 
 The license-activation infrastructure ships built, the Lemon Squeezy product +
 hosted checkout already exist (`LemonSqueezyStore`), and the **public** verifier
-key is already committed in `License.swift`. Payments turn on when the release
-build bakes in the matching **private** key:
+key is already committed in `License.swift`. The repository still contains a
+legacy development path that can inject the matching private key and mint a
+token locally. That path is useful for deterministic tests, but it is **not a
+safe production issuance design**: extracting one distributed build would
+compromise every entitlement that key can sign.
 
-1. Set the private key that matches the committed public key as the repo secret
-   `GANCHO_LICENSE_SIGNING_KEY` (the value saved when the keypair was generated).
-   If that private key was lost, regenerate the pair and replace the committed
-   public key in `License.swift`:
+Until issuance moves to a server, leave `GANCHO_LICENSE_SIGNING_KEY` unset in
+public builds; direct download remains Free and the paywall says "Pro is coming
+soon." A production implementation must:
 
-   ```bash
-   swift scripts/generate-license-keypair.swift   # prints public, writes private
-   ```
+1. keep only the public verifier key in the application;
+2. exchange the provider's activation proof with a minimal server that accepts
+   no clipboard content by schema;
+3. issue short, versioned, audience-bound tokens with explicit expiry, device,
+   revocation, replay, rotation, outage/grace, and rollback policy;
+4. exercise purchase, recovery, revocation, and clean-device activation against
+   the signed release candidate before enabling the paid surface.
 
-2. Tag a release. `release.yml` bakes the key into the signed DMG, and the
-   paywall automatically switches from "Pro is coming soon" to the real Lemon
-   Squeezy purchase + activation flow — `LicenseSigningKey.isConfigured` gates
-   this, so no code change is needed.
-
-A from-source or App Store build never gets the key, so it stays Free / StoreKit.
+The App Store build continues to use StoreKit and never needs this signing key.
 
 ## Artifact QA
 

@@ -298,7 +298,7 @@ struct GRDBClipboardStoreTests {
     @Test("Raw-key adoption is env-gated (GANCHO_RAWKEY_ADOPT=1) and OFF by default")
     func rawKeyAdoptionFlag() {
         // `encrypted(directory:keychainAccessGroup:)` branches on exactly this
-        // gate; only the literal "1" opts in (rollout: `.audit/06` §5).
+        // gate; only the literal "1" opts into the staged migration path.
         #expect(!GRDBClipboardStore.rawKeyAdoptionEnabled(environment: [:]))
         #expect(
             !GRDBClipboardStore.rawKeyAdoptionEnabled(

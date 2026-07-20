@@ -27,11 +27,13 @@ a signed Sparkle appcast, version-sync guards, artifact QA, and the website. The
 v0.7.0 DMG ships through the same signed, notarized, stapled lane that produced
 the Gatekeeper-accepted v0.6.0 artifact; acceptance is re-verified per published
 release. What remains before 1.0 is repeating the real-device sync matrix for
-the release candidate, App Store submission, and the account-gated launch pieces
-(App Store products and TestFlight).
+the release candidate, moving direct-license issuance outside distributed
+builds, validating CloudKit production recovery, App Store submission, and the
+account-gated launch pieces (App Store products and TestFlight).
 
 ## Contents
 
+- [Unreleased on main](#unreleased-on-main)
 - [What's new in 0.7](#whats-new-in-07)
 - [Product goal](#product-goal)
 - [Platform plan](#platform-plan)
@@ -42,6 +44,24 @@ the release candidate, App Store submission, and the account-gated launch pieces
 - [Contributing](#contributing)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
+
+## Unreleased on main
+
+- **Bring an existing history with you.** A guided Mac import previews Maccy
+  archives or CSV files before writing, rejects protected and malformed rows,
+  deduplicates atomically, supports cancellation, and finishes with an exact
+  imported/skipped summary.
+- **Give each local AI client only the context it needs.** MCP access now uses
+  expiring, revocable per-client grants with an explicit board/time context,
+  independent read/write policy, fail-closed SQL filtering, and a content-free
+  access ledger. No process can fall back to ambient history.
+- **Make first value visible without pre-consent tracking.** Onboarding records
+  only closed, content-free activation milestones locally; optional diagnostics
+  receive one coarse aggregate only after explicit consent.
+- **See private reuse without creating another history.** The Privacy Center on
+  Mac, iPhone, and iPad shows bounded per-app capture, reuse, protected/ignored,
+  and sensitive-expiry totals. The receipt stays on that device for 13 rolling
+  months, never syncs or exports, and has an independent clear action.
 
 ## What's new in 0.7
 
@@ -147,6 +167,8 @@ stay in reusable modules.
   as independent file URLs when the whole selection is file-safe.
 - Curated snippets and pins can be donated to Spotlight with structural
   redaction and a Settings switch that removes Gancho's system index immediately.
+- Guided Maccy/CSV history import uses a read-only preview, source validation,
+  atomic deduplication, cancellation, and a content-free final summary.
 
 **iPhone & iPad app**
 
@@ -177,8 +199,10 @@ stay in reusable modules.
   boundary (clips, board membership, deletions) with a visible sync status. A
   real-device cross-device pass has completed; the matrix is repeated for each
   release candidate.
-- `gancho` CLI and a local, opt-in, scoped MCP server (metadata-only access
-  log), plus a VS Code "Save Selection" command — see
+- `gancho` CLI and a local, opt-in MCP server with expiring, revocable
+  per-client grants, explicit board/time context, independent read/write
+  permission, and a metadata-only access log, plus a VS Code "Save Selection"
+  command — see
   [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
 
 **Monetization & operations**
@@ -187,6 +211,9 @@ stay in reusable modules.
   and free-tier limits (the App Store products are owner-gated).
 - Optional anonymous diagnostics, disabled until explicit consent and limited
   by type to metadata buckets; crash and support bundles remain content-free.
+- Content-free activation milestones remain local before consent, and the
+  independent private activity receipt exposes bounded per-app totals without
+  syncing, exporting, or retaining clipboard content.
 
 **Engineering**
 

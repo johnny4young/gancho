@@ -5,10 +5,10 @@ import GRDB
 //
 // Production callers still open through `init(directory:passphrase:)` /
 // `encrypted(directory:keychainAccessGroup:)`; nothing in the apps, the
-// extensions, or the CLI calls into this file yet. Wire it only per the
-// rollout checklist in `.audit/06-sqlcipher-rawkey-rekey.md` §5 (raw-first
-// open one release, rekey the next), after the on-device verification
-// matrix there passes.
+// extensions, or the CLI calls into this file unless the environment gate is
+// enabled. Roll it out only after derived-key open, raw-key probe, in-place
+// rekey, relaunch, extension concurrency, rollback, and recovery pass on real
+// devices; keep the raw-first open and the migration release separable.
 
 #if SQLITE_HAS_CODEC
     extension GRDBClipboardStore {

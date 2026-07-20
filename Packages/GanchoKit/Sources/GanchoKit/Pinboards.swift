@@ -45,7 +45,7 @@ public struct Pinboard: Identifiable, Sendable, Equatable, Codable {
 
 /// Free-tier ceilings (PasteBar pattern — the cleanest conversion gate on
 /// the market). Pure functions: the command layer consults them with the
-/// user's tier; enforcement UX (paywall) is the monetization ticket's job.
+/// user's tier; platform shells own the paywall and enforcement presentation.
 public enum PinLimits {
     public static let freeMaxPins = 15
     public static let freeMaxPinboards = 3
