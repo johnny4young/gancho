@@ -92,9 +92,8 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      # Import the Developer ID Application certificate into a temporary keychain
-      # so codesign finds it during the build. Gated on the cert secret: absent
-      # (a fork or pre-cert repo) → skipped and the DMG falls back to ad-hoc.
+      # Import the Developer ID Application certificate into a temporary keychain.
+      # A public tag is fail-closed: it never publishes an ad-hoc artifact.
       - name: Import Developer ID certificate
         env:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
@@ -102,8 +101,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${MACOS_CERTIFICATE_P12}" ]; then
-            echo "::notice::MACOS_CERTIFICATE_P12 is not configured; the DMG will be ad-hoc signed (not notarizable)."
-            exit 0
+            echo "::error::MACOS_CERTIFICATE_P12 is required for a public release."
+            exit 1
           fi
           keychain="${RUNNER_TEMP}/gancho-signing.keychain-db"
           keychain_password="$(openssl rand -base64 24)"
@@ -120,6 +119,31 @@ jobs:
           rm -f "${cert_path}"
           security find-identity -v -p codesigning "${keychain}"
 
+      - name: Validate and install Developer ID provisioning profile
+        env:
+          MACOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.MACOS_PROVISIONING_PROFILE_BASE64 }}
+          MACOS_SIGN_TEAM_ID: ${{ secrets.MACOS_SIGN_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MACOS_PROVISIONING_PROFILE_BASE64}" ]; then
+            echo "::error::MACOS_PROVISIONING_PROFILE_BASE64 is required for production CloudKit sync."
+            exit 1
+          fi
+          if [ -z "${MACOS_SIGN_TEAM_ID}" ]; then
+            echo "::error::MACOS_SIGN_TEAM_ID is required for profile validation."
+            exit 1
+          fi
+          profile_path="${RUNNER_TEMP}/Gancho.provisionprofile"
+          echo "${MACOS_PROVISIONING_PROFILE_BASE64}" | base64 --decode > "${profile_path}"
+          scripts/validate-macos-release-profile.sh "${profile_path}"
+          decoded="${RUNNER_TEMP}/Gancho-profile.plist"
+          security cms -D -i "${profile_path}" > "${decoded}"
+          uuid="$(plutil -extract UUID raw -o - "${decoded}")"
+          profile_dir="${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "${profile_dir}"
+          cp "${profile_path}" "${profile_dir}/${uuid}.provisionprofile"
+          echo "MACOS_PROVISIONING_PROFILE=${profile_path}" >> "$GITHUB_ENV"
+
       - name: Stage App Store Connect notary key
         env:
           MACOS_NOTARY_KEY_P8_BASE64: ${{ secrets.MACOS_NOTARY_KEY_P8 }}
@@ -133,13 +157,9 @@ jobs:
           echo "${MACOS_NOTARY_KEY_P8_BASE64}" | base64 --decode > "${key_path}"
           echo "MACOS_NOTARY_KEY_P8=${key_path}" >> "$GITHUB_ENV"
 
-      # Build the signed, notarized direct-download DMG. GANCHO_LICENSE_SIGNING_KEY
-      # (an Ed25519 private key) is interpolated into the Info.plist by XcodeGen so
-      # the build can mint + verify Pro activation tokens. Empty → the build stays
-      # Free and the paywall shows an honest "Pro is coming soon". The signing /
-      # notary env vars are read by scripts/package-macos-dmg.sh, which degrades to
-      # an unsigned dev artifact when they are absent.
-      - name: Build the signed, notarized DMG (license flavor)
+      # Build the signed, notarized, profile-backed direct-download DMG. Public
+      # tags deliberately leave the legacy private license signer unset.
+      - name: Build the signed, notarized DMG
         id: dmg
         env:
           VERSION: ${{ github.ref_name }}
@@ -150,7 +170,7 @@ jobs:
           MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
           MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
           MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
-          GANCHO_LICENSE_SIGNING_KEY: ${{ secrets.GANCHO_LICENSE_SIGNING_KEY }}
+          REQUIRE_PRODUCTION_RELEASE: "1"
         run: |
           set -euo pipefail
           export VERSION="${VERSION#v}"
@@ -161,17 +181,27 @@ jobs:
             echo "sha=$(awk '{print $1}' "${dmg}.sha256")"
           } >> "$GITHUB_OUTPUT"
 
-      # Sign the DMG with the EdDSA key (from a secret) and regenerate the appcast
-      # so direct-download users update N → N+1. Gated on the key like the signing
-      # steps: without it the release still publishes a DMG, just no update entry.
+      - name: QA signed release artifact
+        env:
+          REQUIRE_SYNC_ENTITLEMENTS: "1"
+          VERSION: ${{ steps.dmg.outputs.version }}
+        run: ./scripts/qa-release.sh "dist/Gancho-${VERSION}.dmg"
+
+      # Sign the exact DMG bytes with Sparkle's EdDSA key and regenerate the
+      # appcast. A public tag without an update path is incomplete and fails.
       - name: Generate the signed Sparkle appcast
         id: appcast
-        if: ${{ env.SPARKLE_EDDSA_PRIVATE_KEY != '' }}
         env:
           SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
           VERSION: ${{ steps.dmg.outputs.version }}
           TAG: ${{ github.ref_name }}
-        run: make appcast
+        run: |
+          set -euo pipefail
+          if [ -z "${SPARKLE_EDDSA_PRIVATE_KEY}" ]; then
+            echo "::error::SPARKLE_EDDSA_PRIVATE_KEY is required for a public release."
+            exit 1
+          fi
+          make appcast
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3

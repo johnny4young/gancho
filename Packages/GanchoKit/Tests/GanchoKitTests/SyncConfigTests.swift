@@ -44,12 +44,39 @@ struct SyncConfigTests {
             "macOS's prefixed key is not iOS's push entitlement")
     }
 
-    /// project.yml regenerates the entitlements files (`make project`), so the
-    /// source of truth must carry the same per-platform keys or the next
-    /// generation reintroduces the mismatch.
-    @Test func projectYAMLCarriesThePerPlatformPushKeys() throws {
+    /// The macOS app target selects a tracked entitlements file through an
+    /// app-only build-setting indirection. The direct release overrides only
+    /// that custom setting, so restricted values never spill into helpers or
+    /// package dependencies. iOS remains generated from project.yml.
+    @Test func projectWiringSelectsPerPlatformPushEntitlements() throws {
         let project = try Self.text("project.yml")
-        #expect(project.contains("com.apple.developer.aps-environment: development"))
+        let packageScript = try Self.text("scripts", "package-macos-dmg.sh")
+        let profileValidator = try Self.text(
+            "scripts", "validate-macos-release-profile.sh")
+        let directMac = try Self.text(
+            "Apps", "GanchoMac", "Gancho-DirectDownload.entitlements")
+
+        #expect(
+            project.contains(
+                "GANCHO_MAC_ENTITLEMENTS_PATH: Apps/GanchoMac/Gancho.entitlements"))
+        #expect(
+            project.contains("CODE_SIGN_ENTITLEMENTS: $(GANCHO_MAC_ENTITLEMENTS_PATH)"))
+        #expect(
+            packageScript.contains(
+                "GANCHO_MAC_ENTITLEMENTS_PATH=Apps/GanchoMac/Gancho-DirectDownload.entitlements"))
+        #expect(directMac.contains("<key>com.apple.developer.aps-environment</key>"))
+        #expect(directMac.contains("<string>production</string>"))
+        #expect(
+            profileValidator.contains(
+                #"Entitlements.com\.apple\.developer\.aps-environment"#),
+            "plutil key paths must escape periods inside entitlement keys")
+        #expect(
+            profileValidator.contains(
+                #"Entitlements.com\.apple\.application-identifier"#),
+            "macOS profiles expose the qualified application identifier key")
+        #expect(
+            profileValidator.contains(#"com\.apple\.application-identifier"#),
+            "signed-entitlement lookup must escape its dotted top-level key")
         // The bare key must appear for iOS — and never with the macOS prefix
         // stripped/duplicated ambiguity: exactly one bare occurrence.
         let bareOccurrences = project.components(separatedBy: "\n").filter {

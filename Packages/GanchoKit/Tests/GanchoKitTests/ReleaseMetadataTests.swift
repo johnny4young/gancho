@@ -100,16 +100,19 @@ struct ReleaseMetadataTests {
         #expect(doc.contains("glassEffect"))
     }
 
-    @Test func releaseWorkflowBuildsTheSignedLicenseDMG() throws {
+    @Test func releaseWorkflowBuildsTheProfileBackedSignedDMG() throws {
         let workflow = try Self.text(".github", "workflows", "release.yml")
 
         #expect(workflow.contains("tags: [\"v*\"]"))
         #expect(workflow.contains("make release-check"))
         #expect(workflow.contains("GITHUB_REF_NAME#v"))
-        // The publish job builds the signed, notarized direct-download DMG with
-        // the license-signing key baked in, then publishes + bumps the cask.
+        // The publish job fails closed around the signed, notarized,
+        // profile-backed direct-download DMG, then publishes + bumps the cask.
         #expect(workflow.contains("make package-dmg"))
-        #expect(workflow.contains("GANCHO_LICENSE_SIGNING_KEY"))
+        #expect(workflow.contains("MACOS_PROVISIONING_PROFILE_BASE64"))
+        #expect(workflow.contains("REQUIRE_PRODUCTION_RELEASE: \"1\""))
+        #expect(workflow.contains("REQUIRE_SYNC_ENTITLEMENTS: \"1\""))
+        #expect(!workflow.contains("GANCHO_LICENSE_SIGNING_KEY: ${{ secrets."))
         #expect(workflow.contains("softprops/action-gh-release"))
         #expect(workflow.contains("dist/Gancho-*.dmg"))
         #expect(workflow.contains("update-homebrew-tap.sh"))

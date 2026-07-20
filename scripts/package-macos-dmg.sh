@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
 # Build the direct-download (non-App-Store) Gancho.app and package it as a
-# signed, notarized DMG. This flavor turns on GANCHO_DIRECT_DOWNLOAD, so Pro
-# comes from a Lemon Squeezy license key (not StoreKit). With no Developer ID
-# identity the DMG is unsigned — a development artifact only; Gatekeeper will
-# reject it on other Macs.
-#
-# Set GANCHO_LICENSE_SIGNING_KEY (base64 Ed25519 private key) to bake in the
-# token signer for real sales; left empty, the build cannot mint licenses.
+# signed, notarized DMG. Production releases require a Developer ID profile
+# that authorizes the app's CloudKit container and production push environment.
+# With REQUIRE_PRODUCTION_RELEASE unset, an unsigned local development artifact
+# is still possible; it must never be published.
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -15,15 +12,11 @@ cd "$repo_root"
 # The DMG IS the direct-download channel.
 export GANCHO_COMPILATION_CONDITIONS="GANCHO_DIRECT_DOWNLOAD"
 
-# Sign with the direct-download entitlements: no iCloud/Push, so manual Developer
-# ID signing needs no provisioning profile. The runtime disables sync when the
-# iCloud entitlement is absent. Override to a profile-backed file once the direct
-# channel ships CloudKit sync.
-# Absolute path: passed as a global build setting, it is resolved against each
-# target's own SRCROOT, so a relative path would break the SwiftPM framework
-# targets. The empty dict is a no-op for those frameworks and drops iCloud/Push
-# from the app.
-ENTITLEMENTS="${ENTITLEMENTS:-$repo_root/Apps/GanchoMac/Gancho-DirectDownload.entitlements}"
+# Sign with the direct-download production entitlements. These restricted
+# CloudKit/Push entitlements require a matching Developer ID provisioning profile.
+# The Gancho target resolves this through an app-only custom build setting;
+# restricted entitlements must never leak to frameworks or helper executables.
+ENTITLEMENTS="$repo_root/Apps/GanchoMac/Gancho-DirectDownload.entitlements"
 
 PROJECT="${PROJECT:-Gancho.xcodeproj}"
 SCHEME="${SCHEME:-Gancho}"
@@ -33,12 +26,44 @@ OUTPUT_DIR="${OUTPUT_DIR:-dist}"
 VERSION="${VERSION:-$(sed -nE 's/^[[:space:]]*MARKETING_VERSION:[[:space:]]*"?([0-9][0-9A-Za-z.-]*)"?[[:space:]]*$/\1/p' project.yml | head -n1)}"
 DMG_PATH="$OUTPUT_DIR/Gancho-$VERSION.dmg"
 RESULT_BUNDLE="${RESULT_BUNDLE:-build/release-macos-direct.xcresult}"
+REQUIRE_PRODUCTION_RELEASE="${REQUIRE_PRODUCTION_RELEASE:-0}"
+PROVISIONING_PROFILE="${MACOS_PROVISIONING_PROFILE:-}"
+PROFILE_UUID=""
 
 if [ -z "$VERSION" ]; then
 	echo "error: VERSION is empty and MARKETING_VERSION could not be read" >&2
 	exit 1
 fi
 
+if [ "$REQUIRE_PRODUCTION_RELEASE" = "1" ]; then
+	[ -n "${CODE_SIGN_IDENTITY:-}" ] \
+		|| { echo "error: production release requires CODE_SIGN_IDENTITY" >&2; exit 1; }
+	[ -n "${MACOS_SIGN_TEAM_ID:-${DEVELOPMENT_TEAM:-}}" ] \
+		|| { echo "error: production release requires MACOS_SIGN_TEAM_ID" >&2; exit 1; }
+	[ -n "$PROVISIONING_PROFILE" ] \
+		|| { echo "error: production release requires MACOS_PROVISIONING_PROFILE" >&2; exit 1; }
+	[ -z "${GANCHO_LICENSE_SIGNING_KEY:-}" ] \
+		|| { echo "error: public releases must not embed GANCHO_LICENSE_SIGNING_KEY" >&2; exit 1; }
+fi
+
+if [ -n "${CODE_SIGN_IDENTITY:-}" ] && [ "$ENTITLEMENTS" = "$repo_root/Apps/GanchoMac/Gancho-DirectDownload.entitlements" ]; then
+	[ -n "$PROVISIONING_PROFILE" ] \
+		|| { echo "error: CloudKit-enabled signing requires MACOS_PROVISIONING_PROFILE" >&2; exit 1; }
+fi
+
+if [ -n "$PROVISIONING_PROFILE" ]; then
+	[ -f "$PROVISIONING_PROFILE" ] \
+		|| { echo "error: provisioning profile not found: $PROVISIONING_PROFILE" >&2; exit 1; }
+	printf '==> Validating Developer ID provisioning profile\n'
+	./scripts/validate-macos-release-profile.sh "$PROVISIONING_PROFILE"
+	profile_plist="$(mktemp -t gancho-profile-build.XXXXXX).plist"
+	security cms -D -i "$PROVISIONING_PROFILE" > "$profile_plist" 2>/dev/null
+	PROFILE_UUID="$(plutil -extract UUID raw -o - "$profile_plist")"
+	rm -f "$profile_plist"
+	profile_dir="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+	mkdir -p "$profile_dir"
+	cp "$PROVISIONING_PROFILE" "$profile_dir/$PROFILE_UUID.provisionprofile"
+fi
 mkdir -p "$OUTPUT_DIR" build
 rm -rf "$DERIVED_DATA" "$RESULT_BUNDLE" "$DMG_PATH" "$DMG_PATH.sha256"
 
@@ -54,6 +79,8 @@ build_args=(
 	-configuration "$CONFIGURATION"
 	-derivedDataPath "$DERIVED_DATA"
 	-resultBundlePath "$RESULT_BUNDLE"
+	"GANCHO_MAC_ENTITLEMENTS_PATH=Apps/GanchoMac/Gancho-DirectDownload.entitlements"
+	"GANCHO_PROVISIONING_PROFILE_SPECIFIER=$PROFILE_UUID"
 )
 
 if [ -n "${CODE_SIGN_IDENTITY:-}" ]; then
@@ -62,9 +89,8 @@ if [ -n "${CODE_SIGN_IDENTITY:-}" ]; then
 		CODE_SIGNING_ALLOWED=YES
 		CODE_SIGN_STYLE=Manual
 		"CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY"
-		"CODE_SIGN_ENTITLEMENTS=$ENTITLEMENTS"
 		ENABLE_HARDENED_RUNTIME=YES
-		CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
+		CODE_SIGN_INJECT_BASE_ENTITLEMENTS=YES
 		OTHER_CODE_SIGN_FLAGS="--timestamp"
 	)
 	if [ -n "${MACOS_SIGN_TEAM_ID:-${DEVELOPMENT_TEAM:-}}" ]; then
@@ -81,6 +107,16 @@ APP_PATH="$DERIVED_DATA/Build/Products/$CONFIGURATION/Gancho.app"
 if [ ! -d "$APP_PATH" ]; then
 	echo "error: expected app bundle not found at $APP_PATH" >&2
 	exit 1
+fi
+
+RESOLVED_ENTITLEMENTS="$ENTITLEMENTS"
+GENERATED_ENTITLEMENTS=""
+if [ -n "${CODE_SIGN_IDENTITY:-}" ] && [ -n "$PROVISIONING_PROFILE" ]; then
+	cp "$PROVISIONING_PROFILE" "$APP_PATH/Contents/embedded.provisionprofile"
+	GENERATED_ENTITLEMENTS="$(mktemp -t gancho-signed-entitlements.XXXXXX).plist"
+	codesign --display --entitlements :- "$APP_PATH" > "$GENERATED_ENTITLEMENTS" 2>/dev/null
+	plutil -lint "$GENERATED_ENTITLEMENTS" >/dev/null
+	RESOLVED_ENTITLEMENTS="$GENERATED_ENTITLEMENTS"
 fi
 
 # Re-sign Sparkle's nested helpers. Xcode's Embed & Sign re-signs the framework
@@ -104,7 +140,7 @@ sign_sparkle_helpers() {
 			--sign "$CODE_SIGN_IDENTITY" "$item"
 	done
 	codesign --force --options runtime --timestamp \
-		--entitlements "$ENTITLEMENTS" \
+		--entitlements "$RESOLVED_ENTITLEMENTS" \
 		--sign "$CODE_SIGN_IDENTITY" "$APP_PATH"
 }
 
@@ -123,11 +159,21 @@ elif [ -n "${MACOS_NOTARY_KEYCHAIN_PROFILE:-}" ]; then
 	notary_profile="$MACOS_NOTARY_KEYCHAIN_PROFILE"
 fi
 
+if [ "$REQUIRE_PRODUCTION_RELEASE" = "1" ] \
+	&& [ "${#notary_args[@]}" -eq 0 ] && [ -z "$notary_profile" ]; then
+	echo "error: production release requires notarization credentials" >&2
+	exit 1
+fi
+
 # Submit one artifact for notarization and staple another (the app is submitted
 # as a zip but stapled in place; the DMG is both submitted and stapled).
 notarize() {
 	local submit="$1" staple="$2"
 	if [ "${#notary_args[@]}" -eq 0 ] && [ -z "$notary_profile" ]; then
+		if [ "$REQUIRE_PRODUCTION_RELEASE" = "1" ]; then
+			echo "error: notarization credentials are required for $staple" >&2
+			exit 1
+		fi
 		printf 'warning: notarization credentials not configured; %s is not stapled\n' "$staple" >&2
 		return 0
 	fi
@@ -162,6 +208,9 @@ notarize() {
 if [ -n "${CODE_SIGN_IDENTITY:-}" ]; then
 	printf '==> Verifying code signature\n'
 	codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+	if [ -n "$PROVISIONING_PROFILE" ]; then
+		./scripts/validate-macos-release-profile.sh "$PROVISIONING_PROFILE" --app "$APP_PATH"
+	fi
 	# Capture first: piping codesign straight into `grep -q` lets grep exit on
 	# the first match and SIGPIPE codesign, which `set -o pipefail` then reports
 	# as a failed pipeline even though the runtime flag is present.
@@ -177,6 +226,9 @@ if [ -n "${CODE_SIGN_IDENTITY:-}" ]; then
 	notarize "$app_zip" "$APP_PATH"
 	rm -f "$app_zip"
 fi
+if [ -n "$GENERATED_ENTITLEMENTS" ]; then
+	rm -f "$GENERATED_ENTITLEMENTS"
+fi
 
 printf '==> Creating %s\n' "$DMG_PATH"
 staging="$(mktemp -d -t gancho-dmg)"
@@ -190,7 +242,13 @@ if [ -n "${CODE_SIGN_IDENTITY:-}" ]; then
 	codesign --force --sign "$CODE_SIGN_IDENTITY" --timestamp "$DMG_PATH"
 	notarize "$DMG_PATH" "$DMG_PATH"
 	printf '==> Gatekeeper assessment\n'
-	spctl -a -t open --context context:primary-signature -vv "$DMG_PATH" || true
+	if ! spctl -a -t open --context context:primary-signature -vv "$DMG_PATH"; then
+		if [ "$REQUIRE_PRODUCTION_RELEASE" = "1" ]; then
+			echo "error: Gatekeeper rejected the release DMG" >&2
+			exit 1
+		fi
+		printf 'warning: Gatekeeper assessment failed for development artifact\n' >&2
+	fi
 fi
 
 shasum -a 256 "$DMG_PATH" > "$DMG_PATH.sha256"
