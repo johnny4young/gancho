@@ -44,9 +44,16 @@ marketing_version="$({
 	grep -E '^[[:space:]]*MARKETING_VERSION:' project.yml | head -1
 } | sed -E 's/.*"?([0-9]+\.[0-9]+\.[0-9]+)"?.*/\1/')"
 [[ -n "$marketing_version" ]] || fail "could not read MARKETING_VERSION"
+release_series="${marketing_version%.*}"
 require_literal README.md "v${marketing_version} DMG"
+require_literal README.md "- [What's new in ${release_series}](#whats-new-in-${release_series//./})"
+require_literal README.md "## What's new in ${release_series}"
 require_literal docs/PRODUCT-TRUTH.md "v${marketing_version}"
 require_literal site/index.html "v${marketing_version}"
+require_literal site/index.html "data-i18n=\"rel.kicker\">Nuevo en ${release_series}"
+require_literal site/index.html "\"rel.kicker\": \"New in ${release_series}\""
+require_literal site/index.html "data-i18n=\"pro.free\">El DMG v${release_series} "
+require_literal site/index.html "\"pro.free\": \"The v${release_series} DMG "
 
 forbid_regex README.md 'seven library products'
 forbid_regex site/index.html 'macOS 14\+|iOS 17\+'

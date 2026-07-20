@@ -40,8 +40,7 @@ pieces (App Store products and TestFlight).
 
 ## Contents
 
-- [Unreleased on main](#unreleased-on-main)
-- [What's new in 0.7](#whats-new-in-07)
+- [What's new in 0.8](#whats-new-in-08)
 - [Product goal](#product-goal)
 - [Platform plan](#platform-plan)
 - [Current capabilities](#current-capabilities)
@@ -52,7 +51,7 @@ pieces (App Store products and TestFlight).
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 
-## Unreleased on main
+## What's new in 0.8
 
 - **Bring an existing history with you.** A guided Mac import previews Maccy
   archives or CSV files before writing, rejects protected and malformed rows,
@@ -77,26 +76,6 @@ pieces (App Store products and TestFlight).
 - **Make the Mac panel yours.** Resize the history window freely or jump to a
   Compact, Standard, or Large preset; Gancho remembers the geometry and a
   Small, Standard, or Large semantic text preference across relaunches.
-
-## What's new in 0.7
-
-- **Batch the busywork on Mac.** Select a range with Shift or build a selection
-  with Command-click, then send every clip to the paste stack, file them into a
-  board, or delete them with one shared Undo. A selected group of file clips
-  also drags to Finder as one de-duplicated file set.
-- **Find the Library from Spotlight.** Curated snippets and pins are searchable
-  across Mac, iPhone, and iPad while raw history, secrets, and expiring clips
-  stay out of the system index. One switch removes Gancho's Spotlight domain.
-- **Keep secrets outside the model.** Deterministic structural redaction now
-  replaces key-, token-, card-, and private-key-shaped text before on-device AI
-  sees it; every prompt is versioned and covered by an opt-in live evaluation.
-- **Stay fast as the Library grows.** Boards page through thousands of clips,
-  semantic vectors carry their model version for safe background refreshes,
-  and bounded top-K selection brings measured 10k-vector retrieval p95 below
-  30 ms.
-- **Never lose the way back to Gancho.** The menu-bar affordance recovers after
-  helper failure and the history process terminates if no affordance survives;
-  bare JWT previews are masked without disabling decode or paste.
 
 ![Gancho v0.8 resizable history panel](site/assets/v0.8.0-release.png)
 
