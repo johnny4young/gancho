@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lightweight structural check for the static GitHub Pages site.
+# Lightweight structural check for the static Cloudflare Pages site.
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"

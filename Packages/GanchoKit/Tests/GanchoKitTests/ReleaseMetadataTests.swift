@@ -118,6 +118,25 @@ struct ReleaseMetadataTests {
         #expect(workflow.contains("update-homebrew-tap.sh"))
     }
 
+    @Test func releaseWorkflowRequiresOutcomeLedNotesForTheTag() throws {
+        let project = try Self.text("project.yml")
+        let workflow = try Self.text(".github", "workflows", "release.yml")
+        let marketingVersion = try Self.firstCapture(
+            in: project,
+            pattern: #"(?m)^\s*MARKETING_VERSION:\s*"?([0-9]+\.[0-9]+\.[0-9]+)"?\s*$"#)
+        let notes = try Self.text("docs", "releases", "v\(marketingVersion).md")
+
+        #expect(workflow.contains("notes=\"docs/releases/${GITHUB_REF_NAME}.md\""))
+        #expect(workflow.contains("body_path: docs/releases/${{ github.ref_name }}.md"))
+        #expect(workflow.contains("fail_on_unmatched_files: true"))
+        #expect(!workflow.contains("generate_release_notes: true"))
+        #expect(notes.hasPrefix("# Gancho v\(marketingVersion)"))
+        #expect(notes.contains("## Highlights"))
+        #expect(notes.contains("## Install or update"))
+        #expect(notes.contains("## Availability"))
+        #expect(notes.contains("## Release verification"))
+    }
+
     @Test func releaseWorkflowPublishesTheSignedAppcast() throws {
         let workflow = try Self.text(".github", "workflows", "release.yml")
 

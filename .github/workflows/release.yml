@@ -48,6 +48,21 @@ jobs:
           fi
           echo "Tag v${tag_version} matches MARKETING_VERSION." >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Validate curated release notes
+        run: |
+          set -euo pipefail
+          notes="docs/releases/${GITHUB_REF_NAME}.md"
+          if [ ! -s "$notes" ]; then
+            echo "::error::Missing curated release notes at ${notes}."
+            exit 1
+          fi
+          IFS= read -r heading < "$notes"
+          if [[ "$heading" != "# Gancho ${GITHUB_REF_NAME}"* ]]; then
+            echo "::error::${notes} must start with the tagged version."
+            exit 1
+          fi
+          echo "Curated release notes: \`${notes}\`" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Record toolchain
         run: |
           {
@@ -211,7 +226,8 @@ jobs:
             dist/Gancho-*.dmg.sha256
             dist/gancho-cask-update.txt
             site/appcast.xml
-          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body_path: docs/releases/${{ github.ref_name }}.md
 
       # Keep the Homebrew tap in lockstep: regenerate Casks/gancho.rb from the
       # in-repo template with this release's version + sha and push it to the tap

@@ -27,6 +27,14 @@ changelog_version="$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md 
 [ -n "$changelog_version" ] || fail "CHANGELOG.md has no released '## [x.y.z]' heading"
 [ "$changelog_version" = "$marketing_version" ] || fail "CHANGELOG top version ($changelog_version) != MARKETING_VERSION ($marketing_version)"
 
+release_notes="docs/releases/v${marketing_version}.md"
+[ -s "$release_notes" ] || fail "$release_notes is missing or empty"
+IFS= read -r release_heading < "$release_notes"
+[[ "$release_heading" == "# Gancho v${marketing_version}"* ]] || fail "$release_notes must start with Gancho v${marketing_version}"
+grep -Fq '## Install or update' "$release_notes" || fail "$release_notes must document installation and updates"
+grep -Fq '## Availability' "$release_notes" || fail "$release_notes must document availability limits"
+grep -Fq '## Release verification' "$release_notes" || fail "$release_notes must document release verification"
+
 formula="scripts/homebrew/gancho.rb"
 [ -f "$formula" ] || fail "$formula is missing"
 formula_version="$(sed -nE 's/^[[:space:]]*version "([0-9]+\.[0-9]+\.[0-9]+)"[[:space:]]*$/\1/p' "$formula" | head -n1)"
@@ -78,6 +86,7 @@ duplicate_heading="$(awk '
 
 pass "project.yml MARKETING_VERSION $marketing_version and build $build_version are valid"
 pass "CHANGELOG.md top release matches $marketing_version"
+pass "$release_notes is ready for the GitHub Release"
 pass "CHANGELOG.md has no duplicate section headings"
 pass "Homebrew formula template matches $marketing_version"
 pass "Info.plist bundle versions expand from project.yml build settings"

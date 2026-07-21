@@ -16,7 +16,7 @@
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20·%20iOS%20·%20iPadOS-blue)
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
-**Status: in active development (pre-release).** The capture engine, local
+**Status: public v0.8.0, in active development toward 1.0.** The capture engine, local
 GRDB/SQLite storage with FTS5 search, the Liquid Glass history panel,
 paste-back, pins and boards, the retention engine, the on-device intelligence
 stack, the iPhone/iPad app and its extensions, iCloud sync via `CKSyncEngine`,
@@ -24,11 +24,10 @@ and StoreKit purchase plumbing are implemented and covered by tests. Serialized
 purchase and restore automation verifies entitlement changes end to end. The
 release/versioning lane ships a signed, notarized, stapled direct-download DMG,
 a signed Sparkle appcast, version-sync guards, artifact QA, and the website. The
-v0.8.0 DMG ships through the same signed, notarized, stapled lane that produced
-the Gatekeeper-accepted v0.7.0 artifact; acceptance is re-verified per published
-release. v0.8.0 is the first direct release built against an embedded production
-CloudKit/Push provisioning profile, so the artifact is sync-capable and its
-signed entitlements are validated against the profile at package and QA time.
+published v0.8.0 DMG is signed, notarized, stapled, and Gatekeeper-accepted.
+It is the first direct release built against an embedded production CloudKit
+and Push provisioning profile, so the artifact is sync-capable and its signed
+entitlements are validated against the profile at package and QA time.
 Because sync is a Pro entitlement and secure direct activation is not yet
 available, a fresh public direct install still runs local-only: it preserves its
 encrypted history across app updates. Promising end-user sync on the direct
@@ -280,9 +279,13 @@ Release metadata is intentionally boring and synchronized:
 - `project.yml` owns `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`.
 - `CHANGELOG.md` keeps `[Unreleased]` plus the newest released `## [x.y.z]`
   entry matching `MARKETING_VERSION`.
+- `docs/releases/vX.Y.Z.md` contains the curated, outcome-led GitHub Release
+  body for the current version, including install/update instructions,
+  availability limits, and verified artifact evidence.
 - `.github/workflows/release.yml` gates tagged `v*` releases with
   `make release-check`, lint, tests, macOS build, iOS build, packaging, and
-  artifact QA before attaching `dist/Gancho-<version>.zip`.
+  artifact QA before publishing the signed DMG, checksum, curated release note,
+  Homebrew cask update, and signed appcast.
 - `.github/workflows/pages.yml` deploys the landing from `site/` to Cloudflare
   Pages (`https://gancho.app`) and keeps the signed Sparkle appcast on GitHub
   Pages (`https://johnny4young.github.io/gancho/appcast.xml`, the app's feed URL).
@@ -295,8 +298,9 @@ the full release runbook, signing/notarization secrets, and manual QA checklist.
 ```text
 Apps/GanchoMac          macOS menu-bar agent + Liquid Glass panel
 Apps/GanchoiOS          iPhone/iPad app (+ Share, keyboard, widgets)
-site/                   Static GitHub Pages landing site
+site/                   Cloudflare landing source + signed appcast source
 CHANGELOG.md            Release notes that must match MARKETING_VERSION
+docs/releases/          Curated GitHub Release notes, one file per version
 docs/RELEASING.md       Release/versioning, signing, QA, and Pages runbook
 docs/PRODUCT-TRUTH.md   Tested matrix tying public claims to source evidence
 Packages/GanchoKit      One SwiftPM package — eight library products + a CLI:
