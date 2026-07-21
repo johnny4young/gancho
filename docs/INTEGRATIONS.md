@@ -127,16 +127,22 @@ location.
 
 ---
 
-## Pending to publish (owner-gated)
+## Distribution status
 
-These are distribution actions only the owner can take — the code is ready.
+- **Homebrew cask — published.** The public tap installs the signed Mac app and
+  exposes its bundled CLI and MCP server on `PATH`:
 
-- **Homebrew (CLI).** `scripts/homebrew/gancho.rb` is a template. At a tagged
-  release: fill `url` + `sha256` from the source tarball, confirm the `license`,
-  and push the formula to a tap (e.g. `johnny4young/homebrew-tap`). Then
-  `brew tap johnny4young/tap && brew install gancho`.
-- **VS Code Marketplace (extension).** Needs a `vsce` publisher account. Set the
-  real `publisher` in `integrations/vscode/package.json`, then
-  `npx @vscode/vsce publish`. (Today `publisher` is a placeholder.)
-- **Website.** The download funnel and the formula homepage point at
-  `https://gancho.app`; confirming/registering that domain is its own task.
+  ```bash
+  brew tap johnny4young/tap
+  brew install --cask gancho
+  ```
+
+  `scripts/homebrew/gancho.rb` remains an optional source-only CLI formula
+  template. Publishing that separate formula is owner-gated and is not needed
+  to use the CLI included with the cask.
+- **VS Code Marketplace — not published.** The extension already uses the
+  `johnny4young` publisher identifier and builds locally. Marketplace account
+  access, final package inspection, and `npx @vscode/vsce publish` remain
+  owner-gated.
+- **Website — published.** The canonical download and product site is
+  [gancho.app](https://gancho.app).
