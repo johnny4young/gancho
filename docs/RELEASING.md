@@ -109,10 +109,29 @@ VERSION=0.1.0 ./scripts/package-macos-zip.sh
    make build-ios
    ```
 
-7. Review the rendered README, website, social card, and release pull request as
+7. **Build the signed dry run before tagging — this step is not optional.** CI
+   never notarizes, so signing and notarization defects stay invisible until a
+   real notarized build, and a tag that fails at that point leaves a published
+   tag with no artifact. Prerequisites are listed under
+   [Cutting a direct-download release](#cutting-a-direct-download-release):
+
+   ```bash
+   CODE_SIGN_IDENTITY="Developer ID Application: <Name> (JGWX5ZT2N2)" \
+   MACOS_SIGN_TEAM_ID=JGWX5ZT2N2 \
+   MACOS_PROVISIONING_PROFILE="$HOME/Downloads/Gancho.provisionprofile" \
+   MACOS_NOTARY_KEYCHAIN_PROFILE=gancho-notary \
+   REQUIRE_PRODUCTION_RELEASE=1 make package-dmg
+   REQUIRE_SYNC_ENTITLEMENTS=1 ./scripts/qa-release.sh "dist/Gancho-X.Y.Z.dmg"
+   ```
+
+   It must reach `✓ Notarized and stapled` for both the app and the DMG. If it
+   does not, see
+   [Notarization and profile failures](#notarization-and-profile-failures)
+   before changing anything.
+8. Review the rendered README, website, social card, and release pull request as
    a prospective user: the new capabilities, trust boundary, and reason to
    upgrade should be clear without reading the diff.
-8. Commit, tag, and push:
+9. Commit, tag, and push:
 
    ```bash
    git tag v0.1.0
@@ -175,6 +194,40 @@ Before cutting the first sync-enabled direct release, the owner must:
    in the application;
 5. run the signed release candidate on two Macs using the same Apple Account and
    verify capture, update, deletion, retention, and relaunch convergence.
+
+### Notarization and profile failures
+
+Both failures below were hit for real while cutting v0.8.0. The packaging and
+validation scripts already handle them; this section exists so the symptom stays
+recognizable if it resurfaces — for example after an Xcode upgrade changes the
+signing defaults.
+
+**Symptom: `error: profile does not authorize CloudKit` from the profile
+validator, on a profile that is actually correct.** Apple issues
+`com.apple.developer.icloud-services` as the `"*"` wildcard (all iCloud
+services) in a Developer ID profile, not as the explicit `["CloudKit"]` array a
+Mac App Store profile carries. Both authorize CloudKit, so
+`validate-macos-release-profile.sh` accepts either shape. Related trap:
+`plutil -extract … json` cannot serialize a bare `"*"` scalar — it fails with
+`Invalid object in plist for JSON format` and returns nothing — so that check
+reads the value as `xml1` instead.
+
+**Symptom: `notarization status was Invalid` (statusCode 4000) with `The
+executable requests the com.apple.security.get-task-allow entitlement`.**
+`xcodebuild build` injects that debugging entitlement into every executable in
+the bundle — the app, the embedded `gancho-cli`, and `GanchoMenuBarHelper` — and
+notarization rejects all of them. Passing `ENABLE_GET_TASK_ALLOW=NO` does **not**
+affect the `build` action (only `archive`, whose export path has its own
+problems). `package-macos-dmg.sh` therefore strips the entitlement after the
+build and re-signs inside-out, re-sealing the app last. When removing it with
+`plutil -remove`, escape the dots — `'com\.apple\.security\.get-task-allow'` —
+because plutil treats `.` as a key-path level separator, so the unescaped key
+silently matches nothing and the removal appears to succeed while changing
+nothing. Verify with:
+
+```bash
+codesign -d --entitlements :- "Gancho.app/Contents/MacOS/<executable>" | grep get-task-allow
+```
 
 ### Notarization credentials
 
