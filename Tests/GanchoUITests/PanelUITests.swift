@@ -280,7 +280,12 @@ final class PanelUITests: XCTestCase {
 
     @MainActor
     func testFooterShortcutsButtonOpensCheatSheet() throws {
-        let app = launchWithPanel()
+        let app = launchWithPanel(
+            extraArguments: [
+                "-force-ephemeral-store", "-force-pasteboard-access-allowed",
+                "-disable-screen-share-auto-pause", "-opaque-panel-for-ui-test",
+                "-suppress-storage-notice-for-ui-test"
+            ])
         defer { app.terminate() }
         XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
 
@@ -297,6 +302,20 @@ final class PanelUITests: XCTestCase {
         let card = app.descendants(matching: .any)["panel-shortcuts"].firstMatch
         XCTAssertTrue(
             card.waitForExistence(timeout: 3), "the ? button must open the keyboard cheat-sheet")
+
+        let screenshot = XCTAttachment(screenshot: card.screenshot())
+        screenshot.name = "panel-keyboard-shortcuts"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        let closeButton = app.buttons["panel-shortcuts-close-button"].firstMatch
+        XCTAssertTrue(closeButton.waitForExistence(timeout: 3))
+        closeButton.click()
+        let disappeared = NSPredicate(format: "exists == false")
+        let expectation = XCTNSPredicateExpectation(predicate: disappeared, object: card)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [expectation], timeout: 3), .completed,
+            "the cheat-sheet must expose a keyboard-accessible close action")
     }
 
     @MainActor

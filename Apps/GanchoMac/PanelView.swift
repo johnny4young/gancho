@@ -171,7 +171,7 @@ struct PanelView: View {
         .padding(GanchoTokens.Spacing.sm)
         .frame(minWidth: 720, minHeight: 460)
         .dynamicTypeSize(panelTextSize.dynamicTypeSize)
-        .overlay { shortcutsOverlay }
+        .overlay { PanelShortcutsOverlay(isPresented: $showShortcuts) }
         .overlay { boardPickerOverlay }
         .overlay { telemetryConsentPrompt }
         .overlay(alignment: .top) { uiTestMultiFileDropTarget }
@@ -1067,78 +1067,6 @@ struct PanelView: View {
             PanelBoardPicker(items: search.selectedItems) { showBoardPicker = false }
                 .transition(.opacity)
         }
-    }
-
-    @ViewBuilder private var shortcutsOverlay: some View {
-        if showShortcuts {
-            ZStack {
-                Color.black.opacity(0.18)
-                    .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .onTapGesture { showShortcuts = false }
-                shortcutsCard
-            }
-            .transition(.opacity)
-        }
-    }
-
-    private var shortcutsCard: some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            HStack {
-                Text("Keyboard shortcuts").font(.headline)
-                Spacer()
-                Button {
-                    showShortcuts = false
-                } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close")
-            }
-            shortcutLine(["↑", "↓"], "Move selection")
-            shortcutLine(["→"], "Open actions")
-            shortcutLine(["←"], "Back to list")
-            shortcutLine(["⏎"], "Paste")
-            shortcutLine(["⌥", "⏎"], "Paste without formatting")
-            shortcutLine(["⌘", "1–9"], "Paste that numbered clip")
-            shortcutLine(["⌘", "P"], "Pin or unpin")
-            shortcutLine(["⌘", "S"], "Save as snippet")
-            shortcutLine(["⌘", "B"], "Add to board")
-            shortcutLine(["⌘", "Y"], "Preview")
-            shortcutLine(["⌘", "↑"], "Recall recent searches")
-            shortcutLine(["⌘", "A"], "Select all in search")
-            shortcutLine(["esc"], "Close")
-            shortcutLine(["⌘", "/"], "Show this list")
-        }
-        .padding(GanchoTokens.Spacing.md)
-        .frame(width: 320)
-        .background(
-            .regularMaterial,
-            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
-                .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline)
-        )
-        .shadow(radius: 20, y: 8)
-        .accessibilityIdentifier("panel-shortcuts")
-    }
-
-    private func shortcutLine(_ caps: [String], _ label: LocalizedStringKey) -> some View {
-        HStack(spacing: GanchoTokens.Spacing.xs) {
-            HStack(spacing: 3) { ForEach(caps, id: \.self) { keycap($0) } }
-                .frame(width: 86, alignment: .leading)
-            Text(label).font(.callout)
-            Spacer(minLength: 0)
-        }
-    }
-
-    private func keycap(_ text: String) -> some View {
-        Text(verbatim: text)
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
-            .frame(minWidth: 18, minHeight: 18)
-            .padding(.horizontal, 4)
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
     }
 
     // MARK: - Capture notice
