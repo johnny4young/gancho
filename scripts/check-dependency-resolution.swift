@@ -26,6 +26,8 @@ private struct LoadedLock {
     let rawDocument: NSDictionary
 }
 
+private let expectedAppOnlyDependencies: Set<String> = ["keyboardshortcuts"]
+
 private struct Arguments {
     var packageLock = "Packages/GanchoKit/Package.resolved"
     var appLock = "Dependencies/Package.resolved"
@@ -117,6 +119,14 @@ private func validate(_ arguments: Arguments) throws -> (packageCount: Int, appC
     guard app.pins["keyboardshortcuts"] != nil else {
         throw ValidationError(
             "the app-wide lock must contain project dependency keyboardshortcuts")
+    }
+
+    let appOnlyDependencies = Set(app.pins.keys).subtracting(package.pins.keys)
+    guard appOnlyDependencies == expectedAppOnlyDependencies else {
+        let actual = appOnlyDependencies.sorted().joined(separator: ", ")
+        throw ValidationError(
+            "app-wide lock has an invalid project-only dependency set: "
+                + "expected keyboardshortcuts, found \(actual.isEmpty ? "none" : actual)")
     }
 
     for identity in package.pins.keys.sorted() {
