@@ -7,6 +7,8 @@ SCHEME_MAC ?= Gancho
 SCHEME_IOS ?= GanchoiOS
 SCHEME_STOREKIT ?= GanchoStoreKit
 PACKAGE ?= Packages/GanchoKit
+SWIFT_PACKAGE_FLAGS ?= --disable-automatic-resolution
+XCODE_PACKAGE_FLAGS ?= -disableAutomaticPackageResolution
 # Default signing team for local signed builds. Override for forks/CI with
 # `make install-ios DEVELOPMENT_TEAM=<team-id>`.
 DEVELOPMENT_TEAM ?= JGWX5ZT2N2
@@ -33,7 +35,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project fetch-sparkle build build-signed build-ios install-ios test test-storekit coverage coverage-check test-ui bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
+.PHONY: help project fetch-sparkle resolve-dependencies dependency-check build build-signed build-ios install-ios test test-storekit coverage coverage-check test-ui bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -44,16 +46,22 @@ fetch-sparkle: ## Fetch the pinned Sparkle.framework into Vendor/ (auto-updater)
 project: fetch-sparkle ## Regenerate Gancho.xcodeproj from project.yml
 	$(XCODEGEN) generate
 
+resolve-dependencies: project ## Refresh both canonical SwiftPM locks after changing a requirement
+	PACKAGE=$(PACKAGE) SCHEME=$(SCHEME_MAC) ./scripts/resolve-dependencies.sh
+
+dependency-check: ## Verify the package and app dependency locks agree
+	swift scripts/check-dependency-resolution.swift
+
 build: project ## Build the macOS app (Debug, unsigned)
-	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_MAC) -configuration Debug \
+	xcodebuild $(XCODE_PACKAGE_FLAGS) -project Gancho.xcodeproj -scheme $(SCHEME_MAC) -configuration Debug \
 		CODE_SIGNING_ALLOWED=NO build
 
 build-signed: project ## Build the macOS app (Debug, team-signed) — stable identity so the Accessibility grant persists across rebuilds (paste-back testing)
-	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_MAC) -configuration Debug \
+	xcodebuild $(XCODE_PACKAGE_FLAGS) -project Gancho.xcodeproj -scheme $(SCHEME_MAC) -configuration Debug \
 		CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=$(DEVELOPMENT_TEAM) build
 
 build-ios: project ## Build the iOS app (Debug, generic device, unsigned)
-	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_IOS) -configuration Debug \
+	xcodebuild $(XCODE_PACKAGE_FLAGS) -project Gancho.xcodeproj -scheme $(SCHEME_IOS) -configuration Debug \
 		-destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
 
 install-ios: project ## Build the iOS app (Debug, team-signed) and install it on the connected iPhone/iPad
@@ -65,18 +73,18 @@ install-ios: project ## Build the iOS app (Debug, team-signed) and install it on
 		echo "No connected iPhone/iPad found — plug one in and trust this Mac (see: xcrun devicectl list devices)"; exit 1; \
 	fi; \
 	echo "Installing on device $$dev…"; \
-	xcodebuild -project Gancho.xcodeproj -scheme $(SCHEME_IOS) -configuration Debug \
+	xcodebuild $(XCODE_PACKAGE_FLAGS) -project Gancho.xcodeproj -scheme $(SCHEME_IOS) -configuration Debug \
 		-destination 'generic/platform=iOS' -derivedDataPath build/ios \
 		CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=$(DEVELOPMENT_TEAM) -allowProvisioningUpdates build && \
 	xcrun devicectl device install app --device "$$dev" \
 		build/ios/Build/Products/Debug-iphoneos/GanchoiOS.app
 
 test: ## Run package unit tests (Swift Testing)
-	swift test --package-path $(PACKAGE)
+	swift test $(SWIFT_PACKAGE_FLAGS) --package-path $(PACKAGE)
 
 coverage: ## Run package tests with coverage and enforce the production-source floor
 	mkdir -p build
-	set -o pipefail; swift test --package-path $(PACKAGE) --enable-code-coverage \
+	set -o pipefail; swift test $(SWIFT_PACKAGE_FLAGS) --package-path $(PACKAGE) --enable-code-coverage \
 		2>&1 | tee build/package-test.log
 	./scripts/check-build-warnings.sh build/package-test.log
 	./scripts/check-coverage.sh
@@ -87,7 +95,7 @@ coverage-check: ## Self-test the production-source coverage classifier
 test-storekit: project ## Run serialized StoreKitTest purchase/entitlement automation
 	mkdir -p build
 	rm -rf build/storekit-tests.xcresult
-	set -o pipefail; xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_STOREKIT) \
+	set -o pipefail; xcodebuild $(XCODE_PACKAGE_FLAGS) test -project Gancho.xcodeproj -scheme $(SCHEME_STOREKIT) \
 		-destination 'platform=macOS' \
 		-resultBundlePath build/storekit-tests.xcresult \
 		CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
@@ -98,10 +106,10 @@ test-storekit: project ## Run serialized StoreKitTest purchase/entitlement autom
 	./scripts/check-build-warnings.sh build/storekit-tests.log
 
 bench: ## Run the scale performance harness (seeds 100k rows; not for the PR loop)
-	env GANCHO_PERF=1 swift test --package-path $(PACKAGE) --filter PerformanceHarnessTests
+	env GANCHO_PERF=1 swift test $(SWIFT_PACKAGE_FLAGS) --package-path $(PACKAGE) --filter PerformanceHarnessTests
 
 test-ui: project ## Run the XCUITest smoke suite (drives the real app; signed runner)
-	xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
+	xcodebuild $(XCODE_PACKAGE_FLAGS) test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
 		-only-testing:GanchoUITests $(TEST_UI_SIGNING_FLAGS)
 
 test-sync-e2e: project ## Live two-engine sync harness vs the REAL dev container (owner-gated; signed host + iCloud)
@@ -109,22 +117,24 @@ test-sync-e2e: project ## Live two-engine sync harness vs the REAL dev container
 	# host process (it strips the prefix). Setting a bare GANCHO_SYNC_E2E only
 	# reaches xcodebuild itself — the suite's `.enabled(if:)` gate then reads
 	# nothing and SILENTLY SKIPS while still reporting success.
-	TEST_RUNNER_GANCHO_SYNC_E2E=1 xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
+	TEST_RUNNER_GANCHO_SYNC_E2E=1 xcodebuild $(XCODE_PACKAGE_FLAGS) test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
 		-only-testing:GanchoSyncE2ETests \
 		CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=$(DEVELOPMENT_TEAM)
 
 # Override the simulator with: make test-ui-ios IOS_SIM_DEST='platform=iOS Simulator,name=iPhone 17'
 IOS_SIM_DEST ?= platform=iOS Simulator,name=iPhone 17
 test-ui-ios: project ## Run the iOS XCUITest smoke suite on a simulator
-	xcodebuild test -project Gancho.xcodeproj -scheme $(SCHEME_IOS) \
+	xcodebuild $(XCODE_PACKAGE_FLAGS) test -project Gancho.xcodeproj -scheme $(SCHEME_IOS) \
 		-only-testing:GanchoiOSUITests \
 		-destination '$(IOS_SIM_DEST)' CODE_SIGNING_ALLOWED=NO
 
 format: ## Format Swift sources in place
-	swift format --in-place --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests
+	swift format --in-place --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests \
+		scripts/check-dependency-resolution.swift
 
-lint: ## Verify formatting and SwiftLint rules without changing files
-	swift format lint --strict --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests
+lint: dependency-check ## Verify formatting, SwiftLint rules, and dependency locks
+	swift format lint --strict --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests \
+		scripts/check-dependency-resolution.swift
 	$(MAKE) swiftlint
 
 swiftlint: ## Run SwiftLint with the Portavoz-compatible strict rule set

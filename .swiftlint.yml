@@ -13,6 +13,7 @@ included:
   - Packages/GanchoKit/Sources
   - Packages/GanchoKit/Tests
   - Tests
+  - scripts/check-dependency-resolution.swift
 
 excluded:
   - .build
