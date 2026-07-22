@@ -58,9 +58,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     private var firstFrameClock: ContinuousClock.Instant?
     private static let measuresFirstFrame =
         CommandLine.arguments.contains("-measure-panel")
-    #if DEBUG
-        private var uiTestMultiFileDropOverlay: UITestMultiFileDropOverlay?
-    #endif
 
     /// The panel auto-hides when it loses key focus (the user clicks another
     /// app or window), Spotlight-style. Flip this to keep it open on purpose —
@@ -251,28 +248,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    #if DEBUG
-        /// Installs the signed UI smoke's destination on the top-level panel,
-        /// outside SwiftUI's hosted hit-test tree. The handler receives only a
-        /// count; paths and clipboard content never leave AppKit.
-        func configureUITestMultiFileDrop(_ handler: ((Int) -> Void)?) {
-            guard let contentView = panel?.contentView else { return }
-            guard let handler else {
-                uiTestMultiFileDropOverlay?.removeFromSuperview()
-                uiTestMultiFileDropOverlay = nil
-                return
-            }
-            let overlay = uiTestMultiFileDropOverlay ?? UITestMultiFileDropOverlay()
-            overlay.onDrop = handler
-            if overlay.superview == nil {
-                overlay.frame = contentView.bounds
-                overlay.autoresizingMask = [.width, .height]
-                contentView.addSubview(overlay, positioned: .above, relativeTo: nil)
-            }
-            uiTestMultiFileDropOverlay = overlay
-        }
-    #endif
-
     /// Starts the AppKit-only edge of drag-out from the row's narrow responder
     /// bridge, with one NSDraggingItem per concrete file URL.
     @discardableResult
@@ -314,8 +289,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         session.animatesToStartingPositionsOnCancelOrFail = true
         #if DEBUG
             if CommandLine.arguments.contains("-show-multi-file-drop-target") {
+                let fileItemCount =
+                    session.draggingPasteboard.pasteboardItems?.count(where: {
+                        $0.availableType(from: [.fileURL]) != nil
+                    }) ?? 0
                 NotificationCenter.default.post(
-                    name: .uiTestMultiFileDragStarted, object: payload.urls.count)
+                    name: .uiTestMultiFileDragStarted, object: fileItemCount)
             }
         #endif
         noteDragOutStarted()
@@ -499,51 +478,6 @@ private final class MultiFileDragSource: NSObject, NSDraggingSource {
         onEnd(!operation.isEmpty)
     }
 }
-
-#if DEBUG
-    /// Topmost test-only destination. It declines the initial mouse-down so the
-    /// real row remains the drag source, then participates in drag hit-testing
-    /// across the panel and reads each independent file-URL pasteboard object.
-    @MainActor
-    private final class UITestMultiFileDropOverlay: NSView {
-        var onDrop: ((Int) -> Void)?
-
-        init() {
-            super.init(frame: .zero)
-            registerForDraggedTypes([.fileURL])
-        }
-
-        @available(*, unavailable)
-        required init?(coder: NSCoder) { nil }
-
-        override func hitTest(_ point: NSPoint) -> NSView? {
-            guard let type = NSApp.currentEvent?.type,
-                type == .leftMouseDragged || type == .leftMouseUp,
-                bounds.contains(point)
-            else { return nil }
-            return self
-        }
-
-        override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-            fileURLs(from: sender).isEmpty ? [] : .copy
-        }
-
-        override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-            let urls = fileURLs(from: sender)
-            guard !urls.isEmpty else { return false }
-            onDrop?(urls.count)
-            return true
-        }
-
-        private func fileURLs(from sender: any NSDraggingInfo) -> [URL] {
-            let options: [NSPasteboard.ReadingOptionKey: Any] = [
-                .urlReadingFileURLsOnly: true
-            ]
-            return sender.draggingPasteboard.readObjects(
-                forClasses: [NSURL.self], options: options) as? [URL] ?? []
-        }
-    }
-#endif
 
 extension NSRect {
     fileprivate var intersectsAnyScreen: Bool {

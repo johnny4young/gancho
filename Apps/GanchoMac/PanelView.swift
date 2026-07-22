@@ -106,8 +106,7 @@ struct PanelView: View {
     @State private var searchHistory: [String] = []
     @State private var historyCursor: Int?
     @State private var recalledQuery: String?
-    /// Set only by the opt-in debug drop target used by the signed drag smoke.
-    @State private var uiTestDroppedFileCount = 0
+    /// Set only by the opt-in debug probe used by the signed drag smoke.
     @State private var uiTestPreparedFileCount = 0
     @State private var uiTestStartedFileCount = 0
     @AppStorage private var panelTextSizeRaw: String
@@ -296,9 +295,9 @@ struct PanelView: View {
                     Image(systemName: "tray.and.arrow.down.fill")
                         .font(.title2)
                     Text(
-                        verbatim: uiTestDroppedFileCount == 0
-                            ? "Drop files here"
-                            : "Received \(uiTestDroppedFileCount) files"
+                        verbatim: uiTestStartedFileCount == 0
+                            ? "Drag files here"
+                            : "\(uiTestStartedFileCount) file items"
                     )
                     .font(.caption.weight(.semibold))
                 }
@@ -312,12 +311,6 @@ struct PanelView: View {
                             style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
                 }
                 .padding(GanchoTokens.Spacing.lg)
-                .onAppear {
-                    model.panel.configureUITestMultiFileDrop { count in
-                        uiTestDroppedFileCount = count
-                    }
-                }
-                .onDisappear { model.panel.configureUITestMultiFileDrop(nil) }
                 .onReceive(
                     NotificationCenter.default.publisher(for: .uiTestMultiFileDragPrepared)
                 ) { notification in
@@ -332,7 +325,7 @@ struct PanelView: View {
                 .accessibilityLabel(
                     Text(
                         verbatim:
-                            "Multi-file drop target, \(uiTestDroppedFileCount) files, prepared \(uiTestPreparedFileCount), started \(uiTestStartedFileCount)"
+                            "Multi-file drag probe, prepared \(uiTestPreparedFileCount), pasteboard \(uiTestStartedFileCount)"
                     )
                 )
                 .accessibilityIdentifier("multi-file-drop-target")

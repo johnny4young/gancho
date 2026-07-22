@@ -20,6 +20,9 @@ IOS_DEVICE ?=
 # explicit by default, and let CI override this when it provides custom signing
 # settings (for example: make test-ui TEST_UI_SIGNING_FLAGS="DEVELOPMENT_TEAM=...").
 TEST_UI_SIGNING_FLAGS ?= CODE_SIGNING_ALLOWED=YES
+MAC_UI_RESULT_BUNDLE ?= build/macos-ui-tests.xcresult
+IOS_UI_RESULT_BUNDLE ?= build/ios-ui-tests.xcresult
+UI_EVIDENCE_DIR ?= build/ui-test-evidence
 # Direct-download license signing (honor model). Empty by default — a
 # from-source or App Store build cannot mint license tokens. The release DMG
 # build exports the real values. Exported so xcodegen picks them up.
@@ -35,7 +38,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project fetch-sparkle resolve-dependencies dependency-check build build-signed build-ios install-ios test test-storekit coverage coverage-check test-ui bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
+.PHONY: help project fetch-sparkle resolve-dependencies dependency-check build build-signed build-ios install-ios test test-storekit coverage coverage-check test-ui test-ui-ios ui-evidence bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -109,8 +112,14 @@ bench: ## Run the scale performance harness (seeds 100k rows; not for the PR loo
 	env GANCHO_PERF=1 swift test $(SWIFT_PACKAGE_FLAGS) --package-path $(PACKAGE) --filter PerformanceHarnessTests
 
 test-ui: project ## Run the XCUITest smoke suite (drives the real app; signed runner)
+	mkdir -p build
+	rm -rf $(MAC_UI_RESULT_BUNDLE)
 	xcodebuild $(XCODE_PACKAGE_FLAGS) test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
-		-only-testing:GanchoUITests $(TEST_UI_SIGNING_FLAGS)
+		-only-testing:GanchoUITests -resultBundlePath $(MAC_UI_RESULT_BUNDLE) \
+		$(TEST_UI_SIGNING_FLAGS)
+
+ui-evidence: ## Export kept screenshots and attachments from the macOS UI result bundle
+	./scripts/export-xcresult-attachments.sh $(MAC_UI_RESULT_BUNDLE) $(UI_EVIDENCE_DIR)
 
 test-sync-e2e: project ## Live two-engine sync harness vs the REAL dev container (owner-gated; signed host + iCloud)
 	# The TEST_RUNNER_ prefix is how xcodebuild forwards an env var INTO the test
@@ -124,9 +133,12 @@ test-sync-e2e: project ## Live two-engine sync harness vs the REAL dev container
 # Override the simulator with: make test-ui-ios IOS_SIM_DEST='platform=iOS Simulator,name=iPhone 17'
 IOS_SIM_DEST ?= platform=iOS Simulator,name=iPhone 17
 test-ui-ios: project ## Run the iOS XCUITest smoke suite on a simulator
+	mkdir -p build
+	rm -rf $(IOS_UI_RESULT_BUNDLE)
 	xcodebuild $(XCODE_PACKAGE_FLAGS) test -project Gancho.xcodeproj -scheme $(SCHEME_IOS) \
 		-only-testing:GanchoiOSUITests \
-		-destination '$(IOS_SIM_DEST)' CODE_SIGNING_ALLOWED=NO
+		-destination '$(IOS_SIM_DEST)' -resultBundlePath $(IOS_UI_RESULT_BUNDLE) \
+		CODE_SIGNING_ALLOWED=NO
 
 format: ## Format Swift sources in place
 	swift format --in-place --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests \

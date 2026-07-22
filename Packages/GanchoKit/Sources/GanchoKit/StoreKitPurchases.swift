@@ -8,9 +8,24 @@ extension StoreKitEntitlement {
     public static func currentTier() async -> UserTier {
         var entitledIDs = Set<String>()
         for await result in Transaction.currentEntitlements {
-            if case .verified(let transaction) = result {
+            if case .verified(let transaction) = result, transaction.revocationDate == nil {
                 entitledIDs.insert(transaction.productID)
             }
+        }
+        let currentTier = tier(forEntitledProductIDs: entitledIDs)
+        guard currentTier == .free else { return currentTier }
+
+        // StoreKit's local entitlement sequence can transiently be empty even
+        // when a non-consumable has a verified latest transaction. Query each
+        // known product as a narrow fallback so a valid lifetime purchase does
+        // not relock Pro during cache recovery or local StoreKit testing. A
+        // revoked or expired transaction never grants access.
+        for product in ProCatalog.all {
+            guard case .verified(let transaction)? = await Transaction.latest(for: product.id),
+                transaction.revocationDate == nil,
+                transaction.expirationDate.map({ $0 > Date() }) ?? true
+            else { continue }
+            entitledIDs.insert(transaction.productID)
         }
         return tier(forEntitledProductIDs: entitledIDs)
     }
