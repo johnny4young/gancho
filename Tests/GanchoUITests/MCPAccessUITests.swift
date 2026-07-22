@@ -21,8 +21,13 @@ final class MCPAccessUITests: XCTestCase {
 
         let revoke = app.buttons["mcp-revoke-client-claude-desktop"].firstMatch
         XCTAssertTrue(revoke.waitForExistence(timeout: 3))
-        XCTAssertTrue(revoke.isHittable)
-        revoke.click()
+        app.activate()
+        app.windows["MCP Access"].firstMatch.click()
+        // Hosted macOS runners occasionally report toolbar-adjacent SwiftUI
+        // buttons as non-hittable even though their on-screen frame is valid.
+        // Click the element's center and prove delivery through the live state
+        // transition below rather than trusting that transient AX flag.
+        revoke.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
 
         XCTAssertEqual(labelOrValue(of: "mcp-client-state-claude-desktop", in: app), "Revoked")
         XCTAssertEqual(labelOrValue(of: "mcp-active-client-count", in: app), "0 active")

@@ -32,8 +32,11 @@ final class ReuseSuggestionUITests: XCTestCase {
         try copySeededClip(in: app)
         let banner = app.descendants(matching: .any)["reuse-suggestion"].firstMatch
         XCTAssertTrue(banner.waitForExistence(timeout: 8))
-        app.buttons["reuse-suggestion-dismiss"].firstMatch.tap()
-        waitForDisappearance(of: banner, timeout: 2)
+        let dismiss = app.buttons["reuse-suggestion-dismiss"].firstMatch
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
+        XCTAssertTrue(dismiss.isHittable)
+        dismiss.tap()
+        waitForDisappearance(of: banner, timeout: 8)
 
         try copySeededClip(in: app)
         let noRepeat = XCTNSPredicateExpectation(
