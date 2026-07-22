@@ -7,6 +7,22 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- CloudKit recovery decisions and pending-work planning now live in focused,
+  deterministic components, reducing the sync engine's stateful surface while
+  preserving its existing retry and restart behavior.
+- Release validation now keeps macOS and iOS UI result bundles and can export
+  their screenshots and attachments as reproducible review evidence.
+
+### Fixed
+
+- Lifetime Pro purchases remain unlocked when StoreKit temporarily omits a
+  valid non-consumable purchase from its current-entitlements snapshot.
+- Hosted UI validation now verifies final state and relative window behavior
+  instead of depending on transient accessibility flags or display-specific
+  pixel dimensions.
+
 ## [0.8.0] - 2026-07-20
 
 ### Added

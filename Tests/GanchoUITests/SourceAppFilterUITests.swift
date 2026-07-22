@@ -31,7 +31,11 @@ final class SourceAppFilterUITests: XCTestCase {
         let xcodeSample = clipRow(containing: "Xcode source sample", in: app)
         XCTAssertTrue(safariAlpha.waitForExistence(timeout: 5))
         XCTAssertTrue(safariLink.waitForExistence(timeout: 5))
-        XCTAssertFalse(xcodeSample.exists)
+        let xcodeDisappeared = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: xcodeSample)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [xcodeDisappeared], timeout: 5), .completed,
+            "the Safari filter must remove Xcode rows after the async search refresh")
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "macOS source-app filter — Safari"

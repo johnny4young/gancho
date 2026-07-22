@@ -49,9 +49,9 @@ final class PanelReproUITests: XCTestCase {
         XCTAssertTrue(search.exists, "closing the board picker must keep the panel open")
     }
 
-    /// Uses an in-panel real URL drop destination so the runner can verify the
-    /// AppKit pasteboard contains two independent items without touching an
-    /// unrelated Finder window on the developer's desktop.
+    /// Uses an in-panel probe coordinate so the runner can start a real AppKit
+    /// drag without touching an unrelated Finder window. The probe reports the
+    /// session pasteboard's independent file-URL item count.
     @MainActor
     func testMultiFileClipDragsEveryFileAndKeepsPanelOpen() throws {
         let app = XCUIApplication()
@@ -80,7 +80,7 @@ final class PanelReproUITests: XCTestCase {
         let prepared = XCTNSPredicateExpectation(
             predicate: NSPredicate(
                 format: "label == %@",
-                "Multi-file drop target, 0 files, prepared 2, started 0"),
+                "Multi-file drag probe, prepared 2, pasteboard 0"),
             object: target)
         XCTAssertEqual(
             XCTWaiter.wait(for: [prepared], timeout: 5), .completed,
@@ -88,20 +88,26 @@ final class PanelReproUITests: XCTestCase {
         let source = row.coordinate(withNormalizedOffset: CGVector(dx: 0.18, dy: 0.5))
         let destination = target.coordinate(
             withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        source.press(forDuration: 0.15, thenDragTo: destination)
+        // A short press or instantaneous release can be interpreted as a click
+        // when the full macOS UI suite leaves the automation server under
+        // load. Move slowly and dwell over the destination so AppKit observes
+        // at least one destination update before the synthesized mouse-up.
+        source.press(
+            forDuration: 0.5, thenDragTo: destination,
+            withVelocity: .slow, thenHoldForDuration: 0.5)
 
-        let received = XCTNSPredicateExpectation(
+        let populated = XCTNSPredicateExpectation(
             predicate: NSPredicate(
                 format: "label == %@",
-                "Multi-file drop target, 2 files, prepared 2, started 2"),
+                "Multi-file drag probe, prepared 2, pasteboard 2"),
             object: target)
         XCTAssertEqual(
-            XCTWaiter.wait(for: [received], timeout: 5), .completed,
-            "one drag must deliver both file URLs as separate pasteboard items")
+            XCTWaiter.wait(for: [populated], timeout: 8), .completed,
+            "one drag must publish both file URLs as separate pasteboard items")
         XCTAssertTrue(search.exists, "the panel must remain open after the drop")
 
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        attachment.name = "panel-multi-file-drag-delivered"
+        attachment.name = "panel-multi-file-drag-pasteboard"
         attachment.lifetime = .keepAlways
         add(attachment)
     }
@@ -128,7 +134,7 @@ final class PanelReproUITests: XCTestCase {
         let prepared = XCTNSPredicateExpectation(
             predicate: NSPredicate(
                 format: "label == %@",
-                "Multi-file drop target, 0 files, prepared 2, started 0"),
+                "Multi-file drag probe, prepared 2, pasteboard 0"),
             object: target)
         XCTAssertEqual(
             XCTWaiter.wait(for: [prepared], timeout: 5), .completed,

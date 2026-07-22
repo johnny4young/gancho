@@ -30,6 +30,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         let panel = historyPanel(in: app)
         XCTAssertTrue(panel.waitForExistence(timeout: 5))
         XCTAssertEqual(panel.value as? String, "standard")
+        let standardWidth = panel.frame.width
 
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.escape, modifierFlags: [])
@@ -49,8 +50,9 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         XCTAssertTrue(NSWorkspace.shared.open(panelURL))
         XCTAssertTrue(panel.waitForExistence(timeout: 5))
         XCTAssertTrue(
-            waitUntil { panel.frame.width >= 1_060 },
+            waitForPanelWidth(in: app) { $0 >= standardWidth + 100 },
             "the Large preset must resize the live panel")
+        let largeWidth = historyPanel(in: app).frame.width
         XCTAssertEqual(
             panel.value as? String, "large",
             "Large text must update the panel's semantic text scale live")
@@ -71,7 +73,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         XCTAssertTrue(relaunchedPanel.waitForExistence(timeout: 5))
         XCTAssertEqual(relaunchedPanel.value as? String, "large")
         XCTAssertTrue(
-            waitUntil { relaunchedPanel.frame.width >= 1_060 },
+            waitForPanelWidth(in: app) { abs($0 - largeWidth) <= 2 },
             "the chosen panel size must survive relaunch")
     }
 
@@ -106,6 +108,13 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(pollInterval))
         }
         return condition()
+    }
+
+    @MainActor
+    private func waitForPanelWidth(
+        in app: XCUIApplication, matching condition: @escaping (CGFloat) -> Bool
+    ) -> Bool {
+        waitUntil(timeout: 10) { condition(self.historyPanel(in: app).frame.width) }
     }
 
     @MainActor
