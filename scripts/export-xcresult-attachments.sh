@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Export screenshots and other kept attachments from an Xcode result bundle.
 set -euo pipefail
 
