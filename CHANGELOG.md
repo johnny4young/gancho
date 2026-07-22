@@ -7,6 +7,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-07-22
+
 ### Changed
 
 - CloudKit recovery decisions and pending-work planning now live in focused,
