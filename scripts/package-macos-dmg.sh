@@ -74,6 +74,7 @@ printf '==> Generating Xcode project (GANCHO_DIRECT_DOWNLOAD)\n'
 "${XCODEGEN:-xcodegen}" generate
 
 build_args=(
+	-disableAutomaticPackageResolution
 	-project "$PROJECT"
 	-scheme "$SCHEME"
 	-configuration "$CONFIGURATION"

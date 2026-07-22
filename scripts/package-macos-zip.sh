@@ -29,6 +29,7 @@ printf '==> Generating Xcode project\n'
 "${XCODEGEN:-xcodegen}" generate
 
 build_args=(
+	-disableAutomaticPackageResolution
 	-project "$PROJECT"
 	-scheme "$SCHEME"
 	-configuration "$CONFIGURATION"

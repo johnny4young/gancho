@@ -1,0 +1,50 @@
+{
+  "originHash" : "43482a33d0f42b49e1f056fa52e7b34d128564aab2a911c36fb12caa40ef54da",
+  "pins" : [
+    {
+      "identity" : "grdb.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/johnny4young/GRDB.swift.git",
+      "state" : {
+        "revision" : "77e27afdf29bc298a14d2b19e2bb5bcf466df632"
+      }
+    },
+    {
+      "identity" : "keyboardshortcuts",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sindresorhus/KeyboardShortcuts",
+      "state" : {
+        "revision" : "1aef85578fdd4f9eaeeb8d53b7b4fc31bf08fe27",
+        "version" : "2.4.0"
+      }
+    },
+    {
+      "identity" : "sauce",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Clipy/Sauce.git",
+      "state" : {
+        "revision" : "84d03fcddebf78e08f3105b1159300bfdae3b217",
+        "version" : "2.5.1"
+      }
+    },
+    {
+      "identity" : "sqlcipher.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sqlcipher/SQLCipher.swift.git",
+      "state" : {
+        "revision" : "07bf6bc2191a063d6f1e7c3b5f276a3fadfe36b7",
+        "version" : "4.16.0"
+      }
+    },
+    {
+      "identity" : "swiftsdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/TelemetryDeck/SwiftSDK",
+      "state" : {
+        "revision" : "ad4a03ec7ea7416a4081370f21c86e55b02a5b88",
+        "version" : "2.14.1"
+      }
+    }
+  ],
+  "version" : 3
+}

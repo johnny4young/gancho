@@ -79,7 +79,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: Packages/GanchoKit/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift') }}
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift', 'Packages/GanchoKit/Package.resolved') }}
 
       - name: Lint
         run: make lint

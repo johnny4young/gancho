@@ -53,7 +53,8 @@ jobs:
         run: |
           mkdir -p build
           set -o pipefail
-          xcodebuild test -project Gancho.xcodeproj -scheme Gancho \
+          xcodebuild -disableAutomaticPackageResolution \
+            test -project Gancho.xcodeproj -scheme Gancho \
             -destination 'platform=macOS,arch=arm64' \
             -only-testing:GanchoUITests \
             -resultBundlePath build/macos-ui.xcresult \
@@ -129,7 +130,8 @@ jobs:
         run: |
           mkdir -p build
           set -o pipefail
-          xcodebuild test -project Gancho.xcodeproj -scheme GanchoiOS \
+          xcodebuild -disableAutomaticPackageResolution \
+            test -project Gancho.xcodeproj -scheme GanchoiOS \
             -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
             -only-testing:GanchoiOSUITests \
             -resultBundlePath build/ios-ui.xcresult \

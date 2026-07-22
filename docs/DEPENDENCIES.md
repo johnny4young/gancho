@@ -20,10 +20,33 @@ prompt for a human, never a change.
 
 One file records the upstream versions Gancho builds against. The canary
 cross-checks the pins that have a tracked source of truth — `SPARKLE` against
-`scripts/fetch-sparkle.sh`, `SAUCE` and `SQLCIPHER` against
-`Packages/GanchoKit/Package.resolved` — so a pin cannot silently drift from
-what the repo actually builds. Update a pin only inside the PR that adopts the
-new version.
+`scripts/fetch-sparkle.sh`, `SAUCE` and `SQLCIPHER` against the package lock,
+and `KEYBOARDSHORTCUTS` against the app lock — so a pin cannot silently drift
+from what the repo actually builds. Update a pin only inside the PR that adopts
+the new version.
+
+## Reproducible resolution
+
+Gancho has two dependency roots and therefore two canonical locks:
+
+- `Packages/GanchoKit/Package.resolved` records the standalone package graph
+  used by `swift test` and the CLI build.
+- `Dependencies/Package.resolved` records the app-wide Xcode graph: every
+  GanchoKit dependency plus the project-level `KeyboardShortcuts` package.
+
+The generated `Gancho.xcodeproj` remains ignored. XcodeGen's post-generation
+hook copies the app lock to the workspace location Xcode expects; never edit
+that generated copy. `make dependency-check` proves shared dependencies resolve
+to the same revisions in both graphs. Normal SwiftPM and Xcode gates disable
+automatic resolution, so an incompatible manifest fails instead of silently
+rewriting a lock.
+
+After deliberately changing a package requirement, run
+`make resolve-dependencies`. Review both lock diffs and the manifest change,
+run the matrix below, and commit them together. Do not run a resolver and then
+commit whichever generated lock happened to change. A Dependabot SwiftPM PR
+will initially fail the lock-coherence gate until its package update is also
+resolved into the app-wide lock with this command.
 
 ## Runbook: rebasing the GRDB fork
 
@@ -43,9 +66,9 @@ ship. Its branch name encodes the upstream base (`sqlcipher-7.11.0`).
 3. **Diff the patch.** `git diff <newTag>..sqlcipher-<newTag>` must show ONLY
    the SQLCipher enablement. Anything else means an upstream conflict was
    resolved wrong — stop and re-do the cherry-pick.
-4. **Point Gancho at it.** Update the branch name in
-   `Packages/GanchoKit/Package.swift`, run a full resolve, and update
-   `GRDB`/`SQLCIPHER` in `scripts/upstream-pins.env`.
+4. **Point Gancho at it.** Update the exact fork revision in
+   `Packages/GanchoKit/Package.swift`, run `make resolve-dependencies`, and
+   update `GRDB`/`SQLCIPHER` in `scripts/upstream-pins.env`.
 5. **Test matrix (all must pass before the PR):**
    - `make test` (package suite; includes `GRDBEncryptionTests`,
      `GRDBRawKeyAdoptionTests`, migration + durability suites);
@@ -62,8 +85,10 @@ ship. Its branch name encodes the upstream base (`sqlcipher-7.11.0`).
 
 When the canary reports KeyboardShortcuts 3.x: migrate it in ITS OWN PR, with
 tests that prove recorded shortcuts persist across the upgrade and that the
-conflict-detection behavior (`ShortcutConflictsTests`) is unchanged. Its pin
-is maintained by hand (the project-level resolved file is generated).
+conflict-detection behavior (`ShortcutConflictsTests`) is unchanged. Update its
+requirement in `project.yml`, refresh both locks with
+`make resolve-dependencies`, and update `KEYBOARDSHORTCUTS` in
+`scripts/upstream-pins.env` in the same PR.
 
 ## Sparkle
 

@@ -42,16 +42,17 @@ if [ "$sparkle_in_script" != "$SPARKLE" ]; then
 	echo "✗ pin drift: SPARKLE pin ($SPARKLE) != fetch-sparkle.sh ($sparkle_in_script)" >&2
 	exit 1
 fi
-# Sauce and SQLCipher.swift resolve inside the tracked package manifest;
-# KeyboardShortcuts is a project-level dependency whose resolved file is
-# generated (not tracked), so its pin is maintained by hand in
-# upstream-pins.env alongside the update PR.
-for pair in "sauce:$SAUCE" "sqlcipher.swift:$SQLCIPHER"; do
-	identity="${pair%%:*}"
-	pin="${pair#*:}"
-	if ! grep -A5 "\"identity\" : \"$identity\"" Packages/GanchoKit/Package.resolved \
+# Cross-check every resolved semantic-version pin against its canonical lock.
+# The package-only and app-wide graphs intentionally have separate locks;
+# scripts/check-dependency-resolution.swift verifies their shared pins agree.
+for entry in \
+	"sauce:$SAUCE:Packages/GanchoKit/Package.resolved" \
+	"sqlcipher.swift:$SQLCIPHER:Packages/GanchoKit/Package.resolved" \
+	"keyboardshortcuts:$KEYBOARDSHORTCUTS:Dependencies/Package.resolved"; do
+	IFS=: read -r identity pin lock_file <<<"$entry"
+	if ! grep -A5 "\"identity\" : \"$identity\"" "$lock_file" \
 		| grep -q "\"version\" : \"$pin\""; then
-		echo "✗ pin drift: $identity pin ($pin) != Packages/GanchoKit/Package.resolved" >&2
+		echo "✗ pin drift: $identity pin ($pin) != $lock_file" >&2
 		exit 1
 	fi
 done

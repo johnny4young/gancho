@@ -12,6 +12,10 @@ options:
   createIntermediateGroups: true
   groupSortPosition: top
   generateEmptyDirectories: true
+  # XcodeGen is ephemeral, but Xcode's app-wide SwiftPM lock is tracked outside
+  # the ignored project. Restore it after every generation so Xcode never falls
+  # back to mutating the local package's narrower dependency graph.
+  postGenCommand: ./scripts/install-xcode-package-lock.sh
   # English is the development language; Spanish ships as a real second locale
   # from day one (enforced by LocalizationTests once UI strings exist).
   developmentLanguage: en

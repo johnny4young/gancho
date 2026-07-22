@@ -40,10 +40,13 @@ jobs:
         uses: actions/cache@v6
         with:
           path: Packages/GanchoKit/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift') }}
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift', 'Packages/GanchoKit/Package.resolved') }}
 
       - name: Release metadata sync
         run: make release-check
+
+      - name: Dependency resolution locks
+        run: make dependency-check
 
       - name: Website structure
         run: make site-check
@@ -64,7 +67,8 @@ jobs:
         run: |
           mkdir -p build
           set -o pipefail
-          swift test --package-path Packages/GanchoKit --enable-code-coverage \
+          swift test --disable-automatic-resolution \
+            --package-path Packages/GanchoKit --enable-code-coverage \
             2>&1 | tee build/package-test.log
           ./scripts/check-build-warnings.sh build/package-test.log
 
@@ -111,7 +115,8 @@ jobs:
         run: |
           mkdir -p build
           set -o pipefail
-          xcodebuild -project Gancho.xcodeproj -scheme Gancho -configuration Debug \
+          xcodebuild -disableAutomaticPackageResolution \
+            -project Gancho.xcodeproj -scheme Gancho -configuration Debug \
             -resultBundlePath build/mac.xcresult CODE_SIGNING_ALLOWED=NO build \
             2>&1 | tee build/mac-build.log
           ./scripts/check-build-warnings.sh build/mac-build.log
@@ -119,7 +124,8 @@ jobs:
       - name: Build iOS app
         run: |
           set -o pipefail
-          xcodebuild -project Gancho.xcodeproj -scheme GanchoiOS -configuration Debug \
+          xcodebuild -disableAutomaticPackageResolution \
+            -project Gancho.xcodeproj -scheme GanchoiOS -configuration Debug \
             -destination 'generic/platform=iOS' \
             -resultBundlePath build/ios.xcresult CODE_SIGNING_ALLOWED=NO build \
             2>&1 | tee build/ios-build.log
@@ -159,6 +165,7 @@ jobs:
         run: |
           ./scripts/fetch-sparkle.sh
           xcodegen generate
-          swift test --package-path Packages/GanchoKit
-          xcodebuild -project Gancho.xcodeproj -scheme Gancho -configuration Debug \
+          swift test --disable-automatic-resolution --package-path Packages/GanchoKit
+          xcodebuild -disableAutomaticPackageResolution \
+            -project Gancho.xcodeproj -scheme Gancho -configuration Debug \
             CODE_SIGNING_ALLOWED=NO build
