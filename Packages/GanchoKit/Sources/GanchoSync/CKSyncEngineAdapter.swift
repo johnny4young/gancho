@@ -98,28 +98,10 @@ public actor CKSyncEngineAdapter: SyncEngine {
             try await engine.fetchChanges()
             try await engine.sendChanges()
         } catch {
-            emit(.failed(Self.interruption(error)))
+            emit(.failed(CloudKitSyncPolicy.interruption(for: error)))
             throw error
         }
         await emitCurrentStatus()
-    }
-
-    /// True when a change fetch failed only because the zone doesn't exist yet
-    /// (fresh account / first launch) — including inside a partial failure.
-    /// Internal (not private) so the unit tests can pin the classification.
-    static func isMissingZone(_ error: Error) -> Bool {
-        guard let ckError = error as? CKError else { return false }
-        switch ckError.code {
-        case .zoneNotFound, .userDeletedZone:
-            return true
-        case .partialFailure:
-            let partial = ckError.partialErrorsByItemID?.values.compactMap { $0 as? CKError }
-            return partial?.allSatisfy {
-                $0.code == .zoneNotFound || $0.code == .userDeletedZone
-            } ?? false
-        default:
-            return false
-        }
     }
 
     // MARK: - Explicit pull (hosts that receive no push)
@@ -213,10 +195,10 @@ public actor CKSyncEngineAdapter: SyncEngine {
                     let token = try await fetchZoneChanges(from: database, in: zone, since: nil)
                     tokens.zones[zone.zoneName] = token.flatMap(Self.archive)
                 } catch {
-                    guard Self.isMissingZone(error) else { throw error }
+                    guard CloudKitSyncPolicy.isMissingZone(error) else { throw error }
                 }
             } catch {
-                guard Self.isMissingZone(error) else { throw error }
+                guard CloudKitSyncPolicy.isMissingZone(error) else { throw error }
             }
         }
         savePollTokens(tokens)
@@ -335,42 +317,13 @@ public actor CKSyncEngineAdapter: SyncEngine {
         emit(pending > 0 ? .pending(pending) : .upToDate(at: Date()))
     }
 
-    /// Maps a CloudKit error to a structured interruption the UI localizes.
-    private static func interruption(_ error: Error) -> SyncInterruption {
-        guard let ckError = error as? CKError else { return .unknown }
-        switch ckError.code {
-        case .notAuthenticated: return .notSignedIn
-        case .networkUnavailable, .networkFailure: return .offline
-        case .quotaExceeded: return .iCloudFull
-        default: return .unknown
-        }
-    }
-
     /// Re-registers everything the local store still considers unsynced — used
     /// on a fresh start, after sign-in, and after a server zone reset.
     private func reenqueuePendingWork(into engine: CKSyncEngine) async {
-        if let pending = try? await store.pendingUploadIDs() {
-            engine.state.add(
-                pendingRecordZoneChanges: pending.map { .saveRecord(recordID(for: $0)) })
-        }
-        if let deletions = try? await store.pendingDeletionRecordIDs() {
-            engine.state.add(
-                pendingRecordZoneChanges: deletions.compactMap { name in
-                    UUID(uuidString: name).map { .deleteRecord(recordID(for: $0)) }
-                })
-        }
-        if let pendingBoards = try? await store.pendingBoardUploads() {
-            engine.state.add(
-                pendingRecordZoneChanges: pendingBoards.map {
-                    .saveRecord(boardRecordID(for: $0.id))
-                })
-        }
-        if let boardDeletions = try? await store.pendingBoardDeletionRecordIDs() {
-            engine.state.add(
-                pendingRecordZoneChanges: boardDeletions.compactMap { name in
-                    UUID(uuidString: name).map { .deleteRecord(boardRecordID(for: $0)) }
-                })
-        }
+        let work = await pendingWork()
+        engine.state.add(
+            pendingRecordZoneChanges: work.changes(
+                clipZoneID: zoneID, boardZoneID: boardZoneID))
     }
 
     /// Drop pending `.saveRecord` changes the store no longer wants uploaded. A
@@ -379,18 +332,21 @@ public actor CKSyncEngineAdapter: SyncEngine {
     /// send queue would jam on empty batches forever. Deletions are left alone:
     /// their record names are tombstones tracked separately from the clip rows.
     private func reconcilePendingChanges(in engine: CKSyncEngine) async {
-        let validClipIDs = Set(
-            ((try? await store.pendingUploadIDs()) ?? []).map { recordID(for: $0) })
-        let validBoardIDs = Set(
-            ((try? await store.pendingBoardUploads()) ?? []).map { boardRecordID(for: $0.id) })
-        let stale = engine.state.pendingRecordZoneChanges.filter { change in
-            guard case .saveRecord(let id) = change else { return false }
-            if id.zoneID.zoneName == zoneID.zoneName { return !validClipIDs.contains(id) }
-            if id.zoneID.zoneName == boardZoneID.zoneName { return !validBoardIDs.contains(id) }
-            return false
-        }
+        let work = await pendingWork()
+        let stale = work.staleSaveChanges(
+            in: engine.state.pendingRecordZoneChanges,
+            clipZoneID: zoneID,
+            boardZoneID: boardZoneID)
         guard !stale.isEmpty else { return }
         engine.state.remove(pendingRecordZoneChanges: stale)
+    }
+
+    private func pendingWork() async -> SyncPendingWork {
+        SyncPendingWork(
+            clipUploadIDs: (try? await store.pendingUploadIDs()) ?? [],
+            clipDeletionRecordNames: (try? await store.pendingDeletionRecordIDs()) ?? [],
+            boardUploadIDs: ((try? await store.pendingBoardUploads()) ?? []).map(\.id),
+            boardDeletionRecordNames: (try? await store.pendingBoardDeletionRecordIDs()) ?? [])
     }
 }
 
@@ -626,8 +582,8 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         syncEngine: CKSyncEngine
     ) async {
         let recordID = failure.record.recordID
-        switch failure.error.code {
-        case .serverRecordChanged:
+        switch CloudKitSyncPolicy.failedSaveRecovery(for: failure.error.code) {
+        case .resolveConflict:
             // Conflict — last-writer-wins: take the server copy. The upserts
             // keep whichever updatedAt is newer and record the server's tag.
             guard let serverRecord = failure.error.serverRecord else { break }
@@ -660,7 +616,7 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                     syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
                 }
             }
-        case .zoneNotFound, .userDeletedZone:
+        case .recreateZone:
             // Recreate the failed record's own zone, then retry it.
             diagnostics?.record(
                 "Sync",
@@ -669,11 +625,11 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             syncEngine.state.add(
                 pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: recordID.zoneID))])
             syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
-        case .quotaExceeded:
+        case .pauseForQuota:
             diagnostics?.record("Sync", "iCloud storage is full — uploads paused.")
             isPaused = true
             emit(.paused(.iCloudFull))
-        default:
+        case .deferToEngine:
             // Transient (network, rate limit, server busy): CKSyncEngine retries
             // on its own — nothing to do.
             break

@@ -124,16 +124,16 @@ struct CKSyncEngineAdapterTests {
         func ck(_ code: CKError.Code, userInfo: [String: Any] = [:]) -> Error {
             NSError(domain: CKError.errorDomain, code: code.rawValue, userInfo: userInfo)
         }
-        #expect(CKSyncEngineAdapter.isMissingZone(ck(.zoneNotFound)))
-        #expect(CKSyncEngineAdapter.isMissingZone(ck(.userDeletedZone)))
+        #expect(CloudKitSyncPolicy.isMissingZone(ck(.zoneNotFound)))
+        #expect(CloudKitSyncPolicy.isMissingZone(ck(.userDeletedZone)))
         #expect(
-            CKSyncEngineAdapter.isMissingZone(
+            CloudKitSyncPolicy.isMissingZone(
                 ck(
                     .partialFailure,
                     userInfo: [CKPartialErrorsByItemIDKey: ["zone": ck(.zoneNotFound)]])))
-        #expect(!CKSyncEngineAdapter.isMissingZone(ck(.networkUnavailable)))
+        #expect(!CloudKitSyncPolicy.isMissingZone(ck(.networkUnavailable)))
         #expect(
-            !CKSyncEngineAdapter.isMissingZone(
+            !CloudKitSyncPolicy.isMissingZone(
                 ck(
                     .partialFailure,
                     userInfo: [
@@ -142,7 +142,7 @@ struct CKSyncEngineAdapterTests {
                         ]
                     ])),
             "a partial failure with any non-zone error must not read as first-run")
-        #expect(!CKSyncEngineAdapter.isMissingZone(RecordingStore.Failure.boom))
+        #expect(!CloudKitSyncPolicy.isMissingZone(RecordingStore.Failure.boom))
     }
 }
 
