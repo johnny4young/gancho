@@ -34,6 +34,7 @@ private struct Arguments {
     var generatedLock =
         "Gancho.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
     var requireGenerated = false
+    var runSelfTest = false
 
     static func parse() throws -> Self {
         var result = Self()
@@ -49,6 +50,8 @@ private struct Arguments {
                 result.generatedLock = try value(after: argument, from: &arguments)
             case "--require-generated":
                 result.requireGenerated = true
+            case "--self-test":
+                result.runSelfTest = true
             default:
                 throw ValidationError("unknown argument: \(argument)")
             }
@@ -156,8 +159,61 @@ private func validate(_ arguments: Arguments) throws -> (packageCount: Int, appC
     return (package.pins.count, app.pins.count)
 }
 
+private func runPolicySelfTest() throws {
+    let fileManager = FileManager.default
+    let temporaryDirectory = fileManager.temporaryDirectory
+        .appendingPathComponent("dependency-check-\(UUID().uuidString)")
+    try fileManager.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: temporaryDirectory) }
+
+    let packageLock = temporaryDirectory.appendingPathComponent("package.json")
+    let appLock = temporaryDirectory.appendingPathComponent("app.json")
+
+    func writeLock(_ identities: [String], to url: URL) throws {
+        let pins = identities.map { identity in
+            [
+                "identity": identity,
+                "kind": "remoteSourceControl",
+                "location": "https://example.com/\(identity).git",
+                "state": [
+                    "revision": "revision-\(identity)",
+                    "version": "1.0.0"
+                ]
+            ] as [String: Any]
+        }
+        let data = try JSONSerialization.data(
+            withJSONObject: ["pins": pins, "version": 3],
+            options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: url)
+    }
+
+    var arguments = Arguments()
+    arguments.packageLock = packageLock.path
+    arguments.appLock = appLock.path
+
+    try writeLock(["shared"], to: packageLock)
+    try writeLock(["shared", "keyboardshortcuts"], to: appLock)
+    _ = try validate(arguments)
+
+    try writeLock(["shared", "keyboardshortcuts", "unexpected"], to: appLock)
+    do {
+        _ = try validate(arguments)
+        throw ValidationError("self-test accepted an unexpected app-only dependency")
+    } catch let error as ValidationError {
+        guard error.description.contains("found keyboardshortcuts, unexpected") else {
+            throw ValidationError("self-test failed for the wrong reason: \(error)")
+        }
+    }
+
+    print("✓ dependency lock policy self-test passed")
+}
+
 do {
-    let counts = try validate(Arguments.parse())
+    let arguments = try Arguments.parse()
+    if arguments.runSelfTest {
+        try runPolicySelfTest()
+    }
+    let counts = try validate(arguments)
     print(
         "✓ dependency locks agree (\(counts.packageCount) package pins, \(counts.appCount) app pins)"
     )

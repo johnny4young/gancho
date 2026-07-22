@@ -240,67 +240,6 @@ struct ReleaseMetadataTests {
             pinnedAhead.output.contains("pinned ahead"), Comment(rawValue: pinnedAhead.output))
     }
 
-    @Test func dependencyCheckRejectsUnexpectedAppOnlyPins() throws {
-        let temporaryDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("dependency-check-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(
-            at: temporaryDirectory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
-
-        let packageLock = temporaryDirectory.appendingPathComponent("package.json")
-        let appLock = temporaryDirectory.appendingPathComponent("app.json")
-
-        func writeLock(_ identities: [String], to url: URL) throws {
-            let pins = identities.map { identity in
-                [
-                    "identity": identity,
-                    "kind": "remoteSourceControl",
-                    "location": "https://example.com/\(identity).git",
-                    "state": [
-                        "revision": "revision-\(identity)",
-                        "version": "1.0.0"
-                    ]
-                ] as [String: Any]
-            }
-            let data = try JSONSerialization.data(
-                withJSONObject: ["pins": pins, "version": 3],
-                options: [.prettyPrinted, .sortedKeys])
-            try data.write(to: url)
-        }
-
-        func runDependencyCheck() throws -> (status: Int32, output: String) {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
-            process.arguments = [
-                Self.repositoryRoot
-                    .appendingPathComponent("scripts/check-dependency-resolution.swift").path,
-                "--package-lock", packageLock.path,
-                "--app-lock", appLock.path
-            ]
-            process.currentDirectoryURL = Self.repositoryRoot
-            let output = Pipe()
-            process.standardOutput = output
-            process.standardError = output
-
-            try process.run()
-            process.waitUntilExit()
-            let data = output.fileHandleForReading.readDataToEndOfFile()
-            return (process.terminationStatus, String(bytes: data, encoding: .utf8) ?? "")
-        }
-
-        try writeLock(["shared"], to: packageLock)
-        try writeLock(["shared", "keyboardshortcuts"], to: appLock)
-        let valid = try runDependencyCheck()
-        #expect(valid.status == 0, Comment(rawValue: valid.output))
-
-        try writeLock(["shared", "keyboardshortcuts", "unexpected"], to: appLock)
-        let unexpected = try runDependencyCheck()
-        #expect(unexpected.status != 0, "an unexpected app-only pin must fail the gate")
-        #expect(
-            unexpected.output.contains("found keyboardshortcuts, unexpected"),
-            Comment(rawValue: unexpected.output))
-    }
-
     /// Dependabot may never touch the encrypted-store fork: the automation's
     /// scope is part of the security model, so its exclusions are pinned here.
     @Test func dependabotExcludesTheEncryptedStoreFork() throws {

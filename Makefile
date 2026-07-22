@@ -50,7 +50,7 @@ resolve-dependencies: project ## Refresh both canonical SwiftPM locks after chan
 	PACKAGE=$(PACKAGE) SCHEME=$(SCHEME_MAC) ./scripts/resolve-dependencies.sh
 
 dependency-check: ## Verify the package and app dependency locks agree
-	swift scripts/check-dependency-resolution.swift
+	swift scripts/check-dependency-resolution.swift --self-test
 
 build: project ## Build the macOS app (Debug, unsigned)
 	xcodebuild $(XCODE_PACKAGE_FLAGS) -project Gancho.xcodeproj -scheme $(SCHEME_MAC) -configuration Debug \
