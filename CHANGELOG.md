@@ -14,6 +14,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   database schema or encrypted-store format.
 - Updated Sauce to 2.5.2, incorporating its corrected keypad Enter mapping
   while preserving Gancho's layout-aware paste-back behavior.
+- Migrated global shortcut recording and delivery to KeyboardShortcuts 3.0.1,
+  preserving stored shortcuts and adding signed launch coverage for persisted
+  hotkey registration.
 
 ## [0.8.1] - 2026-07-22
 

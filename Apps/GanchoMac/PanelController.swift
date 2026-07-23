@@ -8,7 +8,7 @@ import SwiftUI
 extension KeyboardShortcuts.Name {
     /// ⇧⌘V by default — the muscle-memory neighbor of plain paste.
     static let togglePanel = Self(
-        "toggle-panel", default: .init(.v, modifiers: [.command, .shift]))
+        "toggle-panel", initial: .init(.v, modifiers: [.command, .shift]))
     /// No default: the user records it in Settings if they want it.
     static let togglePrivateMode = Self("toggle-private-mode")
     /// Cyclic quick-paste (each press pastes the next history item).
