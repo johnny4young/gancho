@@ -12,6 +12,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refreshed the encrypted storage stack to GRDB 7.11.1 and SQLCipher.swift
   4.17.0 through the minimal hand-rebased fork, without changing Gancho's
   database schema or encrypted-store format.
+- Updated Sauce to 2.5.2, incorporating its corrected keypad Enter mapping
+  while preserving Gancho's layout-aware paste-back behavior.
 
 ## [0.8.1] - 2026-07-22
 
