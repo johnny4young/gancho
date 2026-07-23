@@ -1,7 +1,6 @@
 import AppKit
 import ClipboardCore
 import GanchoKit
-import KeyboardShortcuts
 import Observation
 
 /// Owns Gancho's in-process AppKit status-item fallback.
@@ -118,13 +117,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         #if DEBUG
             if CommandLine.arguments.contains("-diagnose-global-shortcut-for-ui-test") {
-                let shortcut = KeyboardShortcuts.getShortcut(for: .togglePanel)
-                let state =
-                    KeyboardShortcuts.isEnabled(for: .togglePanel)
-                    ? "enabled" : "disabled"
                 button.setAccessibilityValue(
-                    "global-shortcut-\(state):\(shortcut?.carbonKeyCode ?? -1):"
-                        + "\(shortcut?.carbonModifiers ?? -1)")
+                    GlobalShortcutDiagnostics.panelRegistrationAccessibilityValue)
             }
         #endif
 

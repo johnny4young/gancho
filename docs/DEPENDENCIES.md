@@ -81,14 +81,25 @@ ship. Its branch name encodes the upstream base (`sqlcipher-7.11.1`).
    is implied by a GRDB rebase alone. If a rebase DID migrate the schema,
    restore from the pre-update backup instead of downgrading in place.
 
-## KeyboardShortcuts 3
+## KeyboardShortcuts
 
-When the canary reports KeyboardShortcuts 3.x: migrate it in ITS OWN PR, with
-tests that prove recorded shortcuts persist across the upgrade and that the
-conflict-detection behavior (`ShortcutConflictsTests`) is unchanged. Update its
-requirement in `project.yml`, refresh both locks with
-`make resolve-dependencies`, and update `KEYBOARDSHORTCUTS` in
-`scripts/upstream-pins.env` in the same PR.
+KeyboardShortcuts is an app-level macOS dependency, not part of GanchoKit.
+`Apps/GanchoMac/GlobalShortcuts.swift` owns the stable shortcut names and
+initial panel binding; changing those raw names would orphan existing user
+preferences. Feature controllers register handlers, while Settings and
+onboarding use the package's recorder UI.
+
+Version 3.0.1 is the current baseline. Its Swift 6 implementation replaced the
+registration engine and renamed `Name(default:)` to `Name(initial:)` without
+changing Gancho's stored Carbon key-code/modifier representation. Signed UI
+coverage must prove that an existing shortcut restores and has an active
+registration without rewriting the maintainer's preference.
+
+Treat every future major update as its own PR. Review the complete upstream API
+and registration-lifecycle delta, update `project.yml`, refresh the app lock
+with `make resolve-dependencies`, update `KEYBOARDSHORTCUTS` in
+`scripts/upstream-pins.env`, and run package, macOS/iOS build, conflict, and
+signed shortcut-registration gates before merge.
 
 ## Sparkle
 

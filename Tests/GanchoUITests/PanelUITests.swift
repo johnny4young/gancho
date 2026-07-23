@@ -35,8 +35,14 @@ final class PanelUITests: XCTestCase {
             return
         }
         XCTAssertEqual(String(components[0]), "global-shortcut-enabled")
-        XCTAssertNotNil(Int(components[1]), "the restored shortcut must expose a key code")
-        XCTAssertNotNil(Int(components[2]), "the restored shortcut must expose modifiers")
+        guard let keyCode = Int(components[1]), keyCode >= 0 else {
+            XCTFail("invalid restored shortcut key code: \(components[1])")
+            return
+        }
+        guard let modifiers = Int(components[2]), modifiers >= 0 else {
+            XCTFail("invalid restored shortcut modifiers: \(components[2])")
+            return
+        }
     }
 
     @MainActor
