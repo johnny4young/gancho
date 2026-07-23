@@ -44,15 +44,15 @@ let package = Package(
         // Storage engine (SQLite) — SQLCipher-enabled fork for whole-database
         // encryption. Upstream GRDB can't turn on SQLCipher without a fork
         // (package traits need Xcode-UI support it still lacks); the fork only
-        // uncomments the marked `// GRDB+SQLCipher:` lines on the v7.11.0 tag,
+        // uncomments the marked `// GRDB+SQLCipher:` lines on the v7.11.1 tag,
         // pulling Zetetic's official SQLCipher.swift. Rationale: docs/ARCHITECTURE.md.
-        // Pinned to an exact revision (not the moving `sqlcipher-7.11.0` branch)
+        // Pinned to an exact revision (not the moving `sqlcipher-7.11.1` branch)
         // so the encryption layer can never silently change under a re-resolve.
         // When rebasing the fork onto an upstream GRDB/SQLCipher security
         // release, update this revision hash deliberately in the same commit.
         .package(
             url: "https://github.com/johnny4young/GRDB.swift.git",
-            revision: "77e27afdf29bc298a14d2b19e2bb5bcf466df632"),
+            revision: "d036a07fd43b5302443f2c2c0e0e3ca84f8b7ebf"),
         // Layout-aware keycodes for the synthetic ⌘V (covers Dvorak-QWERTY⌘).
         // Inherited practice from years of Maccy/community plumbing (MIT).
         .package(url: "https://github.com/Clipy/Sauce.git", from: "2.4.0"),

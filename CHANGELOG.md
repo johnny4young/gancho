@@ -7,6 +7,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Refreshed the encrypted storage stack to GRDB 7.11.1 and SQLCipher.swift
+  4.17.0 through the minimal hand-rebased fork, without changing Gancho's
+  database schema or encrypted-store format.
+
 ## [0.8.1] - 2026-07-22
 
 ### Changed

@@ -9,7 +9,7 @@ the storage, encryption, signing, or updater path.
 | --- | --- | --- |
 | Dependabot | GitHub Actions; safe SwiftPM packages | Weekly grouped PRs (`.github/dependabot.yml`); security advisories arrive separately, ungrouped |
 | Upstream canary | GRDB, SQLCipher.swift, Sparkle, Sauce, KeyboardShortcuts | Weekly workflow (`upstream-canary.yml`) compares `scripts/upstream-pins.env` against the latest upstream releases and opens ONE deduplicated issue on drift |
-| Hand-rebased fork | `johnny4young/GRDB.swift` (branch `sqlcipher-7.11.0`) | This runbook only — excluded from Dependabot by name |
+| Hand-rebased fork | `johnny4young/GRDB.swift` (branch `sqlcipher-7.11.1`) | This runbook only — excluded from Dependabot by name |
 
 **Nothing auto-merges.** The repository has no auto-merge workflow, and the
 encrypted store (GRDB fork + SQLCipher.swift), the signing pipeline, and the
@@ -51,7 +51,7 @@ resolved into the app-wide lock with this command.
 ## Runbook: rebasing the GRDB fork
 
 The fork exists because SQLCipher support requires trait edits GRDB does not
-ship. Its branch name encodes the upstream base (`sqlcipher-7.11.0`).
+ship. Its branch name encodes the upstream base (`sqlcipher-7.11.1`).
 
 1. **Fetch + branch.** In a clone of `johnny4young/GRDB.swift`:
    `git remote add upstream https://github.com/groue/GRDB.swift` →
