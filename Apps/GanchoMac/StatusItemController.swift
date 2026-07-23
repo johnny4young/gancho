@@ -116,6 +116,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         button.setAccessibilityLabel(presentation.accessibilityDescription)
 
         #if DEBUG
+            if CommandLine.arguments.contains("-diagnose-global-shortcut-for-ui-test") {
+                button.setAccessibilityValue(
+                    GlobalShortcutDiagnostics.panelRegistrationAccessibilityValue)
+            }
+        #endif
+
+        #if DEBUG
             logResolvedPlacement(of: button)
         #endif
     }

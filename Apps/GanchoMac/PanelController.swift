@@ -5,18 +5,6 @@ import KeyboardShortcuts
 import OSLog
 import SwiftUI
 
-extension KeyboardShortcuts.Name {
-    /// ⇧⌘V by default — the muscle-memory neighbor of plain paste.
-    static let togglePanel = Self(
-        "toggle-panel", default: .init(.v, modifiers: [.command, .shift]))
-    /// No default: the user records it in Settings if they want it.
-    static let togglePrivateMode = Self("toggle-private-mode")
-    /// Cyclic quick-paste (each press pastes the next history item).
-    static let cyclicPaste = Self("cyclic-paste")
-    /// Pops and pastes the front of the paste stack.
-    static let pasteFromStack = Self("paste-from-stack")
-}
-
 /// Where the panel appears. PasteNow pattern: user-configurable.
 enum PanelPosition: String, CaseIterable {
     case centered

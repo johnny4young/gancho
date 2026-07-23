@@ -2,10 +2,49 @@ import AppKit
 import XCTest
 
 /// Keyboard-first panel smoke (XCTest lives ONLY in this UI target; unit
-/// tests are Swift Testing in the package). The app launches with the
-/// deterministic `-open-panel-on-launch` hook — no global-hotkey dependency
-/// on hosted runners.
+/// tests are Swift Testing in the package). Most tests use the deterministic
+/// `-open-panel-on-launch` hook; one focused signed integration test verifies
+/// persisted global-hotkey restoration and Carbon registration.
 final class PanelUITests: XCTestCase {
+    @MainActor
+    func testPanelShortcutRestoresAndRegistersOnLaunch() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-regular-activation-for-ui-tests", "-use-in-process-status-item",
+            "-diagnose-global-shortcut-for-ui-test",
+            "-has-seen-welcome", "YES",
+            "-force-ephemeral-store", "-force-pasteboard-access-allowed",
+            "-disable-screen-share-auto-pause", "-suppress-storage-notice-for-ui-test"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        waitForAppToStart(app)
+        app.activate()
+        _ = app.wait(for: .runningForeground, timeout: 5)
+
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertFalse(
+            search.exists,
+            "plain launch must not bypass the global shortcut by opening the panel directly")
+        let statusItem = app.statusItems.firstMatch
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        let diagnostic = try XCTUnwrap(statusItem.value as? String)
+        let components = diagnostic.split(separator: ":")
+        guard components.count == 3 else {
+            XCTFail("unexpected global-shortcut diagnostic: \(diagnostic)")
+            return
+        }
+        XCTAssertEqual(String(components[0]), "global-shortcut-enabled")
+        guard let keyCode = Int(components[1]), keyCode >= 0 else {
+            XCTFail("invalid restored shortcut key code: \(components[1])")
+            return
+        }
+        guard let modifiers = Int(components[2]), modifiers >= 0 else {
+            XCTFail("invalid restored shortcut modifiers: \(components[2])")
+            return
+        }
+    }
+
     @MainActor
     func testMenuBarAgentStaysResidentOnPlainLaunch() throws {
         if ProcessInfo.processInfo.environment["GANCHO_UI_ADHOC_SIGNING"] == "1" {
