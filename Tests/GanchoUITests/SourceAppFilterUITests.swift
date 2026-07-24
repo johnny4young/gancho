@@ -7,6 +7,7 @@ final class SourceAppFilterUITests: XCTestCase {
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-source-apps",
+            "-place-panel-for-ui-test",
             "-AppleLanguages", "(en)"
         ]
         app.launch()
@@ -41,6 +42,49 @@ final class SourceAppFilterUITests: XCTestCase {
         attachment.name = "macOS source-app filter — Safari"
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    @MainActor
+    func testNoResultsKeepsClearFiltersActionAccessible() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item",
+            "-use-temp-durable-store", "-seed-source-apps",
+            "-place-panel-for-ui-test",
+            "-AppleLanguages", "(en)"
+        ]
+        app.launch()
+        defer { app.terminate() }
+
+        let filter = app.descendants(matching: .any)["source-app-filter"].firstMatch
+        XCTAssertTrue(filter.waitForExistence(timeout: 10))
+        XCTAssertTrue(filter.isHittable)
+        filter.click()
+
+        let safari = app.descendants(matching: .any)["Safari"].firstMatch
+        XCTAssertTrue(safari.waitForExistence(timeout: 4))
+        XCTAssertTrue(safari.isHittable)
+        safari.click()
+
+        let field = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        try typeTextReliably("Xcode source sample", into: field, in: app)
+
+        let emptyState = app.descendants(matching: .any)["panel-empty-noresults"].firstMatch
+        XCTAssertTrue(
+            emptyState.waitForExistence(timeout: 5),
+            "the mismatched query and source filter must expose the no-results state")
+
+        let clearFilters = app.buttons["clear-filters"].firstMatch
+        XCTAssertTrue(
+            clearFilters.waitForExistence(timeout: 3),
+            "the actionable child must remain exposed to accessibility")
+        XCTAssertTrue(clearFilters.isHittable)
+        clearFilters.click()
+
+        XCTAssertTrue(
+            clipRow(containing: "Xcode source sample", in: app).waitForExistence(timeout: 5),
+            "clearing the source filter must preserve the query and reveal its matching row")
     }
 
     @MainActor
