@@ -54,12 +54,14 @@ Shared engine-room targets (nonisolated + Sendable)
 
 App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/SwiftUI/CloudKit)
   └─ GanchoAppCore: the testable app logic both shells share and forward to —
-       PanelSearchModel + PanelNavigation (macOS panel), HistoryListViewModel (iOS
-       list), SyncController, ClipIngestionCoordinator, CaptureLifecycleController
-       (macOS), ReuseController, ClipCurationController, ClipEditingController,
-       ClipPreviewLoader, BoardsController, EnrichmentService, DeletionCoordinator,
-       BoardSuggestionService, ClipItemFactory. Store access is facet-typed, so
-       each unit runs against an in-memory fake in GanchoAppCoreTests.
+       PanelSearchModel + PanelNavigation + PanelCapturePresentation (macOS
+       panel), HistoryListViewModel (iOS list), SyncController,
+       ClipIngestionCoordinator, CaptureLifecycleController (macOS),
+       ReuseController, ClipCurationController, ClipEditingController,
+       ClipPreviewLoader, BoardsController, EnrichmentService,
+       DeletionCoordinator, BoardSuggestionService, ClipItemFactory. Store
+       access is facet-typed, so each unit runs against an in-memory fake in
+       GanchoAppCoreTests.
 
 Persistence and sync implementations
   ├─ GRDB / SQLite / FTS5 local store with content-addressed disk blobs
@@ -87,6 +89,10 @@ pasteboard content: start/stop/ignore commands, observable status mirroring,
 capture-preference persistence, and the periodic screen-share auto-pause check.
 `AppModel` remains the observable facade and retains platform composition such
 as monitor construction, denylist callbacks, windows, and presentation effects.
+`PanelCapturePresentation` converts that content-free runtime state into a
+deterministic notice, action, and footer indicator. SwiftUI rendering and AppKit
+actions stay in the macOS shell, while notice precedence remains pure and
+covered by `GanchoAppCoreTests`.
 
 `ReuseController` owns the reusable session state that follows successful user
 actions: the recent metadata page, local use/search signals, exact-threshold
