@@ -74,7 +74,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public var snippetMatch: ClipItem?
 
     private let source: any PanelSearchSource
-    private let selection = PanelSelectionModel()
+    private let selectionModel = PanelSelectionModel()
 
     public init(source: any PanelSearchSource) {
         self.source = source
@@ -131,24 +131,30 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// The keyboard/preview cursor into `filtered`. Plain assignments preserve
     /// the historical single-selection behavior by collapsing any batch.
     public var selectedIndex: Int {
-        get { selection.selectedIndex }
-        set { selection.select(newValue, toggling: false, in: filtered) }
+        get { selectionModel.selectedIndex }
+        set { selectionModel.select(newValue, toggling: false, in: filtered) }
     }
+
+    /// The keyboard cursor and selected identifiers as a read-only snapshot.
+    ///
+    /// Mutate selection through `select`, `moveSelection`, `clearSelection`, or
+    /// `reconcileSelection` so row reconciliation remains centralized.
+    public var selection: PanelSelectionState { selectionModel.snapshot }
 
     /// The row under the cursor, if any.
     public var selectedItem: ClipItem? {
-        selection.selectedItem(in: filtered)
+        selectionModel.selectedItem(in: filtered)
     }
 
     /// Selected clips in visible list order, never Set iteration order.
     public var selectedItems: [ClipItem] {
-        selection.selectedItems(in: filtered)
+        selectionModel.selectedItems(in: filtered)
     }
 
-    public var selectionCount: Int { selection.selectionCount(in: filtered) }
+    public var selectionCount: Int { selectionModel.selectionCount(in: filtered) }
 
     public func isSelected(_ id: UUID) -> Bool {
-        selection.isSelected(id)
+        selectionModel.isSelected(id)
     }
 
     /// A type or board filter is narrowing the list — drives the no-results
@@ -177,23 +183,23 @@ public struct PanelDateGroup: Identifiable, Sendable {
 
     /// Select a row by index. Plain click replaces; Command-click toggles.
     public func select(_ index: Int, toggling: Bool = false) {
-        selection.select(index, toggling: toggling, in: filtered)
+        selectionModel.select(index, toggling: toggling, in: filtered)
     }
 
     /// Shift-Up/Down grows or contracts a contiguous selection from its anchor.
     public func moveSelection(by delta: Int, extending: Bool) {
-        selection.move(by: delta, extending: extending, in: filtered)
+        selectionModel.move(by: delta, extending: extending, in: filtered)
     }
 
     /// Reconciles selection after deletion/filter changes without selecting a
     /// hidden id or leaving the cursor beyond the visible rows.
     public func reconcileSelection() {
-        selection.reconcile(in: filtered)
+        selectionModel.reconcile(in: filtered)
     }
 
     /// Leaves the cursor row selected and clears every additional row.
     public func clearSelection() {
-        selection.clear(in: filtered)
+        selectionModel.clear(in: filtered)
     }
 
     /// Type-to-search: first keystroke already narrows; empty query shows

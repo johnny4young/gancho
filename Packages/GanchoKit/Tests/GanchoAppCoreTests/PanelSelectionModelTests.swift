@@ -53,4 +53,18 @@ struct PanelSelectionModelTests {
         #expect(model.selectedItem(in: visible)?.id == rows[4].id)
         #expect(model.selectedItems(in: visible).map(\.id) == [rows[4].id])
     }
+
+    @Test("Clear reconciles a stale cursor before collapsing the batch")
+    func clearReconcilesBeforeCollapsingSelection() {
+        let model = PanelSelectionModel()
+        model.select(1, toggling: false, in: rows)
+        model.move(by: 3, extending: true, in: rows)
+
+        let visible = [rows[0], rows[1], rows[4], rows[5]]
+        model.clear(in: visible)
+
+        #expect(model.selectedIndex == 2)
+        #expect(model.selectedItem(in: visible)?.id == rows[4].id)
+        #expect(model.selectedItems(in: visible).map(\.id) == [rows[4].id])
+    }
 }

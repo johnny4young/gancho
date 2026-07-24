@@ -10,6 +10,7 @@ import Observation
 @MainActor @Observable final class PanelSelectionModel {
     private var state = PanelSelectionState()
 
+    var snapshot: PanelSelectionState { state }
     var selectedIndex: Int { state.cursorIndex }
 
     func selectedItem(in rows: [ClipItem]) -> ClipItem? {
@@ -41,7 +42,12 @@ import Observation
     }
 
     func clear(in rows: [ClipItem]) {
-        apply(.replace(index: state.cursorIndex), in: rows)
+        let rowIDs = rows.map(\.id)
+        let reconciled = PanelSelection.reduce(.reconcile, state: state, rowIDs: rowIDs)
+        state = PanelSelection.reduce(
+            .replace(index: reconciled.cursorIndex),
+            state: reconciled,
+            rowIDs: rowIDs)
     }
 
     private func apply(_ action: PanelSelectionAction, in rows: [ClipItem]) {

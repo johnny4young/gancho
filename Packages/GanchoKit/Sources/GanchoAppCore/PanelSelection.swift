@@ -125,12 +125,17 @@ public enum PanelSelection {
         selectedIDs: Set<UUID>,
         rowIDs: [UUID]
     ) -> Int? {
-        rowIDs.indices
-            .filter { selectedIDs.contains(rowIDs[$0]) }
-            .min { lhs, rhs in
-                let lhsDistance = abs(lhs - index)
-                let rhsDistance = abs(rhs - index)
-                return lhsDistance == rhsDistance ? lhs < rhs : lhsDistance < rhsDistance
+        var nearestIndex: Int?
+        var nearestDistance = Int.max
+        for candidateIndex in rowIDs.indices
+        where selectedIDs.contains(rowIDs[candidateIndex]) {
+            let distance = abs(candidateIndex - index)
+            if distance < nearestDistance {
+                nearestIndex = candidateIndex
+                nearestDistance = distance
+                if distance == 0 { break }
             }
+        }
+        return nearestIndex
     }
 }

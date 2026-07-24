@@ -102,7 +102,9 @@ durable content read and again before loaded state is applied.
 `PanelSelectionModel` owns the observable cursor and visible batch selection
 while delegating every transition to the pure `PanelSelection` reducer. Its
 cursor invariant keeps preview, default actions, and batch actions on the same
-selected row after toggles or result reconciliation.
+selected row after toggles or result reconciliation. `PanelSearchModel`
+preserves a public read-only `selection` snapshot for consumers while keeping
+all mutation behind row-aware methods on the collaborator.
 `PanelSelectionContextBar` renders batch operations from explicit values and
 closures rather than reading the app model. `PanelView` retains navigation
 focus, action effects, and the short preview debounce.
