@@ -52,7 +52,8 @@ struct PanelSelectionTests {
 
         #expect(added.selectedIDs == [rows[0], rows[3]])
         #expect(removed.selectedIDs == [rows[3]])
-        #expect(removed.cursorIndex == 0)
+        #expect(removed.cursorIndex == 3)
+        #expect(removed.anchorID == rows[3])
     }
 
     @Test func commandToggleNeverLeavesAnInvisibleCursorOnlyState() {
@@ -73,5 +74,29 @@ struct PanelSelectionTests {
         #expect(result.cursorIndex == 2)
         #expect(result.anchorID == rows[2])
         #expect(result.selectedIDs == [rows[2]])
+    }
+
+    @Test func reconcileMovesADeselectedCursorToTheNearestSelectedRow() {
+        let state = PanelSelectionState(
+            cursorIndex: 1, anchorID: rows[1], selectedIDs: [rows[3], rows[5]])
+
+        let result = PanelSelection.reduce(.reconcile, state: state, rowIDs: rows)
+
+        #expect(result.cursorIndex == 3)
+        #expect(result.anchorID == rows[3])
+        #expect(result.selectedIDs == [rows[3], rows[5]])
+    }
+
+    @Test func commandTogglePrefersTheEarlierSelectedRowOnADistanceTie() {
+        let state = PanelSelectionState(
+            cursorIndex: 2,
+            anchorID: rows[2],
+            selectedIDs: [rows[1], rows[2], rows[3]])
+
+        let result = PanelSelection.reduce(.toggle(index: 2), state: state, rowIDs: rows)
+
+        #expect(result.cursorIndex == 1)
+        #expect(result.anchorID == rows[1])
+        #expect(result.selectedIDs == [rows[1], rows[3]])
     }
 }

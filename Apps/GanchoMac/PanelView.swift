@@ -563,56 +563,13 @@ struct PanelView: View {
     /// unchanged while making the available group operations explicit.
     @ViewBuilder private var selectionContextBar: some View {
         if search.selectionCount > 1 {
-            HStack(spacing: GanchoTokens.Spacing.sm) {
-                Label("\(search.selectionCount) clips", systemImage: "checkmark.circle.fill")
-                    .font(.caption.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(GanchoTokens.Palette.accent)
-                Spacer(minLength: 0)
-                Button {
-                    model.pushToStack(search.selectedItems)
-                } label: {
-                    Image(systemName: "square.stack.3d.up")
-                }
-                .help("Add to paste stack")
-                .accessibilityLabel("Add to paste stack")
-                .accessibilityIdentifier("selection-add-to-stack-button")
-
-                Button {
-                    showBoardPicker = true
-                } label: {
-                    Image(systemName: "square.stack")
-                }
-                .help("Add to board")
-                .accessibilityLabel("Add to board")
-                .accessibilityIdentifier("selection-add-to-board-button")
-
-                Button(role: .destructive) {
-                    model.delete(search.selectedItems)
-                } label: {
-                    Image(systemName: "trash")
-                }
-                .foregroundStyle(.red)
-                .help("Delete")
-                .accessibilityLabel("Delete")
-                .accessibilityIdentifier("selection-delete-button")
-
-                Divider().frame(height: 16)
-                Button("Clear") { search.clearSelection() }
-                    .accessibilityIdentifier("selection-clear-button")
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, GanchoTokens.Spacing.sm)
-            .padding(.vertical, GanchoTokens.Spacing.xxs)
-            .background(
-                GanchoTokens.Palette.accent.opacity(0.08),
-                in: RoundedRectangle(
-                    cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+            PanelSelectionContextBar(
+                selectionCount: search.selectionCount,
+                addToStack: { model.pushToStack(search.selectedItems) },
+                addToBoard: { showBoardPicker = true },
+                delete: { model.delete(search.selectedItems) },
+                clear: { search.clearSelection() }
             )
-            .padding(.horizontal, GanchoTokens.Spacing.xxs)
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(Text("\(search.selectionCount) clips"))
-            .accessibilityIdentifier("selection-context-bar")
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
