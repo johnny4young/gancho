@@ -7,8 +7,8 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-// PanelView is the main keyboard-first interaction surface; splitting it needs
-// a focused UI refactor so the current behavior stays reviewable in this PR.
+// PanelView remains the main keyboard/navigation owner while stable
+// presentation slices move into focused views and tested app-layer policies.
 // swiftlint:disable file_length
 
 /// The localized pill labels for the type-filter rail. `ClipKindFilter` itself
@@ -63,8 +63,8 @@ private enum PanelPresentedSheet: Identifiable {
 /// peek (its action list). → moves focus into the peek, ← returns to the list.
 enum PanelFocus: Hashable { case search, peek }
 
-// PanelView owns the coordinated search, rails, peek, and sheet state today;
-// keep the size exception local until those responsibilities are split.
+// PanelView owns coordinated search, rails, peek, and sheet state; keep the
+// size exception local while those remaining responsibilities are split.
 // swiftlint:disable type_body_length
 /// The floating history panel: compact, keyboard-first (the explicit design
 /// decision vs Paste's full-width drawer). Every interaction works without
@@ -483,8 +483,8 @@ struct PanelView: View {
 
             selectionContextBar
 
-            if let captureNotice {
-                captureBanner(captureNotice)
+            if let notice = capturePresentation.notice {
+                PanelCaptureNoticeView(notice: notice, perform: handleCaptureAction)
             }
 
             if let snippetMatch = search.snippetMatch {
@@ -533,7 +533,10 @@ struct PanelView: View {
                     }
                 }
             }
-            panelFooter
+            PanelStatusFooter(
+                syncStatus: model.syncStatus,
+                capture: capturePresentation,
+                showKeyboardShortcuts: { showShortcuts.toggle() })
         }
         .ganchoSurface(radius: GanchoTokens.Radius.lg)
     }
@@ -1021,36 +1024,6 @@ struct PanelView: View {
         }
     }
 
-    /// Sync state on the left, keyboard hints on the right (the design footer):
-    /// keycaps with room to breathe, not a cramped icon+label run.
-    private var panelFooter: some View {
-        HStack(spacing: GanchoTokens.Spacing.md) {
-            SyncStatusView(status: model.syncStatus)
-            captureIndicator
-            PasteStackStrip()
-            Spacer(minLength: 0)
-            hint("navigate", keys: ["arrow.up", "arrow.down"])
-            hint("actions", keys: ["arrow.right"])
-            hint("paste", keys: ["return"])
-            Button {
-                showShortcuts.toggle()
-            } label: {
-                Image(systemName: "questionmark.circle")
-                    .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 20, height: 20)
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .help("Keyboard shortcuts (⌘/)")
-            .accessibilityLabel("Keyboard shortcuts")
-            .accessibilityIdentifier("panel-shortcuts-button")
-        }
-        .font(.caption2)
-        .foregroundStyle(.tertiary)
-        .padding(.top, GanchoTokens.Spacing.xxs)
-        .padding(.horizontal, GanchoTokens.Spacing.xxs)
-    }
-
     // MARK: - Keyboard cheat-sheet
 
     /// A dimmed scrim + a card listing every panel shortcut. Toggled by ⌘/ or
@@ -1064,135 +1037,30 @@ struct PanelView: View {
 
     // MARK: - Capture notice
 
-    /// Why capture isn't recording right now — surfaced IN the panel so a copy
-    /// that doesn't show up reads as "paused", not "broken". Private mode is the
-    /// reactive common case; denied/screen-share are read when the panel opens.
-    private enum CaptureNotice {
-        case storageEphemeral, privateMode, denied, screenShare, paused
-    }
-
-    private var captureNotice: CaptureNotice? {
-        // Data loss outranks everything: the user must know nothing is persisting.
+    /// Resolves the platform monitor into the pure, tested product policy used
+    /// by both the capture banner and footer indicator.
+    private var capturePresentation: PanelCapturePresentation {
         #if DEBUG
             // Privacy-safe marketing evidence uses a deliberately in-memory,
             // synthetic store. Suppress only that expected warning for the
             // dedicated screenshot flow; production builds ignore the flag.
             let suppressExpectedEphemeralNotice =
                 CommandLine.arguments.contains("-suppress-storage-notice-for-ui-test")
-            if model.storageIsEphemeral, !suppressExpectedEphemeralNotice {
-                return .storageEphemeral
-            }
         #else
-            if model.storageIsEphemeral { return .storageEphemeral }
+            let suppressExpectedEphemeralNotice = false
         #endif
-        if model.monitorStatus == .deniedByPrivacySettings { return .denied }
-        if model.preferences.isPrivateModePaused { return .privateMode }
-        if model.monitorStatus == .pausedByScreenShare { return .screenShare }
-        if model.monitorStatus == .stopped { return .paused }
-        return nil
+        return PanelCapturePresentation.resolve(
+            storageIsEphemeral: model.storageIsEphemeral,
+            suppressExpectedEphemeralNotice: suppressExpectedEphemeralNotice,
+            privateModeEnabled: model.preferences.isPrivateModePaused,
+            runtimeStatus: model.monitorStatus.panelCaptureRuntimeStatus)
     }
 
-    /// True only when Gancho is actively watching the clipboard. Note that
-    /// `.storageEphemeral` still captures (copies just don't persist), so it
-    /// doesn't flip this — the banner covers that case. Do not derive this from
-    /// `captureNotice`: that value intentionally prioritizes the most important
-    /// banner when multiple conditions are true.
-    private var isCapturing: Bool {
-        model.monitorStatus == .running && !model.preferences.isPrivateModePaused
-    }
-
-    /// A positive "yes, capturing" signal in the footer (or a muted "paused"
-    /// when it isn't) so a user who copies something and doesn't see it can tell
-    /// at a glance whether Gancho is even watching. The WHY lives in the banner.
-    private var captureIndicator: some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(isCapturing ? GanchoTokens.Palette.success : Color.secondary)
-                .frame(width: 6, height: 6)
-            Text(isCapturing ? "Capturing" : "Paused")
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(isCapturing ? Text("Capturing") : Text("Capture paused"))
-        .accessibilityIdentifier("capture-indicator")
-    }
-
-    @ViewBuilder private func captureBanner(_ notice: CaptureNotice) -> some View {
-        let tint = captureTint(notice)
-        HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: captureSymbol(notice)).foregroundStyle(tint)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(captureTitle(notice)).font(.caption.weight(.semibold))
-                Text(captureDetail(notice)).font(.caption2).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            if let actionLabel = captureAction(notice) {
-                Button(actionLabel) { handleCaptureAction(notice) }
-                    .buttonStyle(.borderless)
-                    .font(.caption.weight(.medium))
-            }
-        }
-        .padding(.horizontal, GanchoTokens.Spacing.sm)
-        .padding(.vertical, GanchoTokens.Spacing.xs)
-        .background(
-            tint.opacity(0.12),
-            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-        )
-        .padding(.horizontal, GanchoTokens.Spacing.xxs)
-        .accessibilityIdentifier("capture-notice")
-    }
-
-    private func captureSymbol(_ notice: CaptureNotice) -> String {
-        switch notice {
-        case .storageEphemeral: "externaldrive.badge.exclamationmark"
-        case .privateMode: "eye.slash"
-        case .denied: "exclamationmark.triangle.fill"
-        case .screenShare: "rectangle.on.rectangle"
-        case .paused: "pause.circle"
-        }
-    }
-
-    private func captureTint(_ notice: CaptureNotice) -> Color {
-        switch notice {
-        case .privateMode, .screenShare, .paused: GanchoTokens.Palette.warning
-        case .denied, .storageEphemeral: GanchoTokens.Palette.danger
-        }
-    }
-
-    private func captureTitle(_ notice: CaptureNotice) -> LocalizedStringKey {
-        switch notice {
-        case .storageEphemeral: "History isn't being saved"
-        case .privateMode: "Private Mode is on"
-        case .denied: "Clipboard access is off"
-        case .screenShare: "Paused while screen sharing"
-        case .paused: "Capture is paused"
-        }
-    }
-
-    private func captureDetail(_ notice: CaptureNotice) -> LocalizedStringKey {
-        switch notice {
-        case .storageEphemeral:
-            "Gancho couldn't open its secure storage — clips vanish when you quit."
-        case .privateMode: "New copies aren't being saved."
-        case .denied: "Gancho can't see what you copy."
-        case .screenShare: "Capture resumes when you stop sharing."
-        case .paused: "Resume capture to save new copies."
-        }
-    }
-
-    private func captureAction(_ notice: CaptureNotice) -> LocalizedStringKey? {
-        switch notice {
-        case .privateMode, .paused: "Resume"
-        case .denied: "Fix"
-        case .storageEphemeral, .screenShare: nil
-        }
-    }
-
-    private func handleCaptureAction(_ notice: CaptureNotice) {
-        switch notice {
-        case .privateMode: model.togglePrivateMode()
-        case .paused: model.togglePause()
-        case .denied: model.permissionWindow.show(model: model)
-        case .storageEphemeral, .screenShare: break
+    private func handleCaptureAction(_ action: PanelCaptureAction) {
+        switch action {
+        case .resumePrivateMode: model.togglePrivateMode()
+        case .resumeCapture: model.togglePause()
+        case .openPermissionSettings: model.permissionWindow.show(model: model)
         }
     }
 
@@ -1200,27 +1068,12 @@ struct PanelView: View {
     /// is actually blocked it names the cause instead of misleading the user into
     /// thinking a copy will land (the banner above offers the one-tap fix).
     private var firstRunCaptureHint: LocalizedStringKey {
-        switch captureNotice {
+        switch capturePresentation.notice {
         case .privateMode: "Private Mode is on — resume it above to start saving."
         case .denied: "Clipboard access is off — turn it on above to start."
         case .screenShare: "Capture is paused while sharing your screen."
         case .paused: "Capture is paused — resume it above to start saving."
         default: "⌘C in any app to start"
-        }
-    }
-
-    /// A keyboard hint: one or more keycaps followed by what they do.
-    private func hint(_ label: LocalizedStringKey, keys: [String]) -> some View {
-        HStack(spacing: GanchoTokens.Spacing.xxs) {
-            ForEach(keys, id: \.self) { key in
-                Image(systemName: key)
-                    .font(.system(size: 9, weight: .semibold))
-                    .frame(width: 17, height: 16)
-                    .background(
-                        .quaternary,
-                        in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-            }
-            Text(label)
         }
     }
 
