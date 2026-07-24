@@ -146,6 +146,22 @@ struct PanelSearchModelTests {
         #expect(model.selectedItem?.id == source.recent[4].id)
     }
 
+    @Test func selectionSnapshotRemainsAvailableToPublicConsumers() async {
+        let source = FakeSource()
+        source.recent = items(4)
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+
+        model.moveSelection(by: 2, extending: true)
+
+        #expect(model.selection.cursorIndex == 2)
+        #expect(model.selection.anchorID == source.recent[0].id)
+        #expect(
+            model.selection.selectedIDs == [
+                source.recent[0].id, source.recent[1].id, source.recent[2].id
+            ])
+    }
+
     @Test func rebuildingAfterAFilterDropsHiddenSelections() async {
         let source = FakeSource()
         source.recent = [

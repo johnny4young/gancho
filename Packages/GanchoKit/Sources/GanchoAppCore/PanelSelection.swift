@@ -41,17 +41,8 @@ public enum PanelSelection {
     ) -> PanelSelectionState {
         guard !rowIDs.isEmpty else { return PanelSelectionState() }
 
-        let currentIndex = min(max(state.cursorIndex, 0), rowIDs.count - 1)
-        let visibleIDs = Set(rowIDs)
-        var normalized = state
-        normalized.cursorIndex = currentIndex
-        normalized.selectedIDs.formIntersection(visibleIDs)
-        if normalized.selectedIDs.isEmpty {
-            normalized.selectedIDs = [rowIDs[currentIndex]]
-        }
-        if normalized.anchorID.map({ !visibleIDs.contains($0) }) ?? true {
-            normalized.anchorID = rowIDs[currentIndex]
-        }
+        let normalized = normalizedState(state, rowIDs: rowIDs)
+        let currentIndex = normalized.cursorIndex
 
         switch action {
         case .replace(let requestedIndex):
@@ -65,6 +56,15 @@ public enum PanelSelection {
             var selected = normalized.selectedIDs
             if selected.contains(id), selected.count > 1 {
                 selected.remove(id)
+                guard
+                    let selectedIndex = nearestSelectedIndex(
+                        to: index, selectedIDs: selected, rowIDs: rowIDs)
+                else { return normalized }
+                let selectedID = rowIDs[selectedIndex]
+                return PanelSelectionState(
+                    cursorIndex: selectedIndex,
+                    anchorID: selectedID,
+                    selectedIDs: selected)
             } else {
                 selected.insert(id)
             }
@@ -88,5 +88,54 @@ public enum PanelSelection {
         case .reconcile:
             return normalized
         }
+    }
+
+    /// Removes hidden identifiers and restores the cursor/anchor invariant
+    /// before any action-specific transition runs.
+    private static func normalizedState(
+        _ state: PanelSelectionState,
+        rowIDs: [UUID]
+    ) -> PanelSelectionState {
+        let clampedIndex = min(max(state.cursorIndex, 0), rowIDs.count - 1)
+        var normalized = state
+        normalized.cursorIndex = clampedIndex
+        normalized.selectedIDs.formIntersection(Set(rowIDs))
+        if normalized.selectedIDs.isEmpty {
+            normalized.selectedIDs = [rowIDs[clampedIndex]]
+        }
+        if !normalized.selectedIDs.contains(rowIDs[normalized.cursorIndex]),
+            let selectedIndex = nearestSelectedIndex(
+                to: normalized.cursorIndex,
+                selectedIDs: normalized.selectedIDs,
+                rowIDs: rowIDs)
+        {
+            normalized.cursorIndex = selectedIndex
+        }
+        if normalized.anchorID.map({ !normalized.selectedIDs.contains($0) }) ?? true {
+            normalized.anchorID = rowIDs[normalized.cursorIndex]
+        }
+        return normalized
+    }
+
+    /// Keeps keyboard, preview, and default actions anchored to an item that is
+    /// actually selected. Prefer the closest selected row and the earlier row
+    /// on a tie so reconciliation is deterministic.
+    private static func nearestSelectedIndex(
+        to index: Int,
+        selectedIDs: Set<UUID>,
+        rowIDs: [UUID]
+    ) -> Int? {
+        var nearestIndex: Int?
+        var nearestDistance = Int.max
+        for candidateIndex in rowIDs.indices
+        where selectedIDs.contains(rowIDs[candidateIndex]) {
+            let distance = abs(candidateIndex - index)
+            if distance < nearestDistance {
+                nearestIndex = candidateIndex
+                nearestDistance = distance
+                if distance == 0 { break }
+            }
+        }
+        return nearestIndex
     }
 }

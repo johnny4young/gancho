@@ -98,8 +98,16 @@ covered by `GanchoAppCoreTests`.
 metadata-first rendering, editability, and rejection of cancelled or stale
 loads. It delegates content access and masking to `ClipPreviewLoader`, so the
 panel never creates a second privacy policy. Cancellation is checked before a
-durable content read and again before loaded state is applied. `PanelView`
-retains selection, focus, and the short navigation debounce.
+durable content read and again before loaded state is applied.
+`PanelSelectionModel` owns the observable cursor and visible batch selection
+while delegating every transition to the pure `PanelSelection` reducer. Its
+cursor invariant keeps preview, default actions, and batch actions on the same
+selected row after toggles or result reconciliation. `PanelSearchModel`
+preserves a public read-only `selection` snapshot for consumers while keeping
+all mutation behind row-aware methods on the collaborator.
+`PanelSelectionContextBar` renders batch operations from explicit values and
+closures rather than reading the app model. `PanelView` retains navigation
+focus, action effects, and the short preview debounce.
 
 `ReuseController` owns the reusable session state that follows successful user
 actions: the recent metadata page, local use/search signals, exact-threshold

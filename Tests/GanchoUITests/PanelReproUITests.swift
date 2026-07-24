@@ -250,7 +250,7 @@ final class PanelReproUITests: XCTestCase {
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier",
-            "-start-capture-paused"
+            "-start-capture-paused", "-place-panel-for-ui-test"
         ]
         app.launch()
         defer { app.terminate() }

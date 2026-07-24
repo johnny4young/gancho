@@ -45,15 +45,14 @@ public struct PanelDateGroup: Identifiable, Sendable {
 
 /// The macOS history panel's search + list state, lifted off the `PanelView`
 /// struct so its logic (type/board filtering, de-dupe, incremental paging,
-/// section grouping, selection) is `@Observable` and unit-testable. The view
-/// keeps presentation only (focus, rails, sheets, ask).
+/// section grouping) is `@Observable` and unit-testable. Selection mutation is
+/// delegated to `PanelSelectionModel`; the view keeps presentation only (focus,
+/// rails, sheets, ask).
 @MainActor @Observable public final class PanelSearchModel {
     /// The live search field text. Empty shows the paginated recent list.
     public var query = ""
     /// The rows returned by the current query/board/recent load, pre-filter.
     public var results: [ClipItem] = []
-    /// The keyboard cursor plus the rows selected for batch interaction.
-    public private(set) var selection = PanelSelectionState()
     /// Date-bucketed rows for the recent list, cached so the bucket math runs
     /// once per data change, never on the scroll/arrow path.
     public var groups: [PanelDateGroup] = []
@@ -75,6 +74,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public var snippetMatch: ClipItem?
 
     private let source: any PanelSearchSource
+    private let selectionModel = PanelSelectionModel()
 
     public init(source: any PanelSearchSource) {
         self.source = source
@@ -131,24 +131,30 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// The keyboard/preview cursor into `filtered`. Plain assignments preserve
     /// the historical single-selection behavior by collapsing any batch.
     public var selectedIndex: Int {
-        get { selection.cursorIndex }
-        set { applySelection(.replace(index: newValue)) }
+        get { selectionModel.selectedIndex }
+        set { selectionModel.select(newValue, toggling: false, in: filtered) }
     }
+
+    /// The keyboard cursor and selected identifiers as a read-only snapshot.
+    ///
+    /// Mutate selection through `select`, `moveSelection`, `clearSelection`, or
+    /// `reconcileSelection` so row reconciliation remains centralized.
+    public var selection: PanelSelectionState { selectionModel.snapshot }
 
     /// The row under the cursor, if any.
     public var selectedItem: ClipItem? {
-        filtered.indices.contains(selectedIndex) ? filtered[selectedIndex] : nil
+        selectionModel.selectedItem(in: filtered)
     }
 
     /// Selected clips in visible list order, never Set iteration order.
     public var selectedItems: [ClipItem] {
-        filtered.filter { selection.selectedIDs.contains($0.id) }
+        selectionModel.selectedItems(in: filtered)
     }
 
-    public var selectionCount: Int { selectedItems.count }
+    public var selectionCount: Int { selectionModel.selectionCount(in: filtered) }
 
     public func isSelected(_ id: UUID) -> Bool {
-        selection.selectedIDs.contains(id)
+        selectionModel.isSelected(id)
     }
 
     /// A type or board filter is narrowing the list — drives the no-results
@@ -177,23 +183,23 @@ public struct PanelDateGroup: Identifiable, Sendable {
 
     /// Select a row by index. Plain click replaces; Command-click toggles.
     public func select(_ index: Int, toggling: Bool = false) {
-        applySelection(toggling ? .toggle(index: index) : .replace(index: index))
+        selectionModel.select(index, toggling: toggling, in: filtered)
     }
 
     /// Shift-Up/Down grows or contracts a contiguous selection from its anchor.
     public func moveSelection(by delta: Int, extending: Bool) {
-        applySelection(.move(delta: delta, extending: extending))
+        selectionModel.move(by: delta, extending: extending, in: filtered)
     }
 
     /// Reconciles selection after deletion/filter changes without selecting a
     /// hidden id or leaving the cursor beyond the visible rows.
     public func reconcileSelection() {
-        applySelection(.reconcile)
+        selectionModel.reconcile(in: filtered)
     }
 
     /// Leaves the cursor row selected and clears every additional row.
     public func clearSelection() {
-        applySelection(.replace(index: selectedIndex))
+        selectionModel.clear(in: filtered)
     }
 
     /// Type-to-search: first keystroke already narrows; empty query shows
@@ -302,10 +308,5 @@ public struct PanelDateGroup: Identifiable, Sendable {
         }
         if let section { built.append(PanelDateGroup(section: section, rows: rows)) }
         groups = built
-    }
-
-    private func applySelection(_ action: PanelSelectionAction) {
-        selection = PanelSelection.reduce(
-            action, state: selection, rowIDs: filtered.map(\.id))
     }
 }
