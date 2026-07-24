@@ -46,7 +46,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
 /// The macOS history panel's search + list state, lifted off the `PanelView`
 /// struct so its logic (type/board filtering, de-dupe, incremental paging,
 /// section grouping, selection) is `@Observable` and unit-testable. The view
-/// keeps presentation only (focus, rails, peek text, sheets, ask).
+/// keeps presentation only (focus, rails, sheets, ask).
 @MainActor @Observable public final class PanelSearchModel {
     /// The live search field text. Empty shows the paginated recent list.
     public var query = ""
