@@ -54,10 +54,10 @@ Shared engine-room targets (nonisolated + Sendable)
 
 App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/SwiftUI/CloudKit)
   └─ GanchoAppCore: the testable app logic both shells share and forward to —
-       PanelSearchModel + PanelNavigation + PanelCapturePresentation (macOS
-       panel), HistoryListViewModel (iOS list), SyncController,
-       ClipIngestionCoordinator, CaptureLifecycleController (macOS),
-       ReuseController, ClipCurationController, ClipEditingController,
+       PanelSearchModel + PanelNavigation + PanelCapturePresentation +
+       PanelPreviewModel (macOS panel), HistoryListViewModel (iOS list),
+       SyncController, ClipIngestionCoordinator, CaptureLifecycleController
+       (macOS), ReuseController, ClipCurationController, ClipEditingController,
        ClipPreviewLoader, BoardsController, EnrichmentService,
        DeletionCoordinator, BoardSuggestionService, ClipItemFactory. Store
        access is facet-typed, so each unit runs against an in-memory fake in
@@ -94,6 +94,12 @@ deterministic notice, action, and footer indicator. SwiftUI rendering and AppKit
 actions stay in the macOS shell, while notice precedence remains pure and
 covered by `GanchoAppCoreTests`.
 
+`PanelPreviewModel` owns the macOS panel's selected-clip preview session:
+metadata-first rendering, editability, and rejection of cancelled or stale
+loads. It delegates content access and masking to `ClipPreviewLoader`, so the
+panel never creates a second privacy policy. `PanelView` retains selection,
+focus, and the short navigation debounce.
+
 `ReuseController` owns the reusable session state that follows successful user
 actions: the recent metadata page, local use/search signals, exact-threshold
 snippet candidates, cyclic selection, paste-stack ordering, and the
@@ -123,13 +129,13 @@ FTS projection in one transaction, and delete the now-stale semantic vector.
 Receiving a changed text body from sync performs the same vector invalidation;
 metadata-only remote updates keep the existing vector.
 
-`ClipPreviewLoader` is the privacy boundary for explicit full-content previews.
-It runs only after the user invokes the macOS Command-Y sheet, returns the
-sanitized metadata preview for sensitive or intrinsically masked kinds without
-reading durable content, and otherwise preserves text, binary, and file-reference
-representations in memory. The macOS sheet decodes images and rich text lazily,
-uses a read-only `NSTextView` for large selectable documents, and never writes a
-temporary Quick Look file.
+`ClipPreviewLoader` is the privacy boundary for full-content preview surfaces.
+It runs only after a clip becomes the active panel selection or the user invokes
+the macOS Command-Y sheet, returns the sanitized metadata preview for sensitive
+or intrinsically masked kinds without reading durable content, and otherwise
+preserves text, binary, and file-reference representations in memory. The macOS
+sheet decodes images and rich text lazily, uses a read-only `NSTextView` for
+large selectable documents, and never writes a temporary Quick Look file.
 
 `BoardsController` applies the same boundary to board creation, metadata,
 deletion, and clip membership. Board limits fail closed if the authoritative
