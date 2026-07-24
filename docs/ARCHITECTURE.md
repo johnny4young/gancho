@@ -97,8 +97,9 @@ covered by `GanchoAppCoreTests`.
 `PanelPreviewModel` owns the macOS panel's selected-clip preview session:
 metadata-first rendering, editability, and rejection of cancelled or stale
 loads. It delegates content access and masking to `ClipPreviewLoader`, so the
-panel never creates a second privacy policy. `PanelView` retains selection,
-focus, and the short navigation debounce.
+panel never creates a second privacy policy. Cancellation is checked before a
+durable content read and again before loaded state is applied. `PanelView`
+retains selection, focus, and the short navigation debounce.
 
 `ReuseController` owns the reusable session state that follows successful user
 actions: the recent metadata page, local use/search signals, exact-threshold

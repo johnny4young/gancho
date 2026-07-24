@@ -18,16 +18,14 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
 /// adds the panel-specific identity, cancellation, stale-result, and editability
 /// policy that does not belong in SwiftUI.
 @MainActor @Observable public final class PanelPreviewModel {
-    public private(set) var selectedItemID: UUID?
-    public private(set) var text = ""
-    public private(set) var isTextEditable = false
+    private var selectedItemID: UUID?
+    private var text = ""
+    private var isTextEditable = false
 
-    @ObservationIgnored private let loader: ClipPreviewLoader
+    @ObservationIgnored private let loader = ClipPreviewLoader()
     @ObservationIgnored private var loadGeneration: UInt64 = 0
 
-    public init(loader: ClipPreviewLoader = ClipPreviewLoader()) {
-        self.loader = loader
-    }
+    public init() {}
 
     /// Resolves a presentation for the view's current selection.
     ///
@@ -42,7 +40,8 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
     }
 
     /// Loads one selected clip and applies its result only while that exact
-    /// request remains current.
+    /// request remains current. Cancellation is checked before durable content
+    /// access and again before applying the result.
     public func load(
         _ item: ClipItem?,
         loadContent: @Sendable (UUID) async throws -> ClipContent?
@@ -65,6 +64,7 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
         // These kinds render from their dedicated thumbnail/file UI. Reading a
         // blob merely to reproduce the list preview would add selection latency.
         guard item.kind != .image, item.kind != .fileReference else { return }
+        guard !Task.isCancelled else { return }
 
         let payload = await loader.load(item, loadContent: loadContent)
         guard

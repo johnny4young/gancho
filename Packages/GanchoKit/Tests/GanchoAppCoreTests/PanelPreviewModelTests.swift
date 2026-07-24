@@ -106,6 +106,25 @@ struct PanelPreviewModelTests {
         #expect(!presentation.isTextEditable)
     }
 
+    @Test("A load cancelled before entry never reads durable content")
+    func preCancelledLoadSkipsContent() async {
+        let item = ClipItem(kind: .text, preview: "metadata", contentHash: "cancelled")
+        let probe = PanelPreviewContentProbe(content: .text("must not load"))
+        let model = PanelPreviewModel()
+
+        let task = Task { @MainActor in
+            while !Task.isCancelled {
+                await Task.yield()
+            }
+            await model.load(item) { id in await probe.load(id) }
+        }
+        task.cancel()
+        await task.value
+
+        #expect(await probe.requestedIDs.isEmpty)
+        #expect(model.presentation(for: item).text == "metadata")
+    }
+
     @Test("A new selection is metadata-only before its debounced load begins")
     func selectionMismatchNeverShowsPreviousText() async {
         let first = ClipItem(kind: .text, preview: "first preview", contentHash: "first")
