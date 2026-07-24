@@ -77,14 +77,11 @@ struct PanelView: View {
     /// grouping) — lifted into `PanelSearchModel` so it is `@Observable` and
     /// unit-testable; the view keeps presentation only.
     @State private var search: PanelSearchModel
+    /// Selected-clip preview identity, loading, and editability. The model
+    /// rejects stale/cancelled results before the peek can render them.
+    @State private var preview: PanelPreviewModel
     /// Non-nil when the keyboard moved up into the filter/board rails.
     @State private var railFocus: RailFocus?
-    @State private var previewText = ""
-    /// Identity of the clip whose full text produced `previewText`. Until it
-    /// matches the current selection, the UI renders metadata-only preview text
-    /// so an async read can never flash the previous clip's body.
-    @State private var previewTextItemID: UUID?
-    @State private var previewTextIsEditable = false
     @State private var boardSheet: BoardSheet?
     @State private var boardNameField = ""
     /// The board a destructive "Delete board" is awaiting confirmation on.
@@ -113,6 +110,7 @@ struct PanelView: View {
 
     init(model: AppModel, displayDefaults: UserDefaults = .standard) {
         _search = State(wrappedValue: PanelSearchModel(source: model))
+        _preview = State(wrappedValue: PanelPreviewModel())
         _panelTextSizeRaw = AppStorage(
             wrappedValue: PanelTextSize.standard.rawValue,
             PanelTextSize.storageKey,
@@ -152,11 +150,11 @@ struct PanelView: View {
             // The peek opens BESIDE the list (not a modal) and follows the
             // hovered / selected clip — Quick-Look-style.
             if let selected = search.selectedItem {
-                let hasLoadedSelectedText = previewTextItemID == selected.id
+                let presentation = preview.presentation(for: selected)
                 ClipPeek(
                     item: selected,
-                    text: hasLoadedSelectedText ? previewText : selected.preview,
-                    isTextEditable: hasLoadedSelectedText && previewTextIsEditable,
+                    text: presentation.text,
+                    isTextEditable: presentation.isTextEditable,
                     focus: $focus
                 )
                 // Drafts, async save callbacks, and action state belong to one
@@ -267,7 +265,10 @@ struct PanelView: View {
         .task(id: search.selectedItem?.id) {
             try? await Task.sleep(for: .milliseconds(60))
             guard !Task.isCancelled else { return }
-            await loadSelectedText()
+            let store = model.store
+            await preview.load(search.selectedItem) { id in
+                try await store.content(for: id)
+            }
         }
         .onAppear {
             // First visible frame: close the panel-open latency interval the
@@ -1288,40 +1289,6 @@ struct PanelView: View {
         if result.focusPeek { focus = .peek }
         if let index = result.loadMoreAt { Task { await search.loadMoreIfNeeded(index) } }
         return result.handled ? .handled : .ignored
-    }
-
-    /// Load the selected clip's full text for the peek beside the list. Only
-    /// text-like clips need a content read; reading an image/file blob from
-    /// disk on every selection change would lag navigation, so those fall back
-    /// to the cheap stored preview.
-    private func loadSelectedText() async {
-        guard let item = search.selectedItem else {
-            previewText = ""
-            previewTextItemID = nil
-            previewTextIsEditable = false
-            return
-        }
-        previewText =
-            ClipSafePresentation.requiresMasking(item)
-            ? ClipSafePresentation.masked : item.preview
-        previewTextItemID = item.id
-        previewTextIsEditable = false
-        guard item.kind != .image, item.kind != .fileReference else {
-            return
-        }
-        let store = model.store
-        let payload = await ClipPreviewLoader().load(item) { id in
-            try await store.content(for: id)
-        }
-        guard !Task.isCancelled, search.selectedItem?.id == item.id else { return }
-        switch payload {
-        case .masked(let text), .text(let text):
-            previewText = text
-            previewTextIsEditable =
-                !ClipSafePresentation.requiresMasking(item) && item.kind.allowsTextEditing
-        case .binary, .fileReferences, .unavailable:
-            break
-        }
     }
 
     /// The keyword-match banner above the list: ⏎ inserts the snippet (a
