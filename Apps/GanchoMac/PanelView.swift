@@ -44,21 +44,6 @@ private enum BoardSheet: Identifiable {
     }
 }
 
-/// The panel has one native sheet presentation slot. Keeping snippet filling
-/// and board appearance in one enum avoids the unreliable multiple-sheet state
-/// that previously made presentations silently compete.
-private enum PanelPresentedSheet: Identifiable {
-    case snippet(SnippetFillRequest)
-    case boardAppearance(Pinboard)
-
-    var id: String {
-        switch self {
-        case .snippet(let request): "snippet-\(request.id.uuidString)"
-        case .boardAppearance(let board): "board-appearance-\(board.id.uuidString)"
-        }
-    }
-}
-
 /// Which zone owns the keyboard: the search field (list navigation) or the
 /// peek (its action list). → moves focus into the peek, ← returns to the list.
 enum PanelFocus: Hashable { case search, peek }
@@ -223,42 +208,26 @@ struct PanelView: View {
         }
         // The kind filter narrows client-side, so regroup without a re-query.
         .onChange(of: search.kindFilter) { _, _ in search.rebuildGroups() }
-        .alert(boardSheetTitle, isPresented: boardSheetPresented) {
-            TextField("Board name", text: $boardNameField)
-            Button("Cancel", role: .cancel) {}
-            Button(boardSheetConfirm) { commitBoardSheet() }
-        }
-        .confirmationDialog(
-            "Delete this board?",
-            isPresented: Binding(
-                get: { boardPendingDeletion != nil },
-                set: { if !$0 { boardPendingDeletion = nil } }),
-            presenting: boardPendingDeletion
-        ) { board in
-            Button("Delete board", role: .destructive) {
-                if search.selectedBoardID == board.id { search.selectedBoardID = nil }
-                model.deleteBoard(board)
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("Your clips stay in history — only the board is removed.")
-        }
-        .sheet(item: $presentedSheet) { sheet in
-            switch sheet {
-            case .snippet(let request):
-                SnippetFillSheet(request: request) { values in
+        .modifier(
+            PanelSheetPresentations(
+                boardSheetTitle: boardSheetTitle,
+                boardSheetConfirm: boardSheetConfirm,
+                boardSheetPresented: boardSheetPresented,
+                boardNameField: $boardNameField,
+                boardPendingDeletion: $boardPendingDeletion,
+                presentedSheet: $presentedSheet,
+                commitBoardSheet: commitBoardSheet,
+                deleteBoard: { board in
+                    if search.selectedBoardID == board.id { search.selectedBoardID = nil }
+                    model.deleteBoard(board)
+                },
+                pasteSnippet: { request, values in
                     model.pasteSnippet(request.snippet, values: values)
-                    presentedSheet = nil
-                } onCancel: {
-                    presentedSheet = nil
-                }
-            case .boardAppearance(let board):
-                BoardIdentityEditor(board: board) { colorHex, emoji in
-                    await model.updateBoardIdentity(
-                        board, colorHex: colorHex, emoji: emoji)
-                }
-            }
-        }
+                },
+                updateBoardIdentity: { board, colorHex, emoji in
+                    await model.updateBoardIdentity(board, colorHex: colorHex, emoji: emoji)
+                })
+        )
         // Load the peek for the selected clip, keyed on its id and debounced:
         // arrowing fast cancels the in-flight load, so only the clip you land on
         // is read and rendered — keeps navigation responsive.

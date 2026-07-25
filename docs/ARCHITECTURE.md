@@ -109,8 +109,11 @@ all mutation behind row-aware methods on the collaborator.
 closures rather than reading the app model. `PanelResultsView` renders empty,
 flat, and grouped result states from immutable values and a row builder; it
 scrolls by the selected clip identity without owning search or selection.
-`PanelView` retains navigation focus, pagination, row action effects, and the
-short preview debounce.
+`PanelSheetPresentations` carries the modal layer — board create/rename, the
+board-deletion confirmation, and the single sheet slot shared by snippet filling
+and board appearance — binding to the owner's state and reaching the app model
+only through closures. `PanelView` retains navigation focus, pagination, row
+action effects, and the short preview debounce.
 
 `ReuseController` owns the reusable session state that follows successful user
 actions: the recent metadata page, local use/search signals, exact-threshold
