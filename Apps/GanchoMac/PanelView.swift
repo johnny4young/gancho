@@ -71,7 +71,7 @@ struct PanelView: View {
     @State private var boardNameField = ""
     /// The board a destructive "Delete board" is awaiting confirmation on.
     @State private var boardPendingDeletion: Pinboard?
-    @State private var presentedSheet: PanelPresentedSheet?
+    @State private var presentedSheet: PanelSheetPresentations.Sheet?
     /// "Ask your clipboard": the grounded answer + its source clips, and whether
     /// the on-device model is currently answering.
     @State private var answer: AppModel.ClipboardAnswer?
