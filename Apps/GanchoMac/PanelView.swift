@@ -496,44 +496,22 @@ struct PanelView: View {
                 askRow
             }
 
-            if search.filtered.isEmpty {
-                emptyState
-            } else {
-                // The chronological recent list groups under sticky date headers;
-                // search (ranked) and a board (curated) keep a flat list under the
-                // single "Recent" header.
-                if !search.isGroupedView { recentHeader }
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(
-                            spacing: GanchoTokens.Spacing.xxs,
-                            pinnedViews: search.isGroupedView ? [.sectionHeaders] : []
-                        ) {
-                            if search.isGroupedView {
-                                ForEach(search.groups) { group in
-                                    Section {
-                                        ForEach(group.rows, id: \.item.id) { entry in
-                                            clipRow(index: entry.index, item: entry.item)
-                                        }
-                                    } header: {
-                                        sectionHeader(group.section, count: group.rows.count)
-                                    }
-                                }
-                            } else {
-                                ForEach(Array(search.filtered.enumerated()), id: \.element.id) {
-                                    index, item in
-                                    clipRow(index: index, item: item)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, GanchoTokens.Spacing.xxs)
-                    }
-                    .onChange(of: search.selectedIndex) { _, index in
-                        guard search.filtered.indices.contains(index) else { return }
-                        proxy.scrollTo(search.filtered[index].id)
-                    }
-                }
-            }
+            PanelResultsView(
+                query: search.query,
+                hasActiveFilter: search.hasActiveFilter,
+                firstRunHint: firstRunCaptureHint,
+                isGroupedView: search.isGroupedView,
+                groups: search.groups,
+                items: search.filtered,
+                selectedID: search.selectedItem?.id,
+                clearFilters: {
+                    search.kindFilter = .all
+                    search.selectedBoardID = nil
+                    search.selectedSourceAppBundleID = nil
+                },
+                row: { index, item in
+                    clipRow(index: index, item: item)
+                })
             PanelStatusFooter(
                 syncStatus: model.syncStatus,
                 capture: capturePresentation,
@@ -899,18 +877,6 @@ struct PanelView: View {
         }
     }
 
-    private var recentHeader: some View {
-        HStack {
-            Text("Recent")
-            Spacer()
-            Text("\(search.filtered.count) clips")
-        }
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(.tertiary)
-        .textCase(.uppercase)
-        .padding(.horizontal, GanchoTokens.Spacing.xs)
-    }
-
     /// One clip row with its shared interactions — used by both the flat
     /// (search/board) and date-grouped (recent) layouts.
     private func clipRow(index: Int, item: ClipItem) -> some View {
@@ -942,44 +908,6 @@ struct PanelView: View {
                 }
             )
             .contextMenu { contextMenu(for: item) }
-    }
-
-    /// A sticky section header — "Pinned" (with a pin glyph) or a semantic date
-    /// (Today, Yesterday, This month, …) — with the section's clip count.
-    private func sectionHeader(_ section: ClipSection, count: Int) -> some View {
-        HStack(spacing: 4) {
-            if section == .pinned {
-                Image(systemName: "pin.fill").font(.system(size: 8))
-            }
-            Text(sectionTitle(section))
-            Spacer()
-            Text("\(count) clips")
-        }
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(.tertiary)
-        .textCase(.uppercase)
-        .padding(.horizontal, GanchoTokens.Spacing.xs)
-        .padding(.vertical, GanchoTokens.Spacing.xxs)
-        .background(.ultraThinMaterial)
-    }
-
-    private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
-        switch section {
-        case .pinned: "Pinned"
-        case .date(let bucket): bucketTitle(bucket)
-        }
-    }
-
-    private func bucketTitle(_ bucket: DateBucket) -> LocalizedStringKey {
-        switch bucket {
-        case .today: "Today"
-        case .yesterday: "Yesterday"
-        case .thisMonth: "This month"
-        case .lastMonth: "Last month"
-        case .thisYear: "This year"
-        case .lastYear: "Last year"
-        case .older: "Older"
-        }
     }
 
     // MARK: - Keyboard cheat-sheet
@@ -1033,78 +961,6 @@ struct PanelView: View {
         case .paused: "Capture is paused — resume it above to start saving."
         default: "⌘C in any app to start"
         }
-    }
-
-    /// First-run and no-results states — warm and instructive, never a dead end
-    /// (the design's empty-states spec). Branches on whether a query is active.
-    @ViewBuilder
-    private var emptyState: some View {
-        VStack(spacing: GanchoTokens.Spacing.xs) {
-            if search.query.isEmpty {
-                Image(systemName: "doc.on.clipboard.fill")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(width: 64, height: 64)
-                    .background(
-                        GanchoTokens.Palette.success.gradient,
-                        in: RoundedRectangle(
-                            cornerRadius: GanchoTokens.Radius.xl, style: .continuous)
-                    )
-                    .padding(.bottom, GanchoTokens.Spacing.xs)
-                Text("Your history starts here")
-                    .font(.headline)
-                Text(
-                    "Copy anything — text, a link, an image — and it appears here, ready to paste again."
-                )
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                Text(firstRunCaptureHint)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, GanchoTokens.Spacing.xxs)
-            } else {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 26, weight: .regular))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 64, height: 64)
-                    .background(
-                        .quaternary,
-                        in: RoundedRectangle(
-                            cornerRadius: GanchoTokens.Radius.xl, style: .continuous)
-                    )
-                    .padding(.bottom, GanchoTokens.Spacing.xs)
-                Text("No matches")
-                    .font(.headline)
-                Text("No clips for “\(search.query)”.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                if search.hasActiveFilter {
-                    // esc hides the panel, so the old "press esc" hint was wrong;
-                    // a real button clears the type/board filter narrowing the list.
-                    Button("Clear filters") {
-                        search.kindFilter = .all
-                        search.selectedBoardID = nil
-                        search.selectedSourceAppBundleID = nil
-                    }
-                    .buttonStyle(.borderless)
-                    .padding(.top, GanchoTokens.Spacing.xxs)
-                    .accessibilityIdentifier("clear-filters")
-                } else {
-                    Text("Try another word.")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .padding(.top, GanchoTokens.Spacing.xxs)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, GanchoTokens.Spacing.lg)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(
-            search.query.isEmpty ? "panel-empty-firstrun" : "panel-empty-noresults")
     }
 
     private func row(for item: ClipItem, index: Int) -> some View {
