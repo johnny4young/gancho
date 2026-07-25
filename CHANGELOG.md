@@ -7,8 +7,14 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-07-25
+
 ### Changed
 
+- Split the macOS history panel by responsibility: capture status, the
+  selected-clip preview session, selection actions, results rendering, and the
+  modal layer now live in focused views and tested app-layer policies, while the
+  panel keeps one navigation owner for focus, keyboard semantics, and paging.
 - Refreshed the encrypted storage stack to GRDB 7.11.1 and SQLCipher.swift
   4.17.0 through the minimal hand-rebased fork, without changing Gancho's
   database schema or encrypted-store format.
@@ -26,6 +32,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Spanish now covers four strings that still rendered in English: the paste
   stack's VoiceOver label on macOS, and the Share action, the copy-last-URL
   confirmation, and the clear-sensitive-clips result on iOS.
+- A filter that empties the history panel no longer looks like an empty
+  history. Narrowing to a kind, board, or source app with no search text used to
+  show the first-run message and offer no way back; it now reports no matches
+  and keeps Clear filters reachable, including for VoiceOver.
 
 ## [0.8.1] - 2026-07-22
 
