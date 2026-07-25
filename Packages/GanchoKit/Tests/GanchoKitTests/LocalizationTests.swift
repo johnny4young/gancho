@@ -108,8 +108,13 @@ struct LocalizationTests {
     /// extension does not surface them). Directories without their own catalog
     /// (`GanchoShare`, `GanchoMenuBarHelper`) fall back to "present in any".
     ///
-    /// Heuristic unchanged: prose contains a space (identifiers/symbols do not),
-    /// and literals with interpolation resolve at runtime.
+    /// Two forms the sweep used to miss, both common enough to have shipped a
+    /// gap. Interpolated copy counts: `Text("No clips for “\(query)”.")`
+    /// resolves to the key `No clips for “%@”.`, and skipping those (the old
+    /// capture group could not cross a `\(` at all) is how that very key
+    /// shipped missing while Spanish users read English. And a declaration
+    /// TYPED `LocalizedStringKey` is a key with no `Text(…)` around it —
+    /// `case .today: "Today"` in a `-> LocalizedStringKey` switch.
     @Test("No hardcoded user-facing prose outside the catalogs")
     func hardcodedSweep() throws {
         // swiftlint:enable function_body_length
@@ -136,31 +141,36 @@ struct LocalizationTests {
             return []  // No dedicated catalog → fall back to "any catalog".
         }
 
-        // Each pattern's first capture group is a user-facing prose literal.
+        // Each pattern ends just BEFORE the opening quote of a user-facing
+        // literal; `SwiftLiteralScanner` reads the literal itself, so
+        // interpolated copy is covered instead of silently skipped.
         // Container/control patterns are deliberately NOT word-boundary
         // anchored: `Button(` must also match wrapper components such as
         // `ActionButton(` — a wrapper is exactly where a gap once hid.
-        //
-        // `requiresSpace: false` patterns are interactive-control labels, where
-        // even a ONE-word literal ("Clear", "Resume") is user-facing copy — the
-        // space heuristic alone let `Button("Clear")` ship untranslated once.
-        // Prose-ish contexts keep the space requirement so identifiers and
-        // symbol fragments don't false-positive.
-        let patterns: [(pattern: String, requiresSpace: Bool)] = [
-            (#"(?:Text|Label)\(\s*"([^"\\]+)""#, true),
-            (#"(?:Button|Toggle|Menu|Section)\(\s*"([^"\\]+)""#, false),
-            (#"ActionButton\(\s*"([^"\\]+)""#, false),
-            (#"\.(?:navigationTitle|alert|confirmationDialog)\(\s*"([^"\\]+)""#, false),
-            (#"LocalizedStringResource\(\s*"([^"\\]+)""#, true),
-            (#"LocalizedStringResource\s*=\s*"([^"\\]+)""#, true),
-            (#"IntentDescription\(\s*"([^"\\]+)""#, true),
-            (#"IntentDialog\(\s*"([^"\\]+)""#, true),
-            (#"\bdialog:\s*"([^"\\]+)""#, true),
-            (#"\.configurationDisplayName\(\s*"([^"\\]+)""#, false),
-            (#"\.description\(\s*"([^"\\]+)""#, true)
+        let literalPatterns = [
+            #"(?:Text|Label)\(\s*(?=")"#,
+            #"(?:Button|Toggle|Menu|Section)\(\s*(?=")"#,
+            #"ActionButton\(\s*(?=")"#,
+            #"\.(?:navigationTitle|alert|confirmationDialog)\(\s*(?=")"#,
+            #"LocalizedString(?:Resource|Key)\(\s*(?=")"#,
+            #"LocalizedString(?:Resource|Key)\s*=\s*(?=")"#,
+            #"IntentDescription\(\s*(?=")"#,
+            #"IntentDialog\(\s*(?=")"#,
+            #"\bdialog:\s*(?=")"#,
+            #"\.configurationDisplayName\(\s*(?=")"#,
+            #"\.description\(\s*(?=")"#
         ]
-        let regexes = try patterns.map {
-            (regex: try NSRegularExpression(pattern: $0.pattern), requiresSpace: $0.requiresSpace)
+        // A declaration typed `LocalizedStringKey` needs no `Text(…)` wrapper
+        // to reach users: `case .today: "Today"` in a `-> LocalizedStringKey`
+        // switch IS a catalog key, and so is every other literal in that body.
+        // Each pattern ends ON the delimiter opening the body.
+        let keyBodyPatterns: [(pattern: String, open: Character, close: Character)] = [
+            (#"(?:->|:)\s*LocalizedStringKey\??\s*\{"#, "{", "}"),
+            (#":\s*\[LocalizedStringKey\]\s*=\s*\["#, "[", "]")
+        ]
+        let literalRegexes = try literalPatterns.map { try NSRegularExpression(pattern: $0) }
+        let keyBodyRegexes = try keyBodyPatterns.map {
+            (regex: try NSRegularExpression(pattern: $0.pattern), open: $0.open, close: $0.close)
         }
 
         let appsDir = Self.repoRoot.appendingPathComponent("Apps")
@@ -171,37 +181,73 @@ struct LocalizationTests {
             let source = try String(
                 contentsOf: appsDir.appendingPathComponent(file), encoding: .utf8)
             let required = requiredCatalogs(for: file)
-            for (regex, requiresSpace) in regexes {
-                let matches = regex.matches(
-                    in: source, range: NSRange(source.startIndex..., in: source))
-                for match in matches {
-                    guard let range = Range(match.range(at: 1), in: source) else { continue }
-                    let literal = String(source[range])
-                    // Prose = contains a space. Control labels are additionally
-                    // flagged when they're a single Capitalized word ("Clear",
-                    // "Activate") — UI copy is capitalized here, while SF-symbol
-                    // names passed through wrappers ("globe", "delete.left") are
-                    // lowercase and must not false-positive. Interpolations
-                    // resolve at runtime.
-                    let isUserFacing =
-                        literal.contains(" ")
-                        || (!requiresSpace && literal.first?.isUppercase == true)
-                    guard isUserFacing, !literal.contains("\\(") else { continue }
-                    if required.isEmpty {
+            let wholeFile = NSRange(source.startIndex..., in: source)
+            var literals: [[SwiftLiteralSegment]] = []
+            for regex in literalRegexes {
+                for match in regex.matches(in: source, range: wholeFile) {
+                    guard let range = Range(match.range, in: source),
+                        let segments = SwiftLiteralScanner.scan(
+                            source, from: range.upperBound
+                        ).segments
+                    else { continue }
+                    literals.append(segments)
+                }
+            }
+            for (regex, open, close) in keyBodyRegexes {
+                for match in regex.matches(in: source, range: wholeFile) {
+                    guard let range = Range(match.range, in: source) else { continue }
+                    let opened = source.index(before: range.upperBound)
+                    let end = SwiftLiteralScanner.blockEnd(
+                        in: source, openedAt: opened, open: open, close: close)
+                    literals += SwiftLiteralScanner.literals(
+                        in: source, range: source.index(after: opened)..<end)
+                }
+            }
+
+            for segments in literals {
+                let candidates = SwiftLiteralScanner.localizedKeys(for: segments)
+                guard let key = candidates.first, Self.isUserFacingCopy(segments, key: key)
+                else { continue }
+                if required.isEmpty {
+                    #expect(
+                        candidates.contains(where: anyCatalogKeys.contains),
+                        "Apps/\(file): hardcoded prose '\(key)' is not in any String Catalog")
+                } else {
+                    for catalog in required {
+                        let keys = keysByCatalog[catalog] ?? []
                         #expect(
-                            anyCatalogKeys.contains(literal),
-                            "Apps/\(file): hardcoded prose '\(literal)' is not in any String Catalog"
-                        )
-                    } else {
-                        for catalog in required {
-                            #expect(
-                                keysByCatalog[catalog]?.contains(literal) == true,
-                                "Apps/\(file): '\(literal)' is missing from \(catalog)")
-                        }
+                            candidates.contains(where: keys.contains),
+                            "Apps/\(file): '\(key)' is missing from \(catalog)")
                     }
                 }
             }
         }
+    }
+
+    /// Is this literal user-facing copy — the thing a translator would touch?
+    ///
+    /// Prose contains a space; a lone Capitalized word is UI copy too ("Clear",
+    /// "Share", "Recent"), while the lowercase single tokens that reach these
+    /// call sites are SF Symbol names ("globe", "delete.left") and must not
+    /// false-positive. That capitalization rule used to apply only to
+    /// interactive-control patterns, which silently excused `Text("Recent")`
+    /// and the `dialog: "Copied."` of an App Intent.
+    ///
+    /// An interpolated literal additionally needs a letter in its STATIC text:
+    /// `"\(label): \(preview)"` and `"\(title) · \(count)"` compose values that
+    /// are localized (or numeric) already, leaving a translator nothing to
+    /// change, while `"No clips for “\(query)”."` plainly is copy.
+    static func isUserFacingCopy(_ segments: [SwiftLiteralSegment], key: String) -> Bool {
+        var staticText = ""
+        var isInterpolated = false
+        for segment in segments {
+            switch segment {
+            case .text(let text): staticText += text
+            case .interpolation: isInterpolated = true
+            }
+        }
+        if isInterpolated, !staticText.contains(where: \.isLetter) { return false }
+        return key.contains(" ") || key.first?.isUppercase == true
     }
 
     private static func placeholders(in text: String) -> [String] {

@@ -491,6 +491,46 @@
         }
       }
     },
+    "Removed %lld sensitive clips.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Removed %lld sensitive clip."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Removed %lld sensitive clips."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Se borró %lld clip sensible."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Se borraron %lld clips sensibles."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Puts the most recent URL from your history back on the clipboard.": {
       "localizations": {
         "es": {
@@ -597,6 +637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aún no hay URLs en tu historial."
+          }
+        }
+      }
+    },
+    "Copied.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiado."
           }
         }
       }
@@ -1297,6 +1347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Configuración"
+          }
+        }
+      }
+    },
+    "Share": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir"
           }
         }
       }

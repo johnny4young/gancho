@@ -3442,6 +3442,46 @@
         }
       }
     },
+    "Paste stack, %lld items": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Paste stack, %lld item"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Paste stack, %lld items"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pila de pegado, %lld elemento"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pila de pegado, %lld elementos"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Paste stack finished": {
       "localizations": {
         "es": {

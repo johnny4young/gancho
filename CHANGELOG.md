@@ -17,6 +17,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated global shortcut recording and delivery to KeyboardShortcuts 3.0.1,
   preserving stored shortcuts and adding signed launch coverage for persisted
   hotkey registration.
+- The localization gate now reads interpolated copy and strings declared
+  directly as localized keys, so translations missing from those forms fail a
+  test instead of reaching a release.
+
+### Fixed
+
+- Spanish now covers four strings that still rendered in English: the paste
+  stack's VoiceOver label on macOS, and the Share action, the copy-last-URL
+  confirmation, and the clear-sensitive-clips result on iOS.
 
 ## [0.8.1] - 2026-07-22
 
