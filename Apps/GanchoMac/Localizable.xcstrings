@@ -2971,12 +2971,22 @@
         }
       }
     },
-    "No clips for “%@”. Try another word or clear the filters.": {
+    "No clips for “%@”.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No hay clips para “%@”. Prueba con otra palabra o quita los filtros."
+            "value": "No hay clips para “%@”."
+          }
+        }
+      }
+    },
+    "No clips match this filter.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ningún clip coincide con este filtro."
           }
         }
       }

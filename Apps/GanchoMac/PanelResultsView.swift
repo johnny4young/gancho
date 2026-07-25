@@ -17,29 +17,10 @@ struct PanelResultsView<RowContent: View>: View {
     let items: [ClipItem]
     let selectedID: UUID?
     let clearFilters: () -> Void
-    private let row: (Int, ClipItem) -> RowContent
-
-    init(
-        query: String,
-        hasActiveFilter: Bool,
-        firstRunHint: LocalizedStringKey,
-        isGroupedView: Bool,
-        groups: [PanelDateGroup],
-        items: [ClipItem],
-        selectedID: UUID?,
-        clearFilters: @escaping () -> Void,
-        @ViewBuilder row: @escaping (Int, ClipItem) -> RowContent
-    ) {
-        self.query = query
-        self.hasActiveFilter = hasActiveFilter
-        self.firstRunHint = firstRunHint
-        self.isGroupedView = isGroupedView
-        self.groups = groups
-        self.items = items
-        self.selectedID = selectedID
-        self.clearFilters = clearFilters
-        self.row = row
-    }
+    /// Builds one row. `PanelView` owns row effects (selection, drag, context
+    /// menu, pagination), so the row arrives already wired instead of this
+    /// slice reaching for the state those effects need.
+    let row: (Int, ClipItem) -> RowContent
 
     var body: some View {
         if items.isEmpty {
@@ -147,23 +128,29 @@ private struct PanelResultsEmptyState: View {
     let firstRunHint: LocalizedStringKey
     let clearFilters: () -> Void
 
-    private var showsClearFilters: Bool {
-        !query.isEmpty && hasActiveFilter
-    }
+    /// The list is empty because the user narrowed it — not because history is
+    /// empty. A type, board, or source filter can be active with no query at
+    /// all (say, the Images pill on a history that has no images), and that
+    /// state must not masquerade as first run: the first-run copy would claim
+    /// the history is empty and, carrying no Clear filters button, would leave
+    /// the user without a way back.
+    private var isNarrowed: Bool { !query.isEmpty || hasActiveFilter }
 
     var body: some View {
         VStack(spacing: GanchoTokens.Spacing.xs) {
-            if query.isEmpty {
-                firstRunContent
-            } else {
+            if isNarrowed {
                 noResultsContent
+            } else {
+                firstRunContent
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, GanchoTokens.Spacing.lg)
-        .accessibilityElement(children: showsClearFilters ? .contain : .combine)
+        // `.combine` flattens children into one element, which would swallow
+        // the Clear filters button; contain only when that button is present.
+        .accessibilityElement(children: hasActiveFilter ? .contain : .combine)
         .accessibilityIdentifier(
-            query.isEmpty ? "panel-empty-firstrun" : "panel-empty-noresults")
+            isNarrowed ? "panel-empty-noresults" : "panel-empty-firstrun")
     }
 
     private var firstRunContent: some View {
@@ -208,11 +195,14 @@ private struct PanelResultsEmptyState: View {
                 .padding(.bottom, GanchoTokens.Spacing.xs)
             Text("No matches")
                 .font(.headline)
-            Text("No clips for “\(query)”.")
+            Text(detail)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            if showsClearFilters {
+            if hasActiveFilter {
+                // esc hides the panel, so a "press esc" hint would be wrong; a
+                // real button clears the type/board/source filter narrowing
+                // the list.
                 Button("Clear filters", action: clearFilters)
                     .buttonStyle(.borderless)
                     .padding(.top, GanchoTokens.Spacing.xxs)
@@ -224,5 +214,11 @@ private struct PanelResultsEmptyState: View {
                     .padding(.top, GanchoTokens.Spacing.xxs)
             }
         }
+    }
+
+    /// A filter alone can empty the list, and quoting an empty query back at
+    /// the user ("No clips for “”.") would read as a bug.
+    private var detail: LocalizedStringKey {
+        query.isEmpty ? "No clips match this filter." : "No clips for “\(query)”."
     }
 }
