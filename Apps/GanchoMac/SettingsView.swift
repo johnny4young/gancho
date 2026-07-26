@@ -649,6 +649,14 @@ private struct ProSettingsTab: View {
         /// Result of the last deactivation, so a Lemon Squeezy outage is
         /// reported rather than swallowed — the slot may still be held.
         @State private var deactivationNote: String?
+        /// Localized where it is STORED, because the note renders verbatim: it
+        /// can also carry an arbitrary system error string, and feeding that to
+        /// LocalizedStringKey would both fail to localize and let stray format
+        /// tokens in the error be interpreted as placeholders.
+        private static let slotNotReleasedNote = String(
+            localized:
+                "Removed from this Mac, but the Lemon Squeezy slot couldn’t be released. Free it in your account."
+        )
     #endif
 
     var body: some View {
@@ -680,7 +688,7 @@ private struct ProSettingsTab: View {
                         }
                         .accessibilityIdentifier("deactivate-license")
                         if let deactivationNote {
-                            Text(LocalizedStringKey(deactivationNote))
+                            Text(verbatim: deactivationNote)
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
@@ -735,10 +743,9 @@ private struct ProSettingsTab: View {
         private func deactivate() async {
             switch await model.deactivateLicense() {
             case .networkUnavailable:
-                deactivationNote =
-                    "This Mac no longer uses the license, but the slot couldn’t be released. "
-                    + "It frees up when you deactivate from your Lemon Squeezy account."
+                deactivationNote = Self.slotNotReleasedNote
             case .storageUnavailable(let reason):
+                // System error text: already localized by the OS, shown as-is.
                 deactivationNote = reason
             default:
                 deactivationNote = nil
