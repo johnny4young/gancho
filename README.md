@@ -28,14 +28,15 @@ published v0.8.2 DMG is signed, notarized, stapled, and Gatekeeper-accepted.
 The 0.8 series is the first direct release built against an embedded production CloudKit
 and Push provisioning profile, so the artifact is sync-capable and its signed
 entitlements are validated against the profile at package and QA time.
-Because sync is a Pro entitlement and secure direct activation is not yet
-available, a fresh public direct install still runs local-only: it preserves its
-encrypted history across app updates. Promising end-user sync on the direct
-channel still needs the production CloudKit schema, a usable Pro entitlement
-path, and a signed two-Mac sync matrix. What remains before 1.0 is
-passing that signed release-candidate matrix, moving direct-license issuance
-outside distributed builds, App Store submission, and the account-gated launch
-pieces (App Store products and TestFlight).
+The published v0.8.2 DMG predates the new Lemon Squeezy activation authority, so
+a fresh public direct install still runs local-only while preserving its
+encrypted history across app updates. Current source activates and revalidates
+direct licenses without embedding a payments secret. Promising end-user sync on
+the direct channel still needs the production CloudKit schema and a signed
+two-Mac release-candidate matrix using that path. What remains before 1.0 is
+passing that matrix, publishing the direct activation path, App Store
+submission, and the account-gated launch pieces (App Store products and
+TestFlight).
 
 ## Contents
 

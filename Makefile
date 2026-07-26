@@ -23,10 +23,9 @@ TEST_UI_SIGNING_FLAGS ?= CODE_SIGNING_ALLOWED=YES
 MAC_UI_RESULT_BUNDLE ?= build/macos-ui-tests.xcresult
 IOS_UI_RESULT_BUNDLE ?= build/ios-ui-tests.xcresult
 UI_EVIDENCE_DIR ?= build/ui-test-evidence
-# Direct-download license signing (honor model). Empty by default — a
-# from-source or App Store build cannot mint license tokens. The release DMG
-# build exports the real values. Exported so xcodegen picks them up.
-export GANCHO_LICENSE_SIGNING_KEY ?=
+# The direct-download build flavor. Empty by default; the release DMG lane sets
+# GANCHO_COMPILATION_CONDITIONS=GANCHO_DIRECT_DOWNLOAD. Exported so XcodeGen
+# can apply it to SWIFT_ACTIVE_COMPILATION_CONDITIONS.
 export GANCHO_COMPILATION_CONDITIONS ?=
 
 # When xcode-select points at CommandLineTools, `swift test` cannot find the

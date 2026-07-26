@@ -460,8 +460,9 @@ final class AppModel {
         }
         // StoreKit drives the tier: the listener catches renewals/refunds,
         // and a launch refresh reconciles against current entitlements.
-        // Only StoreKit has out-of-process tier changes (renewals, refunds);
-        // the direct-download license handler changes only on activation.
+        // StoreKit streams out-of-process tier changes. The direct-download
+        // handler instead reconciles Lemon Squeezy on the scheduled launch
+        // refresh below.
         (purchases as? StoreKitPurchaseHandler)?.onTierChange = { [weak self] tier in
             guard !forceFreeTier else { return }
             self?.applyTier(tier)
@@ -1378,8 +1379,8 @@ final class AppModel {
     /// Activates a direct-download Lemon Squeezy license key. Reports the
     /// distinguishable outcome (activated / wrong key / no network / not
     /// licensable) so the paywall can guide the user instead of dead-ending
-    /// every failure on one message. The tier is reconciled from the verified
-    /// token either way.
+    /// every failure on one message. The tier is reconciled from the persisted
+    /// activation record either way.
     func activateLicense(_ licenseKey: String) async -> LicenseActivationResult {
         let result = await purchases.activateResult(licenseKey: licenseKey)
         applyTier(await purchases.currentTier())

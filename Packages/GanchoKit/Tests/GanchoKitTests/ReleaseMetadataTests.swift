@@ -118,6 +118,23 @@ struct ReleaseMetadataTests {
         #expect(workflow.contains("update-homebrew-tap.sh"))
     }
 
+    @Test func directDownloadBuildCannotEmbedALicenseSigner() throws {
+        let project = try Self.text("project.yml")
+        let info = try Self.text("Apps", "GanchoMac", "Info.plist")
+        let makefile = try Self.text("Makefile")
+        let packaging = try Self.text("scripts", "package-macos-dmg.sh")
+
+        for buildInput in [project, info, makefile] {
+            #expect(!buildInput.contains("GANCHO_LICENSE_SIGNING_KEY"))
+            #expect(!buildInput.contains("GanchoLicenseSigningKey"))
+        }
+        #expect(packaging.contains(#"[ -z "${GANCHO_LICENSE_SIGNING_KEY:-}" ]"#))
+
+        let generator = Self.repositoryRoot
+            .appendingPathComponent("scripts/generate-license-keypair.swift")
+        #expect(!FileManager.default.fileExists(atPath: generator.path))
+    }
+
     @Test func releaseWorkflowRequiresOutcomeLedNotesForTheTag() throws {
         let project = try Self.text("project.yml")
         let workflow = try Self.text(".github", "workflows", "release.yml")

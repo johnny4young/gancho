@@ -7,6 +7,19 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Direct-download licensing now treats Lemon Squeezy as the entitlement
+  authority and removes the obsolete local token signer, embedded key wiring,
+  install fingerprint, and keypair generator from distributed source and build
+  configuration.
+
+### Fixed
+
+- Updating a saved direct-download activation now uses an in-place Keychain
+  update, so an intermittent write failure cannot delete the previously
+  confirmed entitlement before its replacement is stored.
+
 ## [0.8.2] - 2026-07-25
 
 ### Changed

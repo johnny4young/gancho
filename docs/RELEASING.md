@@ -321,7 +321,6 @@ requires the separate Pro activation and two-device evidence described above.
 | `MACOS_NOTARY_TEAM_ID` | Team ID for Apple ID notarization fallback |
 | `TAP_DEPLOY_KEY` | SSH deploy key with write access on `johnny4young/homebrew-tap` (scoped to that one repo, unlike a PAT), used to push the cask bump — the same key style Vitrine uses for its tap |
 | `SPARKLE_EDDSA_PRIVATE_KEY` | The EdDSA private key (`Vendor/bin/generate_keys -x`) that signs the appcast in CI. Its public half is the `SUPublicEDKey` in `Info.plist`; required for a tag |
-| `GANCHO_LICENSE_SIGNING_KEY` | **Obsolete — do not configure it.** Entitlements now come from the Lemon Squeezy License API, so no build mints or verifies a token and this key changes nothing. The build wiring that would embed it is slated for removal; until then the release lane keeps rejecting it. |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Deploy the marketing landing to Cloudflare Pages (`gancho-web` → gancho.app) from the Website workflow |
 
 The App Store Connect API-key path wins when both notarization credential styles
@@ -329,27 +328,35 @@ are configured.
 
 ### Direct-download Pro status (payments)
 
-The license-activation infrastructure ships built, the Lemon Squeezy product +
-hosted checkout already exist (`LemonSqueezyStore`), and the **public** verifier
-key is already committed in `License.swift`. The repository still contains a
-legacy development path that can inject the matching private key and mint a
-token locally. That path is useful for deterministic tests, but it is **not a
-safe production issuance design**: extracting one distributed build would
-compromise every entitlement that key can sign.
+**Lemon Squeezy is the entitlement authority.** The app never issues an
+entitlement of its own, so no signing key exists to embed, extract, or rotate —
+a distributed build carries no payments secret at all.
 
-Until issuance moves to a server, leave `GANCHO_LICENSE_SIGNING_KEY` unset in
-public builds; direct download remains Free and the paywall says "Pro is coming
-soon." A production implementation must:
+The lifecycle, all through the Lemon Squeezy License API:
 
-1. keep only the public verifier key in the application;
-2. exchange the provider's activation proof with a minimal server that accepts
-   no clipboard content by schema;
-3. issue short, versioned, audience-bound tokens with explicit expiry, device,
-   revocation, replay, rotation, outage/grace, and rollback policy;
-4. exercise purchase, recovery, revocation, and clean-device activation against
-   the signed release candidate before enabling the paid surface.
+1. the buyer purchases through the hosted checkout (`LemonSqueezyStore`) and
+   receives a license key;
+2. activation POSTs to `/v1/licenses/activate`, and Gancho records what Lemon
+   Squeezy issued — license key, instance id, and validation stamps — in the
+   Keychain (`LicenseActivationRecord`);
+3. Gancho re-confirms weekly against `/v1/licenses/validate`. A rejection is
+   authoritative and revokes; an unreachable network never does, so Pro
+   survives a 30-day offline grace window before lapsing;
+4. `/v1/licenses/deactivate` releases this Mac's slot, which is how a license
+   moves between machines. Lemon Squeezy enforces the activation limit.
 
-The App Store build continues to use StoreKit and never needs this signing key.
+Refunds and revocations therefore reach an install on its next due launch
+check. There is no Gancho-operated server: Lemon Squeezy, which already takes
+the money, is also the authority on who is entitled.
+
+The accepted trade-off: with no signing key there is no cryptographic barrier
+against a user editing their own Keychain record to postpone the next check.
+That exposes a single install until its next successful validation — strictly
+better than an embedded private key, where extracting one build would
+compromise every entitlement, permanently.
+
+The App Store build continues to use StoreKit and is independent of this
+direct-download activation path.
 
 ## Artifact QA
 

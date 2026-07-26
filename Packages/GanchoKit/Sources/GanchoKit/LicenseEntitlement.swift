@@ -84,3 +84,24 @@ public enum LicenseEntitlementPolicy: Sendable {
         return elapsed < 0 || elapsed >= interval
     }
 }
+
+/// Deterministic coding for the stored activation record: sorted keys and
+/// ISO-8601 dates, so a record written today reads back identically tomorrow.
+/// ISO-8601 truncates sub-seconds — callers comparing a re-read record must
+/// compare identity, not whole-value equality.
+extension JSONEncoder {
+    static var license: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }
+}
+
+extension JSONDecoder {
+    static var license: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }
+}

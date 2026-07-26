@@ -1,10 +1,14 @@
-import CryptoKit
 import Foundation
 import Security
 
-/// Persists the signed direct-download license token on THIS device. The token
-/// is device-bound and never synchronised through iCloud Keychain: each machine
-/// activates its own Lemon Squeezy seat.
+/// Persists the direct-download activation record on THIS device. The record is
+/// never synchronized through iCloud Keychain: each machine activates its own
+/// Lemon Squeezy seat.
+///
+/// The token-shaped API name and default Keychain account are retained for
+/// source and on-disk compatibility with builds that preceded activation
+/// records. Values are now JSON-encoded `LicenseActivationRecord` instances,
+/// never locally signed tokens.
 public protocol LicenseTokenStore: Sendable {
     func load() -> String?
     func save(_ token: String) throws
@@ -46,12 +50,22 @@ public struct KeychainLicenseTokenStore: LicenseTokenStore {
     }
 
     public func save(_ token: String) throws {
-        try clear()
-        var query = baseQuery()
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        query[kSecValueData as String] = Data(token.utf8)
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else { throw Failure.keychain(status) }
+        let attributes: [String: Any] = [
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecValueData as String: Data(token.utf8)
+        ]
+        let updateStatus = SecItemUpdate(
+            baseQuery() as CFDictionary,
+            attributes as CFDictionary)
+        if updateStatus == errSecSuccess { return }
+        guard updateStatus == errSecItemNotFound else {
+            throw Failure.keychain(updateStatus)
+        }
+
+        var addition = baseQuery()
+        addition.merge(attributes) { _, replacement in replacement }
+        let addStatus = SecItemAdd(addition as CFDictionary, nil)
+        guard addStatus == errSecSuccess else { throw Failure.keychain(addStatus) }
     }
 
     public func clear() throws {
@@ -59,31 +73,6 @@ public struct KeychainLicenseTokenStore: LicenseTokenStore {
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw Failure.keychain(status)
         }
-    }
-}
-
-/// A stable per-INSTALL identifier a license token can be bound to via
-/// `LicenseToken.boundFingerprint`. It is a SHA-256 hex digest of a random
-/// UUID minted the first time it is asked for and persisted in the Keychain
-/// (device-only, never synchronised) — no hardware identifiers, no IOKit.
-///
-/// Limits, by design: this binds a token to the INSTALL, not the hardware. It
-/// survives relaunches and app updates; it survives a reinstall only as long
-/// as the Keychain item does. Wiping the Keychain mints a new fingerprint, so
-/// a bound token then needs re-activation — fail closed, never fail open.
-public enum LicenseFingerprint {
-    /// Loads the install fingerprint, minting and persisting it on first use.
-    /// If persisting fails the fresh value is still returned so activation can
-    /// proceed; it just won't be stable across launches until the store heals.
-    public static func current(
-        in store: any LicenseTokenStore = KeychainLicenseTokenStore(
-            account: "install-fingerprint")
-    ) -> String {
-        if let existing = store.load() { return existing }
-        let fresh = SHA256.hash(data: Data(UUID().uuidString.utf8))
-            .map { String(format: "%02x", $0) }.joined()
-        try? store.save(fresh)
-        return fresh
     }
 }
 
