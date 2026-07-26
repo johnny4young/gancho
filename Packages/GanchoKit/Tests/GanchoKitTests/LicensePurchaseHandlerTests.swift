@@ -65,14 +65,16 @@ struct LicensePurchaseHandlerTests {
         #expect(await handler.activate(licenseKey: "   ") == false)
     }
 
-    @Test("A token signed by a foreign key is not honored")
-    func foreignTokenRejected() async throws {
-        let foreign = try LicenseSigner.sign(
-            LicenseToken(licenseID: "x", issuedAt: .now),
-            with: Curve25519.Signing.PrivateKey())
-        let handler = handler(
-            store: InMemoryLicenseTokenStore(token: foreign), activated: true)
-        #expect(await handler.currentTier() == .free)
+    /// Whatever ends up in the Keychain slot, only a record Gancho can actually
+    /// decode may unlock Pro — a stray value, a truncated write, or a leftover
+    /// from an older format must read as Free rather than as an entitlement.
+    @Test("Unreadable stored content is not an entitlement")
+    func unreadableRecordRejected() async {
+        for junk in ["", "not-json", #"{"licenseKey":"K"}"#, "eyJhIjoxfQ=="] {
+            let handler = handler(
+                store: InMemoryLicenseTokenStore(token: junk), activated: true)
+            #expect(await handler.currentTier() == .free)
+        }
     }
 
     // MARK: - Distinguishable activation results (drives the paywall's guidance)

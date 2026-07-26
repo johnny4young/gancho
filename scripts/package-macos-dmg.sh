@@ -42,8 +42,12 @@ if [ "$REQUIRE_PRODUCTION_RELEASE" = "1" ]; then
 		|| { echo "error: production release requires MACOS_SIGN_TEAM_ID" >&2; exit 1; }
 	[ -n "$PROVISIONING_PROFILE" ] \
 		|| { echo "error: production release requires MACOS_PROVISIONING_PROFILE" >&2; exit 1; }
+	# Tripwire, not plumbing: nothing reads this variable any more — Lemon
+	# Squeezy issues entitlements and the app mints nothing. It stays so that
+	# reintroducing an embedded signer fails the release instead of shipping a
+	# payments secret inside a public artifact.
 	[ -z "${GANCHO_LICENSE_SIGNING_KEY:-}" ] \
-		|| { echo "error: public releases must not embed GANCHO_LICENSE_SIGNING_KEY" >&2; exit 1; }
+		|| { echo "error: public releases must not embed a license signing key" >&2; exit 1; }
 fi
 
 if [ -n "${CODE_SIGN_IDENTITY:-}" ] && [ "$ENTITLEMENTS" = "$repo_root/Apps/GanchoMac/Gancho-DirectDownload.entitlements" ]; then

@@ -68,11 +68,10 @@ targets:
         # Shared 1:1 with the iOS app to enable App Store Universal Purchase
         # (buy Pro once, entitled on Mac AND iPhone). Same id, distinct platform.
         PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho
-        # Direct-download (non-App-Store) license: the release DMG build exports
-        # GANCHO_COMPILATION_CONDITIONS=GANCHO_DIRECT_DOWNLOAD and the Ed25519
-        # signing key. Both stay empty for App Store and from-source builds.
+        # Direct-download (non-App-Store) build: the release DMG lane exports
+        # GANCHO_COMPILATION_CONDITIONS=GANCHO_DIRECT_DOWNLOAD. Empty for App
+        # Store and from-source builds.
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) ${GANCHO_COMPILATION_CONDITIONS}
-        GANCHO_LICENSE_SIGNING_KEY: ${GANCHO_LICENSE_SIGNING_KEY}
         # Keep signing inputs behind app-only indirection. The direct-download
         # packaging lane overrides these custom settings at build time; unlike
         # passing CODE_SIGN_ENTITLEMENTS or PROVISIONING_PROFILE_SPECIFIER on
@@ -164,7 +163,6 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Holds the injected Ed25519 license signing key in the direct-download
         # release build; empty (and thus unlicensable) everywhere else.
-        GanchoLicenseSigningKey: $(GANCHO_LICENSE_SIGNING_KEY)
         # Sparkle auto-update (direct-download). The appcast is served from
         # GitHub Pages and signed with the EdDSA key whose public half is here;
         # these are inert until the Sparkle framework + updater are wired in.

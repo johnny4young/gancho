@@ -62,31 +62,6 @@ public struct KeychainLicenseTokenStore: LicenseTokenStore {
     }
 }
 
-/// A stable per-INSTALL identifier a license token can be bound to via
-/// `LicenseToken.boundFingerprint`. It is a SHA-256 hex digest of a random
-/// UUID minted the first time it is asked for and persisted in the Keychain
-/// (device-only, never synchronised) — no hardware identifiers, no IOKit.
-///
-/// Limits, by design: this binds a token to the INSTALL, not the hardware. It
-/// survives relaunches and app updates; it survives a reinstall only as long
-/// as the Keychain item does. Wiping the Keychain mints a new fingerprint, so
-/// a bound token then needs re-activation — fail closed, never fail open.
-public enum LicenseFingerprint {
-    /// Loads the install fingerprint, minting and persisting it on first use.
-    /// If persisting fails the fresh value is still returned so activation can
-    /// proceed; it just won't be stable across launches until the store heals.
-    public static func current(
-        in store: any LicenseTokenStore = KeychainLicenseTokenStore(
-            account: "install-fingerprint")
-    ) -> String {
-        if let existing = store.load() { return existing }
-        let fresh = SHA256.hash(data: Data(UUID().uuidString.utf8))
-            .map { String(format: "%02x", $0) }.joined()
-        try? store.save(fresh)
-        return fresh
-    }
-}
-
 /// In-memory store for previews, tests, and from-source builds.
 public final class InMemoryLicenseTokenStore: LicenseTokenStore, @unchecked Sendable {
     private let lock = NSLock()
