@@ -321,7 +321,7 @@ requires the separate Pro activation and two-device evidence described above.
 | `MACOS_NOTARY_TEAM_ID` | Team ID for Apple ID notarization fallback |
 | `TAP_DEPLOY_KEY` | SSH deploy key with write access on `johnny4young/homebrew-tap` (scoped to that one repo, unlike a PAT), used to push the cask bump — the same key style Vitrine uses for its tap |
 | `SPARKLE_EDDSA_PRIVATE_KEY` | The EdDSA private key (`Vendor/bin/generate_keys -x`) that signs the appcast in CI. Its public half is the `SUPublicEDKey` in `Info.plist`; required for a tag |
-| `GANCHO_LICENSE_SIGNING_KEY` | Legacy development-only activation signer. **Do not configure it for a public release:** the current build wiring embeds it in the app. Absent → the build stays Free and the paywall shows "Pro is coming soon". Public direct-license issuance requires the server boundary below. |
+| `GANCHO_LICENSE_SIGNING_KEY` | **Obsolete — do not configure it.** Entitlements now come from the Lemon Squeezy License API, so no build mints or verifies a token and this key changes nothing. The build wiring that would embed it is slated for removal; until then the release lane keeps rejecting it. |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Deploy the marketing landing to Cloudflare Pages (`gancho-web` → gancho.app) from the Website workflow |
 
 The App Store Connect API-key path wins when both notarization credential styles

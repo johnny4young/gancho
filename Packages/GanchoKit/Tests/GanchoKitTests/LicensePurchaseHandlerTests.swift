@@ -180,6 +180,43 @@ struct LicensePurchaseHandlerTests {
         #expect(await handler.currentTier() == .free)
     }
 
+    /// The paywall's "Check again" must work the moment a lapsed user
+    /// reconnects. If it merely deferred to the schedule it would strand them
+    /// until the next interval — so this asserts the schedule is BYPASSED:
+    /// the record was just validated, `needsRevalidation` is false, and a
+    /// recheck still reaches Lemon Squeezy and applies the answer.
+    @Test("Check again revalidates immediately, even when not due")
+    func recheckIgnoresTheSchedule() async throws {
+        let stamp = Date(timeIntervalSince1970: 1_000)
+        let stored = LicenseActivationRecord(
+            licenseKey: "K", instanceID: "i-1",
+            activatedAt: stamp, lastValidatedAt: stamp)
+        #expect(!LicenseEntitlementPolicy.needsRevalidation(stored, now: stamp))
+
+        final class Box: @unchecked Sendable { var calls = 0 }
+        let box = Box()
+        let transport: LemonSqueezyValidator.Transport = { request in
+            box.calls += 1
+            return (
+                Data(#"{"valid":false,"error":"license_key is disabled."}"#.utf8),
+                HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            )
+        }
+        let store = InMemoryLicenseTokenStore(token: try storedJSON(stored))
+        let handler = LicenseKeyPurchaseHandler(
+            store: store,
+            activation: LicenseActivationService(
+                validator: LemonSqueezyValidator(transport: transport), now: { stamp }),
+            instanceName: "Test Mac", now: { stamp })
+
+        // The scheduled path declines to call out; the on-demand path must not.
+        #expect(await handler.refreshIfNeeded() == .pro)
+        #expect(box.calls == 0)
+        #expect(await handler.recheckNow() == .free)
+        #expect(box.calls == 1)
+    }
+
     /// Signing out releases the Lemon Squeezy slot. Even when that call cannot
     /// reach Lemon Squeezy, the local entitlement goes away: the user asked to
     /// sign out here, and the slot is reclaimable from their account.
