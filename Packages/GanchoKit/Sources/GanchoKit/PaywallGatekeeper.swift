@@ -60,8 +60,8 @@ public enum LicenseActivationResult: Sendable, Equatable {
     case activated
     case invalidKey(reason: String)
     case networkUnavailable(reason: String)
-    /// The key validated, but the signed token couldn't be persisted on this
-    /// device (e.g. a Keychain write failure) — so the entitlement wouldn't
+    /// The key validated, but the activation record couldn't be persisted on
+    /// this device (e.g. a Keychain write failure) — so the entitlement wouldn't
     /// survive a relaunch. Its own case so the UI never claims Pro while
     /// `currentTier()` would still read `.free`.
     case storageUnavailable(reason: String)
@@ -85,8 +85,8 @@ public protocol PurchaseHandling: Sendable {
     func currentTier() async -> UserTier
     /// Activates a direct-download license key (Lemon Squeezy) and reports the
     /// distinguishable outcome. StoreKit-only handlers can't activate keys and
-    /// report `.notLicensable`; the license handler stores and verifies the
-    /// signed token, then reports `.activated` or why it failed.
+    /// report `.notLicensable`; the license handler stores Lemon Squeezy's
+    /// activation record, then reports `.activated` or why it failed.
     func activateResult(licenseKey: String) async -> LicenseActivationResult
     /// Convenience: whether activation unlocked Pro. Derived from
     /// `activateResult` by default — implementors override the result, not this.

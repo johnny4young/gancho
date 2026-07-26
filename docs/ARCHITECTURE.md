@@ -191,6 +191,24 @@ file. Read-only grants omit mutating tools at the protocol edge. Read-write
 grants may organize only inside their approved context and cannot create an
 arbitrary board or widen their own scope.
 
+### Commercial entitlement boundary
+
+App Store builds use StoreKit transactions as their entitlement authority.
+Direct-download builds use the Lemon Squeezy License API instead: activation
+returns an instance identifier, scheduled validation confirms or revokes the
+seat, and deactivation releases it. Gancho stores the license key, instance
+identifier, and validation timestamps as a device-only Keychain record; the
+historical `LicenseTokenStore` API and Keychain account remain stable solely to
+preserve source and installed-record compatibility.
+
+No direct-download build mints or verifies a local token, embeds a private
+payments key, or sends clipboard content across this boundary. Only an explicit
+Lemon Squeezy denial revokes an entitlement. Transport errors and unrecognized
+responses retain the last confirmed record, subject to the bounded offline grace
+policy. Keychain replacement updates the existing record in place so a failed
+write cannot delete the last confirmed entitlement before its replacement is
+durable.
+
 Database internals are split by stable responsibility rather than hidden behind a generic repository. `GanchoDatabaseMigrator` is the only ordered registry for the append-only v1–v20 migration identifiers; feature-owned migration bodies can remain beside their feature but must source their identifier from that registry. `ClipRow` and `PinboardRow` are focused internal domain mappings, while `GRDBClipboardStore` owns the database handle and query/write behavior. `DatabaseMigrationTests` freezes the identifier sequence, upgrades plaintext and SQLCipher fixtures from v1, v8, and v16, and proves a failed DDL migration rolls back before a clean resume.
 
 ## Privacy invariants

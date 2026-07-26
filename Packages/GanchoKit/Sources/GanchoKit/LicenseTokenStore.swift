@@ -1,10 +1,14 @@
-import CryptoKit
 import Foundation
 import Security
 
-/// Persists the signed direct-download license token on THIS device. The token
-/// is device-bound and never synchronised through iCloud Keychain: each machine
-/// activates its own Lemon Squeezy seat.
+/// Persists the direct-download activation record on THIS device. The record is
+/// never synchronized through iCloud Keychain: each machine activates its own
+/// Lemon Squeezy seat.
+///
+/// The token-shaped API name and default Keychain account are retained for
+/// source and on-disk compatibility with builds that preceded activation
+/// records. Values are now JSON-encoded `LicenseActivationRecord` instances,
+/// never locally signed tokens.
 public protocol LicenseTokenStore: Sendable {
     func load() -> String?
     func save(_ token: String) throws
@@ -46,12 +50,22 @@ public struct KeychainLicenseTokenStore: LicenseTokenStore {
     }
 
     public func save(_ token: String) throws {
-        try clear()
-        var query = baseQuery()
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        query[kSecValueData as String] = Data(token.utf8)
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else { throw Failure.keychain(status) }
+        let attributes: [String: Any] = [
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecValueData as String: Data(token.utf8)
+        ]
+        let updateStatus = SecItemUpdate(
+            baseQuery() as CFDictionary,
+            attributes as CFDictionary)
+        if updateStatus == errSecSuccess { return }
+        guard updateStatus == errSecItemNotFound else {
+            throw Failure.keychain(updateStatus)
+        }
+
+        var addition = baseQuery()
+        addition.merge(attributes) { _, replacement in replacement }
+        let addStatus = SecItemAdd(addition as CFDictionary, nil)
+        guard addStatus == errSecSuccess else { throw Failure.keychain(addStatus) }
     }
 
     public func clear() throws {

@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 import Testing
 
@@ -7,8 +6,6 @@ import Testing
 @MainActor
 @Suite("Direct-download license purchase handler")
 struct LicensePurchaseHandlerTests {
-    private let key = Curve25519.Signing.PrivateKey()
-
     private func service(activated: Bool) -> LicenseActivationService {
         let json =
             activated
@@ -35,13 +32,13 @@ struct LicensePurchaseHandlerTests {
             instanceName: "Test Mac")
     }
 
-    @Test("No stored token means Free")
+    @Test("No stored activation record means Free")
     func emptyIsFree() async {
         let handler = handler(store: InMemoryLicenseTokenStore(), activated: true)
         #expect(await handler.currentTier() == .free)
     }
 
-    @Test("Activating a valid key stores a token and unlocks Pro")
+    @Test("Activating a valid key stores a record and unlocks Pro")
     func activateUnlocksPro() async {
         let store = InMemoryLicenseTokenStore()
         let handler = handler(store: store, activated: true)
@@ -127,7 +124,7 @@ struct LicensePurchaseHandlerTests {
         #expect(await UnavailablePurchaseHandler().activate(licenseKey: "X") == false)
     }
 
-    @Test("A valid key whose token can't be persisted reports .storageUnavailable, not success")
+    @Test("A valid key whose record can't persist reports storage failure")
     func resultStorageUnavailable() async {
         let handler = LicenseKeyPurchaseHandler(
             store: FailingLicenseTokenStore(),
@@ -263,7 +260,7 @@ private final class UnclearableLicenseTokenStore: LicenseTokenStore, @unchecked 
 }
 
 /// A store whose Keychain write always fails — exercises the activation path
-/// where the key validates but the signed token can't be persisted.
+/// where the key validates but its activation record cannot be persisted.
 private struct FailingLicenseTokenStore: LicenseTokenStore {
     struct WriteFailed: Error {}
     func load() -> String? { nil }

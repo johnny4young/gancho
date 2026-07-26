@@ -161,8 +161,6 @@ targets:
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        # Holds the injected Ed25519 license signing key in the direct-download
-        # release build; empty (and thus unlicensable) everywhere else.
         # Sparkle auto-update (direct-download). The appcast is served from
         # GitHub Pages and signed with the EdDSA key whose public half is here;
         # these are inert until the Sparkle framework + updater are wired in.

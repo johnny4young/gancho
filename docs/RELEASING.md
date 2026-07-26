@@ -345,9 +345,9 @@ The lifecycle, all through the Lemon Squeezy License API:
 4. `/v1/licenses/deactivate` releases this Mac's slot, which is how a license
    moves between machines. Lemon Squeezy enforces the activation limit.
 
-Refunds and revocations therefore reach a running install on their own. There
-is no server to operate: Lemon Squeezy, which already takes the money, is also
-the authority on who is entitled.
+Refunds and revocations therefore reach an install on its next due launch
+check. There is no Gancho-operated server: Lemon Squeezy, which already takes
+the money, is also the authority on who is entitled.
 
 The accepted trade-off: with no signing key there is no cryptographic barrier
 against a user editing their own Keychain record to postpone the next check.
@@ -355,7 +355,8 @@ That exposes a single install until its next successful validation — strictly
 better than an embedded private key, where extracting one build would
 compromise every entitlement, permanently.
 
-The App Store build continues to use StoreKit and never needs this signing key.
+The App Store build continues to use StoreKit and is independent of this
+direct-download activation path.
 
 ## Artifact QA
 
