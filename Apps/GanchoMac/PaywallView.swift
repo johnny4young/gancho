@@ -55,7 +55,12 @@ struct PaywallView: View {
             }
 
             #if GANCHO_DIRECT_DOWNLOAD
-                if LicenseSigningKey.isConfigured {
+                // A license that exists but hasn't been confirmed lately is not
+                // a sales opportunity — this user already paid. Offer to check
+                // again instead of asking them to buy what they own.
+                if model.licenseEntitlement == .lapsed {
+                    lapsedLicenseNotice
+                } else {
                     // Direct download: buy on Lemon Squeezy, then paste the key.
                     ActionButton(
                         "Get Gancho Pro", systemImage: "cart.fill", identifier: "buy-pro"
@@ -78,18 +83,6 @@ struct PaywallView: View {
                     }
                     .disabled(
                         licenseKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                } else {
-                    // No signing key baked into this build, so activation can
-                    // never succeed — be honest instead of dead-ending every key
-                    // on "could not be activated".
-                    Label(
-                        "Pro is coming soon — purchases aren't open in this build yet.",
-                        systemImage: "clock.badge"
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .accessibilityIdentifier("pro-coming-soon")
                 }
             #else
                 if model.purchases.isPurchaseAvailable {
@@ -122,6 +115,40 @@ struct PaywallView: View {
     }
 
     #if GANCHO_DIRECT_DOWNLOAD
+        /// Shown when a real license is on this Mac but Lemon Squeezy hasn't
+        /// confirmed it inside the grace window. Nothing was lost — reconnecting
+        /// restores Pro — so this explains rather than sells.
+        @ViewBuilder private var lapsedLicenseNotice: some View {
+            Label(
+                "We haven’t been able to confirm your Pro license lately. Reconnect and check again to restore it.",
+                systemImage: "wifi.exclamationmark"
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .accessibilityIdentifier("license-lapsed")
+            if let licenseError {
+                Text(LocalizedStringKey(licenseError))
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
+            ActionButton(
+                "Check again", systemImage: "arrow.clockwise", identifier: "recheck-license"
+            ) {
+                Task {
+                    licenseError = nil
+                    await model.recheckLicense()
+                    if model.licenseEntitlement == .lapsed {
+                        licenseError =
+                            "Still couldn’t reach the license server. "
+                            + "Check your connection and try again."
+                    } else {
+                        dismiss()
+                    }
+                }
+            }
+        }
+
         /// Validates the pasted key and reports the *specific* reason it didn't
         /// take, instead of one flat "couldn't activate" — a wrong/used-up key, a
         /// network problem, or a build that can't license. On success it shows the

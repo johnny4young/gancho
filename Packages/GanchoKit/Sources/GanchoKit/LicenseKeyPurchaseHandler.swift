@@ -41,12 +41,17 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
 
     public func restorePurchases() async throws -> Bool { await currentTier() == .pro }
 
-    /// Reads the entitlement WITHOUT touching the network, so launch is never
-    /// gated on Lemon Squeezy being reachable. `refreshIfNeeded()` is what
-    /// eventually re-confirms or revokes it.
+    /// What the stored activation is worth right now, read WITHOUT touching the
+    /// network. Surfaced so the paywall can tell "never bought" apart from
+    /// "bought, but we haven't been able to confirm it lately".
+    public var entitlement: LicenseEntitlement {
+        LicenseEntitlementPolicy.entitlement(for: storedRecord(), now: now())
+    }
+
+    /// Launch is never gated on Lemon Squeezy being reachable.
+    /// `refreshIfNeeded()` is what eventually re-confirms or revokes.
     public func currentTier() async -> UserTier {
-        LicenseEntitlementPolicy.entitlement(for: storedRecord(), now: now()) == .pro
-            ? .pro : .free
+        entitlement == .pro ? .pro : .free
     }
 
     /// Asks Lemon Squeezy again when the stored record is due, and applies the
@@ -59,8 +64,22 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
         guard let record = storedRecord(),
             LicenseEntitlementPolicy.needsRevalidation(record, now: now())
         else { return await currentTier() }
+        return await apply(await activation.refresh(record))
+    }
 
-        switch await activation.refresh(record) {
+    /// Re-checks immediately, ignoring the schedule. This is what a lapsed
+    /// license needs: the user reconnected and is asking now, and waiting for
+    /// the next scheduled window would strand a valid purchase.
+    @discardableResult
+    public func recheckNow() async -> UserTier {
+        guard let record = storedRecord() else { return await currentTier() }
+        return await apply(await activation.refresh(record))
+    }
+
+    /// The single place a refresh verdict changes local state, so the scheduled
+    /// and on-demand paths can never drift apart.
+    private func apply(_ refresh: LicenseActivationService.Refresh) async -> UserTier {
+        switch refresh {
         case .confirmed(let refreshed):
             try? persist(refreshed)
         case .revoked:

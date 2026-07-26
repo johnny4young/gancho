@@ -5241,16 +5241,6 @@
         }
       }
     },
-    "Pro is coming soon — purchases aren't open in this build yet.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pro llega pronto — las compras aún no están abiertas en esta versión."
-          }
-        }
-      }
-    },
     "Pro unlocks unlimited history, pins, and boards today. iCloud sync arrives with launch.": {
       "localizations": {
         "es": {
@@ -7367,6 +7357,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "El cambio de tamaño manual se recuerda automáticamente."
+          }
+        }
+      }
+    },
+    "Check again": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprobar de nuevo"
+          }
+        }
+      }
+    },
+    "Still couldn’t reach the license server. Check your connection and try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todavía no se pudo contactar al servidor de licencias. Revisa tu conexión e inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Deactivate this Mac": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desactivar este Mac"
+          }
+        }
+      }
+    },
+    "We haven’t been able to confirm your Pro license lately. Reconnect and check again to restore it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hace tiempo que no podemos confirmar tu licencia Pro. Vuelve a conectarte y comprueba de nuevo para restaurarla."
+          }
+        }
+      }
+    },
+    "This Mac no longer uses the license, but the slot couldn’t be released. It frees up when you deactivate from your Lemon Squeezy account.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este Mac ya no usa la licencia, pero no se pudo liberar el espacio. Se libera cuando lo desactives desde tu cuenta de Lemon Squeezy."
+          }
+        }
+      }
+    },
+    "Frees this activation so the license can move to another Mac. Your history stays here.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libera esta activación para que la licencia pueda pasar a otro Mac. Tu historial se queda aquí."
           }
         }
       }

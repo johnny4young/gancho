@@ -1348,6 +1348,33 @@ final class AppModel {
         Task { _ = try? await purchases.restorePurchases() }
     }
 
+    #if GANCHO_DIRECT_DOWNLOAD
+        /// What the stored Lemon Squeezy activation is worth right now, so the
+        /// paywall can tell "never bought" apart from "bought, but not confirmed
+        /// lately" and offer the right way forward.
+        var licenseEntitlement: LicenseEntitlement {
+            (purchases as? LicenseKeyPurchaseHandler)?.entitlement ?? .none
+        }
+
+        /// Asks Lemon Squeezy again right now, regardless of the schedule — the
+        /// "check again" the paywall offers a lapsed license.
+        func recheckLicense() async {
+            guard let license = purchases as? LicenseKeyPurchaseHandler else { return }
+            applyTier(await license.recheckNow())
+        }
+
+        /// Releases this Mac's activation slot so the license can move.
+        @discardableResult
+        func deactivateLicense() async -> LicenseActivationResult {
+            guard let license = purchases as? LicenseKeyPurchaseHandler else {
+                return .notLicensable
+            }
+            let result = await license.deactivate()
+            applyTier(await purchases.currentTier())
+            return result
+        }
+    #endif
+
     /// Activates a direct-download Lemon Squeezy license key. Reports the
     /// distinguishable outcome (activated / wrong key / no network / not
     /// licensable) so the paywall can guide the user instead of dead-ending
