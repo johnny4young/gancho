@@ -13,6 +13,11 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     private let activation: LicenseActivationService
     private let instanceName: String
     private let now: @Sendable () -> Date
+    /// Set when Lemon Squeezy revoked this license during this run. The record
+    /// is cleared too, but a Keychain write can fail — and a revocation that
+    /// only half-applied must still drop Pro, so the decision sticks for the
+    /// session no matter what storage did.
+    private var revokedThisSession = false
 
     public init(
         store: any LicenseTokenStore,
@@ -59,6 +64,7 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
         case .confirmed(let refreshed):
             try? persist(refreshed)
         case .revoked:
+            revokedThisSession = true
             try? store.clear()
         case .unreachable:
             break
@@ -73,6 +79,7 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     public func deactivate() async -> LicenseActivationResult {
         guard let record = storedRecord() else { return .activated }
         let outcome = await activation.deactivate(record)
+        revokedThisSession = true
         do {
             try store.clear()
         } catch {
@@ -121,6 +128,7 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     /// The record travels through the existing string-shaped Keychain store as
     /// JSON, so the storage layer and its access-group behavior are unchanged.
     private func storedRecord() -> LicenseActivationRecord? {
+        guard !revokedThisSession else { return nil }
         guard let raw = store.load(), let data = raw.data(using: .utf8) else { return nil }
         return try? JSONDecoder.license.decode(LicenseActivationRecord.self, from: data)
     }

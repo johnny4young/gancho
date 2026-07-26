@@ -124,6 +124,64 @@ struct LicenseActivationTests {
         #expect(refreshed.instanceID == "i-1")
     }
 
+    /// A shape change at Lemon Squeezy's end must never read as "no". Before
+    /// this, any decodable body that failed the endpoint's check was reported
+    /// as a rejection — which would have revoked Pro for every paying user the
+    /// day their response format shifted.
+    @Test("A decodable but unrecognized body is unreachable, never a rejection")
+    func unrecognizedBodyDoesNotRevoke() async {
+        for json in [#"{}"#, #"{"instance":{"id":"i-1"}}"#, #"{"meta":{"page":1}}"#] {
+            let validator = LemonSqueezyValidator(transport: Self.transport(json))
+            guard case .unreachable = await validator.validate(licenseKey: "K", instanceID: "i-1")
+            else {
+                Issue.record("unrecognized body \(json) must not revoke")
+                return
+            }
+        }
+    }
+
+    /// `activated: true` with no instance is a broken payload, not a grant and
+    /// not a denial.
+    @Test("A success flag without an instance id is unreachable")
+    func successWithoutInstanceIsUnreachable() async {
+        let validator = LemonSqueezyValidator(
+            transport: Self.transport(#"{"activated":true}"#))
+        guard case .unreachable = await validator.activate(licenseKey: "K", instanceName: "Mac")
+        else {
+            Issue.record("a success flag with no instance must not be treated as activated")
+            return
+        }
+    }
+
+    @Test("An explicit false flag still rejects, with or without a reason")
+    func explicitFalseStillRejects() async {
+        let validator = LemonSqueezyValidator(
+            transport: Self.transport(#"{"valid":false}"#))
+        #expect(
+            await validator.validate(licenseKey: "K", instanceID: "i-1")
+                == .rejected(reason: "License key is not active"))
+    }
+
+    @Test("Deactivation posts the instance to /deactivate and confirms")
+    func deactivateShapeAndResult() async {
+        final class Box: @unchecked Sendable { var request: URLRequest? }
+        let box = Box()
+        let validator = LemonSqueezyValidator(transport: { request in
+            box.request = request
+            return (
+                Data(#"{"deactivated":true}"#.utf8),
+                HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            )
+        })
+        let result = await validator.deactivate(licenseKey: "ABC", instanceID: "i-1")
+        let body = String(bytes: box.request?.httpBody ?? Data(), encoding: .utf8) ?? ""
+        #expect(box.request?.url?.lastPathComponent == "deactivate")
+        #expect(body.contains("license_key=ABC"))
+        #expect(body.contains("instance_id=i%2D1"))
+        #expect(result == .confirmed(instanceID: "i-1"))
+    }
+
     @Test("Lemon Squeezy saying no revokes; an unreachable network does not")
     func refreshDistinguishesRevocationFromOutage() async {
         let record = LicenseActivationRecord(
@@ -195,13 +253,15 @@ struct LicenseEntitlementPolicyTests {
         #expect(lapsed != .none)
     }
 
-    /// A clock moved backwards must not read as "validated in the future" and
-    /// silently extend grace beyond its window.
-    @Test("A backwards clock does not extend grace")
+    /// A clock moved backwards keeps Pro — a skewed clock is not the user's
+    /// fault — but it must NOT postpone the next check, or a refunded license
+    /// would keep working for as long as the clock stayed wrong.
+    @Test("A backwards clock keeps Pro but is due for revalidation immediately")
     func backwardsClockIsSafe() {
-        #expect(
-            LicenseEntitlementPolicy.entitlement(
-                for: record(validatedAt: 10_000), now: Date(timeIntervalSince1970: 0)) == .pro)
+        let stored = record(validatedAt: 10_000)
+        let past = Date(timeIntervalSince1970: 0)
+        #expect(LicenseEntitlementPolicy.entitlement(for: stored, now: past) == .pro)
+        #expect(LicenseEntitlementPolicy.needsRevalidation(stored, now: past))
     }
 
     @Test("Revalidation is due only once the interval has elapsed")

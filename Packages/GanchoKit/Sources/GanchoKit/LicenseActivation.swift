@@ -37,8 +37,8 @@ public struct LemonSqueezyValidator: Sendable {
             path: "activate",
             fields: ["license_key": licenseKey, "instance_name": instanceName]
         ) { payload in
-            guard payload.activated == true, let id = payload.instance?.id else { return nil }
-            return id
+            if payload.activated == true, let id = payload.instance?.id { return .confirmed(id) }
+            return Self.negative(payload, flag: payload.activated)
         }
     }
 
@@ -50,7 +50,8 @@ public struct LemonSqueezyValidator: Sendable {
             path: "validate",
             fields: ["license_key": licenseKey, "instance_id": instanceID]
         ) { payload in
-            payload.valid == true ? instanceID : nil
+            payload.valid == true
+                ? .confirmed(instanceID) : Self.negative(payload, flag: payload.valid)
         }
     }
 
@@ -61,17 +62,36 @@ public struct LemonSqueezyValidator: Sendable {
             path: "deactivate",
             fields: ["license_key": licenseKey, "instance_id": instanceID]
         ) { payload in
-            payload.deactivated == true ? instanceID : nil
+            payload.deactivated == true
+                ? .confirmed(instanceID) : Self.negative(payload, flag: payload.deactivated)
         }
     }
 
+    /// How an endpoint reads its own answer. Three-way on purpose: only an
+    /// explicit negative may revoke, so a body Gancho does not recognize is
+    /// never mistaken for Lemon Squeezy saying no.
+    private enum Verdict {
+        case confirmed(String)
+        case denied
+        case unrecognized
+    }
+
+    /// An explicit `false` flag, or an error the server supplied, is Lemon
+    /// Squeezy denying the request. Anything else — a missing flag, a partial
+    /// body, a future response shape — is unrecognized and must NOT revoke: a
+    /// change at their end would otherwise drop Pro for every paying user at
+    /// once, and the whole point of the grace window is to survive exactly that.
+    private static func negative(_ payload: Response, flag: Bool?) -> Verdict {
+        flag == false || payload.error != nil ? .denied : .unrecognized
+    }
+
     /// One form-encoded POST plus the shared failure semantics: a transport
-    /// error or an unreadable body is `unreachable` (retry later, keep any
-    /// existing entitlement within grace), while a well-formed negative answer
-    /// is `rejected` (Lemon Squeezy has spoken — drop Pro).
+    /// error, an unreadable body, or an unrecognized one is `unreachable`
+    /// (retry later, keep any existing entitlement within grace), while an
+    /// explicit negative is `rejected` (Lemon Squeezy has spoken — drop Pro).
     private func post(
         path: String, fields: [String: String],
-        identifier: (Response) -> String?
+        verdict: (Response) -> Verdict
     ) async -> Result {
         var request = URLRequest(url: endpoint.appendingPathComponent(path))
         request.httpMethod = "POST"
@@ -97,8 +117,11 @@ public struct LemonSqueezyValidator: Sendable {
         guard let payload = try? decoder.decode(Response.self, from: data) else {
             return .unreachable(reason: "Unexpected Lemon Squeezy response")
         }
-        if let id = identifier(payload) { return .confirmed(instanceID: id) }
-        return .rejected(reason: payload.error ?? "License key is not active")
+        switch verdict(payload) {
+        case .confirmed(let id): return .confirmed(instanceID: id)
+        case .denied: return .rejected(reason: payload.error ?? "License key is not active")
+        case .unrecognized: return .unreachable(reason: "Unexpected Lemon Squeezy response")
+        }
     }
 
     private static func formEncoded(_ value: String) -> String {

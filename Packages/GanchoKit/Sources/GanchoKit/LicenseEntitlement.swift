@@ -72,10 +72,15 @@ public enum LicenseEntitlementPolicy: Sendable {
     /// True when the record is old enough that Gancho should try Lemon Squeezy
     /// again. A lapsed record always wants revalidation: reconnecting is the
     /// only way back to Pro.
+    ///
+    /// A clock BEHIND the stamp is due immediately. Otherwise moving the clock
+    /// back would postpone revalidation indefinitely, and a refunded or revoked
+    /// license would keep working for as long as the clock stayed wrong.
     public static func needsRevalidation(
         _ record: LicenseActivationRecord, now: Date,
         interval: TimeInterval = revalidationInterval
     ) -> Bool {
-        now.timeIntervalSince(record.lastValidatedAt) >= interval
+        let elapsed = now.timeIntervalSince(record.lastValidatedAt)
+        return elapsed < 0 || elapsed >= interval
     }
 }
