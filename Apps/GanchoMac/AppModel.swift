@@ -475,6 +475,17 @@ final class AppModel {
                 #if DEBUG
                     if DebugFlags.forcePro, tier != .pro { applyTier(.pro) }
                 #endif
+                #if GANCHO_DIRECT_DOWNLOAD
+                    // Re-confirm the Lemon Squeezy license when it is due. This
+                    // runs AFTER the offline tier is applied, so a slow or
+                    // unreachable network never delays launch — and a revoked
+                    // license still drops Pro on the next launch that reaches
+                    // Lemon Squeezy.
+                    if let license = purchases as? LicenseKeyPurchaseHandler {
+                        let refreshed = await license.refreshIfNeeded()
+                        if refreshed != tier { applyTier(refreshed) }
+                    }
+                #endif
             }
             syncController.configure(tier: tier)
         }
@@ -1355,8 +1366,7 @@ final class AppModel {
                 store: KeychainLicenseTokenStore(),
                 activation: LicenseActivationService(
                     validator: LemonSqueezyValidator(
-                        transport: { try await URLSession.shared.data(for: $0) }),
-                    signingKey: LicenseSigningKey.embedded),
+                        transport: { try await URLSession.shared.data(for: $0) })),
                 instanceName: Host.current().localizedName ?? "Mac")
         #else
             return StoreKitPurchaseHandler()

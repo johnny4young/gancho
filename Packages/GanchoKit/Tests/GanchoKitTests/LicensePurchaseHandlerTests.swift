@@ -12,7 +12,7 @@ struct LicensePurchaseHandlerTests {
     private func service(activated: Bool) -> LicenseActivationService {
         let json =
             activated
-            ? #"{"activated":true,"license_key":{"id":99,"status":"active"}}"#
+            ? #"{"activated":true,"valid":true,"instance":{"id":"inst-99"}}"#
             : #"{"activated":false,"error":"license_key not found."}"#
         let transport: LemonSqueezyValidator.Transport = { request in
             (
@@ -22,7 +22,7 @@ struct LicensePurchaseHandlerTests {
             )
         }
         return LicenseActivationService(
-            validator: LemonSqueezyValidator(transport: transport), signingKey: key)
+            validator: LemonSqueezyValidator(transport: transport))
     }
 
     private func handler(
@@ -31,8 +31,8 @@ struct LicensePurchaseHandlerTests {
         -> LicenseKeyPurchaseHandler
     {
         LicenseKeyPurchaseHandler(
-            store: store, verifier: LicenseVerifier(publicKey: key.publicKey),
-            activation: service(activated: activated), instanceName: "Test Mac")
+            store: store, activation: service(activated: activated),
+            instanceName: "Test Mac")
     }
 
     @Test("No stored token means Free")
@@ -108,9 +108,8 @@ struct LicensePurchaseHandlerTests {
         }
         let handler = LicenseKeyPurchaseHandler(
             store: InMemoryLicenseTokenStore(),
-            verifier: LicenseVerifier(publicKey: key.publicKey),
             activation: LicenseActivationService(
-                validator: LemonSqueezyValidator(transport: transport), signingKey: key),
+                validator: LemonSqueezyValidator(transport: transport)),
             instanceName: "Test Mac")
         guard case .networkUnavailable = await handler.activateResult(licenseKey: "GOOD-KEY")
         else {
@@ -130,7 +129,6 @@ struct LicensePurchaseHandlerTests {
     func resultStorageUnavailable() async {
         let handler = LicenseKeyPurchaseHandler(
             store: FailingLicenseTokenStore(),
-            verifier: LicenseVerifier(publicKey: key.publicKey),
             activation: service(activated: true), instanceName: "Test Mac")
         guard case .storageUnavailable = await handler.activateResult(licenseKey: "GOOD-KEY")
         else {
