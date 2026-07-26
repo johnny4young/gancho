@@ -7,18 +7,44 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Buy and activate Pro from the direct download.** Purchasing on the direct
+  channel now works end to end for the first time: buy through the Lemon
+  Squeezy checkout, paste the key, and Pro unlocks. Previously the purchase
+  controls were hidden, because the build could not issue an entitlement
+  without carrying a private signing key.
+- **Pro keeps working offline.** An activated license is confirmed with Lemon
+  Squeezy about once a week and keeps working for 30 days without a reachable
+  network, so a trip or a long stretch offline never takes away what you paid
+  for. If that window does pass, Gancho says the license needs reconnecting —
+  and offers to check again — instead of asking you to buy it a second time.
+- **Move your license to another Mac.** Settings → Pro can release this Mac's
+  activation, so replacing a machine no longer uses up your activations with no
+  way to reclaim them.
+
 ### Changed
 
-- Direct-download licensing now treats Lemon Squeezy as the entitlement
-  authority and removes the obsolete local token signer, embedded key wiring,
-  install fingerprint, and keypair generator from distributed source and build
+- Lemon Squeezy is now the authority on who is entitled. Gancho records the
+  activation it issued and re-confirms it, rather than minting its own signed
+  token — so the app ships with no license-signing key to extract, and refunds
+  or revocations reach an install that is already running.
+- Removed the obsolete local token signer, its embedded key wiring, the install
+  fingerprint, and the keypair generator from the distributed source and build
   configuration.
 
 ### Fixed
 
+- A response Gancho cannot recognize no longer counts as Lemon Squeezy denying
+  a license, so a change to their reply format cannot revoke Pro for everyone
+  at once; only an explicit rejection does, and an unreachable service falls
+  back to the offline grace window.
 - Updating a saved direct-download activation now uses an in-place Keychain
   update, so an intermittent write failure cannot delete the previously
   confirmed entitlement before its replacement is stored.
+- A revoked license drops to Free for the session even if clearing the stored
+  record fails, and a clock set backwards no longer postpones the next license
+  check indefinitely.
 
 ## [0.8.2] - 2026-07-25
 
