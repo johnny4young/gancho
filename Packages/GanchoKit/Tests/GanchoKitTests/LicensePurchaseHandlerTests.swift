@@ -12,7 +12,7 @@ struct LicensePurchaseHandlerTests {
     private func service(activated: Bool) -> LicenseActivationService {
         let json =
             activated
-            ? #"{"activated":true,"license_key":{"id":99,"status":"active"}}"#
+            ? #"{"activated":true,"valid":true,"instance":{"id":"inst-99"}}"#
             : #"{"activated":false,"error":"license_key not found."}"#
         let transport: LemonSqueezyValidator.Transport = { request in
             (
@@ -22,7 +22,7 @@ struct LicensePurchaseHandlerTests {
             )
         }
         return LicenseActivationService(
-            validator: LemonSqueezyValidator(transport: transport), signingKey: key)
+            validator: LemonSqueezyValidator(transport: transport))
     }
 
     private func handler(
@@ -31,8 +31,8 @@ struct LicensePurchaseHandlerTests {
         -> LicenseKeyPurchaseHandler
     {
         LicenseKeyPurchaseHandler(
-            store: store, verifier: LicenseVerifier(publicKey: key.publicKey),
-            activation: service(activated: activated), instanceName: "Test Mac")
+            store: store, activation: service(activated: activated),
+            instanceName: "Test Mac")
     }
 
     @Test("No stored token means Free")
@@ -108,9 +108,8 @@ struct LicensePurchaseHandlerTests {
         }
         let handler = LicenseKeyPurchaseHandler(
             store: InMemoryLicenseTokenStore(),
-            verifier: LicenseVerifier(publicKey: key.publicKey),
             activation: LicenseActivationService(
-                validator: LemonSqueezyValidator(transport: transport), signingKey: key),
+                validator: LemonSqueezyValidator(transport: transport)),
             instanceName: "Test Mac")
         guard case .networkUnavailable = await handler.activateResult(licenseKey: "GOOD-KEY")
         else {
@@ -130,7 +129,6 @@ struct LicensePurchaseHandlerTests {
     func resultStorageUnavailable() async {
         let handler = LicenseKeyPurchaseHandler(
             store: FailingLicenseTokenStore(),
-            verifier: LicenseVerifier(publicKey: key.publicKey),
             activation: service(activated: true), instanceName: "Test Mac")
         guard case .storageUnavailable = await handler.activateResult(licenseKey: "GOOD-KEY")
         else {
@@ -140,6 +138,89 @@ struct LicensePurchaseHandlerTests {
         // The entitlement must not have "taken" — currentTier still reads Free.
         #expect(await handler.currentTier() == .free)
     }
+
+    /// A revocation that cannot be written to the Keychain must still revoke.
+    /// Otherwise a failing clear would silently keep Pro alive on a refunded
+    /// license — the exact outcome the "Lemon Squeezy is the authority" design
+    /// exists to prevent.
+    /// Encodes a record exactly as the handler persists it, so a test can seed
+    /// a store with an activation that is already in place.
+    private func storedJSON(_ record: LicenseActivationRecord) throws -> String {
+        let data = try JSONEncoder.license.encode(record)
+        return String(bytes: data, encoding: .utf8) ?? ""
+    }
+
+    @Test("A revoked license drops to Free even when the record can't be cleared")
+    func revocationSticksWhenClearFails() async throws {
+        let stored = LicenseActivationRecord(
+            licenseKey: "K", instanceID: "i-1",
+            activatedAt: Date(timeIntervalSince1970: 0),
+            lastValidatedAt: Date(timeIntervalSince1970: 0))
+        let store = UnclearableLicenseTokenStore(token: try storedJSON(stored))
+        let transport: LemonSqueezyValidator.Transport = { request in
+            (
+                Data(#"{"valid":false,"error":"license_key is disabled."}"#.utf8),
+                HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            )
+        }
+        // Far past the revalidation interval, so the refresh actually runs.
+        let later = Date(
+            timeIntervalSince1970: LicenseEntitlementPolicy.revalidationInterval + 1)
+        let handler = LicenseKeyPurchaseHandler(
+            store: store,
+            activation: LicenseActivationService(
+                validator: LemonSqueezyValidator(transport: transport), now: { later }),
+            instanceName: "Test Mac", now: { later })
+
+        #expect(await handler.currentTier() == .pro)
+        #expect(await handler.refreshIfNeeded() == .free)
+        // The store still holds the stale record; the entitlement must not.
+        #expect(store.load() != nil)
+        #expect(await handler.currentTier() == .free)
+    }
+
+    /// Signing out releases the Lemon Squeezy slot. Even when that call cannot
+    /// reach Lemon Squeezy, the local entitlement goes away: the user asked to
+    /// sign out here, and the slot is reclaimable from their account.
+    @Test("Deactivation drops Pro locally even when Lemon Squeezy is unreachable")
+    func deactivateClearsLocallyWhenOffline() async throws {
+        let stored = LicenseActivationRecord(
+            licenseKey: "K", instanceID: "i-1",
+            activatedAt: Date(timeIntervalSince1970: 0),
+            lastValidatedAt: Date(timeIntervalSince1970: 0))
+        let store = InMemoryLicenseTokenStore(token: try storedJSON(stored))
+        // Just after the stamp: comfortably inside grace, so the record starts
+        // out entitled and the test measures deactivation, not expiry.
+        let soon = Date(timeIntervalSince1970: 60)
+        let handler = LicenseKeyPurchaseHandler(
+            store: store,
+            activation: LicenseActivationService(
+                validator: LemonSqueezyValidator(transport: { _ in
+                    throw URLError(.notConnectedToInternet)
+                }),
+                now: { soon }),
+            instanceName: "Test Mac", now: { soon })
+
+        #expect(await handler.currentTier() == .pro)
+        guard case .networkUnavailable = await handler.deactivate() else {
+            Issue.record("expected the outage to be reported")
+            return
+        }
+        #expect(store.load() == nil)
+        #expect(await handler.currentTier() == .free)
+    }
+}
+
+/// A store that holds a record but refuses to forget it — the Keychain clear
+/// fails. Revocation must still take Pro away.
+private final class UnclearableLicenseTokenStore: LicenseTokenStore, @unchecked Sendable {
+    struct ClearFailed: Error {}
+    private var token: String?
+    init(token: String?) { self.token = token }
+    func load() -> String? { token }
+    func save(_ token: String) throws { self.token = token }
+    func clear() throws { throw ClearFailed() }
 }
 
 /// A store whose Keychain write always fails — exercises the activation path

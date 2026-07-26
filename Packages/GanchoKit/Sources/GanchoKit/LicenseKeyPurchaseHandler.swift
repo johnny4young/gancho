@@ -1,27 +1,34 @@
 import Foundation
 
-/// `PurchaseHandling` for the direct-download channel: Pro comes from a
-/// locally-stored, Ed25519-signed Lemon Squeezy license token, verified
-/// offline against the embedded public key. This handler is wired only in the
+/// `PurchaseHandling` for the direct-download channel: Pro comes from a Lemon
+/// Squeezy license the user activates once, recorded in the Keychain and
+/// re-confirmed with Lemon Squeezy on a schedule. Lemon Squeezy is the
+/// authority — this build mints nothing and carries no signing key, so there is
+/// no secret in it to extract. This handler is wired only in the
 /// `GANCHO_DIRECT_DOWNLOAD` build; the App Store build uses
 /// `StoreKitPurchaseHandler`.
 @MainActor
 public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     private let store: any LicenseTokenStore
-    private let verifier: LicenseVerifier
     private let activation: LicenseActivationService
     private let instanceName: String
+    private let now: @Sendable () -> Date
+    /// Set when Lemon Squeezy revoked this license during this run. The record
+    /// is cleared too, but a Keychain write can fail — and a revocation that
+    /// only half-applied must still drop Pro, so the decision sticks for the
+    /// session no matter what storage did.
+    private var revokedThisSession = false
 
     public init(
         store: any LicenseTokenStore,
-        verifier: LicenseVerifier = .embedded,
         activation: LicenseActivationService,
-        instanceName: String
+        instanceName: String,
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.store = store
-        self.verifier = verifier
         self.activation = activation
         self.instanceName = instanceName
+        self.now = now
     }
 
     nonisolated public var isPurchaseAvailable: Bool { true }
@@ -34,33 +41,80 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
 
     public func restorePurchases() async throws -> Bool { await currentTier() == .pro }
 
+    /// Reads the entitlement WITHOUT touching the network, so launch is never
+    /// gated on Lemon Squeezy being reachable. `refreshIfNeeded()` is what
+    /// eventually re-confirms or revokes it.
     public func currentTier() async -> UserTier {
-        guard let token = store.load(), verifier.verify(token) != nil else { return .free }
-        return .pro
+        LicenseEntitlementPolicy.entitlement(for: storedRecord(), now: now()) == .pro
+            ? .pro : .free
     }
 
-    /// Validates the key online once, stores the signed token, and reports the
+    /// Asks Lemon Squeezy again when the stored record is due, and applies the
+    /// answer: a confirmation refreshes the grace clock, a rejection clears the
+    /// record so Pro drops, and an unreachable network changes nothing.
+    ///
+    /// Safe to call on every launch — it no-ops until the record is due.
+    @discardableResult
+    public func refreshIfNeeded() async -> UserTier {
+        guard let record = storedRecord(),
+            LicenseEntitlementPolicy.needsRevalidation(record, now: now())
+        else { return await currentTier() }
+
+        switch await activation.refresh(record) {
+        case .confirmed(let refreshed):
+            try? persist(refreshed)
+        case .revoked:
+            revokedThisSession = true
+            try? store.clear()
+        case .unreachable:
+            break
+        }
+        return await currentTier()
+    }
+
+    /// Releases this Mac's activation slot with Lemon Squeezy and forgets the
+    /// license locally. The local record is cleared even when the call cannot
+    /// reach Lemon Squeezy: the user asked to sign out here, and the slot can be
+    /// reclaimed from their Lemon Squeezy account.
+    public func deactivate() async -> LicenseActivationResult {
+        guard let record = storedRecord() else { return .activated }
+        let outcome = await activation.deactivate(record)
+        revokedThisSession = true
+        do {
+            try store.clear()
+        } catch {
+            return .storageUnavailable(reason: error.localizedDescription)
+        }
+        if case .unreachable(let reason) = outcome {
+            return .networkUnavailable(reason: reason)
+        }
+        return .activated
+    }
+
+    /// Activates the key with Lemon Squeezy, records the result, and reports a
     /// distinguishable outcome so the UI can guide the user. `activate(_:)` (the
     /// Bool convenience) is derived from this by the protocol default.
     public func activateResult(licenseKey: String) async -> LicenseActivationResult {
         let trimmed = licenseKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .invalidKey(reason: "Empty key") }
         switch await activation.activate(licenseKey: trimmed, instanceName: instanceName) {
-        case .activated(let signed):
-            // Verify BEFORE persisting — never store a token that doesn't check
-            // out against the embedded public key.
-            guard verifier.verify(signed) != nil else {
-                return .invalidKey(reason: "Signed token failed local verification")
-            }
+        case .activated(let record):
             // Persist, then confirm it reads back. A Keychain write can fail; if
             // it does, the entitlement wouldn't survive a relaunch (currentTier
             // reads from the store), so report it instead of a false success.
             do {
-                try store.save(signed)
+                try persist(record)
             } catch {
                 return .storageUnavailable(reason: error.localizedDescription)
             }
-            guard let stored = store.load(), verifier.verify(stored) != nil else {
+            // Compare identity, not the whole record: the stamps round-trip
+            // through ISO-8601, which drops sub-second precision, so a
+            // byte-equality check here would fail every successful activation.
+            // What must be proven is that the license survived the write.
+            let stored = storedRecord()
+            guard stored?.licenseKey == record.licenseKey,
+                stored?.instanceID == record.instanceID
+            else {
                 return .storageUnavailable(reason: "The license did not persist on this device")
             }
             return .activated
@@ -68,8 +122,24 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
             return .invalidKey(reason: reason)
         case .unreachable(let reason):
             return .networkUnavailable(reason: reason)
-        case .notLicensable:
-            return .notLicensable
         }
     }
+
+    /// The record travels through the existing string-shaped Keychain store as
+    /// JSON, so the storage layer and its access-group behavior are unchanged.
+    private func storedRecord() -> LicenseActivationRecord? {
+        guard !revokedThisSession else { return nil }
+        guard let raw = store.load(), let data = raw.data(using: .utf8) else { return nil }
+        return try? JSONDecoder.license.decode(LicenseActivationRecord.self, from: data)
+    }
+
+    private func persist(_ record: LicenseActivationRecord) throws {
+        let data = try JSONEncoder.license.encode(record)
+        guard let json = String(bytes: data, encoding: .utf8) else {
+            throw RecordCodingError.notUTF8
+        }
+        try store.save(json)
+    }
+
+    private enum RecordCodingError: Error { case notUTF8 }
 }
