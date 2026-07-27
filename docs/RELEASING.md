@@ -188,7 +188,8 @@ Before cutting the first sync-enabled direct release, the owner must:
 1. enable iCloud/CloudKit and Push Notifications for the explicit macOS App ID;
 2. create and download a Developer ID provisioning profile for
    `com.johnny4young.gancho` with those capabilities;
-3. deploy the required CloudKit schema to the production environment;
+3. deploy the required CloudKit schema to the production environment (see
+   [Deploying the CloudKit schema](#deploying-the-cloudkit-schema));
 4. activate Pro through a production-safe path on a clean install and confirm
    the entitlement survives relaunch and update without any private signing key
    in the application;
@@ -228,6 +229,47 @@ nothing. Verify with:
 ```bash
 codesign -d --entitlements :- "Gancho.app/Contents/MacOS/<executable>" | grep get-task-allow
 ```
+
+### Deploying the CloudKit schema
+
+The signed DMG requests `com.apple.developer.icloud-container-environment =
+Production`, so a released build talks to the **Production** environment of
+`iCloud.com.johnny4young.gancho`. A Debug build talks to **Development**.
+
+That difference is the whole hazard. In Development, `CKSyncEngine` creates
+record types and fields on the fly the first time a value is written. **In
+Production the schema is locked**: a record carrying a field the schema does not
+know is rejected. So Production only ever gets what a deploy promotes from
+Development — and Development only knows about fields that were actually
+written.
+
+**Consequence: a field that is always `nil` during development never enters the
+schema.** Two were missing when this was first audited:
+
+| Type | Field | Written as | Why it was absent |
+| --- | --- | --- | --- |
+| `Board` | `emoji` | `encryptedValues["emoji"]` → ENCRYPTED STRING | no board had an emoji yet |
+| `Clip` | `sourceDeviceName` | `record["sourceDeviceName"]` → STRING | nothing populates it (see the provenance backlog item) |
+
+Before deploying, diff the schema against what the mappers write:
+
+```bash
+grep -oE 'record\["[a-zA-Z]+"\]|encryptedValues\["[a-zA-Z]+"\]' \
+  Packages/GanchoKit/Sources/GanchoSync/ClipRecordMapper.swift \
+  Packages/GanchoKit/Sources/GanchoSync/BoardRecordMapper.swift | sort -u
+```
+
+Every name there must exist in the Development schema, with **encrypted fields
+created as ENCRYPTED STRING**. Prefer creating a field by exercising the app so
+CloudKit infers the type; only add one by hand when nothing can produce a value,
+and then match the mapper exactly (`record[…]` is plain, `encryptedValues[…]` is
+encrypted). Metadata adds six entries per type, so the console total is
+`fields + 6`.
+
+Deploying is **additive and irreversible**: fields and record types cannot be
+removed from Production afterwards. Review the diff the console shows, then
+*Deploy Schema Changes…* and confirm the same types and fields under the
+Production selector.
 
 ### Notarization credentials
 
