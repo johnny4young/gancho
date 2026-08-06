@@ -1,5 +1,5 @@
 {
-  "originHash" : "01fdb8c9ac8b10490449b98f32dbce687cf38cc722d958752fae427a57d1c000",
+  "originHash" : "6d663436d4c3f39ac3e0f18e7451167bcf28808931d2ea960a02e422bb54691d",
   "pins" : [
     {
       "identity" : "grdb.swift",
@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/TelemetryDeck/SwiftSDK",
       "state" : {
-        "revision" : "ad4a03ec7ea7416a4081370f21c86e55b02a5b88",
-        "version" : "2.14.1"
+        "revision" : "58f436299d3f6710bcedc18aff26480aaf1879fc",
+        "version" : "2.14.2"
       }
     }
   ],
