@@ -9,6 +9,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Clips remember which device they were copied on.** Every new capture is
+  stamped with the capturing device's name (as the OS reports it), the name
+  travels with the clip when sync is enabled, and the iOS clip detail shows
+  it. Clips captured before this release carry no origin — provenance is
+  known from capture time onward.
 - **Buy and activate Pro from the direct download.** Purchasing on the direct
   channel now works end to end for the first time: buy through the Lemon
   Squeezy checkout, paste the key, and Pro unlocks. Previously the purchase

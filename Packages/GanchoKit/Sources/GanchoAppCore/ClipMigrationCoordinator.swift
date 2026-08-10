@@ -148,12 +148,16 @@ public struct ClipMigrationCoordinator: Sendable {
         for candidate in document.candidates {
             try Task.checkCancellation()
             let capture = PasteboardCapture(text: candidate.text)
+            // No device provenance: the source manager's history has unknown
+            // origin (it may itself have synced rows from other devices), so
+            // claiming this device's name would fabricate provenance.
             var (item, content) = ClipItemFactory.make(
                 from: capture,
                 classifier: classifier,
                 detector: detector,
                 sensitiveLifetime: configuration.sensitiveLifetime,
-                detectSecrets: configuration.detectSecrets)
+                detectSecrets: configuration.detectSecrets,
+                sourceDeviceName: nil)
 
             let titleIsSensitive =
                 configuration.detectSecrets

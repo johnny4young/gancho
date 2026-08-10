@@ -18,6 +18,12 @@ public struct ClipIngestionCoordinator: Sendable {
         public var tier: UserTier
         public var intelligence: IntelligencePreferences
         public var allowsFreeTitle: Bool
+        /// Provenance stamped on every capture — the local device's name
+        /// (`DeviceProvenance.currentDeviceName()`), so a clip that later
+        /// arrives on another device says where it was copied. Also scopes the
+        /// store's dedupe key `(contentHash, sourceDeviceName)`. Nil leaves the
+        /// column NULL, the pre-stamp behavior.
+        public var sourceDeviceName: String?
 
         public init(
             sensitiveLifetime: TimeInterval = 600,
@@ -25,7 +31,8 @@ public struct ClipIngestionCoordinator: Sendable {
             precomputedKind: ClipContentKind? = nil,
             tier: UserTier,
             intelligence: IntelligencePreferences,
-            allowsFreeTitle: Bool = false
+            allowsFreeTitle: Bool = false,
+            sourceDeviceName: String? = nil
         ) {
             self.sensitiveLifetime = sensitiveLifetime
             self.detectSecrets = detectSecrets
@@ -33,6 +40,7 @@ public struct ClipIngestionCoordinator: Sendable {
             self.tier = tier
             self.intelligence = intelligence
             self.allowsFreeTitle = allowsFreeTitle
+            self.sourceDeviceName = sourceDeviceName
         }
     }
 
@@ -81,7 +89,8 @@ public struct ClipIngestionCoordinator: Sendable {
             detector: detector,
             sensitiveLifetime: configuration.sensitiveLifetime,
             detectSecrets: configuration.detectSecrets,
-            precomputedKind: configuration.precomputedKind)
+            precomputedKind: configuration.precomputedKind,
+            sourceDeviceName: configuration.sourceDeviceName)
         let stored = try await store.insert(proposed, content: content)
         await syncEngine.enqueue([stored])
 

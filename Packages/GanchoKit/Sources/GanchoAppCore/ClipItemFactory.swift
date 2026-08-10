@@ -18,13 +18,18 @@ import GanchoKit
 public enum ClipItemFactory {
     /// Capture payload → classified, normalized, sensitivity-decorated clip
     /// plus its full content for the store.
+    ///
+    /// `sourceDeviceName` is deliberately not defaulted: every caller decides
+    /// its provenance. Capture passes the local device's name; a migration
+    /// import passes nil (the other manager's history has unknown origin).
     public static func make(
         from capture: PasteboardCapture,
         classifier: RuleClassifier,
         detector: SensitiveDataDetector,
         sensitiveLifetime: TimeInterval,
         detectSecrets: Bool = true,
-        precomputedKind: ClipContentKind? = nil
+        precomputedKind: ClipContentKind? = nil,
+        sourceDeviceName: String?
     ) -> (ClipItem, ClipContent?) {
         switch capture.payload {
         case .image(let data, let typeIdentifier):
@@ -32,7 +37,8 @@ public enum ClipItemFactory {
                 kind: .image,
                 preview: "Image (\(ByteSize.formatted(data.count)))",
                 contentHash: ClipItem.hash(of: data, kind: .image),
-                sourceAppBundleID: capture.sourceAppBundleID)
+                sourceAppBundleID: capture.sourceAppBundleID,
+                sourceDeviceName: sourceDeviceName)
             return (item, .binary(data: data, typeIdentifier: typeIdentifier))
         case .fileReferences(let urls):
             let paths = urls.map(\.path)
@@ -40,14 +46,15 @@ public enum ClipItemFactory {
                 kind: .fileReference,
                 preview: urls.map(\.lastPathComponent).joined(separator: ", "),
                 contentHash: ClipItem.hash(of: paths.joined(separator: "\n"), kind: .fileReference),
-                sourceAppBundleID: capture.sourceAppBundleID)
+                sourceAppBundleID: capture.sourceAppBundleID,
+                sourceDeviceName: sourceDeviceName)
             return (item, .fileReferences(paths))
         case .richText(let rtf, let plain):
             let text = plain ?? ""
             let item = decoratedTextItem(
                 text: text, capture: capture, classifier: classifier, detector: detector,
                 sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets,
-                precomputedKind: precomputedKind)
+                precomputedKind: precomputedKind, sourceDeviceName: sourceDeviceName)
             return (
                 item,
                 item.isSensitive ? .text(text) : .binary(data: rtf, typeIdentifier: "public.rtf")
@@ -57,7 +64,7 @@ public enum ClipItemFactory {
             let item = decoratedTextItem(
                 text: text, capture: capture, classifier: classifier, detector: detector,
                 sensitiveLifetime: sensitiveLifetime, detectSecrets: detectSecrets,
-                precomputedKind: precomputedKind)
+                precomputedKind: precomputedKind, sourceDeviceName: sourceDeviceName)
             return (item, .text(ContentNormalizer.canonicalText(text, kind: item.kind)))
         }
     }
@@ -65,7 +72,8 @@ public enum ClipItemFactory {
     private static func decoratedTextItem(
         text: String, capture: PasteboardCapture, classifier: RuleClassifier,
         detector: SensitiveDataDetector, sensitiveLifetime: TimeInterval,
-        detectSecrets: Bool = true, precomputedKind: ClipContentKind? = nil
+        detectSecrets: Bool = true, precomputedKind: ClipContentKind? = nil,
+        sourceDeviceName: String?
     ) -> ClipItem {
         let kind = precomputedKind ?? classifier.classify(text)
         let canonical = ContentNormalizer.canonicalText(text, kind: kind)
@@ -73,7 +81,8 @@ public enum ClipItemFactory {
             kind: kind,
             preview: String(canonical.prefix(120)),
             contentHash: ClipItem.hash(of: canonical, kind: kind),
-            sourceAppBundleID: capture.sourceAppBundleID)
+            sourceAppBundleID: capture.sourceAppBundleID,
+            sourceDeviceName: sourceDeviceName)
         // A deterministically classified masked-preview kind — the case that
         // matters is a bare JWT, which the secret detector has no category for,
         // so it is never flagged sensitive — must not store its token in the

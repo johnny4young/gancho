@@ -394,6 +394,10 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             // Dedupe key: contentHash + sourceDeviceName. The device matters:
             // the same content synced FROM another device must keep its own
             // row, or sync would ping-pong "moved to top" updates forever.
+            // Strict equality includes NULL: a stamped capture never adopts a
+            // pre-stamp NULL row (its origin is unknowable — it may have
+            // synced from another device), so re-copying legacy content makes
+            // one new stamped row instead of refreshing the old one.
             if var existing =
                 try ClipRow
                 .filter(Column("contentHash") == finalRow.contentHash)
