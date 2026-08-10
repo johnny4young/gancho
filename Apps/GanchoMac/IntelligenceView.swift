@@ -117,7 +117,7 @@ struct IntelligenceView: View {
                 Section {
                     Label {
                         Text(
-                            "Every tier runs on this Mac. No clip text is ever sent to a server — gancho has none."
+                            "Everything here runs on this Mac. No clip text is ever sent to a server — gancho has none."
                         )
                         .font(.footnote)
                     } icon: {
@@ -151,7 +151,7 @@ struct IntelligenceView: View {
         case .modelUnavailable:
             noticeLabel(
                 // swiftlint:disable:next line_length
-                "Apple Intelligence isn't available right now, so model-backed features fall back to heuristics. Deterministic tiers keep running."
+                "Apple Intelligence isn't available right now: titles fall back to heuristics, and model-backed rewrites and Ask are hidden until it returns. Deterministic features keep running."
             )
         }
     }

@@ -380,8 +380,10 @@ becomes a planned workstream after an explicit product decision.
 
 ## Decisions
 
-1. **Minimum macOS 26 / iOS 26.** SDK-27 APIs are adopted only behind
-   `#available`; beta SDKs are not installed on work machines.
+1. **Minimum macOS 15.4 / iOS 26.** The Foundation Models tier and Liquid
+   Glass are macOS-26-gated (`IntelligenceCapability`, availability guards);
+   SDK-27 APIs are adopted only behind `#available`; beta SDKs are not
+   installed on work machines.
 2. **XcodeGen project.** `Gancho.xcodeproj` is generated; edit `project.yml` and
    run `make project`.
 3. **Swift 6 strict concurrency.** App modules default to `@MainActor`; shared

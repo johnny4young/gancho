@@ -6,7 +6,7 @@ changes first, then send a pull request.
 
 ## Prerequisites
 
-- macOS 26+, Xcode 26+
+- macOS 15.4+ to run the app (macOS 26 for the Foundation Models tier), Xcode 26+ to build
 - XcodeGen: `brew install xcodegen`
 
 ## Workflow

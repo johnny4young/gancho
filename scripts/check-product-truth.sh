@@ -26,7 +26,11 @@ forbid_regex() {
 
 require_literal project.yml 'macOS: "15.4"'
 require_literal project.yml 'iOS: "26.0"'
-require_literal site/index.html 'macOS 15.4+ · iOS 26+'
+# The website deploys on every site/** push and advertises the RELEASED
+# artifact (the download button serves the latest published DMG), so its
+# floor chip intentionally lags the source floor above: it moves to 15.4+
+# only in the release that ships the first Sequoia-validated build.
+require_literal site/index.html 'macOS 26+ · iOS 26+'
 require_literal README.md 'eight library products + a CLI'
 require_literal README.md 'disabled until explicit consent'
 require_literal README.md 'short-prefix indexes'
