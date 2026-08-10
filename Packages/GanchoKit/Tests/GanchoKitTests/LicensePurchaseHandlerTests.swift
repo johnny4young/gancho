@@ -7,9 +7,16 @@ import Testing
 @Suite("Direct-download license purchase handler")
 struct LicensePurchaseHandlerTests {
     private func service(activated: Bool) -> LicenseActivationService {
+        // The happy path carries the pinned Gancho store/product identity,
+        // mirroring what the live License API always sends. Derived from the
+        // pinned constants so retuning them can't rot this fixture; the
+        // literal identity is asserted once, in
+        // `LicenseActivationTests.pinnedIdentityIsTheLiveProduct`.
         let json =
             activated
-            ? #"{"activated":true,"valid":true,"instance":{"id":"inst-99"}}"#
+            ? #"{"activated":true,"valid":true,"instance":{"id":"inst-99"},"#
+                + #""meta":{"store_id":\#(LemonSqueezyValidator.expectedStoreID),"#
+                + #""product_id":\#(LemonSqueezyValidator.expectedProductID)}}"#
             : #"{"activated":false,"error":"license_key not found."}"#
         let transport: LemonSqueezyValidator.Transport = { request in
             (

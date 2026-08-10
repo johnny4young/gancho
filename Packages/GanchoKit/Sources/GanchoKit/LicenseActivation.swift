@@ -21,6 +21,14 @@ public struct LemonSqueezyValidator: Sendable {
     /// tests pass a canned one.
     public typealias Transport = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
+    /// Public identifiers of the live Gancho Pro product — the same identity
+    /// the hosted checkout embeds. A merely-valid Lemon Squeezy key is not
+    /// authorization: the public License API accepts keys from every store,
+    /// so a granting answer must also name this store and product, and must
+    /// not be a test-mode key. Identifiers only, never a secret.
+    static let expectedStoreID = 408_765
+    static let expectedProductID = 1_178_223
+
     private let endpoint: URL
     private let transport: Transport
 
@@ -37,8 +45,16 @@ public struct LemonSqueezyValidator: Sendable {
             path: "activate",
             fields: ["license_key": licenseKey, "instance_name": instanceName]
         ) { payload in
-            if payload.activated == true, let id = payload.instance?.id { return .confirmed(id) }
-            return Self.negative(payload, flag: payload.activated)
+            guard payload.activated == true, let id = payload.instance?.id else {
+                return Self.negative(payload, flag: payload.activated)
+            }
+            // An activation grants a brand-new entitlement, so it fails
+            // closed: the answer must name the live Gancho product. A key
+            // from another store, a test-mode key, or an answer with no
+            // identity at all activates nothing.
+            return Self.identity(payload) == .trusted
+                ? .confirmed(id)
+                : .denied(Self.foreignKeyReason)
         }
     }
 
@@ -50,13 +66,28 @@ public struct LemonSqueezyValidator: Sendable {
             path: "validate",
             fields: ["license_key": licenseKey, "instance_id": instanceID]
         ) { payload in
-            payload.valid == true
-                ? .confirmed(instanceID) : Self.negative(payload, flag: payload.valid)
+            guard payload.valid == true else {
+                return Self.negative(payload, flag: payload.valid)
+            }
+            // Revalidation guards an entitlement the user already holds, so
+            // only an identity Lemon Squeezy actually stated may revoke it: a
+            // foreign store or a test-mode key is an explicit answer, while a
+            // valid-shaped answer that names no store at all is unrecognized
+            // and keeps the grace window — a response-shape change at their
+            // end must never read as a mass revocation.
+            switch Self.identity(payload) {
+            case .trusted: return .confirmed(instanceID)
+            case .foreign: return .denied(Self.foreignKeyReason)
+            case .absent: return .unrecognized
+            }
         }
     }
 
     /// Releases this install's activation slot so the license can be moved to
     /// another Mac. Lemon Squeezy enforces the per-license activation limit.
+    /// Deliberately not identity-pinned: releasing a slot grants nothing, and
+    /// the caller drops the local record on a confirmation and on a denial
+    /// alike, so a pin here could not keep or mint an entitlement either way.
     public func deactivate(licenseKey: String, instanceID: String) async -> Result {
         await post(
             path: "deactivate",
@@ -69,10 +100,11 @@ public struct LemonSqueezyValidator: Sendable {
 
     /// How an endpoint reads its own answer. Three-way on purpose: only an
     /// explicit negative may revoke, so a body Gancho does not recognize is
-    /// never mistaken for Lemon Squeezy saying no.
+    /// never mistaken for Lemon Squeezy saying no. A denial may carry its own
+    /// reason; without one, the server's error (or a generic line) is used.
     private enum Verdict {
         case confirmed(String)
-        case denied
+        case denied(String?)
         case unrecognized
     }
 
@@ -82,7 +114,29 @@ public struct LemonSqueezyValidator: Sendable {
     /// change at their end would otherwise drop Pro for every paying user at
     /// once, and the whole point of the grace window is to survive exactly that.
     private static func negative(_ payload: Response, flag: Bool?) -> Verdict {
-        flag == false || payload.error != nil ? .denied : .unrecognized
+        flag == false || payload.error != nil ? .denied(nil) : .unrecognized
+    }
+
+    /// The user-facing reason when a key is valid somewhere, just not here.
+    private static let foreignKeyReason = "That license key is not a Gancho Pro license"
+
+    /// Whose product an answer says the key belongs to. `absent` is distinct
+    /// from `foreign` on purpose: naming the wrong store (or `test_mode`) is
+    /// Lemon Squeezy answering, while naming no store at all — both pinned
+    /// fields missing — is a shape this code does not recognize. A partial
+    /// identity counts as absent so a renamed field can never mass-revoke.
+    private enum Identity {
+        case trusted
+        case foreign
+        case absent
+    }
+
+    private static func identity(_ payload: Response) -> Identity {
+        if payload.licenseKey?.testMode == true { return .foreign }
+        guard let store = payload.meta?.storeId, let product = payload.meta?.productId else {
+            return .absent
+        }
+        return store == expectedStoreID && product == expectedProductID ? .trusted : .foreign
     }
 
     /// One form-encoded POST plus the shared failure semantics: a transport
@@ -119,7 +173,8 @@ public struct LemonSqueezyValidator: Sendable {
         }
         switch verdict(payload) {
         case .confirmed(let id): return .confirmed(instanceID: id)
-        case .denied: return .rejected(reason: payload.error ?? "License key is not active")
+        case .denied(let reason):
+            return .rejected(reason: reason ?? payload.error ?? "License key is not active")
         case .unrecognized: return .unreachable(reason: "Unexpected Lemon Squeezy response")
         }
     }
@@ -140,12 +195,28 @@ public struct LemonSqueezyValidator: Sendable {
         let deactivated: Bool?
         let error: String?
         let instance: ResponseInstance?
+        let licenseKey: ResponseLicenseKey?
+        let meta: ResponseMeta?
     }
 
     /// A sibling rather than a nested type: the lint budget allows one level of
     /// nesting, and `Response` already spends it.
     private struct ResponseInstance: Decodable {
         let id: String
+    }
+
+    /// The identity slice of the `license_key` object; everything else in it
+    /// is unused. (`test_mode` arrives as `testMode` via snake-case decoding.)
+    private struct ResponseLicenseKey: Decodable {
+        let testMode: Bool?
+    }
+
+    /// Who issued the key — what the pinned store/product check reads.
+    /// Property names match the decoder's snake-case conversion (`store_id`
+    /// becomes `storeId`), which is why the second letter is lowercase.
+    private struct ResponseMeta: Decodable {
+        let storeId: Int?
+        let productId: Int?
     }
 }
 

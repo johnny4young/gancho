@@ -7,6 +7,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Activating or re-validating a direct-download license now requires Lemon
+  Squeezy's answer to name the live Gancho Pro store and product and to not be
+  a test-mode key. The public License API accepts keys from every Lemon
+  Squeezy store, so a merely-valid key for someone else's product could
+  previously have unlocked Pro. An answer that names no store at all still
+  never revokes an existing activation — only an explicit answer can.
+
 ### Added
 
 - **Clips remember which device they were copied on.** Every new capture is
