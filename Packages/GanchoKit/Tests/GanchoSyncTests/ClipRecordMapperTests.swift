@@ -99,6 +99,31 @@ struct ClipRecordMapperTests {
         #expect(decoded.emoji == nil)
     }
 
+    @Test("Device provenance rides a plain field and survives the round trip")
+    func deviceProvenanceRoundTrips() throws {
+        let item = ClipItem(
+            preview: "stamped", contentHash: "h7", sourceDeviceName: "Johnny's Mac")
+        let record = try #require(
+            ClipRecordMapper.record(
+                for: item, content: .text("stamped"), systemFields: nil, zoneID: zoneID))
+
+        // Plain on purpose (docs/SECURITY-MODEL.md): dedupe and the detail
+        // view need it without decryption. Production already has it plain.
+        #expect(record["sourceDeviceName"] as? String == "Johnny's Mac")
+        #expect(record.encryptedValues["sourceDeviceName"] == nil)
+
+        let decoded = try #require(ClipRecordMapper.decode(record))
+        #expect(decoded.item.sourceDeviceName == "Johnny's Mac")
+
+        // A record from a pre-stamp device decodes to nil, not "".
+        let bare = try #require(
+            ClipRecordMapper.record(
+                for: ClipItem(preview: "old", contentHash: "h8"),
+                content: .text("old"), systemFields: nil, zoneID: zoneID))
+        let bareDecoded = try #require(ClipRecordMapper.decode(bare))
+        #expect(bareDecoded.item.sourceDeviceName == nil)
+    }
+
     @Test("Content and preview live in encryptedValues, never plain fields")
     func contentIsEncrypted() throws {
         let item = ClipItem(preview: "secret preview", contentHash: "h")

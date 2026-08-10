@@ -16,11 +16,13 @@ struct ClipItemFactoryTests {
     private let detector = SensitiveDataDetector()
 
     private func make(
-        _ capture: PasteboardCapture, detectSecrets: Bool = true
+        _ capture: PasteboardCapture, detectSecrets: Bool = true,
+        sourceDeviceName: String? = nil
     ) -> (ClipItem, ClipContent?) {
         ClipItemFactory.make(
             from: capture, classifier: classifier, detector: detector,
-            sensitiveLifetime: 600, detectSecrets: detectSecrets)
+            sensitiveLifetime: 600, detectSecrets: detectSecrets,
+            sourceDeviceName: sourceDeviceName)
     }
 
     @Test("Image payload → .image kind, byte-size preview, binary content")
@@ -112,6 +114,26 @@ struct ClipItemFactoryTests {
         #expect(item.kind != .secret)
         #expect(item.preview == token)
         #expect(content == .text(token))
+    }
+
+    @Test("Every payload branch stamps the capture's device provenance")
+    func deviceProvenanceStampedOnEveryBranch() {
+        // One capture per factory branch: image, file references, rich text,
+        // and the plain-text default — the stamp must not depend on payload
+        // shape, or a branch added later could silently drop provenance.
+        let captures: [PasteboardCapture] = [
+            PasteboardCapture(payload: .image(data: Data([0x01]), typeIdentifier: "public.png")),
+            PasteboardCapture(payload: .fileReferences([URL(fileURLWithPath: "/tmp/a.txt")])),
+            PasteboardCapture(payload: .richText(rtf: Data("{\\rtf1 x}".utf8), plainText: "x")),
+            PasteboardCapture(text: "plain words")
+        ]
+        for capture in captures {
+            let (item, _) = make(capture, sourceDeviceName: "Johnny's Mac")
+            #expect(item.sourceDeviceName == "Johnny's Mac")
+        }
+        // A nil name stays nil — no branch invents provenance.
+        let (bare, _) = make(PasteboardCapture(text: "plain words"), sourceDeviceName: nil)
+        #expect(bare.sourceDeviceName == nil)
     }
 
     @Test("detectSecrets:true on rich text flags it and stores masked text, not the RTF")

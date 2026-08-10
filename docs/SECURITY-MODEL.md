@@ -36,6 +36,33 @@ that device, are pruned beyond a rolling 13 months, never sync or export, and
 can be erased from the Privacy Center without deleting clips or changing
 settings.
 
+## Sync record: encrypted vs plain, field by field
+
+`ClipRecordMapper` is the only code that knows the CloudKit record shape. The
+rule it implements: anything that can carry clipboard content rides
+`encryptedValues` (end-to-end encrypted in the user's private database);
+metadata the sync machinery needs for ordering, conflict resolution, and
+dedupe stays plain. CloudKit production schema types are one-way — a plain
+field can never become encrypted in place, so moving a field across this line
+would mean introducing a NEW field and migrating writers, never converting.
+
+| Field | Placement | Why |
+| --- | --- | --- |
+| `contentText` | encrypted | The clip body itself. |
+| `title` | encrypted | Derived from content (user- or AI-written). |
+| `preview` | encrypted | A prefix or masked form of the content. |
+| `contentAsset` | `CKAsset` | Binary payloads; CloudKit encrypts assets in transit and at rest server-side. Local staging is plaintext but lifecycle-bounded (see `ClipRecordMapper`). |
+| `kind` | plain | Closed enum token; lets a device render list rows without decrypting. |
+| `contentHash` | plain | Dedupe/conflict key (SHA-256 of canonical content + kind). Reveals content *equality* across the user's own records, never content; low-entropy content is in principle dictionary-checkable by the storage operator — accepted so dedupe works without decryption. |
+| `createdAt` / `updatedAt` / `lastUsedAt` / `expiresAt` | plain | Ordering and last-writer-wins conflict resolution. |
+| `sourceAppBundleID` | plain | Provenance: which app the copy came from. A bounded identifier, not content. |
+| `sourceDeviceName` | plain | Provenance: which device the copy came from — the OS device name the user set in Settings, stamped at capture, independent of any clip's content. Same class as `sourceAppBundleID`; feeds the `(contentHash, sourceDeviceName)` dedupe key and the iOS detail view. Deployed plain in the production schema; if it ever needed encryption that would be a new encrypted field, not a conversion. |
+| `isPinned` | plain | Structural flag. |
+| `isSensitive` | plain | Structural flag gating masking/expiry on the receiving device. Reveals *that* something sensitive was copied at a timestamp, never what — accepted so receivers can enforce masking before decryption. |
+| `tags` | plain | Today carries only `lang:<id>` snippet-language tokens — a bounded vocabulary, not content. Free-form user tags WOULD be content; placement must be revisited before any user-facing tagging ships. |
+| `boardIDs` | plain | Structural membership (UUIDs). Board *names* and emoji sync encrypted on the `Board` record. |
+| `contentTypeIdentifier` | plain | UTI from a bounded vocabulary; needed to decode the asset. |
+
 ## Optional diagnostics lifecycle and deletion
 
 - Before consent, Gancho keeps only a local activation receipt: the first date

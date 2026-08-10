@@ -126,6 +126,30 @@ struct StoreDedupeTests {
         #expect(try await store.count() == 2, "cross-device rows must not merge")
     }
 
+    @Test("A stamped capture never adopts a legacy NULL-provenance row")
+    func stampedCaptureKeepsLegacyRowSeparate() async throws {
+        let store = try makeStore()
+        let hash = ClipItem.hash(of: "legacy", kind: .text)
+        // A row captured before provenance stamping shipped: NULL device name.
+        try await store.insert(
+            ClipItem(preview: "legacy", contentHash: hash), content: .text("legacy"))
+
+        // Re-copying the same content on a device that now stamps its name
+        // must insert a fresh row — the NULL row's origin is unknowable (it
+        // may have synced from another device), so adopting it could claim
+        // false provenance. One-time duplicate, accepted by design.
+        try await store.insert(
+            ClipItem(preview: "legacy", contentHash: hash, sourceDeviceName: "Mac"),
+            content: .text("legacy"))
+        #expect(try await store.count() == 2, "NULL and stamped rows stay distinct")
+
+        // Same device re-copying again refreshes the stamped row: still 2.
+        try await store.insert(
+            ClipItem(preview: "legacy", contentHash: hash, sourceDeviceName: "Mac"),
+            content: .text("legacy"))
+        #expect(try await store.count() == 2, "same (hash, device) dedupes")
+    }
+
     @Test("Sheets-style rich noise dedupes via the plain-text hash")
     func richNoiseDedupes() async throws {
         let store = try makeStore()

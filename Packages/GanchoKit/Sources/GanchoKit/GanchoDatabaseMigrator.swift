@@ -290,12 +290,14 @@ enum GanchoDatabaseMigrator {
                     + "ON clip (keyword COLLATE NOCASE) WHERE isSnippet = 1")
             // Capture dedup looks up `(contentHash, sourceDeviceName)` on every
             // insert; the v1 single-column contentHash index needs a table hop.
-            // Full (not partial) on purpose: the dedup query filters
-            // `sourceDeviceName = ?`, which becomes `IS NULL` for locally
-            // captured clips with no device name — a `WHERE ... IS NOT NULL`
-            // partial index would exclude exactly those rows and force the NULL
-            // case back onto the v1 contentHash index. contentHash leads, so the
-            // full index serves both the `= value` and the `IS NULL` lookups.
+            // Full (not partial) on purpose: capture stamps the local device
+            // name, so the dedup filter is `sourceDeviceName = ?` for new rows
+            // — but rows captured before the stamp existed (and captures on a
+            // device that yields no usable name) sit at NULL, where the filter
+            // becomes `IS NULL`. A `WHERE ... IS NOT NULL` partial index would
+            // exclude exactly those rows and force the NULL case back onto the
+            // v1 contentHash index. contentHash leads, so the full index serves
+            // both the `= value` and the `IS NULL` lookups.
             try db.execute(
                 sql: "CREATE INDEX IF NOT EXISTS idx_clip_dedupe "
                     + "ON clip (contentHash, sourceDeviceName)")

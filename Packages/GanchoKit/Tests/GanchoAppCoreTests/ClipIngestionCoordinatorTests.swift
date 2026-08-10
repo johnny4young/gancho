@@ -58,14 +58,16 @@ struct ClipIngestionCoordinatorTests {
         tier: UserTier = .free,
         precomputedKind: ClipContentKind? = nil,
         allowsFreeTitle: Bool = false,
-        intelligence: IntelligencePreferences = .init()
+        intelligence: IntelligencePreferences = .init(),
+        sourceDeviceName: String? = nil
     ) -> ClipIngestionCoordinator.Configuration {
         .init(
             sensitiveLifetime: 600,
             precomputedKind: precomputedKind,
             tier: tier,
             intelligence: intelligence,
-            allowsFreeTitle: allowsFreeTitle)
+            allowsFreeTitle: allowsFreeTitle,
+            sourceDeviceName: sourceDeviceName)
     }
 
     @Test("New capture maps, persists, enqueues, and exposes only a size metric")
@@ -103,6 +105,28 @@ struct ClipIngestionCoordinatorTests {
 
         #expect(outcome.item.kind == .code)
         #expect(outcome.content == .text("plain words"))
+    }
+
+    @Test("The configuration's device name is stamped on the persisted clip")
+    func deviceProvenanceReachesTheStore() async throws {
+        let store = IngestionStoreSpy()
+        let sync = IngestionSyncSpy()
+
+        _ = try await coordinator.ingest(
+            PasteboardCapture(text: "stamped"),
+            configuration: configuration(sourceDeviceName: "Johnny's Mac"),
+            store: store,
+            syncEngine: sync)
+        #expect(await store.insertedItem?.sourceDeviceName == "Johnny's Mac")
+
+        // Without a name (a pre-stamp shell, or a platform that yields none)
+        // the clip keeps NULL provenance — nothing downstream invents one.
+        _ = try await coordinator.ingest(
+            PasteboardCapture(text: "unstamped"),
+            configuration: configuration(),
+            store: store,
+            syncEngine: sync)
+        #expect(await store.insertedItem?.sourceDeviceName == nil)
     }
 
     @Test("Deduplication uses and enqueues the durable row, not the proposed ID")

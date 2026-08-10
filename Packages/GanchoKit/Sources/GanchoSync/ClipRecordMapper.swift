@@ -11,7 +11,8 @@ import GanchoKit
 /// the private database). Binary payloads ride a `CKAsset` (encrypted at
 /// rest by CloudKit) with a configurable size ceiling. Metadata needed for
 /// ordering/conflict (kind, hashes, timestamps, flags) stays in plain
-/// fields — it is not content.
+/// fields — it is not content. The field-by-field rationale lives in
+/// docs/SECURITY-MODEL.md ("Sync record: encrypted vs plain").
 public enum ClipRecordMapper {
     public static let recordType = "Clip"
     public static let zoneName = "ClipsZone"

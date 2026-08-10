@@ -633,7 +633,8 @@ final class AppModel {
                 detectSecrets: intelligence.detectSecrets,
                 tier: tier,
                 intelligence: intelligence,
-                allowsFreeTitle: freeAITitlesRemaining > 0)
+                allowsFreeTitle: freeAITitlesRemaining > 0,
+                sourceDeviceName: DeviceProvenance.currentDeviceName())
             guard
                 let outcome = try? await ingestionCoordinator.ingest(
                     capture,

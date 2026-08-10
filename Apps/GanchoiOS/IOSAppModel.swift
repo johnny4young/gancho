@@ -956,7 +956,8 @@ final class IOSAppModel {
             detectSecrets: intelligence.detectSecrets,
             precomputedKind: precomputedKind,
             tier: tier,
-            intelligence: intelligence)
+            intelligence: intelligence,
+            sourceDeviceName: DeviceProvenance.currentDeviceName())
         let ingestInterval = Signpost.captureToInsert.begin()
         guard
             let outcome = try? await ingestionCoordinator.ingest(
