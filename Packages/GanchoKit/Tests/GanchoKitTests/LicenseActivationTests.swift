@@ -18,8 +18,21 @@ struct LicenseActivationTests {
         }
     }
 
+    /// Live Lemon Squeezy answers always name the key's store and product;
+    /// the validator pins that identity, so the happy-path fixtures carry it.
+    /// Derived from the pinned constants so retuning them can't rot this file;
+    /// the literal identity itself is asserted once, in
+    /// `pinnedIdentityIsTheLiveProduct`.
+    private static let ganchoMeta =
+        #""meta":{"store_id":\#(LemonSqueezyValidator.expectedStoreID),"#
+        + #""product_id":\#(LemonSqueezyValidator.expectedProductID)}"#
+
     private static let activatedJSON =
-        #"{"activated":true,"error":null,"instance":{"id":"inst-42"}}"#
+        #"{"activated":true,"error":null,"instance":{"id":"inst-42"},"#
+        + #""license_key":{"test_mode":false},"# + ganchoMeta + "}"
+
+    private static let validJSON =
+        #"{"valid":true,"instance":{"id":"i-1"},"# + ganchoMeta + "}"
 
     @Test("An active license key yields the instance id Lemon Squeezy assigned")
     func activated() async {
@@ -109,8 +122,7 @@ struct LicenseActivationTests {
         let activated = Date(timeIntervalSince1970: 0)
         let checked = Date(timeIntervalSince1970: 9_000)
         let service = LicenseActivationService(
-            validator: LemonSqueezyValidator(
-                transport: Self.transport(#"{"valid":true,"instance":{"id":"i-1"}}"#)),
+            validator: LemonSqueezyValidator(transport: Self.transport(Self.validJSON)),
             now: { checked })
         let record = LicenseActivationRecord(
             licenseKey: "K", instanceID: "i-1",
@@ -180,6 +192,95 @@ struct LicenseActivationTests {
         #expect(body.contains("license_key=ABC"))
         #expect(body.contains("instance_id=i%2D1"))
         #expect(result == .confirmed(instanceID: "i-1"))
+    }
+
+    // MARK: - Store/product identity pinning
+
+    /// The one place the literal identity is asserted. These are the public
+    /// identifiers the hosted checkout (`LemonSqueezyStore.checkoutURL`) embeds
+    /// for the live Gancho Pro product. If this fails, the pin was retuned —
+    /// verify the checkout page and the constants still name the same product.
+    @Test("The pinned identity names the live Gancho store and product")
+    func pinnedIdentityIsTheLiveProduct() {
+        #expect(LemonSqueezyValidator.expectedStoreID == 408_765)
+        #expect(LemonSqueezyValidator.expectedProductID == 1_178_223)
+    }
+
+    /// The public License API accepts keys from every Lemon Squeezy store, so
+    /// a merely-valid foreign key must never mint a Gancho entitlement.
+    @Test("A valid key for someone else's product activates nothing")
+    func foreignKeyDoesNotActivate() async {
+        let json =
+            #"{"activated":true,"instance":{"id":"inst-42"},"#
+            + #""meta":{"store_id":999,"product_id":111}}"#
+        let validator = LemonSqueezyValidator(transport: Self.transport(json))
+        #expect(
+            await validator.activate(licenseKey: "K", instanceName: "Mac")
+                == .rejected(reason: "That license key is not a Gancho Pro license"))
+    }
+
+    @Test("A test-mode key activates nothing, even for the right product")
+    func testModeKeyDoesNotActivate() async {
+        let json =
+            #"{"activated":true,"instance":{"id":"inst-42"},"#
+            + #""license_key":{"test_mode":true},"# + Self.ganchoMeta + "}"
+        let validator = LemonSqueezyValidator(transport: Self.transport(json))
+        guard
+            case .rejected = await validator.activate(licenseKey: "K", instanceName: "Mac")
+        else {
+            Issue.record("a test-mode key must not activate")
+            return
+        }
+    }
+
+    /// Activation has no existing entitlement to protect, so it fails closed:
+    /// an answer that names no store grants nothing.
+    @Test("An activation answer with no identity activates nothing")
+    func identitylessActivationFailsClosed() async {
+        let validator = LemonSqueezyValidator(
+            transport: Self.transport(#"{"activated":true,"instance":{"id":"inst-42"}}"#))
+        guard
+            case .rejected = await validator.activate(licenseKey: "K", instanceName: "Mac")
+        else {
+            Issue.record("an identity-less activation must fail closed")
+            return
+        }
+    }
+
+    /// Revalidation is the opposite trade: a foreign identity is Lemon Squeezy
+    /// answering (revoke), while a missing one is a shape change (grace).
+    @Test("Refresh revokes a key that names a foreign store")
+    func refreshRevokesForeignKey() async {
+        let json =
+            #"{"valid":true,"instance":{"id":"i-1"},"#
+            + #""meta":{"store_id":999,"product_id":111}}"#
+        let service = LicenseActivationService(
+            validator: LemonSqueezyValidator(transport: Self.transport(json)))
+        let record = LicenseActivationRecord(
+            licenseKey: "K", instanceID: "i-1",
+            activatedAt: .init(timeIntervalSince1970: 0),
+            lastValidatedAt: .init(timeIntervalSince1970: 0))
+        #expect(
+            await service.refresh(record)
+                == .revoked(reason: "That license key is not a Gancho Pro license"))
+    }
+
+    /// If Lemon Squeezy ever stops sending `meta`, every paying user's next
+    /// revalidation hits this path — it must keep grace, not revoke.
+    @Test("Refresh keeps grace when a valid answer names no store at all")
+    func refreshWithoutIdentityKeepsGrace() async {
+        for json in [
+            #"{"valid":true,"instance":{"id":"i-1"}}"#,
+            #"{"valid":true,"instance":{"id":"i-1"},"meta":{"store_id":408765}}"#
+        ] {
+            let validator = LemonSqueezyValidator(transport: Self.transport(json))
+            guard
+                case .unreachable = await validator.validate(licenseKey: "K", instanceID: "i-1")
+            else {
+                Issue.record("identity-less validity \(json) must keep grace, not revoke")
+                return
+            }
+        }
     }
 
     @Test("Lemon Squeezy saying no revokes; an unreachable network does not")
