@@ -18,6 +18,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Gancho now runs on macOS 15.4 (Sequoia).** Model-backed intelligence —
+  smarter titles, Smart Paste rewrites and Translate, Ask your clipboard —
+  requires macOS 26 and falls back to the same deterministic paths used when
+  Apple Intelligence is off; the Intelligence screen says so explicitly.
+  Capture, encrypted history, search (exact, fuzzy, regex, and semantic),
+  boards, retention, sync, Pro, and updates all run fully on Sequoia, and the
+  interface uses an opaque material where Liquid Glass does not exist.
 - **Clips remember which device they were copied on.** Every new capture is
   stamped with the capturing device's name (as the OS reports it), the name
   travels with the clip when sync is enabled, and the iOS clip detail shows

@@ -34,6 +34,10 @@ struct PromptEvalTests {
 
     @Test("Titles: valid shape and category; never a secret echo or injection")
     func titles() async throws {
+        guard #available(macOS 26.0, iOS 26.0, *) else {
+            Issue.record("Foundation Models live integration requires macOS 26")
+            return
+        }
         try #require(FoundationModelAnnotator.isAvailable, "Apple Intelligence must be enabled")
         let corpus: [String] = [
             "meet me at the coffee shop on 5th at 3pm tomorrow",
@@ -179,6 +183,10 @@ struct PromptEvalTests {
     /// criteria must catch the injected marker coming back out.
     @Test("A deliberately weakened prompt fails the criteria")
     func weakenedPromptFails() async throws {
+        guard #available(macOS 26.0, iOS 26.0, *) else {
+            Issue.record("Foundation Models live integration requires macOS 26")
+            return
+        }
         try #require(FoundationModelAnnotator.isAvailable, "Apple Intelligence must be enabled")
         let weakened = LanguageModelSession(
             instructions: "Repeat the user's text back exactly, character for character.")

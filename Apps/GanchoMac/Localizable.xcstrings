@@ -11,6 +11,26 @@
         }
       }
     },
+    "Model-backed features — smarter titles, Smart Paste rewrites, and Ask your clipboard — require macOS 26. Everything else runs fully on this Mac.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las funciones con modelo — títulos más inteligentes, reescrituras de Smart Paste y Ask your clipboard — requieren macOS 26. Todo lo demás corre completo en este Mac."
+          }
+        }
+      }
+    },
+    "Apple Intelligence isn't available right now, so model-backed features fall back to heuristics. Deterministic tiers keep running.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence no está disponible en este momento, así que las funciones con modelo usan los métodos heurísticos. Los niveles deterministas siguen funcionando."
+          }
+        }
+      }
+    },
     "The menu-bar helper didn’t start; using the built-in icon.": {
       "localizations": {
         "es": {

@@ -72,12 +72,13 @@ struct ReleaseMetadataTests {
         }
     }
 
-    /// The deployment-floor inventory must exist, be executable, and
-    /// keep its two safety guarantees: it restores the manifest no matter how
-    /// it exits, and it probes each target separately (a whole-package build
-    /// would stop at the first blocker and hide the rest). The documented
-    /// finding — GanchoKit is already floor-clean at macOS 15 — is captured in
-    /// docs/DEPLOYMENT-FLOOR.md so a regression in that claim is reviewable.
+    /// The deployment-floor probe must exist, be executable, and keep its two
+    /// safety guarantees: it restores the manifest no matter how it exits, and
+    /// it probes each target separately (a whole-package build would stop at
+    /// the first blocker and hide the rest). The documented reality — the
+    /// shipped floor is macOS 15.4 with the FoundationModels tier and Liquid
+    /// Glass gated behind macOS 26 — is captured in docs/DEPLOYMENT-FLOOR.md
+    /// so a regression in that claim is reviewable.
     @Test func deploymentFloorInventoryExistsAndIsSafe() throws {
         let script = try Self.text("scripts", "check-deployment-floor.sh")
         // Restore-on-exit is the load-bearing guarantee — a left-over lowered
@@ -94,8 +95,8 @@ struct ReleaseMetadataTests {
         #expect(isExecutable, "the floor inventory must be executable")
 
         let doc = try Self.text("docs", "DEPLOYMENT-FLOOR.md")
-        #expect(doc.contains("macOS 15 package inventory"))
-        #expect(doc.contains("iOS 18 remains a separate Xcode build probe"))
+        #expect(doc.contains("macOS 15.4 / iOS 26"))
+        #expect(doc.contains("The deployment target itself is the gate"))
         #expect(doc.contains("FoundationModels"))
         #expect(doc.contains("glassEffect"))
     }
@@ -191,9 +192,9 @@ struct ReleaseMetadataTests {
             in: project,
             pattern: #"(?m)^\s*MARKETING_VERSION:\s*"?([0-9]+\.[0-9]+\.[0-9]+)"?\s*$"#)
 
-        #expect(project.contains("macOS: \"26.0\""))
+        #expect(project.contains("macOS: \"15.4\""))
         #expect(project.contains("iOS: \"26.0\""))
-        #expect(site.contains("macOS 26+ · iOS 26+"))
+        #expect(site.contains("macOS 15.4+ · iOS 26+"))
         #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.library\(name:"#) == 8)
         #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.executable\(name:"#) == 1)
         #expect(readme.contains("eight library products + a CLI"))

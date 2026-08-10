@@ -6,7 +6,7 @@ security, architecture, release notes, and App Store copy.
 
 | Claim | Canonical evidence | Safe public wording | Automated gate |
 | --- | --- | --- | --- |
-| Supported OS versions | `project.yml` deployment targets | Requires macOS 26+ and iOS/iPadOS 26+ | `ReleaseMetadataTests`, `scripts/check-product-truth.sh` |
+| Supported OS versions | `project.yml` deployment targets | Requires macOS 15.4+ and iOS/iPadOS 26+; the Foundation Models intelligence tier (smarter titles, Smart Paste rewrites, Ask your clipboard) and Liquid Glass require macOS 26 and degrade to the documented deterministic fallbacks below it | `ReleaseMetadataTests`, `scripts/check-product-truth.sh`, `IntelligenceCapability` |
 | Local storage | `GRDBClipboardStore`, `BlobStore`, encryption tests | History is encrypted locally with SQLCipher; binary blobs use the shared sealed envelope | Encryption and no-content-logging tests |
 | iCloud boundary | `GanchoSync`, app entitlements, sync tests | Content stays on the user's devices or, when enabled, in the user's private iCloud database; Gancho operates no intermediary sync server | Sync configuration and contract tests |
 | Optional diagnostics | `TelemetryEvent`, `TelemetryConsent`, privacy manifests | Anonymous counts and broad buckets are off until explicit consent; clipboard content, titles, searches, and source-app names never enter telemetry | Telemetry and privacy-manifest tests |

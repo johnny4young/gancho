@@ -1,4 +1,5 @@
 import AppKit
+import GanchoAI
 import GanchoDesign
 import GanchoKit
 import SwiftUI
@@ -56,6 +57,8 @@ struct IntelligenceView: View {
             }
 
             pipeline
+
+            capabilityNotice
 
             Form {
                 Section {
@@ -131,6 +134,39 @@ struct IntelligenceView: View {
     }
 
     /// The capture pipeline — how a clip is understood, stage by stage.
+    /// Why the model-backed rows may do less on this system. Distinguishes
+    /// "this OS predates the Foundation Models tier" — nothing the user can
+    /// change — from "Apple Intelligence is off or not ready". Deterministic
+    /// tiers run either way, which is exactly what the copy promises.
+    @ViewBuilder
+    private var capabilityNotice: some View {
+        switch IntelligenceCapability.current() {
+        case .available:
+            EmptyView()
+        case .requiresMacOS26:
+            noticeLabel(
+                // swiftlint:disable:next line_length
+                "Model-backed features — smarter titles, Smart Paste rewrites, and Ask your clipboard — require macOS 26. Everything else runs fully on this Mac."
+            )
+        case .modelUnavailable:
+            noticeLabel(
+                // swiftlint:disable:next line_length
+                "Apple Intelligence isn't available right now, so model-backed features fall back to heuristics. Deterministic tiers keep running."
+            )
+        }
+    }
+
+    private func noticeLabel(_ text: LocalizedStringKey) -> some View {
+        Label {
+            Text(text)
+                .font(.footnote)
+        } icon: {
+            Image(systemName: "info.circle")
+        }
+        .foregroundStyle(.secondary)
+        .accessibilityIdentifier("intelligence-capability-notice")
+    }
+
     private var pipeline: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: GanchoTokens.Spacing.xs) {

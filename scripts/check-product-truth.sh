@@ -24,9 +24,9 @@ forbid_regex() {
 	fi
 }
 
-require_literal project.yml 'macOS: "26.0"'
+require_literal project.yml 'macOS: "15.4"'
 require_literal project.yml 'iOS: "26.0"'
-require_literal site/index.html 'macOS 26+ · iOS 26+'
+require_literal site/index.html 'macOS 15.4+ · iOS 26+'
 require_literal README.md 'eight library products + a CLI'
 require_literal README.md 'disabled until explicit consent'
 require_literal README.md 'short-prefix indexes'
