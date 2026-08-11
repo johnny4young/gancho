@@ -11,6 +11,26 @@
         }
       }
     },
+    "Model-backed features — smarter titles, Smart Paste rewrites and Translate, and Ask your clipboard — require macOS 26. Everything else runs fully on this Mac.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las funciones con modelo — títulos más inteligentes, reescrituras y traducción de Smart Paste, y Ask your clipboard — requieren macOS 26. Todo lo demás corre completo en este Mac."
+          }
+        }
+      }
+    },
+    "Apple Intelligence isn't available right now: titles fall back to heuristics, and model-backed rewrites, Translate, and Ask are hidden until it returns. Deterministic features keep running.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence no está disponible en este momento: los títulos usan los métodos heurísticos, y las reescrituras, la traducción y Ask con modelo se ocultan hasta que vuelva. Las funciones deterministas siguen funcionando."
+          }
+        }
+      }
+    },
     "The menu-bar helper didn’t start; using the built-in icon.": {
       "localizations": {
         "es": {
@@ -2651,12 +2671,12 @@
         }
       }
     },
-    "Every tier runs on this Mac. No clip text is ever sent to a server — gancho has none.": {
+    "Everything here runs on this Mac. No clip text is ever sent to a server — gancho has none.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cada nivel corre en este Mac. Ningún texto de clip se envía a un servidor — gancho no tiene."
+            "value": "Todo aquí corre en este Mac. Ningún texto de clip se envía a un servidor — gancho no tiene."
           }
         }
       }

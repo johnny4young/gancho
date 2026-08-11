@@ -72,12 +72,13 @@ struct ReleaseMetadataTests {
         }
     }
 
-    /// The deployment-floor inventory must exist, be executable, and
-    /// keep its two safety guarantees: it restores the manifest no matter how
-    /// it exits, and it probes each target separately (a whole-package build
-    /// would stop at the first blocker and hide the rest). The documented
-    /// finding — GanchoKit is already floor-clean at macOS 15 — is captured in
-    /// docs/DEPLOYMENT-FLOOR.md so a regression in that claim is reviewable.
+    /// The deployment-floor probe must exist, be executable, and keep its two
+    /// safety guarantees: it restores the manifest no matter how it exits, and
+    /// it probes each target separately (a whole-package build would stop at
+    /// the first blocker and hide the rest). The documented reality — the
+    /// shipped floor is macOS 15.4 with the FoundationModels tier and Liquid
+    /// Glass gated behind macOS 26 — is captured in docs/DEPLOYMENT-FLOOR.md
+    /// so a regression in that claim is reviewable.
     @Test func deploymentFloorInventoryExistsAndIsSafe() throws {
         let script = try Self.text("scripts", "check-deployment-floor.sh")
         // Restore-on-exit is the load-bearing guarantee — a left-over lowered
@@ -85,7 +86,7 @@ struct ReleaseMetadataTests {
         #expect(script.contains("trap restore EXIT"))
         #expect(script.contains("trap 'exit 130' INT TERM"))
         #expect(script.contains("swift build --target"))
-        #expect(script.contains(".macOS(.v${macos_floor})"))
+        #expect(script.contains("rewrite_manifest_floor"))
         #expect(script.contains("probe_failures"))
 
         let scriptURL = Self.repositoryRoot
@@ -93,9 +94,23 @@ struct ReleaseMetadataTests {
         let isExecutable = FileManager.default.isExecutableFile(atPath: scriptURL.path)
         #expect(isExecutable, "the floor inventory must be executable")
 
+        let process = Process()
+        process.executableURL = scriptURL
+        process.arguments = ["--self-test"]
+        process.currentDirectoryURL = Self.repositoryRoot
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        try process.run()
+        process.waitUntilExit()
+        let output =
+            String(
+                bytes: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        #expect(process.terminationStatus == 0, Comment(rawValue: output))
+
         let doc = try Self.text("docs", "DEPLOYMENT-FLOOR.md")
-        #expect(doc.contains("macOS 15 package inventory"))
-        #expect(doc.contains("iOS 18 remains a separate Xcode build probe"))
+        #expect(doc.contains("macOS 15.4 / iOS 26"))
+        #expect(doc.contains("The deployment target itself is the gate"))
         #expect(doc.contains("FoundationModels"))
         #expect(doc.contains("glassEffect"))
     }
@@ -191,9 +206,12 @@ struct ReleaseMetadataTests {
             in: project,
             pattern: #"(?m)^\s*MARKETING_VERSION:\s*"?([0-9]+\.[0-9]+\.[0-9]+)"?\s*$"#)
 
-        #expect(project.contains("macOS: \"26.0\""))
+        #expect(project.contains("macOS: \"15.4\""))
         #expect(project.contains("iOS: \"26.0\""))
-        #expect(site.contains("macOS 26+ · iOS 26+"))
+        // The site advertises the RELEASED floor, not the source floor: its
+        // chip moves to 15.4+ only in the release that ships the first
+        // Sequoia-validated build (see check-product-truth.sh).
+        #expect(try Self.matchCount(in: site, pattern: #"macOS 26\+ · iOS 26\+"#) == 2)
         #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.library\(name:"#) == 8)
         #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.executable\(name:"#) == 1)
         #expect(readme.contains("eight library products + a CLI"))

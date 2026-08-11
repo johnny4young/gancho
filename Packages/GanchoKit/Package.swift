@@ -16,8 +16,8 @@ import PackageDescription
 let package = Package(
     name: "GanchoKit",
     platforms: [
-        .macOS(.v26),
-        .iOS(.v26),
+        .macOS("15.4"),
+        .iOS(.v26)
     ],
     products: [
         .library(name: "GanchoKit", targets: ["GanchoKit"]),
@@ -38,7 +38,7 @@ let package = Package(
         // NOT link it — they only need the model types in GanchoKit.
         .library(name: "GanchoMCP", targets: ["GanchoMCP"]),
         // The `gancho` CLI + stdio MCP server, distributed via Homebrew.
-        .executable(name: "gancho", targets: ["gancho"]),
+        .executable(name: "gancho", targets: ["gancho"])
     ],
     dependencies: [
         // Storage engine (SQLite) — SQLCipher-enabled fork for whole-database
@@ -58,7 +58,7 @@ let package = Package(
         .package(url: "https://github.com/Clipy/Sauce.git", from: "2.4.0"),
         // Privacy-first product analytics (bucket-only events). Confined to
         // the GanchoTelemetry target.
-        .package(url: "https://github.com/TelemetryDeck/SwiftSDK", from: "2.0.0"),
+        .package(url: "https://github.com/TelemetryDeck/SwiftSDK", from: "2.0.0")
     ],
     targets: [
         .target(
@@ -71,7 +71,7 @@ let package = Package(
             name: "ClipboardCore",
             dependencies: [
                 "GanchoKit",
-                .product(name: "Sauce", package: "Sauce", condition: .when(platforms: [.macOS])),
+                .product(name: "Sauce", package: "Sauce", condition: .when(platforms: [.macOS]))
             ]),
         .target(name: "GanchoAI", dependencies: ["GanchoKit"]),
         .target(name: "GanchoDesign", dependencies: ["GanchoKit"]),
@@ -79,7 +79,7 @@ let package = Package(
             name: "GanchoTelemetry",
             dependencies: [
                 "GanchoKit",
-                .product(name: "TelemetryDeck", package: "SwiftSDK"),
+                .product(name: "TelemetryDeck", package: "SwiftSDK")
             ]),
         .target(name: "GanchoSync", dependencies: ["GanchoKit"]),
         .target(
@@ -97,6 +97,6 @@ let package = Package(
         .testTarget(name: "GanchoAppCoreTests", dependencies: ["GanchoAppCore"]),
         .testTarget(name: "ClipboardCoreTests", dependencies: ["ClipboardCore"]),
         .testTarget(name: "GanchoAITests", dependencies: ["GanchoAI"]),
-        .testTarget(name: "GanchoDesignTests", dependencies: ["GanchoDesign"]),
+        .testTarget(name: "GanchoDesignTests", dependencies: ["GanchoDesign"])
     ]
 )
