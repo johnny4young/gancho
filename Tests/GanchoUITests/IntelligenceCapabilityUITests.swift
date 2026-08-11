@@ -37,8 +37,11 @@ final class IntelligenceCapabilityUITests: XCTestCase {
         let notice = intelligence.descendants(matching: .any)
             .matching(identifier: "intelligence-capability-notice").firstMatch
         XCTAssertTrue(notice.waitForExistence(timeout: 3))
+        // SwiftUI exposes static text through `value` on macOS, while other
+        // accessibility roles may expose the same content through `label`.
+        let noticeText = "\(notice.label) \(notice.value as? String ?? "")"
         XCTAssertTrue(
-            notice.label.contains("macOS 26"),
-            "the Sequoia notice must name the real requirement, got: \(notice.label)")
+            noticeText.contains("macOS 26"),
+            "the Sequoia notice must name the real requirement, got: \(noticeText)")
     }
 }

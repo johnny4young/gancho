@@ -16,6 +16,16 @@ require_literal() {
 	grep -Fq -- "$literal" "$file" || fail "$file is missing required claim: $literal"
 }
 
+require_literal_count() {
+	local file="$1"
+	local literal="$2"
+	local expected="$3"
+	local actual
+	actual="$(grep -Fc -- "$literal" "$file" || true)"
+	[[ "$actual" == "$expected" ]] \
+		|| fail "$file must contain '$literal' on exactly $expected lines (found $actual)"
+}
+
 forbid_regex() {
 	local file="$1"
 	local pattern="$2"
@@ -30,7 +40,7 @@ require_literal project.yml 'iOS: "26.0"'
 # artifact (the download button serves the latest published DMG), so its
 # floor chip intentionally lags the source floor above: it moves to 15.4+
 # only in the release that ships the first Sequoia-validated build.
-require_literal site/index.html 'macOS 26+ · iOS 26+'
+require_literal_count site/index.html 'macOS 26+ · iOS 26+' 2
 require_literal README.md 'eight library products + a CLI'
 require_literal README.md 'disabled until explicit consent'
 require_literal README.md 'short-prefix indexes'

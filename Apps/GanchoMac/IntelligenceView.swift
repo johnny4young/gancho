@@ -130,7 +130,6 @@ struct IntelligenceView: View {
         }
         .padding(GanchoTokens.Spacing.md)
         .frame(width: 520, height: 600)
-        .accessibilityIdentifier("intelligence")
     }
 
     /// The capture pipeline — how a clip is understood, stage by stage.
@@ -146,12 +145,12 @@ struct IntelligenceView: View {
         case .requiresMacOS26:
             noticeLabel(
                 // swiftlint:disable:next line_length
-                "Model-backed features — smarter titles, Smart Paste rewrites, and Ask your clipboard — require macOS 26. Everything else runs fully on this Mac."
+                "Model-backed features — smarter titles, Smart Paste rewrites and Translate, and Ask your clipboard — require macOS 26. Everything else runs fully on this Mac."
             )
         case .modelUnavailable:
             noticeLabel(
                 // swiftlint:disable:next line_length
-                "Apple Intelligence isn't available right now: titles fall back to heuristics, and model-backed rewrites and Ask are hidden until it returns. Deterministic features keep running."
+                "Apple Intelligence isn't available right now: titles fall back to heuristics, and model-backed rewrites, Translate, and Ask are hidden until it returns. Deterministic features keep running."
             )
         }
     }
@@ -160,10 +159,13 @@ struct IntelligenceView: View {
         Label {
             Text(text)
                 .font(.footnote)
+                .fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: "info.circle")
         }
         .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(text))
         .accessibilityIdentifier("intelligence-capability-notice")
     }
 

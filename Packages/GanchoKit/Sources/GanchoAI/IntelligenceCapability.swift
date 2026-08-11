@@ -1,9 +1,9 @@
 import Foundation
 
 /// One shared interpretation of whether the Foundation Models tier can run
-/// here. Presentation and composition consume this value instead of each
-/// re-implementing an OS/version check, so "needs a newer macOS" and "Apple
-/// Intelligence is switched off" stay distinguishable in the interface.
+/// here. Presentation consumes this value instead of re-implementing the
+/// OS/version check, so "needs a newer macOS" and "Apple Intelligence is
+/// switched off" stay distinguishable in the interface.
 ///
 /// The deterministic tiers (classification, OCR, secret detection, PII
 /// redaction, semantic retrieval) do not consult this — they run everywhere.
@@ -27,7 +27,9 @@ public enum IntelligenceCapability: Equatable, Sendable {
     public static func current(
         arguments: [String] = ProcessInfo.processInfo.arguments
     ) -> IntelligenceCapability {
-        if arguments.contains(simulateSequoiaArgument) { return .requiresMacOS26 }
+        #if os(macOS)
+            if arguments.contains(simulateSequoiaArgument) { return .requiresMacOS26 }
+        #endif
         guard #available(macOS 26.0, iOS 26.0, *) else { return .requiresMacOS26 }
         return SmartPasteService.isAvailable ? .available : .modelUnavailable
     }

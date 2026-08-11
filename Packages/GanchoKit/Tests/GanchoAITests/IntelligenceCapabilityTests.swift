@@ -5,12 +5,19 @@ import Testing
 
 @Suite("Intelligence capability")
 struct IntelligenceCapabilityTests {
-    @Test("The simulate-Sequoia argument forces the pre-26 answer on any host")
+    @Test("The simulate-Sequoia argument forces the pre-26 answer on macOS")
     func simulateArgumentWins() {
-        #expect(
-            IntelligenceCapability.current(
-                arguments: [IntelligenceCapability.simulateSequoiaArgument])
-                == .requiresMacOS26)
+        #if os(macOS)
+            #expect(
+                IntelligenceCapability.current(
+                    arguments: [IntelligenceCapability.simulateSequoiaArgument])
+                    == .requiresMacOS26)
+        #else
+            #expect(
+                IntelligenceCapability.current(
+                    arguments: [IntelligenceCapability.simulateSequoiaArgument])
+                    != .requiresMacOS26)
+        #endif
     }
 
     /// The genuine answer tracks the running OS, so this expectation is split

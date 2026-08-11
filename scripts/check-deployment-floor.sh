@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deployment-floor inventory: what would break if Gancho lowered its minimum
-# macOS version from 26 to a candidate floor?
+# macOS version to a candidate floor?
 #
 # Method: temporarily rewrite the package manifest's `platforms:` to the probe
 # floor and build EACH target separately, so one target's failure never masks
@@ -11,8 +11,9 @@
 # where availability gates are required before changing deployment targets.
 #
 #   scripts/check-deployment-floor.sh                  # default probe: macOS 15
-#   scripts/check-deployment-floor.sh --macos 14
+#   scripts/check-deployment-floor.sh --macos 14.4
 #   scripts/check-deployment-floor.sh --quiet          # summary only
+#   scripts/check-deployment-floor.sh --self-test      # rewrite contract only
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -20,8 +21,9 @@ cd "$repo_root"
 
 macos_floor="15"
 quiet=""
+self_test=""
 usage() {
-	echo "usage: $0 [--macos 15] [--quiet]" >&2
+	echo "usage: $0 [--macos 15[.x]] [--quiet] [--self-test]" >&2
 	exit 2
 }
 while [ $# -gt 0 ]; do
@@ -35,14 +37,57 @@ while [ $# -gt 0 ]; do
 		quiet="1"
 		shift
 		;;
+	--self-test)
+		self_test="1"
+		shift
+		;;
 	*)
 		usage
 		;;
 	esac
 done
-case "$macos_floor" in
-*[!0-9]* | "") usage ;;
-esac
+[[ "$macos_floor" =~ ^[0-9]+([.][0-9]+){0,2}$ ]] || usage
+
+rewrite_manifest_floor() {
+	local source="$1"
+	local floor="$2"
+	local declaration_count
+	declaration_count="$(
+		{ grep -Eo '\.macOS\((\.v[0-9]+|"[0-9]+(\.[0-9]+){0,2}")\)' "$source" || true; } \
+			| wc -l | tr -d '[:space:]'
+	)"
+	if [ "$declaration_count" -ne 1 ]; then
+		echo "error: expected exactly one macOS platform requirement in $source" >&2
+		return 2
+	fi
+
+	sed -E -i '' \
+		-e "s/\\.macOS\\((\\.v[0-9]+|\"[0-9]+(\\.[0-9]+){0,2}\")\\)/.macOS(\"${floor}\")/" \
+		"$source"
+	grep -Fq ".macOS(\"${floor}\")" "$source" || {
+		echo "error: deployment-floor rewrite did not set macOS $floor" >&2
+		return 2
+	}
+}
+
+if [ -n "$self_test" ]; then
+	fixture="$(mktemp -t gancho-floor-fixture)"
+	trap 'rm -f "$fixture"' EXIT
+	for declaration in '.macOS("15.4")' '.macOS(.v26)'; do
+		printf 'platforms: [%s, .iOS(.v26)]\n' "$declaration" >"$fixture"
+		rewrite_manifest_floor "$fixture" "14.4"
+		grep -Fq '.macOS("14.4")' "$fixture" || {
+			echo "error: deployment-floor rewrite self-test did not change macOS" >&2
+			exit 1
+		}
+		grep -Fq '.iOS(.v26)' "$fixture" || {
+			echo "error: deployment-floor rewrite self-test changed iOS" >&2
+			exit 1
+		}
+	done
+	echo "✓ deployment-floor manifest rewrite self-test passed"
+	exit 0
+fi
 
 manifest="Packages/GanchoKit/Package.swift"
 backup="$(mktemp -t gancho-manifest)"
@@ -58,13 +103,7 @@ restore() {
 trap restore EXIT
 trap 'exit 130' INT TERM
 
-sed -i '' \
-	-e "s/\.macOS(\.v26)/.macOS(.v${macos_floor})/" \
-	"$manifest"
-if cmp -s "$manifest" "$backup"; then
-	echo "error: expected the manifest to declare .macOS(.v26)" >&2
-	exit 2
-fi
+rewrite_manifest_floor "$manifest" "$macos_floor"
 
 targets=(ClipboardCore GanchoKit GanchoSync GanchoAI GanchoAppCore GanchoDesign GanchoTelemetry)
 log_dir="$(mktemp -d -t gancho-floor)"

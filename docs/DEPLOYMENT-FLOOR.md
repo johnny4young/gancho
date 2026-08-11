@@ -18,7 +18,7 @@ separate floor job to keep green.
 
 | Capability | Below macOS 26 | Gate |
 | --- | --- | --- |
-| `FoundationModels` tier — smarter titles, Smart Paste rewrites and Translate, Ask your clipboard | Deterministic fallbacks (heuristic titles; PII redaction stays; Ask hidden) | `@available` on `FoundationModelAnnotator`; `guard #available` inside `SmartPasteService` / `ClipboardQAService`; `IntelligenceCapability` |
+| `FoundationModels` tier — smarter titles, Smart Paste rewrites and Translate, Ask your clipboard | Heuristic titles; deterministic PII redaction remains; model-backed rewrites, Translate, and Ask are unavailable | `@available` on `FoundationModelAnnotator`; `guard #available` inside `SmartPasteService` / `ClipboardQAService`; `IntelligenceCapability` |
 | Liquid Glass (`glassEffect`) | The same opaque-material branch accessibility already uses | availability branch in `GanchoSurface` |
 
 `IntelligenceCapability` (GanchoAI) is the one shared interpretation of "can
