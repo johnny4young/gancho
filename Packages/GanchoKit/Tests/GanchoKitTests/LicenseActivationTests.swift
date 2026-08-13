@@ -49,9 +49,9 @@ struct LicenseActivationTests {
         #expect(result == .rejected(reason: "license_key not found."))
     }
 
-    @Test("Documented activation client errors reject when they carry a reason")
+    @Test("A 4xx denial body rejects an activation with the server's reason")
     func activationClientErrorsReject() async {
-        for status in [400, 404, 422] {
+        for status in [400, 404, 409, 422] {
             let validator = LemonSqueezyValidator(
                 transport: Self.transport(#"{"error":"license_key not found."}"#, status: status))
             #expect(
@@ -60,10 +60,13 @@ struct LicenseActivationTests {
         }
     }
 
-    @Test("Service, authentication, and rate-limit responses are unreachable")
-    func nonAuthoritativeHTTPFailuresAreUnreachable() async {
+    /// A 5xx or a rate limit is the infrastructure failing, never Lemon
+    /// Squeezy answering — so the body is not even read, and a denial-shaped
+    /// one arriving on such a status must not revoke.
+    @Test("Server errors and rate limits are unreachable, even with a denial body")
+    func outageStatusesNeverRevoke() async {
         let body = #"{"valid":false,"error":"license_key is disabled."}"#
-        for status in [300, 401, 403, 408, 425, 429, 500, 503] {
+        for status in [429, 500, 502, 503] {
             let validator = LemonSqueezyValidator(
                 transport: Self.transport(body, status: status))
             guard
@@ -76,35 +79,43 @@ struct LicenseActivationTests {
         }
     }
 
-    @Test("Validate and deactivate never treat non-2xx bodies as authoritative")
-    func existingEntitlementOperationsRequireSuccessStatus() async {
-        for status in [400, 404, 422] {
-            let validator = LemonSqueezyValidator(
-                transport: Self.transport(#"{"error":"license_key not found."}"#, status: status))
-            guard
-                case .unreachable = await validator.validate(
-                    licenseKey: "K", instanceID: "i-1")
-            else {
-                Issue.record("validate HTTP \(status) must preserve grace")
-                return
+    /// Lemon Squeezy delivers denials as 4xx with the same envelope a 2xx
+    /// uses, so a refunded or disabled key must revoke even though the status
+    /// is not 2xx — and a deactivation slot that was already released (404)
+    /// must read as Lemon Squeezy answering, not as an outage.
+    @Test("A 4xx denial body is authoritative for validate and deactivate")
+    func denialBodiesOn4xxAreAuthoritative() async {
+        for body in [
+            #"{"valid":false,"error":"license_key is disabled."}"#,
+            #"{"error":"license_key is disabled."}"#
+        ] {
+            for status in [400, 404, 422] {
+                let validator = LemonSqueezyValidator(
+                    transport: Self.transport(body, status: status))
+                #expect(
+                    await validator.validate(licenseKey: "K", instanceID: "i-1")
+                        == .rejected(reason: "license_key is disabled."))
             }
-            guard
-                case .unreachable = await validator.deactivate(
-                    licenseKey: "K", instanceID: "i-1")
-            else {
-                Issue.record("deactivate HTTP \(status) must report a network outcome")
-                return
-            }
+        }
+        for body in [
+            #"{"deactivated":false,"error":"instance not found."}"#,
+            #"{"error":"instance not found."}"#
+        ] {
+            let validator = LemonSqueezyValidator(transport: Self.transport(body, status: 404))
+            #expect(
+                await validator.deactivate(licenseKey: "K", instanceID: "i-1")
+                    == .rejected(reason: "instance not found."))
         }
     }
 
-    @Test("Undocumented or unreadable activation failures are unreachable")
-    func ambiguousActivationFailuresAreUnreachable() async {
+    /// A 4xx whose body denies nothing — no explicit `false` flag, no readable
+    /// error — is unrecognized, not a denial, for every endpoint alike.
+    @Test("Unrecognized or unreadable 4xx bodies are unreachable")
+    func ambiguous4xxFailuresAreUnreachable() async {
         for (body, status) in [
-            (#"{"error":"conflict"}"#, 409),
             (#"{"error":"   "}"#, 422),
             ("not-json", 400),
-            (#"{"activated":false}"#, 404)
+            (#"{}"#, 404)
         ] {
             let validator = LemonSqueezyValidator(
                 transport: Self.transport(body, status: status))
@@ -115,11 +126,21 @@ struct LicenseActivationTests {
                 Issue.record("ambiguous activation HTTP \(status) must be retriable")
                 return
             }
+            guard
+                case .unreachable = await validator.validate(
+                    licenseKey: "K", instanceID: "i-1")
+            else {
+                Issue.record("ambiguous validate HTTP \(status) must preserve grace")
+                return
+            }
         }
     }
 
-    @Test("A non-HTTP response is unreachable")
-    func nonHTTPResponseIsUnreachable() async {
+    /// Only canned transports can answer without an HTTP status; with no
+    /// outage signal to read, the body decides — and an unrecognized one
+    /// keeps grace, exactly as it would on a 2xx.
+    @Test("A response with no HTTP status is judged by its body")
+    func statuslessResponseIsJudgedByBody() async {
         let validator = LemonSqueezyValidator(transport: { request in
             let response = URLResponse(
                 url: request.url!, mimeType: "application/json",
@@ -128,7 +149,7 @@ struct LicenseActivationTests {
         })
         guard case .unreachable = await validator.validate(licenseKey: "K", instanceID: "i-1")
         else {
-            Issue.record("a non-HTTP response must never change entitlement state")
+            Issue.record("an unrecognized body must keep grace, status or not")
             return
         }
     }
