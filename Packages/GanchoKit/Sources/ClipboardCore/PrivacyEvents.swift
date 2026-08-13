@@ -1,5 +1,6 @@
 import Foundation
 import GanchoKit
+import Synchronization
 
 /// Why a pasteboard change was NOT captured. Carries no content by
 /// construction — the Privacy Center counts these ("X items ignored this
@@ -62,39 +63,42 @@ public protocol PrivacyEventRecording: Sendable {
 }
 
 /// Thread-safe in-memory recorder (also the test double).
-public final class InMemoryPrivacyEventRecorder: PrivacyEventRecording, @unchecked Sendable {
-    private let lock = NSLock()
-    private var events: [IgnoredCaptureEvent] = []
-    private var syncEvents: [SyncActivityEvent] = []
+public final class InMemoryPrivacyEventRecorder: PrivacyEventRecording {
+    private struct State: Sendable {
+        var events: [IgnoredCaptureEvent] = []
+        var syncEvents: [SyncActivityEvent] = []
+    }
+
+    private let state = Mutex(State())
 
     public init() {}
 
     public func record(_ event: IgnoredCaptureEvent) {
-        lock.withLock { events.append(event) }
+        state.withLock { $0.events.append(event) }
     }
 
     public func record(sync event: SyncActivityEvent) {
-        lock.withLock { syncEvents.append(event) }
+        state.withLock { $0.syncEvents.append(event) }
     }
 
     public func recentSyncEvents(limit: Int) -> [SyncActivityEvent] {
-        lock.withLock { Array(syncEvents.suffix(limit).reversed()) }
+        state.withLock { Array($0.syncEvents.suffix(limit).reversed()) }
     }
 
     public func eventCount(since date: Date) -> Int {
-        lock.withLock { events.count(where: { $0.occurredAt >= date }) }
+        state.withLock { $0.events.count(where: { $0.occurredAt >= date }) }
     }
 
     /// Per-reason breakdown for the Privacy Center ("why was it ignored").
     public func countsByReason(since date: Date) -> [CaptureIgnoreReason: Int] {
-        lock.withLock {
-            events.filter { $0.occurredAt >= date }
+        state.withLock { state in
+            state.events.filter { $0.occurredAt >= date }
                 .reduce(into: [:]) { counts, event in counts[event.reason, default: 0] += 1 }
         }
     }
 
     /// Test hook: every recorded event, oldest first.
     public func allEvents() -> [IgnoredCaptureEvent] {
-        lock.withLock { events }
+        state.withLock { $0.events }
     }
 }
