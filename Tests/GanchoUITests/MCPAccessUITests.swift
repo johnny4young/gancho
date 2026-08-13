@@ -32,8 +32,8 @@ final class MCPAccessUITests: XCTestCase {
             waitForLabelOrValue("0 active", of: "mcp-active-client-count", in: app),
             "the active-client summary did not converge after revocation")
         XCTAssertTrue(
-            waitForNonexistence(
-                app.buttons["mcp-copy-command-claude-desktop"].firstMatch, timeout: 5),
+            app.buttons["mcp-copy-command-claude-desktop"].firstMatch
+                .waitForNonexistence(timeout: 5),
             "the active-only copy command remained exposed after revocation")
         attach(windowScreenshot(in: app), named: "macOS MCP live revoke")
     }
@@ -109,8 +109,18 @@ final class MCPAccessUITests: XCTestCase {
                 return true
             }
             app.activate()
-            guard button.waitForHittable(timeout: 3) else { continue }
-            button.click()
+            if button.waitForHittable(timeout: 3) {
+                button.click()
+            } else if button.exists, !button.frame.isEmpty {
+                // Hosted macOS runners occasionally report toolbar-adjacent
+                // SwiftUI buttons as non-hittable even though their on-screen
+                // frame is valid. Click the element's center and prove delivery
+                // through the live state transition below rather than trusting
+                // that transient AX flag.
+                button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+            } else {
+                continue
+            }
             if waitForLabelOrValue("Revoked", of: stateIdentifier, in: app, timeout: 3) {
                 return true
             }
@@ -127,18 +137,12 @@ final class MCPAccessUITests: XCTestCase {
         guard element.waitForExistence(timeout: timeout) else { return false }
         let predicate = NSPredicate { object, _ in
             guard let element = object as? XCUIElement else { return false }
-            return (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } == expected
-                || element.label == expected
+            // One canonical string, matching the strict pre-polling semantics:
+            // the value when it is a non-empty string, the label otherwise.
+            let canonical =
+                (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
+            return canonical == expected
         }
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
-        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
-    }
-
-    @MainActor
-    private func waitForNonexistence(
-        _ element: XCUIElement, timeout: TimeInterval
-    ) -> Bool {
-        let predicate = NSPredicate(format: "exists == false")
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
@@ -157,14 +161,5 @@ final class MCPAccessUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
-    }
-}
-
-extension XCUIElement {
-    @MainActor
-    fileprivate func waitForHittable(timeout: TimeInterval) -> Bool {
-        let predicate = NSPredicate(format: "exists == true AND hittable == true")
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
-        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 }
