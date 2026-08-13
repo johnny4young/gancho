@@ -272,6 +272,11 @@ extension GanchoArchiveTests {
         manifest.checksums.removeValue(forKey: "blobs/\(hash)")
         manifest.checksums["blobs/\(renamedHash)"] = renamedHash
         try writeManifest(manifest, to: dir)
+        // Reference the renamed blob so it is actually restored — its bytes
+        // still hash to the original digest, and must fail at write time.
+        var rows = try readRows(from: dir)
+        rows[0].contentBlobHash = renamedHash
+        try writeRows(rows, to: dir)
 
         let target = try makeStore()
         do {
@@ -297,8 +302,8 @@ extension GanchoArchiveTests {
         #expect(try await target.count() == 0)
     }
 
-    @Test("Missing and orphaned blob declarations are rejected")
-    func blobReferenceSetMustMatchManifest() async throws {
+    @Test("Missing and orphaned blob declarations are tolerated, never restored")
+    func blobReferenceSetMismatchesTolerated() async throws {
         let missingDir = tempDir()
         let orphanDir = tempDir()
         defer {
@@ -306,14 +311,24 @@ extension GanchoArchiveTests {
             try? FileManager.default.removeItem(at: orphanDir)
         }
 
+        // The shipped v1 exporter silently skipped store-missing blobs while
+        // keeping the rows that reference them: every row restores, and the
+        // missing payload stays missing — no blob is invented.
         let missingHash = try await writeBinaryArchive(to: missingDir)
         var missingManifest = try readManifest(from: missingDir)
         missingManifest.checksums.removeValue(forKey: "blobs/\(missingHash)")
         try writeManifest(missingManifest, to: missingDir)
+        try FileManager.default.removeItem(
+            at: missingDir.appendingPathComponent("blobs/\(missingHash)"))
         let missingTarget = try makeStore()
-        await expectCorruptRestore(from: missingDir, into: missingTarget)
-        #expect(try await missingTarget.count() == 0)
+        let missingSummary = try await GanchoArchive.restore(
+            from: missingDir, into: missingTarget)
+        #expect(missingSummary.inserted == 1)
+        #expect(try await missingTarget.count() == 1)
+        #expect(!missingTarget.blobsForMaintenance.contains(hash: missingHash))
 
+        // A declared blob no row references is valid input but junk output:
+        // the rows restore and the orphan never enters the store.
         _ = try await writeBinaryArchive(to: orphanDir)
         let orphan = Data("orphan".utf8)
         let orphanHash = sha256(orphan)
@@ -322,9 +337,11 @@ extension GanchoArchiveTests {
         orphanManifest.checksums["blobs/\(orphanHash)"] = orphanHash
         try writeManifest(orphanManifest, to: orphanDir)
         let orphanTarget = try makeStore()
-        await expectCorruptRestore(from: orphanDir, into: orphanTarget)
+        let orphanSummary = try await GanchoArchive.restore(
+            from: orphanDir, into: orphanTarget)
+        #expect(orphanSummary.inserted == 1)
+        #expect(try await orphanTarget.count() == 1)
         #expect(!orphanTarget.blobsForMaintenance.contains(hash: orphanHash))
-        #expect(try await orphanTarget.count() == 0)
     }
 
     @Test("Manifest clip count must exactly match clips.json")

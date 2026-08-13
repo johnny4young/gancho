@@ -4050,6 +4050,46 @@
         }
       }
     },
+    "That backup couldn’t be created.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese respaldo no se pudo crear."
+          }
+        }
+      }
+    },
+    "Backup": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respaldo"
+          }
+        }
+      }
+    },
+    "A backup couldn’t be created.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo crear un respaldo."
+          }
+        }
+      }
+    },
+    "A backup couldn’t be restored.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo restaurar un respaldo."
+          }
+        }
+      }
+    },
     "Resume capture": {
       "extractionState": "stale",
       "localizations": {

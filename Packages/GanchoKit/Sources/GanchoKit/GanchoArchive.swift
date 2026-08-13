@@ -74,14 +74,18 @@ public enum GanchoArchive {
             try FileManager.default.createDirectory(
                 at: blobDir, withIntermediateDirectories: true)
             for hash in Set(rows.compactMap(\.contentBlobHash)) {
-                guard let data = try store.blobsForMaintenance.read(hash: hash),
-                    sha256(data) == hash
-                else {
+                guard let data = try store.blobsForMaintenance.read(hash: hash) else {
+                    throw ArchiveError.corruptArchive(
+                        "source store is missing or has a corrupt referenced blob")
+                }
+                // One digest serves both the integrity guard and the manifest.
+                let digest = sha256(data)
+                guard digest == hash else {
                     throw ArchiveError.corruptArchive(
                         "source store is missing or has a corrupt referenced blob")
                 }
                 try data.write(to: blobDir.appendingPathComponent(hash), options: .atomic)
-                checksums["blobs/\(hash)"] = sha256(data)
+                checksums["blobs/\(hash)"] = digest
             }
         }
 

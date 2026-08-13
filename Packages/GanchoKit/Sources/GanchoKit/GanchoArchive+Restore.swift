@@ -3,16 +3,19 @@ import Foundation
 import GRDB
 
 extension GanchoArchive {
-    /// Explicit resource ceilings for untrusted archive input. Internal so
-    /// tests can exercise every boundary with tiny fixtures without allocating
-    /// production-sized files.
+    /// Hostile-input ceilings for untrusted archives — anti-abuse sanity
+    /// bounds only, NOT product expectations. Capture is uncapped, so every
+    /// ceiling must sit far above anything a real store produces; the point
+    /// is to reject absurd inputs, never a legitimate backup. Internal so
+    /// tests can exercise every boundary with tiny fixtures without
+    /// allocating production-sized files.
     struct RestoreLimits: Sendable, Equatable {
-        var manifestBytes = 1 << 20
-        var clipsBytes = 256 << 20
-        var rowCount = 100_000
+        var manifestBytes = 32 << 20
+        var clipsBytes = 1 << 30
+        var rowCount = 1_000_000
         var blobCount = 100_000
-        var blobBytes = 20 << 20
-        var totalBlobBytes: Int64 = 1 << 30
+        var blobBytes = 1 << 30
+        var totalBlobBytes: Int64 = 100 << 30
 
         static let production = RestoreLimits()
     }
@@ -45,11 +48,6 @@ extension GanchoArchive {
         let unreadableMessage: String
     }
 
-    private struct DeclaredBlob {
-        let hash: String
-        let path: String
-    }
-
     private struct ArchiveBlob {
         let hash: String
         let path: String
@@ -57,7 +55,7 @@ extension GanchoArchive {
 
     private struct DeclaredFiles {
         let clipsChecksum: String
-        let blobs: [DeclaredBlob]
+        let blobs: [ArchiveBlob]
     }
 
     private static func validatedArchive(
@@ -71,8 +69,8 @@ extension GanchoArchive {
         let rows = try validatedRows(
             in: root, manifest: manifest, declared: declared,
             decoder: decoder, limits: limits)
-        let blobs = try validatedBlobs(in: root, declared: declared, limits: limits)
-        try validateRelationships(rows: rows, blobs: blobs)
+        let declaredBlobs = try validatedBlobs(in: root, declared: declared, limits: limits)
+        let blobs = try referencedBlobs(in: rows, among: declaredBlobs)
         return ValidatedArchive(root: root, rows: rows, blobs: blobs, limits: limits)
     }
 
@@ -105,22 +103,20 @@ extension GanchoArchive {
         let file = try regularFile(
             "clips.json", in: root, maximumBytes: limits.clipsBytes,
             unreadableMessage: "clips.json missing or unreadable")
-        guard try streamedSHA256(file) == declared.clipsChecksum else {
+        // One read: hash and decode the SAME bytes, so a file swapped between
+        // the checksum and the decode can never smuggle unverified rows in.
+        let data = try read(file)
+        guard sha256(data) == declared.clipsChecksum else {
             throw ArchiveError.checksumMismatch("clips.json")
         }
         let rows: [ClipRow]
         do {
-            rows = try decoder.decode([ClipRow].self, from: read(file))
-        } catch let error as ArchiveError {
-            throw error
+            rows = try decoder.decode([ClipRow].self, from: data)
         } catch {
             throw ArchiveError.corruptArchive("clips.json does not decode")
         }
         guard rows.count == manifest.clipCount else {
             throw ArchiveError.corruptArchive("manifest clip count does not match clips.json")
-        }
-        guard rows.count <= limits.rowCount else {
-            throw ArchiveError.corruptArchive("clips.json exceeds the row-count limit")
         }
         return rows
     }
@@ -134,6 +130,9 @@ extension GanchoArchive {
         var totalBytes: Int64 = 0
         for blob in declared.blobs.sorted(by: { $0.hash < $1.hash }) {
             try Task.checkCancellation()
+            // Stat-based bounds only (regular file, containment, per-blob and
+            // aggregate size). Content hashes are verified once, at write
+            // time, on the exact bytes that enter the store.
             let file = try regularFile(
                 blob.path, in: root, maximumBytes: limits.blobBytes,
                 unreadableMessage: "a declared blob is missing or unreadable")
@@ -141,23 +140,23 @@ extension GanchoArchive {
             guard !overflow, newTotal <= limits.totalBlobBytes else {
                 throw ArchiveError.corruptArchive("archive exceeds the total blob-size limit")
             }
-            guard try streamedSHA256(file) == blob.hash else {
-                throw ArchiveError.checksumMismatch(blob.path)
-            }
             totalBytes = newTotal
-            result.append(ArchiveBlob(hash: blob.hash, path: blob.path))
+            result.append(blob)
         }
         return result
     }
 
-    private static func validateRelationships(
-        rows: [ClipRow], blobs: [ArchiveBlob]
-    ) throws {
+    /// The shipped version-1 exporter silently skipped store-missing blobs
+    /// while keeping the rows that reference them, so a referenced hash with
+    /// no declaration is a legal legacy archive — the row restores without
+    /// its payload, exactly as the original restore behaved. The reverse
+    /// mismatch (a declared blob no row references) is validated above but
+    /// skipped here so junk never enters the store.
+    private static func referencedBlobs(
+        in rows: [ClipRow], among blobs: [ArchiveBlob]
+    ) throws -> [ArchiveBlob] {
         let referenced = try referencedBlobHashes(in: rows)
-        guard referenced == Set(blobs.map(\.hash)) else {
-            throw ArchiveError.corruptArchive(
-                "blob declarations do not exactly match clips.json references")
-        }
+        return blobs.filter { referenced.contains($0.hash) }
     }
 
     private static func apply(
@@ -166,15 +165,18 @@ extension GanchoArchive {
         // Blobs first (content-addressed = idempotent), then rows in ONE
         // transaction. A crash can leave an orphan but never a dangling row;
         // ordinary failures remove only files this restore created, after a DB
-        // reference check, and never delete a pre-existing live blob.
+        // reference check, and never delete a pre-existing live blob. The
+        // ms-scale check-then-delete window on the failure path is accepted:
+        // blob files aren't transactional, and a stranded orphan is
+        // reclaimable by maintenance.
         var createdBlobs: Set<String> = []
         do {
             try writeBlobs(archive, to: store, created: &createdBlobs)
             let summary = try await restoreRows(archive.rows, into: store)
-            await removeUnreferenced(createdBlobs, from: store)
+            _ = try? await store.removeBlobsIfOrphaned(createdBlobs)
             return summary
         } catch {
-            await removeUnreferenced(createdBlobs, from: store)
+            _ = try? await store.removeBlobsIfOrphaned(createdBlobs)
             throw error
         }
     }
@@ -185,9 +187,10 @@ extension GanchoArchive {
     ) throws {
         for blob in archive.blobs {
             try Task.checkCancellation()
-            // Re-open and re-hash immediately before the write. The first pass
-            // proved the whole archive before mutation; this prevents a file
-            // changed between phases from entering the live store.
+            // Hash the exact bytes being written, immediately before writing
+            // them: the in-memory Data can't change between this guard and
+            // the store write, so this one hash is the whole guarantee — a
+            // file swapped after validation never enters the live store.
             let current = try regularFile(
                 blob.path, in: archive.root, maximumBytes: archive.limits.blobBytes,
                 unreadableMessage: "a declared blob is missing or unreadable")
@@ -196,9 +199,7 @@ extension GanchoArchive {
                 throw ArchiveError.checksumMismatch(blob.path)
             }
             let existed = store.blobsForMaintenance.contains(hash: blob.hash)
-            guard try store.blobsForMaintenance.write(data) == blob.hash else {
-                throw ArchiveError.checksumMismatch(blob.path)
-            }
+            _ = try store.blobsForMaintenance.write(data)
             if !existed { created.insert(blob.hash) }
         }
     }
@@ -256,7 +257,7 @@ extension GanchoArchive {
             throw ArchiveError.corruptArchive("manifest has no valid clips.json checksum")
         }
 
-        var blobs: [DeclaredBlob] = []
+        var blobs: [ArchiveBlob] = []
         blobs.reserveCapacity(max(0, manifest.checksums.count - 1))
         for (path, checksum) in manifest.checksums where path != "clips.json" {
             guard path.hasPrefix("blobs/"), path.utf8.count == 70 else {
@@ -266,7 +267,7 @@ extension GanchoArchive {
             guard isLowercaseSHA256(hash), checksum == hash else {
                 throw ArchiveError.corruptArchive("manifest contains an invalid blob checksum")
             }
-            blobs.append(DeclaredBlob(hash: hash, path: path))
+            blobs.append(ArchiveBlob(hash: hash, path: path))
         }
         guard blobs.count <= limits.blobCount else {
             throw ArchiveError.corruptArchive("manifest exceeds the blob-count limit")
@@ -339,28 +340,6 @@ extension GanchoArchive {
         }
     }
 
-    private static func streamedSHA256(_ file: ArchiveFile) throws -> String {
-        do {
-            let handle = try FileHandle(forReadingFrom: file.url)
-            defer { try? handle.close() }
-            var hasher = SHA256()
-            var count = 0
-            while let chunk = try handle.read(upToCount: 64 << 10), !chunk.isEmpty {
-                guard count <= file.maximumBytes - chunk.count else {
-                    throw ArchiveError.corruptArchive(
-                        "\(file.relativePath) exceeds its size limit")
-                }
-                count += chunk.count
-                hasher.update(data: chunk)
-            }
-            return hex(hasher.finalize())
-        } catch let error as ArchiveError {
-            throw error
-        } catch {
-            throw ArchiveError.corruptArchive(file.unreadableMessage)
-        }
-    }
-
     private static func referencedBlobHashes(in rows: [ClipRow]) throws -> Set<String> {
         var references: Set<String> = []
         for hash in rows.compactMap(\.contentBlobHash) {
@@ -371,38 +350,6 @@ extension GanchoArchive {
             references.insert(hash)
         }
         return references
-    }
-
-    private static func removeUnreferenced(
-        _ candidates: Set<String>, from store: GRDBClipboardStore
-    ) async {
-        guard !candidates.isEmpty else { return }
-        let hashes = Array(candidates)
-        let referenced: Set<String>
-        do {
-            referenced = try await store.writer.read { db in
-                var found: Set<String> = []
-                for start in stride(from: 0, to: hashes.count, by: 500) {
-                    let chunk = Array(hashes[start..<min(start + 500, hashes.count)])
-                    let placeholders = Array(repeating: "?", count: chunk.count)
-                        .joined(separator: ",")
-                    found.formUnion(
-                        try String.fetchAll(
-                            db,
-                            sql: "SELECT DISTINCT contentBlobHash FROM clip "
-                                + "WHERE contentBlobHash IN (\(placeholders))",
-                            arguments: StatementArguments(chunk)))
-                }
-                return found
-            }
-        } catch {
-            // Fail safe: an orphan is reclaimable by maintenance; deleting a
-            // blob without proving it is unreferenced could strand live data.
-            return
-        }
-        for hash in candidates.subtracting(referenced) {
-            store.blobsForMaintenance.delete(hash: hash)
-        }
     }
 
     private static func isDescendant(_ candidate: URL, of directory: URL) -> Bool {
