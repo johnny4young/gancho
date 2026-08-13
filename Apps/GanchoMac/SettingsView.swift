@@ -243,6 +243,7 @@ private struct GeneralSettingsTab: View {
     let showMigrationImporter: () -> Void
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var shortcutWarning: String?
+    @State private var transferNote: String?
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
 
     var body: some View {
@@ -336,6 +337,12 @@ private struct GeneralSettingsTab: View {
                 Text("Backups are portable archives on YOUR disk — never uploaded.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                if let transferNote {
+                    Text(verbatim: transferNote)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("backup-transfer-note")
+                }
             }
 
             Section {
@@ -398,9 +405,21 @@ private struct GeneralSettingsTab: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        transferNote = nil
         Task {
-            _ = try? await GanchoArchive.restore(from: url, into: store)
-            await model.refreshRecents()
+            do {
+                let summary = try await GanchoArchive.restore(from: url, into: store)
+                await model.refreshRecents()
+                transferNote = String(
+                    localized:
+                        "Restored \(summary.inserted) clips (\(summary.skippedDuplicates) already here)."
+                )
+            } catch {
+                // The selected path and decoder/storage details can contain
+                // private filesystem metadata. UI gets one actionable,
+                // content-free result; no archive payload is logged.
+                transferNote = String(localized: "That backup couldn’t be restored.")
+            }
         }
     }
 

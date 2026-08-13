@@ -4030,6 +4030,26 @@
         }
       }
     },
+    "Restored %lld clips (%lld already here).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restauré %lld clips (%lld ya estaban)."
+          }
+        }
+      }
+    },
+    "That backup couldn’t be restored.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese respaldo no se pudo restaurar."
+          }
+        }
+      }
+    },
     "Resume capture": {
       "extractionState": "stale",
       "localizations": {
