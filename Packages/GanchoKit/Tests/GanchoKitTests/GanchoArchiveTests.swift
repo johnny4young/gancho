@@ -400,8 +400,12 @@ extension GanchoArchiveTests {
         await expectCorruptRestore(from: binaryDir, into: try makeStore(), limits: totalLimit)
     }
 
-    @Test("A database failure rolls back rows and newly-created blobs")
-    func databaseFailureCleansNewBlobs() async throws {
+    /// Deliberate: blob ownership can't be decided atomically with the
+    /// database, so an eager delete could race a concurrent capture that just
+    /// adopted the hash. The safe outcome is a harmless content-addressed
+    /// orphan, re-adopted by any future capture of the same content.
+    @Test("A database failure rolls back rows and leaves created blobs as orphans")
+    func databaseFailureLeavesOrphanBlobs() async throws {
         let dir = tempDir()
         defer { try? FileManager.default.removeItem(at: dir) }
         let hash = try await writeBinaryArchive(to: dir)
@@ -420,7 +424,7 @@ extension GanchoArchiveTests {
             Issue.record("the trigger should reject the restore transaction")
         } catch {}
         #expect(try await target.count() == 0)
-        #expect(!target.blobsForMaintenance.contains(hash: hash))
+        #expect(target.blobsForMaintenance.contains(hash: hash))
     }
 
     @Test("Rollback never deletes a blob that existed before restore")

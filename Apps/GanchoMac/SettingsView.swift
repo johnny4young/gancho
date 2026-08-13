@@ -59,9 +59,9 @@ struct SettingsView: View {
     }
 }
 
-/// The About screen: a centered app hero, a details card (version, author,
-/// license), and the project links — with a manual update check on the
-/// direct-download build. Scrolls so nothing is clipped in the short window.
+/// The Settings tabs. Rendered as the design's `TabBar`: plain-text tabs with
+/// thin dividers, the active one a solid accent pill (accent follows the OS
+/// accent — brand green by default), the rest quiet gray.
 private enum SettingsTab: String, CaseIterable, Identifiable {
     case general, capture, retention, privacy, integrations, pro, about
 

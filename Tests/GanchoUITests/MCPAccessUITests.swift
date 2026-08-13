@@ -109,6 +109,10 @@ final class MCPAccessUITests: XCTestCase {
                 return true
             }
             app.activate()
+            // Activation is asynchronous: never synthesize a click — least of
+            // all the coordinate fallback — until Gancho is provably
+            // frontmost, or the click lands on whatever app IS.
+            guard app.wait(for: .runningForeground, timeout: 3) else { continue }
             if button.waitForHittable(timeout: 3) {
                 button.click()
             } else if button.exists, !button.frame.isEmpty {

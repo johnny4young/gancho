@@ -60,8 +60,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A Lemon Squeezy outage, rate limit, or gateway error can no longer revoke an
   activated license: only a decodable answer that explicitly denies the key
-  does. An explicit denial still revokes promptly whatever HTTP status carries
-  it, and deactivating a Mac whose slot was already released from the dashboard
+  does. An explicit denial on any non-outage status still revokes promptly
+  (429 and 5xx are never read as answers), and deactivating a Mac whose slot was already released from the dashboard
   now reports a clean release instead of a false network error.
 - Backups are safer end to end: export refuses to write an archive with a
   corrupt payload and the Mac app now says so (and cleans up the partial file)

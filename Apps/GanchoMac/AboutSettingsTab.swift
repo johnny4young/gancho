@@ -5,6 +5,9 @@ import SwiftUI
 // Extracted from SettingsView.swift on the DenylistSettingsSection precedent:
 // the About tab is self-contained, and the settings file sits at the lint
 // file-length ceiling.
+/// The About screen: a centered app hero, a details card (version, author,
+/// license), and the project links — with a manual update check on the
+/// direct-download build. Scrolls so nothing is clipped in the short window.
 struct AboutSettingsTab: View {
     @Environment(AppModel.self) private var model
 
@@ -111,7 +114,3 @@ struct AboutSettingsTab: View {
         .ganchoSurface(radius: GanchoTokens.Radius.sm)
     }
 }
-
-/// The Settings tabs. Rendered as the design's `TabBar`: plain-text tabs with
-/// thin dividers, the active one a solid accent pill (accent follows the OS
-/// accent — brand green by default), the rest quiet gray.

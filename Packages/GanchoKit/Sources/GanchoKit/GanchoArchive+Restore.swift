@@ -163,27 +163,20 @@ extension GanchoArchive {
         _ archive: ValidatedArchive, to store: GRDBClipboardStore
     ) async throws -> RestoreSummary {
         // Blobs first (content-addressed = idempotent), then rows in ONE
-        // transaction. A crash can leave an orphan but never a dangling row;
-        // ordinary failures remove only files this restore created, after a DB
-        // reference check, and never delete a pre-existing live blob. The
-        // ms-scale check-then-delete window on the failure path is accepted:
-        // blob files aren't transactional, and a stranded orphan is
-        // reclaimable by maintenance.
-        var createdBlobs: Set<String> = []
-        do {
-            try writeBlobs(archive, to: store, created: &createdBlobs)
-            let summary = try await restoreRows(archive.rows, into: store)
-            _ = try? await store.removeBlobsIfOrphaned(createdBlobs)
-            return summary
-        } catch {
-            _ = try? await store.removeBlobsIfOrphaned(createdBlobs)
-            throw error
-        }
+        // transaction. A crash or failure can leave an orphaned blob file but
+        // never a dangling row — and restore deliberately does NOT clean
+        // orphans up: blob-creation ownership can't be decided atomically with
+        // the database, so an eager delete can race a concurrent capture that
+        // just adopted the same hash and destroy a live clip's payload. An
+        // orphan is the harmless outcome — a content-addressed file no row
+        // references, re-adopted verbatim by any future capture of the same
+        // content.
+        try writeBlobs(archive, to: store)
+        return try await restoreRows(archive.rows, into: store)
     }
 
     private static func writeBlobs(
-        _ archive: ValidatedArchive, to store: GRDBClipboardStore,
-        created: inout Set<String>
+        _ archive: ValidatedArchive, to store: GRDBClipboardStore
     ) throws {
         for blob in archive.blobs {
             try Task.checkCancellation()
@@ -198,9 +191,7 @@ extension GanchoArchive {
             guard sha256(data) == blob.hash else {
                 throw ArchiveError.checksumMismatch(blob.path)
             }
-            let existed = store.blobsForMaintenance.contains(hash: blob.hash)
             _ = try store.blobsForMaintenance.write(data)
-            if !existed { created.insert(blob.hash) }
         }
     }
 
