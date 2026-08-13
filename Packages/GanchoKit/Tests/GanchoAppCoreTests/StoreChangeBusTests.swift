@@ -66,6 +66,52 @@ struct StoreChangeBusTests {
         #expect(bus.subscriberCount == 0)
     }
 
+    @Test("Concurrent broadcasts reach a subscriber without dropped events")
+    func concurrentBroadcasts() async {
+        let bus = StoreChangeBus()
+        let stream = bus.subscribe()
+        let eventTotal = 500
+        #expect(bus.subscriberCount == 1)
+
+        let collector = Task {
+            var count = 0
+            for await change in stream {
+                #expect(change == .clips)
+                count += 1
+                if count == eventTotal { break }
+            }
+            return count
+        }
+
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 0..<eventTotal {
+                group.addTask { bus.post(.clips) }
+            }
+        }
+
+        #expect(await collector.value == eventTotal)
+    }
+
+    @Test("Cancelling an active consumer unregisters its continuation")
+    func cancellationUnregistersSubscriber() async {
+        let bus = StoreChangeBus()
+        let stream = bus.subscribe()
+        let consumer = Task {
+            for await _ in stream {}
+        }
+        #expect(bus.subscriberCount == 1)
+
+        consumer.cancel()
+        await consumer.value
+
+        var deadline = 200
+        while bus.subscriberCount != 0, deadline > 0 {
+            await Task.yield()
+            deadline -= 1
+        }
+        #expect(bus.subscriberCount == 0)
+    }
+
     // MARK: - Coalescing (deterministic, no timing)
 
     @Test("Accumulator unions a burst and only the latest ticket flushes")

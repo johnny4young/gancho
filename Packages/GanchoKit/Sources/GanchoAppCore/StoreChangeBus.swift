@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// A content-free store-mutation event. Never carries clip data — only the
 /// FACT that a category of state changed, so downstream reconcilers
@@ -20,12 +21,10 @@ public enum StoreChange: String, Sendable, Equatable, CaseIterable {
 public typealias StoreChangeBatch = Set<StoreChange>
 
 /// Fans store-mutation events out to any number of subscribers, each as its
-/// own `AsyncStream`. `@unchecked Sendable` is sound: all mutable state
-/// (`continuations`) is guarded by a lock, and only content-free enum values
-/// cross the boundary.
-public final class StoreChangeBus: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuations: [UUID: AsyncStream<StoreChange>.Continuation] = [:]
+/// own `AsyncStream`. Mutable continuation state is protected by `Mutex`, and
+/// only content-free enum values cross the boundary.
+public final class StoreChangeBus: Sendable {
+    private let continuations = Mutex<[UUID: AsyncStream<StoreChange>.Continuation]>([:])
 
     public init() {}
 
@@ -35,23 +34,16 @@ public final class StoreChangeBus: @unchecked Sendable {
     public func subscribe() -> AsyncStream<StoreChange> {
         let id = UUID()
         return AsyncStream { continuation in
-            lock.lock()
-            continuations[id] = continuation
-            lock.unlock()
+            continuations.withLock { $0[id] = continuation }
             continuation.onTermination = { [weak self] _ in
-                guard let self else { return }
-                lock.lock()
-                continuations[id] = nil
-                lock.unlock()
+                self?.continuations.withLock { $0[id] = nil }
             }
         }
     }
 
     /// Broadcast one change to every current subscriber.
     public func post(_ change: StoreChange) {
-        lock.lock()
-        let targets = Array(continuations.values)
-        lock.unlock()
+        let targets = continuations.withLock { Array($0.values) }
         for continuation in targets {
             continuation.yield(change)
         }
@@ -66,9 +58,7 @@ public final class StoreChangeBus: @unchecked Sendable {
 
     /// Subscriber count — for tests and diagnostics only (content-free).
     public var subscriberCount: Int {
-        lock.lock()
-        defer { lock.unlock() }
-        return continuations.count
+        continuations.withLock { $0.count }
     }
 }
 

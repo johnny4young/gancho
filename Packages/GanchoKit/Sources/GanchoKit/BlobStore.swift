@@ -83,6 +83,12 @@ public struct BlobStore: Sendable {
         return try decodeFromDisk(Data(contentsOf: file))
     }
 
+    /// Metadata-only existence check used by transactional import cleanup.
+    /// It deliberately does not read or decrypt the payload.
+    func contains(hash: String) -> Bool {
+        FileManager.default.fileExists(atPath: blobURL(for: hash).path)
+    }
+
     public func delete(hash: String) {
         try? FileManager.default.removeItem(at: blobURL(for: hash))
         try? FileManager.default.removeItem(at: thumbnailURLIfCached(for: hash))

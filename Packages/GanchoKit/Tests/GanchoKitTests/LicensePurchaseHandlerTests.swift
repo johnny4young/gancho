@@ -186,6 +186,68 @@ struct LicensePurchaseHandlerTests {
         #expect(await handler.currentTier() == .free)
     }
 
+    @Test("Rate limits and server errors preserve the stored license and grace")
+    func httpOutagePreservesStoredLicense() async throws {
+        let stored = LicenseActivationRecord(
+            licenseKey: "K", instanceID: "i-1",
+            activatedAt: Date(timeIntervalSince1970: 0),
+            lastValidatedAt: Date(timeIntervalSince1970: 0))
+        let encoded = try storedJSON(stored)
+        let later = Date(
+            timeIntervalSince1970: LicenseEntitlementPolicy.revalidationInterval + 1)
+
+        for status in [429, 500, 503] {
+            let store = InMemoryLicenseTokenStore(token: encoded)
+            let transport: LemonSqueezyValidator.Transport = { request in
+                (
+                    Data(#"{"valid":false,"error":"license_key is disabled."}"#.utf8),
+                    HTTPURLResponse(
+                        url: request.url!, statusCode: status,
+                        httpVersion: nil, headerFields: nil)!
+                )
+            }
+            let handler = LicenseKeyPurchaseHandler(
+                store: store,
+                activation: LicenseActivationService(
+                    validator: LemonSqueezyValidator(transport: transport), now: { later }),
+                instanceName: "Test Mac", now: { later })
+
+            #expect(await handler.refreshIfNeeded() == .pro)
+            #expect(store.load() == encoded)
+            #expect(await handler.currentTier() == .pro)
+        }
+    }
+
+    /// Lemon Squeezy reports a refunded or disabled key as a 4xx denial. That
+    /// is the authority saying no, so it must revoke and clear the record —
+    /// not read as an outage that preserves grace forever.
+    @Test("A refunded license delivered as a 4xx denial revokes and clears")
+    func fourXXDenialRevokesStoredLicense() async throws {
+        let stored = LicenseActivationRecord(
+            licenseKey: "K", instanceID: "i-1",
+            activatedAt: Date(timeIntervalSince1970: 0),
+            lastValidatedAt: Date(timeIntervalSince1970: 0))
+        let store = InMemoryLicenseTokenStore(token: try storedJSON(stored))
+        let later = Date(
+            timeIntervalSince1970: LicenseEntitlementPolicy.revalidationInterval + 1)
+        let transport: LemonSqueezyValidator.Transport = { request in
+            (
+                Data(#"{"valid":false,"error":"license_key is disabled."}"#.utf8),
+                HTTPURLResponse(
+                    url: request.url!, statusCode: 400, httpVersion: nil, headerFields: nil)!
+            )
+        }
+        let handler = LicenseKeyPurchaseHandler(
+            store: store,
+            activation: LicenseActivationService(
+                validator: LemonSqueezyValidator(transport: transport), now: { later }),
+            instanceName: "Test Mac", now: { later })
+
+        #expect(await handler.refreshIfNeeded() == .free)
+        #expect(store.load() == nil)
+        #expect(await handler.currentTier() == .free)
+    }
+
     /// The paywall's "Check again" must work the moment a lapsed user
     /// reconnects. If it merely deferred to the schedule it would strand them
     /// until the next interval — so this asserts the schedule is BYPASSED:
@@ -250,6 +312,38 @@ struct LicensePurchaseHandlerTests {
             Issue.record("expected the outage to be reported")
             return
         }
+        #expect(store.load() == nil)
+        #expect(await handler.currentTier() == .free)
+    }
+
+    /// A slot that was already released elsewhere (a support reset, a wiped
+    /// Mac) answers deactivate with a 404 denial. That is Lemon Squeezy
+    /// confirming there is nothing left to release, so the user must see a
+    /// clean sign-out — not a network error implying the slot is still held.
+    @Test("Deactivating an already-released slot reads as a clean release")
+    func deactivateAlreadyReleasedSlotIsClean() async throws {
+        let stored = LicenseActivationRecord(
+            licenseKey: "K", instanceID: "i-1",
+            activatedAt: Date(timeIntervalSince1970: 0),
+            lastValidatedAt: Date(timeIntervalSince1970: 0))
+        let store = InMemoryLicenseTokenStore(token: try storedJSON(stored))
+        // Comfortably inside grace, so the record starts out entitled.
+        let soon = Date(timeIntervalSince1970: 60)
+        let transport: LemonSqueezyValidator.Transport = { request in
+            (
+                Data(#"{"deactivated":false,"error":"instance not found."}"#.utf8),
+                HTTPURLResponse(
+                    url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!
+            )
+        }
+        let handler = LicenseKeyPurchaseHandler(
+            store: store,
+            activation: LicenseActivationService(
+                validator: LemonSqueezyValidator(transport: transport), now: { soon }),
+            instanceName: "Test Mac", now: { soon })
+
+        #expect(await handler.currentTier() == .pro)
+        #expect(await handler.deactivate() == .activated)
         #expect(store.load() == nil)
         #expect(await handler.currentTier() == .free)
     }

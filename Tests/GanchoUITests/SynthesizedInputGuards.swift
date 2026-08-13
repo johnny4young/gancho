@@ -114,3 +114,27 @@ func typeTextReliably(
         file: file,
         line: line)
 }
+
+extension XCUIElement {
+    /// Shared replacement for the per-file `exists == false` expectations:
+    /// polls until the element leaves the hierarchy instead of asserting a
+    /// single stale snapshot.
+    @MainActor
+    func waitForNonexistence(timeout: TimeInterval) -> Bool {
+        let predicate = NSPredicate(format: "exists == false")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    /// Polls until the element reports itself hittable. Hosted macOS runners
+    /// occasionally misreport toolbar-adjacent SwiftUI buttons as non-hittable
+    /// even though their on-screen frame is valid, so callers should fall back
+    /// to a coordinate click on the element's center when this times out (see
+    /// `MCPAccessUITests.revokeGrant`).
+    @MainActor
+    func waitForHittable(timeout: TimeInterval) -> Bool {
+        let predicate = NSPredicate(format: "exists == true AND hittable == true")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+}

@@ -58,6 +58,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A Lemon Squeezy outage, rate limit, or gateway error can no longer revoke an
+  activated license: only a decodable answer that explicitly denies the key
+  does. An explicit denial on any non-outage status still revokes promptly
+  (429 and 5xx are never read as answers), and deactivating a Mac whose slot was already released from the dashboard
+  now reports a clean release instead of a false network error.
+- Backups are safer end to end: export refuses to write an archive with a
+  corrupt payload and the Mac app now says so (and cleans up the partial file)
+  instead of failing silently; restore accepts backups from earlier versions
+  that skipped a missing payload, verifies exactly the bytes it imports, and
+  its safety ceilings sit far above anything Gancho itself produces.
+- Sparkle updated to 2.9.5.
 - A response Gancho cannot recognize no longer counts as Lemon Squeezy denying
   a license, so a change to their reply format cannot revoke Pro for everyone
   at once; only an explicit rejection does, and an unreachable service falls
