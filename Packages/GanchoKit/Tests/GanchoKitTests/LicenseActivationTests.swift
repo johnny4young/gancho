@@ -49,6 +49,100 @@ struct LicenseActivationTests {
         #expect(result == .rejected(reason: "license_key not found."))
     }
 
+    @Test("Documented activation client errors reject when they carry a reason")
+    func activationClientErrorsReject() async {
+        for status in [400, 404, 422] {
+            let validator = LemonSqueezyValidator(
+                transport: Self.transport(#"{"error":"license_key not found."}"#, status: status))
+            #expect(
+                await validator.activate(licenseKey: "bad", instanceName: "Mac")
+                    == .rejected(reason: "license_key not found."))
+        }
+    }
+
+    @Test("Service, authentication, and rate-limit responses are unreachable")
+    func nonAuthoritativeHTTPFailuresAreUnreachable() async {
+        let body = #"{"valid":false,"error":"license_key is disabled."}"#
+        for status in [300, 401, 403, 408, 425, 429, 500, 503] {
+            let validator = LemonSqueezyValidator(
+                transport: Self.transport(body, status: status))
+            guard
+                case .unreachable = await validator.validate(
+                    licenseKey: "K", instanceID: "i-1")
+            else {
+                Issue.record("HTTP \(status) must not revoke an existing entitlement")
+                return
+            }
+        }
+    }
+
+    @Test("Validate and deactivate never treat non-2xx bodies as authoritative")
+    func existingEntitlementOperationsRequireSuccessStatus() async {
+        for status in [400, 404, 422] {
+            let validator = LemonSqueezyValidator(
+                transport: Self.transport(#"{"error":"license_key not found."}"#, status: status))
+            guard
+                case .unreachable = await validator.validate(
+                    licenseKey: "K", instanceID: "i-1")
+            else {
+                Issue.record("validate HTTP \(status) must preserve grace")
+                return
+            }
+            guard
+                case .unreachable = await validator.deactivate(
+                    licenseKey: "K", instanceID: "i-1")
+            else {
+                Issue.record("deactivate HTTP \(status) must report a network outcome")
+                return
+            }
+        }
+    }
+
+    @Test("Undocumented or unreadable activation failures are unreachable")
+    func ambiguousActivationFailuresAreUnreachable() async {
+        for (body, status) in [
+            (#"{"error":"conflict"}"#, 409),
+            (#"{"error":"   "}"#, 422),
+            ("not-json", 400),
+            (#"{"activated":false}"#, 404)
+        ] {
+            let validator = LemonSqueezyValidator(
+                transport: Self.transport(body, status: status))
+            guard
+                case .unreachable = await validator.activate(
+                    licenseKey: "K", instanceName: "Mac")
+            else {
+                Issue.record("ambiguous activation HTTP \(status) must be retriable")
+                return
+            }
+        }
+    }
+
+    @Test("A non-HTTP response is unreachable")
+    func nonHTTPResponseIsUnreachable() async {
+        let validator = LemonSqueezyValidator(transport: { request in
+            let response = URLResponse(
+                url: request.url!, mimeType: "application/json",
+                expectedContentLength: 2, textEncodingName: "utf-8")
+            return (Data(#"{}"#.utf8), response)
+        })
+        guard case .unreachable = await validator.validate(licenseKey: "K", instanceID: "i-1")
+        else {
+            Issue.record("a non-HTTP response must never change entitlement state")
+            return
+        }
+    }
+
+    @Test("A malformed success body is unreachable")
+    func malformedSuccessBodyIsUnreachable() async {
+        let validator = LemonSqueezyValidator(transport: Self.transport("not-json"))
+        guard case .unreachable = await validator.validate(licenseKey: "K", instanceID: "i-1")
+        else {
+            Issue.record("a malformed 2xx body must preserve grace")
+            return
+        }
+    }
+
     @Test("A transport failure surfaces as unreachable, never a crash")
     func unreachable() async {
         let validator = LemonSqueezyValidator(transport: { _ in

@@ -42,7 +42,7 @@ public struct LemonSqueezyValidator: Sendable {
 
     public func activate(licenseKey: String, instanceName: String) async -> Result {
         await post(
-            path: "activate",
+            operation: .activate,
             fields: ["license_key": licenseKey, "instance_name": instanceName]
         ) { payload in
             guard payload.activated == true, let id = payload.instance?.id else {
@@ -63,7 +63,7 @@ public struct LemonSqueezyValidator: Sendable {
     /// reaches an install that is already running.
     public func validate(licenseKey: String, instanceID: String) async -> Result {
         await post(
-            path: "validate",
+            operation: .validate,
             fields: ["license_key": licenseKey, "instance_id": instanceID]
         ) { payload in
             guard payload.valid == true else {
@@ -90,7 +90,7 @@ public struct LemonSqueezyValidator: Sendable {
     /// alike, so a pin here could not keep or mint an entitlement either way.
     public func deactivate(licenseKey: String, instanceID: String) async -> Result {
         await post(
-            path: "deactivate",
+            operation: .deactivate,
             fields: ["license_key": licenseKey, "instance_id": instanceID]
         ) { payload in
             payload.deactivated == true
@@ -106,6 +106,19 @@ public struct LemonSqueezyValidator: Sendable {
         case confirmed(String)
         case denied(String?)
         case unrecognized
+    }
+
+    /// HTTP failures have endpoint-specific authority. Activation has no
+    /// entitlement to preserve, and Lemon Squeezy documents a small set of
+    /// client-error statuses for an invalid activation request. Revalidation
+    /// and deactivation already have local state, so only a successful HTTP
+    /// exchange may change it.
+    private enum Operation: String {
+        case activate
+        case validate
+        case deactivate
+
+        var acceptsHTTPRejection: Bool { self == .activate }
     }
 
     /// An explicit `false` flag, or an error the server supplied, is Lemon
@@ -139,15 +152,16 @@ public struct LemonSqueezyValidator: Sendable {
         return store == expectedStoreID && product == expectedProductID ? .trusted : .foreign
     }
 
-    /// One form-encoded POST plus the shared failure semantics: a transport
-    /// error, an unreadable body, or an unrecognized one is `unreachable`
-    /// (retry later, keep any existing entitlement within grace), while an
-    /// explicit negative is `rejected` (Lemon Squeezy has spoken — drop Pro).
+    /// One form-encoded POST plus the shared failure semantics. Transport
+    /// failures, non-HTTP responses, and service/auth/rate-limit HTTP failures
+    /// are `unreachable` (retry later and preserve existing grace). Only a 2xx
+    /// endpoint verdict — or a documented activation client error carrying a
+    /// readable reason — is authoritative enough to be `rejected`.
     private func post(
-        path: String, fields: [String: String],
+        operation: Operation, fields: [String: String],
         verdict: (Response) -> Verdict
     ) async -> Result {
-        var request = URLRequest(url: endpoint.appendingPathComponent(path))
+        var request = URLRequest(url: endpoint.appendingPathComponent(operation.rawValue))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(
@@ -160,14 +174,33 @@ public struct LemonSqueezyValidator: Sendable {
                 .utf8)
 
         let data: Data
+        let response: URLResponse
         do {
-            (data, _) = try await transport(request)
+            (data, response) = try await transport(request)
         } catch {
-            return .unreachable(reason: error.localizedDescription)
+            return .unreachable(reason: Self.serviceUnavailableReason)
         }
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            return .unreachable(reason: Self.serviceUnavailableReason)
+        }
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            guard
+                operation.acceptsHTTPRejection,
+                Self.activationRejectionStatuses.contains(httpResponse.statusCode),
+                let payload = try? decoder.decode(Response.self, from: data),
+                let reason = payload.error?.trimmingCharacters(in: .whitespacesAndNewlines),
+                !reason.isEmpty
+            else {
+                return .unreachable(reason: Self.serviceUnavailableReason)
+            }
+            return .rejected(reason: reason)
+        }
+
         guard let payload = try? decoder.decode(Response.self, from: data) else {
             return .unreachable(reason: "Unexpected Lemon Squeezy response")
         }
@@ -178,6 +211,9 @@ public struct LemonSqueezyValidator: Sendable {
         case .unrecognized: return .unreachable(reason: "Unexpected Lemon Squeezy response")
         }
     }
+
+    private static let activationRejectionStatuses: Set<Int> = [400, 404, 422]
+    private static let serviceUnavailableReason = "Lemon Squeezy is temporarily unavailable"
 
     private static func formEncoded(_ value: String) -> String {
         value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? value

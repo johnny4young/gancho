@@ -1395,12 +1395,28 @@ final class AppModel {
                 store: KeychainLicenseTokenStore(),
                 activation: LicenseActivationService(
                     validator: LemonSqueezyValidator(
-                        transport: { try await URLSession.shared.data(for: $0) })),
+                        transport: { try await licenseURLSession.data(for: $0) })),
                 instanceName: Host.current().localizedName ?? "Mac")
         #else
             return StoreKitPurchaseHandler()
         #endif
     }
+
+    /// License requests never need the shared session's cache, cookies, or
+    /// open-ended connectivity waiting. A short-lived failure stays a network
+    /// outcome and lets the entitlement policy preserve the offline grace
+    /// window rather than stranding app launch behind a request.
+    private static let licenseURLSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.urlCache = nil
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.timeoutIntervalForRequest = 15
+        configuration.timeoutIntervalForResource = 30
+        configuration.waitsForConnectivity = false
+        return URLSession(configuration: configuration)
+    }()
 
     // MARK: - Pins & boards
 

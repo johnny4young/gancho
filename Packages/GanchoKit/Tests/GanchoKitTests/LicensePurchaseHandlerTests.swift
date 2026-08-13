@@ -186,6 +186,38 @@ struct LicensePurchaseHandlerTests {
         #expect(await handler.currentTier() == .free)
     }
 
+    @Test("Rate limits and server errors preserve the stored license and grace")
+    func httpOutagePreservesStoredLicense() async throws {
+        let stored = LicenseActivationRecord(
+            licenseKey: "K", instanceID: "i-1",
+            activatedAt: Date(timeIntervalSince1970: 0),
+            lastValidatedAt: Date(timeIntervalSince1970: 0))
+        let encoded = try storedJSON(stored)
+        let later = Date(
+            timeIntervalSince1970: LicenseEntitlementPolicy.revalidationInterval + 1)
+
+        for status in [429, 500, 503] {
+            let store = InMemoryLicenseTokenStore(token: encoded)
+            let transport: LemonSqueezyValidator.Transport = { request in
+                (
+                    Data(#"{"valid":false,"error":"license_key is disabled."}"#.utf8),
+                    HTTPURLResponse(
+                        url: request.url!, statusCode: status,
+                        httpVersion: nil, headerFields: nil)!
+                )
+            }
+            let handler = LicenseKeyPurchaseHandler(
+                store: store,
+                activation: LicenseActivationService(
+                    validator: LemonSqueezyValidator(transport: transport), now: { later }),
+                instanceName: "Test Mac", now: { later })
+
+            #expect(await handler.refreshIfNeeded() == .pro)
+            #expect(store.load() == encoded)
+            #expect(await handler.currentTier() == .pro)
+        }
+    }
+
     /// The paywall's "Check again" must work the moment a lapsed user
     /// reconnects. If it merely deferred to the schedule it would strand them
     /// until the next interval — so this asserts the schedule is BYPASSED:
