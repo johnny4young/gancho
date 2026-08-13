@@ -14,7 +14,7 @@
   `#available`. Do not install beta SDKs on work machines.
 - **Run `make format` before committing; `make lint` and `make test` must pass.**
 - **Tests:** Swift Testing (`@Suite`/`@Test`) for unit tests. XCTest only for
-  future UI tests. Accessibility identifiers use kebab-case with semantic
+  UI tests. Accessibility identifiers use kebab-case with semantic
   suffixes (`history-panel`, `clip-row`, `settings-pane`).
 - **Commits:** Conventional Commits, English, imperative. **Never add AI
   co-authorship or generated-by trailers** (no `Co-Authored-By: Claude`, no

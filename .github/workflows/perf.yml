@@ -16,7 +16,8 @@ concurrency:
 jobs:
   bench:
     name: Scale budgets (100k clips)
-    # Needs the Xcode 26 runner (macOS/iOS 26 + Swift 6.2); macos-latest lags.
+    # Needs the Xcode 26 runner (SDK-26 APIs, iOS 26, and Swift 6.2);
+    # the macOS source floor remains 15.4, and macos-latest still lags.
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
