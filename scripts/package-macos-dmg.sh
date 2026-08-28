@@ -66,7 +66,14 @@ if [ -n "$PROVISIONING_PROFILE" ]; then
 	rm -f "$profile_plist"
 	profile_dir="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
 	mkdir -p "$profile_dir"
-	cp "$PROVISIONING_PROFILE" "$profile_dir/$PROFILE_UUID.provisionprofile"
+	installed_profile="$profile_dir/$PROFILE_UUID.provisionprofile"
+	# The caller may pass the already-installed Xcode profile. `cp` treats a
+	# source and destination that resolve to the same file as an error, which
+	# used to abort a valid production release before the build even started.
+	# Skip the copy when the installed bytes already match.
+	if ! cmp -s "$PROVISIONING_PROFILE" "$installed_profile"; then
+		cp "$PROVISIONING_PROFILE" "$installed_profile"
+	fi
 fi
 mkdir -p "$OUTPUT_DIR" build
 rm -rf "$DERIVED_DATA" "$RESULT_BUNDLE" "$DMG_PATH" "$DMG_PATH.sha256"

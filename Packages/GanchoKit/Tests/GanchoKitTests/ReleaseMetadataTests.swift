@@ -208,10 +208,10 @@ struct ReleaseMetadataTests {
 
         #expect(project.contains("macOS: \"15.4\""))
         #expect(project.contains("iOS: \"26.0\""))
-        // The site advertises the RELEASED floor, not the source floor: its
-        // chip moves to 15.4+ only in the release that ships the first
-        // Sequoia-validated build (see check-product-truth.sh).
-        #expect(try Self.matchCount(in: site, pattern: #"macOS 26\+ · iOS 26\+"#) == 2)
+        // The site advertises the RELEASED floor. v0.8.3 is the first
+        // Sequoia-validated build, so the chip matches the source floor
+        // above (see check-product-truth.sh).
+        #expect(try Self.matchCount(in: site, pattern: #"macOS 15\.4\+ · iOS 26\+"#) == 2)
         #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.library\(name:"#) == 8)
         #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.executable\(name:"#) == 1)
         #expect(readme.contains("eight library products + a CLI"))

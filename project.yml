@@ -27,8 +27,8 @@ options:
 # Project-wide build settings.
 settings:
   base:
-    MARKETING_VERSION: "0.8.2"
-    CURRENT_PROJECT_VERSION: "13"
+    MARKETING_VERSION: "0.8.3"
+    CURRENT_PROJECT_VERSION: "14"
     # Swift 6 language mode + "approachable concurrency": app modules default to
     # @MainActor isolation. Engine-room packages (GanchoKit/ClipboardCore/GanchoAI)
     # stay nonisolated + Sendable — see docs/ARCHITECTURE.md.

@@ -7,6 +7,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-08-10
+
 ### Security
 
 - Activating or re-validating a direct-download license now requires Lemon
