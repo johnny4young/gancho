@@ -16,7 +16,7 @@
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20·%20iOS%20·%20iPadOS-blue)
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
-**Status: public v0.8.2, in active development toward 1.0.** The capture engine, local
+**Status: public v0.8.3, in active development toward 1.0.** The capture engine, local
 GRDB/SQLite storage with FTS5 search, the Liquid Glass history panel,
 paste-back, pins and boards, the retention engine, the on-device intelligence
 stack, the iPhone/iPad app and its extensions, iCloud sync via `CKSyncEngine`,
@@ -24,19 +24,15 @@ and StoreKit purchase plumbing are implemented and covered by tests. Serialized
 purchase and restore automation verifies entitlement changes end to end. The
 release/versioning lane ships a signed, notarized, stapled direct-download DMG,
 a signed Sparkle appcast, version-sync guards, artifact QA, and the website. The
-published v0.8.2 DMG is signed, notarized, stapled, and Gatekeeper-accepted.
+published v0.8.3 DMG is signed, notarized, stapled, and Gatekeeper-accepted.
 The 0.8 series is the first direct release built against an embedded production CloudKit
 and Push provisioning profile, so the artifact is sync-capable and its signed
 entitlements are validated against the profile at package and QA time.
-The published v0.8.2 DMG predates the new Lemon Squeezy activation authority, so
-a fresh public direct install still runs local-only while preserving its
-encrypted history across app updates. Current source activates and revalidates
-direct licenses without embedding a payments secret. Promising end-user sync on
-the direct channel still needs the production CloudKit schema and a signed
-two-Mac release-candidate matrix using that path. What remains before 1.0 is
-passing that matrix, publishing the direct activation path, App Store
-submission, and the account-gated launch pieces (App Store products and
-TestFlight).
+The v0.8.3 direct download can buy, activate, revalidate, and deactivate a Pro
+license through Lemon Squeezy without embedding a payments secret. Pro unlocks
+encrypted iCloud sync after the production schema and signed two-Mac candidate
+matrix have been verified. What remains before 1.0 is App Store submission and
+the account-gated launch pieces (App Store products and TestFlight).
 
 ## Contents
 
@@ -77,11 +73,10 @@ TestFlight).
   Compact, Standard, or Large preset; Gancho remembers the geometry and a
   Small, Standard, or Large semantic text preference across relaunches.
 
-![Gancho v0.8 resizable history panel](site/assets/v0.8.2-release.png)
+![Gancho v0.8.3 direct-download Pro activation](site/assets/v0.8.3-release.png)
 
-*Real macOS v0.8 build captured by XCUITest with synthetic fixtures. The history
-panel resizes from its edges, scales its semantic text, and remembers your
-layout across relaunches.*
+*Real macOS v0.8.3 build captured by XCUITest with synthetic fixtures. No user
+clipboard content or license key appears in the image.*
 
 ## Product goal
 
