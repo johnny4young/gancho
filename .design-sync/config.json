@@ -1,0 +1,30 @@
+{
+  "projectId": "a3149174-e33c-4d4c-82fa-0f7e03241e99",
+  "projectName": "gancho Design System",
+  "shape": "manual",
+  "note": "Swift/SwiftUI repo \u2014 outside the converter envelope (no JS build, no Storybook). The Claude Design project is a hand-authored web mirror of the SwiftUI design system; it is maintained by reading the Swift sources directly. Source of truth is the CODE (Packages/GanchoKit/Sources/GanchoDesign + Apps/*).",
+  "namespace": "GanchoDesignSystem_a31491",
+  "sources": {
+    "tokens": "Packages/GanchoKit/Sources/GanchoDesign/GanchoTokens.swift",
+    "colors": "Packages/GanchoKit/Sources/GanchoDesign/GanchoColors.swift",
+    "components": "Packages/GanchoKit/Sources/GanchoDesign/Components.swift",
+    "boards": "Packages/GanchoKit/Sources/GanchoDesign/BoardColors.swift",
+    "boardEditor": "Packages/GanchoKit/Sources/GanchoDesign/BoardIdentityEditor.swift",
+    "syntax": "Packages/GanchoKit/Sources/GanchoDesign/GanchoSyntax.swift",
+    "kinds": "Packages/GanchoKit/Sources/GanchoKit/ClipContentKind.swift",
+    "macSurfaces": "Apps/GanchoMac/",
+    "iosSurfaces": "Apps/GanchoiOS/"
+  },
+  "stagingDir": "scratchpad (not committed) \u2014 the project has no local mirror by design",
+  "lastSync": "2026-08-27",
+  "lastSyncSession": 4,
+  "uploadPath": "atomic (pre-existing non-empty project, re-adopted from the URL the owner pasted)",
+  "anchor": "none \u2014 _ds_sync.json is deliberately omitted: the converter's hash recipe assumes a JS dist/ or a Storybook, neither of which exists here. Every sync re-reads the Swift sources, which is correct for this repo.",
+  "rules": [
+    "The CODE wins. Where the design system and the shipped app disagree, update the DS and document the divergence (see guidelines/color-kinds.card.html).",
+    "Only capitalized exports reach window.GanchoDesignSystem_a31491; lowercase helpers must be inlined in a card.",
+    "_ds_bundle.js recompiles at the TURN BOUNDARY \u2014 a card using a brand-new component renders blank until then.",
+    "Card CDN <script> tags carry integrity hashes; copy them verbatim from an existing card.",
+    "Never transition a var() background on a segmented control (stale composited layer)."
+  ]
+}
