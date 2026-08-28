@@ -18,8 +18,8 @@ concurrency:
 jobs:
   verify:
     name: Verify tagged build
-    # Gancho targets macOS/iOS 26 and Swift 6.2; keep release gates on the same
-    # Xcode 26 runner family as CI.
+    # Gancho targets macOS 15.4 / iOS 26 while using SDK-26 APIs and Swift 6.2;
+    # keep release gates on the same Xcode 26 runner family as CI.
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v7

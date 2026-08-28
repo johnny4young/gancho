@@ -15,7 +15,7 @@ public enum GanchoArchive {
         /// Metadata only: no content text, no blobs (pins/structure rescue).
         public var metadataOnly: Bool
 
-        public init(excludeSensitive: Bool = false, metadataOnly: Bool = false) {
+        public init(excludeSensitive: Bool = true, metadataOnly: Bool = false) {
             self.excludeSensitive = excludeSensitive
             self.metadataOnly = metadataOnly
         }
@@ -74,9 +74,18 @@ public enum GanchoArchive {
             try FileManager.default.createDirectory(
                 at: blobDir, withIntermediateDirectories: true)
             for hash in Set(rows.compactMap(\.contentBlobHash)) {
-                guard let data = try store.blobsForMaintenance.read(hash: hash) else { continue }
+                guard let data = try store.blobsForMaintenance.read(hash: hash) else {
+                    throw ArchiveError.corruptArchive(
+                        "source store is missing or has a corrupt referenced blob")
+                }
+                // One digest serves both the integrity guard and the manifest.
+                let digest = sha256(data)
+                guard digest == hash else {
+                    throw ArchiveError.corruptArchive(
+                        "source store is missing or has a corrupt referenced blob")
+                }
                 try data.write(to: blobDir.appendingPathComponent(hash), options: .atomic)
-                checksums["blobs/\(hash)"] = sha256(data)
+                checksums["blobs/\(hash)"] = digest
             }
         }
 
@@ -97,71 +106,14 @@ public enum GanchoArchive {
     public static func restore(
         from directory: URL, into store: GRDBClipboardStore
     ) async throws -> RestoreSummary {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        guard
-            let manifestData = try? Data(
-                contentsOf: directory.appendingPathComponent("manifest.json")),
-            let manifest = try? decoder.decode(Manifest.self, from: manifestData)
-        else { throw ArchiveError.corruptArchive("manifest.json missing or unreadable") }
-
-        guard manifest.version <= currentVersion else {
-            throw ArchiveError.unsupportedVersion(manifest.version)
-        }
-
-        // Verify EVERY checksum before touching the store.
-        guard
-            let clipsData = try? Data(contentsOf: directory.appendingPathComponent("clips.json"))
-        else { throw ArchiveError.corruptArchive("clips.json missing") }
-        guard sha256(clipsData) == manifest.checksums["clips.json"] else {
-            throw ArchiveError.checksumMismatch("clips.json")
-        }
-        for (path, expected) in manifest.checksums where path.hasPrefix("blobs/") {
-            guard let data = try? Data(contentsOf: directory.appendingPathComponent(path)),
-                sha256(data) == expected
-            else { throw ArchiveError.checksumMismatch(path) }
-        }
-
-        let rows: [ClipRow]
-        do {
-            rows = try decoder.decode([ClipRow].self, from: clipsData)
-        } catch {
-            throw ArchiveError.corruptArchive("clips.json does not decode")
-        }
-
-        // Blobs first (content-addressed = idempotent), then rows in ONE
-        // transaction: any failure rolls the database back untouched.
-        for (path, _) in manifest.checksums where path.hasPrefix("blobs/") {
-            let data = try Data(contentsOf: directory.appendingPathComponent(path))
-            try store.blobsForMaintenance.write(data)
-        }
-
-        return try await store.writer.write { db in
-            var summary = RestoreSummary(inserted: 0, skippedDuplicates: 0)
-            for row in rows {
-                let exists =
-                    try ClipRow
-                    .filter(Column("contentHash") == row.contentHash)
-                    .filter(Column("sourceDeviceName") == row.sourceDeviceName)
-                    .fetchCount(db) > 0
-                if exists {
-                    summary.skippedDuplicates += 1
-                } else {
-                    var fresh = row
-                    // Avoid id collisions with self-restores.
-                    if try ClipRow.filter(key: row.id).fetchCount(db) > 0 {
-                        fresh.id = UUID().uuidString
-                    }
-                    try fresh.insert(db)
-                    summary.inserted += 1
-                }
-            }
-            return summary
-        }
+        try await restore(from: directory, into: store, limits: .production)
     }
 
-    private static func sha256(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    static func sha256(_ data: Data) -> String {
+        hex(SHA256.hash(data: data))
+    }
+
+    static func hex(_ digest: some Sequence<UInt8>) -> String {
+        digest.map { String(format: "%02x", $0) }.joined()
     }
 }

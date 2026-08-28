@@ -1932,12 +1932,12 @@
         }
       }
     },
-    "Every tier runs on this iPhone. No clip text is ever sent to a server — gancho has none.": {
+    "Everything here runs on this iPhone. No clip text is ever sent to a server — gancho has none.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cada nivel corre en este iPhone. Ningún texto de clip se envía a un servidor — gancho no tiene."
+            "value": "Todo aquí corre en este iPhone. Ningún texto de clip se envía a un servidor — gancho no tiene."
           }
         }
       }

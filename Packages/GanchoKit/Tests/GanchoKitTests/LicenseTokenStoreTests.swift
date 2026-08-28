@@ -11,6 +11,42 @@ private func licenseKeychainProbePasses() -> Bool {
     return (try? store.save("probe")) != nil && store.load() == "probe"
 }
 
+@Suite("In-memory license store — concurrent access")
+struct InMemoryLicenseTokenStoreTests {
+    @Test("Concurrent saves and loads remain complete and replaceable")
+    func concurrentAccess() async throws {
+        let store = InMemoryLicenseTokenStore(token: "seed")
+
+        let observed = await withTaskGroup(
+            of: String?.self, returning: [String?].self
+        ) { group in
+            for index in 0..<500 {
+                group.addTask {
+                    try? store.save("token-\(index)")
+                    return store.load()
+                }
+            }
+
+            var values: [String?] = []
+            for await value in group {
+                values.append(value)
+            }
+            return values
+        }
+
+        #expect(observed.count == 500)
+        #expect(
+            observed.allSatisfy { value in
+                value == "seed" || value?.hasPrefix("token-") == true
+            })
+
+        try store.save("final")
+        #expect(store.load() == "final")
+        try store.clear()
+        #expect(store.load() == nil)
+    }
+}
+
 /// Live device-local round-trip. A locked-down CI runner without a usable login
 /// Keychain skips this suite; source-level release guards still run everywhere.
 @Suite(

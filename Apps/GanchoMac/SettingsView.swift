@@ -59,116 +59,6 @@ struct SettingsView: View {
     }
 }
 
-/// The About screen: a centered app hero, a details card (version, author,
-/// license), and the project links — with a manual update check on the
-/// direct-download build. Scrolls so nothing is clipped in the short window.
-private struct AboutSettingsTab: View {
-    @Environment(AppModel.self) private var model
-
-    private var versionLine: String {
-        let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "—"
-        let build = info?["CFBundleVersion"] as? String ?? "—"
-        return "\(short) (\(build))"
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: GanchoTokens.Spacing.lg) {
-                hero
-                detailsCard
-                links
-                #if GANCHO_DIRECT_DOWNLOAD
-                    Button("Check for Updates…") { model.updater.checkForUpdates() }
-                        .buttonStyle(.bordered)
-                #endif
-            }
-            .padding(GanchoTokens.Spacing.lg)
-            .frame(maxWidth: .infinity)
-        }
-        .accessibilityIdentifier("settings-about")
-    }
-
-    private var hero: some View {
-        VStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .frame(width: 72, height: 72)
-                .accessibilityHidden(true)
-            Text(verbatim: "Gancho").font(.title2.bold())
-            Text("Your clipboard, private by design.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var detailsCard: some View {
-        VStack(spacing: 0) {
-            detailRow("Version", versionLine, id: "about-version")
-            Divider()
-            detailRow("Author", "Johnny IV Young Ospino")
-            Divider()
-            detailRow("License", "MIT")
-        }
-        .ganchoSurface(radius: GanchoTokens.Radius.md)
-    }
-
-    private func detailRow(
-        _ label: LocalizedStringKey, _ value: String, id: String? = nil
-    ) -> some View {
-        HStack {
-            Text(label).foregroundStyle(.secondary)
-            Spacer(minLength: GanchoTokens.Spacing.md)
-            let valueText = Text(value).textSelection(.enabled)
-            // Only set an identifier when one is given — a blank id is a
-            // meaningless, collision-prone query target for UI tests.
-            if let id {
-                valueText.accessibilityIdentifier(id)
-            } else {
-                valueText
-            }
-        }
-        .font(.callout)
-        .padding(.horizontal, GanchoTokens.Spacing.md)
-        .padding(.vertical, GanchoTokens.Spacing.sm)
-    }
-
-    private var links: some View {
-        VStack(spacing: GanchoTokens.Spacing.xxs) {
-            aboutLink("Website", systemImage: "safari", url: "https://gancho.app")
-            aboutLink(
-                "Source code on GitHub", systemImage: "chevron.left.forwardslash.chevron.right",
-                url: "https://github.com/johnny4young/gancho")
-            aboutLink(
-                "Report an issue", systemImage: "exclamationmark.bubble",
-                url: "https://github.com/johnny4young/gancho/issues")
-        }
-    }
-
-    private func aboutLink(
-        _ title: LocalizedStringKey, systemImage: String, url: String
-    ) -> some View {
-        Link(destination: URL(string: url)!) {
-            HStack(spacing: GanchoTokens.Spacing.sm) {
-                Image(systemName: systemImage)
-                    .foregroundStyle(GanchoTokens.Palette.accent)
-                    .frame(width: 18)
-                Text(title)
-                Spacer(minLength: 0)
-                Image(systemName: "arrow.up.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-            .font(.callout)
-            .padding(.horizontal, GanchoTokens.Spacing.md)
-            .padding(.vertical, GanchoTokens.Spacing.sm)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .ganchoSurface(radius: GanchoTokens.Radius.sm)
-    }
-}
-
 /// The Settings tabs. Rendered as the design's `TabBar`: plain-text tabs with
 /// thin dividers, the active one a solid accent pill (accent follows the OS
 /// accent — brand green by default), the rest quiet gray.
@@ -243,6 +133,7 @@ private struct GeneralSettingsTab: View {
     let showMigrationImporter: () -> Void
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var shortcutWarning: String?
+    @State private var transferNote: String?
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
 
     var body: some View {
@@ -336,6 +227,12 @@ private struct GeneralSettingsTab: View {
                 Text("Backups are portable archives on YOUR disk — never uploaded.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                if let transferNote {
+                    Text(verbatim: transferNote)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("backup-transfer-note")
+                }
             }
 
             Section {
@@ -386,9 +283,21 @@ private struct GeneralSettingsTab: View {
         // Detector-flagged secrets never leave the encrypted store via backup:
         // they carry a short expiry precisely so they don't persist, and an
         // archive on disk is permanent plaintext.
+        transferNote = nil
         Task {
-            try? await GanchoArchive.export(
-                from: store, to: url, options: .init(excludeSensitive: true))
+            do {
+                try await GanchoArchive.export(
+                    from: store, to: url, options: .init(excludeSensitive: true))
+            } catch {
+                // Same content-free discipline as restore: no paths, no
+                // payloads — one actionable note plus a diagnostics entry.
+                transferNote = String(localized: "That backup couldn’t be created.")
+                model.diagnostics.record(
+                    String(localized: "Backup"),
+                    String(localized: "A backup couldn’t be created."))
+                // Best effort: don't leave a half-written archive behind.
+                try? FileManager.default.removeItem(at: url)
+            }
         }
     }
 
@@ -398,9 +307,24 @@ private struct GeneralSettingsTab: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        transferNote = nil
         Task {
-            _ = try? await GanchoArchive.restore(from: url, into: store)
-            await model.refreshRecents()
+            do {
+                let summary = try await GanchoArchive.restore(from: url, into: store)
+                await model.refreshRecents()
+                transferNote = String(
+                    localized:
+                        "Restored \(summary.inserted) clips (\(summary.skippedDuplicates) already here)."
+                )
+            } catch {
+                // The selected path and decoder/storage details can contain
+                // private filesystem metadata. UI gets one actionable,
+                // content-free result; no archive payload is logged.
+                transferNote = String(localized: "That backup couldn’t be restored.")
+                model.diagnostics.record(
+                    String(localized: "Backup"),
+                    String(localized: "A backup couldn’t be restored."))
+            }
         }
     }
 

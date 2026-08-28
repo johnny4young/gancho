@@ -14,10 +14,12 @@ public struct GanchoSurface: ViewModifier {
     public func body(content: Content) -> some View {
         // Increased contrast ALSO opts out of glass: translucency is the
         // main legibility cost, regardless of which setting flagged it.
-        if reduceTransparency || contrast == .increased {
-            content.background(.background.secondary, in: shape)
-        } else {
+        // Below macOS/iOS 26 Liquid Glass does not exist, so those systems
+        // take the same opaque-material branch accessibility already uses.
+        if #available(macOS 26.0, iOS 26.0, *), !reduceTransparency, contrast != .increased {
             content.glassEffect(.regular, in: shape)
+        } else {
+            content.background(.background.secondary, in: shape)
         }
     }
 }

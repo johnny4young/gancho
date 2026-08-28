@@ -218,7 +218,7 @@ stay in reusable modules.
 
 ## Setup (< 10 min)
 
-Prerequisites: macOS 26+, Xcode 26+, and
+Prerequisites: macOS 15.4+ to run, Xcode 26+ to build, and
 [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ```bash

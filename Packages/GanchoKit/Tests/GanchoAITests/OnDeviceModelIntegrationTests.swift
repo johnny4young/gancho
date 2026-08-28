@@ -42,6 +42,10 @@ struct OnDeviceModelIntegrationTests {
 
     @Test("20 sample clips annotate with guaranteed structured output")
     func annotateTwentyClips() async throws {
+        guard #available(macOS 26.0, iOS 26.0, *) else {
+            Issue.record("Foundation Models live integration requires macOS 26")
+            return
+        }
         try #require(FoundationModelAnnotator.isAvailable, "Apple Intelligence must be enabled")
         let annotator = FoundationModelAnnotator()
         var latencies: [Duration] = []
@@ -66,6 +70,10 @@ struct OnDeviceModelIntegrationTests {
 
     @Test("Context budget: clamped input fits the 4,096-token shared window")
     func contextBudget() async throws {
+        guard #available(macOS 26.0, iOS 26.0, *) else {
+            Issue.record("Foundation Models live integration requires macOS 26")
+            return
+        }
         try #require(FoundationModelAnnotator.isAvailable, "Apple Intelligence must be enabled")
         guard #available(macOS 26.4, iOS 26.4, *) else {
             print("FM tokenCount unavailable (<26.4) — budget verified by clamp only")
@@ -86,6 +94,10 @@ struct OnDeviceModelIntegrationTests {
 
     @Test("Oversized input still annotates thanks to the clamp")
     func oversizedInputClamped() async throws {
+        guard #available(macOS 26.0, iOS 26.0, *) else {
+            Issue.record("Foundation Models live integration requires macOS 26")
+            return
+        }
         try #require(FoundationModelAnnotator.isAvailable, "Apple Intelligence must be enabled")
         let annotator = FoundationModelAnnotator()
         let huge = String(repeating: "log line with noise 0xDEADBEEF\n", count: 2000)

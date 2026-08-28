@@ -108,7 +108,7 @@ struct IOSIntelligenceView: View {
             Section {
                 Label {
                     Text(
-                        "Every tier runs on this iPhone. No clip text is ever sent to a server — gancho has none."
+                        "Everything here runs on this iPhone. No clip text is ever sent to a server — gancho has none."
                     )
                     .font(.footnote)
                 } icon: {

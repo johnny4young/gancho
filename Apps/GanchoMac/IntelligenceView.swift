@@ -1,4 +1,5 @@
 import AppKit
+import GanchoAI
 import GanchoDesign
 import GanchoKit
 import SwiftUI
@@ -57,6 +58,8 @@ struct IntelligenceView: View {
 
             pipeline
 
+            capabilityNotice
+
             Form {
                 Section {
                     featureRow(
@@ -114,7 +117,7 @@ struct IntelligenceView: View {
                 Section {
                     Label {
                         Text(
-                            "Every tier runs on this Mac. No clip text is ever sent to a server — gancho has none."
+                            "Everything here runs on this Mac. No clip text is ever sent to a server — gancho has none."
                         )
                         .font(.footnote)
                     } icon: {
@@ -127,10 +130,45 @@ struct IntelligenceView: View {
         }
         .padding(GanchoTokens.Spacing.md)
         .frame(width: 520, height: 600)
-        .accessibilityIdentifier("intelligence")
     }
 
     /// The capture pipeline — how a clip is understood, stage by stage.
+    /// Why the model-backed rows may do less on this system. Distinguishes
+    /// "this OS predates the Foundation Models tier" — nothing the user can
+    /// change — from "Apple Intelligence is off or not ready". Deterministic
+    /// tiers run either way, which is exactly what the copy promises.
+    @ViewBuilder
+    private var capabilityNotice: some View {
+        switch IntelligenceCapability.current() {
+        case .available:
+            EmptyView()
+        case .requiresMacOS26:
+            noticeLabel(
+                // swiftlint:disable:next line_length
+                "Model-backed features — smarter titles, Smart Paste rewrites and Translate, and Ask your clipboard — require macOS 26. Everything else runs fully on this Mac."
+            )
+        case .modelUnavailable:
+            noticeLabel(
+                // swiftlint:disable:next line_length
+                "Apple Intelligence isn't available right now: titles fall back to heuristics, and model-backed rewrites, Translate, and Ask are hidden until it returns. Deterministic features keep running."
+            )
+        }
+    }
+
+    private func noticeLabel(_ text: LocalizedStringKey) -> some View {
+        Label {
+            Text(text)
+                .font(.footnote)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "info.circle")
+        }
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(text))
+        .accessibilityIdentifier("intelligence-capability-notice")
+    }
+
     private var pipeline: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: GanchoTokens.Spacing.xs) {

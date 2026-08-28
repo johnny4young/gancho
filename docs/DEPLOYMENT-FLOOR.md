@@ -1,56 +1,54 @@
-# Deployment floor — lowering the minimum OS
+# Deployment floor — minimum OS
 
-Gancho currently ships `macOS 26 / iOS 26` (`Packages/GanchoKit/Package.swift`
-and `project.yml`). That limits compatibility to the newest OS generation;
-lowering the floor would widen the addressable installed base.
+Gancho's source floor is `macOS 15.4 / iOS 26` (`Packages/GanchoKit/Package.swift`
+and `project.yml`). The macOS floor dropped from 26 to 15.4 in August 2026
+after a measured probe showed the entire package stack and every macOS app
+shell compile at 15.4 with a small set of availability gates. The published
+direct download still requires macOS 26 until the first Sequoia-validated
+release ships — the website advertises that released floor, not this one.
 
-## What blocks a lower floor (measured)
+## How the floor is enforced
+
+The deployment target itself is the gate: with `macOS: "15.4"` in the build
+settings, any use of a newer API without an availability guard is a compile
+error in every regular build — CI cannot miss a floor regression. There is no
+separate floor job to keep green.
+
+## What macOS 26 still gates (by design)
+
+| Capability | Below macOS 26 | Gate |
+| --- | --- | --- |
+| `FoundationModels` tier — smarter titles, Smart Paste rewrites and Translate, Ask your clipboard | Heuristic titles; deterministic PII redaction remains; model-backed rewrites, Translate, and Ask are unavailable | `@available` on `FoundationModelAnnotator`; `guard #available` inside `SmartPasteService` / `ClipboardQAService`; `IntelligenceCapability` |
+| Liquid Glass (`glassEffect`) | The same opaque-material branch accessibility already uses | availability branch in `GanchoSurface` |
+
+`IntelligenceCapability` (GanchoAI) is the one shared interpretation of "can
+the model tier run here": `available` / `requiresMacOS26` /
+`modelUnavailable`. The Intelligence screen shows the honest reason, and the
+`-simulate-sequoia-capabilities` launch argument forces the pre-26 answer so
+`IntelligenceCapabilityUITests` covers the floor on any host.
+
+`NSPasteboard.accessBehavior` (macOS 15.4) is why the floor is 15.4 rather
+than 15.0.
+
+## Probing a lower floor
 
 `scripts/check-deployment-floor.sh` probes a candidate floor by temporarily
-rewriting the manifest's `platforms:` and building **each package target
-separately** (a plain `swift build` stops at the first broken module and hides
-the rest). It only reports; it never edits source.
+rewriting the package manifest's `platforms:` and building **each package
+target separately** (a plain `swift build` stops at the first broken module
+and hides the rest). It only reports; it never edits source.
 
 ```
-scripts/check-deployment-floor.sh                 # macOS 15 (default)
+scripts/check-deployment-floor.sh --macos 15    # 15.0: accessBehavior is the only blocker
 scripts/check-deployment-floor.sh --macos 14
 ```
 
-The command runs SwiftPM for the host macOS destination. It does not compile an
-iOS destination, so iOS 18 remains a separate Xcode build probe before any
-deployment decision.
+The command runs SwiftPM for the host macOS destination only. App shells and
+iOS destinations need their own Xcode build probe before any further
+deployment decision; the iOS floor (26) has not been probed below 26.
 
-### macOS 15 package inventory (July 2026)
+## Runtime evidence
 
-| Target | Status | What blocks it |
-| --- | --- | --- |
-| ClipboardCore | ✗ | `NSPasteboard.accessBehavior` (macOS **15.4**) — trivially gated |
-| GanchoKit | ✅ | Store, sync fields, FTS, semantic — **already floor-clean** |
-| GanchoSync | ✅ | CKSyncEngine is macOS 14+ |
-| GanchoTelemetry | ✅ | — |
-| GanchoAI | ✗ | ~All errors are FoundationModels (`SystemLanguageModel`, `LanguageModelSession`, `@Generable`, `@Guide`) — macOS 26 |
-| GanchoAppCore | ✗ | Only via its GanchoAI dependency |
-| GanchoDesign | ✗ | `glassEffect(_:in:)` (Liquid Glass) — macOS 26 |
-
-**The core (store/sync/search) already compiles at the measured macOS floor.**
-Two substantial package boundaries and one ClipboardCore API block macOS 15:
-
-1. **FoundationModels** (GanchoAI) — the on-device AI tier. The fallback
-   already exists (`HeuristicAnnotator`, and every AI surface degrades). The
-   fix is one `#if canImport(FoundationModels)` + `@available` boundary so the
-   tier compiles out below OS 26 and the heuristic path takes over. Pitch: "AI
-   is a bonus on OS 26, not a requirement."
-2. **`glassEffect`** (GanchoDesign) — one Liquid Glass call. Wrap in an
-   availability-gated view modifier with a material fallback below OS 26.
-
-`accessBehavior` (macOS 15.4) is a one-line `if #available`.
-
-## Candidate floor: macOS 15 / iOS 18
-
-The macOS package blockers above are bounded and have existing fallback paths.
-The iOS 18 half of this candidate is not established by the SwiftPM inventory
-and must be validated with an iOS Xcode destination before changing either
-manifest or project deployment targets.
-
-The app shells (`project.yml` `deploymentTarget`) need their own probe once the
-package boundaries land; this script covers the package only.
+Compiling at the floor is necessary, not sufficient. Before a release claims a
+floor, the release checklist requires capture, paste-back, storage, the
+menu-bar agent, panel rendering without glass, licensing, and update smoke on
+real hardware running the oldest supported macOS.

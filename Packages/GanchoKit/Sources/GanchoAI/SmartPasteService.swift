@@ -56,9 +56,12 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
 public struct SmartPasteService: Sendable {
     /// Cheap availability gate the UI uses for model-backed rewrites and
     /// translations. Deterministic PII redaction does not require this to be
-    /// true.
+    /// true. Below macOS/iOS 26 the Foundation Models tier does not exist, so
+    /// this is `false` there — the same degradation the UI already shows when
+    /// Apple Intelligence is switched off.
     public static var isAvailable: Bool {
-        SystemLanguageModel.default.availability == .available
+        guard #available(macOS 26.0, iOS 26.0, *) else { return false }
+        return SystemLanguageModel.default.availability == .available
     }
 
     /// Input is clamped so prompt + completion fit the system model's shared
@@ -80,7 +83,9 @@ public struct SmartPasteService: Sendable {
     /// On-device translation (via the same system model). Kept separate from
     /// `SmartPasteAction` because it carries a target language.
     public func translate(_ text: String, to language: String) async throws -> String {
-        guard Self.isAvailable else { throw AnnotationError.backendUnavailable }
+        guard #available(macOS 26.0, iOS 26.0, *), Self.isAvailable else {
+            throw AnnotationError.backendUnavailable
+        }
         // Structural secret redaction BEFORE the model sees the text — the
         // live evaluation proved instructions alone don't stop echo.
         let safe = ModelInputSanitizer.sanitized(text)
@@ -98,7 +103,9 @@ public struct SmartPasteService: Sendable {
         // Redaction is deterministic and on-device: it must preserve the text
         // exactly except for PII, and must not depend on the model running.
         if action == .redactPII { return PIIRedactor.redact(text) }
-        guard Self.isAvailable else { throw AnnotationError.backendUnavailable }
+        guard #available(macOS 26.0, iOS 26.0, *), Self.isAvailable else {
+            throw AnnotationError.backendUnavailable
+        }
         // Structural secret redaction BEFORE the model sees the text — a
         // "faithful" summary of a memo with a key line would otherwise carry
         // the key into pasted output (caught live by the prompt evaluation).

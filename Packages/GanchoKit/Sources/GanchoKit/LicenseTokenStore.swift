@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import Synchronization
 
 /// Persists the direct-download activation record on THIS device. The record is
 /// never synchronized through iCloud Keychain: each machine activates its own
@@ -77,13 +78,12 @@ public struct KeychainLicenseTokenStore: LicenseTokenStore {
 }
 
 /// In-memory store for previews, tests, and from-source builds.
-public final class InMemoryLicenseTokenStore: LicenseTokenStore, @unchecked Sendable {
-    private let lock = NSLock()
-    private var token: String?
+public final class InMemoryLicenseTokenStore: LicenseTokenStore {
+    private let storedToken: Mutex<String?>
 
-    public init(token: String? = nil) { self.token = token }
+    public init(token: String? = nil) { self.storedToken = Mutex(token) }
 
-    public func load() -> String? { lock.withLock { token } }
-    public func save(_ token: String) throws { lock.withLock { self.token = token } }
-    public func clear() throws { lock.withLock { self.token = nil } }
+    public func load() -> String? { storedToken.withLock { $0 } }
+    public func save(_ token: String) throws { storedToken.withLock { $0 = token } }
+    public func clear() throws { storedToken.withLock { $0 = nil } }
 }

@@ -9,11 +9,12 @@
   type only when one genuinely needs it. Adding a new top-level package under
   `Packages/` requires extending the Makefile's `PACKAGE` wiring so the gates
   cover it.
-- **No deprecated APIs.** Minimum OS is macOS 26 / iOS 26; new SDK-27 APIs go
-  behind `#available`. Do not install beta SDKs on work machines.
+- **No deprecated APIs.** Minimum OS is macOS 15.4 / iOS 26; macOS-26-only
+  APIs (FoundationModels, Liquid Glass) and new SDK-27 APIs go behind
+  `#available`. Do not install beta SDKs on work machines.
 - **Run `make format` before committing; `make lint` and `make test` must pass.**
 - **Tests:** Swift Testing (`@Suite`/`@Test`) for unit tests. XCTest only for
-  future UI tests. Accessibility identifiers use kebab-case with semantic
+  UI tests. Accessibility identifiers use kebab-case with semantic
   suffixes (`history-panel`, `clip-row`, `settings-pane`).
 - **Commits:** Conventional Commits, English, imperative. **Never add AI
   co-authorship or generated-by trailers** (no `Co-Authored-By: Claude`, no

@@ -17,8 +17,8 @@ concurrency:
 jobs:
   test:
     name: Lint, package tests & coverage
-    # macOS/iOS 26 deployment target + Swift 6.2 need an Xcode 26 runner;
-    # macos-latest still carries Xcode 16 (macOS 15 SDK) and cannot build it.
+    # The source uses macOS/iOS 26 APIs and keeps iOS at 26, while Swift 6.2
+    # needs an Xcode 26 runner; macos-latest still cannot build this stack.
     runs-on: macos-26
     # Pin the stable toolchain so weekly runner-image updates cannot silently
     # change the compiler or SDK used by required validation.
@@ -87,8 +87,8 @@ jobs:
 
   build-apps:
     name: Build macOS + iOS apps
-    # Deployment target is macOS/iOS 26 — needs an Xcode 26 runner image.
-    # macos-latest still lags on Xcode 16 (macOS 15 SDK), so pin macos-26.
+    # The macOS floor is 15.4, but the source uses SDK-26 APIs and iOS stays at
+    # 26, so this still needs an Xcode 26 runner image. Pin it explicitly.
     runs-on: macos-26
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer

@@ -42,7 +42,7 @@ public struct LemonSqueezyValidator: Sendable {
 
     public func activate(licenseKey: String, instanceName: String) async -> Result {
         await post(
-            path: "activate",
+            operation: .activate,
             fields: ["license_key": licenseKey, "instance_name": instanceName]
         ) { payload in
             guard payload.activated == true, let id = payload.instance?.id else {
@@ -63,7 +63,7 @@ public struct LemonSqueezyValidator: Sendable {
     /// reaches an install that is already running.
     public func validate(licenseKey: String, instanceID: String) async -> Result {
         await post(
-            path: "validate",
+            operation: .validate,
             fields: ["license_key": licenseKey, "instance_id": instanceID]
         ) { payload in
             guard payload.valid == true else {
@@ -90,7 +90,7 @@ public struct LemonSqueezyValidator: Sendable {
     /// alike, so a pin here could not keep or mint an entitlement either way.
     public func deactivate(licenseKey: String, instanceID: String) async -> Result {
         await post(
-            path: "deactivate",
+            operation: .deactivate,
             fields: ["license_key": licenseKey, "instance_id": instanceID]
         ) { payload in
             payload.deactivated == true
@@ -100,21 +100,32 @@ public struct LemonSqueezyValidator: Sendable {
 
     /// How an endpoint reads its own answer. Three-way on purpose: only an
     /// explicit negative may revoke, so a body Gancho does not recognize is
-    /// never mistaken for Lemon Squeezy saying no. A denial may carry its own
-    /// reason; without one, the server's error (or a generic line) is used.
+    /// never mistaken for Lemon Squeezy saying no. A denial carries its reason
+    /// when one is known; without one, a generic line is used.
     private enum Verdict {
         case confirmed(String)
         case denied(String?)
         case unrecognized
     }
 
-    /// An explicit `false` flag, or an error the server supplied, is Lemon
-    /// Squeezy denying the request. Anything else — a missing flag, a partial
-    /// body, a future response shape — is unrecognized and must NOT revoke: a
-    /// change at their end would otherwise drop Pro for every paying user at
-    /// once, and the whole point of the grace window is to survive exactly that.
+    /// The License API endpoints Gancho calls; each raw value is the URL path
+    /// component the request is posted to.
+    private enum Operation: String {
+        case activate
+        case validate
+        case deactivate
+    }
+
+    /// An explicit `false` flag, or a readable error the server supplied, is
+    /// Lemon Squeezy denying the request. Anything else — a missing flag, a
+    /// blank error, a partial body, a future response shape — is unrecognized
+    /// and must NOT revoke: a change at their end would otherwise drop Pro for
+    /// every paying user at once, and the whole point of the grace window is
+    /// to survive exactly that.
     private static func negative(_ payload: Response, flag: Bool?) -> Verdict {
-        flag == false || payload.error != nil ? .denied(nil) : .unrecognized
+        let trimmed = payload.error?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let reason = trimmed?.isEmpty == false ? trimmed : nil
+        return flag == false || reason != nil ? .denied(reason) : .unrecognized
     }
 
     /// The user-facing reason when a key is valid somewhere, just not here.
@@ -139,15 +150,20 @@ public struct LemonSqueezyValidator: Sendable {
         return store == expectedStoreID && product == expectedProductID ? .trusted : .foreign
     }
 
-    /// One form-encoded POST plus the shared failure semantics: a transport
-    /// error, an unreadable body, or an unrecognized one is `unreachable`
-    /// (retry later, keep any existing entitlement within grace), while an
-    /// explicit negative is `rejected` (Lemon Squeezy has spoken — drop Pro).
+    /// One form-encoded POST plus the shared failure semantics. Transport
+    /// failures, undecodable bodies, and 5xx/429 statuses are `unreachable`
+    /// (retry later and preserve existing grace). Every other status — 2xx and
+    /// 4xx alike, because Lemon Squeezy delivers denials as 4xx with an error
+    /// body — is decoded and judged by the endpoint's verdict. The 5xx/429
+    /// short-circuit deliberately never reads the body: a server error or a
+    /// rate limit is an intermediary failing, not the vendor answering, so it
+    /// must never read as Lemon Squeezy saying no — only a decodable answer
+    /// can deny.
     private func post(
-        path: String, fields: [String: String],
+        operation: Operation, fields: [String: String],
         verdict: (Response) -> Verdict
     ) async -> Result {
-        var request = URLRequest(url: endpoint.appendingPathComponent(path))
+        var request = URLRequest(url: endpoint.appendingPathComponent(operation.rawValue))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(
@@ -160,24 +176,37 @@ public struct LemonSqueezyValidator: Sendable {
                 .utf8)
 
         let data: Data
+        let response: URLResponse
         do {
-            (data, _) = try await transport(request)
+            (data, response) = try await transport(request)
         } catch {
-            return .unreachable(reason: error.localizedDescription)
+            return .unreachable(reason: Self.serviceUnavailableReason)
+        }
+
+        // A 5xx or a rate limit is never an answer, so the body stays unread.
+        // A response with no HTTP status carries no outage signal at all and
+        // falls through to the body, like a 2xx.
+        if let status = (response as? HTTPURLResponse)?.statusCode,
+            status >= 500 || status == 429
+        {
+            return .unreachable(reason: Self.serviceUnavailableReason)
         }
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
+
         guard let payload = try? decoder.decode(Response.self, from: data) else {
             return .unreachable(reason: "Unexpected Lemon Squeezy response")
         }
         switch verdict(payload) {
         case .confirmed(let id): return .confirmed(instanceID: id)
         case .denied(let reason):
-            return .rejected(reason: reason ?? payload.error ?? "License key is not active")
+            return .rejected(reason: reason ?? "License key is not active")
         case .unrecognized: return .unreachable(reason: "Unexpected Lemon Squeezy response")
         }
     }
+
+    private static let serviceUnavailableReason = "Lemon Squeezy is temporarily unavailable"
 
     private static func formEncoded(_ value: String) -> String {
         value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? value

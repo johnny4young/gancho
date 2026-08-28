@@ -12,26 +12,29 @@ final class MCPAccessUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["mcp-client-name-claude-desktop"].firstMatch.exists)
         XCTAssertTrue(app.staticTexts["mcp-client-name-cursor"].firstMatch.exists)
         XCTAssertTrue(app.staticTexts["mcp-client-name-local-scripts"].firstMatch.exists)
-        XCTAssertEqual(labelOrValue(of: "mcp-client-state-claude-desktop", in: app), "Active")
-        XCTAssertEqual(labelOrValue(of: "mcp-client-state-cursor", in: app), "Expired")
-        XCTAssertEqual(labelOrValue(of: "mcp-client-state-local-scripts", in: app), "Revoked")
-        XCTAssertEqual(labelOrValue(of: "mcp-active-client-count", in: app), "1 active")
+        XCTAssertTrue(
+            waitForLabelOrValue("Active", of: "mcp-client-state-claude-desktop", in: app))
+        XCTAssertTrue(waitForLabelOrValue("Expired", of: "mcp-client-state-cursor", in: app))
+        XCTAssertTrue(
+            waitForLabelOrValue("Revoked", of: "mcp-client-state-local-scripts", in: app))
+        XCTAssertTrue(waitForLabelOrValue("1 active", of: "mcp-active-client-count", in: app))
 
         attach(windowScreenshot(in: app), named: "macOS MCP client grants")
 
         let revoke = app.buttons["mcp-revoke-client-claude-desktop"].firstMatch
         XCTAssertTrue(revoke.waitForExistence(timeout: 3))
-        app.activate()
-        app.windows["MCP Access"].firstMatch.click()
-        // Hosted macOS runners occasionally report toolbar-adjacent SwiftUI
-        // buttons as non-hittable even though their on-screen frame is valid.
-        // Click the element's center and prove delivery through the live state
-        // transition below rather than trusting that transient AX flag.
-        revoke.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
 
-        XCTAssertEqual(labelOrValue(of: "mcp-client-state-claude-desktop", in: app), "Revoked")
-        XCTAssertEqual(labelOrValue(of: "mcp-active-client-count", in: app), "0 active")
-        XCTAssertFalse(app.buttons["mcp-copy-command-claude-desktop"].firstMatch.exists)
+        XCTAssertTrue(
+            revokeGrant(
+                with: revoke, stateIdentifier: "mcp-client-state-claude-desktop", in: app),
+            "the grant state did not publish its live revocation")
+        XCTAssertTrue(
+            waitForLabelOrValue("0 active", of: "mcp-active-client-count", in: app),
+            "the active-client summary did not converge after revocation")
+        XCTAssertTrue(
+            app.buttons["mcp-copy-command-claude-desktop"].firstMatch
+                .waitForNonexistence(timeout: 5),
+            "the active-only copy command remained exposed after revocation")
         attach(windowScreenshot(in: app), named: "macOS MCP live revoke")
     }
 
@@ -59,8 +62,8 @@ final class MCPAccessUITests: XCTestCase {
 
         XCTAssertTrue(
             app.staticTexts["mcp-client-name-raycast"].firstMatch.waitForExistence(timeout: 3))
-        XCTAssertEqual(labelOrValue(of: "mcp-client-state-raycast", in: app), "Active")
-        XCTAssertEqual(labelOrValue(of: "mcp-active-client-count", in: app), "2 active")
+        XCTAssertTrue(waitForLabelOrValue("Active", of: "mcp-client-state-raycast", in: app))
+        XCTAssertTrue(waitForLabelOrValue("2 active", of: "mcp-active-client-count", in: app))
     }
 
     @MainActor
@@ -94,10 +97,58 @@ final class MCPAccessUITests: XCTestCase {
     }
 
     @MainActor
-    private func labelOrValue(of identifier: String, in app: XCUIApplication) -> String {
+    private func revokeGrant(
+        with button: XCUIElement, stateIdentifier: String, in app: XCUIApplication
+    ) -> Bool {
+        // A macOS system dialog can transiently intercept a synthesized click
+        // after XCTest has already reported the app button as hittable. Retry
+        // only while the seeded grant is still active; the observed state
+        // transition remains the proof that the action was delivered.
+        for _ in 0..<3 {
+            if waitForLabelOrValue("Revoked", of: stateIdentifier, in: app, timeout: 1) {
+                return true
+            }
+            app.activate()
+            // Activation is asynchronous: never synthesize a click — least of
+            // all the coordinate fallback — until Gancho is provably
+            // frontmost, or the click lands on whatever app IS.
+            guard app.wait(for: .runningForeground, timeout: 3) else { continue }
+            if button.waitForHittable(timeout: 3) {
+                button.click()
+            } else if button.exists, !button.frame.isEmpty {
+                // Hosted macOS runners occasionally report toolbar-adjacent
+                // SwiftUI buttons as non-hittable even though their on-screen
+                // frame is valid. Click the element's center and prove delivery
+                // through the live state transition below rather than trusting
+                // that transient AX flag.
+                button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+            } else {
+                continue
+            }
+            if waitForLabelOrValue("Revoked", of: stateIdentifier, in: app, timeout: 3) {
+                return true
+            }
+        }
+        return waitForLabelOrValue("Revoked", of: stateIdentifier, in: app, timeout: 5)
+    }
+
+    @MainActor
+    private func waitForLabelOrValue(
+        _ expected: String, of identifier: String, in app: XCUIApplication,
+        timeout: TimeInterval = 5
+    ) -> Bool {
         let element = app.descendants(matching: .any)[identifier].firstMatch
-        XCTAssertTrue(element.waitForExistence(timeout: 5), "Missing element: \(identifier)")
-        return (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
+        guard element.waitForExistence(timeout: timeout) else { return false }
+        let predicate = NSPredicate { object, _ in
+            guard let element = object as? XCUIElement else { return false }
+            // One canonical string, matching the strict pre-polling semantics:
+            // the value when it is a non-empty string, the label otherwise.
+            let canonical =
+                (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
+            return canonical == expected
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     @MainActor

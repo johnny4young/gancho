@@ -27,4 +27,26 @@ struct DiagnosticLogTests {
         log.clear()
         #expect(log.entries.isEmpty)
     }
+
+    @Test("Concurrent writers preserve the cap and complete entries")
+    func concurrentWriters() async {
+        let cap = 64
+        let log = DiagnosticLog(cap: cap)
+
+        await withTaskGroup(of: Void.self) { group in
+            for index in 0..<1_000 {
+                group.addTask {
+                    log.record(
+                        "stress", "message-\(index)",
+                        at: Date(timeIntervalSince1970: Double(index)))
+                }
+            }
+        }
+
+        let entries = log.entries
+        #expect(entries.count == cap)
+        #expect(Set(entries.map(\.id)).count == cap)
+        #expect(entries.allSatisfy { $0.category == "stress" })
+        #expect(entries.allSatisfy { $0.message.hasPrefix("message-") })
+    }
 }

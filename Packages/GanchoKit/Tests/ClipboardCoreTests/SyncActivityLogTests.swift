@@ -36,4 +36,37 @@ struct SyncActivityLogTests {
         #expect(decoded == interrupted)
         #expect(decoded.cause == .iCloudFull)
     }
+
+    @Test("Concurrent capture and sync recording retains every metadata event")
+    func concurrentRecording() async {
+        let recorder = InMemoryPrivacyEventRecorder()
+        let ignoredTotal = 600
+        let syncTotal = 400
+
+        await withTaskGroup(of: Void.self) { group in
+            for index in 0..<ignoredTotal {
+                let reason = CaptureIgnoreReason.allCases[
+                    index % CaptureIgnoreReason.allCases.count]
+                group.addTask {
+                    recorder.record(
+                        IgnoredCaptureEvent(
+                            reason: reason,
+                            occurredAt: Date(timeIntervalSince1970: Double(index))))
+                }
+            }
+            for index in 0..<syncTotal {
+                group.addTask {
+                    recorder.record(
+                        sync: SyncActivityEvent(
+                            kind: .synced,
+                            occurredAt: Date(timeIntervalSince1970: Double(index))))
+                }
+            }
+        }
+
+        #expect(recorder.allEvents().count == ignoredTotal)
+        #expect(recorder.eventCount(since: .distantPast) == ignoredTotal)
+        #expect(recorder.countsByReason(since: .distantPast).values.reduce(0, +) == ignoredTotal)
+        #expect(recorder.recentSyncEvents(limit: syncTotal).count == syncTotal)
+    }
 }
