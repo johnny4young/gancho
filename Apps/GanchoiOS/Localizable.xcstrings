@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "A shared item couldn’t be cleared and may arrive again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo limpiar un elemento compartido y puede volver a llegar."
+          }
+        }
+      }
+    },
     "A shared item wasn’t readable yet and was kept for later.": {
       "localizations": {
         "es": {

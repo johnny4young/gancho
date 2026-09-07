@@ -20,11 +20,13 @@ final class ShareViewController: UIViewController {
             // confirms the capture actually landed, and an error tap says the
             // share did NOT save rather than letting it look like it did.
             let generator = UINotificationFeedbackGenerator()
-            switch saved {
-            case .some(let count) where count > 0: generator.notificationOccurred(.success)
-            case .none: generator.notificationOccurred(.error)
-            default: break
-            }
+            // Nonpositive is a failure, not a neutral outcome: nil means the
+            // inbox could not be reached sealed, and zero means every
+            // attachment was unsupported, unreadable, or failed to write. The
+            // old `default: break` dismissed those two silently, which is the
+            // one thing this feedback exists to prevent — the sheet vanishing
+            // as though the share had saved.
+            generator.notificationOccurred((saved ?? 0) > 0 ? .success : .error)
             extensionContext?.completeRequest(returningItems: nil)
         }
     }

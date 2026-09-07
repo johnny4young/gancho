@@ -27,7 +27,14 @@ public struct SharedInbox: Sendable {
     /// deposits are AES-GCM sealed and drains unseal. The nil case exists ONLY
     /// so tests can write the legacy plaintext shape that a drain must still
     /// accept; production goes through `inAppGroup(key:)`, which requires one.
-    public init(directory: URL, key: Data? = nil) {
+    ///
+    /// Deliberately INTERNAL. Leaving it public would let any client of this
+    /// package construct a keyless inbox and deposit plaintext clipboard
+    /// content — the exact exposure the seal exists to prevent — with nothing
+    /// but a doc comment discouraging it. The tests reach it through
+    /// `@testable`, so the boundary costs them nothing and is enforced by the
+    /// compiler rather than by convention.
+    init(directory: URL, key: Data? = nil) {
         self.directory = directory
         self.key = key
     }
@@ -92,18 +99,30 @@ public struct SharedInbox: Sendable {
     public struct DrainSummary: Sendable, Equatable {
         /// Captures handed to the app, oldest first.
         public var captures: [PreparedCapture]
-        /// Files whose bytes were read but could not be opened or decoded.
-        /// These were deleted: a poison capture must not wedge the inbox.
+        /// Files whose bytes were read but could not be opened or decoded, AND
+        /// were then successfully deleted: a poison capture must not wedge the
+        /// inbox. Only a real deletion counts here, so "discarded" is never
+        /// claimed for a file that is still on disk.
         public var poisoned: Int
         /// Files that could not be read at all and were LEFT IN PLACE for the
         /// next drain — possibly mid-write, or momentarily unreadable under
         /// data protection.
         public var deferred: Int
+        /// Files that were processed but could NOT be removed, so they return
+        /// on the next drain. A readable one is handed over anyway and may
+        /// therefore arrive twice; an unreadable one keeps wedging the inbox.
+        /// Separate from `poisoned` because the promise differs: this one is
+        /// still there.
+        public var undeletable: Int
 
-        public init(captures: [PreparedCapture], poisoned: Int = 0, deferred: Int = 0) {
+        public init(
+            captures: [PreparedCapture], poisoned: Int = 0, deferred: Int = 0,
+            undeletable: Int = 0
+        ) {
             self.captures = captures
             self.poisoned = poisoned
             self.deferred = deferred
+            self.undeletable = undeletable
         }
     }
 
@@ -142,6 +161,7 @@ public struct SharedInbox: Sendable {
         var captures: [PreparedCapture] = []
         var poisoned = 0
         var deferred = 0
+        var undeletable = 0
         for file in ordered {
             // A file we could not even READ is not poison — it is a capture
             // that may still be mid-write, or briefly unreadable under data
@@ -153,22 +173,33 @@ public struct SharedInbox: Sendable {
                 deferred += 1
                 continue
             }
+            var prepared: PreparedCapture?
             if let data = openedPayload(raw) {
-                if let prepared = try? JSONDecoder().decode(PreparedCapture.self, from: data) {
-                    captures.append(prepared)
+                if let decoded = try? JSONDecoder().decode(PreparedCapture.self, from: data) {
+                    prepared = decoded
                 } else if let legacy = try? JSONDecoder().decode(
                     PasteboardCapture.self, from: data)
                 {
-                    captures.append(PreparedCapture(capture: legacy))
-                } else {
-                    poisoned += 1
+                    prepared = PreparedCapture(capture: legacy)
                 }
-            } else {
-                poisoned += 1
             }
-            try? FileManager.default.removeItem(at: file)
+            // Hand over a good capture whether or not the file can be removed:
+            // a duplicate is absorbed by content-hash dedupe on insert, while
+            // dropping it loses the user's clip outright.
+            if let prepared { captures.append(prepared) }
+            do {
+                try FileManager.default.removeItem(at: file)
+                // "Discarded" is only true once the file is actually gone.
+                if prepared == nil { poisoned += 1 }
+            } catch {
+                // The file survived and comes back next drain. Counting it as
+                // poison would tell the user it was discarded while it is
+                // still sitting there being reprocessed on every drain.
+                undeletable += 1
+            }
         }
-        return DrainSummary(captures: captures, poisoned: poisoned, deferred: deferred)
+        return DrainSummary(
+            captures: captures, poisoned: poisoned, deferred: deferred, undeletable: undeletable)
     }
 
     /// Unwraps one file's payload. Sealed files open with the key; a sealed

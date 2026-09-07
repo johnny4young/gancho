@@ -960,6 +960,11 @@ final class IOSAppModel {
                 String(localized: "Sharing"),
                 String(localized: "A shared item wasn’t readable yet and was kept for later."))
         }
+        if summary.undeletable > 0 {
+            diagnostics.record(
+                String(localized: "Sharing"),
+                String(localized: "A shared item couldn’t be cleared and may arrive again."))
+        }
     }
 
     /// UIPasteControl handoff: the system mediates the tap, so this path

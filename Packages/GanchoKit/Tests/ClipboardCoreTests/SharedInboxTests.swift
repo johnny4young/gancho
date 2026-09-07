@@ -196,4 +196,32 @@ struct SharedInboxTests {
         #expect(try keyless.drain().isEmpty)
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty)
     }
+    @Test("A file that cannot be deleted is reported as retained, never as discarded")
+    func undeletableFileIsNotReportedAsDiscarded() throws {
+        let (inbox, dir) = makeInbox(key: key)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // Unreadable bytes: this is the poison path, which promises deletion.
+        try Data("not an envelope".utf8).write(to: dir.appendingPathComponent("wedged.json"))
+
+        // Make the removal fail the way a real one does — the directory the
+        // file lives in denies writes, so unlink cannot unlink it.
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: dir.path)
+        defer {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o700], ofItemAtPath: dir.path)
+            try? FileManager.default.removeItem(at: dir)
+        }
+
+        let summary = try inbox.drainReportingHealth()
+
+        // The old accounting called this poison and told the user it had been
+        // discarded, while the file sat there being reprocessed on every drain.
+        #expect(summary.undeletable == 1)
+        #expect(summary.poisoned == 0)
+        #expect(summary.captures.isEmpty)
+        #expect(
+            FileManager.default.fileExists(atPath: dir.appendingPathComponent("wedged.json").path),
+            "the file must still be there — that is the whole point of the new count")
+    }
+
 }
