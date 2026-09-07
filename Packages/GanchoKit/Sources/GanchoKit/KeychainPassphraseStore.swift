@@ -1,6 +1,34 @@
 import Foundation
 import Security
 
+/// Where the access group Gancho ended up using actually came from.
+///
+/// Surfacing this is the point of the type: a mismatch between what the OS
+/// granted and what the build guessed is invisible otherwise — every
+/// keychain call just fails, on the extensions first, with nothing to point
+/// at.
+public struct AccessGroupResolution: Sendable, Equatable {
+    public enum Source: Sendable, Equatable {
+        /// Read back from the keychain, so it is the group the OS actually
+        /// granted this process. Authoritative.
+        case entitlement
+        /// Built from `AppIdentifierPrefix` in the Info.plist, which
+        /// XcodeGen fills from `DEVELOPMENT_TEAM`. A guess that is right
+        /// whenever the team ID and the App ID prefix agree.
+        case buildSetting
+        /// Neither was available. Last resort.
+        case fallback
+    }
+
+    public let group: String
+    public let source: Source
+    /// True when the OS granted a group the build-time guess would have
+    /// missed — the legacy or transferred App ID case, where the team ID
+    /// and the App Identifier Prefix differ. Worth reporting: it means
+    /// every build before this one was reaching for the wrong group.
+    public let contradictedBuildSetting: Bool
+}
+
 /// Stores the SQLCipher database key in the Keychain.
 ///
 /// There is no user-facing passphrase: the key is a 256-bit value generated
@@ -43,7 +71,75 @@ public struct KeychainPassphraseStore: Sendable {
     /// `$(AppIdentifierPrefix)com.johnny4young.gancho.keys` in each target.
     /// macOS does not use a group (default keychain).
     public static var iosSharedAccessGroup: String {
-        iosSharedAccessGroup(infoDictionary: Bundle.main.infoDictionary)
+        iosSharedAccessGroupResolution.group
+    }
+
+    /// The resolution behind ``iosSharedAccessGroup``, so a shell can report a
+    /// contradiction instead of leaving the user with silent keychain failures.
+    ///
+    /// Computed once per process. The answer cannot change while the process
+    /// lives — the entitlement is fixed at signing — and `static let` gives
+    /// that for free, thread-safely.
+    public static let iosSharedAccessGroupResolution: AccessGroupResolution =
+        iosSharedAccessGroupResolution(
+            discovered: discoverGrantedAccessGroup(),
+            infoDictionary: Bundle.main.infoDictionary)
+
+    /// Asks the keychain which access group this process was actually granted.
+    ///
+    /// `keychain-access-groups` is expanded at CODE SIGNING time from the
+    /// provisioning profile's App Identifier Prefix, while the Info.plist value
+    /// XcodeGen writes comes from `DEVELOPMENT_TEAM`. Those agree for most
+    /// accounts and differ for legacy or transferred App IDs — and when they
+    /// differ, every read and write targets a group the process does not hold,
+    /// so the app, share extension, keyboard, and widgets all fail closed with
+    /// nothing to point at.
+    ///
+    /// The trick is that an item added with NO `kSecAttrAccessGroup` is filed
+    /// by the OS in the process's first entitled group, and reading its
+    /// attributes back reports that group fully expanded. That makes the
+    /// keychain itself the source of truth rather than a build-time guess.
+    ///
+    /// Not `SecTaskCopyValueForEntitlement`, which would read the entitlement
+    /// directly: `SecTask.h` ships in the macOS SDK only, so on iOS it would
+    /// mean declaring private symbols.
+    ///
+    /// Returns nil — leaving the caller on the build-time value, today's
+    /// behavior — whenever the probe cannot complete, notably before first
+    /// unlock.
+    private static func discoverGrantedAccessGroup() -> String? {
+        #if os(iOS)
+            let probe: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: "com.johnny4young.gancho.access-group-probe",
+                kSecAttrAccount as String: "access-group-probe"
+            ]
+            var insert = probe
+            // Same accessibility as the key it is probing for, so the probe can
+            // never succeed in a state where the real read would fail.
+            insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            insert[kSecValueData as String] = Data()
+
+            let addStatus = SecItemAdd(insert as CFDictionary, nil)
+            // A leftover probe from a previous run is just as good to read.
+            guard addStatus == errSecSuccess || addStatus == errSecDuplicateItem else { return nil }
+            // Best-effort: a probe left behind is inert, and deleting it is not
+            // worth failing the resolution over.
+            defer { SecItemDelete(probe as CFDictionary) }
+
+            var query = probe
+            query[kSecReturnAttributes as String] = true
+            query[kSecMatchLimit as String] = kSecMatchLimitOne
+            var item: CFTypeRef?
+            guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+                let attributes = item as? [String: Any]
+            else { return nil }
+            return attributes[kSecAttrAccessGroup as String] as? String
+        #else
+            // macOS uses the default keychain with no group, and the CLI has no
+            // entitlement to discover.
+            return nil
+        #endif
     }
 
     private let service: String
@@ -219,12 +315,47 @@ public struct KeychainPassphraseStore: Sendable {
         return bytes.map { String(format: "%02x", $0) }.joined()
     }
 
-    static func iosSharedAccessGroup(infoDictionary: [String: Any]?) -> String {
-        let prefix =
+    /// The tail every target's `keychain-access-groups` entitlement ends with.
+    /// Only the team prefix in front of it is ever in question.
+    static let sharedAccessGroupSuffix = "com.johnny4young.gancho.keys"
+
+    /// Resolves the group to use, preferring what the OS granted over what the
+    /// build guessed.
+    ///
+    /// Pure on purpose: `discovered` is supplied by the caller so the decision
+    /// is testable without a keychain, an entitlement, or a device.
+    ///
+    /// A discovered group is trusted only when it carries the expected suffix.
+    /// The probe files its item in the process's FIRST entitled group, and
+    /// while every Gancho target is granted exactly one, a future target with a
+    /// second group listed ahead of this one would otherwise silently redirect
+    /// the store's key somewhere else.
+    static func iosSharedAccessGroupResolution(
+        discovered: String?,
+        infoDictionary: [String: Any]?
+    ) -> AccessGroupResolution {
+        let rawPrefix =
             (infoDictionary?["AppIdentifierPrefix"] as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolvedPrefix = normalizedTeamPrefix(prefix)
-        return "\(resolvedPrefix)com.johnny4young.gancho.keys"
+        let hasBuildSetting = !(rawPrefix ?? "").isEmpty
+        let buildSettingGroup = "\(normalizedTeamPrefix(rawPrefix))\(sharedAccessGroupSuffix)"
+
+        if let discovered = discovered?.trimmingCharacters(in: .whitespacesAndNewlines),
+            discovered.hasSuffix(".\(sharedAccessGroupSuffix)")
+        {
+            return AccessGroupResolution(
+                group: discovered,
+                source: .entitlement,
+                contradictedBuildSetting: discovered != buildSettingGroup)
+        }
+        return AccessGroupResolution(
+            group: buildSettingGroup,
+            source: hasBuildSetting ? .buildSetting : .fallback,
+            contradictedBuildSetting: false)
+    }
+
+    static func iosSharedAccessGroup(infoDictionary: [String: Any]?) -> String {
+        iosSharedAccessGroupResolution(discovered: nil, infoDictionary: infoDictionary).group
     }
 
     private static func normalizedTeamPrefix(_ prefix: String?) -> String {
