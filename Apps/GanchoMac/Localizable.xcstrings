@@ -21,6 +21,16 @@
         }
       }
     },
+    "Couldn’t delete every clip — the ones that remain were kept.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron borrar todos los clips: los que quedan se conservaron."
+          }
+        }
+      }
+    },
     "Couldn’t restore purchases.": {
       "localizations": {
         "es": {

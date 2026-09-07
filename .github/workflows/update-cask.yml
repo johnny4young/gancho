@@ -29,6 +29,7 @@ jobs:
   update-cask:
     name: Bump the gancho cask
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out gancho (for the cask template)
         uses: actions/checkout@v7

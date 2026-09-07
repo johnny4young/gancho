@@ -41,6 +41,10 @@ public struct BlobStore: Sendable {
         self.encryptionKeyData = encryptionKeyData
     }
 
+    /// Derives the raw symmetric key from the stored passphrase. Internal to
+    /// the module; `StoreContentKey` is the supported way to reach it, so the
+    /// derivation lives in exactly one place for blobs, thumbnails, and the
+    /// share-extension inbox alike.
     static func encryptionKeyData(for passphrase: String) -> Data {
         let trimmed = passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.count == 64, let decoded = Data(hexEncoded: trimmed) {

@@ -23,19 +23,31 @@ public struct SharedInbox: Sendable {
     /// Injectable directory so behavior is unit-testable without
     /// entitlements; production callers use `inAppGroup(key:)`.
     ///
-    /// `key` is the store's blob encryption key (both sides already read it
-    /// from the shared keychain to open the encrypted DB). With a key,
-    /// deposits are AES-GCM sealed and drains unseal; without one they are
-    /// plaintext JSON — production callers should always pass the key.
-    public init(directory: URL, key: Data? = nil) {
+    /// `key` is the store's content key (`StoreContentKey.load`). With a key,
+    /// deposits are AES-GCM sealed and drains unseal. The nil case exists ONLY
+    /// so tests can write the legacy plaintext shape that a drain must still
+    /// accept; production goes through `inAppGroup(key:)`, which requires one.
+    ///
+    /// Deliberately INTERNAL. Leaving it public would let any client of this
+    /// package construct a keyless inbox and deposit plaintext clipboard
+    /// content — the exact exposure the seal exists to prevent — with nothing
+    /// but a doc comment discouraging it. The tests reach it through
+    /// `@testable`, so the boundary costs them nothing and is enforced by the
+    /// compiler rather than by convention.
+    init(directory: URL, key: Data? = nil) {
         self.directory = directory
         self.key = key
     }
 
     /// Inbox inside the App Group container, or nil when the entitlement is
     /// missing (misconfigured target) — callers surface that, never crash.
-    /// Pass the store's blob encryption key so deposits are sealed at rest.
-    public static func inAppGroup(key: Data? = nil) -> SharedInbox? {
+    ///
+    /// `key` is REQUIRED, and deliberately has no default: a deposit made
+    /// without it lands as plaintext clipboard content in a container that
+    /// survives until the app's next drain. Obtain it from
+    /// `StoreContentKey.load(keychainAccessGroup:)`, and if that throws, do
+    /// not deposit at all.
+    public static func inAppGroup(key: Data) -> SharedInbox? {
         guard
             let container = FileManager.default.containerURL(
                 forSecurityApplicationGroupIdentifier: appGroupID)
@@ -82,24 +94,60 @@ public struct SharedInbox: Sendable {
         #endif
     }
 
+    /// What one drain did, so the host app can report a content-free health
+    /// note instead of losing captures silently.
+    public struct DrainSummary: Sendable, Equatable {
+        /// Captures handed to the app, oldest first.
+        public var captures: [PreparedCapture]
+        /// Files whose bytes were read but could not be opened or decoded, AND
+        /// were then successfully deleted: a poison capture must not wedge the
+        /// inbox. Only a real deletion counts here, so "discarded" is never
+        /// claimed for a file that is still on disk.
+        public var poisoned: Int
+        /// Files that could not be read at all and were LEFT IN PLACE for the
+        /// next drain — possibly mid-write, or momentarily unreadable under
+        /// data protection.
+        public var deferred: Int
+        /// Files that were processed but could NOT be removed, so they return
+        /// on the next drain. A readable one is handed over anyway and may
+        /// therefore arrive twice; an unreadable one keeps wedging the inbox.
+        /// Separate from `poisoned` because the promise differs: this one is
+        /// still there.
+        public var undeletable: Int
+
+        public init(
+            captures: [PreparedCapture], poisoned: Int = 0, deferred: Int = 0,
+            undeletable: Int = 0
+        ) {
+            self.captures = captures
+            self.poisoned = poisoned
+            self.deferred = deferred
+            self.undeletable = undeletable
+        }
+    }
+
     /// Reads and removes all pending captures, oldest first (file creation
-    /// date). Unreadable files are deleted too — a poison capture must not
-    /// wedge the inbox forever.
+    /// date).
     public func drain() throws -> [PasteboardCapture] {
         try drainPrepared().map(\.capture)
+    }
+
+    /// Prepared drain, discarding the health counters.
+    public func drainPrepared() throws -> [PreparedCapture] {
+        try drainReportingHealth().captures
     }
 
     /// Prepared drain: unseals (sealed deposits) then decodes the envelope,
     /// tolerating LEGACY files — plaintext pre-sealing deposits AND
     /// bare-capture pre-envelope deposits — so an app update never loses
     /// queued shares.
-    public func drainPrepared() throws -> [PreparedCapture] {
+    public func drainReportingHealth() throws -> DrainSummary {
         let files: [URL]
         do {
             files = try FileManager.default.contentsOfDirectory(
                 at: directory, includingPropertiesForKeys: [.creationDateKey])
         } catch CocoaError.fileReadNoSuchFile {
-            return []
+            return DrainSummary(captures: [])
         }
 
         let ordered = files.sorted { lhs, rhs in
@@ -111,19 +159,47 @@ public struct SharedInbox: Sendable {
         }
 
         var captures: [PreparedCapture] = []
+        var poisoned = 0
+        var deferred = 0
+        var undeletable = 0
         for file in ordered {
-            if let raw = try? Data(contentsOf: file), let data = openedPayload(raw) {
-                if let prepared = try? JSONDecoder().decode(PreparedCapture.self, from: data) {
-                    captures.append(prepared)
+            // A file we could not even READ is not poison — it is a capture
+            // that may still be mid-write, or briefly unreadable under data
+            // protection. Deleting it would silently destroy the user's clip,
+            // so leave it for the next drain. Only bytes we DID read and could
+            // not make sense of are poison, and those must go or they wedge
+            // the inbox forever.
+            guard let raw = try? Data(contentsOf: file) else {
+                deferred += 1
+                continue
+            }
+            var prepared: PreparedCapture?
+            if let data = openedPayload(raw) {
+                if let decoded = try? JSONDecoder().decode(PreparedCapture.self, from: data) {
+                    prepared = decoded
                 } else if let legacy = try? JSONDecoder().decode(
                     PasteboardCapture.self, from: data)
                 {
-                    captures.append(PreparedCapture(capture: legacy))
+                    prepared = PreparedCapture(capture: legacy)
                 }
             }
-            try? FileManager.default.removeItem(at: file)
+            // Hand over a good capture whether or not the file can be removed:
+            // a duplicate is absorbed by content-hash dedupe on insert, while
+            // dropping it loses the user's clip outright.
+            if let prepared { captures.append(prepared) }
+            do {
+                try FileManager.default.removeItem(at: file)
+                // "Discarded" is only true once the file is actually gone.
+                if prepared == nil { poisoned += 1 }
+            } catch {
+                // The file survived and comes back next drain. Counting it as
+                // poison would tell the user it was discarded while it is
+                // still sitting there being reprocessed on every drain.
+                undeletable += 1
+            }
         }
-        return captures
+        return DrainSummary(
+            captures: captures, poisoned: poisoned, deferred: deferred, undeletable: undeletable)
     }
 
     /// Unwraps one file's payload. Sealed files open with the key; a sealed

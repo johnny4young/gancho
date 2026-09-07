@@ -21,6 +21,7 @@ jobs:
     # Gancho targets macOS 15.4 / iOS 26 while using SDK-26 APIs and Swift 6.2;
     # keep release gates on the same Xcode 26 runner family as CI.
     runs-on: macos-26
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
@@ -97,6 +98,7 @@ jobs:
     name: Build, sign & publish the direct-download DMG
     needs: verify
     runs-on: macos-26
+    timeout-minutes: 120
     # The appcast deploy targets the github-pages environment.
     environment:
       name: github-pages

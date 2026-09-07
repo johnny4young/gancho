@@ -332,12 +332,22 @@ final class IOSAppModel {
     private static let maintenanceInterval: TimeInterval = 10 * 60
     private static let lastMaintenanceKey = "ios-last-maintenance-at"
 
-    func runMaintenance() async {
-        guard let grdb = grdbForEngines else { return }
-        if let last = defaults.object(forKey: Self.lastMaintenanceKey) as? Date,
+    /// - Parameters:
+    ///   - refreshingList: false for a run with no one watching (backgrounding,
+    ///     BGAppRefresh), which skips the list reload.
+    ///   - ignoringThrottle: true when the caller is a rare, explicitly
+    ///     scheduled run that must not be skipped just because the app happened
+    ///     to be open minutes ago.
+    @discardableResult
+    func runMaintenance(
+        refreshingList: Bool = true, ignoringThrottle: Bool = false
+    ) async -> Bool {
+        guard let grdb = grdbForEngines else { return false }
+        if !ignoringThrottle,
+            let last = defaults.object(forKey: Self.lastMaintenanceKey) as? Date,
             Date().timeIntervalSince(last) < Self.maintenanceInterval
         {
-            return
+            return false
         }
         let policy = RetentionPolicy.load(from: defaults)
         let now = Date()
@@ -358,7 +368,8 @@ final class IOSAppModel {
         }
         _ = try? await TierEnforcement(store: grdb).enforce(tier: tier)
         defaults.set(Date(), forKey: Self.lastMaintenanceKey)
-        await search()
+        if refreshingList { await search() }
+        return true
     }
 
     /// Resolves a `gancho://clip/<id>` widget link: make sure the clip is in
@@ -761,11 +772,23 @@ final class IOSAppModel {
     }
 
     func delete(_ item: ClipItem) async {
-        if syncController.isEnabled, let full {
-            try? await full.deleteForSync(id: item.id, now: .now)
-            await syncController.engine.enqueueDeletion(ids: [item.id])
-        } else {
-            try? await store.delete(id: item.id)
+        let outcome = await deletionWorkflow.delete(
+            ids: [item.id],
+            store: store,
+            syncStore: full,
+            engine: syncController.engine,
+            syncEnabled: syncController.isEnabled)
+        // Match on the case, not on `propagated`: with sync on but no durable
+        // facet the workflow deletes locally and reports `propagated: false`,
+        // which is a success. Anything else means the row survived locally, and
+        // the list refresh below puts it back on screen.
+        switch outcome {
+        case .deleted:
+            break
+        case .partial, .failed:
+            diagnostics.record(
+                String(localized: "History"),
+                String(localized: "Couldn’t delete this clip."))
         }
         await search()
         reloadWidgets()
@@ -790,6 +813,7 @@ final class IOSAppModel {
 
     private let source = IntentionalPasteboardSource()
     private let curationController = ClipCurationController()
+    private let deletionWorkflow = ClipDeletionWorkflow()
     private let ingestionCoordinator = ClipIngestionCoordinator()
     /// Durable store in the App Group container (shared family location);
     /// in-memory fallback keeps the app usable if the container is missing.
@@ -912,9 +936,34 @@ final class IOSAppModel {
     /// Captures handed over by the share extension through the App Group.
     /// The extension already classified (tier 0); reuse its verdict.
     func drainSharedInbox() async {
-        guard let inbox = SharedInbox.inAppGroup() else { return }
-        for prepared in (try? inbox.drainPrepared()) ?? [] {
+        guard
+            let key = try? StoreContentKey.load(
+                keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup),
+            let inbox = SharedInbox.inAppGroup(key: key),
+            let summary = try? inbox.drainReportingHealth()
+        else { return }
+        for prepared in summary.captures {
             await ingest(prepared.capture, precomputedKind: prepared.kind)
+        }
+        // Counts only — never what the unreadable capture contained. Deferred
+        // and poisoned are reported separately on purpose: one says an item was
+        // kept for another try, the other says an item is gone. A deferred file
+        // is retried on every future drain, so surfacing it is what keeps an
+        // item that never becomes readable from waiting in silence.
+        if summary.poisoned > 0 {
+            diagnostics.record(
+                String(localized: "Sharing"),
+                String(localized: "Couldn’t read a shared item, so it was discarded."))
+        }
+        if summary.deferred > 0 {
+            diagnostics.record(
+                String(localized: "Sharing"),
+                String(localized: "A shared item wasn’t readable yet and was kept for later."))
+        }
+        if summary.undeletable > 0 {
+            diagnostics.record(
+                String(localized: "Sharing"),
+                String(localized: "A shared item couldn’t be cleared and may arrive again."))
         }
     }
 

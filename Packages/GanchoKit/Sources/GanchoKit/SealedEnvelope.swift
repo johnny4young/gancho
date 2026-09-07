@@ -4,7 +4,9 @@ import Foundation
 /// The ONE seal/open primitive for content that crosses a process or disk
 /// boundary outside the SQLCipher database — blob payloads, cached
 /// thumbnails, and the share-extension inbox all route through it, so the
-/// "content exists in exactly four places" guarantee holds by construction.
+/// enumeration of where content lives (docs/SECURITY-MODEL.md) holds by
+/// construction. The count is deliberately not restated here: it drifted once
+/// already when the inbox joined the list.
 ///
 /// Wire format (byte-identical to the framing `BlobStore` has always
 /// written, so every sealed blob and thumbnail already on disk decodes

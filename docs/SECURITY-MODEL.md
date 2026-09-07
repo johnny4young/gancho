@@ -21,9 +21,14 @@ flowchart LR
     E -.->|CONTENT NEVER| T[Optional telemetry / crash logs /\nsupport bundles / third parties]
 ```
 
-Content exists in exactly four places: the pasteboard itself, the local
-store (rows + content-addressed blobs), the user's iCloud private database
-(opt-in, `encryptedValues`), and user-initiated exports. Everything else —
+Content exists in exactly five places: the pasteboard itself, the local
+store (rows + content-addressed blobs), the App Group share inbox on iOS, the
+user's iCloud private database (opt-in, `encryptedValues`), and user-initiated
+exports. The inbox is the short-lived handoff from the share extension to the
+app — the extension cannot open the store, so it seals each capture with the
+same content key (`StoreContentKey` → `SealedEnvelope`) and the app unseals it
+on the next drain. Without that key the extension refuses to deposit rather
+than writing plaintext. Everything else —
 ignore events, purge logs, private activity totals, activation metrics, and explicitly enabled telemetry
 — is counters and timestamps by construction (the types carry no content
 field). Telemetry is disabled until the user consents and stops immediately
@@ -96,7 +101,7 @@ would mean introducing a NEW field and migrating writers, never converting.
 | Sync conflicts duplicating or resurrecting clips | hash+device dedupe key, last-writer-wins, tombstones | store tests; on-device verification checklist for the live path |
 | External AI seeing clips | tier 0/1 are fully on-device; tier 2 (PCC/external) is per-action opt-in, off by default | architecture boundary (`ClipAnnotating`) |
 | Exports grabbed by other software | exports are explicit user actions to user-chosen paths; no auto-export | settings/export code path |
-| Lost/stolen device | content sits in the OS user account protected by FileVault/iOS data protection; sensitive items already expired in minutes | retention engine tests |
+| Lost/stolen device | content sits in the OS user account protected by FileVault/iOS data protection; sensitive items expire on their own. macOS purges every five minutes on a timer. iOS purges on leaving the app and again through an opportunistic background refresh, so a phone that is never opened again narrows to those windows rather than expiring on a schedule iOS does not offer — the background refresh is granted at the OS's discretion, not on request | retention engine tests |
 | Support bundles leaking content | support/diagnostics may include settings snapshot + counters ONLY (snapshot is content-free by schema); the in-app error log (`DiagnosticLog`, the Privacy Center "Recent issues" + "Copy for support") stores a category, a fixed operational message, and a timestamp only — never clip text, capped in memory, never persisted or uploaded | `SettingsSnapshotTests.contentFree`, `DiagnosticLogTests` |
 | Private activity receipt grows or becomes a shadow history | `clip_app_stats` accepts bounded bundle IDs plus UTC days and integer counters only; atomic upserts prune beyond 13 months; Privacy Center exposes an independent clear action; the table never syncs or exports | `PrivateActivityReceiptTests` schema, retention, concurrency, and clear coverage |
 | Consent withdrawal leaves analytics running | sender detaches under lock, SDK termination runs synchronously, session counters and local activation receipts are erased; a concurrently constructed sender is terminated instead of attached | `TelemetryTests.forwards`, disabled-state and activation-receipt tests |
