@@ -37,6 +37,14 @@ jobs:
           key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift', 'Packages/GanchoKit/Package.resolved') }}
 
       - name: Run performance harness
+        env:
+          # The warm search budget relaxes ONLY on GitHub's shared runners,
+          # which is where the noise it allows for was measured. Derived from
+          # `runner.environment` rather than `CI`: that variable is set by every
+          # CI system, says nothing about whether the hardware is shared, and is
+          # commonly set to the literal `false`. A self-hosted runner reports
+          # `self-hosted` here and so keeps the strict budget.
+          GANCHO_PERF_HOSTED_RUNNER: ${{ runner.environment == 'github-hosted' }}
         # GitHub's default `run:` shell is bash WITHOUT pipefail, so
         # `make bench | tee` used to exit with tee's 0 and a failing harness
         # kept the job green (this masked a broken budget test for weeks).

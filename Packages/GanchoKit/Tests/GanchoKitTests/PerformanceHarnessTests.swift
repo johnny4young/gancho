@@ -83,8 +83,23 @@ struct PerformanceHarnessTests {
     /// Interactive ceiling on a quiet machine.
     static let warmSearchP95Budget = Duration.milliseconds(50)
 
-    /// True on a shared CI runner, where wall-clock latency is not ours alone.
-    static var isHostedRunner: Bool { ProcessInfo.processInfo.environment["CI"] != nil }
+    /// True only on GitHub's shared hosted runners, where wall-clock latency is
+    /// not ours alone.
+    ///
+    /// Deliberately NOT keyed on `CI`. That variable is set by every CI system
+    /// and by anyone who exports it, it says nothing about whether the hardware
+    /// is shared, and it is commonly set to the literal `false` — which a
+    /// presence check would read as hosted. `perf.yml` derives this flag from
+    /// `runner.environment` instead, so the relaxed budget reaches exactly the
+    /// shared runners it was measured on: a self-hosted runner is dedicated
+    /// hardware and keeps the strict budget, as does every local run.
+    ///
+    /// Absent or anything but `true` means dedicated. The strict budget is the
+    /// safe default: the worst case is a noise-driven failure someone
+    /// investigates, not a regression that ships unnoticed.
+    static var isHostedRunner: Bool {
+        ProcessInfo.processInfo.environment["GANCHO_PERF_HOSTED_RUNNER"] == "true"
+    }
 
     /// The warm ceiling actually enforced.
     ///
@@ -99,7 +114,8 @@ struct PerformanceHarnessTests {
     /// control the smallest change we can distinguish from noise is roughly a
     /// doubling. The per-round trend lines still print either way, so gradual
     /// drift stays visible in the job summary even though it does not fail the
-    /// build. Local runs keep the real 50 ms interactive budget.
+    /// build. Dedicated hardware — a developer's Mac or a self-hosted runner —
+    /// keeps the real 50 ms interactive budget.
     static var effectiveWarmSearchP95Budget: Duration {
         isHostedRunner ? warmSearchP95Budget * 2 : warmSearchP95Budget
     }
@@ -442,7 +458,7 @@ struct PerformanceHarnessTests {
     @Test("FTS5 cold and warm search budgets hold over 100k clips")
     func searchBudget() async throws {
         let store = try await makeSeededStore()
-        let environment = Self.isHostedRunner ? "hosted-ci" : "local"
+        let environment = Self.isHostedRunner ? "github-hosted" : "dedicated"
         // Print the budget that is ENFORCED, not the nominal one: a log that
         // says 50 ms while the gate applies 100 ms is how a reader concludes
         // the wrong thing about a passing run.
@@ -451,7 +467,7 @@ struct PerformanceHarnessTests {
                 + "warm-rounds=\(Self.searchRounds) queries-per-round=\(Self.searchQueries.count) "
                 + "cold-budget=\(Self.coldSearchBudget) "
                 + "warm-p95-budget=\(Self.effectiveWarmSearchP95Budget) "
-                + "warm-p95-budget-local=\(Self.warmSearchP95Budget)")
+                + "warm-p95-budget-strict=\(Self.warmSearchP95Budget)")
         let cold = try await measureSearch("quarterly inv", store: store)
         print("perf: FTS5 cold first query over \(Self.scale): \(cold)")
 
