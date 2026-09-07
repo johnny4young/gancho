@@ -419,6 +419,15 @@ final class AppModel {
                     isProtected: reason == .sensitiveType, count: 1, at: .now)
             }
         }
+        // Turning "remember searches" off promises the stored queries are
+        // gone. Report a failed erase instead of leaving the toggle reading
+        // "off" over a history that is still on disk.
+        reuseController.setSearchHistoryClearFailureObserver { [weak self] in
+            self?.diagnostics.record(
+                String(localized: "Privacy"),
+                String(
+                    localized: "Stored searches couldn’t be erased. Try turning it off again."))
+        }
         reuseController.setRecentItemsObserver { [weak self] _ in
             self?.publishLastCopied()
         }
@@ -1323,6 +1332,14 @@ final class AppModel {
             try config.save(toStoreDirectory: mcpConfigDirectory)
             mcpConfig = config
         } catch {
+            // A failed save leaves the in-memory config untouched, so the row
+            // simply does not change state. Without a toast that is
+            // indistinguishable from "the click never landed" — the exact
+            // ambiguity that makes a revoke look like it worked when it did
+            // not.
+            toasts.show(
+                GanchoToast(
+                    message: "Couldn’t save local agent access settings.", style: .warning))
             diagnostics.record(
                 String(localized: "MCP Access"),
                 String(localized: "Couldn’t save local agent access settings."))
@@ -1338,16 +1355,33 @@ final class AppModel {
     func buyPlan(_ plan: ProProduct.Plan) {
         defaults.set(defaults.integer(forKey: "upgrade-started") + 1, forKey: "upgrade-started")
         Task {
-            if (try? await purchases.purchase(plan)) == true {
-                defaults.set(
-                    defaults.integer(forKey: "upgrade-completed") + 1,
-                    forKey: "upgrade-completed")
+            do {
+                // `false` is a user cancel — expected, and silent. Only a throw
+                // is a purchase that tried and failed, which the user should
+                // hear about rather than be left staring at an unchanged tier.
+                if try await purchases.purchase(plan) {
+                    defaults.set(
+                        defaults.integer(forKey: "upgrade-completed") + 1,
+                        forKey: "upgrade-completed")
+                }
+            } catch {
+                toasts.show(
+                    GanchoToast(message: "Couldn’t complete the purchase.", style: .warning))
             }
         }
     }
 
     func restorePurchases() {
-        Task { _ = try? await purchases.restorePurchases() }
+        Task {
+            do {
+                _ = try await purchases.restorePurchases()
+            } catch {
+                // "Nothing to restore" and "the request failed" are different
+                // answers; only the second is worth interrupting for.
+                toasts.show(
+                    GanchoToast(message: "Couldn’t restore purchases.", style: .warning))
+            }
+        }
     }
 
     #if GANCHO_DIRECT_DOWNLOAD

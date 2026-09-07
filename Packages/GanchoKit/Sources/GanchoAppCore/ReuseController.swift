@@ -28,11 +28,21 @@ public final class ReuseController {
     public private(set) var recentItems: [ClipItem] = []
     public var activeSearchQuery = ""
 
+    /// Turning this OFF promises the stored searches are erased. That promise
+    /// is only kept if the erase actually lands, so a failure is reported
+    /// rather than swallowed: the toggle must never read "off" while the
+    /// history is still on disk.
     public var rememberSearches: Bool {
         didSet {
             onRememberSearchesChanged(rememberSearches)
             guard !rememberSearches, let usageStore else { return }
-            Task { try? await usageStore.clearSearchHistory() }
+            Task { [onSearchHistoryClearFailed] in
+                do {
+                    try await usageStore.clearSearchHistory()
+                } catch {
+                    onSearchHistoryClearFailed()
+                }
+            }
         }
     }
 
@@ -41,6 +51,9 @@ public final class ReuseController {
     @ObservationIgnored private let usageStore: (any ReuseUsageStoring)?
     @ObservationIgnored private let deletionCoordinator: DeletionCoordinator
     @ObservationIgnored private let onRememberSearchesChanged: @MainActor (Bool) -> Void
+    /// Called when erasing the stored searches failed, so the shell can say so.
+    /// Content-free: it carries no query, only the fact.
+    @ObservationIgnored private var onSearchHistoryClearFailed: @MainActor () -> Void = {}
     @ObservationIgnored private var onRecentItemsChanged: @MainActor ([ClipItem]) -> Void = { _ in }
     @ObservationIgnored private var cycleIndex = 0
     @ObservationIgnored private var lastCycleAt = Date.distantPast
@@ -57,6 +70,15 @@ public final class ReuseController {
         self.rememberSearches = rememberSearches
         self.deletionCoordinator = deletionCoordinator
         self.onRememberSearchesChanged = onRememberSearchesChanged
+    }
+
+    /// Installs the shell's report for a failed search-history erase. Settable
+    /// for the same reason as `setRecentItemsObserver`: the composition root
+    /// cannot capture itself until every stored dependency is initialized.
+    public func setSearchHistoryClearFailureObserver(
+        _ observer: @escaping @MainActor () -> Void
+    ) {
+        onSearchHistoryClearFailed = observer
     }
 
     /// Installs the shell effect that mirrors the newest visible clip to the
