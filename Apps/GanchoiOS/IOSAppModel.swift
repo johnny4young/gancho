@@ -332,12 +332,22 @@ final class IOSAppModel {
     private static let maintenanceInterval: TimeInterval = 10 * 60
     private static let lastMaintenanceKey = "ios-last-maintenance-at"
 
-    func runMaintenance() async {
-        guard let grdb = grdbForEngines else { return }
-        if let last = defaults.object(forKey: Self.lastMaintenanceKey) as? Date,
+    /// - Parameters:
+    ///   - refreshingList: false for a run with no one watching (backgrounding,
+    ///     BGAppRefresh), which skips the list reload.
+    ///   - ignoringThrottle: true when the caller is a rare, explicitly
+    ///     scheduled run that must not be skipped just because the app happened
+    ///     to be open minutes ago.
+    @discardableResult
+    func runMaintenance(
+        refreshingList: Bool = true, ignoringThrottle: Bool = false
+    ) async -> Bool {
+        guard let grdb = grdbForEngines else { return false }
+        if !ignoringThrottle,
+            let last = defaults.object(forKey: Self.lastMaintenanceKey) as? Date,
             Date().timeIntervalSince(last) < Self.maintenanceInterval
         {
-            return
+            return false
         }
         let policy = RetentionPolicy.load(from: defaults)
         let now = Date()
@@ -358,7 +368,8 @@ final class IOSAppModel {
         }
         _ = try? await TierEnforcement(store: grdb).enforce(tier: tier)
         defaults.set(Date(), forKey: Self.lastMaintenanceKey)
-        await search()
+        if refreshingList { await search() }
+        return true
     }
 
     /// Resolves a `gancho://clip/<id>` widget link: make sure the clip is in

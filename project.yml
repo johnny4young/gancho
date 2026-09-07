@@ -285,9 +285,16 @@ targets:
         # screen) needs this opt-in; sensitive clips are masked before they
         # reach it.
         NSSupportsLiveActivities: true
-        # CKSyncEngine wakes on silent push to pull remote clips.
+        # CKSyncEngine wakes on silent push to pull remote clips; `fetch` lets
+        # BGAppRefresh run the retention purge on a phone the user has not
+        # opened. Neither mode ever captures: `fetch` only DELETES expired
+        # clips, which is why declaring it does not weaken the "no silent iOS
+        # capture" invariant.
         UIBackgroundModes:
           - remote-notification
+          - fetch
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.johnny4young.gancho.retention
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
