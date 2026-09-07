@@ -138,9 +138,16 @@ struct GanchoiOSApp: App {
             // Release the encrypted store's SQLite locks before iOS suspends the
             // process (avoids 0xDEAD10CC), and resume on return to foreground.
             switch phase {
-            case .background: DatabaseSuspension.suspend()
+            case .background:
+                // Purge on the way out — the moment the user leaves is when
+                // "sensitive expires in minutes" starts to matter — but NEVER
+                // at the cost of the 0xDEAD10CC guard. The assertion below
+                // buys the time, and `suspend()` runs on both exits: when the
+                // purge finishes, and when iOS takes the time back.
+                BackgroundPurge.run(model: model)
+                RetentionBackgroundTask.schedule()
             case .active:
-                DatabaseSuspension.resume()
+                StoreSuspension.appDidBecomeActive()
                 // With the store resumed, run the retention/tier pass the Mac
                 // does on a timer — iOS gets it on return to foreground,
                 // throttled inside runMaintenance() so frequent app switches
@@ -172,6 +179,9 @@ final class GanchoiOSAppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         application.registerForRemoteNotifications()
+        // Registration must happen before launch completes, so it lives here
+        // rather than in a scene callback.
+        RetentionBackgroundTask.register { GanchoiOSRuntime.model }
         return true
     }
 
