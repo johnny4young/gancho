@@ -30,6 +30,17 @@ jobs:
             xcodebuild -version
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Two 45-minute jobs ran with no cache at all. Sparkle is
+      # deliberately NOT cached: fetch-sparkle.sh verifies the archive's
+      # SHA-256 before extracting, and a cache hit would skip that check to
+      # save one small download.
+      - name: Cache SwiftPM
+        uses: actions/cache@v6
+        with:
+          path: Packages/GanchoKit/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift', 'Packages/GanchoKit/Package.resolved') }}
+
+
       - name: Install XcodeGen
         run: brew install xcodegen
         env:
@@ -96,6 +107,17 @@ jobs:
             sw_vers
             xcodebuild -version
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Two 45-minute jobs ran with no cache at all. Sparkle is
+      # deliberately NOT cached: fetch-sparkle.sh verifies the archive's
+      # SHA-256 before extracting, and a cache hit would skip that check to
+      # save one small download.
+      - name: Cache SwiftPM
+        uses: actions/cache@v6
+        with:
+          path: Packages/GanchoKit/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift', 'Packages/GanchoKit/Package.resolved') }}
+
 
       - name: Install XcodeGen
         run: brew install xcodegen
