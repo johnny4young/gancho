@@ -936,9 +936,34 @@ final class IOSAppModel {
     /// Captures handed over by the share extension through the App Group.
     /// The extension already classified (tier 0); reuse its verdict.
     func drainSharedInbox() async {
-        guard let inbox = SharedInbox.inAppGroup() else { return }
-        for prepared in (try? inbox.drainPrepared()) ?? [] {
+        guard
+            let key = try? StoreContentKey.load(
+                keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup),
+            let inbox = SharedInbox.inAppGroup(key: key),
+            let summary = try? inbox.drainReportingHealth()
+        else { return }
+        for prepared in summary.captures {
             await ingest(prepared.capture, precomputedKind: prepared.kind)
+        }
+        // Counts only — never what the unreadable capture contained. Deferred
+        // and poisoned are reported separately on purpose: one says an item was
+        // kept for another try, the other says an item is gone. A deferred file
+        // is retried on every future drain, so surfacing it is what keeps an
+        // item that never becomes readable from waiting in silence.
+        if summary.poisoned > 0 {
+            diagnostics.record(
+                String(localized: "Sharing"),
+                String(localized: "Couldn’t read a shared item, so it was discarded."))
+        }
+        if summary.deferred > 0 {
+            diagnostics.record(
+                String(localized: "Sharing"),
+                String(localized: "A shared item wasn’t readable yet and was kept for later."))
+        }
+        if summary.undeletable > 0 {
+            diagnostics.record(
+                String(localized: "Sharing"),
+                String(localized: "A shared item couldn’t be cleared and may arrive again."))
         }
     }
 

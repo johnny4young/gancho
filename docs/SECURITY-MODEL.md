@@ -21,9 +21,14 @@ flowchart LR
     E -.->|CONTENT NEVER| T[Optional telemetry / crash logs /\nsupport bundles / third parties]
 ```
 
-Content exists in exactly four places: the pasteboard itself, the local
-store (rows + content-addressed blobs), the user's iCloud private database
-(opt-in, `encryptedValues`), and user-initiated exports. Everything else —
+Content exists in exactly five places: the pasteboard itself, the local
+store (rows + content-addressed blobs), the App Group share inbox on iOS, the
+user's iCloud private database (opt-in, `encryptedValues`), and user-initiated
+exports. The inbox is the short-lived handoff from the share extension to the
+app — the extension cannot open the store, so it seals each capture with the
+same content key (`StoreContentKey` → `SealedEnvelope`) and the app unseals it
+on the next drain. Without that key the extension refuses to deposit rather
+than writing plaintext. Everything else —
 ignore events, purge logs, private activity totals, activation metrics, and explicitly enabled telemetry
 — is counters and timestamps by construction (the types carry no content
 field). Telemetry is disabled until the user consents and stops immediately

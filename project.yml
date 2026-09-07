@@ -432,9 +432,17 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.johnny4young.gancho
+        # Seals each deposited capture with the store's content key, which
+        # lives in the app's shared keychain group — same access the widget
+        # and keyboard extensions already hold. Without it the extension
+        # cannot seal, and it refuses to deposit rather than writing
+        # plaintext clipboard content into the App Group container.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.johnny4young.gancho.keys
     dependencies:
       - package: GanchoKit
         products:
+          - GanchoKit
           - ClipboardCore
           - GanchoAI
     info:
@@ -443,6 +451,11 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: Save to Gancho
+        # Resolves the shared keychain group from the signing team, exactly as
+        # the app, widget, and keyboard targets do. Without it the lookup falls
+        # back to a hardcoded prefix, and a team change would make every share
+        # fail closed with nothing to point at.
+        AppIdentifierPrefix: $(DEVELOPMENT_TEAM).
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController

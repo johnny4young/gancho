@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "A shared item couldn’t be cleared and may arrive again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo limpiar un elemento compartido y puede volver a llegar."
+          }
+        }
+      }
+    },
+    "A shared item wasn’t readable yet and was kept for later.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un elemento compartido aún no se podía leer y se guardó para después."
+          }
+        }
+      }
+    },
     "All apps": {
       "localizations": {
         "es": {
@@ -31,12 +51,32 @@
         }
       }
     },
+    "Couldn’t read a shared item, so it was discarded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer un elemento compartido, así que se descartó."
+          }
+        }
+      }
+    },
     "Filters": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Filtros"
+          }
+        }
+      }
+    },
+    "Sharing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir"
           }
         }
       }
