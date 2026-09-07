@@ -31,6 +31,16 @@
         }
       }
     },
+    "Paste your license key": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega tu clave de licencia"
+          }
+        }
+      }
+    },
     "The menu-bar helper didn’t start; using the built-in icon.": {
       "localizations": {
         "es": {

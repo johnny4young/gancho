@@ -115,6 +115,14 @@ struct LocalizationTests {
     /// shipped missing while Spanish users read English. And a declaration
     /// TYPED `LocalizedStringKey` is a key with no `Text(…)` around it —
     /// `case .today: "Today"` in a `-> LocalizedStringKey` switch.
+    ///
+    /// The pattern list is the gate's real surface area: a localized
+    /// initializer that is not listed is simply not enforced. `TextField`,
+    /// `Picker`, `.help`, and the accessibility pair went unlisted long enough
+    /// for the direct-download license field to ship an English placeholder on
+    /// the one screen where clarity matters most, while the catalogs already
+    /// carried ~60 strings from those same initializers — the copy was ahead of
+    /// the gate. When a SwiftUI API takes a localized title, add it here.
     @Test("No hardcoded user-facing prose outside the catalogs")
     func hardcodedSweep() throws {
         // swiftlint:enable function_body_length
@@ -151,6 +159,20 @@ struct LocalizationTests {
             #"(?:Text|Label)\(\s*(?=")"#,
             #"(?:Button|Toggle|Menu|Section)\(\s*(?=")"#,
             #"ActionButton\(\s*(?=")"#,
+            // Every other SwiftUI initializer whose FIRST argument is a
+            // localized title. These reach users exactly like `Text`, and were
+            // simply never listed — the catalogs already carry ~60 of these
+            // strings, so the copy was ahead of the gate rather than the other
+            // way round.
+            #"(?:TextField|SecureField|Picker|LabeledContent|Stepper)\(\s*(?=")"#,
+            #"(?:Link|DisclosureGroup|NavigationLink|GroupBox|ShareLink)\(\s*(?=")"#,
+            // Modifiers that render or announce a literal. `.help` shows a
+            // tooltip; the accessibility pair is what VoiceOver reads aloud, so
+            // an untranslated one is a Spanish user hearing English.
+            #"\.(?:help|accessibilityLabel|accessibilityHint|navigationSubtitle)\(\s*(?=")"#,
+            // `.searchable(text:prompt:)` — the prompt is placeholder copy, and
+            // it is never the first argument.
+            #"\.searchable\([^)]*prompt:\s*(?=")"#,
             #"\.(?:navigationTitle|alert|confirmationDialog)\(\s*(?=")"#,
             #"LocalizedString(?:Resource|Key)\(\s*(?=")"#,
             #"LocalizedString(?:Resource|Key)\s*=\s*(?=")"#,
