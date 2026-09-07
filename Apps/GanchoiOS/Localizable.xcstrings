@@ -21,6 +21,16 @@
         }
       }
     },
+    "Couldn’t delete this clip.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo borrar este clip."
+          }
+        }
+      }
+    },
     "Filters": {
       "localizations": {
         "es": {

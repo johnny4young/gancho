@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Couldn’t delete every clip — the ones that remain were kept.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron borrar todos los clips; los que siguen ahí se conservaron."
+          }
+        }
+      }
+    },
     "Menu bar": {
       "localizations": {
         "es": {
