@@ -17,16 +17,32 @@ final class ShareViewController: UIViewController {
         Task {
             let saved = await ingestAttachments()
             // The sheet otherwise vanishes with zero feedback; a success tap
-            // confirms the capture actually landed.
-            if saved > 0 {
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            // confirms the capture actually landed, and an error tap says the
+            // share did NOT save rather than letting it look like it did.
+            let generator = UINotificationFeedbackGenerator()
+            switch saved {
+            case .some(let count) where count > 0: generator.notificationOccurred(.success)
+            case .none: generator.notificationOccurred(.error)
+            default: break
             }
             extensionContext?.completeRequest(returningItems: nil)
         }
     }
 
-    private func ingestAttachments() async -> Int {
-        guard let inbox = SharedInbox.inAppGroup() else { return 0 }
+    /// Deposits every attachment, or nil when the inbox cannot be reached
+    /// sealed.
+    ///
+    /// Fail closed: without the content key a deposit would leave plaintext
+    /// clipboard content sitting in the App Group container until the app's
+    /// next launch, which is exactly the exposure the seal exists to prevent.
+    /// Losing one share is recoverable — the user shares again; leaking it is
+    /// not.
+    private func ingestAttachments() async -> Int? {
+        guard
+            let key = try? StoreContentKey.load(
+                keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup),
+            let inbox = SharedInbox.inAppGroup(key: key)
+        else { return nil }
         let providers = (extensionContext?.inputItems ?? [])
             .compactMap { $0 as? NSExtensionItem }
             .flatMap { $0.attachments ?? [] }

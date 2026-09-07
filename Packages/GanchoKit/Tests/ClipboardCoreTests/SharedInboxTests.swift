@@ -60,6 +60,65 @@ struct SharedInboxTests {
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty)
     }
 
+    @Test("An unreadable file is kept for the next drain, never destroyed")
+    func unreadableFileIsDeferred() throws {
+        let (inbox, dir) = makeInbox(key: key)
+        defer {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o700], ofItemAtPath: dir.path)
+            try? FileManager.default.removeItem(at: dir)
+        }
+
+        try inbox.deposit(PasteboardCapture(text: "readable"))
+        // A capture whose bytes cannot be read yet — mid-write, or briefly
+        // unreadable under data protection. Simulated with permissions, which
+        // is the one failure mode a test can produce deterministically.
+        let unreadable = dir.appendingPathComponent("locked.json")
+        try Data("{}".utf8).write(to: unreadable, options: .atomic)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o000], ofItemAtPath: unreadable.path)
+
+        let summary = try inbox.drainReportingHealth()
+
+        #expect(summary.captures.map(\.capture.textRepresentation) == ["readable"])
+        #expect(summary.deferred == 1)
+        #expect(summary.poisoned == 0)
+        // The whole point: the file the drain could not read is STILL THERE.
+        #expect(
+            FileManager.default.fileExists(atPath: unreadable.path),
+            "an unreadable capture must survive the drain that could not read it")
+    }
+
+    @Test("Bytes that were read but make no sense are counted as poison and removed")
+    func poisonIsCountedAndRemoved() throws {
+        let (inbox, dir) = makeInbox(key: key)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try inbox.deposit(PasteboardCapture(text: "good"))
+        try Data("not json".utf8).write(
+            to: dir.appendingPathComponent("poison.json"), options: .atomic)
+
+        let summary = try inbox.drainReportingHealth()
+
+        #expect(summary.captures.map(\.capture.textRepresentation) == ["good"])
+        #expect(summary.poisoned == 1)
+        #expect(summary.deferred == 0)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty)
+    }
+
+    @Test("A sealed deposit read with the wrong key is poison, not a silent pass-through")
+    func wrongKeyIsPoison() throws {
+        let (writer, dir) = makeInbox(key: key)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try writer.deposit(PasteboardCapture(text: "secret"))
+
+        let reader = SharedInbox(directory: dir, key: Data(repeating: 0x11, count: 32))
+        let summary = try reader.drainReportingHealth()
+
+        #expect(summary.captures.isEmpty)
+        #expect(summary.poisoned == 1)
+    }
+
     @Test("Prepared envelope round-trips kind; legacy files still drain")
     func preparedAndLegacy() throws {
         let (inbox, dir) = makeInbox()
