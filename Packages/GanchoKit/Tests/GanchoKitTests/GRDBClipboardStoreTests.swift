@@ -162,6 +162,30 @@ struct GRDBClipboardStoreTests {
         #expect(!blobFiles.contains { $0 != "thumbnails" }, "orphaned blob must be removed")
     }
 
+    @Test("An unprovable orphan keeps its bytes rather than risking a wrong delete")
+    func blobCleanupIsFailSafe() async throws {
+        let (store, dir) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let item = ClipItem(kind: .image, preview: "Image", contentHash: "img")
+        try await store.insert(item, content: .binary(data: tinyPNG, typeIdentifier: "public.png"))
+        let hash = try #require(
+            await store.writer.read { db in
+                try ClipRow.filter(key: item.id.uuidString).fetchOne(db)?.contentBlobHash
+            })
+
+        // The row is still there, so the blob is NOT an orphan. Cleanup must
+        // leave it alone — blob ownership is not atomic with the database, and
+        // bytes removed in error are gone for good, while a leftover blob is
+        // reclaimed by the orphan sweep.
+        await store.removeBlobIfOrphaned(hash)
+
+        #expect(
+            try await store.content(for: item.id)
+                == .binary(data: tinyPNG, typeIdentifier: "public.png"),
+            "a referenced blob must survive a cleanup pass")
+    }
+
     @Test("deleteAllSensitive removes orphaned blobs but never a shared one")
     func deleteAllSensitiveKeepsSharedBlobs() async throws {
         let (store, dir) = try makeStore()

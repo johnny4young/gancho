@@ -31,6 +31,16 @@
         }
       }
     },
+    "Couldn’t delete this clip.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo borrar este clip."
+          }
+        }
+      }
+    },
     "Couldn’t read a shared item, so it was discarded.": {
       "localizations": {
         "es": {

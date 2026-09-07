@@ -113,18 +113,19 @@ extension MCPToolRunner {
             name: MCPToolName.searchClips.rawValue,
             description:
                 // swiftlint:disable:next line_length
-                "Search the Gancho clipboard history. Returns clip metadata (id, title, preview, kind). Use get_clip to read a clip's full content.",
+                "Search the Gancho clipboard history. Returns clip metadata only (id, title, preview, kind, pinned state, capture time, source app) and never content; call get_clip for a clip's full content. Results stay inside the grant's approved context, narrow under the 'boards' scope to clips that are pinned or filed on a board, and never include clips marked sensitive. An unrecognized mode falls back to fuzzy.",
             inputSchema: schema(
                 properties: [
                     "query": property("string", "Text to search for in clip titles and content."),
-                    "limit": property("integer", "Max results (1–100, default 25)."),
+                    "limit": property(
+                        "integer", "Max results, default 25; values outside 1–100 are clamped."),
                     "mode": property("string", "Match mode: exact, fuzzy (default), or regex.")
                 ], required: ["query"])),
         MCPToolDescriptor(
             name: MCPToolName.getClip.rawValue,
             description:
                 // swiftlint:disable:next line_length
-                "Fetch one clip's full content by id. Content is withheld under the 'metadata' scope and for sensitive clips.",
+                "Fetch one clip by id. Content is withheld (metadata still returned, contentWithheld = true) under the 'metadata' scope, and under the 'boards' scope for a clip that is neither pinned nor filed on any board. Sensitive clips return an error result instead of content.",
             inputSchema: schema(
                 properties: ["id": property("string", "The clip id from search_clips.")],
                 required: ["id"])),
@@ -132,7 +133,7 @@ extension MCPToolRunner {
             name: MCPToolName.createPin.rawValue,
             description:
                 // swiftlint:disable:next line_length
-                "Pin a clip inside the client’s approved context. Requires an explicit read-write grant; arbitrary board creation is not allowed.",
+                "Pin a clip inside the client's approved context. Requires a read-write grant; a read-only grant is not offered this tool at all. A `board`, when given, must match the grant's own approved board name (case-insensitive) - a client can never pin into a board outside its context. Sensitive clips cannot be pinned.",
             inputSchema: schema(
                 properties: [
                     "id": property("string", "The clip id to pin."),
@@ -142,7 +143,7 @@ extension MCPToolRunner {
             name: MCPToolName.pasteStack.rawValue,
             description:
                 // swiftlint:disable:next line_length
-                "Assemble several clips, in order, into one stack of text to paste. Needs content access (not available under 'metadata' scope).",
+                "Assemble several clips, in order, into one block of text to paste. Requires content access (returns an error under the 'metadata' scope). Accepts at most 100 ids. An id is skipped silently when it is unknown, outside the grant's context, sensitive, or - under the 'boards' scope - neither pinned nor filed on any board; `count` reports how many were included.",
             inputSchema: schema(
                 properties: [
                     "ids": .object([

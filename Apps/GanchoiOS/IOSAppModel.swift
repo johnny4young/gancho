@@ -332,12 +332,22 @@ final class IOSAppModel {
     private static let maintenanceInterval: TimeInterval = 10 * 60
     private static let lastMaintenanceKey = "ios-last-maintenance-at"
 
-    func runMaintenance() async {
-        guard let grdb = grdbForEngines else { return }
-        if let last = defaults.object(forKey: Self.lastMaintenanceKey) as? Date,
+    /// - Parameters:
+    ///   - refreshingList: false for a run with no one watching (backgrounding,
+    ///     BGAppRefresh), which skips the list reload.
+    ///   - ignoringThrottle: true when the caller is a rare, explicitly
+    ///     scheduled run that must not be skipped just because the app happened
+    ///     to be open minutes ago.
+    @discardableResult
+    func runMaintenance(
+        refreshingList: Bool = true, ignoringThrottle: Bool = false
+    ) async -> Bool {
+        guard let grdb = grdbForEngines else { return false }
+        if !ignoringThrottle,
+            let last = defaults.object(forKey: Self.lastMaintenanceKey) as? Date,
             Date().timeIntervalSince(last) < Self.maintenanceInterval
         {
-            return
+            return false
         }
         let policy = RetentionPolicy.load(from: defaults)
         let now = Date()
@@ -358,7 +368,8 @@ final class IOSAppModel {
         }
         _ = try? await TierEnforcement(store: grdb).enforce(tier: tier)
         defaults.set(Date(), forKey: Self.lastMaintenanceKey)
-        await search()
+        if refreshingList { await search() }
+        return true
     }
 
     /// Resolves a `gancho://clip/<id>` widget link: make sure the clip is in
@@ -761,11 +772,23 @@ final class IOSAppModel {
     }
 
     func delete(_ item: ClipItem) async {
-        if syncController.isEnabled, let full {
-            try? await full.deleteForSync(id: item.id, now: .now)
-            await syncController.engine.enqueueDeletion(ids: [item.id])
-        } else {
-            try? await store.delete(id: item.id)
+        let outcome = await deletionWorkflow.delete(
+            ids: [item.id],
+            store: store,
+            syncStore: full,
+            engine: syncController.engine,
+            syncEnabled: syncController.isEnabled)
+        // Match on the case, not on `propagated`: with sync on but no durable
+        // facet the workflow deletes locally and reports `propagated: false`,
+        // which is a success. Anything else means the row survived locally, and
+        // the list refresh below puts it back on screen.
+        switch outcome {
+        case .deleted:
+            break
+        case .partial, .failed:
+            diagnostics.record(
+                String(localized: "History"),
+                String(localized: "Couldn’t delete this clip."))
         }
         await search()
         reloadWidgets()
@@ -790,6 +813,7 @@ final class IOSAppModel {
 
     private let source = IntentionalPasteboardSource()
     private let curationController = ClipCurationController()
+    private let deletionWorkflow = ClipDeletionWorkflow()
     private let ingestionCoordinator = ClipIngestionCoordinator()
     /// Durable store in the App Group container (shared family location);
     /// in-memory fallback keeps the app usable if the container is missing.

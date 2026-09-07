@@ -194,7 +194,54 @@ Before cutting the first sync-enabled direct release, the owner must:
    the entitlement survives relaunch and update without any private signing key
    in the application;
 5. run the signed release candidate on two Macs using the same Apple Account and
-   verify capture, update, deletion, retention, and relaunch convergence.
+   pass [the two-Mac matrix](#the-two-mac-matrix).
+
+### The two-Mac matrix
+
+The last gate before a sync-enabled tag. It exists because everything below is
+invisible to CI: the tests run against a fake sync engine, so the only proof
+that the **signed, profile-backed** artifact talks to the **Production**
+CloudKit schema is running it.
+
+Use the artifact you are about to publish — not a Debug build. A Debug build
+talks to the *Development* environment, where `CKSyncEngine` creates missing
+fields on the fly, so it cannot detect the one failure this gate is for: a
+field missing from the Production schema, which is rejected rather than
+created. Install the DMG on both Macs, sign both into the **same Apple
+Account**, and enable iCloud Drive on both.
+
+Notation: **A** and **B** are the two Macs. "converges" means the change
+appears on the other Mac without any manual refresh, and its footer settles on
+**Synced** (`checkmark.icloud`) rather than staying on **Waiting to sync · N**.
+
+| # | Step | Do it on | Pass condition |
+| --- | --- | --- | --- |
+| 1 | Clean install, first launch, no license | A + B | Both run local-only. Sync is off and says so; nothing is uploaded while the tier is free. |
+| 2 | Activate Pro with a real license key | A | Pro unlocks; the footer starts syncing. Quit and relaunch — Pro survives, and no license-signing key exists in the bundle. |
+| 3 | Activate the **same** key | B | Accepted as a second seat. If the plan's seats are exhausted, the refusal names *that* reason. |
+| 4 | Copy something new | A | Converges to B, with its **kind**, title, source app, and — new in 0.8.3 — the **originating device name** in the clip detail. |
+| 5 | Edit the clip's text and title | B | The edit converges back to A. The older version does not resurrect on the next sync tick. |
+| 6 | Create a board, give it a color **and an emoji**, file two clips into it | A | Board, identity, and both memberships converge to B. **The emoji is the field most likely to fail**: it is `encryptedValues["emoji"]`, and it never entered the schema until a board actually had one. |
+| 7 | Add one of those clips to a second board | B | Both memberships hold on A. Neither board loses the clip. |
+| 8 | Delete a board | A | It disappears on B and **stays gone** after a relaunch. A board that returns as an empty placeholder means the tombstone did not travel. |
+| 9 | Delete a clip | B | It disappears on A and does not come back. |
+| 10 | Copy a secret (an API key or a card number) | A | Converges **masked** on B, expires on its own short lifetime on both, and its content never appears in either app's logs. |
+| 11 | Set a short retention window, then wait it out | A | Aged-out clips disappear on both. Pinned clips and board members survive, on both. |
+| 12 | Turn off Wi-Fi, keep working | B | Capture, search, and paste-back keep working offline. The footer explains the pause instead of erroring, and Pro stays active — the licence has a 30-day offline grace. |
+| 13 | Reconnect | B | Everything queued while offline converges to A. Nothing is lost and nothing duplicates. |
+| 14 | Quit and relaunch both | A + B | Both come back to the same history, same boards, same pins. |
+| 15 | **Settings → Pro → Deactivate this Mac** | B | The seat is released. B drops to free and keeps its **encrypted local history**. A is untouched and still Pro. |
+
+If sync stalls at any row, `Settings → Reset & re-pull sync` discards the local
+`CKSyncEngine` state token and re-pulls. Needing it is itself a finding — note
+which row, because a released build should never require it.
+
+**For 0.8.3 specifically**, one of the two Macs should be running **macOS 15.4
+Sequoia**, since this is the first release to advertise that floor. On it,
+confirm the shape of the degradation rather than its absence: clip titles fall
+back to the deterministic heuristics, Smart Paste rewrites / Translate / Ask
+your clipboard are unavailable and say why, deterministic PII redaction still
+works, and the interface uses opaque materials in place of Liquid Glass.
 
 ### Notarization and profile failures
 
