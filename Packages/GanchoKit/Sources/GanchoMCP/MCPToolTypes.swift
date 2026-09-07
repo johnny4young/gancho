@@ -113,7 +113,7 @@ extension MCPToolRunner {
             name: MCPToolName.searchClips.rawValue,
             description:
                 // swiftlint:disable:next line_length
-                "Search the Gancho clipboard history. Returns clip metadata only (id, title, preview, kind, pinned state, capture time, source app) and never content; call get_clip for a clip's full content. Results stay inside the grant's approved context and never include clips marked sensitive. An unrecognized mode falls back to fuzzy.",
+                "Search the Gancho clipboard history. Returns clip metadata only (id, title, preview, kind, pinned state, capture time, source app) and never content; call get_clip for a clip's full content. Results stay inside the grant's approved context, narrow under the 'boards' scope to clips that are pinned or filed on a board, and never include clips marked sensitive. An unrecognized mode falls back to fuzzy.",
             inputSchema: schema(
                 properties: [
                     "query": property("string", "Text to search for in clip titles and content."),
@@ -125,7 +125,7 @@ extension MCPToolRunner {
             name: MCPToolName.getClip.rawValue,
             description:
                 // swiftlint:disable:next line_length
-                "Fetch one clip by id. Content is withheld (metadata still returned, contentWithheld = true) under the 'metadata' scope and, under the 'boards' scope, for clips not on an approved board. Sensitive clips return an error result instead of content.",
+                "Fetch one clip by id. Content is withheld (metadata still returned, contentWithheld = true) under the 'metadata' scope, and under the 'boards' scope for a clip that is neither pinned nor filed on any board. Sensitive clips return an error result instead of content.",
             inputSchema: schema(
                 properties: ["id": property("string", "The clip id from search_clips.")],
                 required: ["id"])),
@@ -143,7 +143,7 @@ extension MCPToolRunner {
             name: MCPToolName.pasteStack.rawValue,
             description:
                 // swiftlint:disable:next line_length
-                "Assemble several clips, in order, into one block of text to paste. Requires content access (returns an error under the 'metadata' scope). Accepts at most 100 ids; ids that are unknown, sensitive, or unreadable under the grant are skipped silently, and `count` reports how many were included.",
+                "Assemble several clips, in order, into one block of text to paste. Requires content access (returns an error under the 'metadata' scope). Accepts at most 100 ids. An id is skipped silently when it is unknown, outside the grant's context, sensitive, or - under the 'boards' scope - neither pinned nor filed on any board; `count` reports how many were included.",
             inputSchema: schema(
                 properties: [
                     "ids": .object([
