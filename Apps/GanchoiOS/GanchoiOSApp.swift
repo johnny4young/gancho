@@ -147,7 +147,7 @@ struct GanchoiOSApp: App {
                 BackgroundPurge.run(model: model)
                 RetentionBackgroundTask.schedule()
             case .active:
-                DatabaseSuspension.resume()
+                StoreSuspension.appDidBecomeActive()
                 // With the store resumed, run the retention/tier pass the Mac
                 // does on a timer — iOS gets it on return to foreground,
                 // throttled inside runMaintenance() so frequent app switches

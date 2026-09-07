@@ -286,10 +286,14 @@ targets:
         # reach it.
         NSSupportsLiveActivities: true
         # CKSyncEngine wakes on silent push to pull remote clips; `fetch` lets
-        # BGAppRefresh run the retention purge on a phone the user has not
-        # opened. Neither mode ever captures: `fetch` only DELETES expired
-        # clips, which is why declaring it does not weaken the "no silent iOS
-        # capture" invariant.
+        # BGAppRefresh run retention on a phone the user has not opened.
+        # Neither mode ever reads the pasteboard, which is what the "no silent
+        # iOS capture" invariant protects. `fetch` runs the same maintenance
+        # the foreground does: it deletes expired clips, records the
+        # content-free expiry count, enqueues CloudKit tombstones for the rows
+        # it removed, and applies tier enforcement (archiving or releasing rows
+        # when the entitlement changed) — row lifecycle and metadata only, no
+        # content read or captured.
         UIBackgroundModes:
           - remote-notification
           - fetch
