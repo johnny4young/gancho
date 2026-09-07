@@ -247,6 +247,22 @@ struct ReuseControllerTests {
 
         #expect(recorder.searchClearFailures == 1)
         #expect(await store.eventLog() == ["clear-searches-failed"])
+
+        // Reporting it is not enough: the toggle itself must stop claiming the
+        // history is off while it is still on disk, which is what this
+        // property's own docstring promises. It also makes the shell's "try
+        // turning it off again" advice actionable — it is on again to turn off.
+        #expect(
+            controller.rememberSearches,
+            "a failed erase must put the toggle back ON")
+        // ...and the observer must have been told, or the persisted value would
+        // still read `false` behind a toggle that shows `true`.
+        #expect(
+            recorder.rememberValues.last == true,
+            "the restored value must be persisted, not just displayed")
+        // Exactly one erase attempt: restoring the flag re-enters `didSet`, and
+        // the guard there must stop it rather than loop.
+        #expect(await store.eventLog() == ["clear-searches-failed"])
     }
 
     @Test("Paste-stack mutations preserve duplicate identity and FIFO consumption")

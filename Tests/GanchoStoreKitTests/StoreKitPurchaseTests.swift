@@ -19,7 +19,7 @@ struct StoreKitPurchaseTests {
         handler.onTierChange = { reportedTiers.append($0) }
 
         #expect(await handler.currentTier() == .free)
-        #expect(try await handler.purchase(.lifetime))
+        #expect(try await handler.purchase(.lifetime) == .entitled)
         #expect(await eventuallyTier(.pro, from: handler))
         #expect(reportedTiers.contains(.pro))
         #expect(session.allTransactions().map(\.productIdentifier) == [ProCatalog.lifetime.id])
@@ -34,7 +34,9 @@ struct StoreKitPurchaseTests {
         let handler = StoreKitPurchaseHandler()
 
         try await session.setSimulatedError(.generic(.userCancelled), forAPI: .purchase)
-        #expect(try await !handler.purchase(.lifetime))
+        // The simulated error is specifically a user cancel, so the
+        // outcome must say so rather than collapse into a generic false.
+        #expect(try await handler.purchase(.lifetime) == .cancelled)
         #expect(await handler.currentTier() == .free)
     }
 

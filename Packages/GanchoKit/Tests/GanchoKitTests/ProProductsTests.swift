@@ -31,7 +31,8 @@ struct ProProductsTests {
         #expect(handler.isPurchaseAvailable == false)
         #expect(await handler.availableProducts().isEmpty)
         #expect(await handler.currentTier() == .free)
-        let purchased = try await handler.purchase(.lifetime)
-        #expect(purchased == false)
+        // A handler that cannot transact reports failure, not a cancellation
+        // the user never made.
+        #expect(try await handler.purchase(.lifetime) == .failed)
     }
 }

@@ -78,15 +78,19 @@ public final class StoreKitPurchaseHandler: PurchaseHandling {
         ProCatalog.all
     }
 
-    public func purchase(_ plan: ProProduct.Plan) async throws -> Bool {
+    public func purchase(_ plan: ProProduct.Plan) async throws -> PurchaseOutcome {
         let productID = ProCatalog.product(for: plan).id
         guard let product = try await Product.products(for: [productID]).first else {
-            return false
+            // The catalog could not be loaded. Nothing was cancelled; the
+            // attempt never reached StoreKit.
+            return .failed
         }
         let result = try await product.purchase()
         switch result {
         case .success(let verification):
-            guard case .verified(let transaction) = verification else { return false }
+            // A transaction StoreKit cannot vouch for is a failure, not a
+            // quiet no-op — the user paid and holds nothing.
+            guard case .verified(let transaction) = verification else { return .failed }
             await transaction.finish()
             // The just-verified transaction is itself the proof of purchase.
             // Derive the tier from it directly rather than re-reading
@@ -97,11 +101,15 @@ public final class StoreKitPurchaseHandler: PurchaseHandling {
             let purchasedTier = StoreKitEntitlement.tier(
                 forEntitledProductIDs: [transaction.productID])
             onTierChange?(purchasedTier)
-            return purchasedTier == .pro
-        case .userCancelled, .pending:
-            return false
+            return purchasedTier == .pro ? .entitled : .failed
+        case .userCancelled:
+            return .cancelled
+        case .pending:
+            // Ask to Buy and similar deferrals: the purchase is real and
+            // waiting on someone else, so it must not read as a cancellation.
+            return .pending
         @unknown default:
-            return false
+            return .failed
         }
     }
 

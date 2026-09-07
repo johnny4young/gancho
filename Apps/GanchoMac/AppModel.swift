@@ -1356,13 +1356,24 @@ final class AppModel {
         defaults.set(defaults.integer(forKey: "upgrade-started") + 1, forKey: "upgrade-started")
         Task {
             do {
-                // `false` is a user cancel — expected, and silent. Only a throw
-                // is a purchase that tried and failed, which the user should
-                // hear about rather than be left staring at an unchanged tier.
-                if try await purchases.purchase(plan) {
+                // Only a cancel is silent. A product that would not load or a
+                // transaction StoreKit could not verify used to be
+                // indistinguishable from one, which left the user staring at an
+                // unchanged tier with nothing said.
+                switch try await purchases.purchase(plan) {
+                case .entitled:
                     defaults.set(
                         defaults.integer(forKey: "upgrade-completed") + 1,
                         forKey: "upgrade-completed")
+                case .cancelled:
+                    break
+                case .pending:
+                    toasts.show(
+                        GanchoToast(
+                            message: "Your purchase is waiting for approval.", style: .pending))
+                case .failed:
+                    toasts.show(
+                        GanchoToast(message: "Couldn’t complete the purchase.", style: .warning))
                 }
             } catch {
                 toasts.show(

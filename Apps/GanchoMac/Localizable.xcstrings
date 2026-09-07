@@ -21,6 +21,16 @@
         }
       }
     },
+    "Your purchase is waiting for approval.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu compra está esperando aprobación."
+          }
+        }
+      }
+    },
     "Couldn’t delete every clip — the ones that remain were kept.": {
       "localizations": {
         "es": {

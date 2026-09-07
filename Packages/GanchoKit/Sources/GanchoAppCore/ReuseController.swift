@@ -36,11 +36,19 @@ public final class ReuseController {
         didSet {
             onRememberSearchesChanged(rememberSearches)
             guard !rememberSearches, let usageStore else { return }
-            Task { [onSearchHistoryClearFailed] in
+            Task { [weak self] in
                 do {
                     try await usageStore.clearSearchHistory()
                 } catch {
-                    onSearchHistoryClearFailed()
+                    // The promise was not kept, so the toggle must not go on
+                    // claiming it was. Putting it back ON re-persists `true`
+                    // through the same observer, which is what makes the
+                    // reported state and the disk agree again — and what makes
+                    // the shell's "try turning it off again" advice possible,
+                    // since it is now on. Assigning here re-enters `didSet`,
+                    // but the guard above stops it there: no second erase.
+                    self?.rememberSearches = true
+                    self?.onSearchHistoryClearFailed()
                 }
             }
         }

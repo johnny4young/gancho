@@ -77,8 +77,13 @@ public protocol PurchaseHandling: Sendable {
     var isPurchaseAvailable: Bool { get }
     /// Plans to offer, richest first (annual is the visual default).
     func availableProducts() async -> [ProProduct]
-    /// Buys a plan; returns whether it left the user entitled to Pro.
-    func purchase(_ plan: ProProduct.Plan) async throws -> Bool
+    /// Buys a plan and reports which of the distinguishable outcomes happened.
+    ///
+    /// Not a `Bool`: `false` used to mean "cancelled", "the product would not
+    /// load", "the transaction was unverified", "awaiting approval", and
+    /// "something this build does not recognize" all at once, so a caller that
+    /// stayed silent on cancellation stayed silent on real failures too.
+    func purchase(_ plan: ProProduct.Plan) async throws -> PurchaseOutcome
     /// Restores prior purchases (new device, reinstall); returns Pro state.
     func restorePurchases() async throws -> Bool
     /// The tier StoreKit currently entitles — the source of truth.
@@ -104,12 +109,33 @@ extension PurchaseHandling {
     }
 }
 
+/// What a purchase attempt actually did.
+///
+/// The distinction that matters is `cancelled` versus `failed`: the first is
+/// the user changing their mind and must stay silent, the second is something
+/// that tried and did not work and must be reported. A `Bool` cannot carry
+/// that, which is how product-load and verification failures went unreported.
+public enum PurchaseOutcome: Sendable, Equatable {
+    /// Completed, verified, and the user now holds Pro.
+    case entitled
+    /// The user backed out. Expected; say nothing.
+    case cancelled
+    /// Awaiting approval (Ask to Buy). Not done, but not a failure either.
+    case pending
+    /// Tried and did not work: product unavailable, transaction unverified, or
+    /// an outcome this build does not recognize.
+    case failed
+}
+
 /// Honest placeholder used where no real handler is wired (previews, tests).
 public struct UnavailablePurchaseHandler: PurchaseHandling {
     public init() {}
     public var isPurchaseAvailable: Bool { false }
     public func availableProducts() async -> [ProProduct] { [] }
-    public func purchase(_ plan: ProProduct.Plan) async throws -> Bool { false }
+    public func purchase(_ plan: ProProduct.Plan) async throws -> PurchaseOutcome {
+        // Nothing to cancel: this handler cannot transact at all.
+        .failed
+    }
     public func restorePurchases() async throws -> Bool { false }
     public func currentTier() async -> UserTier { .free }
 }
