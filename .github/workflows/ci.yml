@@ -101,15 +101,26 @@ jobs:
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      # Route the StoreKit step's `make test-storekit` into the same cloned
+      # package directory as the two builds below, so the whole job resolves
+      # the dependency graph once. The Makefile declares this with `?=`, so the
+      # environment wins.
+      XCODE_PACKAGE_FLAGS: >-
+        -disableAutomaticPackageResolution
+        -clonedSourcePackagesDirPath build/xcode-packages
     steps:
       - uses: actions/checkout@v7
 
-      - name: Cache SwiftPM
+      # This job never runs `swift build/test`, so `Packages/GanchoKit/.build`
+      # is not the directory to cache: xcodebuild resolves the app-wide graph
+      # into its cloned-source-packages directory instead. Keyed on the app
+      # lock, which is what pins that graph. The bulk of it is the GRDB fork's
+      # history, which is otherwise re-cloned on every run.
+      - name: Cache resolved Swift packages
         uses: actions/cache@v6
         with:
-          path: Packages/GanchoKit/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('Packages/GanchoKit/Package.swift', 'Packages/GanchoKit/Package.resolved') }}
-
+          path: build/xcode-packages
+          key: xcode-spm-${{ runner.os }}-${{ hashFiles('Dependencies/Package.resolved') }}
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -135,6 +146,7 @@ jobs:
           mkdir -p build
           set -o pipefail
           xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
             -project Gancho.xcodeproj -scheme Gancho -configuration Debug \
             -resultBundlePath build/mac.xcresult CODE_SIGNING_ALLOWED=NO build \
             2>&1 | tee build/mac-build.log
@@ -144,6 +156,7 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
             -project Gancho.xcodeproj -scheme GanchoiOS -configuration Debug \
             -destination 'generic/platform=iOS' \
             -resultBundlePath build/ios.xcresult CODE_SIGNING_ALLOWED=NO build \
