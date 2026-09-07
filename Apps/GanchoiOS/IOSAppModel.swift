@@ -761,11 +761,23 @@ final class IOSAppModel {
     }
 
     func delete(_ item: ClipItem) async {
-        if syncController.isEnabled, let full {
-            try? await full.deleteForSync(id: item.id, now: .now)
-            await syncController.engine.enqueueDeletion(ids: [item.id])
-        } else {
-            try? await store.delete(id: item.id)
+        let outcome = await deletionWorkflow.delete(
+            ids: [item.id],
+            store: store,
+            syncStore: full,
+            engine: syncController.engine,
+            syncEnabled: syncController.isEnabled)
+        // Match on the case, not on `propagated`: with sync on but no durable
+        // facet the workflow deletes locally and reports `propagated: false`,
+        // which is a success. Anything else means the row survived locally, and
+        // the list refresh below puts it back on screen.
+        switch outcome {
+        case .deleted:
+            break
+        case .partial, .failed:
+            diagnostics.record(
+                String(localized: "History"),
+                String(localized: "Couldn’t delete this clip."))
         }
         await search()
         reloadWidgets()
@@ -790,6 +802,7 @@ final class IOSAppModel {
 
     private let source = IntentionalPasteboardSource()
     private let curationController = ClipCurationController()
+    private let deletionWorkflow = ClipDeletionWorkflow()
     private let ingestionCoordinator = ClipIngestionCoordinator()
     /// Durable store in the App Group container (shared family location);
     /// in-memory fallback keeps the app usable if the container is missing.

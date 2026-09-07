@@ -372,14 +372,12 @@ extension GRDBClipboardStore: SyncLocalStore {
             try db.execute(sql: "DELETE FROM clip WHERE id = ?", arguments: [id.uuidString])
             return hash
         }
-        if let blobHash {
-            let stillReferenced = try await writer.read { db in
-                try ClipRow.filter(Column("contentBlobHash") == blobHash).fetchCount(db) > 0
-            }
-            if !stillReferenced {
-                blobsForMaintenance.delete(hash: blobHash)
-            }
-        }
+        // Post-commit maintenance, and non-throwing on purpose: see
+        // `removeBlobIfOrphaned`. The tombstone and the row removal are already
+        // durable by this point, so a failure here must not be reported as a
+        // failed deletion — the caller would then skip propagating a removal
+        // that already happened locally.
+        await removeBlobIfOrphaned(blobHash)
     }
 
     /// How many clips have been uploaded to iCloud (carry stored system
