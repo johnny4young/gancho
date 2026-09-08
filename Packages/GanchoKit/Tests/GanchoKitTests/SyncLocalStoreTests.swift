@@ -482,3 +482,179 @@ struct SyncLocalStoreTests {
         #expect(redirtied?.item.id == item.id, "an edit makes the row pending again")
     }
 }
+
+/// The page-at-a-time apply path: one transaction, a savepoint per change.
+@Suite("SyncLocalStore batch apply")
+struct SyncLocalStoreBatchTests {
+    private func makeStore() throws -> GRDBClipboardStore {
+        let store = GRDBClipboardStore(
+            writer: try DatabaseQueue(),
+            blobs: BlobStore(
+                directory: FileManager.default.temporaryDirectory
+                    .appendingPathComponent("syncbatch-\(UUID().uuidString)")))
+        try store.migrate()
+        return store
+    }
+
+    @Test("A page applies clips, boards and deletions in one call")
+    func batchAppliesAWholePage() async throws {
+        let store = try makeStore()
+        let doomed = ClipItem(kind: .text, preview: "gone", contentHash: "gone")
+        _ = try await store.insert(doomed, content: .text("gone"))
+        let board = try await store.createPinboard(name: "Work")
+
+        let arriving = (0..<3).map { index in
+            RemoteClipChange(
+                item: ClipItem(
+                    kind: .text, title: "t\(index)", preview: "p\(index)",
+                    contentHash: "h\(index)"),
+                content: .text("body \(index)"),
+                systemFields: Data([0x01]),
+                boardIDs: index == 0 ? [board.id] : [])
+        }
+
+        let summary = try await store.applyRemoteChanges(
+            clips: arriving, boards: [], clipDeletions: [doomed.id.uuidString],
+            boardDeletions: [])
+
+        #expect(summary.applied == 4)  // three clips plus the deletion
+        #expect(summary.failed == 0)
+        #expect(try await store.count() == 3)
+        #expect(try await store.item(id: doomed.id) == nil)
+        // Membership rode the clip record and landed in the same transaction.
+        #expect(try await store.boardIDs(forClip: arriving[0].item.id) == [board.id])
+    }
+
+    @Test("A stale remote is counted as skipped, not as a failure")
+    func batchCountsStaleSeparately() async throws {
+        let store = try makeStore()
+        let local = ClipItem(
+            updatedAt: Date(timeIntervalSince1970: 2_000),
+            kind: .text, preview: "local wins", contentHash: "h")
+        _ = try await store.insert(local, content: .text("local"))
+
+        var older = local
+        older.updatedAt = Date(timeIntervalSince1970: 1_000)
+        let summary = try await store.applyRemoteChanges(
+            clips: [
+                RemoteClipChange(
+                    item: older, content: .text("remote"), systemFields: Data([0x02]),
+                    boardIDs: [])
+            ], boards: [], clipDeletions: [], boardDeletions: [])
+
+        #expect(summary.applied == 0)
+        #expect(summary.skippedAsStale == 1)
+        #expect(summary.failed == 0)
+        #expect(try await store.content(for: local.id) == .text("local"))
+    }
+
+    @Test("A board arriving with a clip that references it keeps its own metadata")
+    func boardsApplyBeforeTheMembershipsThatWouldStubThem() async throws {
+        // A clip's membership creates a placeholder for any board id it cannot
+        // find, stamped `createdAt = now` and `isSystem = 0`. The board upsert
+        // deliberately does not touch either column, so if the clip went first
+        // the board's real metadata would be lost for good — and BOTH columns
+        // matter: `pinboards()` orders by `isSystem DESC, sortIndex ASC,
+        // createdAt ASC`, and `applyRemoteBoardDeletion` refuses to delete a
+        // system board.
+        let store = try makeStore()
+        let born = Date(timeIntervalSince1970: 1_000)
+        let arriving = Pinboard(
+            name: "Shared", sortIndex: 3, createdAt: born, isSystem: true)
+        let clip = ClipItem(kind: .text, preview: "p", contentHash: "h")
+
+        let summary = try await store.applyRemoteChanges(
+            clips: [
+                RemoteClipChange(
+                    item: clip, content: .text("body"), systemFields: Data([0x01]),
+                    boardIDs: [arriving.id])
+            ],
+            boards: [RemoteBoardChange(board: arriving, systemFields: Data([0x02]))],
+            clipDeletions: [], boardDeletions: [])
+
+        #expect(summary.failed == 0)
+        let stored = try await store.pinboards().first { $0.id == arriving.id }
+        #expect(stored?.name == "Shared")
+        #expect(stored?.createdAt == born, "the placeholder's timestamp survived the upsert")
+        #expect(stored?.isSystem == true, "the board was demoted to a plain placeholder")
+        #expect(try await store.boardIDs(forClip: clip.id) == [arriving.id])
+    }
+
+    @Test("A board deletion that fails halfway leaves its memberships intact")
+    func aFailedBoardDeletionRollsBackItsMemberships() async throws {
+        // Deleting a board is TWO statements — memberships, then the board. A
+        // throw on the second must take the first with it, or the page commits
+        // a board whose contents silently vanished.
+        let store = try makeStore()
+        let board = try await store.createPinboard(name: "Work")
+        let clip = ClipItem(kind: .text, preview: "p", contentHash: "h")
+        _ = try await store.insert(clip, content: .text("body"))
+        try await store.setBoardMembership(clipID: clip.id, boardIDs: [board.id])
+
+        // Make the second statement fail the way a trigger would.
+        try await store.writer.write { db in
+            try db.execute(
+                sql: """
+                    CREATE TRIGGER refuse_board_delete BEFORE DELETE ON pinboard
+                    BEGIN SELECT RAISE(ABORT, 'nope'); END
+                    """)
+        }
+
+        let summary = try await store.applyRemoteChanges(
+            clips: [], boards: [], clipDeletions: [],
+            boardDeletions: [board.id.uuidString])
+
+        #expect(summary.failed == 1)
+        #expect(summary.applied == 0)
+        #expect(
+            try await store.boardIDs(forClip: clip.id) == [board.id],
+            "the membership delete committed even though the board delete threw")
+        #expect(try await store.pinboards().contains { $0.id == board.id })
+    }
+
+    @Test("A savepoint rollback inside a transaction spares the rest of the page")
+    func savepointRollbackIsIsolated() async throws {
+        // The premise the batch rests on. `applyFetched` does not throw and the
+        // change token advances regardless, so a page that failed as a unit
+        // would lose every change in it with no retry — one bad record must not
+        // take the page down. That only holds if rolling back a savepoint
+        // leaves the enclosing transaction alive and committable, so assert it
+        // against GRDB rather than assuming it.
+        let store = try makeStore()
+        struct Boom: Error {}
+
+        try await store.writer.write { db in
+            try db.inSavepoint {
+                try db.execute(
+                    sql:
+                        "INSERT INTO purge_log (runAt, totalRowsPurged, summary) VALUES (?, ?, '')",
+                    arguments: [Date(timeIntervalSince1970: 1), 1])
+                return .commit
+            }
+            do {
+                try db.inSavepoint {
+                    try db.execute(
+                        sql:
+                            "INSERT INTO purge_log (runAt, totalRowsPurged, summary) VALUES (?, ?, '')",
+                        arguments: [Date(timeIntervalSince1970: 2), 2])
+                    throw Boom()
+                }
+            } catch is Boom {
+                // Swallowed exactly as the batch does.
+            }
+            try db.inSavepoint {
+                try db.execute(
+                    sql:
+                        "INSERT INTO purge_log (runAt, totalRowsPurged, summary) VALUES (?, ?, '')",
+                    arguments: [Date(timeIntervalSince1970: 3), 3])
+                return .commit
+            }
+        }
+
+        let survived = try await store.writer.read { db in
+            try Int.fetchAll(
+                db, sql: "SELECT totalRowsPurged FROM purge_log ORDER BY totalRowsPurged")
+        }
+        #expect(survived == [1, 3], "the failed savepoint took its neighbours with it")
+    }
+}

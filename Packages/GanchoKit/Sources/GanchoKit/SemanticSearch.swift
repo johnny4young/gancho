@@ -57,60 +57,64 @@ extension GRDBClipboardStore {
         }
     }
 
-    /// One stored vector, decoded inside the read closure: `Row` itself is not
-    /// Sendable, so returning rows forces GRDB's synchronous `read` overload —
-    /// which blocks a cooperative thread for the whole fetch. This box keeps
-    /// the async overload available.
-    private struct StoredEmbedding: Sendable {
-        let id: String
-        let vector: Data
-    }
-
     /// Cosine top-K over stored vectors, joined back to visible clips.
     /// `snippetsOnly` scopes the same engine to the Library.
     public func semanticSearch(
         queryVector: [Float], topK: Int = 10, snippetsOnly: Bool = false
     ) async throws -> [ClipItem] {
-        let rows = try await writer.read { db in
-            try Row.fetchAll(
+        let queryNorm = sqrt(vDSP.sumOfSquares(queryVector))
+        guard queryNorm > 0 else { return [] }
+
+        // Streamed, not materialized. `fetchAll` held every stored vector in
+        // memory at once — 2 KB per clip, so 200 MB of `Data` at 100k rows —
+        // and then allocated a fresh 512-element Swift array per row on top of
+        // it, only to read each one once. A cursor visits them one at a time
+        // and the dot product reads the BLOB's bytes where they already are,
+        // so the resident cost is one row plus the scores.
+        let scored = try await writer.read { db -> [(id: String, score: Float)] in
+            var scored: [(id: String, score: Float)] = []
+            let cursor = try Row.fetchCursor(
                 db,
                 sql: """
                     SELECT e.clipID, e.vector FROM clip_embedding e
                     JOIN clip c ON c.id = e.clipID
                     WHERE c.isArchived = 0 AND e.dimension = ? AND e.modelVersion = ?
                     \(snippetsOnly ? "AND c.isSnippet = 1" : "")
-                    """, arguments: [queryVector.count, EmbeddingModelInfo.currentVersion]
-            ).map { StoredEmbedding(id: $0["clipID"], vector: $0["vector"]) }
-        }
-        guard !rows.isEmpty else { return [] }
-
-        let queryNorm = sqrt(vDSP.sumOfSquares(queryVector))
-        guard queryNorm > 0 else { return [] }
-
-        // Same cosine (dot / (‖v‖·‖q‖)) as before, but the per-row dot and
-        // norm are vectorized via Accelerate — mirroring `EmbeddingIndex` —
-        // so scores and ranking are unchanged, only faster.
-        var scored: [(id: String, score: Float)] = []
-        scored.reserveCapacity(rows.count)
-        for row in rows {
-            let vector = row.vector.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
-            guard vector.count == queryVector.count else { continue }
-            var dot: Float = 0
-            vector.withUnsafeBufferPointer { v in
-                queryVector.withUnsafeBufferPointer { q in
-                    vDSP_dotpr(
-                        v.baseAddress!, 1, q.baseAddress!, 1, &dot,
-                        vDSP_Length(v.count))
+                    """, arguments: [queryVector.count, EmbeddingModelInfo.currentVersion])
+            while let row = try cursor.next() {
+                let id: String = row["clipID"]
+                // Valid only for this step of the cursor, which is exactly how
+                // long the scoring below needs it.
+                let score = try row.withUnsafeData(named: "vector") { data -> Float? in
+                    guard let data, data.count == queryVector.count * MemoryLayout<Float>.stride
+                    else { return nil }
+                    return data.withUnsafeBytes { raw -> Float? in
+                        let stored = raw.bindMemory(to: Float.self)
+                        guard let base = stored.baseAddress else { return nil }
+                        var dot: Float = 0
+                        var sumOfSquares: Float = 0
+                        queryVector.withUnsafeBufferPointer { query in
+                            vDSP_dotpr(
+                                base, 1, query.baseAddress!, 1, &dot,
+                                vDSP_Length(stored.count))
+                        }
+                        vDSP_svesq(base, 1, &sumOfSquares, vDSP_Length(stored.count))
+                        let denominator = sqrt(sumOfSquares) * queryNorm
+                        guard denominator > 0 else { return nil }
+                        return dot / denominator
+                    }
                 }
+                if let score { scored.append((id, score)) }
             }
-            let denominator = sqrt(vDSP.sumOfSquares(vector)) * queryNorm
-            guard denominator > 0 else { continue }
-            scored.append((row.id, dot / denominator))
+            return scored
         }
+        guard !scored.isEmpty else { return [] }
+
         let topIDs = Self.partialTopK(scored, count: topK).map(\.id)
 
         return try await writer.read { db in
-            let fetched = try ClipRow.filter(keys: topIDs).fetchAll(db)
+            let fetched = try ClipRow.select(ClipRow.metadataColumns)
+                .filter(keys: topIDs).fetchAll(db)
             let byID = Dictionary(uniqueKeysWithValues: fetched.map { ($0.id, $0) })
             return topIDs.compactMap { byID[$0]?.item }
         }
