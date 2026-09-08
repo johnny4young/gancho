@@ -625,11 +625,16 @@ struct ListContentIsolationTests {
         _ = try await store.search(ClipSearchQuery(text: "Title"), limit: 50)
         _ = try await store.items(inBoard: board.id, offset: 0, limit: 50)
         _ = try await store.snippets()
+        // The four the first version of this guard missed, which is how a
+        // smart-collection path kept selecting the payload through review.
+        _ = try await store.items(
+            matching: SmartCollectionRule(name: "Text", kinds: [.text]), limit: 50)
+        _ = try await store.filterOnlySearch(
+            ClipSearchQuery(text: "", kinds: [.text]), limit: 50)
+        _ = try await SnippetSuggestor(store: store).suggestions(minAge: 0, limit: 5)
+        _ = try await store.semanticSearch(
+            queryVector: [Float](repeating: 0.5, count: 512), topK: 5)
 
-        // Both spellings count. A wildcard is the subtler one: `SELECT clip.*`
-        // pulls the payload just as surely, and the trace never names a column
-        // it did not spell out — so a guard that only looked for `contentText`
-        // would wave a reverted query straight through.
         // Both spellings count, and the wildcard is the one that matters: a
         // reverted query reads `SELECT * FROM "clip"`, which pulls the payload
         // just as surely while never naming a column — so a guard that looked
@@ -699,11 +704,12 @@ struct EncryptedStorePerformanceTests {
     /// Ceiling for one 100-row page over an encrypted on-disk store whose rows
     /// carry 4 KB bodies.
     ///
-    /// Measured at 1.26 ms on an Apple-silicon Mac after this projection, and
-    /// 1.58 ms before it. Ten milliseconds is far above both: this guards
-    /// against a list query going back to pulling payloads it discards, which
-    /// would show up as a multiple, not against the sub-millisecond drift that
-    /// separates two good runs.
+    /// Measured at 1.26 ms on an Apple-silicon Mac after the metadata-only
+    /// projection, and 1.58 ms before it — so ten milliseconds does NOT detect
+    /// that revert, and this budget does not claim to. It is a broad
+    /// interactivity ceiling: it catches paging that becomes a multiple of what
+    /// it should be, on the storage the app actually ships. What guards the
+    /// projection is `ListContentIsolationTests`, which reads the SQL.
     static let encryptedPagingP95Budget = Duration.milliseconds(10)
 
     #if SQLITE_HAS_CODEC

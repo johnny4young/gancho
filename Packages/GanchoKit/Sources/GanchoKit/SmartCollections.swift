@@ -57,7 +57,8 @@ extension GRDBClipboardStore {
             return hits
         }
         return try await writer.read { db in
-            var query = ClipRow.filter(Column("isArchived") == false)
+            var query = ClipRow.select(ClipRow.metadataColumns)
+                .filter(Column("isArchived") == false)
             if let kinds = rule.kinds, !kinds.isEmpty {
                 query = query.filter(kinds.map(\.rawValue).contains(Column("kind")))
             }

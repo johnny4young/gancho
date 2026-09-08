@@ -27,9 +27,9 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
     /// not fall back to the Swift default. Optionals are what may be omitted,
     /// which is exactly what the three payload columns are.
     ///
-    /// `ClipRowProjectionTests` fetches through this list, so adding a
-    /// non-optional column to `ClipRow` without adding it here fails a test
-    /// rather than every list query at runtime.
+    /// `ListContentIsolationTests` fetches through this list on every list
+    /// path, so adding a non-optional column to `ClipRow` without adding it
+    /// here fails a test rather than every list query at runtime.
     static let metadataColumns: [Column] = [
         Column("id"), Column("createdAt"), Column("updatedAt"), Column("lastUsedAt"),
         Column("kind"), Column("title"), Column("preview"), Column("contentHash"),
