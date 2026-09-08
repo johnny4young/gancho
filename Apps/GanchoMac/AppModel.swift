@@ -164,6 +164,7 @@ final class AppModel {
     #endif
 
     private let curationController = ClipCurationController()
+    private let deletionWorkflow = ClipDeletionWorkflow()
     private let editingController = ClipEditingController()
     private let ingestionCoordinator = ClipIngestionCoordinator()
     private let defaults: UserDefaults
@@ -418,6 +419,15 @@ final class AppModel {
                 try? await grdbStore?.recordPrivateSkippedCapture(
                     isProtected: reason == .sensitiveType, count: 1, at: .now)
             }
+        }
+        // Turning "remember searches" off promises the stored queries are
+        // gone. Report a failed erase instead of leaving the toggle reading
+        // "off" over a history that is still on disk.
+        reuseController.setSearchHistoryClearFailureObserver { [weak self] in
+            self?.diagnostics.record(
+                String(localized: "Privacy"),
+                String(
+                    localized: "Stored searches couldn’t be erased. Try turning it off again."))
         }
         reuseController.setRecentItemsObserver { [weak self] _ in
             self?.publishLastCopied()
@@ -1156,14 +1166,13 @@ final class AppModel {
             items,
             performDelete: { [weak self] ids in
                 guard let self else { return }
-                if syncController.isEnabled, let grdbStore {
-                    for id in ids {
-                        _ = try? await grdbStore.deleteForSync(id: id, now: .now)
-                    }
-                    await syncController.engine.enqueueDeletion(ids: ids)
-                } else {
-                    for id in ids { _ = try? await store.delete(id: id) }
-                }
+                let outcome = await deletionWorkflow.delete(
+                    ids: ids,
+                    store: store,
+                    syncStore: grdbStore,
+                    engine: syncController.engine,
+                    syncEnabled: syncController.isEnabled)
+                reportDeletionFailure(outcome)
                 // After the COMMIT, not the intent — an undone delete must
                 // keep its Spotlight entry.
                 refreshSpotlight(for: .clips)
@@ -1323,6 +1332,14 @@ final class AppModel {
             try config.save(toStoreDirectory: mcpConfigDirectory)
             mcpConfig = config
         } catch {
+            // A failed save leaves the in-memory config untouched, so the row
+            // simply does not change state. Without a toast that is
+            // indistinguishable from "the click never landed" — the exact
+            // ambiguity that makes a revoke look like it worked when it did
+            // not.
+            toasts.show(
+                GanchoToast(
+                    message: "Couldn’t save local agent access settings.", style: .warning))
             diagnostics.record(
                 String(localized: "MCP Access"),
                 String(localized: "Couldn’t save local agent access settings."))
@@ -1338,16 +1355,44 @@ final class AppModel {
     func buyPlan(_ plan: ProProduct.Plan) {
         defaults.set(defaults.integer(forKey: "upgrade-started") + 1, forKey: "upgrade-started")
         Task {
-            if (try? await purchases.purchase(plan)) == true {
-                defaults.set(
-                    defaults.integer(forKey: "upgrade-completed") + 1,
-                    forKey: "upgrade-completed")
+            do {
+                // Only a cancel is silent. A product that would not load or a
+                // transaction StoreKit could not verify used to be
+                // indistinguishable from one, which left the user staring at an
+                // unchanged tier with nothing said.
+                switch try await purchases.purchase(plan) {
+                case .entitled:
+                    defaults.set(
+                        defaults.integer(forKey: "upgrade-completed") + 1,
+                        forKey: "upgrade-completed")
+                case .cancelled:
+                    break
+                case .pending:
+                    toasts.show(
+                        GanchoToast(
+                            message: "Your purchase is waiting for approval.", style: .pending))
+                case .failed:
+                    toasts.show(
+                        GanchoToast(message: "Couldn’t complete the purchase.", style: .warning))
+                }
+            } catch {
+                toasts.show(
+                    GanchoToast(message: "Couldn’t complete the purchase.", style: .warning))
             }
         }
     }
 
     func restorePurchases() {
-        Task { _ = try? await purchases.restorePurchases() }
+        Task {
+            do {
+                _ = try await purchases.restorePurchases()
+            } catch {
+                // "Nothing to restore" and "the request failed" are different
+                // answers; only the second is worth interrupting for.
+                toasts.show(
+                    GanchoToast(message: "Couldn’t restore purchases.", style: .warning))
+            }
+        }
     }
 
     #if GANCHO_DIRECT_DOWNLOAD
@@ -1469,6 +1514,20 @@ final class AppModel {
         case .failed:
             diagnostics.record("Editing", "Couldn’t save the content.")
             return false
+        }
+    }
+
+    /// Content-free note when a delete did not fully land. `refreshRecents`
+    /// (via the deletion coordinator's `didFinish`) puts the surviving row
+    /// back on screen, so the user sees the clip return; this says why.
+    private func reportDeletionFailure(_ outcome: ClipDeletionWorkflow.Outcome) {
+        switch outcome {
+        case .deleted:
+            return
+        case .partial, .failed:
+            diagnostics.record(
+                String(localized: "History"),
+                String(localized: "Couldn’t delete every clip — the ones that remain were kept."))
         }
     }
 

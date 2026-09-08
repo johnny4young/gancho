@@ -485,15 +485,33 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             try ClipRow.deleteOne(db, key: id.uuidString)
             return hash
         }
-        if let blobHash {
-            // Content-addressed: only safe to remove when no other row
-            // references the same bytes.
-            let stillReferenced = try await writer.read { db in
-                try ClipRow.filter(Column("contentBlobHash") == blobHash).fetchCount(db) > 0
-            }
-            if !stillReferenced {
-                blobs.delete(hash: blobHash)
-            }
+        await removeBlobIfOrphaned(blobHash)
+    }
+
+    /// Drops a content-addressed blob once its last referencing row is gone.
+    ///
+    /// Deliberately NOT throwing, and deliberately fail-safe in one direction.
+    ///
+    /// This runs AFTER the delete transaction has committed, so a throw here
+    /// would report a durable deletion as a failure. For `deleteForSync` that
+    /// is worse than cosmetic: the caller skips enqueueing the CloudKit
+    /// deletion for a row that is already gone locally, which is precisely the
+    /// cross-device divergence `ClipDeletionWorkflow` exists to prevent. The
+    /// delete's success is defined by the transaction committing; everything
+    /// past that point is maintenance.
+    ///
+    /// When the reference check itself fails we KEEP the bytes. Blob ownership
+    /// is not atomic with the database, so an unprovable orphan must never be
+    /// removed — a leftover blob is reclaimed by `removeOrphanedBlobs()` on its
+    /// next sweep, while bytes deleted in error are gone.
+    func removeBlobIfOrphaned(_ hash: String?) async {
+        guard let hash else { return }
+        let stillReferenced =
+            (try? await writer.read { db in
+                try ClipRow.filter(Column("contentBlobHash") == hash).fetchCount(db) > 0
+            }) ?? true
+        if !stillReferenced {
+            blobs.delete(hash: hash)
         }
     }
 

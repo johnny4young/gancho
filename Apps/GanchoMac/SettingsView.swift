@@ -267,12 +267,22 @@ private struct GeneralSettingsTab: View {
     }
 
     private func exportSettings() {
-        guard let data = try? model.settingsSnapshot().encoded() else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = "gancho-settings.json"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        try? data.write(to: url, options: .atomic)
+        // The user picked a destination, so a failure has to say so — a
+        // silently missing file is worse than an error. Same content-free
+        // discipline as backup: no path, no payload.
+        do {
+            try model.settingsSnapshot().encoded().write(to: url, options: .atomic)
+            transferNote = String(localized: "Settings exported.")
+        } catch {
+            transferNote = String(localized: "Those settings couldn’t be exported.")
+            model.diagnostics.record(
+                String(localized: "Settings"),
+                String(localized: "Settings couldn’t be exported."))
+        }
     }
 
     private func backupHistory() {
@@ -448,6 +458,9 @@ private struct RetentionSettingsTab: View {
 
 private struct PrivacySettingsTab: View {
     @Environment(AppModel.self) private var model
+    /// Outcome of the last support-bundle save. Content-free by construction:
+    /// it says whether a file was written, never what went into it.
+    @State private var supportNote: String?
 
     var body: some View {
         @Bindable var model = model
@@ -484,6 +497,12 @@ private struct PrivacySettingsTab: View {
                 model.privacyCenterWindow.show(model: model)
             }
             Button("Save support bundle…") { saveSupportBundle() }
+            if let supportNote {
+                Text(verbatim: supportNote)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("support-bundle-note")
+            }
             Text(
                 "The support bundle contains versions, settings, and counters — never clipboard content."
             )
@@ -528,7 +547,18 @@ extension PrivacySettingsTab {
                         retention: RetentionPolicy(), capturePreferencesJSON: Data()),
                 statistics: stats,
                 telemetryCounts: [:])
-            try? (try? bundle.encoded())?.write(to: url, options: .atomic)
+            // This is the path a user reaches BECAUSE something already went
+            // wrong. Failing it silently leaves them with nothing to send and
+            // no idea why.
+            do {
+                try bundle.encoded().write(to: url, options: .atomic)
+                supportNote = String(localized: "Support bundle saved.")
+            } catch {
+                supportNote = String(localized: "That support bundle couldn’t be saved.")
+                model.diagnostics.record(
+                    String(localized: "Support"),
+                    String(localized: "A support bundle couldn’t be saved."))
+            }
         }
     }
 }

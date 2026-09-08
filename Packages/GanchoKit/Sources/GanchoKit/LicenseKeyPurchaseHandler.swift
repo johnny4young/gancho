@@ -36,8 +36,9 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     public func availableProducts() async -> [ProProduct] { ProCatalog.all }
 
     /// The purchase itself happens on Lemon Squeezy's site; the user then pastes
-    /// the key (`activate`). There is no in-app transaction to drive here.
-    public func purchase(_ plan: ProProduct.Plan) async throws -> Bool { false }
+    /// the key (`activate`). There is no in-app transaction to drive here, so
+    /// this reports failure rather than a cancellation that never happened.
+    public func purchase(_ plan: ProProduct.Plan) async throws -> PurchaseOutcome { .failed }
 
     public func restorePurchases() async throws -> Bool { await currentTier() == .pro }
 

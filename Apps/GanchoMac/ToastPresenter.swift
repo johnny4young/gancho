@@ -12,12 +12,18 @@ struct GanchoToast {
         case success
         case suggestion
         case warning
+        /// Something is underway and waiting on someone else — a purchase held
+        /// for approval, say. Neither done nor wrong, so it must not borrow the
+        /// checkmark or the warning triangle: both would misreport a normal
+        /// flow the user cannot act on yet.
+        case pending
 
         var symbol: String {
             switch self {
             case .success: "checkmark.circle.fill"
             case .suggestion: "sparkles"
             case .warning: "exclamationmark.triangle.fill"
+            case .pending: "hourglass"
             }
         }
 
@@ -26,6 +32,7 @@ struct GanchoToast {
             case .success: GanchoTokens.Palette.success
             case .suggestion: GanchoTokens.Palette.accent
             case .warning: GanchoTokens.Palette.warning
+            case .pending: GanchoTokens.Palette.accent
             }
         }
     }

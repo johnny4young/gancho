@@ -7,6 +7,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Sparkle updated to 2.9.6, which hardens the update installer: it now rejects
+  a package-based install whose signature validation failed, guards how the
+  downloaded archive is moved into place, and stops copying its progress tool
+  for the root user.
+
 ## [0.8.3] - 2026-08-10
 
 ### Security
