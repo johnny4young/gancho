@@ -119,10 +119,18 @@ extension GRDBClipboardStore {
     /// O(deleted) instead of O(table + files).
     func removeBlobsIfOrphaned(_ candidates: Set<String>) async throws -> Int {
         guard !candidates.isEmpty else { return 0 }
-        let orphaned = try await writer.read { db in
-            try candidates.filter { hash in
-                try ClipRow.filter(Column("contentBlobHash") == hash).fetchCount(db) == 0
-            }
+        // One query, not one per candidate: a purge of a few hundred image
+        // clips issued a few hundred COUNT(*) round trips to learn which of
+        // their blobs nobody else references.
+        let orphaned = try await writer.read { db -> Set<String> in
+            let placeholders = Array(repeating: "?", count: candidates.count)
+                .joined(separator: ",")
+            let stillReferenced = try String.fetchSet(
+                db,
+                sql: "SELECT DISTINCT contentBlobHash FROM clip "
+                    + "WHERE contentBlobHash IN (\(placeholders))",
+                arguments: StatementArguments(Array(candidates)))
+            return candidates.subtracting(stillReferenced)
         }
         for hash in orphaned {
             blobsForMaintenance.delete(hash: hash)
