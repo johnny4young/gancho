@@ -112,23 +112,10 @@ struct RuleClassifierSuiteTests {
         #expect(!ClipContentKind.url.prefersMaskedPreview)
     }
 
-    @Test("Classification stays under the 5ms p95 budget")
-    func latencyBudget() {
-        var latencies: [Duration] = []
-        for (input, _) in Self.cases {
-            let start = ContinuousClock.now
-            _ = classifier.classify(input)
-            latencies.append(ContinuousClock.now - start)
-        }
-        let sorted = latencies.sorted()
-        let p95 = sorted[Int(0.95 * Double(sorted.count - 1))]
-        // CI runs the suite with code coverage on, which instruments every
-        // access and inflates wall-clock latency several-fold; relax the budget
-        // there so the perf guard stays meaningful locally without flaking on
-        // the coverage run.
-        let budget: Duration =
-            ProcessInfo.processInfo.environment["CI"] == nil
-            ? .milliseconds(5) : .milliseconds(50)
-        #expect(p95 < budget, "p95 \(p95) blew the \(budget) budget")
-    }
+    // The wall-clock p95 budget that used to close this suite now runs under
+    // `GANCHO_PERF=1` (`make bench`) — see `RuleClassifierPerformanceTests`.
+    // It measured 55 samples of a ~235 µs call against a 5 ms line: on an idle
+    // machine the slowest of 200 such calls was already 5.3 ms, so the gate was
+    // reading scheduler preemption, not classifier cost. The 55 correctness
+    // cases above are what this suite is for.
 }

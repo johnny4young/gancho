@@ -107,8 +107,9 @@ test-storekit: project ## Run serialized StoreKitTest purchase/entitlement autom
 		2>&1 | tee build/storekit-tests.log
 	./scripts/check-build-warnings.sh build/storekit-tests.log
 
-bench: ## Run the scale performance harness (seeds 100k rows; not for the PR loop)
-	env GANCHO_PERF=1 swift test $(SWIFT_PACKAGE_FLAGS) --package-path $(PACKAGE) --filter PerformanceHarnessTests
+bench: ## Run the scale performance harnesses (seeds 100k rows; not for the PR loop)
+	env GANCHO_PERF=1 swift test $(SWIFT_PACKAGE_FLAGS) --package-path $(PACKAGE) \
+		--filter 'PerformanceHarnessTests|EmbeddingIndexPerformanceTests|RuleClassifierPerformanceTests'
 
 test-ui: project ## Run the XCUITest smoke suite (drives the real app; signed runner)
 	mkdir -p build
