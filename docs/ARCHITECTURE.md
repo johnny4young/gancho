@@ -412,7 +412,7 @@ or values, enforced by `SignpostHygieneTests`):
 | `query-to-results` | < 75 ms | search field change → results applied |
 | `launch-to-store-ready` | — (cold) | `AppModel.init` start → durable store ready |
 | `paste-dispatch` | < 100 ms | paste action → `⌘V` event posted (target-app time excluded) |
-| `capture-to-insert` | < 250 ms | ingest accepted → durable insert (both platforms) |
+| `capture-to-insert` | < 250 ms | ingest accepted → durable insert, both platforms (sync enqueue excluded) |
 
 Baselines are collected from real warm runs, not asserted in CI (device- and
 thermal-dependent). `-measure-panel` prints the panel first-frame wall-clock so

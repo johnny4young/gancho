@@ -11,10 +11,15 @@ enum Signpost {
     /// Query change to results applied.
     case queryToResults
 
-    private static let signposter = OSSignposter(
+    nonisolated private static let signposter = OSSignposter(
         subsystem: "com.johnny4young.gancho.ios", category: "perf")
 
-    func begin() -> OSSignpostIntervalState {
+    /// `nonisolated` on purpose. App targets default to main-actor isolation,
+    /// which would confine measurement to the main actor — and the work most
+    /// worth measuring is precisely the work that ran off it. Ending an
+    /// interval by hopping back would time the scheduler, not the operation.
+    /// Safe: `OSSignposter` is `Sendable` and documented thread-safe.
+    nonisolated func begin() -> OSSignpostIntervalState {
         switch self {
         case .captureToInsert:
             Self.signposter.beginInterval("capture-to-insert")
@@ -23,7 +28,7 @@ enum Signpost {
         }
     }
 
-    func end(_ state: OSSignpostIntervalState) {
+    nonisolated func end(_ state: OSSignpostIntervalState) {
         switch self {
         case .captureToInsert:
             Self.signposter.endInterval("capture-to-insert", state)
