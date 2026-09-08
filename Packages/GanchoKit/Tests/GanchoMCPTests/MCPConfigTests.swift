@@ -54,6 +54,32 @@ struct MCPConfigTests {
         #expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600)
     }
 
+    @Test("Replacing an existing config keeps it owner-only and leaves no staging file")
+    func replacementStaysOwnerOnly() throws {
+        let directory = tempDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent(MCPServerConfig.fileName)
+
+        try MCPServerConfig(isEnabled: false, scope: .metadata, grants: []).save(
+            toStoreDirectory: directory)
+        // The second save is the interesting one: it replaces a file that
+        // already exists, which is the path a revoke or a new grant takes.
+        try MCPServerConfig(isEnabled: true, scope: .all, grants: []).save(
+            toStoreDirectory: directory)
+
+        #expect(MCPServerConfig.load(fromStoreDirectory: directory).isEnabled)
+        let mode = try FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions]
+        #expect(
+            (mode as? NSNumber)?.intValue == 0o600,
+            "a replacement must land owner-only, not inherit the default mode")
+
+        // The staged file is moved, not copied, so nothing may be left beside
+        // the config — a leftover would carry the same authorization state.
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+            .filter { $0 != MCPServerConfig.fileName }
+        #expect(leftovers.isEmpty, "unexpected leftovers: \(leftovers)")
+    }
+
     @Test("legacy ambient config migrates disabled instead of authorizing every client")
     func legacyConfigFailsClosed() throws {
         let directory = tempDirectory()

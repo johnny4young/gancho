@@ -74,16 +74,27 @@ private actor ReuseStoreSpy: ClipboardStore, ReuseUsageStoring {
         Array(searches.prefix(limit))
     }
 
+    private var clearSearchHistoryFails = false
+
+    func failClearSearchHistory() { clearSearchHistoryFails = true }
+
     func clearSearchHistory() async throws {
+        if clearSearchHistoryFails {
+            events.append("clear-searches-failed")
+            throw ReuseSpyError.failure
+        }
         searches.removeAll()
         events.append("clear-searches")
     }
 }
 
+private enum ReuseSpyError: Error { case failure }
+
 @MainActor
 private final class ReuseRecorder {
     var recentSnapshots: [[UUID]] = []
     var rememberValues: [Bool] = []
+    var searchClearFailures = 0
 }
 
 @Suite("Reuse controller — recent history and actions")
@@ -107,6 +118,9 @@ struct ReuseControllerTests {
             onRememberSearchesChanged: { recorder.rememberValues.append($0) })
         controller.setRecentItemsObserver {
             recorder.recentSnapshots.append($0.map(\.id))
+        }
+        controller.setSearchHistoryClearFailureObserver {
+            recorder.searchClearFailures += 1
         }
         return controller
     }
@@ -216,6 +230,39 @@ struct ReuseControllerTests {
         #expect(await store.eventLog() == ["clear-searches", "use:clip"])
         #expect(await controller.recentSearches().isEmpty)
         #expect(controller.activeSearchQuery.isEmpty)
+    }
+
+    @Test("A failed erase of the stored searches is reported, never swallowed")
+    func failedSearchHistoryClearIsReported() async {
+        let store = ReuseStoreSpy()
+        let recorder = ReuseRecorder()
+        await store.failClearSearchHistory()
+        let controller = makeController(store: store, recorder: recorder)
+
+        // Turning the toggle off promises the stored queries are gone. If the
+        // erase fails and nobody says so, the UI reads "off" over a history
+        // that is still on disk — the privacy claim silently stops being true.
+        controller.rememberSearches = false
+        await waitUntil { recorder.searchClearFailures == 1 }
+
+        #expect(recorder.searchClearFailures == 1)
+        #expect(await store.eventLog() == ["clear-searches-failed"])
+
+        // Reporting it is not enough: the toggle itself must stop claiming the
+        // history is off while it is still on disk, which is what this
+        // property's own docstring promises. It also makes the shell's "try
+        // turning it off again" advice actionable — it is on again to turn off.
+        #expect(
+            controller.rememberSearches,
+            "a failed erase must put the toggle back ON")
+        // ...and the observer must have been told, or the persisted value would
+        // still read `false` behind a toggle that shows `true`.
+        #expect(
+            recorder.rememberValues.last == true,
+            "the restored value must be persisted, not just displayed")
+        // Exactly one erase attempt: restoring the flag re-enters `didSet`, and
+        // the guard there must stop it rather than loop.
+        #expect(await store.eventLog() == ["clear-searches-failed"])
     }
 
     @Test("Paste-stack mutations preserve duplicate identity and FIFO consumption")

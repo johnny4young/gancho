@@ -330,14 +330,42 @@ public struct MCPServerConfig: Sendable, Equatable, Codable {
     /// Persists atomically and owner-only. The grant ids are authorization
     /// selectors rather than secrets, but other local users still have no
     /// reason to inspect them.
+    ///
+    /// The staging step is what makes "atomically" true of the PERMISSIONS as
+    /// well as the bytes. Writing the file and then chmod-ing it means a failed
+    /// chmod throws AFTER the new authorization state is already readable by
+    /// the CLI and the MCP server — so the caller reports a failed save, keeps
+    /// the old config in memory, and the two disagree about who is allowed in.
+    /// The file could also keep default permissions. Creating the replacement
+    /// owner-only from the start and moving it into place with `rename(2)`
+    /// leaves exactly two possible states on disk: the previous file, or the
+    /// complete new one with the right mode.
     public func save(toStoreDirectory directory: URL) throws {
         try FileManager.default.createDirectory(
             at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent(Self.fileName)
         let data = try JSONEncoder().encode(self)
-        try data.write(to: url, options: .atomic)
-        try FileManager.default.setAttributes(
-            [.posixPermissions: 0o600], ofItemAtPath: url.path)
+        let staged = directory.appendingPathComponent(".\(Self.fileName).\(UUID().uuidString)")
+        guard
+            FileManager.default.createFile(
+                atPath: staged.path, contents: data,
+                attributes: [.posixPermissions: 0o600])
+        else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        // rename(2) both replaces an existing destination and is atomic, which
+        // `FileManager.moveItem` (fails when the destination exists) and
+        // `replaceItemAt` (throws when it does not) each get only half right.
+        let moved = staged.withUnsafeFileSystemRepresentation { source in
+            url.withUnsafeFileSystemRepresentation { destination in
+                guard let source, let destination else { return false }
+                return rename(source, destination) == 0
+            }
+        }
+        guard moved else {
+            try? FileManager.default.removeItem(at: staged)
+            throw CocoaError(.fileWriteUnknown)
+        }
     }
 }
 
