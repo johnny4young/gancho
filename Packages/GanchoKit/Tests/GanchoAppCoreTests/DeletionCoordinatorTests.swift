@@ -55,6 +55,35 @@ struct DeletionCoordinatorTests {
         #expect(coordinator.hasPending)
     }
 
+    @Test("pendingIDs moves on every entry and exit, where hasPending cannot")
+    func pendingIDsTracksEachTransition() {
+        // A cached list is rebuilt off a CHANGE in this value, so it has to
+        // differ across a second delete arriving mid-window and across an undo
+        // that leaves another clip pending. `hasPending` is `true` through all
+        // of that, which is exactly why it cannot drive the rebuild.
+        let coordinator = DeletionCoordinator(grace: .seconds(60))
+        let first = UUID()
+        let second = UUID()
+        #expect(coordinator.pendingIDs.isEmpty)
+
+        let firstTransaction = coordinator.beginDeletion(
+            first, performDelete: { _ in }, didFinish: { _ in })
+        #expect(coordinator.pendingIDs == [first])
+
+        let secondTransaction = coordinator.beginDeletion(
+            second, performDelete: { _ in }, didFinish: { _ in })
+        #expect(coordinator.pendingIDs == [first, second])
+        #expect(coordinator.hasPending)
+
+        coordinator.undo(secondTransaction, then: { _ in })
+        #expect(coordinator.pendingIDs == [first])
+        // Still true — the signal a view could NOT have keyed on.
+        #expect(coordinator.hasPending)
+
+        coordinator.undo(firstTransaction, then: { _ in })
+        #expect(coordinator.pendingIDs.isEmpty)
+    }
+
     @Test("After the grace: performDelete runs once THEN didFinish, and clears pending")
     func commitRunsInOrderAndClearsPending() async {
         // Zero grace: the commit becomes ready on the next executor turn instead
