@@ -167,6 +167,7 @@ final class AppModel {
     private let deletionWorkflow = ClipDeletionWorkflow()
     private let editingController = ClipEditingController()
     private let ingestionCoordinator = ClipIngestionCoordinator()
+    private let enrichmentScheduler = EnrichmentScheduler()
     private let defaults: UserDefaults
     private let activationTracker: ActivationTracker
     private var retentionTimer: Timer?
@@ -712,19 +713,25 @@ final class AppModel {
         guard !outcome.enrichment.isEmpty, let grdbStore else { return }
         let syncEngine: (any SyncEngine)? =
             syncController.isEnabled ? syncController.engine : nil
-        Task(priority: .utility) {
-            await ingestionCoordinator.enrich(
-                outcome,
-                store: grdbStore,
-                syncEngine: syncEngine
-            ) { @MainActor [self] in
-                if outcome.enrichment.usesFreeTitle {
-                    consumeFreeAITitle()
-                    // The moment the taste runs out is the conversion moment: a
-                    // gentle, tappable nudge — never an interrupting gateway.
-                    if freeAITitlesRemaining == 0 { showAITasteEndedNudge() }
+        Task(priority: .utility) { [enrichmentScheduler] in
+            // Bounded: a burst of copies used to leave one enrichment in
+            // flight per clip, each holding its own model session and
+            // competing for the same Neural Engine.
+            await enrichmentScheduler.run {
+                await ingestionCoordinator.enrich(
+                    outcome,
+                    store: grdbStore,
+                    syncEngine: syncEngine
+                ) { @MainActor [self] in
+                    if outcome.enrichment.usesFreeTitle {
+                        consumeFreeAITitle()
+                        // The moment the taste runs out is the conversion
+                        // moment: a gentle, tappable nudge — never an
+                        // interrupting gateway.
+                        if freeAITitlesRemaining == 0 { showAITasteEndedNudge() }
+                    }
+                    await refreshRecents()
                 }
-                await refreshRecents()
             }
         }
     }
