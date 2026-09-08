@@ -52,7 +52,9 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// The live search field text. Empty shows the paginated recent list.
     public var query = ""
     /// The rows returned by the current query/board/recent load, pre-filter.
-    public var results: [ClipItem] = []
+    public var results: [ClipItem] = [] {
+        didSet { rebuildVisible() }
+    }
     /// Date-bucketed rows for the recent list, cached so the bucket math runs
     /// once per data change, never on the scroll/arrow path.
     public var groups: [PanelDateGroup] = []
@@ -61,7 +63,9 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// The store has no more rows to append.
     public var reachedEnd = false
     /// The active type-filter pill.
-    public var kindFilter: ClipKindFilter = .all
+    public var kindFilter: ClipKindFilter = .all {
+        didSet { rebuildVisible() }
+    }
     /// nil = "All clips"; otherwise the selected board's id.
     public var selectedBoardID: UUID?
     /// nil = all apps; otherwise the source bundle identifier to intersect with
@@ -120,12 +124,43 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// list must never carry a repeated id. Also hides clips whose delete is in
     /// the undo window, so a deleted row disappears immediately (Undo brings it
     /// back) instead of lingering and reading as "not deleted".
-    public var filtered: [ClipItem] {
+    /// Cached, not computed. The selection accessors, the pagination guard and
+    /// the group builder all read this, and the macOS row builder reads it once
+    /// PER ROW through `selectedItems` — so computing it on access meant an
+    /// O(n) filter and a fresh `Set` allocation for every visible row of every
+    /// render, which is quadratic in a list that pages to thousands.
+    ///
+    /// Rebuilt when `results` or `kindFilter` change, and by
+    /// ``reconcileVisible()`` when the pending-deletion set moves underneath it
+    /// — that last one is why this is not simply derived state.
+    public private(set) var filtered: [ClipItem] = []
+
+    /// Recomputes ``filtered``.
+    ///
+    /// Order matters: dedupe before the pending check so a duplicated id cannot
+    /// consume the `seen` slot and let its twin through. A repeated id makes
+    /// SwiftUI's selection highlight land on several rows or none, which is
+    /// what the dedupe is for; the pending check hides a clip whose delete is
+    /// inside the undo window, so the row disappears the moment the user asks
+    /// rather than lingering and reading as "not deleted".
+    private func rebuildVisible() {
         let base = kindFilter == .all ? results : results.filter { kindFilter.matches($0.kind) }
         var seen = Set<UUID>()
-        return base.filter {
+        seen.reserveCapacity(base.count)
+        filtered = base.filter {
             seen.insert($0.id).inserted && !source.isDeletionPending($0.id)
         }
+    }
+
+    /// Re-reads the pending-deletion set and drops any row it now covers.
+    ///
+    /// The shell calls this the instant a delete or an undo lands, before the
+    /// asynchronous refresh that follows. `isDeletionPending` is state this
+    /// model does not own, so nothing else would tell the cache it went stale —
+    /// and waiting for the refresh would put a store round trip between the
+    /// user's Delete and the row leaving the screen.
+    public func reconcileVisible() {
+        rebuildVisible()
     }
 
     /// The keyboard/preview cursor into `filtered`. Plain assignments preserve
@@ -287,6 +322,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// path. The query orders pinned-first then by capture time, so the sections
     /// come out contiguous in one linear pass.
     public func rebuildGroups() {
+        rebuildVisible()
         reconcileSelection()
         guard isGroupedView else {
             if !groups.isEmpty { groups = [] }

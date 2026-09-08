@@ -195,6 +195,11 @@ struct PanelView: View {
             }
         }
         .onChange(of: model.recentItems) { _, _ in
+            // Synchronously, before the refresh: a delete hides its rows the
+            // moment the user asks, and an undo brings them back just as fast.
+            // The visible list is cached now, so without this the row would
+            // linger for a store round trip and read as "not deleted".
+            search.reconcileVisible()
             Task {
                 await search.refreshSourceApps()
                 await search.refresh()

@@ -39,7 +39,15 @@ import Testing
         Array(sourceApps.prefix(limit))
     }
     func snippet(matchingKeyword keyword: String) async -> ClipItem? { snippets[keyword] }
-    func isDeletionPending(_ id: UUID) -> Bool { pending.contains(id) }
+    /// How many times the model asked. The visible list is read once per row
+    /// by the macOS row builder, so a per-read filter shows up here as a
+    /// multiple of the row count.
+    private(set) var deletionPendingCalls = 0
+    func resetDeletionPendingCalls() { deletionPendingCalls = 0 }
+    func isDeletionPending(_ id: UUID) -> Bool {
+        deletionPendingCalls += 1
+        return pending.contains(id)
+    }
 }
 
 @MainActor
@@ -112,6 +120,63 @@ struct PanelSearchModelTests {
         await model.refresh()
         #expect(model.filtered.count == 1)
         #expect(!model.filtered.contains { $0.id == doomed.id })
+    }
+
+    @Test func aDeleteAfterTheListIsBuiltHidesTheRowOnReconcile() async {
+        // The real sequence, and the one the existing coverage missed: the list
+        // exists first, and the delete happens against it. `pending` is state
+        // this model does not own, so nothing tells a cached list it went
+        // stale — the shell says so, synchronously, before its refresh.
+        let doomed = ClipItem(preview: "bye")
+        let source = FakeSource()
+        source.recent = [doomed, ClipItem(preview: "stay")]
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+        #expect(model.filtered.count == 2)
+
+        source.pending = [doomed.id]
+        model.reconcileVisible()
+
+        #expect(model.filtered.count == 1)
+        #expect(!model.filtered.contains { $0.id == doomed.id })
+    }
+
+    @Test func anUndoneDeleteBringsTheRowBack() async {
+        let restored = ClipItem(preview: "back")
+        let source = FakeSource()
+        source.recent = [restored, ClipItem(preview: "stay")]
+        source.pending = [restored.id]
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+        #expect(model.filtered.count == 1)
+
+        source.pending = []
+        model.reconcileVisible()
+
+        #expect(model.filtered.map(\.id).contains(restored.id))
+    }
+
+    @Test func theVisibleListIsBuiltOncePerChangeNotOncePerRead() async {
+        let source = FakeSource()
+        source.recent = (0..<50).map { ClipItem(preview: "clip \($0)") }
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+        source.resetDeletionPendingCalls()
+
+        // Reads the visible list the way a render does: the selection
+        // accessors, the pagination guard, and once per row.
+        for index in 0..<model.filtered.count {
+            _ = model.filtered[index]
+            _ = model.selectedItems
+            _ = model.selectionCount
+        }
+
+        #expect(
+            source.deletionPendingCalls == 0,
+            "reading the list must not re-ask; it cost \(source.deletionPendingCalls) calls")
+
+        model.reconcileVisible()
+        #expect(source.deletionPendingCalls == 50, "one pass per rebuild, not per read")
     }
 
     @Test func kindFilterNarrowsToTheMatchingKind() async {
