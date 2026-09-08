@@ -139,6 +139,13 @@ struct PanelSearchModelTests {
 
         #expect(model.filtered.count == 1)
         #expect(!model.filtered.contains { $0.id == doomed.id })
+        // The recent list IS the grouped view, so this is the surface the user
+        // actually looks at. Asserting `filtered` alone let a reconcile that
+        // left the sections stale pass as a fix.
+        #expect(model.isGroupedView)
+        #expect(!model.groups.flatMap(\.rows).contains { $0.item.id == doomed.id })
+        // Row indices address `filtered`; a stale section would point past it.
+        #expect(model.groups.flatMap { $0.rows.map(\.index) } == [0])
     }
 
     @Test func anUndoneDeleteBringsTheRowBack() async {
@@ -149,11 +156,14 @@ struct PanelSearchModelTests {
         let model = PanelSearchModel(source: source)
         await model.refresh()
         #expect(model.filtered.count == 1)
+        #expect(!model.groups.flatMap(\.rows).contains { $0.item.id == restored.id })
 
         source.pending = []
         model.reconcileVisible()
 
         #expect(model.filtered.map(\.id).contains(restored.id))
+        #expect(model.groups.flatMap(\.rows).contains { $0.item.id == restored.id })
+        #expect(model.groups.flatMap { $0.rows.map(\.index) } == [0, 1])
     }
 
     @Test func theVisibleListIsBuiltOncePerChangeNotOncePerRead() async {

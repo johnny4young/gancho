@@ -152,15 +152,21 @@ public struct PanelDateGroup: Identifiable, Sendable {
         }
     }
 
-    /// Re-reads the pending-deletion set and drops any row it now covers.
+    /// Re-reads the pending-deletion set and rebuilds EVERY visible surface
+    /// from it: the flat list, the date sections, and the selection.
     ///
-    /// The shell calls this the instant a delete or an undo lands, before the
-    /// asynchronous refresh that follows. `isDeletionPending` is state this
-    /// model does not own, so nothing else would tell the cache it went stale —
-    /// and waiting for the refresh would put a store round trip between the
-    /// user's Delete and the row leaving the screen.
+    /// The shell calls this the instant the pending set changes — a delete or
+    /// an undo — before the asynchronous refresh that follows. `pending` is
+    /// state this model does not own, so nothing else would tell the caches
+    /// they went stale, and waiting for the refresh would put a store round
+    /// trip between the user's Delete and the row leaving the screen.
+    ///
+    /// Rebuilding `filtered` alone is not enough and was the bug this replaced:
+    /// the recent list is the grouped view, and it renders ``groups``, so a
+    /// deleted row stayed on screen in its cached section while `filtered`
+    /// already knew it was gone.
     public func reconcileVisible() {
-        rebuildVisible()
+        rebuildGroups()
     }
 
     /// The keyboard/preview cursor into `filtered`. Plain assignments preserve

@@ -76,6 +76,21 @@ public final class DeletionCoordinator {
         !pending.isEmpty
     }
 
+    /// The pending set itself, so a shell can drive a cached list off the
+    /// CHANGE rather than off a per-row question.
+    ///
+    /// `hasPending` is not a substitute: it stays `true` across a second delete
+    /// arriving while the first is still in its window, so a view keyed on it
+    /// would miss that transition. This is the whole set precisely so equality
+    /// moves whenever any clip enters or leaves the undo window.
+    ///
+    /// Nor is `recentItems`: a delete filters it synchronously, but an UNDO
+    /// only schedules an async refresh, so a shell watching the list alone
+    /// never learns that a clip came back until the store answers.
+    public var pendingIDs: Set<UUID> {
+        pending
+    }
+
     /// Begins a deferred, reversible delete: marks `id` pending, cancels any
     /// prior timer for it (a repeated delete restarts the window), and schedules
     /// the commit after the grace. If the app quits mid-window the commit never
