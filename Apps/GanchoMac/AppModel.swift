@@ -54,6 +54,10 @@ final class AppModel {
     /// facade properties and commands rather than reaching through directly.
     let reuseController: ReuseController
     var recentItems: [ClipItem] { reuseController.recentItems }
+    /// Clips inside an undo window. The panel watches this to reconcile its
+    /// cached list on the delete AND on the undo; `recentItems` only moves on
+    /// the delete.
+    var pendingDeletionIDs: Set<UUID> { reuseController.pendingDeletionIDs }
     /// True when the durable store failed to open and the app is running on the
     /// in-memory fallback — history won't survive a relaunch, so the panel warns.
     var storageIsEphemeral: Bool { !store.isDurable }

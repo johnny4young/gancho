@@ -57,7 +57,8 @@ extension GRDBClipboardStore {
             return hits
         }
         return try await writer.read { db in
-            var query = ClipRow.filter(Column("isArchived") == false)
+            var query = ClipRow.select(ClipRow.metadataColumns)
+                .filter(Column("isArchived") == false)
             if let kinds = rule.kinds, !kinds.isEmpty {
                 query = query.filter(kinds.map(\.rawValue).contains(Column("kind")))
             }
@@ -92,7 +93,7 @@ public struct SnippetSuggestor: Sendable {
             try ClipRow.fetchAll(
                 db,
                 sql: """
-                    SELECT * FROM clip
+                    SELECT \(ClipRow.metadataSelectionSQL) FROM clip
                     WHERE isSnippet = 0 AND isSensitive = 0 AND isArchived = 0
                       AND lastUsedAt IS NOT NULL
                       AND (julianday(lastUsedAt) - julianday(createdAt)) * 86400 >= ?

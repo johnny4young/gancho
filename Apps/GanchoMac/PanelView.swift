@@ -200,6 +200,15 @@ struct PanelView: View {
                 await search.refresh()
             }
         }
+        // Keyed on the pending set, not on `recentItems`: a delete filters the
+        // recent list synchronously, but an UNDO only schedules an async
+        // refresh, so watching the list would reconcile on the way out and not
+        // on the way back. This fires on both, synchronously, before the
+        // refresh — the visible list is cached now, so without it a row lingers
+        // for a store round trip and reads as "not deleted".
+        .onChange(of: model.pendingDeletionIDs) { _, _ in
+            search.reconcileVisible()
+        }
         .onChange(of: search.selectedBoardID) { _, _ in
             Task { await search.refresh() }
         }
