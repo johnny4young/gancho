@@ -15,6 +15,11 @@ enum Signpost {
     case queryToResults
     /// Paste action to the paste event being dispatched.
     case pasteDispatch
+    /// Capture accepted to the durable insert landing. The iOS counterpart of
+    /// this has existed since capture shipped there; macOS captures
+    /// automatically on every copy, so it is the platform where this interval
+    /// runs most often and was the one without it.
+    case captureToInsert
 
     private static let signposter = OSSignposter(
         subsystem: "com.johnny4young.gancho", category: "perf")
@@ -29,6 +34,8 @@ enum Signpost {
             Self.signposter.beginInterval("query-to-results")
         case .pasteDispatch:
             Self.signposter.beginInterval("paste-dispatch")
+        case .captureToInsert:
+            Self.signposter.beginInterval("capture-to-insert")
         }
     }
 
@@ -42,6 +49,8 @@ enum Signpost {
             Self.signposter.endInterval("query-to-results", state)
         case .pasteDispatch:
             Self.signposter.endInterval("paste-dispatch", state)
+        case .captureToInsert:
+            Self.signposter.endInterval("capture-to-insert", state)
         }
     }
 }

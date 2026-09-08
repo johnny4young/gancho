@@ -645,13 +645,20 @@ final class AppModel {
                 intelligence: intelligence,
                 allowsFreeTitle: freeAITitlesRemaining > 0,
                 sourceDeviceName: DeviceProvenance.currentDeviceName())
+            let ingestInterval = Signpost.captureToInsert.begin()
             guard
                 let outcome = try? await ingestionCoordinator.ingest(
                     capture,
                     configuration: configuration,
                     store: store,
                     syncEngine: syncController.engine)
-            else { return }
+            else {
+                // The failure path closes the interval too — a half-open
+                // interval would read as an eternal capture in Instruments.
+                Signpost.captureToInsert.end(ingestInterval)
+                return
+            }
+            Signpost.captureToInsert.end(ingestInterval)
             // Bucketized analytics: kind + a length BUCKET, never the content.
             telemetry.record(
                 .itemCaptured(
