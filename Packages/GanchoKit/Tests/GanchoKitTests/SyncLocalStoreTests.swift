@@ -548,6 +548,70 @@ struct SyncLocalStoreBatchTests {
         #expect(try await store.content(for: local.id) == .text("local"))
     }
 
+    @Test("A board arriving with a clip that references it keeps its own metadata")
+    func boardsApplyBeforeTheMembershipsThatWouldStubThem() async throws {
+        // A clip's membership creates a placeholder for any board id it cannot
+        // find, stamped `createdAt = now` and `isSystem = 0`. The board upsert
+        // deliberately does not touch either column, so if the clip went first
+        // the board's real metadata would be lost for good — and BOTH columns
+        // matter: `pinboards()` orders by `isSystem DESC, sortIndex ASC,
+        // createdAt ASC`, and `applyRemoteBoardDeletion` refuses to delete a
+        // system board.
+        let store = try makeStore()
+        let born = Date(timeIntervalSince1970: 1_000)
+        let arriving = Pinboard(
+            name: "Shared", sortIndex: 3, createdAt: born, isSystem: true)
+        let clip = ClipItem(kind: .text, preview: "p", contentHash: "h")
+
+        let summary = try await store.applyRemoteChanges(
+            clips: [
+                RemoteClipChange(
+                    item: clip, content: .text("body"), systemFields: Data([0x01]),
+                    boardIDs: [arriving.id])
+            ],
+            boards: [RemoteBoardChange(board: arriving, systemFields: Data([0x02]))],
+            clipDeletions: [], boardDeletions: [])
+
+        #expect(summary.failed == 0)
+        let stored = try await store.pinboards().first { $0.id == arriving.id }
+        #expect(stored?.name == "Shared")
+        #expect(stored?.createdAt == born, "the placeholder's timestamp survived the upsert")
+        #expect(stored?.isSystem == true, "the board was demoted to a plain placeholder")
+        #expect(try await store.boardIDs(forClip: clip.id) == [arriving.id])
+    }
+
+    @Test("A board deletion that fails halfway leaves its memberships intact")
+    func aFailedBoardDeletionRollsBackItsMemberships() async throws {
+        // Deleting a board is TWO statements — memberships, then the board. A
+        // throw on the second must take the first with it, or the page commits
+        // a board whose contents silently vanished.
+        let store = try makeStore()
+        let board = try await store.createPinboard(name: "Work")
+        let clip = ClipItem(kind: .text, preview: "p", contentHash: "h")
+        _ = try await store.insert(clip, content: .text("body"))
+        try await store.setBoardMembership(clipID: clip.id, boardIDs: [board.id])
+
+        // Make the second statement fail the way a trigger would.
+        try await store.writer.write { db in
+            try db.execute(
+                sql: """
+                    CREATE TRIGGER refuse_board_delete BEFORE DELETE ON pinboard
+                    BEGIN SELECT RAISE(ABORT, 'nope'); END
+                    """)
+        }
+
+        let summary = try await store.applyRemoteChanges(
+            clips: [], boards: [], clipDeletions: [],
+            boardDeletions: [board.id.uuidString])
+
+        #expect(summary.failed == 1)
+        #expect(summary.applied == 0)
+        #expect(
+            try await store.boardIDs(forClip: clip.id) == [board.id],
+            "the membership delete committed even though the board delete threw")
+        #expect(try await store.pinboards().contains { $0.id == board.id })
+    }
+
     @Test("A savepoint rollback inside a transaction spares the rest of the page")
     func savepointRollbackIsIsolated() async throws {
         // The premise the batch rests on. `applyFetched` does not throw and the

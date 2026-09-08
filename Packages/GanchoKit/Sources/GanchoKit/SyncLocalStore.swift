@@ -149,6 +149,16 @@ extension SyncLocalStore {
         clipDeletions: [String], boardDeletions: [String]
     ) async throws -> RemoteApplySummary {
         var summary = RemoteApplySummary()
+        // Boards BEFORE clips — see `applyRemoteChanges` on the GRDB store for
+        // why the order is load-bearing rather than cosmetic.
+        for board in boards {
+            do {
+                try await applyRemoteBoardUpsert(board.board, systemFields: board.systemFields)
+                summary.applied += 1
+            } catch {
+                summary.failed += 1
+            }
+        }
         for change in clips {
             do {
                 let applied = try await applyRemoteUpsert(
@@ -159,14 +169,6 @@ extension SyncLocalStore {
                 }
                 summary.applied += applied ? 1 : 0
                 summary.skippedAsStale += applied ? 0 : 1
-            } catch {
-                summary.failed += 1
-            }
-        }
-        for board in boards {
-            do {
-                try await applyRemoteBoardUpsert(board.board, systemFields: board.systemFields)
-                summary.applied += 1
             } catch {
                 summary.failed += 1
             }
@@ -439,8 +441,21 @@ extension GRDBClipboardStore: SyncLocalStore {
         let counted = summary
         return try await writer.write { db in
             var summary = counted
-            applyStagedClips(staged, into: &summary, in: db)
+            // Boards FIRST. A clip's membership creates a placeholder board for
+            // any id it does not find locally, stamped `createdAt = now` and
+            // `isSystem = 0`. The board upsert that follows deliberately leaves
+            // both columns alone — `isSystem` so a device's own Favorites stays
+            // a system board — so a board arriving in the SAME page as a clip
+            // that references it would keep the placeholder's values forever.
+            // Both are load-bearing: `pinboards()` orders by
+            // `isSystem DESC, sortIndex ASC, createdAt ASC`, and
+            // `applyRemoteBoardDeletion` refuses to delete a system board, so a
+            // system board demoted to a placeholder also loses that protection.
+            // Applying boards first makes the membership INSERT OR IGNORE a
+            // no-op for them, and placeholders stay what they are for: boards
+            // this page genuinely does not carry.
             applyRemoteBoards(boards, into: &summary, in: db)
+            applyStagedClips(staged, into: &summary, in: db)
             applyRemoteDeletions(
                 clips: clipDeletions, boards: boardDeletions, into: &summary, in: db)
             return summary
@@ -517,8 +532,16 @@ extension GRDBClipboardStore: SyncLocalStore {
             }
         }
         for recordID in boards {
+            // A savepoint because this one is TWO statements: memberships, then
+            // the board. Without it a throw on the second commits the first,
+            // leaving the board present with its memberships already gone —
+            // a partial change, which is exactly what the per-change savepoint
+            // contract in this function exists to prevent.
             do {
-                try applyRemoteBoardDeletion(recordID: recordID, in: db)
+                try db.inSavepoint {
+                    try applyRemoteBoardDeletion(recordID: recordID, in: db)
+                    return .commit
+                }
                 summary.applied += 1
             } catch {
                 summary.failed += 1
