@@ -498,14 +498,15 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
     /// device B's clips" undiagnosable. Counts only, never content.
     func applyFetched(records: [CKRecord], deletions: [CKRecord.ID]) async {
         var decodeFailures = 0
-        var applyFailures = 0
+        var clips: [RemoteClipChange] = []
+        var boards: [RemoteBoardChange] = []
         for record in records {
             if record.recordType == BoardRecordMapper.recordType {
                 if let board = BoardRecordMapper.decode(record) {
-                    do {
-                        try await store.applyRemoteBoardUpsert(
-                            board, systemFields: BoardRecordMapper.encodeSystemFields(record))
-                    } catch { applyFailures += 1 }
+                    boards.append(
+                        RemoteBoardChange(
+                            board: board,
+                            systemFields: BoardRecordMapper.encodeSystemFields(record)))
                 } else {
                     decodeFailures += 1
                 }
@@ -517,27 +518,33 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             }
             // Membership rides the clip record, so it follows the same
             // last-writer-wins decision: a stale remote must not overwrite a
-            // newer local board set. `applied == false` is the NORMAL stale-remote
-            // skip; only a thrown store error counts as a failure.
-            do {
-                let applied = try await store.applyRemoteUpsert(
-                    decoded.item, content: decoded.content,
-                    systemFields: ClipRecordMapper.encodeSystemFields(record))
-                if applied {
-                    try? await store.setBoardMembership(
-                        clipID: decoded.item.id,
-                        boardIDs: Set(ClipRecordMapper.boardIDs(from: record)))
-                }
-            } catch { applyFailures += 1 }
+            // newer local board set. The store applies it only when the remote
+            // won, which is the `applied == false` skip that used to live here.
+            clips.append(
+                RemoteClipChange(
+                    item: decoded.item, content: decoded.content,
+                    systemFields: ClipRecordMapper.encodeSystemFields(record),
+                    boardIDs: Set(ClipRecordMapper.boardIDs(from: record))))
         }
-        for recordID in deletions {
-            do {
-                if recordID.zoneID.zoneName == boardZoneID.zoneName {
-                    try await store.applyRemoteBoardDeletion(recordID: recordID.recordName)
-                } else {
-                    try await store.applyRemoteDeletion(recordID: recordID.recordName)
-                }
-            } catch { applyFailures += 1 }
+        let boardZone = boardZoneID.zoneName
+        let deletionIDs = Dictionary(
+            grouping: deletions, by: { $0.zoneID.zoneName == boardZone }
+        )
+        .mapValues { $0.map(\.recordName) }
+
+        // One transaction for the page instead of two per record. Decode
+        // failures are counted here because a record that cannot be decoded
+        // never reaches the store at all.
+        var applyFailures = 0
+        do {
+            let summary = try await store.applyRemoteChanges(
+                clips: clips, boards: boards,
+                clipDeletions: deletionIDs[false] ?? [],
+                boardDeletions: deletionIDs[true] ?? [])
+            applyFailures = summary.failed
+        } catch {
+            // The transaction itself could not be opened, so nothing landed.
+            applyFailures = clips.count + boards.count + deletions.count
         }
         if decodeFailures + applyFailures > 0 {
             diagnostics?.record(

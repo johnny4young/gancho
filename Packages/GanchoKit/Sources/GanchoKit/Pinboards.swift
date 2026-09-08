@@ -238,22 +238,28 @@ extension GRDBClipboardStore {
     /// seeded Favorites) untouched.
     public func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws {
         try await writer.write { db in
-            for boardID in boardIDs {
-                // needsUpload = 0: a placeholder is a stub for a board owned by
-                // another device — its real record syncs in, we don't push it.
-                try db.execute(
-                    sql: "INSERT OR IGNORE INTO pinboard "
-                        + "(id, name, sfSymbol, sortIndex, createdAt, isSystem, needsUpload) "
-                        + "VALUES (?, '', 'square.stack', 0, ?, 0, 0)",
-                    arguments: [boardID.uuidString, Date()])
-            }
+            try setBoardMembership(clipID: clipID, boardIDs: boardIDs, in: db)
+        }
+    }
+
+    /// Membership rebuild against an open transaction, so it can share one with
+    /// the upsert that carried it rather than opening a second per record.
+    func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>, in db: Database) throws {
+        for boardID in boardIDs {
+            // needsUpload = 0: a placeholder is a stub for a board owned by
+            // another device — its real record syncs in, we don't push it.
             try db.execute(
-                sql: "DELETE FROM clip_board WHERE clipID = ?", arguments: [clipID.uuidString])
-            for boardID in boardIDs {
-                try db.execute(
-                    sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) VALUES (?, ?)",
-                    arguments: [clipID.uuidString, boardID.uuidString])
-            }
+                sql: "INSERT OR IGNORE INTO pinboard "
+                    + "(id, name, sfSymbol, sortIndex, createdAt, isSystem, needsUpload) "
+                    + "VALUES (?, '', 'square.stack', 0, ?, 0, 0)",
+                arguments: [boardID.uuidString, Date()])
+        }
+        try db.execute(
+            sql: "DELETE FROM clip_board WHERE clipID = ?", arguments: [clipID.uuidString])
+        for boardID in boardIDs {
+            try db.execute(
+                sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) VALUES (?, ?)",
+                arguments: [clipID.uuidString, boardID.uuidString])
         }
     }
 
@@ -297,15 +303,20 @@ extension GRDBClipboardStore {
     /// back). Unknown ids are a harmless no-op.
     public func applyRemoteBoardDeletion(recordID: String) async throws {
         try await writer.write { db in
-            let isSystem =
-                try Bool.fetchOne(
-                    db, sql: "SELECT isSystem FROM pinboard WHERE id = ?", arguments: [recordID])
-                ?? false
-            guard !isSystem else { return }
-            try db.execute(
-                sql: "DELETE FROM clip_board WHERE boardID = ?", arguments: [recordID])
-            try db.execute(sql: "DELETE FROM pinboard WHERE id = ?", arguments: [recordID])
+            try applyRemoteBoardDeletion(recordID: recordID, in: db)
         }
+    }
+
+    /// Board deletion against an open transaction, so a page shares one.
+    func applyRemoteBoardDeletion(recordID: String, in db: Database) throws {
+        let isSystem =
+            try Bool.fetchOne(
+                db, sql: "SELECT isSystem FROM pinboard WHERE id = ?", arguments: [recordID])
+            ?? false
+        guard !isSystem else { return }
+        try db.execute(
+            sql: "DELETE FROM clip_board WHERE boardID = ?", arguments: [recordID])
+        try db.execute(sql: "DELETE FROM pinboard WHERE id = ?", arguments: [recordID])
     }
 
     /// Forgets a board tombstone once its deletion has propagated.
