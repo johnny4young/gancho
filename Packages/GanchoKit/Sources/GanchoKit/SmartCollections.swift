@@ -92,7 +92,7 @@ public struct SnippetSuggestor: Sendable {
             try ClipRow.fetchAll(
                 db,
                 sql: """
-                    SELECT * FROM clip
+                    SELECT \(ClipRow.metadataSelectionSQL) FROM clip
                     WHERE isSnippet = 0 AND isSensitive = 0 AND isArchived = 0
                       AND lastUsedAt IS NOT NULL
                       AND (julianday(lastUsedAt) - julianday(createdAt)) * 86400 >= ?

@@ -110,7 +110,8 @@ extension GRDBClipboardStore {
         let topIDs = Self.partialTopK(scored, count: topK).map(\.id)
 
         return try await writer.read { db in
-            let fetched = try ClipRow.filter(keys: topIDs).fetchAll(db)
+            let fetched = try ClipRow.select(ClipRow.metadataColumns)
+                .filter(keys: topIDs).fetchAll(db)
             let byID = Dictionary(uniqueKeysWithValues: fetched.map { ($0.id, $0) })
             return topIDs.compactMap { byID[$0]?.item }
         }

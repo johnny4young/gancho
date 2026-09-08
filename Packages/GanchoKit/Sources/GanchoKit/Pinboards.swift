@@ -213,6 +213,7 @@ extension GRDBClipboardStore {
     ) async throws -> [ClipItem] {
         try await writer.read { db in
             try ClipRow
+                .select(ClipRow.metadataColumns)
                 .filter(
                     sql: "id IN (SELECT clipID FROM clip_board WHERE boardID = ?)",
                     arguments: [boardID.uuidString]
