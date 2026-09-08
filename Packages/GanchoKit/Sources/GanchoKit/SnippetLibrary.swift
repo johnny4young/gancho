@@ -43,7 +43,8 @@ extension GRDBClipboardStore {
 
     public func snippets() async throws -> [ClipItem] {
         try await writer.read { db in
-            try ClipRow.filter(Column("isSnippet") == true)
+            try ClipRow.select(ClipRow.metadataColumns)
+                .filter(Column("isSnippet") == true)
                 .order(Column("updatedAt").desc)
                 .fetchAll(db).map(\.item)
         }
