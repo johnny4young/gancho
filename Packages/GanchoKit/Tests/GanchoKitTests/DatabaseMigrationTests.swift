@@ -35,9 +35,10 @@ struct DatabaseMigrationTests {
                 "v17-frecency-boards-insights",
                 "v18-fts-prefix-indexes",
                 "v19-mcp-client-ledger",
-                "v20-private-activity-receipt"
+                "v20-private-activity-receipt",
+                "v21-discovery-sync-indexes"
             ])
-        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 20)
+        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 21)
     }
 
     @Test(
@@ -62,6 +63,67 @@ struct DatabaseMigrationTests {
             try String.fetchAll(db, sql: "SELECT name FROM pragma_table_info('clip_app_stats')")
         }
         #expect(receiptColumns.contains("sensitiveItemsExpired"))
+    }
+
+    @Test("The v21 indexes are the ones the planner actually picks")
+    func discoveryIndexesAreUsed() async throws {
+        // An index the planner declines is not free — it is write cost on every
+        // insert and update, paid forever, for nothing. So assert the plan, not
+        // the index's existence. These were chosen by reading `EXPLAIN QUERY
+        // PLAN` before and after; two other candidates were dropped because the
+        // planner would not use them (the sync-pending OR predicate) or because
+        // an existing index already served the query (the board EXISTS).
+        let store = GRDBClipboardStore(
+            writer: try DatabaseQueue(),
+            blobs: BlobStore(
+                directory: FileManager.default.temporaryDirectory
+                    .appendingPathComponent("plan-\(UUID().uuidString)")))
+        try store.migrate()
+        // The planner needs rows and statistics; on an empty table it prefers a
+        // scan no matter what indexes exist.
+        try await store.importBatch(
+            (0..<2_000).map { index in
+                (
+                    item: ClipItem(
+                        kind: .text, title: "t\(index)", preview: "p\(index)",
+                        contentHash: "h\(index)",
+                        sourceAppBundleID: "com.app.\(index % 12)"),
+                    content: ClipContent.text("body")
+                )
+            })
+        try await store.writer.write { db in try db.execute(sql: "ANALYZE") }
+
+        let plans = try await store.writer.read { db in
+            (
+                sourceApps: try String.fetchAll(
+                    db,
+                    sql: """
+                        EXPLAIN QUERY PLAN
+                        SELECT sourceAppBundleID AS bundleID, COUNT(*) AS clipCount,
+                               MAX(createdAt) AS mostRecentCapture
+                        FROM clip WHERE isArchived = 0 AND sourceAppBundleID IS NOT NULL
+                          AND TRIM(sourceAppBundleID) <> ''
+                        GROUP BY sourceAppBundleID
+                        ORDER BY mostRecentCapture DESC, bundleID ASC LIMIT 8
+                        """, adapter: ColumnMapping(["detail": "detail"])),
+                embeddings: try String.fetchAll(
+                    db,
+                    sql: """
+                        EXPLAIN QUERY PLAN
+                        SELECT clipID FROM clip_embedding WHERE modelVersion < 99 LIMIT 16
+                        """, adapter: ColumnMapping(["detail": "detail"]))
+            )
+        }
+
+        #expect(
+            plans.sourceApps.contains { $0.contains("idx_clip_source_app") },
+            "source-app discovery fell back to: \(plans.sourceApps)")
+        #expect(
+            !plans.sourceApps.contains { $0.contains("TEMP B-TREE FOR GROUP BY") },
+            "the group-by sort came back: \(plans.sourceApps)")
+        #expect(
+            plans.embeddings.contains { $0.contains("idx_clip_embedding_model") },
+            "stale-embedding lookup fell back to: \(plans.embeddings)")
     }
 
     @Test("A failed migration rolls back its DDL and the canonical migrator resumes")
