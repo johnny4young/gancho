@@ -91,6 +91,16 @@
         }
       }
     },
+    "Paste your license key": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega tu clave de licencia"
+          }
+        }
+      }
+    },
     "Settings": {
       "localizations": {
         "es": {

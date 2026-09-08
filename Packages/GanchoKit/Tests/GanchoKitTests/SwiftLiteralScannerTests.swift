@@ -97,4 +97,43 @@ struct SwiftLiteralScannerTests {
         #expect(LocalizationTests.isUserFacingCopy([.text("Share")], key: "Share"))
         #expect(!LocalizationTests.isUserFacingCopy([.text("delete.left")], key: "delete.left"))
     }
+    @Test("A top-level argument is found past parenthesized arguments before it")
+    func topLevelArgumentStepsOverNestedCalls() throws {
+        // The shape the old `[^)]*` bound could not reach: the regex stopped at
+        // the `)` of `binding()` and the prompt went unchecked entirely.
+        let source = """
+            .searchable(
+                text: binding(),
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search")
+            """
+        let open = try #require(source.firstIndex(of: "("))
+        let quote = try #require(
+            SwiftLiteralScanner.topLevelStringArgument(
+                in: source, callOpenedAt: open, label: "prompt"))
+        let segments = try #require(SwiftLiteralScanner.scan(source, from: quote).segments)
+        #expect(SwiftLiteralScanner.localizedKeys(for: segments).first == "Search")
+    }
+
+    @Test("An argument belonging to a nested call is not read as this call's")
+    func nestedArgumentIsNotClaimed() throws {
+        // `prompt:` here belongs to the inner call. Matching it would report a
+        // literal against the wrong API — and, worse, report the outer call as
+        // covered when it has no prompt at all.
+        let source = #".searchable(text: inner(prompt: "Inner"), tokens: $tokens)"#
+        let open = try #require(source.firstIndex(of: "("))
+        #expect(
+            SwiftLiteralScanner.topLevelStringArgument(
+                in: source, callOpenedAt: open, label: "prompt") == nil)
+    }
+
+    @Test("A non-literal argument value is nothing for the sweep to check")
+    func nonLiteralArgumentIsIgnored() throws {
+        let source = #".searchable(text: $query, prompt: promptText)"#
+        let open = try #require(source.firstIndex(of: "("))
+        #expect(
+            SwiftLiteralScanner.topLevelStringArgument(
+                in: source, callOpenedAt: open, label: "prompt") == nil)
+    }
+
 }
