@@ -123,6 +123,26 @@ struct LocalizationTests {
     /// the one screen where clarity matters most, while the catalogs already
     /// carried ~60 strings from those same initializers — the copy was ahead of
     /// the gate. When a SwiftUI API takes a localized title, add it here.
+    /// Every `.searchable` prompt literal in `source`.
+    ///
+    /// Separated from the sweep because reaching a prompt needs a balanced scan
+    /// rather than a pattern: it is never the first argument, and the arguments
+    /// before it routinely contain their own parentheses.
+    private func searchablePrompts(
+        in source: String, matching regex: NSRegularExpression
+    ) -> [[SwiftLiteralSegment]] {
+        let wholeFile = NSRange(source.startIndex..., in: source)
+        return regex.matches(in: source, range: wholeFile).compactMap { match in
+            guard let range = Range(match.range, in: source) else { return nil }
+            let opened = source.index(before: range.upperBound)
+            guard
+                let quote = SwiftLiteralScanner.topLevelStringArgument(
+                    in: source, callOpenedAt: opened, label: "prompt")
+            else { return nil }
+            return SwiftLiteralScanner.scan(source, from: quote).segments
+        }
+    }
+
     @Test("No hardcoded user-facing prose outside the catalogs")
     func hardcodedSweep() throws {
         // swiftlint:enable function_body_length
@@ -170,9 +190,6 @@ struct LocalizationTests {
             // tooltip; the accessibility pair is what VoiceOver reads aloud, so
             // an untranslated one is a Spanish user hearing English.
             #"\.(?:help|accessibilityLabel|accessibilityHint|navigationSubtitle)\(\s*(?=")"#,
-            // `.searchable(text:prompt:)` — the prompt is placeholder copy, and
-            // it is never the first argument.
-            #"\.searchable\([^)]*prompt:\s*(?=")"#,
             #"\.(?:navigationTitle|alert|confirmationDialog)\(\s*(?=")"#,
             #"LocalizedString(?:Resource|Key)\(\s*(?=")"#,
             #"LocalizedString(?:Resource|Key)\s*=\s*(?=")"#,
@@ -194,6 +211,13 @@ struct LocalizationTests {
         let keyBodyRegexes = try keyBodyPatterns.map {
             (regex: try NSRegularExpression(pattern: $0.pattern), open: $0.open, close: $0.close)
         }
+        // `.searchable(text:prompt:)` — the prompt is placeholder copy and is
+        // never the first argument, so reaching it means stepping over the
+        // arguments before it. A regex cannot: bounded by `[^)]*` it stops at
+        // the first `)`, so any call with a parenthesized argument ahead of the
+        // prompt — `text: binding()`, `placement: .navigationBarDrawer(…)` —
+        // matched nothing and went unchecked.
+        let searchableRegex = try NSRegularExpression(pattern: #"\.searchable\("#)
 
         let appsDir = Self.repoRoot.appendingPathComponent("Apps")
         let files = try FileManager.default.subpathsOfDirectory(atPath: appsDir.path)
@@ -215,6 +239,8 @@ struct LocalizationTests {
                     literals.append(segments)
                 }
             }
+            literals += searchablePrompts(in: source, matching: searchableRegex)
+
             for (regex, open, close) in keyBodyRegexes {
                 for match in regex.matches(in: source, range: wholeFile) {
                     guard let range = Range(match.range, in: source) else { continue }
