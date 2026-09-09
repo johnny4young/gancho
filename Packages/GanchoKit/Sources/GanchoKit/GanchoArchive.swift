@@ -59,7 +59,7 @@ public enum GanchoArchive {
         //
         // The bytes are identical to encoding the array. With `.sortedKeys`
         // and no pretty-printing a JSON array is exactly `[`, its elements
-        // joined by `,`, and `]`, and `ExportStreamingTests` pins that against
+        // joined by `,`, and `]`, and `ArchiveStreamingTests` pins that against
         // `encoder.encode(rows)` so the format and its checksum cannot drift.
         let clipsURL = directory.appendingPathComponent("clips.json")
         let staged = directory.appendingPathComponent(".clips.json.\(UUID().uuidString)")
@@ -79,10 +79,12 @@ public enum GanchoArchive {
             try? FileManager.default.removeItem(at: staged)
             throw error
         }
-        // Renamed only once it is whole, so a failed export leaves no
-        // half-written clips.json where the old code wrote atomically.
-        _ = try? FileManager.default.removeItem(at: clipsURL)
-        try FileManager.default.moveItem(at: staged, to: clipsURL)
+        // Published only once it is whole, so a failed export leaves no
+        // half-written clips.json where the old code wrote atomically — and,
+        // just as importantly, leaves the PREVIOUS one intact. Remove-then-move
+        // would not: it exposes a window with no clips.json at all, and a
+        // failure after the remove destroys a good archive.
+        try AtomicFileReplace.publish(staged: staged, as: clipsURL)
 
         let clipCount = streamed.count
         let referencedBlobs = streamed.blobs

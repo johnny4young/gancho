@@ -111,25 +111,52 @@ public struct RetentionEngine: Sendable {
 }
 
 extension GRDBClipboardStore {
+    /// How many blob hashes one orphan lookup binds at a time. Far below every
+    /// SQLite build's ceiling (999 on the oldest, 32766 since 3.32) with room
+    /// for the statement's other bindings — the candidate set is unbounded, so
+    /// this cannot be "however many there are".
+    static let orphanLookupChunkSize = 500
+
     /// Deletes the given candidate blob hashes — the hashes of rows a mass
     /// delete just removed — when no surviving row still references them.
     /// Content-addressed blobs are shared, so each candidate is ref-checked
     /// before its file goes; a blob still referenced is never deleted. The
     /// precise counterpart to the full-sweep ``removeOrphanedBlobs()``:
     /// O(deleted) instead of O(table + files).
-    func removeBlobsIfOrphaned(_ candidates: Set<String>) async throws -> Int {
+    ///
+    /// `chunkSize` is injectable so a test can exercise the multi-chunk path
+    /// without seeding tens of thousands of rows; production always takes the
+    /// default.
+    func removeBlobsIfOrphaned(
+        _ candidates: Set<String>, chunkSize: Int = GRDBClipboardStore.orphanLookupChunkSize
+    ) async throws -> Int {
         guard !candidates.isEmpty else { return 0 }
-        // One query, not one per candidate: a purge of a few hundred image
-        // clips issued a few hundred COUNT(*) round trips to learn which of
-        // their blobs nobody else references.
+        // One query per CHUNK, not one per candidate: a purge of a few hundred
+        // image clips issued a few hundred COUNT(*) round trips to learn which
+        // of their blobs nobody else references.
+        //
+        // Chunked because the candidate set is unbounded — a retention sweep or
+        // "Clear Sensitive" over a long history can hand this thousands of
+        // distinct hashes, and one bind variable each would blow SQLite's
+        // limit. That failure would land at the worst possible moment: the rows
+        // are ALREADY deleted by the time this runs, so a throw here strands
+        // the blobs on disk and takes the purge log down with it.
+        //
+        // 500 is far below every SQLite build's ceiling (999 on the oldest,
+        // 32766 since 3.32) with room for the statement's other bindings, and
+        // still turns thousands of round trips into a handful.
         let orphaned = try await writer.read { db -> Set<String> in
-            let placeholders = Array(repeating: "?", count: candidates.count)
-                .joined(separator: ",")
-            let stillReferenced = try String.fetchSet(
-                db,
-                sql: "SELECT DISTINCT contentBlobHash FROM clip "
-                    + "WHERE contentBlobHash IN (\(placeholders))",
-                arguments: StatementArguments(Array(candidates)))
+            var stillReferenced = Set<String>()
+            for chunk in Array(candidates).chunked(into: chunkSize) {
+                let placeholders = Array(repeating: "?", count: chunk.count)
+                    .joined(separator: ",")
+                stillReferenced.formUnion(
+                    try String.fetchSet(
+                        db,
+                        sql: "SELECT DISTINCT contentBlobHash FROM clip "
+                            + "WHERE contentBlobHash IN (\(placeholders))",
+                        arguments: StatementArguments(chunk)))
+            }
             return candidates.subtracting(stillReferenced)
         }
         for hash in orphaned {
@@ -172,6 +199,18 @@ extension GRDBClipboardStore {
                 db,
                 sql: "SELECT COALESCE(SUM(totalRowsPurged), 0) FROM purge_log WHERE runAt >= ?",
                 arguments: [date]) ?? 0
+        }
+    }
+}
+
+/// Splits a collection into fixed-size slices. Used to keep a bound-variable
+/// list inside SQLite's limit; `size` is clamped so a nonsensical value cannot
+/// produce an empty stride and spin forever.
+extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        let step = Swift.max(1, size)
+        return stride(from: 0, to: count, by: step).map {
+            Array(self[$0..<Swift.min($0 + step, count)])
         }
     }
 }
