@@ -815,6 +815,7 @@ final class IOSAppModel {
     private let curationController = ClipCurationController()
     private let deletionWorkflow = ClipDeletionWorkflow()
     private let ingestionCoordinator = ClipIngestionCoordinator()
+    private let enrichmentScheduler = EnrichmentScheduler()
     /// Durable store in the App Group container (shared family location);
     /// in-memory fallback keeps the app usable if the container is missing.
     let store: any ClipboardStore = {
@@ -1046,13 +1047,18 @@ final class IOSAppModel {
         guard !outcome.enrichment.isEmpty, let full else { return }
         let syncEngine: (any SyncEngine)? =
             syncController.isEnabled ? syncController.engine : nil
-        Task(priority: .utility) {
-            await ingestionCoordinator.enrich(
-                outcome,
-                store: full,
-                syncEngine: syncEngine
-            ) {
-                await self.search()  // surface the new title without a manual refresh
+        Task(priority: .utility) { [enrichmentScheduler] in
+            // Bounded, same as macOS: iOS captures on intent rather than on
+            // every copy, but a drained share-extension inbox arrives as a
+            // burst and would otherwise start one model session per item.
+            await enrichmentScheduler.run(copiedAt: outcome.item.createdAt) {
+                await ingestionCoordinator.enrich(
+                    outcome,
+                    store: full,
+                    syncEngine: syncEngine
+                ) {
+                    await self.search()  // surface the new title without a manual refresh
+                }
             }
         }
     }
