@@ -41,23 +41,9 @@ import GanchoKit
     func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
         guard let full else {
             let recent = (try? await store.items(offset: 0, limit: 200)) ?? []
-            return Self.sourceApps(from: recent, limit: limit)
+            return ClipSourceAppDigest.from(recent, limit: limit)
         }
         return (try? await full.recentSourceApps(limit: limit)) ?? []
     }
 
-    nonisolated private static func sourceApps(
-        from items: [ClipItem], limit: Int
-    ) -> [ClipSourceApp] {
-        var counts: [String: Int] = [:]
-        var order: [String] = []
-        for item in items {
-            guard let bundleID = item.sourceAppBundleID, !bundleID.isEmpty else { continue }
-            if counts[bundleID] == nil { order.append(bundleID) }
-            counts[bundleID, default: 0] += 1
-        }
-        return order.prefix(limit).map {
-            ClipSourceApp(bundleID: $0, clipCount: counts[$0, default: 0])
-        }
-    }
 }

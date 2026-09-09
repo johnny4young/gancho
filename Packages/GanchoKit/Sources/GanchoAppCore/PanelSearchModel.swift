@@ -7,25 +7,12 @@ import Observation
 /// conforms to it in production; tests pass an in-memory fake, which is the
 /// whole point of the extraction — the search/pagination/grouping rules were
 /// unreachable by `swift test` while they lived on the `PanelView` struct.
-@MainActor public protocol PanelSearchSource: AnyObject {
-    /// True when a durable (GRDB) store backs the app; false on the in-memory
-    /// fallback, which has neither board queries nor ranked search.
-    var isDurable: Bool { get }
-    /// The recent list ordered for browsing (pins first, then capture time), so
-    /// the date buckets stay contiguous and the cursor matches the visual order.
-    func recentBrowse(offset: Int, limit: Int) async -> [ClipItem]
-    /// The protocol store ordering — the in-memory fallback path and the source
-    /// of the client-side `contains` search when no durable store is present.
-    func items(offset: Int, limit: Int) async -> [ClipItem]
-    /// One page of a board's curated set (durable stores only).
-    func boardItems(_ boardID: UUID, offset: Int, limit: Int) async -> [ClipItem]
-    /// Ranked full-text search (durable stores only).
-    func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem]
-    /// Content-free source-app options for the filter menu.
-    func recentSourceApps(limit: Int) async -> [ClipSourceApp]
-    /// The snippet whose keyword matches the query exactly, if any.
+@MainActor public protocol PanelSearchSource: ClipListSource {
+    /// The snippet whose keyword matches the query exactly, if any. macOS only:
+    /// the panel offers a one-keystroke insert, iOS has no equivalent surface.
     func snippet(matchingKeyword keyword: String) async -> ClipItem?
     /// Whether a clip's delete is in its undo window — such rows hide at once.
+    /// macOS only: iOS deletes immediately, with no undo window to hide behind.
     func isDeletionPending(_ id: UUID) -> Bool
 }
 
@@ -78,44 +65,15 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public var snippetMatch: ClipItem?
 
     private let source: any PanelSearchSource
+    private let core: ClipListCore
     private let selectionModel = PanelSelectionModel()
 
     public init(source: any PanelSearchSource) {
         self.source = source
+        core = ClipListCore(source: source, configuration: .macOSPanel)
     }
 
-    static let pageSize = 100
     static let prefetchThreshold = 20
-
-    /// How much habit weighs against text relevance in search results. One
-    /// tunable in one place: at 3.0, a clip pasted ~10 times yesterday outranks
-    /// a slightly-better text match untouched for months.
-    nonisolated static let frecencyWeight = 3.0
-
-    /// Frecency habit score. A usage count without a timestamp is not a
-    /// reliable recency signal, so it deliberately contributes nothing.
-    nonisolated static func frecencyScore(for item: ClipItem, now: Date = .now) -> Double {
-        guard let lastUsedAt = item.lastUsedAt else { return 0 }
-        let days = max(0, now.timeIntervalSince(lastUsedAt)) / 86_400
-        return log(1 + Double(item.uses)) * exp(-days / 30)
-    }
-
-    /// Blends the store's BM25 order with per-clip frecency, in Swift — SQLite
-    /// math functions (`ln`/`exp`) aren't guaranteed under the SQLCipher fork,
-    /// and the store doesn't expose raw BM25 scores. The incoming position is
-    /// the relevance proxy (`hits.count - index` preserves the FTS order among
-    /// unused clips); frecency = ln(1+uses) decayed with a ~30-day time constant over
-    /// `lastUsedAt`. Applied to search results only, never the recent list.
-    nonisolated static func reranked(_ hits: [ClipItem], now: Date = .now) -> [ClipItem] {
-        hits.enumerated()
-            .map { index, item -> (item: ClipItem, score: Double) in
-                let bm25Proxy = Double(hits.count - index)
-                let frecency = Self.frecencyScore(for: item, now: now)
-                return (item, bm25Proxy + Self.frecencyWeight * frecency)
-            }
-            .sorted { $0.score > $1.score }
-            .map(\.item)
-    }
 
     /// The rows actually shown: `results` narrowed by the active filter pill,
     /// then DE-DUPED by id. Pagination overlap (or a capture landing mid-scroll)
@@ -207,19 +165,21 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// The recent list is showing — the only date-grouped view. Boards
     /// paginate too but render flat; a query is a bounded ranked set.
     public var isGroupedView: Bool {
-        query.isEmpty && selectedBoardID == nil && selectedSourceAppBundleID == nil
+        ClipListShape.isGrouped(
+            query: query, boardID: selectedBoardID,
+            sourceAppBundleID: selectedSourceAppBundleID)
     }
 
     /// The list appends pages on scroll: the recent browse or a board view.
     /// A query or source-app filter is a bounded top-N set and never appends.
     private var isPaginatedView: Bool {
-        query.isEmpty && selectedSourceAppBundleID == nil
+        ClipListShape.isPaginated(query: query, sourceAppBundleID: selectedSourceAppBundleID)
     }
 
     /// Refreshes app choices independently from text search so typing never
     /// repeats the aggregate query. Call on panel open and after history changes.
     public func refreshSourceApps() async {
-        sourceApps = await source.recentSourceApps(limit: 8)
+        sourceApps = await core.sourceApps(limit: 8)
     }
 
     /// Select a row by index. Plain click replaces; Command-click toggles.
@@ -246,52 +206,19 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// Type-to-search: first keystroke already narrows; empty query shows
     /// recents (pins first, store order). The recent list paginates on demand.
     public func refresh() async {
-        let board = selectedBoardID
-        let sourceApp = selectedSourceAppBundleID
-        if query.isEmpty, sourceApp == nil {
-            if let board, source.isDurable {
-                // A board pages like the recent list — a curated set is still
-                // unbounded (a 10k-member board must not load whole on open).
-                results = await source.boardItems(board, offset: 0, limit: Self.pageSize)
-                reachedEnd = results.count < Self.pageSize
-            } else {
-                results = await loadRecentPage(offset: 0)
-                reachedEnd = results.count < Self.pageSize
-            }
-        } else if source.isDurable {
-            // Frecency re-rank applies to SEARCH ONLY: the recent list above
-            // stays chronological (that's the mental model). Blending happens
-            // here in Swift, not SQL — see `reranked`.
-            results = Self.reranked(
-                await source.search(
-                    ClipSearchQuery(
-                        text: query, sourceAppBundleID: sourceApp, boardID: board),
-                    limit: query.isEmpty ? 500 : 100))
-            reachedEnd = true  // ranked top results, not a scroll-through
-        } else {
-            let all = await source.items(offset: 0, limit: 200)
-            results = Self.reranked(
-                all.filter {
-                    (query.isEmpty || $0.preview.localizedCaseInsensitiveContains(query))
-                        && (sourceApp == nil || $0.sourceAppBundleID == sourceApp)
-                })
-            reachedEnd = true
-        }
+        // `kinds: nil` on purpose — macOS narrows by kind on the client, since
+        // that filter also feeds de-duplication and selection, both of which are
+        // client-side anyway. iOS pushes it into SQL instead.
+        let page = await core.firstPage(
+            query: query, boardID: selectedBoardID,
+            sourceAppBundleID: selectedSourceAppBundleID)
+        results = page.items
+        reachedEnd = page.reachedEnd
         // A query that exactly matches a snippet's keyword offers a one-keystroke
         // insert (filling {fields} first if it's a template).
         snippetMatch = query.isEmpty ? nil : await source.snippet(matchingKeyword: query)
         selectedIndex = 0
         rebuildGroups()
-    }
-
-    /// One page of the recent list, ordered by capture time so the date buckets
-    /// stay contiguous. Falls back to the protocol ordering when no durable
-    /// store is available (tests / in-memory).
-    private func loadRecentPage(offset: Int) async -> [ClipItem] {
-        if source.isDurable {
-            return await source.recentBrowse(offset: offset, limit: Self.pageSize)
-        }
-        return await source.items(offset: offset, limit: Self.pageSize)
     }
 
     /// Append the next page when the displayed cursor/scroll nears the end. Safe
@@ -307,18 +234,14 @@ public struct PanelDateGroup: Identifiable, Sendable {
         let offset = results.count
         isLoadingMore = true
         defer { isLoadingMore = false }
-        let next: [ClipItem]
-        if let board, source.isDurable {
-            next = await source.boardItems(board, offset: offset, limit: Self.pageSize)
-        } else {
-            next = await loadRecentPage(offset: offset)
-        }
+        let page = await core.nextPage(after: offset, boardID: board)
         // The view may have changed during the await (query typed, board picked
         // or switched, a fresh refresh); only append if still extending the
-        // same list.
+        // same list. The guard stays here rather than in the core because it
+        // reads state only this model has.
         guard isPaginatedView, selectedBoardID == board, results.count == offset else { return }
-        results.append(contentsOf: next)
-        if next.count < Self.pageSize { reachedEnd = true }
+        results.append(contentsOf: page.items)
+        if page.reachedEnd { reachedEnd = true }
         rebuildGroups()
     }
 
