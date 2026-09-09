@@ -1,9 +1,16 @@
 import Foundation
 import GanchoKit
 
-/// Tier-0 classifier: deterministic, <5ms, zero network,
-/// runs on every device — no Apple Intelligence required. Foundation Models
-/// (tier 1) builds on top of this; it never replaces it.
+/// Tier-0 classifier: deterministic, zero network, runs on every device — no
+/// Apple Intelligence required. Foundation Models (tier 1) builds on top of
+/// this; it never replaces it.
+///
+/// Every detector reads the whole string (the `NSDataDetector` kinds require a
+/// full-range match), so cost is LINEAR in length: under 5 ms for the
+/// clip-sized inputs the case suite covers, but roughly 1.4 µs per character,
+/// which puts a megabyte paste in the second range. Callers on a latency-
+/// sensitive path should bound what they hand it. Both figures are gated in
+/// `RuleClassifierPerformanceTests` (`GANCHO_PERF=1 make bench`).
 ///
 /// Detection precedence runs structural formats first (JWT, UUID, color,
 /// JSON, card, tracking) because they are unambiguous; NSDataDetector kinds

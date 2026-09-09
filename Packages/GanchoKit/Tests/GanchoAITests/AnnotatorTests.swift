@@ -74,16 +74,6 @@ struct TieredClipAnnotatorTests {
 
 @Suite("EmbeddingIndex — exact cosine search")
 struct EmbeddingIndexTests {
-    /// Deterministic pseudo-random vectors (LCG) so the benchmark and
-    /// ranking assertions never flake.
-    static func syntheticVector(seed: Int, dimension: Int) -> [Float] {
-        var state = UInt64(bitPattern: Int64(seed &* 2_862_933_555_777_941_757 &+ 3_037_000_493))
-        return (0..<dimension).map { _ in
-            state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
-            return Float(Int64(bitPattern: state) % 1000) / 1000.0
-        }
-    }
-
     @Test("An identical vector scores ~1, an orthogonal one ~0")
     func cosineCorrectness() throws {
         var index = EmbeddingIndex(dimension: 4)
@@ -118,29 +108,53 @@ struct EmbeddingIndexTests {
         }
     }
 
-    @Test("Top-K over 10k×512 vectors stays under the 100ms search budget")
-    func searchBudgetAt10k() throws {
+    /// Exactness at scale, asserted WITHOUT a clock.
+    ///
+    /// `search` promises an exact scan: every stored vector is scored, and the
+    /// top-K is the true top-K. This plants ten vectors of known, strictly
+    /// descending similarity among 10k random distractors and demands them
+    /// back in exactly that order — so an approximate structure, an early
+    /// exit, a partial scan, or a broken selection all fail here, on any
+    /// machine, under any load.
+    ///
+    /// The plants go in LAST on purpose: anything that stops scanning early
+    /// reads the distractors and misses every one of them.
+    ///
+    /// The wall-clock budget that used to live here now runs under
+    /// `GANCHO_PERF=1` (`make bench`) — see `EmbeddingIndexPerformanceTests`.
+    /// A one-shot timing assertion in the default suite measured the machine
+    /// as much as the algorithm, and failed pushes of unrelated work whenever
+    /// a build was running alongside it.
+    @Test("Top-K over 10k×512 vectors is the true top-K, plants last")
+    func exactTopKAt10k() throws {
+        let distractors = 10_000
         var index = EmbeddingIndex(dimension: 512)
-        for seed in 0..<10_000 {
-            try index.insert(id: UUID(), vector: Self.syntheticVector(seed: seed, dimension: 512))
+        for seed in 0..<distractors {
+            try index.insert(
+                id: UUID(), vector: SyntheticVectors.vector(seed: seed, dimension: 512))
         }
-        let query = Self.syntheticVector(seed: 4242, dimension: 512)
 
-        let start = ContinuousClock.now
-        let hits = try index.search(query, topK: 10)
-        let elapsed = ContinuousClock.now - start
+        // Seeded OUTSIDE the distractor range: a query that is also one of the
+        // 10k would tie the top plant at cosine 1 and shift every rank by one.
+        // Random 512-d vectors sit near cosine 0 (σ ≈ 1/√512 ≈ 0.044), so every
+        // planted similarity here clears the distractor noise by many σ.
+        let query = SyntheticVectors.vector(seed: 424_242, dimension: 512)
+        let targets: [Float] = [1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55]
+        var planted: [UUID] = []
+        for (offset, target) in targets.enumerated() {
+            let id = UUID()
+            planted.append(id)
+            try index.insert(
+                id: id,
+                vector: SyntheticVectors.vector(cosine: target, to: query, seed: 900_000 + offset))
+        }
 
-        #expect(hits.count == 10)
-        // The query vector itself was inserted as seed 4242 — exact match wins.
-        #expect(abs(hits[0].score - 1) < 1e-4)
-        // CI runs the suite with code coverage on, which instruments every
-        // access and inflates wall-clock timing several-fold; relax the budget
-        // there so the perf guard stays meaningful locally without flaking on
-        // the coverage run.
-        let budget: Duration =
-            ProcessInfo.processInfo.environment["CI"] == nil
-            ? .milliseconds(100) : .milliseconds(750)
-        #expect(elapsed < budget, "search took \(elapsed)")
-        print("cosine search over 10k×512:", elapsed)
+        #expect(index.count == distractors + targets.count)
+        let hits = try index.search(query, topK: targets.count)
+
+        #expect(hits.map(\.id) == planted, "exact search must return the true top-K, in order")
+        for (hit, target) in zip(hits, targets) {
+            #expect(abs(hit.score - target) < 1e-3, "score \(hit.score) should be \(target)")
+        }
     }
 }

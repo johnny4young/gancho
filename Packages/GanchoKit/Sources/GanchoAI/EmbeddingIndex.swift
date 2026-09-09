@@ -61,8 +61,15 @@ public final class ContextualSentenceEmbedder: TextEmbedding {
 /// In-memory cosine index over unit-normalized vectors, flat `[Float]`
 /// storage for Accelerate-friendly scans. A linear scan is the RIGHT
 /// structure at clip-history scale: 10k × 512 floats is 20 MB and scans in
-/// single-digit milliseconds — an ANN structure would add complexity for
-/// nothing below ~1M vectors.
+/// single-digit milliseconds (measured p95 3.8 ms in a release build; an
+/// unoptimized test build is roughly 7x that, so read benchmark output with
+/// the build in mind) — an ANN structure would add complexity for nothing
+/// below ~1M vectors.
+///
+/// That trade-off rests on the scan staying exact, which is what the tests
+/// hold it to: `EmbeddingIndexTests` proves the top-K is the true top-K
+/// regardless of machine speed, and `EmbeddingIndexPerformanceTests`
+/// (`GANCHO_PERF=1 make bench`) tracks the wall-clock p95 and the slope.
 public struct EmbeddingIndex: Sendable {
     public let dimension: Int
     private var ids: [UUID] = []
