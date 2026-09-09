@@ -116,6 +116,24 @@ struct KeychainPassphraseStoreTests {
         }
     }
 
+    @Test("Every probe gets its own keychain identity")
+    func probeIdentitiesAreUnique() {
+        // A generic password's identity is (service, account, access group).
+        // The service is shared by every target deliberately, so the account is
+        // the ONLY thing keeping the app's probe from being the same keychain
+        // item as the share extension's — which is what let one process delete
+        // the item another was still reading, sending it back to the build-time
+        // guess this whole path exists to replace.
+        let accounts = (0..<64).map { _ in KeychainPassphraseStore.probeAccount() }
+        #expect(Set(accounts).count == accounts.count, "probe accounts collided")
+        #expect(
+            accounts.allSatisfy { $0.hasPrefix("access-group-probe-") },
+            "the probe account should stay recognizable in a keychain dump")
+        #expect(
+            accounts.allSatisfy { $0 != "access-group-probe-" },
+            "a constant account is exactly the shared identity that raced")
+    }
+
     @Test("Synchronizable-unavailable statuses drive the device-local fallback")
     func synchronizableUnavailableStatuses() {
         // The statuses a build without the iCloud-Keychain entitlement returns

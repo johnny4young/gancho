@@ -111,8 +111,8 @@ public struct KeychainPassphraseStore: Sendable {
         #if os(iOS)
             let probe: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
-                kSecAttrService as String: "com.johnny4young.gancho.access-group-probe",
-                kSecAttrAccount as String: "access-group-probe"
+                kSecAttrService as String: probeService,
+                kSecAttrAccount as String: probeAccount()
             ]
             var insert = probe
             // Same accessibility as the key it is probing for, so the probe can
@@ -120,11 +120,21 @@ public struct KeychainPassphraseStore: Sendable {
             insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
             insert[kSecValueData as String] = Data()
 
-            let addStatus = SecItemAdd(insert as CFDictionary, nil)
-            // A leftover probe from a previous run is just as good to read.
-            guard addStatus == errSecSuccess || addStatus == errSecDuplicateItem else { return nil }
+            // Only OUR insert counts. An earlier version accepted
+            // `errSecDuplicateItem` and read whatever was already there, which
+            // raced across processes: the app and every extension share this
+            // service, so one could see the duplicate, the other could reach
+            // its deferred delete first, and the read would then find nothing
+            // and cache the build-time guess for the rest of the process — the
+            // exact wrong answer this probe exists to avoid, in the extensions
+            // most likely to hit it. A unique account per probe removes the
+            // shared identity the race needed.
+            guard SecItemAdd(insert as CFDictionary, nil) == errSecSuccess else { return nil }
+            // Deletes only this process's item, never another's in flight.
             // Best-effort: a probe left behind is inert, and deleting it is not
-            // worth failing the resolution over.
+            // worth failing the resolution over. A crash in the microseconds
+            // between the add and here leaks one empty item; nothing reads it,
+            // and the next probe files its own.
             defer { SecItemDelete(probe as CFDictionary) }
 
             var query = probe
@@ -313,6 +323,20 @@ public struct KeychainPassphraseStore: Sendable {
             throw Failure.randomGenerationFailed
         }
         return bytes.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Service the access-group probe files itself under. Shared by every
+    /// target on purpose — it is the ACCOUNT that has to differ.
+    static let probeService = "com.johnny4young.gancho.access-group-probe"
+
+    /// A probe identity unique to this call.
+    ///
+    /// The app, share extension, keyboard and widgets can probe at the same
+    /// time, and a generic password's identity is (service, account, group). A
+    /// shared account therefore made them one item that they raced to insert,
+    /// read and delete. This makes each probe's item its own.
+    static func probeAccount() -> String {
+        "access-group-probe-\(UUID().uuidString)"
     }
 
     /// The tail every target's `keychain-access-groups` entitlement ends with.
