@@ -108,7 +108,14 @@ test-storekit: project ## Run serialized StoreKitTest purchase/entitlement autom
 	./scripts/check-build-warnings.sh build/storekit-tests.log
 
 bench: ## Run the scale performance harnesses (seeds 100k rows; not for the PR loop)
+	# --no-parallel is load-bearing, not tidiness. Swift Testing runs SUITES
+	# concurrently by default, and each harness's `.serialized` trait only
+	# orders the tests INSIDE it — so without this the 100k-row storage
+	# harness, the embedding scan and the classifier would time each other's
+	# contention and report it as their own cost. Measured: two `.serialized`
+	# suites sleeping 1 s each finish in 1.0 s together, 2.0 s with this flag.
 	env GANCHO_PERF=1 swift test $(SWIFT_PACKAGE_FLAGS) --package-path $(PACKAGE) \
+		--no-parallel \
 		--filter 'PerformanceHarnessTests|EmbeddingIndexPerformanceTests|RuleClassifierPerformanceTests'
 
 test-ui: project ## Run the XCUITest smoke suite (drives the real app; signed runner)
