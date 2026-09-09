@@ -41,13 +41,39 @@ private actor IngestionStoreSpy: ClipIngesting, ClipEnriching {
 
 private actor IngestionSyncSpy: SyncEngine {
     private(set) var enqueuedItems: [[ClipItem]] = []
+    /// Set by the test before the call so `enqueue` can record whether the
+    /// insert milestone had already fired by the time sync work began.
+    var milestone: InsertMilestone?
 
     func start() async throws {}
     func stop() async {}
-    func enqueue(_ items: [ClipItem]) async { enqueuedItems.append(items) }
+    func enqueue(_ items: [ClipItem]) async {
+        milestone?.noteEnqueueStarted()
+        enqueuedItems.append(items)
+    }
     func enqueueDeletion(ids: [UUID]) async {}
     func enqueue(boards: [Pinboard]) async {}
     func enqueueBoardDeletion(ids: [UUID]) async {}
+
+    func use(_ milestone: InsertMilestone) { self.milestone = milestone }
+}
+
+/// Records the `didFinishInsert` callback the way a signpost bracket consumes
+/// it: how many times it fired, and whether it beat the sync enqueue. The
+/// shells end an OS signpost interval in this callback, and ending one twice
+/// is misuse, so "exactly once" is the contract under test, not a detail.
+private final class InsertMilestone: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _fires = 0
+    private var _firedBeforeEnqueue: Bool?
+
+    var fires: Int { lock.withLock { _fires } }
+    var firedBeforeEnqueue: Bool? { lock.withLock { _firedBeforeEnqueue } }
+
+    func noteInsertFinished() { lock.withLock { _fires += 1 } }
+    func noteEnqueueStarted() {
+        lock.withLock { if _firedBeforeEnqueue == nil { _firedBeforeEnqueue = _fires > 0 } }
+    }
 }
 
 @Suite("ClipIngestionCoordinator — shared capture workflow")
@@ -68,6 +94,54 @@ struct ClipIngestionCoordinatorTests {
             intelligence: intelligence,
             allowsFreeTitle: allowsFreeTitle,
             sourceDeviceName: sourceDeviceName)
+    }
+
+    @Test("The insert milestone fires once, before any sync work")
+    func insertMilestoneClosesBeforeTheEnqueue() async throws {
+        // The whole point of the callback: `ingest` keeps going after the
+        // durable write, and the production enqueue builds `CKSyncEngine` and
+        // awaits a database write. A caller bracketing the whole call would
+        // report CloudKit setup as capture latency.
+        let store = IngestionStoreSpy()
+        let sync = IngestionSyncSpy()
+        let milestone = InsertMilestone()
+        await sync.use(milestone)
+
+        _ = try await coordinator.ingest(
+            PasteboardCapture(text: "hello"),
+            configuration: configuration(),
+            store: store,
+            syncEngine: sync,
+            didFinishInsert: { milestone.noteInsertFinished() })
+
+        #expect(milestone.fires == 1, "ending a signpost interval twice is misuse")
+        #expect(
+            milestone.firedBeforeEnqueue == true,
+            "the milestone landed after sync work had already started")
+    }
+
+    @Test("The insert milestone fires once even when the insert throws")
+    func insertMilestoneFiresOnFailure() async throws {
+        // The failure path has to close the interval too, or a failed capture
+        // reads as an eternal one in Instruments. The shells rely on the
+        // coordinator for this rather than closing it themselves, so that a
+        // future throw between the insert and the return cannot double-end it.
+        let store = IngestionStoreSpy()
+        await store.setFailsInsert(true)
+        let sync = IngestionSyncSpy()
+        let milestone = InsertMilestone()
+
+        await #expect(throws: (any Error).self) {
+            _ = try await coordinator.ingest(
+                PasteboardCapture(text: "hello"),
+                configuration: configuration(),
+                store: store,
+                syncEngine: sync,
+                didFinishInsert: { milestone.noteInsertFinished() })
+        }
+
+        #expect(milestone.fires == 1)
+        #expect(await sync.enqueuedItems.isEmpty, "a failed insert must not enqueue")
     }
 
     @Test("New capture maps, persists, enqueues, and exposes only a size metric")

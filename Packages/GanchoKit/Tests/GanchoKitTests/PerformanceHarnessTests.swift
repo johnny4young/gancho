@@ -69,6 +69,20 @@ enum ClipFixtures {
     }
 }
 
+private struct LatencySummary {
+    let median: Duration
+    let p95: Duration
+    let maximum: Duration
+
+    init(_ samples: [Duration]) {
+        precondition(!samples.isEmpty)
+        let sorted = samples.sorted()
+        median = sorted[sorted.count / 2]
+        p95 = sorted[Int(0.95 * Double(sorted.count - 1))]
+        maximum = sorted[sorted.count - 1]
+    }
+}
+
 /// Scale benchmarks — opt-in (`GANCHO_PERF=1 make bench`): seeding 100k rows
 /// takes seconds, which does not belong in the PR loop. Budgets are CEILINGS
 /// for serious regressions, not targets; trends print to the log/summary.
@@ -123,35 +137,12 @@ struct PerformanceHarnessTests {
     /// Ceiling for a cold upgrade launch that rebuilds the FTS index over 100k
     /// rows in an encrypted on-disk store.
     ///
-    /// Measured baseline: 1.2 s on an Apple-silicon Mac. Ten seconds leaves
-    /// roughly eight times that locally and three to four on a hosted runner —
-    /// wide enough that machine-to-machine spread never flaps it, tight enough
-    /// that a migration which makes launch take a minute cannot pass. This
-    /// number is a single sample of one long operation, not a p95 of many short
-    /// ones, so it needs no hosted-runner allowance the way the search gate
-    /// does.
-    static let launchOpenBudget = Duration.seconds(10)
-
     static let searchQueries = [
         "deploy", "quarterly inv", "dent", "stag", "rotate cred", "tick",
         "release bran", "flight track", "agen", "snip short", "meeting",
         "func handle", "example", "groc", "draft rev", "invoice quart",
         "branch stag", "credentials", "review", "json name"
     ]
-
-    private struct LatencySummary {
-        let median: Duration
-        let p95: Duration
-        let maximum: Duration
-
-        init(_ samples: [Duration]) {
-            precondition(!samples.isEmpty)
-            let sorted = samples.sorted()
-            median = sorted[sorted.count / 2]
-            p95 = sorted[Int(0.95 * Double(sorted.count - 1))]
-            maximum = sorted[sorted.count - 1]
-        }
-    }
 
     private func makeSeededStore(upTo migration: String? = nil) async throws -> GRDBClipboardStore {
         let store = GRDBClipboardStore(
@@ -290,12 +281,19 @@ struct PerformanceHarnessTests {
         return result == KERN_SUCCESS ? Int(info.phys_footprint) : 0
     }
 
-    /// The exact-linear-search phases, measured SEPARATELY on the same data
+    /// The exact-linear-search phases, measured SEPARATELY over the same rows
     /// the production query reads (same SQL, same filters): raw row fetch,
-    /// Data→[Float] conversion, norm calculation, vectorized scoring, then
-    /// full sort vs bounded partial top-K selection. Production stays a single
-    /// linear pass — this breakdown is the evidence for (or against) caching a
-    /// normalized matrix or switching the selection, before any code changes.
+    /// Data→[Float] conversion, norm calculation, vectorized scoring, then full
+    /// sort vs bounded partial top-K selection. The breakdown is the evidence
+    /// for (or against) caching a normalized matrix or changing the selection.
+    ///
+    /// It models the MATERIALIZED shape — fetch everything, convert, then score
+    /// — which is no longer how `semanticSearch` works: production streams a
+    /// cursor and scores each vector where its bytes already are. So these
+    /// phases still say where the work is in a linear scan, but the sum of them
+    /// is NOT the production latency, and `db-fetch` in particular measures a
+    /// materialization production no longer performs. Read the end-to-end line
+    /// for what the query actually costs.
     private func measurePhases(
         store: GRDBClipboardStore, query: [Float], topK: Int
     ) async throws -> [(String, Duration)] {
@@ -525,7 +523,201 @@ struct PerformanceHarnessTests {
         #expect(elapsed < .seconds(1), "first page \(elapsed) blew the 1s boot budget")
     }
 
-    // MARK: - Cold launch: the real pool, on disk, encrypted
+    @Test("Purge of half the rows + vacuum stays under 5s")
+    func purgeVacuumBudget() async throws {
+        let store = try await makeSeededStore()
+        let start = ContinuousClock.now
+        let purged = try await store.purgeForTest(olderThan: 1_700_050_000)
+        try await store.vacuum()
+        let elapsed = ContinuousClock.now - start
+        print("perf: purged \(purged) rows + vacuum: \(elapsed)")
+        #expect(purged > 0)
+        #expect(elapsed < .seconds(5), "purge+vacuum \(elapsed) blew the 5s budget")
+    }
+}
+
+extension GRDBClipboardStore {
+    /// Raw date-cutoff purge for the perf harness; the retention engine owns
+    /// the real policy-driven purge.
+    func purgeForTest(olderThan epoch: TimeInterval) async throws -> Int {
+        try await writer.write { db in
+            try db.execute(
+                sql: "DELETE FROM clip WHERE createdAt < ?",
+                arguments: [Date(timeIntervalSince1970: epoch)])
+            return db.changesCount
+        }
+    }
+}
+
+@Suite("Storage structure — list paths never touch blobs")
+struct ListBlobIsolationTests {
+    @Test("Paging works even when blob files are gone (lists read no blobs)")
+    func listsNeverReadBlobs() async throws {
+        let blobDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("isolation-\(UUID().uuidString)")
+        let store = GRDBClipboardStore(
+            writer: try DatabaseQueue(), blobs: BlobStore(directory: blobDir))
+        try store.migrate()
+
+        let png = Data(
+            base64Encoded:
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        )!
+        let item = ClipItem(kind: .image, preview: "Image", contentHash: "img")
+        try await store.insert(item, content: .binary(data: png, typeIdentifier: "public.png"))
+
+        // Nuke the blob storage entirely: if listing touched blobs, this
+        // would surface. It must not — lists are metadata-only by contract.
+        try FileManager.default.removeItem(at: blobDir)
+        let items = try await store.items()
+        #expect(items.count == 1)
+        // Content fetch is the only blob-loading path, and it degrades to nil.
+        #expect(try await store.content(for: item.id) == nil)
+    }
+}
+
+@Suite("Storage structure — list paths never read the payload columns")
+struct ListContentIsolationTests {
+    /// Records every statement the store runs, so a test can assert on the SQL
+    /// itself rather than on a timing that would only regress silently.
+    private final class SQLRecorder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var statements: [String] = []
+
+        func record(_ sql: String) {
+            lock.lock()
+            defer { lock.unlock() }
+            statements.append(sql)
+        }
+
+        func drain() -> [String] {
+            lock.lock()
+            defer { lock.unlock() }
+            let all = statements
+            statements.removeAll()
+            return all
+        }
+    }
+
+    private func makeTracedStore() throws -> (GRDBClipboardStore, SQLRecorder) {
+        let recorder = SQLRecorder()
+        var configuration = Configuration()
+        configuration.prepareDatabase { db in
+            db.trace { recorder.record("\($0)") }
+        }
+        let store = GRDBClipboardStore(
+            writer: try DatabaseQueue(configuration: configuration),
+            blobs: BlobStore(
+                directory: FileManager.default.temporaryDirectory
+                    .appendingPathComponent("content-isolation-\(UUID().uuidString)")))
+        try store.migrate()
+        return (store, recorder)
+    }
+
+    @Test("No list query selects contentText")
+    func listQueriesLeaveThePayloadOnDisk() async throws {
+        let (store, recorder) = try makeTracedStore()
+        let item = ClipItem(kind: .text, title: "Title", preview: "Preview", contentHash: "h")
+        try await store.insert(item, content: .text(String(repeating: "body ", count: 2_000)))
+        let board = try await store.createPinboard(name: "Work")
+        try await store.setBoardMembership(clipID: item.id, boardIDs: [board.id])
+        _ = recorder.drain()
+
+        // Every path that builds `ClipItem`s for a list. `ClipItem` has no
+        // content field, so selecting the body means decoding — and, on an
+        // encrypted store, decrypting — a full clip per row to discard it.
+        _ = try await store.items(offset: 0, limit: 50)
+        _ = try await store.recentForBrowse(offset: 0, limit: 50)
+        _ = try await store.items(ids: [item.id])
+        _ = try await store.search(ClipSearchQuery(text: "Title"), limit: 50)
+        _ = try await store.items(inBoard: board.id, offset: 0, limit: 50)
+        _ = try await store.snippets()
+        // The four the first version of this guard missed, which is how a
+        // smart-collection path kept selecting the payload through review.
+        _ = try await store.items(
+            matching: SmartCollectionRule(name: "Text", kinds: [.text]), limit: 50)
+        _ = try await store.filterOnlySearch(
+            ClipSearchQuery(text: "", kinds: [.text]), limit: 50)
+        _ = try await SnippetSuggestor(store: store).suggestions(minAge: 0, limit: 5)
+        _ = try await store.semanticSearch(
+            queryVector: [Float](repeating: 0.5, count: 512), topK: 5)
+
+        // Both spellings count, and the wildcard is the one that matters: a
+        // reverted query reads `SELECT * FROM "clip"`, which pulls the payload
+        // just as surely while never naming a column — so a guard that looked
+        // only for `contentText` would wave it straight through. (It did, until
+        // this test was checked against a deliberately reverted query.)
+        let offenders = recorder.drain().filter { sql in
+            let readsClips = sql.contains(#"FROM "clip""#) || sql.contains("FROM clip")
+            let selectsEverything =
+                sql.hasPrefix("SELECT *") || sql.contains("SELECT clip.*")
+                || sql.contains(#"SELECT "clip".*"#)
+            return readsClips && (sql.contains("contentText") || selectsEverything)
+        }
+        #expect(
+            offenders.isEmpty,
+            "these list queries still select the payload: \(offenders)")
+    }
+
+    @Test("Regex search still reads the body it has to match against")
+    func regexSearchKeepsItsHaystack() async throws {
+        let (store, recorder) = try makeTracedStore()
+        let item = ClipItem(kind: .text, title: "Title", preview: "Preview", contentHash: "h")
+        try await store.insert(item, content: .text("needle in the body only"))
+        _ = recorder.drain()
+
+        // The one list query that legitimately needs the payload: it matches
+        // the pattern against the body, so stripping the column here would
+        // quietly return nothing instead of running faster.
+        let found = try await store.search(
+            ClipSearchQuery(text: "needle", mode: .regex), limit: 50)
+        // "needle" appears in the body and nowhere else — not in the title, not
+        // in the preview — so finding the clip at all is the proof that the
+        // payload was read. Asserting on the SQL text would not work here:
+        // regex search selects `clip.*`, and a wildcard never names its
+        // columns in the trace.
+        #expect(found.map(\.id) == [item.id])
+        #expect(recorder.drain().contains { $0.contains("clip.*") })
+    }
+}
+
+/// Budgets that only mean anything against the production storage: a real
+/// `DatabasePool`, on disk, encrypted.
+///
+/// Split from `PerformanceHarnessTests` because they measure a different
+/// thing. Those budgets run in-memory and plaintext, which is why not one of
+/// them could see a change to WHICH COLUMNS a list query selects — an extra
+/// column is nearly free until every byte is a page read and an AES block.
+@Suite(
+    "Performance harness — encrypted store on disk",
+    .enabled(if: ProcessInfo.processInfo.environment["GANCHO_PERF"] == "1"),
+    .serialized)
+struct EncryptedStorePerformanceTests {
+    static let scale = PerformanceHarnessTests.scale
+
+    /// Measured baseline: 1.2 s on an Apple-silicon Mac. Ten seconds leaves
+    /// roughly eight times that locally and three to four on a hosted runner —
+    /// wide enough that machine-to-machine spread never flaps it, tight enough
+    /// that a migration which makes launch take a minute cannot pass. This
+    /// number is a single sample of one long operation, not a p95 of many short
+    /// ones, so it needs no hosted-runner allowance the way the search gate
+    /// does.
+    static let launchOpenBudget = Duration.seconds(10)
+
+    /// Rows for the encrypted paging budget. Smaller than the 100k used
+    /// elsewhere because what matters there is body size, not row count.
+    static let pagingScale = 20_000
+
+    /// Ceiling for one 100-row page over an encrypted on-disk store whose rows
+    /// carry 4 KB bodies.
+    ///
+    /// Measured at 1.26 ms on an Apple-silicon Mac after the metadata-only
+    /// projection, and 1.58 ms before it — so ten milliseconds does NOT detect
+    /// that revert, and this budget does not claim to. It is a broad
+    /// interactivity ceiling: it catches paging that becomes a multiple of what
+    /// it should be, on the storage the app actually ships. What guards the
+    /// projection is `ListContentIsolationTests`, which reads the SQL.
+    static let encryptedPagingP95Budget = Duration.milliseconds(10)
 
     #if SQLITE_HAS_CODEC
         /// The one path a user waits on that nothing else here measures.
@@ -622,56 +814,61 @@ struct PerformanceHarnessTests {
             }
         }
     #endif
+    #if SQLITE_HAS_CODEC
+        /// Paging where reading a column actually costs something.
+        ///
+        /// Every other budget here runs in-memory and plaintext, where an extra
+        /// column is nearly free — which is why none of them could see this
+        /// change at all: the FTS and first-page numbers moved by less than
+        /// their own run-to-run noise. On disk and encrypted, each selected
+        /// byte is a page read and an AES block, so a list query that pulls
+        /// clip bodies it will discard pays for all of them.
+        ///
+        /// 20k rows with 4 KB bodies rather than the 100k used elsewhere: the
+        /// point is body SIZE, and 100k of these would spend most of the run
+        /// seeding 400 MB of text.
+        @Test("Encrypted on-disk paging stays interactive with realistic bodies")
+        func encryptedPagingBudget() async throws {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("perf-paging-\(UUID().uuidString)", isDirectory: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let store = try GRDBClipboardStore(
+                directory: directory, passphrase: try KeychainPassphraseStore.generateKey())
 
-    @Test("Purge of half the rows + vacuum stays under 5s")
-    func purgeVacuumBudget() async throws {
-        let store = try await makeSeededStore()
-        let start = ContinuousClock.now
-        let purged = try await store.purgeForTest(olderThan: 1_700_050_000)
-        try await store.vacuum()
-        let elapsed = ContinuousClock.now - start
-        print("perf: purged \(purged) rows + vacuum: \(elapsed)")
-        #expect(purged > 0)
-        #expect(elapsed < .seconds(5), "purge+vacuum \(elapsed) blew the 5s budget")
-    }
-}
+            let body = String(repeating: "lorem ipsum dolor sit amet ", count: 150)
+            let fixtures = (0..<Self.pagingScale).map { index in
+                (
+                    item: ClipItem(
+                        kind: .text, title: "t\(index)", preview: "p\(index)",
+                        contentHash: "h\(index)"),
+                    content: ClipContent.text(body)
+                )
+            }
+            let seedStart = ContinuousClock.now
+            try await store.importBatch(fixtures)
+            print(
+                "perf: paging seeded \(Self.pagingScale) encrypted 4KB rows in "
+                    + "\(ContinuousClock.now - seedStart)")
 
-extension GRDBClipboardStore {
-    /// Raw date-cutoff purge for the perf harness; the retention engine owns
-    /// the real policy-driven purge.
-    func purgeForTest(olderThan epoch: TimeInterval) async throws -> Int {
-        try await writer.write { db in
-            try db.execute(
-                sql: "DELETE FROM clip WHERE createdAt < ?",
-                arguments: [Date(timeIntervalSince1970: epoch)])
-            return db.changesCount
+            // Untimed warm-up so the pool open is not folded into the budget.
+            _ = try await store.items(offset: 0, limit: 100)
+
+            var samples: [Duration] = []
+            for round in 0..<20 {
+                let start = ContinuousClock.now
+                _ = try await store.items(offset: round * 100, limit: 100)
+                samples.append(ContinuousClock.now - start)
+            }
+            let summary = LatencySummary(samples)
+            print(
+                "perf: encrypted paging over \(Self.pagingScale): median=\(summary.median) "
+                    + "p95=\(summary.p95) max=\(summary.maximum) "
+                    + "budget=\(Self.encryptedPagingP95Budget)")
+            // A `#expect` comment takes a literal, not a concatenation.
+            #expect(
+                summary.p95 < Self.encryptedPagingP95Budget,
+                "encrypted paging p95 \(summary.p95) blew the \(Self.encryptedPagingP95Budget) budget"
+            )
         }
-    }
-}
-
-@Suite("Storage structure — list paths never touch blobs")
-struct ListBlobIsolationTests {
-    @Test("Paging works even when blob files are gone (lists read no blobs)")
-    func listsNeverReadBlobs() async throws {
-        let blobDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("isolation-\(UUID().uuidString)")
-        let store = GRDBClipboardStore(
-            writer: try DatabaseQueue(), blobs: BlobStore(directory: blobDir))
-        try store.migrate()
-
-        let png = Data(
-            base64Encoded:
-                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
-        )!
-        let item = ClipItem(kind: .image, preview: "Image", contentHash: "img")
-        try await store.insert(item, content: .binary(data: png, typeIdentifier: "public.png"))
-
-        // Nuke the blob storage entirely: if listing touched blobs, this
-        // would surface. It must not — lists are metadata-only by contract.
-        try FileManager.default.removeItem(at: blobDir)
-        let items = try await store.items()
-        #expect(items.count == 1)
-        // Content fetch is the only blob-loading path, and it degrades to nil.
-        #expect(try await store.content(for: item.id) == nil)
-    }
+    #endif
 }

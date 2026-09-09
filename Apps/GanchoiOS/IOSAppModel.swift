@@ -1008,20 +1008,18 @@ final class IOSAppModel {
             tier: tier,
             intelligence: intelligence,
             sourceDeviceName: DeviceProvenance.currentDeviceName())
+        // Same boundary as macOS — the insert, not the end of `ingest`, which
+        // also awaits the sync enqueue. The two platforms have to stop at the
+        // same place or the shared budget compares different spans.
         let ingestInterval = Signpost.captureToInsert.begin()
         guard
             let outcome = try? await ingestionCoordinator.ingest(
                 capture,
                 configuration: configuration,
                 store: store,
-                syncEngine: syncController.engine)
-        else {
-            // The failure path closes the interval too — a half-open interval
-            // would read as an eternal capture in Instruments.
-            Signpost.captureToInsert.end(ingestInterval)
-            return
-        }
-        Signpost.captureToInsert.end(ingestInterval)
+                syncEngine: syncController.engine,
+                didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
+        else { return }
         if outcome.isNew { recordActivationMilestone(.firstCapture) }
         try? await full?.recordPrivateCapture(
             sourceAppBundleID: capture.sourceAppBundleID,

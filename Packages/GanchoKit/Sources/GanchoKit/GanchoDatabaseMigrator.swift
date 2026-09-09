@@ -25,6 +25,7 @@ enum GanchoDatabaseMigrator {
         case ftsPrefixIndexes = "v18-fts-prefix-indexes"
         case mcpClientLedger = "v19-mcp-client-ledger"
         case privateActivityReceipt = "v20-private-activity-receipt"
+        case discoveryIndexes = "v21-discovery-indexes"
     }
 
     static var identifiers: [String] {
@@ -40,6 +41,7 @@ enum GanchoDatabaseMigrator {
         registerScaleMigrations(in: &migrator)
         GRDBClipboardStore.registerMCPClientLedgerMigration(in: &migrator)
         GRDBClipboardStore.registerPrivateActivityReceiptMigration(in: &migrator)
+        registerDiscoveryIndexMigrations(in: &migrator)
         return migrator
     }
 
@@ -359,6 +361,50 @@ enum GanchoDatabaseMigrator {
                 t.column("preview")
                 t.column("contentText")
             }
+        }
+    }
+
+    /// Registered LAST, after the feature-owned v19/v20 registrars in
+    /// `make()`. GRDB applies migrations in REGISTRATION order, so adding
+    /// this beside the v18 body it reads like a sibling of would have run
+    /// v21 before v19 — which `DatabaseMigrationTests` catches by comparing
+    /// the applied list against `identifiers`.
+    private static func registerDiscoveryIndexMigrations(in migrator: inout DatabaseMigrator) {
+        migrator.registerMigration(Identifier.discoveryIndexes.rawValue) { db in
+            // Source-app discovery runs on every panel open, and ran as a full
+            // scan plus two temp B-trees (`SCAN clip USING INDEX
+            // idx_clip_browse`, `USE TEMP B-TREE FOR GROUP BY`, `... FOR ORDER
+            // BY`). Leading on the grouped column lets SQLite walk it in group
+            // order instead, and the projection is narrow enough that the index
+            // COVERS the query.
+            //
+            // The partial clause mirrors only the archive and non-null halves
+            // of `recentSourceApps`' filter — NOT its `TRIM(sourceAppBundleID)
+            // <> ''`. That omission is deliberate and measured: adding the trim
+            // term to this WHERE costs the covering property
+            // (`SEARCH clip USING COVERING INDEX` becomes plain `USING INDEX`,
+            // so every group has to fetch its table row), and it buys nothing
+            // back, because a bundle ID is either NULL or a real reverse-DNS
+            // string — there is no population of whitespace-only IDs to keep
+            // out of the index. SQLite still applies the trim filter during the
+            // index scan. `DatabaseMigrationTests` pins the covering plan so
+            // this cannot be "tidied" into a regression.
+            //
+            // The remaining ORDER BY B-tree sorts by an aggregate over the
+            // grouped rows, so it is bounded by the number of distinct apps and
+            // no index can remove it.
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_source_app "
+                    + "ON clip (sourceAppBundleID, createdAt DESC) "
+                    + "WHERE isArchived = 0 AND sourceAppBundleID IS NOT NULL")
+            // The re-embed pass asks for stale vectors in batches of 16 and
+            // scanned every embedding row for each batch. `modelVersion <
+            // currentVersion` is highly selective — it matches nothing until a
+            // model bump — so the index turns "is anything stale?" from a full
+            // scan of every stored vector into a seek that lands on nothing.
+            try db.execute(
+                sql: "CREATE INDEX IF NOT EXISTS idx_clip_embedding_model "
+                    + "ON clip_embedding (modelVersion)")
         }
     }
 }

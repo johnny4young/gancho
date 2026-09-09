@@ -67,6 +67,24 @@ struct HistoryListViewModelTests {
         #expect(model.captures.count == 150)  // exhausted → no-op
     }
 
+    @Test func theLoadMoreThresholdIsExactlyTwentyRowsFromTheEnd() async {
+        // The guard used to be `index >= count - 20`, found with a linear
+        // search per appearing row; it is a set of the trailing ids now. Same
+        // boundary, so pin it: with 100 loaded, row 80 pulls and row 79 does
+        // not.
+        let source = FakeSource()
+        source.recent = items(150)
+        let model = HistoryListViewModel(source: source)
+        await model.search()
+        #expect(model.captures.count == 100)
+
+        await model.loadMoreIfNeeded(model.captures[79])
+        #expect(model.captures.count == 100, "one row short of the threshold must not pull")
+
+        await model.loadMoreIfNeeded(model.captures[80])
+        #expect(model.captures.count == 150, "the threshold row itself must pull")
+    }
+
     @Test func loadMoreIsANoOpFarFromTheEnd() async {
         let source = FakeSource()
         source.recent = items(150)

@@ -217,6 +217,13 @@ public final class ReuseController {
         deletionCoordinator.isPending(id)
     }
 
+    /// The clips currently inside an undo window. A shell observes this to
+    /// rebuild a cached list the moment a delete or an undo lands, instead of
+    /// waiting for the refresh that follows.
+    public var pendingDeletionIDs: Set<UUID> {
+        deletionCoordinator.pendingIDs
+    }
+
     private func rememberActiveSearch(now: Date) async {
         let query = activeSearchQuery
         activeSearchQuery = ""

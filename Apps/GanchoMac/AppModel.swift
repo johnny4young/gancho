@@ -54,6 +54,10 @@ final class AppModel {
     /// facade properties and commands rather than reaching through directly.
     let reuseController: ReuseController
     var recentItems: [ClipItem] { reuseController.recentItems }
+    /// Clips inside an undo window. The panel watches this to reconcile its
+    /// cached list on the delete AND on the undo; `recentItems` only moves on
+    /// the delete.
+    var pendingDeletionIDs: Set<UUID> { reuseController.pendingDeletionIDs }
     /// True when the durable store failed to open and the app is running on the
     /// in-memory fallback — history won't survive a relaunch, so the panel warns.
     var storageIsEphemeral: Bool { !store.isDurable }
@@ -646,12 +650,20 @@ final class AppModel {
                 intelligence: intelligence,
                 allowsFreeTitle: freeAITitlesRemaining > 0,
                 sourceDeviceName: DeviceProvenance.currentDeviceName())
+            // Closed by the coordinator the moment the insert phase ends, on
+            // success and on failure both — NOT when `ingest` returns. `ingest`
+            // also awaits the sync enqueue, which builds `CKSyncEngine` on
+            // first use, and folding CloudKit setup into a capture metric would
+            // make the first capture after launch an outlier about something
+            // else entirely.
+            let ingestInterval = Signpost.captureToInsert.begin()
             guard
                 let outcome = try? await ingestionCoordinator.ingest(
                     capture,
                     configuration: configuration,
                     store: store,
-                    syncEngine: syncController.engine)
+                    syncEngine: syncController.engine,
+                    didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
             else { return }
             // Bucketized analytics: kind + a length BUCKET, never the content.
             telemetry.record(
