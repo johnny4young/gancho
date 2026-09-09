@@ -271,6 +271,16 @@
         }
       }
     },
+    "This build’s team prefix doesn’t match the signed one; using the signed one.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El prefijo de equipo de esta compilación no coincide con el firmado; se usa el firmado."
+          }
+        }
+      }
+    },
     "A clip’s content couldn’t be loaded.": {
       "localizations": {
         "es": {

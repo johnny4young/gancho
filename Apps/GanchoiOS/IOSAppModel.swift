@@ -863,14 +863,36 @@ final class IOSAppModel {
     /// Center for support — never any clip text.
     let diagnostics = DiagnosticLog()
     private var recordedStorageHealth = false
+    private var recordedKeychainGroupContradiction = false
 
     /// Record the ephemeral-store condition once (the worst issue — data loss).
     func recordStorageHealthIfNeeded() {
+        recordKeychainGroupContradictionIfNeeded()
         guard storageIsEphemeral, !recordedStorageHealth else { return }
         recordedStorageHealth = true
         diagnostics.record(
             String(localized: "Storage"),
             String(localized: "Couldn’t open secure storage — running in memory."))
+    }
+
+    /// Report a signed access group the build-time guess would have missed.
+    ///
+    /// Without this the condition is invisible: the app keeps working, because
+    /// it resolved the group the OS actually granted, while the value the build
+    /// wrote points somewhere else. Saying so once is what turns "the keyboard
+    /// cannot see my clips" into something diagnosable. Names no group and no
+    /// prefix — an access group is account-identifying.
+    private func recordKeychainGroupContradictionIfNeeded() {
+        guard
+            KeychainPassphraseStore.iosSharedAccessGroupResolution.contradictedBuildSetting,
+            !recordedKeychainGroupContradiction
+        else { return }
+        recordedKeychainGroupContradiction = true
+        diagnostics.record(
+            String(localized: "Storage"),
+            String(
+                localized:
+                    "This build’s team prefix doesn’t match the signed one; using the signed one."))
     }
 
     /// Export a portable `.ganchoarchive` of the history (minus detector-flagged

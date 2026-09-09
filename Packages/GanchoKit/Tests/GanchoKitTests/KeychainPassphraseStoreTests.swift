@@ -55,6 +55,85 @@ struct KeychainPassphraseStoreTests {
                 == "JGWX5ZT2N2.com.johnny4young.gancho.keys")
     }
 
+    @Test("A granted group from the keychain outranks the build-time guess")
+    func grantedGroupWinsOverBuildSetting() {
+        // The legacy/transferred App ID case: the entitlement was signed with a
+        // prefix that is NOT the team ID, so the build-time value points at a
+        // group this process does not hold.
+        let resolution = KeychainPassphraseStore.iosSharedAccessGroupResolution(
+            discovered: "REALPREFIX.com.johnny4young.gancho.keys",
+            infoDictionary: ["AppIdentifierPrefix": "TEAM12345."])
+        #expect(resolution.group == "REALPREFIX.com.johnny4young.gancho.keys")
+        #expect(resolution.source == .entitlement)
+        #expect(
+            resolution.contradictedBuildSetting,
+            "this is the case worth telling the user about")
+    }
+
+    @Test("Agreement is not reported as a contradiction")
+    func agreementIsSilent() {
+        let resolution = KeychainPassphraseStore.iosSharedAccessGroupResolution(
+            discovered: "TEAM12345.com.johnny4young.gancho.keys",
+            infoDictionary: ["AppIdentifierPrefix": "TEAM12345."])
+        #expect(resolution.source == .entitlement)
+        #expect(!resolution.contradictedBuildSetting)
+    }
+
+    @Test("Nothing discovered leaves the build-time behavior exactly as it was")
+    func undiscoveredFallsBackWithoutRegressing() {
+        // The probe fails before first unlock, and on macOS and the CLI it
+        // never runs. That must not change what those builds resolve today.
+        let fromBuild = KeychainPassphraseStore.iosSharedAccessGroupResolution(
+            discovered: nil, infoDictionary: ["AppIdentifierPrefix": "TEAM12345."])
+        #expect(fromBuild.group == "TEAM12345.com.johnny4young.gancho.keys")
+        #expect(fromBuild.source == .buildSetting)
+        #expect(!fromBuild.contradictedBuildSetting)
+
+        let fromNothing = KeychainPassphraseStore.iosSharedAccessGroupResolution(
+            discovered: nil, infoDictionary: [:])
+        #expect(fromNothing.group == "JGWX5ZT2N2.com.johnny4young.gancho.keys")
+        #expect(fromNothing.source == .fallback)
+    }
+
+    @Test("A discovered group with a foreign suffix is refused")
+    func foreignGroupIsRefused() {
+        // The probe lands in the FIRST entitled group. Every Gancho target is
+        // granted exactly one today, but a future target listing another group
+        // ahead of this one must not silently redirect the store's key.
+        for foreign in [
+            "TEAM12345.com.someone.else.keys",
+            "TEAM12345.com.johnny4young.gancho.keys.extra",
+            "com.johnny4young.gancho.keys",
+            ""
+        ] {
+            let resolution = KeychainPassphraseStore.iosSharedAccessGroupResolution(
+                discovered: foreign,
+                infoDictionary: ["AppIdentifierPrefix": "TEAM12345."])
+            #expect(
+                resolution.group == "TEAM12345.com.johnny4young.gancho.keys",
+                "\(foreign) must not be adopted")
+            #expect(resolution.source == .buildSetting)
+        }
+    }
+
+    @Test("Every probe gets its own keychain identity")
+    func probeIdentitiesAreUnique() {
+        // A generic password's identity is (service, account, access group).
+        // The service is shared by every target deliberately, so the account is
+        // the ONLY thing keeping the app's probe from being the same keychain
+        // item as the share extension's — which is what let one process delete
+        // the item another was still reading, sending it back to the build-time
+        // guess this whole path exists to replace.
+        let accounts = (0..<64).map { _ in KeychainPassphraseStore.probeAccount() }
+        #expect(Set(accounts).count == accounts.count, "probe accounts collided")
+        #expect(
+            accounts.allSatisfy { $0.hasPrefix("access-group-probe-") },
+            "the probe account should stay recognizable in a keychain dump")
+        #expect(
+            accounts.allSatisfy { $0 != "access-group-probe-" },
+            "a constant account is exactly the shared identity that raced")
+    }
+
     @Test("Synchronizable-unavailable statuses drive the device-local fallback")
     func synchronizableUnavailableStatuses() {
         // The statuses a build without the iCloud-Keychain entitlement returns
