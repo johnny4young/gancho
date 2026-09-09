@@ -75,28 +75,57 @@ done
 Answers: **what group does each target actually hold, fully expanded**, and
 **how many** — which matters wherever code assumes "the first entitled group".
 
-## Rung 3 — runtime, which needs a real device
+## Rung 3 — runtime, and the Simulator DOES count
 
-The Simulator cannot answer entitlement questions for this project. A
-simulator build is **ad-hoc signed with an empty entitlements dictionary**:
+The Simulator applies these entitlements. That is easy to get wrong, because
+the obvious command says the opposite:
 
 ```
 $ codesign -dv …/Debug-iphonesimulator/GanchoiOS.app
 Signature=adhoc
 TeamIdentifier=not set
 $ codesign -d --entitlements - …/Debug-iphonesimulator/GanchoiOS.app
-[Dict]          # empty
+[Dict]          # empty — and MISLEADING
 ```
 
-The `keychain-access-groups` string is present in the binary as data, but
-nothing applies it. Anything that reads back an access group at runtime will
-report a simulator default, not the group the OS would grant a signed build.
+`codesign` reads the code signature. A simulator build is ad-hoc signed and
+carries its entitlements somewhere else: a Mach-O `__TEXT,__entitlements`
+section, already expanded. Read that instead:
 
-So rung 3 is genuinely device-only — and before spending a device day on it,
-make sure the thing you want to observe is **observable**. If the only
-user-visible signal is an error path, then a healthy device produces no output
-and the day proves nothing. Add the positive signal first, or accept that
-silence is the result and say so.
+```bash
+APP=$(/bin/ls -dt ~/Library/Developer/Xcode/DerivedData/Gancho-*/Build/Products/Debug-iphonesimulator/GanchoiOS.app | head -1)
+python3 - "$APP/GanchoiOS" <<'PY'
+import subprocess, sys, re
+out = subprocess.run(["otool", "-arch", "arm64", "-X", "-s", "__TEXT", "__entitlements", sys.argv[1]],
+                     capture_output=True, text=True).stdout
+words = [w for line in out.splitlines() for w in line.split()[1:] if re.fullmatch(r"[0-9a-f]{8}", w)]
+hexbytes = "".join(words)
+raw = b"".join(bytes.fromhex(hexbytes[i:i + 8])[::-1] for i in range(0, len(hexbytes) - 7, 8))
+print(raw.decode("utf-8", "ignore"))
+PY
+```
+
+Verified 2026-09-09 on `iPhone 17 Pro (iOS 26.5)`: the section carries
+`JGWX5ZT2N2.com.johnny4young.gancho.keys`, and a build that logs
+`KeychainPassphraseStore.iosSharedAccessGroupResolution` at launch reports
+
+```
+GANCHO_PROBE source=entitlement group=JGWX5ZT2N2.com.johnny4young.gancho.keys contradicted=false
+```
+
+— so the runtime keychain read returns the real, fully expanded group, not a
+simulator placeholder. **Use the Simulator for this.** It is minutes, not a
+device day.
+
+What the Simulator still cannot tell you is anything that depends on a
+provisioning profile the simulator has no reason to honor (iCloud containers
+reaching real CloudKit, push, App Attest). For access groups and App Groups it
+is a real venue.
+
+Whatever rung you land on, check first that the thing you want to observe is
+**observable**. If the only user-visible signal is an error path, a healthy run
+produces no output and proves nothing. Add the positive signal first — or
+accept that silence is the result, and say so out loud.
 
 ## Recorded answer for this account
 
@@ -109,6 +138,9 @@ signed `Debug-iphoneos` build:
 | `…gancho.share` | `JGWX5ZT2N2` | `JGWX5ZT2N2` | same |
 | `…gancho.keyboard` | `JGWX5ZT2N2` | `JGWX5ZT2N2` | same |
 | `…gancho.widgets` | `JGWX5ZT2N2` | `JGWX5ZT2N2` | same |
+
+Confirmed at runtime on the iPhone 17 Pro simulator (iOS 26.5), where the
+probe reported `source=entitlement` and the same group.
 
 Exactly one group per target, and the prefix equals the team ID. The build-time
 value `KeychainPassphraseStore.iosSharedAccessGroup` computes the identical
