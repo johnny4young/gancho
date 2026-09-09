@@ -13,6 +13,35 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord {
     static let tagsEncoder = JSONEncoder()
     static let tagsDecoder = JSONDecoder()
 
+    /// Every column except the payload ones, for queries that build `ClipItem`s.
+    ///
+    /// `ClipItem` carries no content at all, so a list query that selects
+    /// `contentText` decrypts and decodes the full body of every row only to
+    /// discard it in `.map(\.item)`. At a page size of 100 that is 100 clip
+    /// bodies per scroll, and on an encrypted store every one of them is
+    /// decrypted first.
+    ///
+    /// The non-payload columns stay in the list even when `ClipItem` ignores
+    /// them (`isArchived`, `isSnippet`): GRDB decodes `ClipRow` as a whole and
+    /// throws `column not found` for a missing NON-optional column — it does
+    /// not fall back to the Swift default. Optionals are what may be omitted,
+    /// which is exactly what the three payload columns are.
+    ///
+    /// `ListContentIsolationTests` fetches through this list on every list
+    /// path, so adding a non-optional column to `ClipRow` without adding it
+    /// here fails a test rather than every list query at runtime.
+    static let metadataColumns: [Column] = [
+        Column("id"), Column("createdAt"), Column("updatedAt"), Column("lastUsedAt"),
+        Column("kind"), Column("title"), Column("preview"), Column("contentHash"),
+        Column("sourceAppBundleID"), Column("sourceDeviceName"), Column("isPinned"),
+        Column("isSensitive"), Column("expiresAt"), Column("tags"), Column("isArchived"),
+        Column("isSnippet"), Column("keyword"), Column("uses")
+    ]
+
+    /// The same projection for raw SQL, qualified so it can sit beside a join.
+    static let metadataSelectionSQL: String =
+        metadataColumns.map { #"clip."\#($0.name)""# }.joined(separator: ", ")
+
     var id: String
     var createdAt: Date
     var updatedAt: Date

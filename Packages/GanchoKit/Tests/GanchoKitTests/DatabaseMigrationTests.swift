@@ -35,9 +35,10 @@ struct DatabaseMigrationTests {
                 "v17-frecency-boards-insights",
                 "v18-fts-prefix-indexes",
                 "v19-mcp-client-ledger",
-                "v20-private-activity-receipt"
+                "v20-private-activity-receipt",
+                "v21-discovery-indexes"
             ])
-        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 20)
+        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 21)
     }
 
     @Test(
@@ -62,6 +63,116 @@ struct DatabaseMigrationTests {
             try String.fetchAll(db, sql: "SELECT name FROM pragma_table_info('clip_app_stats')")
         }
         #expect(receiptColumns.contains("sensitiveItemsExpired"))
+    }
+
+    /// A store carrying enough rows AND statistics for the planner to make a
+    /// realistic choice. Both tables matter: an empty `clip_embedding` makes
+    /// SQLite take any index that exists, which is how the first version of
+    /// this test passed while proving nothing.
+    private func makeAnalyzedStore() async throws -> GRDBClipboardStore {
+        let store = GRDBClipboardStore(
+            writer: try DatabaseQueue(),
+            blobs: BlobStore(
+                directory: FileManager.default.temporaryDirectory
+                    .appendingPathComponent("plan-\(UUID().uuidString)")))
+        try store.migrate()
+        let seeded = (0..<2_000).map { index in
+            (
+                item: ClipItem(
+                    kind: .text, title: "t\(index)", preview: "p\(index)",
+                    contentHash: "h\(index)",
+                    sourceAppBundleID: "com.app.\(index % 12)"),
+                content: ClipContent.text("body")
+            )
+        }
+        try await store.importBatch(seeded)
+        try await store.writer.write { db in
+            // Written at the version `saveEmbedding` actually writes: the stale
+            // predicate is `< currentVersion`, so its selectivity is the point.
+            for entry in seeded {
+                try db.execute(
+                    sql: """
+                        INSERT INTO clip_embedding (clipID, dimension, vector, modelVersion)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                    arguments: [
+                        entry.item.id.uuidString, 4, Data(count: 16),
+                        EmbeddingModelInfo.currentVersion
+                    ])
+            }
+            try db.execute(sql: "ANALYZE")
+        }
+        return store
+    }
+
+    @Test("The v21 source-app index covers discovery, and keeps covering it")
+    func sourceAppIndexCoversDiscovery() async throws {
+        // An index the planner declines is not free — it is write cost on every
+        // insert and update, paid forever, for nothing. So assert the plan, not
+        // the index's existence. Two other candidates were dropped for exactly
+        // that reason: the sync-pending OR predicate the planner would not use,
+        // and the board EXISTS an existing index already served.
+        let store = try await makeAnalyzedStore()
+        let plan = try await store.writer.read { db in
+            try String.fetchAll(
+                db,
+                sql: """
+                    EXPLAIN QUERY PLAN
+                    SELECT sourceAppBundleID AS bundleID, COUNT(*) AS clipCount,
+                           MAX(createdAt) AS mostRecentCapture
+                    FROM clip
+                    WHERE isArchived = 0
+                      AND sourceAppBundleID IS NOT NULL
+                      AND TRIM(sourceAppBundleID) <> ''
+                    GROUP BY sourceAppBundleID
+                    ORDER BY mostRecentCapture DESC, bundleID ASC
+                    LIMIT ?
+                    """, arguments: [8], adapter: ColumnMapping(["detail": "detail"]))
+        }
+
+        // COVERING specifically. Narrowing the partial index to also require
+        // `TRIM(sourceAppBundleID) <> ''` — which looks like a tidy-up, since
+        // the query has that term — still uses the index but stops covering it,
+        // so every group pays a table fetch. This assertion is what keeps that
+        // from landing as a cleanup.
+        #expect(
+            plan.contains { $0.contains("COVERING INDEX idx_clip_source_app") },
+            "source-app discovery fell back to: \(plan)")
+        #expect(
+            !plan.contains { $0.contains("TEMP B-TREE FOR GROUP BY") },
+            "the group-by sort came back: \(plan)")
+    }
+
+    @Test("The v21 embedding index serves the real stale-vector query")
+    func embeddingIndexServesTheStaleLookup() async throws {
+        // Verbatim `staleEmbeddingClipIDs`, join and predicates included: the
+        // join order decides whether this index is reachable at all. Driven
+        // from `clip` instead, SQLite reaches the embeddings through the
+        // primary-key autoindex and never touches `idx_clip_embedding_model`.
+        //
+        // The first version of this test asked
+        // `SELECT clipID FROM clip_embedding WHERE modelVersion < 99` against
+        // an empty table and passed for two unrelated wrong reasons: with no
+        // rows the planner takes any index, and `< 99` matches every row, which
+        // on real data makes it prefer a scan.
+        let store = try await makeAnalyzedStore()
+        let plan = try await store.writer.read { db in
+            try String.fetchAll(
+                db,
+                sql: """
+                    EXPLAIN QUERY PLAN
+                    SELECT e.clipID FROM clip_embedding e
+                    JOIN clip c ON c.id = e.clipID
+                    WHERE e.modelVersion < ? AND c.isArchived = 0 AND c.isSensitive = 0
+                    LIMIT ?
+                    """,
+                arguments: [EmbeddingModelInfo.currentVersion, 16],
+                adapter: ColumnMapping(["detail": "detail"]))
+        }
+
+        #expect(
+            plan.contains { $0.contains("idx_clip_embedding_model") },
+            "stale-embedding lookup fell back to: \(plan)")
     }
 
     @Test("A failed migration rolls back its DDL and the canonical migrator resumes")

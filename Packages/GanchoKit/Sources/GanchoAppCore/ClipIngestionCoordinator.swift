@@ -77,11 +77,23 @@ public struct ClipIngestionCoordinator: Sendable {
     /// Maps and persists one capture, then enqueues exactly the row returned by
     /// the store. Errors propagate so callers never present a failed write as a
     /// duplicate or enqueue a proposed row that does not exist.
+    ///
+    /// `didFinishInsert` fires the instant the durable insert phase ends — on
+    /// success AND on failure — and exactly once per call. It exists because
+    /// this method does not stop at the insert: it then awaits
+    /// `syncEngine.enqueue`, which on the production adapter constructs
+    /// `CKSyncEngine` on first use and awaits a `markNeedsUpload` write. A
+    /// caller timing "capture to insert" that bracketed this whole call would
+    /// therefore fold CloudKit setup into a capture metric. Firing on both
+    /// paths is what lets a caller close an OS signpost interval here without
+    /// a flag: ending one twice is misuse, and leaving it open reads as an
+    /// eternal capture in Instruments.
     public func ingest(
         _ capture: PasteboardCapture,
         configuration: Configuration,
         store: any ClipIngesting,
-        syncEngine: any SyncEngine
+        syncEngine: any SyncEngine,
+        didFinishInsert: (@Sendable () -> Void)? = nil
     ) async throws -> Outcome {
         let (proposed, content) = ClipItemFactory.make(
             from: capture,
@@ -91,7 +103,14 @@ public struct ClipIngestionCoordinator: Sendable {
             detectSecrets: configuration.detectSecrets,
             precomputedKind: configuration.precomputedKind,
             sourceDeviceName: configuration.sourceDeviceName)
-        let stored = try await store.insert(proposed, content: content)
+        let stored: ClipItem
+        do {
+            stored = try await store.insert(proposed, content: content)
+        } catch {
+            didFinishInsert?()
+            throw error
+        }
+        didFinishInsert?()
         await syncEngine.enqueue([stored])
 
         let plan = EnrichmentPlan(

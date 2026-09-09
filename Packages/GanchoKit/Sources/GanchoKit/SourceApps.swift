@@ -14,7 +14,7 @@ extension GRDBClipboardStore {
         guard hasFilter else { return [] }
 
         return try await writer.read { db in
-            var sql = "SELECT clip.* FROM clip WHERE clip.isArchived = 0"
+            var sql = "SELECT \(ClipRow.metadataSelectionSQL) FROM clip WHERE clip.isArchived = 0"
             var arguments: [any DatabaseValueConvertible] = []
             Self.appendFilters(for: query, to: &sql, arguments: &arguments)
             sql += " ORDER BY clip.isPinned DESC, clip.createdAt DESC LIMIT ?"
