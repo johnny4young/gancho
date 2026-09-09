@@ -79,22 +79,29 @@ struct AboutSettingsTab: View {
         .padding(.vertical, GanchoTokens.Spacing.sm)
     }
 
+    // Literal destinations, resolved once at the declaration instead of
+    // force-unwrapped per call. A parameter typed `String` invited a fourth
+    // caller to pass something unparseable and crash the About tab.
+    private static let website = URL(string: "https://gancho.app")!
+    private static let repository = URL(string: "https://github.com/johnny4young/gancho")!
+    private static let issues = URL(string: "https://github.com/johnny4young/gancho/issues")!
+
     private var links: some View {
         VStack(spacing: GanchoTokens.Spacing.xxs) {
-            aboutLink("Website", systemImage: "safari", url: "https://gancho.app")
+            aboutLink("Website", systemImage: "safari", url: Self.website)
             aboutLink(
                 "Source code on GitHub", systemImage: "chevron.left.forwardslash.chevron.right",
-                url: "https://github.com/johnny4young/gancho")
+                url: Self.repository)
             aboutLink(
                 "Report an issue", systemImage: "exclamationmark.bubble",
-                url: "https://github.com/johnny4young/gancho/issues")
+                url: Self.issues)
         }
     }
 
     private func aboutLink(
-        _ title: LocalizedStringKey, systemImage: String, url: String
+        _ title: LocalizedStringKey, systemImage: String, url: URL
     ) -> some View {
-        Link(destination: URL(string: url)!) {
+        Link(destination: url) {
             HStack(spacing: GanchoTokens.Spacing.sm) {
                 Image(systemName: systemImage)
                     .foregroundStyle(GanchoTokens.Palette.accent)

@@ -1,12 +1,62 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "A support bundle couldn’t be saved.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar un paquete de soporte."
+          }
+        }
+      }
+    },
+    "Couldn’t complete the purchase.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo completar la compra."
+          }
+        }
+      }
+    },
+    "Your purchase is waiting for approval.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu compra está esperando aprobación."
+          }
+        }
+      }
+    },
     "Couldn’t delete every clip — the ones that remain were kept.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudieron borrar todos los clips; los que siguen ahí se conservaron."
+            "value": "No se pudieron borrar todos los clips: los que quedan se conservaron."
+          }
+        }
+      }
+    },
+    "Couldn’t restore purchases.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron restaurar las compras."
+          }
+        }
+      }
+    },
+    "Couldn’t save that snippet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar ese snippet."
           }
         }
       }
@@ -41,6 +91,96 @@
         }
       }
     },
+    "Paste your license key": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega tu clave de licencia"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes"
+          }
+        }
+      }
+    },
+    "Settings couldn’t be exported.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los ajustes no se pudieron exportar."
+          }
+        }
+      }
+    },
+    "Settings exported.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes exportados."
+          }
+        }
+      }
+    },
+    "Snippets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snippets"
+          }
+        }
+      }
+    },
+    "Stored searches couldn’t be erased. Try turning it off again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron borrar las búsquedas guardadas. Intenta desactivarlo de nuevo."
+          }
+        }
+      }
+    },
+    "Support": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soporte"
+          }
+        }
+      }
+    },
+    "Support bundle saved.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paquete de soporte guardado."
+          }
+        }
+      }
+    },
+    "That support bundle couldn’t be saved.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese paquete de soporte no se pudo guardar."
+          }
+        }
+      }
+    },
     "The menu-bar helper didn’t start; using the built-in icon.": {
       "localizations": {
         "es": {
@@ -67,6 +207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Filtrar por aplicación"
+          }
+        }
+      }
+    },
+    "Those settings couldn’t be exported.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esos ajustes no se pudieron exportar."
           }
         }
       }

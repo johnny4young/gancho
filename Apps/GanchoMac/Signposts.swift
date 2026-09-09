@@ -15,11 +15,21 @@ enum Signpost {
     case queryToResults
     /// Paste action to the paste event being dispatched.
     case pasteDispatch
+    /// Capture accepted to the durable insert landing. The iOS counterpart of
+    /// this has existed since capture shipped there; macOS captures
+    /// automatically on every copy, so it is the platform where this interval
+    /// runs most often and was the one without it.
+    case captureToInsert
 
-    private static let signposter = OSSignposter(
+    nonisolated private static let signposter = OSSignposter(
         subsystem: "com.johnny4young.gancho", category: "perf")
 
-    func begin() -> OSSignpostIntervalState {
+    /// `nonisolated` on purpose. App targets default to main-actor isolation,
+    /// which would confine measurement to the main actor — and the work most
+    /// worth measuring is precisely the work that ran off it. Ending an
+    /// interval by hopping back would time the scheduler, not the operation.
+    /// Safe: `OSSignposter` is `Sendable` and documented thread-safe.
+    nonisolated func begin() -> OSSignpostIntervalState {
         switch self {
         case .launchToStoreReady:
             Self.signposter.beginInterval("launch-to-store-ready")
@@ -29,10 +39,12 @@ enum Signpost {
             Self.signposter.beginInterval("query-to-results")
         case .pasteDispatch:
             Self.signposter.beginInterval("paste-dispatch")
+        case .captureToInsert:
+            Self.signposter.beginInterval("capture-to-insert")
         }
     }
 
-    func end(_ state: OSSignpostIntervalState) {
+    nonisolated func end(_ state: OSSignpostIntervalState) {
         switch self {
         case .launchToStoreReady:
             Self.signposter.endInterval("launch-to-store-ready", state)
@@ -42,6 +54,8 @@ enum Signpost {
             Self.signposter.endInterval("query-to-results", state)
         case .pasteDispatch:
             Self.signposter.endInterval("paste-dispatch", state)
+        case .captureToInsert:
+            Self.signposter.endInterval("capture-to-insert", state)
         }
     }
 }

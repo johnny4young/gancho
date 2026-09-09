@@ -54,6 +54,10 @@ final class AppModel {
     /// facade properties and commands rather than reaching through directly.
     let reuseController: ReuseController
     var recentItems: [ClipItem] { reuseController.recentItems }
+    /// Clips inside an undo window. The panel watches this to reconcile its
+    /// cached list on the delete AND on the undo; `recentItems` only moves on
+    /// the delete.
+    var pendingDeletionIDs: Set<UUID> { reuseController.pendingDeletionIDs }
     /// True when the durable store failed to open and the app is running on the
     /// in-memory fallback — history won't survive a relaunch, so the panel warns.
     var storageIsEphemeral: Bool { !store.isDurable }
@@ -167,6 +171,7 @@ final class AppModel {
     private let deletionWorkflow = ClipDeletionWorkflow()
     private let editingController = ClipEditingController()
     private let ingestionCoordinator = ClipIngestionCoordinator()
+    private let enrichmentScheduler = EnrichmentScheduler()
     private let defaults: UserDefaults
     private let activationTracker: ActivationTracker
     private var retentionTimer: Timer?
@@ -420,6 +425,15 @@ final class AppModel {
                     isProtected: reason == .sensitiveType, count: 1, at: .now)
             }
         }
+        // Turning "remember searches" off promises the stored queries are
+        // gone. Report a failed erase instead of leaving the toggle reading
+        // "off" over a history that is still on disk.
+        reuseController.setSearchHistoryClearFailureObserver { [weak self] in
+            self?.diagnostics.record(
+                String(localized: "Privacy"),
+                String(
+                    localized: "Stored searches couldn’t be erased. Try turning it off again."))
+        }
         reuseController.setRecentItemsObserver { [weak self] _ in
             self?.publishLastCopied()
         }
@@ -636,12 +650,20 @@ final class AppModel {
                 intelligence: intelligence,
                 allowsFreeTitle: freeAITitlesRemaining > 0,
                 sourceDeviceName: DeviceProvenance.currentDeviceName())
+            // Closed by the coordinator the moment the insert phase ends, on
+            // success and on failure both — NOT when `ingest` returns. `ingest`
+            // also awaits the sync enqueue, which builds `CKSyncEngine` on
+            // first use, and folding CloudKit setup into a capture metric would
+            // make the first capture after launch an outlier about something
+            // else entirely.
+            let ingestInterval = Signpost.captureToInsert.begin()
             guard
                 let outcome = try? await ingestionCoordinator.ingest(
                     capture,
                     configuration: configuration,
                     store: store,
-                    syncEngine: syncController.engine)
+                    syncEngine: syncController.engine,
+                    didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
             else { return }
             // Bucketized analytics: kind + a length BUCKET, never the content.
             telemetry.record(
@@ -703,19 +725,25 @@ final class AppModel {
         guard !outcome.enrichment.isEmpty, let grdbStore else { return }
         let syncEngine: (any SyncEngine)? =
             syncController.isEnabled ? syncController.engine : nil
-        Task(priority: .utility) {
-            await ingestionCoordinator.enrich(
-                outcome,
-                store: grdbStore,
-                syncEngine: syncEngine
-            ) { @MainActor [self] in
-                if outcome.enrichment.usesFreeTitle {
-                    consumeFreeAITitle()
-                    // The moment the taste runs out is the conversion moment: a
-                    // gentle, tappable nudge — never an interrupting gateway.
-                    if freeAITitlesRemaining == 0 { showAITasteEndedNudge() }
+        Task(priority: .utility) { [enrichmentScheduler] in
+            // Bounded: a burst of copies used to leave one enrichment in
+            // flight per clip, each holding its own model session and
+            // competing for the same Neural Engine.
+            await enrichmentScheduler.run(copiedAt: outcome.item.createdAt) {
+                await ingestionCoordinator.enrich(
+                    outcome,
+                    store: grdbStore,
+                    syncEngine: syncEngine
+                ) { @MainActor [self] in
+                    if outcome.enrichment.usesFreeTitle {
+                        consumeFreeAITitle()
+                        // The moment the taste runs out is the conversion
+                        // moment: a gentle, tappable nudge — never an
+                        // interrupting gateway.
+                        if freeAITitlesRemaining == 0 { showAITasteEndedNudge() }
+                    }
+                    await refreshRecents()
                 }
-                await refreshRecents()
             }
         }
     }
@@ -1323,6 +1351,14 @@ final class AppModel {
             try config.save(toStoreDirectory: mcpConfigDirectory)
             mcpConfig = config
         } catch {
+            // A failed save leaves the in-memory config untouched, so the row
+            // simply does not change state. Without a toast that is
+            // indistinguishable from "the click never landed" — the exact
+            // ambiguity that makes a revoke look like it worked when it did
+            // not.
+            toasts.show(
+                GanchoToast(
+                    message: "Couldn’t save local agent access settings.", style: .warning))
             diagnostics.record(
                 String(localized: "MCP Access"),
                 String(localized: "Couldn’t save local agent access settings."))
@@ -1338,16 +1374,44 @@ final class AppModel {
     func buyPlan(_ plan: ProProduct.Plan) {
         defaults.set(defaults.integer(forKey: "upgrade-started") + 1, forKey: "upgrade-started")
         Task {
-            if (try? await purchases.purchase(plan)) == true {
-                defaults.set(
-                    defaults.integer(forKey: "upgrade-completed") + 1,
-                    forKey: "upgrade-completed")
+            do {
+                // Only a cancel is silent. A product that would not load or a
+                // transaction StoreKit could not verify used to be
+                // indistinguishable from one, which left the user staring at an
+                // unchanged tier with nothing said.
+                switch try await purchases.purchase(plan) {
+                case .entitled:
+                    defaults.set(
+                        defaults.integer(forKey: "upgrade-completed") + 1,
+                        forKey: "upgrade-completed")
+                case .cancelled:
+                    break
+                case .pending:
+                    toasts.show(
+                        GanchoToast(
+                            message: "Your purchase is waiting for approval.", style: .pending))
+                case .failed:
+                    toasts.show(
+                        GanchoToast(message: "Couldn’t complete the purchase.", style: .warning))
+                }
+            } catch {
+                toasts.show(
+                    GanchoToast(message: "Couldn’t complete the purchase.", style: .warning))
             }
         }
     }
 
     func restorePurchases() {
-        Task { _ = try? await purchases.restorePurchases() }
+        Task {
+            do {
+                _ = try await purchases.restorePurchases()
+            } catch {
+                // "Nothing to restore" and "the request failed" are different
+                // answers; only the second is worth interrupting for.
+                toasts.show(
+                    GanchoToast(message: "Couldn’t restore purchases.", style: .warning))
+            }
+        }
     }
 
     #if GANCHO_DIRECT_DOWNLOAD

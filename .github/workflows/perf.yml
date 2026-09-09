@@ -1,5 +1,7 @@
-# Scale performance harness: 100k-row budgets for search, migration, paging,
-# and purge. Weekly + manual — seeding 100k rows does not belong in the
+# Scale performance harnesses: 100k-row budgets for search, migration, paging,
+# and purge, plus the on-device AI budgets (embedding scan, tier-0 classifier)
+# that must not sit in the pre-push path. Weekly + manual — the seeding and the
+# wall-clock measuring both belong here rather than in the
 # <10-minute PR loop; perf drift is slow, so weekly catches regressions while
 # keeping the macOS (x10) spend down. Run on demand with workflow_dispatch.
 name: Performance
@@ -22,7 +24,7 @@ jobs:
     # Needs the Xcode 26 runner (SDK-26 APIs, iOS 26, and Swift 6.2);
     # the macOS source floor remains 15.4, and macos-latest still lags.
     runs-on: macos-26
-    # Seeding 100k rows plus six budget tests runs about four minutes; this
+    # Seeding 100k rows plus the budget suites runs about five minutes; this
     # only catches a hang.
     timeout-minutes: 60
     steps:

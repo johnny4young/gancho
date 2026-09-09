@@ -145,6 +145,58 @@ enum SwiftLiteralScanner {
         return source.endIndex
     }
 
+    /// The opening quote of a TOP-LEVEL `label:` string argument in the call
+    /// whose `(` is at `callOpenedAt`, or nil when the call has no such
+    /// argument or its value is not a literal.
+    ///
+    /// Top level is the whole point. A regex bounded by `[^)]*` stops at the
+    /// first `)` in the call, so `.searchable(text: binding(), prompt: "Search")`
+    /// matched nothing at all and the prompt went unchecked — the gate silently
+    /// covered only the simplest spelling. Walking with depth also means a
+    /// `prompt:` belonging to some other call nested inside this one is not
+    /// mistaken for this call's own.
+    ///
+    /// Returning nil for a non-literal value is deliberate: `prompt: someText`
+    /// is not hardcoded prose, so there is nothing for the sweep to check.
+    static func topLevelStringArgument(
+        in source: String, callOpenedAt: String.Index, label: String
+    ) -> String.Index? {
+        let end = blockEnd(in: source, openedAt: callOpenedAt, open: "(", close: ")")
+        let needle = "\(label):"
+        var index = source.index(after: callOpenedAt)
+        var depth = 0
+        while index < end {
+            let character = source[index]
+            if character == "\"" {
+                index = scan(source, from: index).end
+                continue
+            }
+            if startsLineComment(source, at: index) {
+                index = endOfLine(source, from: index)
+                continue
+            }
+            if character == "(" || character == "[" || character == "{" {
+                depth += 1
+                index = source.index(after: index)
+                continue
+            }
+            if character == ")" || character == "]" || character == "}" {
+                depth -= 1
+                index = source.index(after: index)
+                continue
+            }
+            if depth == 0, source[index...].hasPrefix(needle) {
+                var value = source.index(index, offsetBy: needle.count)
+                while value < end, source[value].isWhitespace {
+                    value = source.index(after: value)
+                }
+                return value < end && source[value] == "\"" ? value : nil
+            }
+            index = source.index(after: index)
+        }
+        return nil
+    }
+
     /// Scans from the `(` of a `\(…)` interpolation to its matching `)`,
     /// stepping over nested parentheses and nested string literals — a nested
     /// `"\(Text("Waiting to sync")) · \(count)"` must not end at the inner `)`.

@@ -31,11 +31,15 @@ import Observation
     /// Raw loaded clips (recent page(s), a board, or search results). The kind
     /// filter is applied on top via `visibleClips` so it never disturbs the
     /// pagination offset.
-    public var captures: [ClipItem] = []
+    public var captures: [ClipItem] = [] {
+        didSet { rebuildVisible() }
+    }
     /// Date-grouped sections (Pinned + Today/Yesterday/…) for the recent view.
     public var sections: [ClipSectionGroup] = []
     public var query = ""
-    public var kindFilter: ClipContentKind?
+    public var kindFilter: ClipContentKind? {
+        didSet { rebuildVisible() }
+    }
     /// nil = "All clips"; otherwise the selected board.
     public var selectedBoardID: UUID?
     /// nil = all apps; otherwise the source bundle identifier intersected with
@@ -46,6 +50,8 @@ import Observation
     var reachedEnd = false
     var isLoadingMore = false
     static let pageSize = 100
+    /// How close to the end an appearing row must be to pull the next page.
+    static let loadMoreThreshold = 20
 
     private let source: any HistoryListSource
 
@@ -66,9 +72,20 @@ import Observation
     }
 
     /// `captures` narrowed by the kind filter — what the list actually shows.
-    public var visibleClips: [ClipItem] {
-        guard let kindFilter else { return captures }
-        return captures.filter { $0.kind == kindFilter }
+    ///
+    /// Cached rather than computed: `loadMoreIfNeeded` runs once per row as the
+    /// list scrolls, so deriving this on access allocated a filtered copy of
+    /// the whole list for every row that appeared.
+    public private(set) var visibleClips: [ClipItem] = []
+
+    /// Ids of the last page-trigger rows, so the infinite-scroll guard is a set
+    /// lookup instead of `firstIndex(where:)` — another full scan that ran per
+    /// appearing row, on top of the copy.
+    private var loadMoreTriggerIDs: Set<UUID> = []
+
+    private func rebuildVisible() {
+        visibleClips = kindFilter.map { kind in captures.filter { $0.kind == kind } } ?? captures
+        loadMoreTriggerIDs = Set(visibleClips.suffix(Self.loadMoreThreshold).map(\.id))
     }
 
     /// Refreshes the app menu independently from text search so type-to-search
@@ -119,10 +136,8 @@ import Observation
     /// Append the next page as the list nears its end (infinite scroll). No-ops
     /// unless the grouped recent view has more to load.
     public func loadMoreIfNeeded(_ item: ClipItem) async {
-        let visible = visibleClips
         guard isPaginatedView, !isLoadingMore, !reachedEnd,
-            let index = visible.firstIndex(where: { $0.id == item.id }),
-            index >= visible.count - 20
+            loadMoreTriggerIDs.contains(item.id)
         else { return }
         isLoadingMore = true
         defer { isLoadingMore = false }
@@ -145,6 +160,7 @@ import Observation
     /// Rebuild the cached date sections — after a load, or when the kind filter
     /// changes (so the Calendar math never lands on the scroll path).
     public func rebuildSections() {
+        rebuildVisible()
         sections = isGroupedView ? ClipSections.grouped(visibleClips, now: Date()) : []
     }
 }

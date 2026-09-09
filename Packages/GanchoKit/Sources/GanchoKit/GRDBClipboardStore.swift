@@ -52,6 +52,15 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         // sweeps have an explicit candidate ceiling and exports stream through
         // a single read.
         configuration.maximumReaderCount = 8
+        // The store is opened by several PROCESSES, not just several readers:
+        // on iOS the app, the keyboard, the widget and the share extension all
+        // open the same App Group database, and on macOS the app and the
+        // Homebrew CLI do. GRDB's default is to fail a write immediately on
+        // SQLITE_BUSY, which across processes means a capture or an edit is
+        // simply lost when two of them write at once. Waiting briefly is what
+        // the raw-key path already does; this makes it the rule rather than the
+        // exception.
+        configuration.busyMode = .timeout(2)
         let blobEncryptionKeyData: Data?
         #if SQLITE_HAS_CODEC
             if let passphrase {
@@ -312,7 +321,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
 
         return try await writer.read { db in
             var sql = """
-                SELECT clip.* FROM clip
+                SELECT \(ClipRow.metadataSelectionSQL) FROM clip
                 JOIN clip_fts ON clip_fts.rowid = clip.rowid
                 WHERE clip_fts MATCH ? AND clip.isArchived = 0
                 """
@@ -422,6 +431,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     public func items(offset: Int, limit: Int) async throws -> [ClipItem] {
         try await writer.read { db in
             try ClipRow
+                .select(ClipRow.metadataColumns)
                 .filter(Column("isArchived") == false)
                 // Recency = the clip's last activity: lastUsedAt when it has been
                 // re-copied/used, else its createdAt. A freshly captured clip has
@@ -446,6 +456,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         return try await writer.read { db in
             let rows =
                 try ClipRow
+                .select(ClipRow.metadataColumns)
                 .filter(keys: Set(ids.map(\.uuidString)))
                 .filter(Column("isArchived") == false)
                 .fetchAll(db)
@@ -462,6 +473,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     public func recentForBrowse(offset: Int, limit: Int) async throws -> [ClipItem] {
         try await writer.read { db in
             try ClipRow
+                .select(ClipRow.metadataColumns)
                 .filter(Column("isArchived") == false)
                 .order(Column("isPinned").desc, Column("createdAt").desc)
                 .limit(limit, offset: offset)
@@ -602,62 +614,4 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
 
     // MARK: - Export (always available, every tier — no data hostage)
 
-    /// Versioned JSON export: full metadata + text content; binary payloads
-    /// referenced by content hash (the blobs directory travels alongside).
-    public func exportJSON() async throws -> Data {
-        try await exportJSON(excludeSensitive: false)
-    }
-
-    /// As ``exportJSON()``, optionally dropping detector-flagged sensitive
-    /// clips — an export must not turn a short-expiry secret into permanent
-    /// plaintext unless the caller explicitly opts in. (The zero-argument
-    /// form keeps the `ClipboardStore` protocol contract unchanged.)
-    ///
-    /// Rows are gathered through a cursor into ONE exactly-sized array
-    /// (capacity reserved from a COUNT in the same read), with sensitive rows
-    /// skipped during the walk — no `fetchAll` growth over-allocation and no
-    /// second filtered pass, so excluded rows never materialize at all. The
-    /// document is still encoded in ONE shot, deliberately: streaming the
-    /// encoder would mean hand-assembling the `.prettyPrinted`/`.sortedKeys`
-    /// layout byte-for-byte, which is implementation-defined and would break
-    /// byte compatibility with existing exports.
-    /// ``exportCSV(excludeSensitive:)`` is the fully streamed format.
-    public func exportJSON(excludeSensitive: Bool) async throws -> Data {
-        let rows = try await writer.read { db -> [ClipRow] in
-            var rows: [ClipRow] = []
-            rows.reserveCapacity(try ClipRow.fetchCount(db))
-            let cursor = try ClipRow.order(Column("createdAt").asc).fetchCursor(db)
-            while let row = try cursor.next() {
-                if excludeSensitive && row.isSensitive { continue }
-                rows.append(row)
-            }
-            return rows
-        }
-        return try ClipExporter.json(rows: rows, exportedAt: .now)
-    }
-
-    /// RFC-4180 CSV: metadata + text content (binaries listed by reference).
-    public func exportCSV() async throws -> Data {
-        try await exportCSV(excludeSensitive: false)
-    }
-
-    /// As ``exportCSV()``, optionally dropping detector-flagged sensitive
-    /// clips (see ``exportJSON(excludeSensitive:)``).
-    ///
-    /// Streams rows through a cursor instead of `fetchAll` so a 100k-row
-    /// export never materializes every `ClipRow` at once — only the output
-    /// text accumulates. Same bytes as before: same order, same escaping.
-    public func exportCSV(excludeSensitive: Bool) async throws -> Data {
-        // Field escaping/assembly is centralized in ``ClipExporter``; the cursor
-        // walk stays here so streaming is preserved. Byte-identical to before.
-        try await writer.read { db -> Data in
-            var csv = ClipExporter.csvHeader
-            let cursor = try ClipRow.order(Column("createdAt").asc).fetchCursor(db)
-            while let row = try cursor.next() {
-                if excludeSensitive && row.isSensitive { continue }
-                csv += ClipExporter.csvLine(for: row)
-            }
-            return Data(csv.utf8)
-        }
-    }
 }

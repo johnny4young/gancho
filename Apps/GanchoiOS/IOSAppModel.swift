@@ -815,6 +815,7 @@ final class IOSAppModel {
     private let curationController = ClipCurationController()
     private let deletionWorkflow = ClipDeletionWorkflow()
     private let ingestionCoordinator = ClipIngestionCoordinator()
+    private let enrichmentScheduler = EnrichmentScheduler()
     /// Durable store in the App Group container (shared family location);
     /// in-memory fallback keeps the app usable if the container is missing.
     let store: any ClipboardStore = {
@@ -958,9 +959,34 @@ final class IOSAppModel {
     /// Captures handed over by the share extension through the App Group.
     /// The extension already classified (tier 0); reuse its verdict.
     func drainSharedInbox() async {
-        guard let inbox = SharedInbox.inAppGroup() else { return }
-        for prepared in (try? inbox.drainPrepared()) ?? [] {
+        guard
+            let key = try? StoreContentKey.load(
+                keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup),
+            let inbox = SharedInbox.inAppGroup(key: key),
+            let summary = try? inbox.drainReportingHealth()
+        else { return }
+        for prepared in summary.captures {
             await ingest(prepared.capture, precomputedKind: prepared.kind)
+        }
+        // Counts only — never what the unreadable capture contained. Deferred
+        // and poisoned are reported separately on purpose: one says an item was
+        // kept for another try, the other says an item is gone. A deferred file
+        // is retried on every future drain, so surfacing it is what keeps an
+        // item that never becomes readable from waiting in silence.
+        if summary.poisoned > 0 {
+            diagnostics.record(
+                String(localized: "Sharing"),
+                String(localized: "Couldn’t read a shared item, so it was discarded."))
+        }
+        if summary.deferred > 0 {
+            diagnostics.record(
+                String(localized: "Sharing"),
+                String(localized: "A shared item wasn’t readable yet and was kept for later."))
+        }
+        if summary.undeletable > 0 {
+            diagnostics.record(
+                String(localized: "Sharing"),
+                String(localized: "A shared item couldn’t be cleared and may arrive again."))
         }
     }
 
@@ -1004,20 +1030,18 @@ final class IOSAppModel {
             tier: tier,
             intelligence: intelligence,
             sourceDeviceName: DeviceProvenance.currentDeviceName())
+        // Same boundary as macOS — the insert, not the end of `ingest`, which
+        // also awaits the sync enqueue. The two platforms have to stop at the
+        // same place or the shared budget compares different spans.
         let ingestInterval = Signpost.captureToInsert.begin()
         guard
             let outcome = try? await ingestionCoordinator.ingest(
                 capture,
                 configuration: configuration,
                 store: store,
-                syncEngine: syncController.engine)
-        else {
-            // The failure path closes the interval too — a half-open interval
-            // would read as an eternal capture in Instruments.
-            Signpost.captureToInsert.end(ingestInterval)
-            return
-        }
-        Signpost.captureToInsert.end(ingestInterval)
+                syncEngine: syncController.engine,
+                didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
+        else { return }
         if outcome.isNew { recordActivationMilestone(.firstCapture) }
         try? await full?.recordPrivateCapture(
             sourceAppBundleID: capture.sourceAppBundleID,
@@ -1045,13 +1069,18 @@ final class IOSAppModel {
         guard !outcome.enrichment.isEmpty, let full else { return }
         let syncEngine: (any SyncEngine)? =
             syncController.isEnabled ? syncController.engine : nil
-        Task(priority: .utility) {
-            await ingestionCoordinator.enrich(
-                outcome,
-                store: full,
-                syncEngine: syncEngine
-            ) {
-                await self.search()  // surface the new title without a manual refresh
+        Task(priority: .utility) { [enrichmentScheduler] in
+            // Bounded, same as macOS: iOS captures on intent rather than on
+            // every copy, but a drained share-extension inbox arrives as a
+            // burst and would otherwise start one model session per item.
+            await enrichmentScheduler.run(copiedAt: outcome.item.createdAt) {
+                await ingestionCoordinator.enrich(
+                    outcome,
+                    store: full,
+                    syncEngine: syncEngine
+                ) {
+                    await self.search()  // surface the new title without a manual refresh
+                }
             }
         }
     }

@@ -276,7 +276,11 @@ inside the decrypted database.
   both forms exist, then fall back to the synchronizable key for restores that
   only have the iCloud copy. The key is never logged. On iOS the app writes it
   to a shared keychain access group (`…gancho.keys`) so the keyboard and widget
-  extensions — which open the same App Group database — can read it. The macOS
+  extensions — which open the same App Group database — can read it. The share
+  extension reads the same key for a different reason: it never opens the
+  database, but it seals each queued capture (`StoreContentKey` →
+  `SealedEnvelope`) so nothing waits in the App Group container as plaintext,
+  and it refuses to deposit at all when it cannot reach the key. The macOS
   app uses its default keychain; the Homebrew CLI needs signing to reach the key
   (a known gap, tracked separately).
 - **Wiring.** `GRDBClipboardStore.encrypted(directory:)` loads the key and opens
@@ -408,7 +412,7 @@ or values, enforced by `SignpostHygieneTests`):
 | `query-to-results` | < 75 ms | search field change → results applied |
 | `launch-to-store-ready` | — (cold) | `AppModel.init` start → durable store ready |
 | `paste-dispatch` | < 100 ms | paste action → `⌘V` event posted (target-app time excluded) |
-| iOS `capture-to-insert` | < 250 ms | ingest accepted → durable insert |
+| `capture-to-insert` | < 250 ms | ingest accepted → durable insert, both platforms (sync enqueue excluded) |
 
 Baselines are collected from real warm runs, not asserted in CI (device- and
 thermal-dependent). `-measure-panel` prints the panel first-frame wall-clock so

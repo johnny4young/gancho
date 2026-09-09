@@ -34,6 +34,32 @@ struct ReleaseMetadataTests {
         return regex.numberOfMatches(in: text, range: range)
     }
 
+    @Test("The benchmark target measures without suites racing each other")
+    func benchRunsWithoutCrossSuiteParallelism() throws {
+        // Swift Testing runs SUITES concurrently by default, and the harnesses'
+        // `.serialized` traits only order the tests inside each one. Measured:
+        // two `.serialized` suites sleeping 1 s each finish in 1.0 s together
+        // and 2.0 s with this flag. Dropping it would not fail anything — the
+        // budgets would simply start reporting each other's contention, which
+        // is exactly the load sensitivity the harness exists to keep out.
+        let makefile = try Self.text("Makefile")
+        let bench = try #require(
+            makefile.components(separatedBy: "\n\n").first { $0.hasPrefix("bench:") },
+            "the bench target moved; this assertion needs to follow it")
+        // Recipe lines only. The comment above the command explains the flag
+        // and therefore contains the string too — asserting on the whole block
+        // would pass with the flag deleted, which is how this assertion first
+        // went in.
+        let recipe =
+            bench
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.hasPrefix("#") && !$0.hasPrefix("bench:") }
+            .joined(separator: " ")
+        #expect(recipe.contains("--no-parallel"), "bench recipe: \(recipe)")
+        #expect(recipe.contains("GANCHO_PERF=1"), "the harnesses are opt-in and stay that way")
+    }
+
     @Test func projectChangelogAndFormulaVersionsStayInSync() throws {
         let project = try Self.text("project.yml")
         let changelog = try Self.text("CHANGELOG.md")

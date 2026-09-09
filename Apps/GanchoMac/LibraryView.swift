@@ -636,8 +636,18 @@ struct LibraryView: View {
 
     private func persist(id: UUID, title: String, body: String, keyword: String) {
         Task {
-            try? await model.grdbStore?.updateSnippet(id: id, title: title, text: body)
-            try? await model.grdbStore?.setKeyword(id: id, keyword: keyword)
+            // The list below reconciles from the store either way, so the UI
+            // stays honest — but an edit that did not save must SAY so, the
+            // way createSnippet already does. Silently reverting text the user
+            // typed reads as a bug in the editor.
+            do {
+                try await model.grdbStore?.updateSnippet(id: id, title: title, text: body)
+                try await model.grdbStore?.setKeyword(id: id, keyword: keyword)
+            } catch {
+                model.diagnostics.record(
+                    String(localized: "Snippets"),
+                    String(localized: "Couldn’t save that snippet."))
+            }
             snippets = (try? await model.grdbStore?.snippets()) ?? []
             // An edited snippet must replace its Spotlight donation at once —
             // text the user just rewrote out of it must not stay searchable.
