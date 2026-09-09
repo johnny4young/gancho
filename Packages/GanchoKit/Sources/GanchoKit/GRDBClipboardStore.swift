@@ -52,6 +52,15 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         // sweeps have an explicit candidate ceiling and exports stream through
         // a single read.
         configuration.maximumReaderCount = 8
+        // The store is opened by several PROCESSES, not just several readers:
+        // on iOS the app, the keyboard, the widget and the share extension all
+        // open the same App Group database, and on macOS the app and the
+        // Homebrew CLI do. GRDB's default is to fail a write immediately on
+        // SQLITE_BUSY, which across processes means a capture or an edit is
+        // simply lost when two of them write at once. Waiting briefly is what
+        // the raw-key path already does; this makes it the rule rather than the
+        // exception.
+        configuration.busyMode = .timeout(2)
         let blobEncryptionKeyData: Data?
         #if SQLITE_HAS_CODEC
             if let passphrase {

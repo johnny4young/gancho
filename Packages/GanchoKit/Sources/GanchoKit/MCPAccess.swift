@@ -353,19 +353,7 @@ public struct MCPServerConfig: Sendable, Equatable, Codable {
         else {
             throw CocoaError(.fileWriteUnknown)
         }
-        // rename(2) both replaces an existing destination and is atomic, which
-        // `FileManager.moveItem` (fails when the destination exists) and
-        // `replaceItemAt` (throws when it does not) each get only half right.
-        let moved = staged.withUnsafeFileSystemRepresentation { source in
-            url.withUnsafeFileSystemRepresentation { destination in
-                guard let source, let destination else { return false }
-                return rename(source, destination) == 0
-            }
-        }
-        guard moved else {
-            try? FileManager.default.removeItem(at: staged)
-            throw CocoaError(.fileWriteUnknown)
-        }
+        try AtomicFileReplace.publish(staged: staged, as: url)
     }
 }
 

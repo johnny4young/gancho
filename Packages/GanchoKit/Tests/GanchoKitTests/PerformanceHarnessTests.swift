@@ -281,12 +281,19 @@ struct PerformanceHarnessTests {
         return result == KERN_SUCCESS ? Int(info.phys_footprint) : 0
     }
 
-    /// The exact-linear-search phases, measured SEPARATELY on the same data
+    /// The exact-linear-search phases, measured SEPARATELY over the same rows
     /// the production query reads (same SQL, same filters): raw row fetch,
-    /// Data→[Float] conversion, norm calculation, vectorized scoring, then
-    /// full sort vs bounded partial top-K selection. Production stays a single
-    /// linear pass — this breakdown is the evidence for (or against) caching a
-    /// normalized matrix or switching the selection, before any code changes.
+    /// Data→[Float] conversion, norm calculation, vectorized scoring, then full
+    /// sort vs bounded partial top-K selection. The breakdown is the evidence
+    /// for (or against) caching a normalized matrix or changing the selection.
+    ///
+    /// It models the MATERIALIZED shape — fetch everything, convert, then score
+    /// — which is no longer how `semanticSearch` works: production streams a
+    /// cursor and scores each vector where its bytes already are. So these
+    /// phases still say where the work is in a linear scan, but the sum of them
+    /// is NOT the production latency, and `db-fetch` in particular measures a
+    /// materialization production no longer performs. Read the end-to-end line
+    /// for what the query actually costs.
     private func measurePhases(
         store: GRDBClipboardStore, query: [Float], topK: Int
     ) async throws -> [(String, Duration)] {
