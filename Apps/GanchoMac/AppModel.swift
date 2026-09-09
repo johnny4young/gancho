@@ -729,7 +729,7 @@ final class AppModel {
             // Bounded: a burst of copies used to leave one enrichment in
             // flight per clip, each holding its own model session and
             // competing for the same Neural Engine.
-            await enrichmentScheduler.run {
+            await enrichmentScheduler.run(copiedAt: outcome.item.createdAt) {
                 await ingestionCoordinator.enrich(
                     outcome,
                     store: grdbStore,

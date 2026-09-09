@@ -1051,7 +1051,7 @@ final class IOSAppModel {
             // Bounded, same as macOS: iOS captures on intent rather than on
             // every copy, but a drained share-extension inbox arrives as a
             // burst and would otherwise start one model session per item.
-            await enrichmentScheduler.run {
+            await enrichmentScheduler.run(copiedAt: outcome.item.createdAt) {
                 await ingestionCoordinator.enrich(
                     outcome,
                     store: full,
