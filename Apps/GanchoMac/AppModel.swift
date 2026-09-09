@@ -649,12 +649,20 @@ final class AppModel {
                 intelligence: intelligence,
                 allowsFreeTitle: freeAITitlesRemaining > 0,
                 sourceDeviceName: DeviceProvenance.currentDeviceName())
+            // Closed by the coordinator the moment the insert phase ends, on
+            // success and on failure both — NOT when `ingest` returns. `ingest`
+            // also awaits the sync enqueue, which builds `CKSyncEngine` on
+            // first use, and folding CloudKit setup into a capture metric would
+            // make the first capture after launch an outlier about something
+            // else entirely.
+            let ingestInterval = Signpost.captureToInsert.begin()
             guard
                 let outcome = try? await ingestionCoordinator.ingest(
                     capture,
                     configuration: configuration,
                     store: store,
-                    syncEngine: syncController.engine)
+                    syncEngine: syncController.engine,
+                    didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
             else { return }
             // Bucketized analytics: kind + a length BUCKET, never the content.
             telemetry.record(
