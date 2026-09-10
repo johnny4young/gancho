@@ -10,19 +10,110 @@ import XCTest
 /// `make test-ui` (a foreground GUI session), are NOT part of CI, and self-skip
 /// where elements aren't exposed on a headless runner.
 final class PanelReproUITests: XCTestCase {
+    /// Every row `-seed-panel-repro` will ever add: three pinned clips awaited
+    /// BEFORE the panel opens, then four more captured from a detached task.
+    ///
+    /// A count, not a duration, because a duration is not a completion signal.
+    /// This first waited for the list to fall QUIET for longer than the seed's
+    /// ~900ms head start, which looked deterministic and is not:
+    /// `Task.sleep(for:)` guarantees a MINIMUM delay, so under exactly the
+    /// suite load these tests target, actor scheduling can push the first
+    /// capture past any quiet window — and then the wait returns having seen
+    /// only the pinned three, leaving one test in the original race and the
+    /// other skipping on a list that never arrived.
+    ///
+    /// Coupled to the seed on purpose. If the seed grows, THIS is what fails,
+    /// by name and with both numbers in the message, instead of a test quietly
+    /// measuring the wrong list. Well under the free-tier ceilings
+    /// (`FreeTierLimits`: 10k items, 365 days), so `-force-free-tier` cannot
+    /// archive any of them.
+    private static let seededRowCount = 7
+
+    /// Waits for the seed to finish adding rows.
+    ///
+    /// The captures are deliberate — each lands as a live refresh while the
+    /// grouped list is visible, which IS the scenario under test, so they must
+    /// not be disabled, only waited out. `PanelSearchModel.refresh()` ends with
+    /// `selectedIndex = 0`, and a plain assignment there collapses any batch
+    /// back to one row, so keys sent mid-burst are racing the collapses behind
+    /// them. The old `rows.count >= 4` precondition was satisfied by the FIRST
+    /// of the four, i.e. the middle of the burst — which is why the ⇧↓ test
+    /// passed alone (idle machine, seed already done) and failed inside the
+    /// full suite.
+    ///
+    /// The timeout is ~12x the seed's own ~1.7s, so reaching it means the seed
+    /// genuinely never finished rather than that the runner was slow.
     @MainActor
-    private func selectThreeRows(_ app: XCUIApplication, rows: XCUIElementQuery) throws {
-        try SynthesizedInput.requireForeground(app)
-        app.typeKey(.downArrow, modifierFlags: [.shift])
-        app.typeKey(.downArrow, modifierFlags: [.shift])
-        let threeSelected = NSPredicate { _, _ in
-            rows.allElementsBoundByIndex.filter(\.isSelected).count == 3
+    private func waitForSeededRows(_ rows: XCUIElementQuery, timeout: TimeInterval = 20) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if rows.count >= Self.seededRowCount { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
-        XCTAssertEqual(
-            XCTWaiter.wait(
-                for: [XCTNSPredicateExpectation(predicate: threeSelected, object: app)], timeout: 5),
-            .completed,
-            "Shift-Down must extend the cursor into a three-row contiguous selection")
+        return rows.count >= Self.seededRowCount
+    }
+
+    /// Both the "are rows exposed at all" skip and the "did the seed finish"
+    /// assertion, in the order that keeps them distinct: a runner that exposes
+    /// no rows is an environment limitation and skips; a runner that exposes
+    /// rows but never completes the seed is a real failure and says so.
+    @MainActor
+    private func requireSeededRows(_ rows: XCUIElementQuery) throws {
+        try XCTSkipUnless(
+            rows.firstMatch.waitForExistence(timeout: 8),
+            "seeded clip rows not exposed to the UI runner in this environment")
+        XCTAssertTrue(
+            waitForSeededRows(rows),
+            "the seed never finished: \(rows.count) of \(Self.seededRowCount) rows arrived")
+    }
+
+    /// Waits for exactly `count` rows to report themselves selected.
+    @MainActor
+    private func waitForSelectedRows(
+        _ count: Int, in rows: XCUIElementQuery, of app: XCUIApplication,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            rows.allElementsBoundByIndex.filter(\.isSelected).count == count
+        }
+        return XCTWaiter.wait(
+            for: [XCTNSPredicateExpectation(predicate: predicate, object: app)],
+            timeout: timeout) == .completed
+    }
+
+    /// Extends the cursor into a three-row contiguous selection with two ⇧↓.
+    ///
+    /// The panel routes ⇧↓ through `.onKeyPress` attached to the SEARCH FIELD —
+    /// `PanelView.listColumn` hangs those handlers on the view that owns
+    /// `@FocusState` — so an app-level key only reaches `extendSelection` when
+    /// that field holds the keyboard. `app.state == .runningForeground` says the
+    /// application is frontmost, NOT that its window is key or that the field is
+    /// first responder; typing on that alone is the gap swift-preflight §11
+    /// warns about, so this waits for real focus and skips rather than typing
+    /// blind into whatever does have the keyboard.
+    ///
+    /// One keystroke at a time, each verified. Two rapid app-level keys can
+    /// outrun the SwiftUI state update, and a stepwise check names WHICH
+    /// keystroke was lost instead of only reporting that three rows never came.
+    @MainActor
+    private func selectThreeRows(
+        _ app: XCUIApplication, search: XCUIElement, rows: XCUIElementQuery
+    ) throws {
+        try SynthesizedInput.requireForeground(app)
+        guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
+            throw XCTSkip("the panel never took keyboard focus — skipping synthesized input")
+        }
+        // ⇧↓ extends FROM the cursor, so the cursor has to be settled first.
+        XCTAssertTrue(
+            waitForSelectedRows(1, in: rows, of: app),
+            "⇧↓ extends from the cursor, so the panel must settle on one row first")
+
+        for expected in [2, 3] {
+            app.typeKey(.downArrow, modifierFlags: [.shift])
+            XCTAssertTrue(
+                waitForSelectedRows(expected, in: rows, of: app),
+                "Shift-Down must extend the contiguous selection to \(expected) rows")
+        }
     }
 
     @MainActor
@@ -171,19 +262,12 @@ final class PanelReproUITests: XCTestCase {
             "the seeded panel must open on launch")
 
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        try XCTSkipUnless(
-            rows.firstMatch.waitForExistence(timeout: 8),
-            "seeded clip rows not exposed to the UI runner in this environment")
-        // The seed captures four same-day clips one at a time AFTER the panel
-        // opens (~0.9s + 4×0.2s), each a live refresh; wait for them to land so
-        // the assertions see the full pinned-3 + today-4 list.
-        let settle = Date().addingTimeInterval(3)
-        while rows.count < 7 && Date() < settle {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
+        // Was a second copy of the same magic 7, on a 3s budget that could
+        // expire mid-burst and leave this measuring a 4-row list on one run and
+        // a 7-row list on the next. Same signal as the other two tests now.
+        try requireSeededRows(rows)
 
         let all = rows.allElementsBoundByIndex
-        try XCTSkipUnless(all.count >= 4, "not enough seeded rows exposed (\(all.count))")
 
         // Invariant 1 — exactly ONE row is selected. The report showed several
         // rows highlighted together (`selectedIndex` matched more than one row).
@@ -217,9 +301,12 @@ final class PanelReproUITests: XCTestCase {
         let search = app.textFields["search-field"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 8))
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        try XCTSkipUnless(
-            rows.firstMatch.waitForExistence(timeout: 8),
-            "seeded clip rows not exposed to the UI runner in this environment")
+        // The same race the ⇧↓ test hit: every seeded capture refreshes the
+        // list and resets the cursor to row 0, so take the baseline and
+        // navigate only once the seed has finished arriving. REQUIRED, not
+        // best-effort — discarding this result was how the preview test could
+        // walk straight back into the race.
+        try requireSeededRows(rows)
 
         let preview = app.descendants(matching: .any)["preview-content"].firstMatch
         try XCTSkipUnless(
@@ -227,9 +314,13 @@ final class PanelReproUITests: XCTestCase {
             "selected preview is not exposed to the UI runner in this environment")
         let firstValue = preview.value as? String
 
-        // Arrow keys are app-level (global) events; only send them once the
-        // panel is verifiably frontmost so navigation lands on Gancho.
+        // Arrow keys are app-level (global) events and the panel hangs its key
+        // handlers off the focused search field, so require BOTH that the app
+        // is frontmost and that the field actually holds the keyboard.
         try SynthesizedInput.requireForeground(app)
+        guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
+            throw XCTSkip("the panel never took keyboard focus — skipping synthesized input")
+        }
         app.typeKey(XCUIKeyboardKey.downArrow.rawValue, modifierFlags: [])
 
         let changed = XCTNSPredicateExpectation(
@@ -258,16 +349,9 @@ final class PanelReproUITests: XCTestCase {
         let search = app.textFields["search-field"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 8))
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        try XCTSkipUnless(
-            rows.firstMatch.waitForExistence(timeout: 8),
-            "seeded clip rows not exposed to the UI runner in this environment")
-        let settle = Date().addingTimeInterval(3)
-        while rows.count < 4 && Date() < settle {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        try XCTSkipUnless(rows.count >= 4, "not enough seeded rows exposed (\(rows.count))")
+        try requireSeededRows(rows)
 
-        try selectThreeRows(app, rows: rows)
+        try selectThreeRows(app, search: search, rows: rows)
 
         let contextBar = app.descendants(matching: .any)["selection-context-bar"].firstMatch
         XCTAssertTrue(contextBar.waitForExistence(timeout: 3))
@@ -311,7 +395,7 @@ final class PanelReproUITests: XCTestCase {
 
         // Undo refreshes the list and intentionally restores single-selection.
         // Select a batch again to exercise board assignment independently.
-        try selectThreeRows(app, rows: rows)
+        try selectThreeRows(app, search: search, rows: rows)
         verifyBatchBoardAssignment(app, search: search)
     }
 }
