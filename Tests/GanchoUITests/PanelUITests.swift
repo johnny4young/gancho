@@ -293,6 +293,15 @@ final class PanelUITests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 5))
 
         try SynthesizedInput.requireForeground(app)
+        // `requireForeground` proves the APPLICATION is frontmost, not that the
+        // panel holds the keyboard — and the panel is a transient window that
+        // `PanelController.windowDidResignKey` orders out the moment it stops
+        // being key. So if anything steals focus between the guard and this
+        // keystroke, Escape lands elsewhere and the panel simply stays open.
+        // Same gap, same fix as `PanelReproUITests.selectThreeRows`.
+        guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
+            throw XCTSkip("the panel never took keyboard focus — skipping synthesized input")
+        }
         app.typeKey(.escape, modifierFlags: [])
         // Window-geometry assertions self-skip on tiny virtual displays —
         // existence flips are stable everywhere.
