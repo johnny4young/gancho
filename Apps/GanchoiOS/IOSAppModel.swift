@@ -517,7 +517,8 @@ final class IOSAppModel {
     /// Create a board and file `item` into it in one step — the inline "+New
     /// board" path of the move-to-board sheet, where a clip is the reason the
     /// board is being made. Returns the new board's id so the sheet can refresh
-    /// its checkmarks; nil if the board limit is hit or the create fails.
+    /// its checkmarks; nil if the name is blank once trimmed, the board limit is
+    /// hit, or the create fails.
     @discardableResult
     func createBoard(named name: String, filing item: ClipItem) async -> UUID? {
         guard let full else { return nil }

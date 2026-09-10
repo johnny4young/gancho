@@ -10,15 +10,22 @@ import GanchoKit
 ///
 /// The shells keep everything that is genuinely theirs, so no SwiftUI view
 /// changes: the `@Observable` `boards` list, `refreshBoards()`/`refreshRecents`/
-/// `search()` sequencing, `selectedBoardID` handling, name trimming/empty-guard,
-/// the concrete-store nil-guard, and the paywall / toast / note UI. The two
-/// shells had diverged only in those app-owned edges, surfaced here as:
+/// `search()` sequencing, `selectedBoardID` handling, the concrete-store
+/// nil-guard, and the paywall / toast / note UI. The two shells had diverged
+/// only in those app-owned edges, surfaced here as:
 /// - the free-tier gate UI, delivered through `onFreeLimit` (macOS opens the
 ///   paywall window; iOS bumps `proGateTick` or flashes a note);
 /// - the post-create refresh, chosen by the caller off `BoardCreateOutcome`
 ///   (macOS refreshes even when the create fails, iOS's filing path only on
 ///   success) — so refresh stays in the shell, verbatim;
 /// - the "added to board" toast, delivered through `onAssigned` (macOS only).
+///
+/// The board-NAME rule is not one of those edges, though this overview once
+/// listed it as if it were. Trimming and the blank-name refusal live here, for
+/// `createBoard` and `renameBoard` alike: the shells had not merely diverged,
+/// one of them was wrong — iOS trimmed and guarded, macOS did neither — so
+/// calling it shell-owned kept a defect alive under a comment that described it
+/// as deliberate.
 ///
 /// Only `BoardStoring` and the engine are needed: the gate counts boards via
 /// `pinboards()`, never a `StoreStatsProviding` counter, so that facet is not
@@ -34,11 +41,13 @@ import GanchoKit
 public struct BoardsController {
     public init() {}
 
-    /// The three ways `createBoard` can end, so the caller reproduces its
+    /// The four ways `createBoard` can end, so the caller reproduces its
     /// platform's exact post-create refresh without the controller touching the
     /// shell's `boards`/`refreshRecents`/`search`:
     /// - `blocked`: the free-tier gate stopped it (`onFreeLimit` already fired);
     /// - `failed`: the authoritative board list or create write failed;
+    /// - `noName`: the name was blank once trimmed, so nothing was created and
+    ///   nothing went wrong — a shell must not report an error for it;
     /// - `created`: success, carrying the new board's id and whether an
     ///   optional filing write also succeeded (the shells use that to update
     ///   checkmarks / repeat-last state only after a real membership write).
