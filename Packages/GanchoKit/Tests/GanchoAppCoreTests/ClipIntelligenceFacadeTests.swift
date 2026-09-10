@@ -69,4 +69,28 @@ struct ClipIntelligenceFacadeTests {
         // either side cannot make "can I ask?" and "who answers?" disagree.
         #expect(ClipIntelligenceFacade.askAvailable == ClipboardQA.isAvailable)
     }
+
+    /// Pins the isolation decision the only way it can be pinned: by COMPILING.
+    ///
+    /// `nonisolated`, while the rest of the suite is `@MainActor`, and the
+    /// facade is constructed on its OWN line on purpose. Both details matter:
+    /// an `async` context may `await` across an actor boundary, so
+    /// `await ClipIntelligenceFacade().suggestedBoard(…)` would still build if
+    /// `@MainActor` came back — the `await` would cover the initializer too.
+    /// Split out, an isolated `init` reached without `await` is an error, so
+    /// re-isolating the facade breaks the BUILD instead of silently narrowing
+    /// who may call it. Isolation has no runtime witness to assert on.
+    @Test("The facade answers a caller that is not on the main actor")
+    nonisolated func facadeIsReachableOffTheMainActor() async {
+        let facade = ClipIntelligenceFacade()
+        let store = FakeStore(boards: [])
+        let suggestion = await facade.suggestedBoard(
+            for: ClipItem(kind: .text, preview: "p", contentHash: "h"),
+            store: store, autoBoardEnabled: true)
+
+        #expect(suggestion == nil, "an empty board set has no home to offer")
+        #expect(
+            await store.pinboardsCalls == 1,
+            "the call really ran the guard chain, it did not short-circuit earlier")
+    }
 }

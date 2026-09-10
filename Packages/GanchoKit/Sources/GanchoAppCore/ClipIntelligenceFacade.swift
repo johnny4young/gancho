@@ -13,15 +13,19 @@ import GanchoKit
 /// because one forwards to the other, which is exactly the kind of agreement
 /// that stops holding the moment either side grows a condition.
 ///
-/// Deliberately stateless apart from the `SmartPasteService` it owns: the
+/// Stateless and `Sendable`, like the coordinators it fronts —
+/// ``BoardSuggestionService``, ``ClipboardQA`` and `SmartPasteService` are all
+/// `Sendable` value types. There is no actor-isolated state here to protect, so
+/// `@MainActor` would only narrow who may call it: both shells are on the main
+/// actor today, but nothing in this package requires that of a caller. The
 /// store handle and the user's toggles are passed per call rather than
 /// captured, so a facade can never answer from a store the shell has since
 /// replaced or a preference the user has since changed.
 ///
-/// What stays in the shells is presentation: each maps an ``ClipboardQA``
+/// What stays in the shells is presentation: each maps a ``ClipboardQA``
 /// outcome to its own localized answer copy, because those strings live in the
 /// per-app catalogs and a package has no business owning them.
-@MainActor public final class ClipIntelligenceFacade {
+public struct ClipIntelligenceFacade: Sendable {
     private let smartPasteService = SmartPasteService()
 
     public init() {}
@@ -30,11 +34,11 @@ import GanchoKit
     /// translations. The user's Smart Paste opt-in is a SEPARATE gate the shell
     /// applies — deterministic actions such as PII redaction need no model, so
     /// availability must not hide the whole menu.
-    nonisolated public static var modelAvailable: Bool { SmartPasteService.isAvailable }
+    public static var modelAvailable: Bool { SmartPasteService.isAvailable }
 
     /// Whether ask-your-clipboard can answer at all. Read from ``ClipboardQA``,
     /// the type that actually answers, so the two can never disagree.
-    nonisolated public static var askAvailable: Bool { ClipboardQA.isAvailable }
+    public static var askAvailable: Bool { ClipboardQA.isAvailable }
 
     /// Transforms a clip's text on-device; nil if unavailable or the model
     /// declined. Pure enrichment — never fails the caller.
