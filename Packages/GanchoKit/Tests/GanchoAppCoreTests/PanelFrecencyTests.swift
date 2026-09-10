@@ -23,7 +23,7 @@ struct PanelFrecencyTests {
     func unusedKeepsStoreOrder() {
         let hits = [clip("first"), clip("second"), clip("third")]
         #expect(
-            PanelSearchModel.reranked(hits, now: now).map(\.preview)
+            FrecencyRanker.reranked(hits, now: now).map(\.preview)
                 == ["first", "second", "third"])
     }
 
@@ -36,7 +36,7 @@ struct PanelFrecencyTests {
             clip("stale-second", uses: 0, lastUsedDaysAgo: 90),
             clip("habitual", uses: 10, lastUsedDaysAgo: 1)
         ]
-        #expect(PanelSearchModel.reranked(hits, now: now).first?.preview == "habitual")
+        #expect(FrecencyRanker.reranked(hits, now: now).first?.preview == "habitual")
     }
 
     @Test("Habit decays: the same use count from months ago no longer outranks")
@@ -46,7 +46,7 @@ struct PanelFrecencyTests {
             clip("forgotten-habit", uses: 10, lastUsedDaysAgo: 300)
         ]
         #expect(
-            PanelSearchModel.reranked(hits, now: now).map(\.preview)
+            FrecencyRanker.reranked(hits, now: now).map(\.preview)
                 == ["fresh-match", "forgotten-habit"],
             "a decayed habit must not beat a better current match")
     }
@@ -54,14 +54,14 @@ struct PanelFrecencyTests {
     @Test("A never-used clip with a nil lastUsedAt gets no boost")
     func nilLastUsedGetsNoBoost() {
         let undated = clip("counted-but-never-dated", uses: 5, lastUsedDaysAgo: nil)
-        #expect(PanelSearchModel.frecencyScore(for: undated, now: now) == 0)
+        #expect(FrecencyRanker.score(for: undated, now: now) == 0)
 
         let hits = [
             clip("top-match", uses: 0),
             undated
         ]
         #expect(
-            PanelSearchModel.reranked(hits, now: now).map(\.preview)
+            FrecencyRanker.reranked(hits, now: now).map(\.preview)
                 == ["top-match", "counted-but-never-dated"])
     }
 
@@ -73,7 +73,7 @@ struct PanelFrecencyTests {
         ]
         // Both decay from ~0-1 days; the skewed one must not overflow past it
         // by orders of magnitude — order stays by position + comparable boost.
-        let ranked = PanelSearchModel.reranked(hits, now: now).map(\.preview)
+        let ranked = FrecencyRanker.reranked(hits, now: now).map(\.preview)
         #expect(ranked.first == "normal")
     }
 }

@@ -495,11 +495,12 @@ final class IOSAppModel {
     /// user's other devices. The built-in Favorites board never counts against
     /// the free limit.
     func createBoard(named name: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let full else { return }
+        guard let full else { return }
         Task {
+            // No trim here any more: `BoardsController` owns that rule now, so
+            // macOS cannot keep creating blank-named boards this shell refused.
             let outcome = await BoardsController().createBoard(
-                name: trimmed, filing: nil, store: full, engine: syncController.engine,
+                name: name, filing: nil, store: full, engine: syncController.engine,
                 isPro: tier == .pro,
                 // Don't dead-end on a vanishing note: surface the Pro screen.
                 onFreeLimit: { self.proGateTick += 1 },
@@ -516,13 +517,13 @@ final class IOSAppModel {
     /// Create a board and file `item` into it in one step — the inline "+New
     /// board" path of the move-to-board sheet, where a clip is the reason the
     /// board is being made. Returns the new board's id so the sheet can refresh
-    /// its checkmarks; nil if the board limit is hit or the create fails.
+    /// its checkmarks; nil if the name is blank once trimmed, the board limit is
+    /// hit, or the create fails.
     @discardableResult
     func createBoard(named name: String, filing item: ClipItem) async -> UUID? {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let full else { return nil }
+        guard let full else { return nil }
         let outcome = await BoardsController().createBoard(
-            name: trimmed, filing: item, store: full, engine: syncController.engine,
+            name: name, filing: item, store: full, engine: syncController.engine,
             isPro: tier == .pro,
             onFreeLimit: { self.flashNote(String(localized: "Upgrade to Pro for more boards")) },
             onAssigned: {})
@@ -544,13 +545,12 @@ final class IOSAppModel {
         return (try? await full.boardIDs(forClip: item.id)) ?? []
     }
 
-    /// Suggest the board this clip probably belongs to, by a semantic k-NN vote
-    /// over how similar clips were filed (`BoardSuggester`). Only ever suggests;
-    /// nil when the toggle is off, the clip is sensitive, there are no eligible
-    /// user boards, or the neighborhood shows no clear home. 100% on-device.
+    /// Suggest the board this clip probably belongs to. The toggle, the
+    /// sensitive-clip rule and the vote all live in the facade so macOS cannot
+    /// answer this differently.
     func suggestedBoard(for item: ClipItem) async -> Pinboard? {
-        guard intelligence.autoBoard, !item.isSensitive, let full else { return nil }
-        return await BoardSuggestionService().suggest(for: item, store: full)
+        await intelligenceFacade.suggestedBoard(
+            for: item, store: full, autoBoardEnabled: intelligence.autoBoard)
     }
 
     /// Add or remove a clip from one board. Membership rides the clip's sync
@@ -574,11 +574,10 @@ final class IOSAppModel {
     /// Rename a user board and propagate the new name (no-op on Favorites — the
     /// shared controller guards `isSystem`).
     func renameBoard(_ board: Pinboard, name: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let full else { return }
+        guard let full else { return }
         Task {
             let outcome = await BoardsController().renameBoard(
-                board, name: trimmed, store: full, engine: syncController.engine)
+                board, name: name, store: full, engine: syncController.engine)
             if outcome == .failed {
                 recordBoardFailure("Couldn’t rename the board.")
             }
@@ -702,7 +701,7 @@ final class IOSAppModel {
 
     // MARK: - Smart paste (deterministic + on-device Apple Intelligence)
 
-    private let smartPasteService = SmartPasteService()
+    private let intelligenceFacade = ClipIntelligenceFacade()
 
     /// Available when the Smart Paste toggle is on. Deterministic actions such
     /// as PII redaction do not need Apple Intelligence, so model availability
@@ -712,15 +711,15 @@ final class IOSAppModel {
     /// Model-backed rewrites and translations require Apple Intelligence in
     /// addition to the user's Smart Paste opt-in.
     var smartPasteModelAvailable: Bool {
-        intelligence.smartPaste && SmartPasteService.isAvailable
+        intelligence.smartPaste && ClipIntelligenceFacade.modelAvailable
     }
 
     func smartPaste(_ text: String, action: SmartPasteAction) async -> String? {
-        try? await smartPasteService.transform(text, action: action)
+        await intelligenceFacade.transform(text, action: action)
     }
 
     func smartTranslate(_ text: String, to language: String) async -> String? {
-        try? await smartPasteService.translate(text, to: language)
+        await intelligenceFacade.translate(text, to: language)
     }
 
     // MARK: - Ask your clipboard (grounded on-device QA)
@@ -732,16 +731,14 @@ final class IOSAppModel {
         let sources: [ClipItem]
     }
 
-    var askAvailable: Bool { ClipboardQA.isAvailable }
+    var askAvailable: Bool { ClipIntelligenceFacade.askAvailable }
 
-    /// Ask-your-clipboard, via the shared `ClipboardQA` coordinator (the same one
-    /// the Shortcuts `AskClipboardIntent` uses — retrieval + privacy filtering
-    /// live there, not forked here). This layer only maps the outcome to the
-    /// answer card's copy.
+    /// Maps the shared ask-your-clipboard outcome onto this app's localized
+    /// answer copy. Retrieval, the sensitive-clip filter and availability all
+    /// live in the facade; only these strings are iOS's own.
     func askClipboard(_ question: String) async -> ClipboardAnswer? {
-        guard let full else { return nil }
-        switch await ClipboardQA().answer(
-            question: question, store: full, useSemantic: intelligence.semanticSearch)
+        switch await intelligenceFacade.ask(
+            question, store: full, useSemantic: intelligence.semanticSearch)
         {
         case .unavailable:
             return nil

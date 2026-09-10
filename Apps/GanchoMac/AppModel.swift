@@ -1045,7 +1045,7 @@ final class AppModel {
 
     // MARK: - Smart paste (deterministic + on-device Apple Intelligence)
 
-    private let smartPasteService = SmartPasteService()
+    private let intelligenceFacade = ClipIntelligenceFacade()
 
     /// Smart Paste affordances appear when the user kept the feature on.
     /// Deterministic actions such as PII redaction do not need Apple
@@ -1058,18 +1058,15 @@ final class AppModel {
     /// Model-backed rewrites and translations require Apple Intelligence in
     /// addition to the user's Smart Paste opt-in.
     var smartPasteModelAvailable: Bool {
-        intelligence.smartPaste && SmartPasteService.isAvailable
+        intelligence.smartPaste && ClipIntelligenceFacade.modelAvailable
     }
 
-    /// Transforms a clip's text on-device; nil if unavailable or the model
-    /// declined. Pure enrichment — never fails the caller.
     func smartPaste(_ text: String, action: SmartPasteAction) async -> String? {
-        try? await smartPasteService.transform(text, action: action)
+        await intelligenceFacade.transform(text, action: action)
     }
 
-    /// On-device translation to an English-named target language; nil on failure.
     func smartTranslate(_ text: String, to language: String) async -> String? {
-        try? await smartPasteService.translate(text, to: language)
+        await intelligenceFacade.translate(text, to: language)
     }
 
     // MARK: - Ask your clipboard (grounded on-device QA)
@@ -1081,17 +1078,14 @@ final class AppModel {
         let sources: [ClipItem]
     }
 
-    var askAvailable: Bool { ClipboardQAService.isAvailable }
+    var askAvailable: Bool { ClipIntelligenceFacade.askAvailable }
 
-    /// Retrieve the most relevant clips (semantic when the embeddings are ready,
-    /// else full-text) and have the on-device model answer grounded ONLY in them.
-    /// Routes through the shared `ClipboardQA` coordinator — the SAME retrieval +
-    /// sensitivity-filtering path iOS uses. macOS previously hand-rolled its own,
-    /// which drifted from iOS; unifying them means a fix reaches both platforms.
+    /// Maps the shared ask-your-clipboard outcome onto this app's localized
+    /// answer copy. Retrieval, the sensitive-clip filter and availability all
+    /// live in the facade; only these strings are macOS's own.
     func askClipboard(_ question: String) async -> ClipboardAnswer? {
-        guard let grdbStore else { return nil }
-        switch await ClipboardQA().answer(
-            question: question, store: grdbStore, useSemantic: intelligence.semanticSearch)
+        switch await intelligenceFacade.ask(
+            question, store: grdbStore, useSemantic: intelligence.semanticSearch)
         {
         case .unavailable:
             return nil
@@ -1663,13 +1657,12 @@ final class AppModel {
         }
     }
 
-    /// Suggest the board this clip probably belongs to, by a semantic k-NN vote
-    /// over how similar clips were filed (`BoardSuggester`). Only ever suggests;
-    /// nil when the toggle is off, the clip is sensitive, there are no eligible
-    /// user boards, or the neighborhood shows no clear home. 100% on-device.
+    /// Suggest the board this clip probably belongs to. The toggle, the
+    /// sensitive-clip rule and the vote all live in the facade so iOS cannot
+    /// answer this differently.
     func suggestedBoard(for item: ClipItem) async -> Pinboard? {
-        guard intelligence.autoBoard, !item.isSensitive, let grdbStore else { return nil }
-        return await BoardSuggestionService().suggest(for: item, store: grdbStore)
+        await intelligenceFacade.suggestedBoard(
+            for: item, store: grdbStore, autoBoardEnabled: intelligence.autoBoard)
     }
 
     /// Creates a board and, when `assigning` is set, files that clip into it —
