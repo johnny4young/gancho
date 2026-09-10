@@ -281,29 +281,28 @@ final class AppModel {
         panel = PanelController(defaults: appDefaults)
         activationTracker = ActivationTracker(defaults: appDefaults)
         let directory = SharedStorageLocation.macAppStoreDirectory
-        // Test hook: force the in-memory fallback so the "history isn't being
-        // saved" warning path is drivable by a UI test (mirrors a real failure
-        // to open the encrypted store).
-        let forceEphemeral = ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store")
-        // Test hook: a THROWAWAY durable store in a unique temp directory — a real
-        // `GRDBClipboardStore` (so `fullStore` is non-nil and board creation / the
-        // free-tier paywall are reachable, unlike the ephemeral store) that never
-        // touches the user's data. Takes precedence over `-force-ephemeral-store`.
-        let tempStoreDirectory = Self.temporaryDurableStoreDirectory()
-        let grdb: GRDBClipboardStore?
-        if let tempDir = tempStoreDirectory {
-            grdb = try? GRDBClipboardStore.encrypted(directory: tempDir)
-        } else if forceEphemeral {
-            grdb = nil
-        } else {
-            grdb = try? GRDBClipboardStore.encrypted(directory: directory)
-        }
+        // Which store this launch wants, and opening it, both live in
+        // `StoreBootstrap` — including the two UI-test hooks (a throwaway
+        // durable store, and the forced in-memory fallback that makes the
+        // "history isn't being saved" warning drivable). The throwaway store is
+        // encrypted here so the Mac UI tests exercise the real open path.
+        let storeRequest = StoreBootstrap.request()
+        let opened = StoreBootstrap.open(
+            storeRequest,
+            configuration: StoreBootstrap.Configuration(
+                productionDirectory: { directory },
+                throwawayIsEncrypted: true,
+                throwawayDirectoryPrefix: "gancho-uitest-store"))
+        let grdb = opened.durable
+        // MCP config follows the store: into the throwaway directory for a UI
+        // test, into a scratch directory when there is no store at all, and
+        // beside the real database otherwise. `opened.directory` reports the
+        // chosen location even when the open failed, which is what keeps the
+        // config file from moving on exactly those launches.
         let mcpConfigDirectory =
-            tempStoreDirectory
-            ?? (forceEphemeral
-                ? FileManager.default.temporaryDirectory.appendingPathComponent(
-                    "gancho-uitest-mcp-\(UUID().uuidString)", isDirectory: true)
-                : directory)
+            opened.directory
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent(
+                "gancho-uitest-mcp-\(UUID().uuidString)", isDirectory: true)
         self.mcpConfigDirectory = mcpConfigDirectory
         self.fullStore = grdb
         self.grdbForEngines = grdb
@@ -340,8 +339,12 @@ final class AppModel {
         })
         var loadedMCPConfig = MCPServerConfig.load(fromStoreDirectory: mcpConfigDirectory)
         #if DEBUG
+            // Only ever into a THROWAWAY store — seeding grants beside the
+            // user's real database would rewrite their MCP config. The guard
+            // used to read "a temp directory exists", which meant the same
+            // thing by accident; now it says it.
             if ProcessInfo.processInfo.arguments.contains("-seed-mcp-grants"),
-                tempStoreDirectory != nil
+                storeRequest == .throwaway
             {
                 loadedMCPConfig = Self.sampleMCPConfig()
                 try? loadedMCPConfig.save(toStoreDirectory: mcpConfigDirectory)

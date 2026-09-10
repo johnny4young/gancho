@@ -86,19 +86,6 @@ extension AppModel {
         }
     #endif
 
-    /// The throwaway store directory for `-use-temp-durable-store`, or nil when
-    /// the arg is absent. Lives under the OS temp directory (system-cleaned), so
-    /// the UI-test paywall flow gets a REAL durable store — board creation works
-    /// and the free-tier gate is reachable — without touching the user's data.
-    static func temporaryDurableStoreDirectory() -> URL? {
-        guard ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store")
-        else { return nil }
-        let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("gancho-uitest-store-\(UUID().uuidString)", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
-    }
-
     /// UI-test hook: seed exactly `PinLimits.freeMaxPinboards` known boards into a
     /// THROWAWAY durable store so an automated flow can create ONE more and hit
     /// the free-tier paywall deterministically. Gated on BOTH `-seed-sample-boards`
