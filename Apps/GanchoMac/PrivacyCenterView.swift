@@ -293,9 +293,9 @@ struct PrivacyCenterView: View {
 
     private func refresh() async {
         receipt = await model.privateActivityReceipt()
-        if let grdb = model.fullStore {
-            synced = (try? await grdb.syncedCount()) ?? 0
-            masked = (try? await grdb.sensitiveCount()) ?? 0
+        if let store = model.fullStore {
+            synced = (try? await store.syncedCount()) ?? 0
+            masked = (try? await store.sensitiveCount()) ?? 0
         }
         let recent = await model.recentMCPAccesses(limit: 50)
         mcpAccesses = recent
