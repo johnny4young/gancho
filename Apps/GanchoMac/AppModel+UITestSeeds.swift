@@ -108,11 +108,11 @@ extension AppModel {
     private func seedSampleBoardsIfRequested() -> Task<Void, Never>? {
         guard CommandLine.arguments.contains("-seed-sample-boards"),
             CommandLine.arguments.contains("-use-temp-durable-store"),
-            let grdbStore
+            let fullStore
         else { return nil }
         return Task {
             for i in 1...PinLimits.freeMaxPinboards {
-                _ = try? await grdbStore.createPinboard(
+                _ = try? await fullStore.createPinboard(
                     name: "Seed board \(i)", sfSymbol: "square.stack")
             }
             await refreshBoards()
@@ -125,7 +125,7 @@ extension AppModel {
     private func seedSourceAppsIfRequested() -> Task<Void, Never>? {
         guard CommandLine.arguments.contains("-seed-source-apps"),
             CommandLine.arguments.contains("-use-temp-durable-store"),
-            let grdbStore
+            let fullStore
         else { return nil }
         return Task {
             let entries: [(text: String, app: String, kind: ClipContentKind)] = [
@@ -145,7 +145,7 @@ extension AppModel {
                     createdAt: Date(timeIntervalSince1970: 1_800_000_000 + Double(index)),
                     kind: entry.kind, preview: entry.text,
                     contentHash: "ui-source-\(index)", sourceAppBundleID: entry.app)
-                _ = try? await grdbStore.insert(item, content: .text(entry.text))
+                _ = try? await fullStore.insert(item, content: .text(entry.text))
             }
             await refreshRecents()
         }
@@ -157,14 +157,14 @@ extension AppModel {
     private func seedReuseSuggestionIfRequested() -> Task<Void, Never>? {
         guard CommandLine.arguments.contains("-seed-reuse-suggestion"),
             CommandLine.arguments.contains("-use-temp-durable-store"),
-            let grdbStore,
+            let fullStore,
             let id = UUID(uuidString: "00000000-0000-4000-8000-000000000104")
         else { return nil }
         return Task {
             let item = ClipItem(
                 id: id, preview: "Reusable standup update",
                 contentHash: "mac-ui-reuse-suggestion", uses: 2)
-            _ = try? await grdbStore.insert(item, content: .text("Reusable standup update"))
+            _ = try? await fullStore.insert(item, content: .text("Reusable standup update"))
             await refreshRecents()
         }
     }
@@ -175,14 +175,14 @@ extension AppModel {
     private func seedClipEditingIfRequested() -> Task<Void, Never>? {
         guard CommandLine.arguments.contains("-seed-clip-editing"),
             CommandLine.arguments.contains("-use-temp-durable-store"),
-            let grdbStore,
+            let fullStore,
             let id = UUID(uuidString: "00000000-0000-4000-8000-000000000105")
         else { return nil }
         return Task {
             let item = ClipItem(
                 id: id, preview: "Yesterday: fixed search",
                 contentHash: "mac-ui-clip-editing")
-            _ = try? await grdbStore.insert(
+            _ = try? await fullStore.insert(
                 item,
                 content: .text(
                     "Yesterday: fixed search\nToday: improve editing\nBlockers: none"))
@@ -199,7 +199,7 @@ extension AppModel {
     private func seedPanelReproIfRequested() -> Task<Void, Never>? {
         guard CommandLine.arguments.contains("-seed-panel-repro"),
             CommandLine.arguments.contains("-use-temp-durable-store"),
-            let grdbStore
+            let fullStore
         else { return nil }
         // Fire-and-forget: AFTER the panel is on screen, capture several same-day
         // clips one at a time through the REAL ingest path, so each triggers a
@@ -217,11 +217,11 @@ extension AppModel {
             var ids: [UUID] = []
             for text in ["repro pinned 1", "repro pinned 2", "repro pinned 3"] {
                 let item = ClipItem(kind: .text, preview: text, contentHash: text)
-                if let stored = try? await grdbStore.insert(item, content: .text(text)) {
+                if let stored = try? await fullStore.insert(item, content: .text(text)) {
                     ids.append(stored.id)
                 }
             }
-            for id in ids { _ = try? await grdbStore.setPinned(id: id, true) }
+            for id in ids { _ = try? await fullStore.setPinned(id: id, true) }
             await refreshRecents()
         }
     }
@@ -232,7 +232,7 @@ extension AppModel {
     private func seedMultiFileDragIfRequested() -> Task<Void, Never>? {
         guard CommandLine.arguments.contains("-seed-multi-file-drag"),
             CommandLine.arguments.contains("-use-temp-durable-store"),
-            let grdbStore
+            let fullStore
         else { return nil }
         return Task {
             let directory = FileManager.default.temporaryDirectory
@@ -249,10 +249,10 @@ extension AppModel {
                 title: "Two test files",
                 preview: "alpha.txt + beta.txt",
                 contentHash: "mac-ui-multi-file-drag")
-            if let stored = try? await grdbStore.insert(
+            if let stored = try? await fullStore.insert(
                 item, content: .fileReferences(urls.map(\.path)))
             {
-                _ = try? await grdbStore.setPinned(id: stored.id, true)
+                _ = try? await fullStore.setPinned(id: stored.id, true)
             }
             await refreshRecents()
         }
@@ -264,19 +264,19 @@ extension AppModel {
     private func seedPrivateActivityReceiptIfRequested() -> Task<Void, Never>? {
         guard CommandLine.arguments.contains("-seed-private-activity-receipt"),
             CommandLine.arguments.contains("-use-temp-durable-store"),
-            let grdbStore
+            let fullStore
         else { return nil }
         return Task {
             let now = Date()
-            try? await grdbStore.recordPrivateCapture(
+            try? await fullStore.recordPrivateCapture(
                 sourceAppBundleID: "com.apple.Safari", count: 12, at: now)
-            try? await grdbStore.recordPrivateReuse(
+            try? await fullStore.recordPrivateReuse(
                 targetAppBundleID: "com.apple.dt.Xcode", itemCount: 8, at: now)
-            try? await grdbStore.recordPrivateSkippedCapture(
+            try? await fullStore.recordPrivateSkippedCapture(
                 isProtected: false, count: 1, at: now)
-            try? await grdbStore.recordPrivateSkippedCapture(
+            try? await fullStore.recordPrivateSkippedCapture(
                 isProtected: true, count: 2, at: now)
-            try? await grdbStore.recordPrivateSensitiveExpiry(count: 1, at: now)
+            try? await fullStore.recordPrivateSensitiveExpiry(count: 1, at: now)
         }
     }
 }

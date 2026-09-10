@@ -72,7 +72,12 @@ final class AppModel {
     /// Full first-party store surface, downcast once from `store`; nil on the
     /// in-memory fallback. Feature code (this model and the views) reaches every
     /// capability through it instead of downcasting to the concrete class.
-    let grdbStore: (any FullClipStore)?
+    ///
+    /// Named for the facet, NOT the implementation, and deliberately so: this
+    /// was `grdbStore`, which read as a concrete `GRDBClipboardStore` handle
+    /// and sent readers looking for GRDB APIs that are not on it. The concrete
+    /// handle is the next property, and it says so.
+    let fullStore: (any FullClipStore)?
     /// Narrow concrete handle kept ONLY to construct in-module engines
     /// (`RetentionEngine`, `TierEnforcement`, `GanchoArchive`), to feed
     /// `SyncEngineFactory`, and to reach the MCP access log / sync-internal
@@ -281,7 +286,7 @@ final class AppModel {
         // to open the encrypted store).
         let forceEphemeral = ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store")
         // Test hook: a THROWAWAY durable store in a unique temp directory — a real
-        // `GRDBClipboardStore` (so `grdbStore` is non-nil and board creation / the
+        // `GRDBClipboardStore` (so `fullStore` is non-nil and board creation / the
         // free-tier paywall are reachable, unlike the ephemeral store) that never
         // touches the user's data. Takes precedence over `-force-ephemeral-store`.
         let tempStoreDirectory = Self.temporaryDurableStoreDirectory()
@@ -300,7 +305,7 @@ final class AppModel {
                     "gancho-uitest-mcp-\(UUID().uuidString)", isDirectory: true)
                 : directory)
         self.mcpConfigDirectory = mcpConfigDirectory
-        self.grdbStore = grdb
+        self.fullStore = grdb
         self.grdbForEngines = grdb
         if let grdb {
             self.store = grdb
@@ -421,7 +426,7 @@ final class AppModel {
             guard let self else { return }
             privacyEvents.record(IgnoredCaptureEvent(reason: reason))
             Task {
-                try? await grdbStore?.recordPrivateSkippedCapture(
+                try? await fullStore?.recordPrivateSkippedCapture(
                     isProtected: reason == .sensitiveType, count: 1, at: .now)
             }
         }
@@ -535,7 +540,7 @@ final class AppModel {
         let coordinator = SpotlightCoordinator(
             coalescer: SpotlightCoordinator.defaultCoalescer,
             reconcile: { [weak self] in
-                guard let self, let store = grdbStore else { return nil }
+                guard let self, let store = fullStore else { return nil }
                 return await LibrarySpotlightService(index: CoreSpotlightIndexer())
                     .reconcile(store: store, enabled: spotlightIndexing)
             },
@@ -671,7 +676,7 @@ final class AppModel {
                     type: outcome.item.kind,
                     lengthBucket: .init(characterCount: outcome.contentLength)))
             if outcome.isNew { recordActivationMilestone(.firstCapture) }
-            try? await grdbStore?.recordPrivateCapture(
+            try? await fullStore?.recordPrivateCapture(
                 sourceAppBundleID: capture.sourceAppBundleID,
                 count: 1,
                 at: capture.capturedAt)
@@ -722,7 +727,7 @@ final class AppModel {
     /// Pro-tier async enrichment — never blocks capture: OCR makes image
     /// clips searchable; the tiered annotator titles text clips.
     private func enrich(_ outcome: ClipIngestionCoordinator.Outcome) {
-        guard !outcome.enrichment.isEmpty, let grdbStore else { return }
+        guard !outcome.enrichment.isEmpty, let fullStore else { return }
         let syncEngine: (any SyncEngine)? =
             syncController.isEnabled ? syncController.engine : nil
         Task(priority: .utility) { [enrichmentScheduler] in
@@ -732,7 +737,7 @@ final class AppModel {
             await enrichmentScheduler.run(copiedAt: outcome.item.createdAt) {
                 await ingestionCoordinator.enrich(
                     outcome,
-                    store: grdbStore,
+                    store: fullStore,
                     syncEngine: syncEngine
                 ) { @MainActor [self] in
                     if outcome.enrichment.usesFreeTitle {
@@ -825,11 +830,11 @@ final class AppModel {
     }
 
     func privateActivityReceipt() async -> PrivateActivityReceipt {
-        (try? await grdbStore?.privateActivityReceipt(now: .now)) ?? .empty()
+        (try? await fullStore?.privateActivityReceipt(now: .now)) ?? .empty()
     }
 
     func clearPrivateActivityReceipt() async {
-        try? await grdbStore?.clearPrivateActivityReceipt()
+        try? await fullStore?.clearPrivateActivityReceipt()
     }
 
     func recordActivationMilestone(_ milestone: ActivationMilestone) {
@@ -850,7 +855,7 @@ final class AppModel {
     ) async {
         let count = itemCount ?? items.count
         guard count > 0 else { return }
-        try? await grdbStore?.recordPrivateReuse(
+        try? await fullStore?.recordPrivateReuse(
             targetAppBundleID: targetBundleID, itemCount: count, at: .now)
         recordActivationMilestone(.firstSuccessfulReuse)
         let ageBucket: TelemetryEvent.AgeBucket =
@@ -1019,7 +1024,7 @@ final class AppModel {
     /// paste the result, and bump the usage count. Empty values means a
     /// non-template snippet (or fields left blank → their defaults apply).
     func pasteSnippet(_ snippet: ClipItem, values: [String: String]) {
-        guard grdbStore != nil else { return }
+        guard fullStore != nil else { return }
         let intendedTargetBundleID = currentReuseTargetBundleID()
         Task {
             guard case .text(let body)? = try? await store.content(for: snippet.id) else { return }
@@ -1040,7 +1045,7 @@ final class AppModel {
 
     /// The snippet invoked by an exact keyword, if any (the panel's expansion).
     func snippet(matchingKeyword keyword: String) async -> ClipItem? {
-        (try? await grdbStore?.snippet(matchingKeyword: keyword))
+        (try? await fullStore?.snippet(matchingKeyword: keyword))
     }
 
     // MARK: - Smart paste (deterministic + on-device Apple Intelligence)
@@ -1085,7 +1090,7 @@ final class AppModel {
     /// live in the facade; only these strings are macOS's own.
     func askClipboard(_ question: String) async -> ClipboardAnswer? {
         switch await intelligenceFacade.ask(
-            question, store: grdbStore, useSemantic: intelligence.semanticSearch)
+            question, store: fullStore, useSemantic: intelligence.semanticSearch)
         {
         case .unavailable:
             return nil
@@ -1182,7 +1187,7 @@ final class AppModel {
                 let outcome = await deletionWorkflow.delete(
                     ids: ids,
                     store: store,
-                    syncStore: grdbStore,
+                    syncStore: fullStore,
                     engine: syncController.engine,
                     syncEnabled: syncController.isEnabled)
                 reportDeletionFailure(outcome)
@@ -1483,9 +1488,9 @@ final class AppModel {
     /// Persists a user-authored title and schedules sync only after the durable
     /// write succeeds. The view owns draft/error presentation.
     func updateClipTitle(_ item: ClipItem, title: String) async -> Bool {
-        guard let grdbStore else { return false }
+        guard let fullStore else { return false }
         switch await editingController.updateTitle(
-            item, title: title, store: grdbStore, engine: syncController.engine)
+            item, title: title, store: fullStore, engine: syncController.engine)
         {
         case .saved:
             await refreshRecents()
@@ -1508,9 +1513,9 @@ final class AppModel {
     /// Persists an explicit text-body edit, refreshes visible metadata after a
     /// successful durable write, and never logs the user-authored content.
     func updateClipText(_ item: ClipItem, text: String) async -> Bool {
-        guard let grdbStore else { return false }
+        guard let fullStore else { return false }
         switch await editingController.updateText(
-            item, text: text, store: grdbStore, engine: syncController.engine)
+            item, text: text, store: fullStore, engine: syncController.engine)
         {
         case .saved:
             await refreshRecents()
@@ -1549,10 +1554,10 @@ final class AppModel {
     }
 
     func togglePin(_ item: ClipItem) {
-        guard let grdbStore else { return }
+        guard let fullStore else { return }
         Task {
             switch await curationController.togglePin(
-                item, tier: tier, store: grdbStore, engine: syncController.engine)
+                item, tier: tier, store: fullStore, engine: syncController.engine)
             {
             case .pinned:
                 toasts.show(GanchoToast(message: "Pinned"))
@@ -1575,10 +1580,10 @@ final class AppModel {
 
     /// The signature gesture: clip → permanent snippet (⌘S in the panel).
     func promoteToSnippet(_ item: ClipItem) {
-        guard let grdbStore else { return }
+        guard let fullStore else { return }
         Task {
             switch await curationController.promoteToSnippet(
-                item, tier: tier, store: grdbStore)
+                item, tier: tier, store: fullStore)
             {
             case .promoted:
                 toasts.show(GanchoToast(message: "Saved as snippet"))
@@ -1606,8 +1611,8 @@ final class AppModel {
     }
 
     func refreshBoards() async {
-        guard let grdbStore else { return }
-        boards = (try? await grdbStore.pinboards()) ?? []
+        guard let fullStore else { return }
+        boards = (try? await fullStore.pinboards()) ?? []
     }
 
     func assign(_ item: ClipItem, toBoard board: Pinboard) {
@@ -1643,10 +1648,10 @@ final class AppModel {
     }
 
     func removeFromAllBoards(_ item: ClipItem) {
-        guard let grdbStore else { return }
+        guard let fullStore else { return }
         Task {
             let outcome = await BoardsController().removeFromAllBoards(
-                item, store: grdbStore, engine: syncController.engine)
+                item, store: fullStore, engine: syncController.engine)
             guard outcome == .changed else {
                 if outcome == .failed {
                     recordBoardFailure("Couldn’t remove the clip from its boards.")
@@ -1662,7 +1667,7 @@ final class AppModel {
     /// answer this differently.
     func suggestedBoard(for item: ClipItem) async -> Pinboard? {
         await intelligenceFacade.suggestedBoard(
-            for: item, store: grdbStore, autoBoardEnabled: intelligence.autoBoard)
+            for: item, store: fullStore, autoBoardEnabled: intelligence.autoBoard)
     }
 
     /// Creates a board and, when `assigning` is set, files that clip into it —
@@ -1672,9 +1677,9 @@ final class AppModel {
     func createBoard(
         named name: String, assigning item: ClipItem? = nil
     ) async -> BoardsController.BoardCreateOutcome {
-        guard let grdbStore else { return .failed }
+        guard let fullStore else { return .failed }
         let outcome = await BoardsController().createBoard(
-            name: name, filing: item, store: grdbStore, engine: syncController.engine,
+            name: name, filing: item, store: fullStore, engine: syncController.engine,
             isPro: tier == .pro,
             onFreeLimit: { self.paywallWindow.show(trigger: .freeLimitReached, model: self) },
             onAssigned: { self.toasts.show(GanchoToast(message: "Added to board")) })
@@ -1701,9 +1706,9 @@ final class AppModel {
     /// write, and simply wrong on a slow one.
     @discardableResult
     func renameBoard(_ board: Pinboard, name: String) async -> Bool {
-        guard let grdbStore else { return false }
+        guard let fullStore else { return false }
         let outcome = await BoardsController().renameBoard(
-            board, name: name, store: grdbStore, engine: syncController.engine)
+            board, name: name, store: fullStore, engine: syncController.engine)
         if outcome == .failed {
             recordBoardFailure("Couldn’t rename the board.")
         }
@@ -1713,9 +1718,9 @@ final class AppModel {
 
     @discardableResult
     func updateBoardIdentity(_ board: Pinboard, colorHex: String?, emoji: String?) async -> Bool {
-        guard let grdbStore else { return false }
+        guard let fullStore else { return false }
         let outcome = await BoardsController().updateBoardIdentity(
-            board, colorHex: colorHex, emoji: emoji, store: grdbStore,
+            board, colorHex: colorHex, emoji: emoji, store: fullStore,
             engine: syncController.engine)
         if outcome == .failed {
             recordBoardFailure("Couldn’t update the board appearance.")
@@ -1729,9 +1734,9 @@ final class AppModel {
     /// only do so once the board is actually gone.
     @discardableResult
     func deleteBoard(_ board: Pinboard) async -> Bool {
-        guard let grdbStore else { return false }
+        guard let fullStore else { return false }
         let outcome = await BoardsController().deleteBoard(
-            board, store: grdbStore, engine: syncController.engine,
+            board, store: fullStore, engine: syncController.engine,
             syncEnabled: syncController.isEnabled)
         if outcome == .failed {
             recordBoardFailure("Couldn’t delete the board.")
@@ -1743,8 +1748,8 @@ final class AppModel {
 
     /// The boards a clip belongs to — drives the peek's board menu checkmarks.
     func boardMembership(for item: ClipItem) async -> Set<UUID> {
-        guard let grdbStore else { return [] }
-        return (try? await grdbStore.boardIDs(forClip: item.id)) ?? []
+        guard let fullStore else { return [] }
+        return (try? await fullStore.boardIDs(forClip: item.id)) ?? []
     }
 
     /// Boards shared by every selected clip. The picker uses this intersection
@@ -1770,10 +1775,10 @@ final class AppModel {
     /// refreshes presentation once after the durable transaction completes.
     @discardableResult
     func setBoardMembership(_ items: [ClipItem], board: Pinboard, member: Bool) async -> Bool {
-        guard let grdbStore else { return false }
+        guard let fullStore else { return false }
         guard !items.isEmpty else { return false }
         let succeeded = await BoardsController().setBoardMembership(
-            items, board: board, member: member, store: grdbStore,
+            items, board: board, member: member, store: fullStore,
             engine: syncController.engine)
         guard succeeded else {
             recordBoardFailure(
