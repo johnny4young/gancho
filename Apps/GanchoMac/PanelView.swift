@@ -227,8 +227,18 @@ struct PanelView: View {
                 presentedSheet: $presentedSheet,
                 commitBoardSheet: commitBoardSheet,
                 deleteBoard: { board in
-                    if search.selectedBoardID == board.id { search.selectedBoardID = nil }
-                    Task { await model.deleteBoard(board) }
+                    Task {
+                        // Leave the board only once it is actually gone. This
+                        // used to clear first, so a failed delete dropped the
+                        // panel on All clips with the board still in the rail —
+                        // the same mismatch `LibraryView.deleteBoard` fixes.
+                        // Clearing the id is itself what refreshes the list
+                        // (the `onChange` above), so nothing else is needed.
+                        let deleted = await model.deleteBoard(board)
+                        if deleted, search.selectedBoardID == board.id {
+                            search.selectedBoardID = nil
+                        }
+                    }
                 },
                 pasteSnippet: { request, values in
                     model.pasteSnippet(request.snippet, values: values)
