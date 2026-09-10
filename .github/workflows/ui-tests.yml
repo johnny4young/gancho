@@ -57,6 +57,7 @@ jobs:
             test -project Gancho.xcodeproj -scheme Gancho \
             -destination 'platform=macOS,arch=arm64' \
             -only-testing:GanchoUITests \
+            -enableCodeCoverage YES \
             -resultBundlePath build/macos-ui.xcresult \
             CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
@@ -69,6 +70,19 @@ jobs:
         run: |
           ./scripts/collect-ui-test-evidence.sh \
             build/macos-ui.xcresult "macOS UI tests" build/macos-ui-evidence
+
+      # The half `swift test` cannot see. Reported, never gated: a UI suite is
+      # too environment-sensitive to fail a build on, and a floor nobody can act
+      # on is a floor somebody eventually lowers.
+      - name: Report macOS app-target coverage
+        if: always()
+        continue-on-error: true
+        run: |
+          # pipefail so a broken reporter shows as a failed step
+          # instead of inheriting tee's exit 0.
+          set -o pipefail
+          ./scripts/report-apps-coverage.sh build/macos-ui.xcresult \
+            | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload macOS UI evidence
         if: always()
@@ -134,6 +148,7 @@ jobs:
             test -project Gancho.xcodeproj -scheme GanchoiOS \
             -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
             -only-testing:GanchoiOSUITests \
+            -enableCodeCoverage YES \
             -resultBundlePath build/ios-ui.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee build/ios-ui.log
@@ -143,6 +158,16 @@ jobs:
         run: |
           ./scripts/collect-ui-test-evidence.sh \
             build/ios-ui.xcresult "iOS UI tests" build/ios-ui-evidence
+
+      - name: Report iOS app-target coverage
+        if: always()
+        continue-on-error: true
+        run: |
+          # pipefail so a broken reporter shows as a failed step
+          # instead of inheriting tee's exit 0.
+          set -o pipefail
+          ./scripts/report-apps-coverage.sh build/ios-ui.xcresult \
+            | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload iOS UI evidence
         if: always()
