@@ -3,25 +3,11 @@ import Foundation
 import GanchoKit
 import Observation
 
-/// The data the iOS history list needs from the app shell. `IOSAppModel`
-/// conforms to it in production; tests pass an in-memory fake. Mirrors
-/// `PanelSearchSource` (macOS) minus the snippet/deletion hooks iOS doesn't use
-/// because the two shells have different mutation and presentation contracts.
-@MainActor public protocol HistoryListSource: AnyObject {
-    /// True when a durable (GRDB) store backs the app; false on the in-memory
-    /// fallback, which has neither board queries nor ranked search.
-    var isDurable: Bool { get }
-    /// The recent list ordered for browsing (pins first, then capture time).
-    func recentBrowse(offset: Int, limit: Int) async -> [ClipItem]
-    /// The protocol store ordering — the in-memory fallback path.
-    func items(offset: Int, limit: Int) async -> [ClipItem]
-    /// One page of a board's curated set (durable stores only).
-    func boardItems(_ boardID: UUID, offset: Int, limit: Int) async -> [ClipItem]
-    /// Ranked full-text search (durable stores only; [] otherwise).
-    func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem]
-    /// Content-free source-app options for the filter menu.
-    func recentSourceApps(limit: Int) async -> [ClipSourceApp]
-}
+/// The iOS history list needs exactly the shared surface and nothing more —
+/// the snippet-keyword and pending-deletion hooks in `PanelSearchSource` are
+/// macOS-only. A typealias rather than a second declaration so the two lists
+/// cannot drift apart in what they ask a store for.
+public typealias HistoryListSource = ClipListSource
 
 /// The iOS history list's search + pagination + grouping state, lifted off
 /// `IOSAppModel` so its logic is `@Observable` and unit-testable. `IOSAppModel`
@@ -49,26 +35,27 @@ import Observation
 
     var reachedEnd = false
     var isLoadingMore = false
-    static let pageSize = 100
     /// How close to the end an appearing row must be to pull the next page.
     static let loadMoreThreshold = 20
 
-    private let source: any HistoryListSource
+    private let core: ClipListCore
 
     public init(source: any HistoryListSource) {
-        self.source = source
+        core = ClipListCore(source: source, configuration: .iOSHistory)
     }
 
     /// The recent list (no query, no board) is the only date-grouped view;
     /// boards paginate flat, search returns a bounded ranked set.
     public var isGroupedView: Bool {
-        query.isEmpty && selectedBoardID == nil && selectedSourceAppBundleID == nil
+        ClipListShape.isGrouped(
+            query: query, boardID: selectedBoardID,
+            sourceAppBundleID: selectedSourceAppBundleID)
     }
 
     /// The list appends pages on scroll: the recent browse or a board view.
     /// A query or source-app filter is a bounded top-N set and never appends.
     private var isPaginatedView: Bool {
-        query.isEmpty && selectedSourceAppBundleID == nil
+        ClipListShape.isPaginated(query: query, sourceAppBundleID: selectedSourceAppBundleID)
     }
 
     /// `captures` narrowed by the kind filter — what the list actually shows.
@@ -91,46 +78,21 @@ import Observation
     /// Refreshes the app menu independently from text search so type-to-search
     /// does not repeat the aggregate metadata query on every keystroke.
     public func refreshSourceApps() async {
-        sourceApps = await source.recentSourceApps(limit: 8)
+        sourceApps = await core.sourceApps(limit: 8)
     }
 
     public func search() async {
-        let sourceApp = selectedSourceAppBundleID
-        if query.isEmpty, sourceApp == nil {
-            if let board = selectedBoardID, source.isDurable {
-                // A board pages like the recent list — a curated set is still
-                // unbounded (a 10k-member board must not load whole on open).
-                captures = await source.boardItems(board, offset: 0, limit: Self.pageSize)
-                reachedEnd = captures.count < Self.pageSize
-            } else {
-                captures = await loadRecentPage(offset: 0)
-                reachedEnd = captures.count < Self.pageSize
-            }
-        } else if source.isDurable {
-            let kinds: Set<ClipContentKind>? = kindFilter.map { [$0] }
-            captures = await source.search(
-                ClipSearchQuery(
-                    text: query, kinds: kinds, sourceAppBundleID: sourceApp,
-                    boardID: selectedBoardID),
-                limit: query.isEmpty ? 500 : 50)
-            reachedEnd = true
-        } else {
-            let all = await source.items(offset: 0, limit: 200)
-            captures = all.filter {
-                (query.isEmpty || $0.preview.localizedCaseInsensitiveContains(query))
-                    && (sourceApp == nil || $0.sourceAppBundleID == sourceApp)
-            }
-            reachedEnd = true
-        }
+        // iOS pushes the kind filter into SQL; macOS narrows on the client
+        // because its filter also feeds de-duplication and selection. That is
+        // the only difference between the two loads, and it is expressed here
+        // rather than hidden behind a flag.
+        let page = await core.firstPage(
+            query: query, boardID: selectedBoardID,
+            sourceAppBundleID: selectedSourceAppBundleID,
+            kinds: kindFilter.map { [$0] })
+        captures = page.items
+        reachedEnd = page.reachedEnd
         rebuildSections()
-    }
-
-    /// Pinned-first then capture-time order, so the date buckets stay contiguous.
-    private func loadRecentPage(offset: Int) async -> [ClipItem] {
-        if source.isDurable {
-            return await source.recentBrowse(offset: offset, limit: Self.pageSize)
-        }
-        return await source.items(offset: offset, limit: Self.pageSize)
     }
 
     /// Append the next page as the list nears its end (infinite scroll). No-ops
@@ -143,17 +105,14 @@ import Observation
         defer { isLoadingMore = false }
         let board = selectedBoardID
         let offset = captures.count
-        let next: [ClipItem]
-        if let board, source.isDurable {
-            next = await source.boardItems(board, offset: offset, limit: Self.pageSize)
-        } else {
-            next = await loadRecentPage(offset: offset)
-        }
+        let page = await core.nextPage(after: offset, boardID: board)
         // The view may have changed during the await (query typed, board picked
-        // or switched); only append if still extending the same list.
+        // or switched); only append if still extending the same list. The guard
+        // stays here rather than in the core because it reads state only this
+        // model has.
         guard isPaginatedView, selectedBoardID == board, captures.count == offset else { return }
-        captures.append(contentsOf: next)
-        if next.count < Self.pageSize { reachedEnd = true }
+        captures.append(contentsOf: page.items)
+        if page.reachedEnd { reachedEnd = true }
         rebuildSections()
     }
 
