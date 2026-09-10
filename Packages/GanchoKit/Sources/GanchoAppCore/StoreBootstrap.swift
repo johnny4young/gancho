@@ -4,10 +4,17 @@ import GanchoKit
 /// The store-open decision tree both shells inlined in their initializers.
 ///
 /// Each one asked the same two questions in its own order and answered them
-/// with its own spelling, which is how the two drifted: macOS checked the
-/// throwaway hook first and encrypted it, iOS checked the ephemeral hook first
-/// and did not. Neither difference was reachable — no launch passes both flags
-/// — but only reading both initializers side by side could tell you that.
+/// with its own spelling, and the two differences that produced are not alike.
+///
+/// The ENCRYPTION difference is live on every throwaway launch and deliberate:
+/// macOS encrypts so its UI tests exercise the real open path, iOS does not so
+/// a simulator run never reaches the user's App Group Keychain. It survives
+/// here as ``Configuration/throwawayIsEncrypted``.
+///
+/// The PRECEDENCE difference — macOS checked the throwaway hook first, iOS the
+/// ephemeral one — was neither deliberate nor reachable: it shows only when a
+/// launch passes both flags, and none does. Unreachable and, until this type,
+/// unreadable without opening both initializers side by side.
 ///
 /// The decision is separated from the open on purpose. ``request(arguments:)``
 /// is pure, so the precedence is unit-testable without a filesystem, a
@@ -95,13 +102,36 @@ public enum StoreBootstrap {
         return .production
     }
 
-    /// Opens the store this request describes.
+    /// How a durable store is actually opened.
     ///
-    /// Never throws: every failure degrades to the in-memory fallback, which
-    /// both shells already surface to the user through `storageIsEphemeral`.
-    /// Swallowing it here rather than at each call site is why that warning is
-    /// reachable at all.
-    public static func open(_ request: Request, configuration: Configuration) -> Opened {
+    /// Injectable, and not only for symmetry: the production opener reads — and
+    /// CREATES when absent — the user's real database key via
+    /// `KeychainPassphraseStore`, so a unit test must never reach it. Injecting
+    /// is also
+    /// the only way to exercise the failed-open contract at all, since the
+    /// alternative is breaking someone's actual store to watch what happens.
+    public typealias Opener =
+        @Sendable (
+            _ directory: URL, _ encrypted: Bool, _ keychainAccessGroup: String?
+        ) -> GRDBClipboardStore?
+
+    /// The real opener. Every failure becomes nil rather than a throw, because
+    /// both shells already surface the in-memory fallback to the user through
+    /// `storageIsEphemeral` — swallowing it here is what makes that warning
+    /// reachable instead of a crash.
+    public static let liveOpener: Opener = { directory, encrypted, keychainAccessGroup in
+        encrypted
+            ? try? GRDBClipboardStore.encrypted(
+                directory: directory, keychainAccessGroup: keychainAccessGroup)
+            : try? GRDBClipboardStore(directory: directory)
+    }
+
+    /// Opens the store this request describes. Never throws.
+    public static func open(
+        _ request: Request,
+        configuration: Configuration,
+        opener: Opener = liveOpener
+    ) -> Opened {
         switch request {
         case .ephemeral:
             return Opened(durable: nil, directory: nil)
@@ -112,16 +142,16 @@ public enum StoreBootstrap {
                     isDirectory: true)
             try? FileManager.default.createDirectory(
                 at: directory, withIntermediateDirectories: true)
-            let store =
-                configuration.throwawayIsEncrypted
-                ? try? GRDBClipboardStore.encrypted(directory: directory)
-                : try? GRDBClipboardStore(directory: directory)
-            return Opened(durable: store, directory: directory)
+            // No access group: the throwaway store is per-launch and disposable,
+            // and both shells opened it without one.
+            return Opened(
+                durable: opener(directory, configuration.throwawayIsEncrypted, nil),
+                directory: directory)
         case .production:
             let directory = configuration.productionDirectory()
-            let store = try? GRDBClipboardStore.encrypted(
-                directory: directory, keychainAccessGroup: configuration.keychainAccessGroup)
-            return Opened(durable: store, directory: directory)
+            return Opened(
+                durable: opener(directory, true, configuration.keychainAccessGroup),
+                directory: directory)
         }
     }
 }

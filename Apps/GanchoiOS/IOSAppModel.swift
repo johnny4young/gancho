@@ -818,9 +818,11 @@ final class IOSAppModel {
     let store: any ClipboardStore = {
         // Both UI-test hooks and the real open live in `StoreBootstrap`. The
         // throwaway store is deliberately NOT encrypted here: that is what
-        // keeps a simulator run away from the user's App Group Keychain, and
-        // the production directory stays a closure so a throwaway launch never
-        // resolves the App Group container at all.
+        // keeps a simulator run away from the user's App Group Keychain. The
+        // production directory stays a closure so THIS open does not resolve
+        // the container on a throwaway launch — the initializer still resolves
+        // it further down for `syncController.stateStoreURL`, so the saving is
+        // local to the store open, not to the launch.
         let opened = StoreBootstrap.open(
             StoreBootstrap.request(),
             configuration: StoreBootstrap.Configuration(
