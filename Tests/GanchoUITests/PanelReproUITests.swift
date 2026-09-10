@@ -10,19 +10,91 @@ import XCTest
 /// `make test-ui` (a foreground GUI session), are NOT part of CI, and self-skip
 /// where elements aren't exposed on a headless runner.
 final class PanelReproUITests: XCTestCase {
+    /// The seeded list, once it has stopped growing.
+    ///
+    /// `-seed-panel-repro` awaits three pinned clips BEFORE the panel opens and
+    /// then captures four more from a detached task — the first ~900ms after
+    /// launch, the rest 200ms apart — deliberately, so each lands as a live
+    /// refresh while the grouped list is visible. That IS the scenario under
+    /// test and must not be disabled. It does have to be waited out, because
+    /// `PanelSearchModel.refresh()` ends with `selectedIndex = 0`, and a plain
+    /// assignment there collapses any batch back to one row: keys sent while
+    /// captures are still arriving are racing the collapses that follow them.
+    ///
+    /// Waiting for `rows.count >= 4` — the precondition this replaces — is
+    /// satisfied by the FIRST of those four, i.e. the middle of the burst,
+    /// which is why the ⇧↓ test passed alone (idle machine, seed already done)
+    /// and failed inside the full suite (everything slower, keys land mid-burst).
+    /// So wait for quiet instead. `quietFor` must outlast the seed's LONGEST
+    /// gap — the ~900ms before the first capture, not the 200ms between them —
+    /// or this returns while the burst has yet to start.
     @MainActor
-    private func selectThreeRows(_ app: XCUIApplication, rows: XCUIElementQuery) throws {
-        try SynthesizedInput.requireForeground(app)
-        app.typeKey(.downArrow, modifierFlags: [.shift])
-        app.typeKey(.downArrow, modifierFlags: [.shift])
-        let threeSelected = NSPredicate { _, _ in
-            rows.allElementsBoundByIndex.filter(\.isSelected).count == 3
+    private func waitForSeedToSettle(
+        _ rows: XCUIElementQuery, quietFor: TimeInterval = 1.2, timeout: TimeInterval = 12
+    ) -> Int {
+        let deadline = Date().addingTimeInterval(timeout)
+        var lastCount = rows.count
+        var lastChange = Date()
+        while Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            let count = rows.count
+            if count != lastCount {
+                lastCount = count
+                lastChange = Date()
+            } else if Date().timeIntervalSince(lastChange) >= quietFor {
+                break
+            }
         }
-        XCTAssertEqual(
-            XCTWaiter.wait(
-                for: [XCTNSPredicateExpectation(predicate: threeSelected, object: app)], timeout: 5),
-            .completed,
-            "Shift-Down must extend the cursor into a three-row contiguous selection")
+        return rows.count
+    }
+
+    /// Waits for exactly `count` rows to report themselves selected.
+    @MainActor
+    private func waitForSelectedRows(
+        _ count: Int, in rows: XCUIElementQuery, of app: XCUIApplication,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            rows.allElementsBoundByIndex.filter(\.isSelected).count == count
+        }
+        return XCTWaiter.wait(
+            for: [XCTNSPredicateExpectation(predicate: predicate, object: app)],
+            timeout: timeout) == .completed
+    }
+
+    /// Extends the cursor into a three-row contiguous selection with two ⇧↓.
+    ///
+    /// The panel routes ⇧↓ through `.onKeyPress` attached to the SEARCH FIELD —
+    /// `PanelView.listColumn` hangs those handlers on the view that owns
+    /// `@FocusState` — so an app-level key only reaches `extendSelection` when
+    /// that field holds the keyboard. `app.state == .runningForeground` says the
+    /// application is frontmost, NOT that its window is key or that the field is
+    /// first responder; typing on that alone is the gap swift-preflight §11
+    /// warns about, so this waits for real focus and skips rather than typing
+    /// blind into whatever does have the keyboard.
+    ///
+    /// One keystroke at a time, each verified. Two rapid app-level keys can
+    /// outrun the SwiftUI state update, and a stepwise check names WHICH
+    /// keystroke was lost instead of only reporting that three rows never came.
+    @MainActor
+    private func selectThreeRows(
+        _ app: XCUIApplication, search: XCUIElement, rows: XCUIElementQuery
+    ) throws {
+        try SynthesizedInput.requireForeground(app)
+        guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
+            throw XCTSkip("the panel never took keyboard focus — skipping synthesized input")
+        }
+        // ⇧↓ extends FROM the cursor, so the cursor has to be settled first.
+        XCTAssertTrue(
+            waitForSelectedRows(1, in: rows, of: app),
+            "⇧↓ extends from the cursor, so the panel must settle on one row first")
+
+        for expected in [2, 3] {
+            app.typeKey(.downArrow, modifierFlags: [.shift])
+            XCTAssertTrue(
+                waitForSelectedRows(expected, in: rows, of: app),
+                "Shift-Down must extend the contiguous selection to \(expected) rows")
+        }
     }
 
     @MainActor
@@ -225,11 +297,19 @@ final class PanelReproUITests: XCTestCase {
         try XCTSkipUnless(
             preview.waitForExistence(timeout: 5),
             "selected preview is not exposed to the UI runner in this environment")
+        // The same race the ⇧↓ test hit: every seeded capture refreshes the
+        // list and resets the cursor to row 0, so take the baseline and
+        // navigate only once the seed has stopped arriving.
+        _ = waitForSeedToSettle(rows)
         let firstValue = preview.value as? String
 
-        // Arrow keys are app-level (global) events; only send them once the
-        // panel is verifiably frontmost so navigation lands on Gancho.
+        // Arrow keys are app-level (global) events and the panel hangs its key
+        // handlers off the focused search field, so require BOTH that the app
+        // is frontmost and that the field actually holds the keyboard.
         try SynthesizedInput.requireForeground(app)
+        guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
+            throw XCTSkip("the panel never took keyboard focus — skipping synthesized input")
+        }
         app.typeKey(XCUIKeyboardKey.downArrow.rawValue, modifierFlags: [])
 
         let changed = XCTNSPredicateExpectation(
@@ -261,13 +341,10 @@ final class PanelReproUITests: XCTestCase {
         try XCTSkipUnless(
             rows.firstMatch.waitForExistence(timeout: 8),
             "seeded clip rows not exposed to the UI runner in this environment")
-        let settle = Date().addingTimeInterval(3)
-        while rows.count < 4 && Date() < settle {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        try XCTSkipUnless(rows.count >= 4, "not enough seeded rows exposed (\(rows.count))")
+        let seeded = waitForSeedToSettle(rows)
+        try XCTSkipUnless(seeded >= 4, "not enough seeded rows exposed (\(seeded))")
 
-        try selectThreeRows(app, rows: rows)
+        try selectThreeRows(app, search: search, rows: rows)
 
         let contextBar = app.descendants(matching: .any)["selection-context-bar"].firstMatch
         XCTAssertTrue(contextBar.waitForExistence(timeout: 3))
@@ -311,7 +388,7 @@ final class PanelReproUITests: XCTestCase {
 
         // Undo refreshes the list and intentionally restores single-selection.
         // Select a batch again to exercise board assignment independently.
-        try selectThreeRows(app, rows: rows)
+        try selectThreeRows(app, search: search, rows: rows)
         verifyBatchBoardAssignment(app, search: search)
     }
 }
