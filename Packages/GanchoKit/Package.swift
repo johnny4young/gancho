@@ -97,6 +97,10 @@ let package = Package(
         .testTarget(name: "GanchoAppCoreTests", dependencies: ["GanchoAppCore"]),
         .testTarget(name: "ClipboardCoreTests", dependencies: ["ClipboardCore"]),
         .testTarget(name: "GanchoAITests", dependencies: ["GanchoAI"]),
+        // Depends on the EXECUTABLE, not on a new library product: the
+        // CLI's pure decisions are an implementation detail, and the
+        // product list is this package's advertised public surface.
+        .testTarget(name: "GanchoCLITests", dependencies: ["gancho"]),
         .testTarget(name: "GanchoDesignTests", dependencies: ["GanchoDesign"])
     ]
 )

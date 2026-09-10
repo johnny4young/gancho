@@ -37,6 +37,8 @@ private actor FakeBoardStore: BoardStoring {
     private(set) var deletePinboardCalls = 0
     private(set) var deletePinboardForSyncCalls = 0
     private(set) var removeFromAllBoardsCalls = 0
+    private(set) var lastCreatedName: String?
+    private(set) var lastRenamedName: String?
     private(set) var lastColorHex: String?
     private(set) var lastEmoji: String?
     private(set) var lastMembershipClipIDs: [UUID] = []
@@ -59,11 +61,13 @@ private actor FakeBoardStore: BoardStoring {
     }
     func createPinboard(name: String, sfSymbol: String) async throws -> Pinboard {
         createPinboardCalls += 1
+        lastCreatedName = name
         if failures.contains(.create) { throw FakeBoardError.failure }
         return createdBoard
     }
     func renameBoard(id: UUID, name: String) async throws {
         renameCalls += 1
+        lastRenamedName = name
         if failures.contains(.rename) { throw FakeBoardError.failure }
     }
     func updateBoardIdentity(id: UUID, colorHex: String?, emoji: String?) async throws {
@@ -578,5 +582,69 @@ struct BoardsControllerTests {
         #expect(outcome == .failed)
         #expect(await store.removeFromAllBoardsCalls == 1)
         #expect(await engine.enqueueItemsCalls == 0)
+    }
+}
+
+/// The name rule, which used to live in each shell and only worked in one.
+///
+/// iOS trimmed and refused a blank name; macOS did neither, so it would create
+/// a board named `"   "` that renders as a blank chip in the rail. The earlier
+/// extraction documented that difference as deliberate, which froze the defect
+/// instead of describing a decision. These pin the unified rule.
+@Suite("BoardsController — the board-name rule, once")
+struct BoardNameRuleTests {
+    private func board(system: Bool = false) -> Pinboard {
+        Pinboard(name: "Work", isSystem: system)
+    }
+
+    @Test("A blank name creates nothing and is not an error")
+    func blankNameCreatesNothing() async {
+        for blank in ["", "   ", "\n", " \t "] {
+            let store = FakeBoardStore(boards: [])
+            let engine = FakeBoardEngine()
+            let outcome = await BoardsController().createBoard(
+                name: blank, filing: nil, store: store, engine: engine,
+                isPro: true, onFreeLimit: {}, onAssigned: {})
+
+            #expect(
+                outcome == BoardsController.BoardCreateOutcome.noName,
+                "\(blank.debugDescription) produced \(outcome)")
+            #expect(
+                await store.createPinboardCalls == 0,
+                "the store was asked to create a blank-named board")
+            // Not `.failed`: nothing went wrong, so no shell should show an error.
+            #expect(outcome != BoardsController.BoardCreateOutcome.failed)
+        }
+    }
+
+    @Test("A padded name is stored trimmed")
+    func paddedNameIsTrimmed() async {
+        let store = FakeBoardStore(boards: [])
+        let outcome = await BoardsController().createBoard(
+            name: "  Work  ", filing: nil, store: store, engine: FakeBoardEngine(),
+            isPro: true, onFreeLimit: {}, onAssigned: {})
+
+        if case .created = outcome {} else { Issue.record("expected a create, got \(outcome)") }
+        #expect(await store.lastCreatedName == "Work")
+    }
+
+    @Test("A board cannot be renamed into the blank state a create refuses")
+    func blankRenameIsANoOp() async {
+        let store = FakeBoardStore(boards: [])
+        let outcome = await BoardsController().renameBoard(
+            board(), name: "   ", store: store, engine: FakeBoardEngine())
+
+        #expect(outcome == .noChange)
+        #expect(await store.renameCalls == 0, "a blank rename reached the store")
+    }
+
+    @Test("A padded rename is stored trimmed")
+    func paddedRenameIsTrimmed() async {
+        let store = FakeBoardStore(boards: [])
+        let outcome = await BoardsController().renameBoard(
+            board(), name: "  Personal  ", store: store, engine: FakeBoardEngine())
+
+        #expect(outcome == .changed)
+        #expect(await store.lastRenamedName == "Personal")
     }
 }
