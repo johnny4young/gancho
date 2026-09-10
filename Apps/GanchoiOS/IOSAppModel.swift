@@ -816,29 +816,21 @@ final class IOSAppModel {
     /// Durable store in the App Group container (shared family location);
     /// in-memory fallback keeps the app usable if the container is missing.
     let store: any ClipboardStore = {
-        // Test hook: force the in-memory fallback so the "history isn't being
-        // saved" path (and its diagnostics entry) is drivable by a UI test.
-        if ProcessInfo.processInfo.arguments.contains("-force-ephemeral-store") {
-            return InMemoryClipboardStore()
-        }
-        // A unique SQLite store gives UI tests durable GRDB semantics without
-        // opening the simulator user's App Group database or Keychain.
-        if ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store") {
-            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
-                "gancho-ios-uitest-store-\(UUID().uuidString)", isDirectory: true)
-            try? FileManager.default.createDirectory(
-                at: directory, withIntermediateDirectories: true)
-            return
-                (try? GRDBClipboardStore(directory: directory))
-                ?? InMemoryClipboardStore()
-        }
-        let directory = SharedStorageLocation.storeDirectory(
-            appGroupID: SharedInbox.appGroupID)
-        return
-            (try? GRDBClipboardStore.encrypted(
-                directory: directory,
-                keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup))
-            ?? InMemoryClipboardStore()
+        // Both UI-test hooks and the real open live in `StoreBootstrap`. The
+        // throwaway store is deliberately NOT encrypted here: that is what
+        // keeps a simulator run away from the user's App Group Keychain, and
+        // the production directory stays a closure so a throwaway launch never
+        // resolves the App Group container at all.
+        let opened = StoreBootstrap.open(
+            StoreBootstrap.request(),
+            configuration: StoreBootstrap.Configuration(
+                productionDirectory: {
+                    SharedStorageLocation.storeDirectory(appGroupID: SharedInbox.appGroupID)
+                },
+                keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup,
+                throwawayIsEncrypted: false,
+                throwawayDirectoryPrefix: "gancho-ios-uitest-store"))
+        return opened.durable ?? InMemoryClipboardStore()
     }()
 
     /// Full first-party store surface, downcast once from `store`; nil on the
