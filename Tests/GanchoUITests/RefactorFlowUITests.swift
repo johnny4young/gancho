@@ -89,8 +89,8 @@ final class RefactorFlowUITests: XCTestCase {
     /// HONEST SCOPE: this asserts only that the create-board control and its name
     /// prompt are wired. It does NOT reach the free-tier paywall, for two reasons
     /// found in the source:
-    ///   1. `AppModel.createBoard` guards `guard let grdbStore` — board creation
-    ///      is a no-op under `-force-ephemeral-store` (grdbStore is nil), and we
+    ///   1. `AppModel.createBoard` guards `guard let fullStore` — board creation
+    ///      is a no-op under `-force-ephemeral-store` (fullStore is nil), and we
     ///      must not create test boards in the user's real durable store.
     ///   2. The paywall is gated by `PaywallGatekeeper.shouldShow`, which
     ///      suppresses the `.freeLimitReached` trigger until the user's first
@@ -139,7 +139,7 @@ final class RefactorFlowUITests: XCTestCase {
     /// BoardsController free-tier paywall, end to end — the local follow-up to the
     /// affordance test above. A THROWAWAY durable store (`-use-temp-durable-store`)
     /// makes board creation real (it is a silent no-op under the ephemeral UI-test
-    /// store, whose `grdbStore` is nil), `-seed-sample-boards` pre-creates exactly
+    /// store, whose `fullStore` is nil), `-seed-sample-boards` pre-creates exactly
     /// the free limit (`PinLimits.freeMaxPinboards`) into it, and
     /// `-first-pasteback-at 1` satisfies `PaywallGatekeeper.shouldShow`. Creating
     /// ONE more board then trips `onFreeLimit` → the `paywall` surface. The store

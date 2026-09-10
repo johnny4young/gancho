@@ -552,18 +552,18 @@ struct LibraryView: View {
     // MARK: - Data
 
     private func refreshAll() async {
-        boards = (try? await model.grdbStore?.pinboards()) ?? []
-        snippets = (try? await model.grdbStore?.snippets()) ?? []
+        boards = (try? await model.fullStore?.pinboards()) ?? []
+        snippets = (try? await model.fullStore?.snippets()) ?? []
         await refreshCounts()
         await loadScope()
     }
 
     private func refreshCounts() async {
         allCount = (try? await model.store.count()) ?? 0
-        pinnedCount = (try? await model.grdbStore?.pinnedCount()) ?? 0
+        pinnedCount = (try? await model.fullStore?.pinnedCount()) ?? 0
         var counts: [UUID: Int] = [:]
         for board in boards {
-            counts[board.id] = (try? await model.grdbStore?.count(inBoard: board.id)) ?? 0
+            counts[board.id] = (try? await model.fullStore?.count(inBoard: board.id)) ?? 0
         }
         boardCounts = counts
     }
@@ -581,7 +581,7 @@ struct LibraryView: View {
         case .board(let id):
             // Bounded like the sibling scopes above — the Library is a manager,
             // not a scroll-through; huge boards browse in the panel.
-            clips = (try? await model.grdbStore?.items(inBoard: id, offset: 0, limit: 200)) ?? []
+            clips = (try? await model.fullStore?.items(inBoard: id, offset: 0, limit: 200)) ?? []
             editingSnippet = nil
         case .snippet(let id):
             editingSnippet = snippets.first { $0.id == id }
@@ -649,14 +649,14 @@ struct LibraryView: View {
             // way createSnippet already does. Silently reverting text the user
             // typed reads as a bug in the editor.
             do {
-                try await model.grdbStore?.updateSnippet(id: id, title: title, text: body)
-                try await model.grdbStore?.setKeyword(id: id, keyword: keyword)
+                try await model.fullStore?.updateSnippet(id: id, title: title, text: body)
+                try await model.fullStore?.setKeyword(id: id, keyword: keyword)
             } catch {
                 model.diagnostics.record(
                     String(localized: "Snippets"),
                     String(localized: "Couldn’t save that snippet."))
             }
-            snippets = (try? await model.grdbStore?.snippets()) ?? []
+            snippets = (try? await model.fullStore?.snippets()) ?? []
             // An edited snippet must replace its Spotlight donation at once —
             // text the user just rewrote out of it must not stay searchable.
             model.refreshSpotlight()
@@ -666,7 +666,7 @@ struct LibraryView: View {
     private func demote() {
         guard let editingSnippet else { return }
         Task {
-            try? await model.grdbStore?.demoteFromSnippet(id: editingSnippet.id)
+            try? await model.fullStore?.demoteFromSnippet(id: editingSnippet.id)
             selection = .allClips
             await refreshAll()
             // Un-curating removes the donation immediately, matching the
@@ -676,7 +676,7 @@ struct LibraryView: View {
     }
 
     private func createSnippet() {
-        guard let store = model.grdbStore else { return }
+        guard let store = model.fullStore else { return }
         Task {
             let count = (try? await store.snippetCount()) ?? 0
             guard SnippetLimits.canPromote(currentSnippetCount: count, isPro: model.tier == .pro)

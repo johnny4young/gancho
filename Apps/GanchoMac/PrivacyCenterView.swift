@@ -293,7 +293,7 @@ struct PrivacyCenterView: View {
 
     private func refresh() async {
         receipt = await model.privateActivityReceipt()
-        if let grdb = model.grdbStore {
+        if let grdb = model.fullStore {
             synced = (try? await grdb.syncedCount()) ?? 0
             masked = (try? await grdb.sensitiveCount()) ?? 0
         }
