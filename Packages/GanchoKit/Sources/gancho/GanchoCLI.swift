@@ -390,10 +390,7 @@ struct GanchoCLI {
     /// The store directory: the app's by default, overridable with
     /// `GANCHO_STORE_DIR` (handy for tests and alternate profiles).
     private static func storeDirectory() -> URL {
-        if let override = ProcessInfo.processInfo.environment["GANCHO_STORE_DIR"] {
-            return URL(fileURLWithPath: override, isDirectory: true)
-        }
-        return SharedStorageLocation.macAppStoreDirectory
+        CLIFormatting.storeDirectory()
     }
 
     private static func openStore() throws -> GRDBClipboardStore {
@@ -401,24 +398,15 @@ struct GanchoCLI {
     }
 
     private static func mode(_ raw: String?) -> ClipSearchQuery.Mode {
-        switch raw?.lowercased() {
-        case "exact": return .exact
-        case "regex": return .regex
-        default: return .fuzzy
-        }
+        CLIFormatting.mode(raw)
     }
 
     private static func oneLine(_ item: ClipItem) -> String {
-        let text = item.title.isEmpty ? item.preview : item.title
-        let collapsed = text.replacingOccurrences(of: "\n", with: " ")
-        return collapsed.count > 80 ? String(collapsed.prefix(79)) + "…" : collapsed
+        CLIFormatting.oneLine(item)
     }
 
     private static func encodePretty(_ value: some Encodable) throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        return try encoder.encode(value)
+        try CLIFormatting.encodePretty(value)
     }
 
     private static func printData(_ data: Data) {
