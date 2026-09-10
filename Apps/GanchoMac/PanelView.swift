@@ -228,7 +228,7 @@ struct PanelView: View {
                 commitBoardSheet: commitBoardSheet,
                 deleteBoard: { board in
                     if search.selectedBoardID == board.id { search.selectedBoardID = nil }
-                    model.deleteBoard(board)
+                    Task { await model.deleteBoard(board) }
                 },
                 pasteSnippet: { request, values in
                     model.pasteSnippet(request.snippet, values: values)
@@ -758,7 +758,7 @@ struct PanelView: View {
             Task { await model.createBoard(named: name) }
         case .newForClip(let clip):
             Task { await model.createBoard(named: name, assigning: clip) }
-        case .rename(let board): model.renameBoard(board, name: name)
+        case .rename(let board): Task { await model.renameBoard(board, name: name) }
         case nil: break
         }
         boardSheet = nil

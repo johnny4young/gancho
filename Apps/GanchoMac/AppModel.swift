@@ -1702,16 +1702,20 @@ final class AppModel {
 
     /// Rename / delete are no-ops on the built-in Favorites board, so the UI
     /// only needs to hide the affordances.
-    func renameBoard(_ board: Pinboard, name: String) {
-        guard let grdbStore else { return }
-        Task {
-            let outcome = await BoardsController().renameBoard(
-                board, name: name, store: grdbStore, engine: syncController.engine)
-            if outcome == .failed {
-                recordBoardFailure("Couldn’t rename the board.")
-            }
-            await refreshBoards()
+    /// `async` so a caller can act on the result instead of guessing when the
+    /// write lands. It used to kick its own `Task` and return immediately,
+    /// which left views sleeping a fixed 140 ms and hoping — too long on a fast
+    /// write, and simply wrong on a slow one.
+    @discardableResult
+    func renameBoard(_ board: Pinboard, name: String) async -> Bool {
+        guard let grdbStore else { return false }
+        let outcome = await BoardsController().renameBoard(
+            board, name: name, store: grdbStore, engine: syncController.engine)
+        if outcome == .failed {
+            recordBoardFailure("Couldn’t rename the board.")
         }
+        await refreshBoards()
+        return outcome == .changed
     }
 
     @discardableResult
@@ -1727,18 +1731,21 @@ final class AppModel {
         return outcome != .failed
     }
 
-    func deleteBoard(_ board: Pinboard) {
-        guard let grdbStore else { return }
-        Task {
-            let outcome = await BoardsController().deleteBoard(
-                board, store: grdbStore, engine: syncController.engine,
-                syncEnabled: syncController.isEnabled)
-            if outcome == .failed {
-                recordBoardFailure("Couldn’t delete the board.")
-            }
-            await refreshBoards()
-            await refreshRecents()
+    /// `async` for the same reason as ``renameBoard(_:name:)``, and the return
+    /// matters here: a view that moves the sidebar selection off a board should
+    /// only do so once the board is actually gone.
+    @discardableResult
+    func deleteBoard(_ board: Pinboard) async -> Bool {
+        guard let grdbStore else { return false }
+        let outcome = await BoardsController().deleteBoard(
+            board, store: grdbStore, engine: syncController.engine,
+            syncEnabled: syncController.isEnabled)
+        if outcome == .failed {
+            recordBoardFailure("Couldn’t delete the board.")
         }
+        await refreshBoards()
+        await refreshRecents()
+        return outcome == .changed
     }
 
     /// The boards a clip belongs to — drives the peek's board menu checkmarks.
