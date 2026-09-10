@@ -45,6 +45,10 @@ public struct BoardsController {
     public enum BoardCreateOutcome: Sendable, Equatable {
         case blocked
         case failed
+        /// The name was blank once trimmed, so nothing was created. Distinct
+        /// from `failed`: nothing went wrong, there was simply nothing to name,
+        /// and a shell must not raise an error for it.
+        case noName
         case created(UUID, filedClip: Bool)
     }
 
@@ -66,9 +70,12 @@ public struct BoardsController {
     /// `enqueue(boards:)`, then (if filing) `assign` followed by `onAssigned`.
     ///
     /// - Parameters:
-    ///   - name: the board name, already trimmed/empty-guarded by the shell so
-    ///     each platform keeps its own trimming behavior (macOS does not trim,
-    ///     iOS does — both preserved by doing it caller-side).
+    ///   - name: the board name as typed. Trimmed here, and refused when that
+    ///     leaves nothing — the rule lives in one place BECAUSE the shells had
+    ///     drifted: iOS trimmed and guarded, macOS did neither, so macOS would
+    ///     create a board named `"   "` that renders as a blank chip in the
+    ///     rail. That difference used to be documented as deliberate, which
+    ///     froze a defect rather than describing a decision.
     ///   - item: the clip to file into the new board, or nil for a plain create.
     ///   - store: the board write surface.
     ///   - engine: the live sync engine (read fresh from the shell's
@@ -89,6 +96,8 @@ public struct BoardsController {
         onAssigned: () -> Void
     ) async -> BoardCreateOutcome {
         // swiftlint:enable function_parameter_count
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return .noName }
         // The built-in Favorites board never counts against the free limit.
         // A read failure must not look like an empty store and bypass the gate.
         let count: Int
@@ -117,8 +126,10 @@ public struct BoardsController {
 
     /// Renames a user board and queues its new metadata for sync, mirroring both
     /// shells: `renameBoard`, then `enqueue(boards:)` with the locally updated
-    /// copy. A guarded no-op on system boards; the shell still owns the trim
-    /// and the follow-up refresh.
+    /// copy. A guarded no-op on system boards, and on a name that is blank once
+    /// trimmed — the same rule `createBoard` applies, so a board cannot be
+    /// renamed into the blank state a create refuses to produce. The shell
+    /// still owns the follow-up refresh.
     public func renameBoard(
         _ board: Pinboard,
         name: String,
@@ -126,6 +137,8 @@ public struct BoardsController {
         engine: any SyncEngine
     ) async -> MutationOutcome {
         guard !board.isSystem else { return .noChange }
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return .noChange }
         do {
             try await store.renameBoard(id: board.id, name: name)
         } catch {
