@@ -10,15 +10,22 @@ import GanchoKit
 ///
 /// The shells keep everything that is genuinely theirs, so no SwiftUI view
 /// changes: the `@Observable` `boards` list, `refreshBoards()`/`refreshRecents`/
-/// `search()` sequencing, `selectedBoardID` handling, name trimming/empty-guard,
-/// the concrete-store nil-guard, and the paywall / toast / note UI. The two
-/// shells had diverged only in those app-owned edges, surfaced here as:
+/// `search()` sequencing, `selectedBoardID` handling, the concrete-store
+/// nil-guard, and the paywall / toast / note UI. The two shells had diverged
+/// only in those app-owned edges, surfaced here as:
 /// - the free-tier gate UI, delivered through `onFreeLimit` (macOS opens the
 ///   paywall window; iOS bumps `proGateTick` or flashes a note);
 /// - the post-create refresh, chosen by the caller off `BoardCreateOutcome`
 ///   (macOS refreshes even when the create fails, iOS's filing path only on
 ///   success) — so refresh stays in the shell, verbatim;
 /// - the "added to board" toast, delivered through `onAssigned` (macOS only).
+///
+/// The board-NAME rule is not one of those edges, though this overview once
+/// listed it as if it were. Trimming and the blank-name refusal live here, for
+/// `createBoard` and `renameBoard` alike: the shells had not merely diverged,
+/// one of them was wrong — iOS trimmed and guarded, macOS did neither — so
+/// calling it shell-owned kept a defect alive under a comment that described it
+/// as deliberate.
 ///
 /// Only `BoardStoring` and the engine are needed: the gate counts boards via
 /// `pinboards()`, never a `StoreStatsProviding` counter, so that facet is not
@@ -34,17 +41,23 @@ import GanchoKit
 public struct BoardsController {
     public init() {}
 
-    /// The three ways `createBoard` can end, so the caller reproduces its
+    /// The four ways `createBoard` can end, so the caller reproduces its
     /// platform's exact post-create refresh without the controller touching the
     /// shell's `boards`/`refreshRecents`/`search`:
     /// - `blocked`: the free-tier gate stopped it (`onFreeLimit` already fired);
     /// - `failed`: the authoritative board list or create write failed;
+    /// - `noName`: the name was blank once trimmed, so nothing was created and
+    ///   nothing went wrong — a shell must not report an error for it;
     /// - `created`: success, carrying the new board's id and whether an
     ///   optional filing write also succeeded (the shells use that to update
     ///   checkmarks / repeat-last state only after a real membership write).
     public enum BoardCreateOutcome: Sendable, Equatable {
         case blocked
         case failed
+        /// The name was blank once trimmed, so nothing was created. Distinct
+        /// from `failed`: nothing went wrong, there was simply nothing to name,
+        /// and a shell must not raise an error for it.
+        case noName
         case created(UUID, filedClip: Bool)
     }
 
@@ -66,9 +79,12 @@ public struct BoardsController {
     /// `enqueue(boards:)`, then (if filing) `assign` followed by `onAssigned`.
     ///
     /// - Parameters:
-    ///   - name: the board name, already trimmed/empty-guarded by the shell so
-    ///     each platform keeps its own trimming behavior (macOS does not trim,
-    ///     iOS does — both preserved by doing it caller-side).
+    ///   - name: the board name as typed. Trimmed here, and refused when that
+    ///     leaves nothing — the rule lives in one place BECAUSE the shells had
+    ///     drifted: iOS trimmed and guarded, macOS did neither, so macOS would
+    ///     create a board named `"   "` that renders as a blank chip in the
+    ///     rail. That difference used to be documented as deliberate, which
+    ///     froze a defect rather than describing a decision.
     ///   - item: the clip to file into the new board, or nil for a plain create.
     ///   - store: the board write surface.
     ///   - engine: the live sync engine (read fresh from the shell's
@@ -89,6 +105,8 @@ public struct BoardsController {
         onAssigned: () -> Void
     ) async -> BoardCreateOutcome {
         // swiftlint:enable function_parameter_count
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return .noName }
         // The built-in Favorites board never counts against the free limit.
         // A read failure must not look like an empty store and bypass the gate.
         let count: Int
@@ -117,8 +135,10 @@ public struct BoardsController {
 
     /// Renames a user board and queues its new metadata for sync, mirroring both
     /// shells: `renameBoard`, then `enqueue(boards:)` with the locally updated
-    /// copy. A guarded no-op on system boards; the shell still owns the trim
-    /// and the follow-up refresh.
+    /// copy. A guarded no-op on system boards, and on a name that is blank once
+    /// trimmed — the same rule `createBoard` applies, so a board cannot be
+    /// renamed into the blank state a create refuses to produce. The shell
+    /// still owns the follow-up refresh.
     public func renameBoard(
         _ board: Pinboard,
         name: String,
@@ -126,6 +146,8 @@ public struct BoardsController {
         engine: any SyncEngine
     ) async -> MutationOutcome {
         guard !board.isSystem else { return .noChange }
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return .noChange }
         do {
             try await store.renameBoard(id: board.id, name: name)
         } catch {

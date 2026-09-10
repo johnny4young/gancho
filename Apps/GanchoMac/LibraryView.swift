@@ -595,6 +595,14 @@ struct LibraryView: View {
     /// settles (the model methods kick their own tasks). Every Library mutation
     /// funnels through here, so this is also where the curated Spotlight set
     /// stays in step (snippet saves, edits, demotes).
+    /// The one sleep left, and deliberately so for now. Unlike the board
+    /// mutations, these actions are genuinely fire-and-forget: `delete(_:)`
+    /// opens the six-second undo window and MUST return immediately, so there
+    /// is nothing here to await. The principled replacement is `StoreChangeBus`
+    /// — which already exists for exactly this ("the mutation site posts once,
+    /// and every consumer that cares is already subscribed") — but today only
+    /// `refreshSpotlight` posts to it, so wiring the mutation sites is its own
+    /// change rather than a rider on this one.
     private func mutate(_ action: () -> Void) {
         action()
         Task {
@@ -697,10 +705,13 @@ struct LibraryView: View {
     // MARK: - Board management
 
     private func deleteBoard(_ board: Pinboard) {
-        if selection == .board(board.id) { selection = .allClips }
-        model.deleteBoard(board)
         Task {
-            try? await Task.sleep(for: .milliseconds(140))
+            // Selection moves only once the board is actually gone. It used to
+            // move first and then sleep 140 ms hoping the delete had landed —
+            // so a failed delete left the user looking at All clips with the
+            // board still in the sidebar.
+            let deleted = await model.deleteBoard(board)
+            if deleted, selection == .board(board.id) { selection = .allClips }
             await refreshAll()
         }
     }
@@ -728,13 +739,11 @@ struct LibraryView: View {
         case .new:
             Task {
                 await model.createBoard(named: name)
-                try? await Task.sleep(for: .milliseconds(140))
                 await refreshAll()
             }
         case .rename(let board):
-            model.renameBoard(board, name: name)
             Task {
-                try? await Task.sleep(for: .milliseconds(140))
+                await model.renameBoard(board, name: name)
                 await refreshAll()
             }
         case nil: break

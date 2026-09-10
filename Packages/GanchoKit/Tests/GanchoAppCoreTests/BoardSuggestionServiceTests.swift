@@ -4,12 +4,15 @@ import Testing
 
 @testable import GanchoAppCore
 
+/// Shared with `ClipIntelligenceFacadeTests`, which drives the same guards one
+/// layer up — the counters are what make both suites non-vacuous.
+///
 /// A recording fake store: it answers only the calls the pre-embedder guards
 /// make and counts them, so a test can assert not just the returned value but
 /// *how far the service got* before returning — that's what makes the guard
 /// tests non-vacuous on CI, where `ContextualSentenceEmbedder` reports no
 /// on-device assets and the semantic tail can never produce a positive result.
-private actor FakeStore: BoardStoring, ClipReading, ClipSearching {
+actor FakeStore: BoardStoring, ClipReading, ClipSearching {
     let boards: [Pinboard]
     private(set) var pinboardsCalls = 0
     private(set) var boardIDsCalls = 0
