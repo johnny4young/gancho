@@ -106,43 +106,21 @@ public actor CKSyncEngineAdapter: SyncEngine {
 
     // MARK: - Explicit pull (hosts that receive no push)
 
-    /// Change tokens for the explicit pull, persisted SEPARATELY from the
-    /// engine's opaque state blob (piggybacking on it would corrupt the
-    /// engine's serialization). Losing this file is harmless — the next poll
-    /// re-scans the zones and the upserts are idempotent (last-writer-wins).
-    private struct PollTokens: Codable {
-        var database: Data?
-        var zones: [String: Data] = [:]
-    }
+    /// In-memory cache of the poll tokens. Their SHAPE and serialization live
+    /// in ``SyncPollTokens``; the cache stays here so the actor keeps owning
+    /// poll state, which is the point of the split.
+    private var pollTokens: SyncPollTokens?
 
-    private var pollTokens: PollTokens?
-
-    private func loadPollTokens() -> PollTokens {
+    private func loadPollTokens() -> SyncPollTokens {
         if let pollTokens { return pollTokens }
-        let loaded =
-            pollStateStore?.load().flatMap {
-                try? PropertyListDecoder().decode(PollTokens.self, from: $0)
-            }
-            ?? PollTokens()
+        let loaded = SyncPollTokens.load(from: pollStateStore)
         pollTokens = loaded
         return loaded
     }
 
-    private func savePollTokens(_ tokens: PollTokens) {
+    private func savePollTokens(_ tokens: SyncPollTokens) {
         pollTokens = tokens
-        if let data = try? PropertyListEncoder().encode(tokens) {
-            pollStateStore?.save(data)
-        }
-    }
-
-    private static func archive(_ token: CKServerChangeToken) -> Data? {
-        try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true)
-    }
-
-    private static func unarchive(_ data: Data?) -> CKServerChangeToken? {
-        data.flatMap {
-            try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKServerChangeToken.self, from: $0)
-        }
+        tokens.save(to: pollStateStore)
     }
 
     /// Asks the SERVER whether our zones changed, and pulls + applies what did.
@@ -157,7 +135,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
         var tokens = loadPollTokens()
         var changedZones: Set<CKRecordZone.ID> = []
         do {
-            var token = Self.unarchive(tokens.database)
+            var token = SyncPollTokens.unarchive(tokens.database)
             var moreComing = true
             while moreComing {
                 let page = try await database.databaseChanges(since: token)
@@ -174,18 +152,18 @@ public actor CKSyncEngineAdapter: SyncEngine {
             }
             // The loop always runs at least once and every page carries a
             // token, so `token` is non-nil here.
-            if let token { tokens.database = Self.archive(token) }
+            if let token { tokens.database = SyncPollTokens.archive(token) }
         } catch let error as CKError where error.code == .changeTokenExpired {
             // Stale database token: forget everything and re-scan next cycle.
-            savePollTokens(PollTokens())
+            savePollTokens(SyncPollTokens())
             return
         }
         for zone in [zoneID, boardZoneID] where changedZones.contains(zone) {
             do {
                 let token = try await fetchZoneChanges(
                     from: database, in: zone,
-                    since: Self.unarchive(tokens.zones[zone.zoneName]))
-                tokens.zones[zone.zoneName] = token.flatMap(Self.archive)
+                    since: SyncPollTokens.unarchive(tokens.zones[zone.zoneName]))
+                tokens.zones[zone.zoneName] = token.flatMap(SyncPollTokens.archive)
             } catch let error as CKError where error.code == .changeTokenExpired {
                 // The database token was already advanced by the time the
                 // per-zone token proved stale, so "try again next cycle" would
@@ -193,7 +171,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
                 // from nil and persist the fresh zone token from that pass.
                 do {
                     let token = try await fetchZoneChanges(from: database, in: zone, since: nil)
-                    tokens.zones[zone.zoneName] = token.flatMap(Self.archive)
+                    tokens.zones[zone.zoneName] = token.flatMap(SyncPollTokens.archive)
                 } catch {
                     guard CloudKitSyncPolicy.isMissingZone(error) else { throw error }
                 }
