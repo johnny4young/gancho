@@ -69,6 +69,32 @@ struct CLIFormattingTests {
         }
     }
 
+    @Test("Flattening protects any row, not just a clip summary")
+    func flattenedCoversEveryRowKind() {
+        // `boards` prints `id \t sfSymbol \t name`, and a board name is trimmed
+        // only at the EDGES (`BoardsController`), so an interior CR survives
+        // into the store and out to stdout — where it returns the cursor to
+        // column 0 and overwrites the id already written.
+        #expect(CLIFormatting.flattened("Work\rQueue") == "Work Queue")
+        #expect(CLIFormatting.flattened("Work\tQueue") == "Work Queue")
+        #expect(CLIFormatting.flattened("Work\u{1B}[2JQueue") == "Work [2JQueue")
+        #expect(CLIFormatting.flattened("Work\r\nQueue") == "Work Queue")
+        // Neutralizing the ESC is enough; the printable tail is left alone
+        // rather than mangled, which is why `[2J` survives above.
+        #expect(CLIFormatting.flattened("héllo 👨‍👩‍👧 🎉") == "héllo 👨‍👩‍👧 🎉")
+    }
+
+    @Test("Flattening does not truncate, unlike a clip summary")
+    func flattenedKeepsTheWholeValue() {
+        // `oneLine` caps a preview because prose is unbounded. A board name or
+        // a store path is not prose: cutting one would hide the very thing the
+        // row exists to show, so the shared entry point must not inherit the
+        // cap. Derived from the constant so tuning it moves the test too.
+        let long = String(repeating: "b", count: CLIFormatting.summaryWidth * 2)
+        #expect(CLIFormatting.flattened(long).count == long.count)
+        #expect(!CLIFormatting.flattened(long).hasSuffix("…"))
+    }
+
     @Test("Flattening leaves printable text alone, joined emoji included")
     func summaryKeepsPrintableText() {
         // Guards the choice of predicate: `CharacterSet.controlCharacters` is
@@ -111,5 +137,47 @@ struct CLIFormattingTests {
             environment: ["GANCHO_STORE_DIR": "/tmp/gancho-test"])
         #expect(override.path == "/tmp/gancho-test")
         #expect(override != real)
+    }
+}
+
+/// The sweep, kept swept.
+///
+/// Fixing the call sites once is not the same as keeping them fixed: the
+/// defect this guards against is a NEW `print` added later that interpolates a
+/// board name or an echoed argument straight into a row. So the rule is
+/// structural and greppable — `GanchoCLI` owns exactly one `print`, inside
+/// `printRow`, and everything else goes through `printRow` / `printErr` /
+/// `printData`.
+@Suite("gancho CLI — every row goes through the output funnel")
+struct CLIOutputFunnelTests {
+    @Test("The CLI has exactly one bare print, inside the funnel itself")
+    func noRowCanSkipFlattening() throws {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // GanchoCLITests
+            .deletingLastPathComponent()  // Tests
+            .deletingLastPathComponent()  // GanchoKit
+            .deletingLastPathComponent()  // Packages
+            .deletingLastPathComponent()  // repo root
+        let cli = repoRoot.appendingPathComponent(
+            "Packages/GanchoKit/Sources/gancho/GanchoCLI.swift")
+        let source = try String(contentsOf: cli, encoding: .utf8)
+
+        // `printRow(` / `printErr(` / `printData(` do not contain `print(`, so
+        // this matches only a bare call.
+        let funnel = "print(CLIFormatting.flattened(line))"
+        let offenders = source.split(separator: "\n", omittingEmptySubsequences: false)
+            .enumerated()
+            .filter { $0.element.contains("print(") && !$0.element.contains(funnel) }
+            .map {
+                "GanchoCLI.swift:\($0.offset + 1): \($0.element.trimmingCharacters(in: .whitespaces))"
+            }
+
+        #expect(
+            offenders.isEmpty,
+            "these rows bypass flattening — use printRow instead:\n\(offenders.joined(separator: "\n"))"
+        )
+        #expect(
+            source.contains(funnel),
+            "the funnel itself is gone; this guard would pass vacuously")
     }
 }
