@@ -69,6 +69,27 @@ enum CLIFormatting {
         String(text.map { rowSafe($0) ? $0 : " " })
     }
 
+    /// One tab-separated row: each column flattened, then joined with a
+    /// delimiter the CLI owns.
+    ///
+    /// The order matters and is the whole point. Flattening the ASSEMBLED row
+    /// also eats the separators that were already placed, turning documented
+    /// tab-separated output into space-separated prose that nothing can parse.
+    /// Sanitize the fields, then delimit — never the reverse.
+    static func row(_ columns: [String]) -> String {
+        columns.map(flattened).joined(separator: "\t")
+    }
+
+    /// One diagnostic line for stderr: flattened, with the newline it owns.
+    ///
+    /// Lives here, beside the row builder, so the stderr funnel's formatting is
+    /// directly testable. Writing to a `FileHandle` is not, and a funnel whose
+    /// only proof is "the code says so" is one refactor away from silently
+    /// passing raw control characters through again.
+    static func diagnostic(_ message: String) -> String {
+        flattened(message) + "\n"
+    }
+
     /// False for anything that would move the cursor, open a column, or start
     /// an escape sequence once printed.
     ///

@@ -85,8 +85,9 @@ struct GanchoCLI {
             printRow("No clips matched “\(query)”.")
         } else {
             for item in hits {
-                let line = "\(item.id.uuidString)\t\(item.kind.rawValue)\t\(oneLine(item))"
-                printRow(line)
+                printRow(columns: [
+                    item.id.uuidString, item.kind.rawValue, oneLine(item)
+                ])
             }
         }
     }
@@ -197,7 +198,9 @@ struct GanchoCLI {
             printRow("No boards yet.")
         } else {
             for board in boards {
-                printRow("\(board.id.uuidString)\t\(board.sfSymbol)\t\(board.name)")
+                printRow(columns: [
+                    board.id.uuidString, board.sfSymbol, board.name
+                ])
             }
         }
     }
@@ -281,10 +284,10 @@ struct GanchoCLI {
                 + "(\(config.activeGrants.count) active client grants)"
         )
         for grant in config.grants {
-            printRow(
-                "grant:   \(grant.id.uuidString)\t\(grant.state().rawValue)\t"
-                    + "\(grant.accessMode.rawValue)\t\(grant.scope.rawValue)\t"
-                    + grant.safeClientName)
+            printRow(columns: [
+                "grant:   \(grant.id.uuidString)", grant.state().rawValue,
+                grant.accessMode.rawValue, grant.scope.rawValue, grant.safeClientName
+            ])
         }
     }
 
@@ -418,7 +421,22 @@ struct GanchoCLI {
     /// goes out via ``printData(_:)`` and JSON escapes control characters by
     /// construction, so the machine-readable format stays byte-exact.
     private static func printRow(_ line: String) {
-        print(CLIFormatting.flattened(line))
+        emit(CLIFormatting.flattened(line))
+    }
+
+    /// One tab-separated row. Columns are sanitized individually and joined
+    /// with delimiters this file owns, so a clip preview or a board name can
+    /// never forge a column boundary — and, just as importantly, flattening
+    /// can never eat one. `search`, `boards` and the `status` grant list are
+    /// documented as tab-separated and stay machine-parseable.
+    private static func printRow(columns: [String]) {
+        emit(CLIFormatting.row(columns))
+    }
+
+    /// The single `print` in this file: everything reaches it already
+    /// sanitized, so the guard test only has to police one call.
+    private static func emit(_ line: String) {
+        print(line)
     }
 
     private static func encodePretty(_ value: some Encodable) throws -> Data {
@@ -437,7 +455,7 @@ struct GanchoCLI {
     /// same terminal — and owns the trailing newline so the flattening cannot
     /// eat a caller's.
     private static func printErr(_ message: String) {
-        FileHandle.standardError.write(Data((CLIFormatting.flattened(message) + "\n").utf8))
+        FileHandle.standardError.write(Data(CLIFormatting.diagnostic(message).utf8))
     }
 
     /// The only multi-line output the CLI produces on purpose, so it goes out

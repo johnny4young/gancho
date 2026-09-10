@@ -95,6 +95,37 @@ struct CLIFormattingTests {
         #expect(!CLIFormatting.flattened(long).hasSuffix("…"))
     }
 
+    @Test("A tab-separated row keeps its delimiters and sanitizes its columns")
+    func rowSanitizesFieldsThenDelimits() {
+        // Order is the whole point. Flattening the ASSEMBLED row also eats the
+        // separators already placed, which turned `boards` from documented
+        // tab-separated output into unparseable prose. Fields first, then
+        // delimiters the CLI owns.
+        let row = CLIFormatting.row(["id-1", "star", "Work\rQueue"])
+        #expect(row == "id-1\tstar\tWork Queue")
+        #expect(row.filter { $0 == "\t" }.count == 2, "the column boundaries must survive")
+    }
+
+    @Test("A column cannot forge a column boundary")
+    func rowColumnsCannotForgeDelimiters() {
+        // The other direction: a board name carrying its own TAB would open a
+        // phantom column and shift every field after it for anything parsing
+        // the row, so the tab count must come from the column count alone.
+        let row = CLIFormatting.row(["id-1", "star", "Work\tQueue"])
+        #expect(row == "id-1\tstar\tWork Queue")
+        #expect(row.filter { $0 == "\t" }.count == 2)
+    }
+
+    @Test("A diagnostic line is flattened and terminated exactly once")
+    func diagnosticFlattensAndTerminates() {
+        // stderr is the same terminal, and a diagnostic echoes back the very
+        // argument it is complaining about. The newline belongs to this
+        // function so the flattening cannot eat a caller's — and living here
+        // rather than inside a `FileHandle` write is what makes it assertable.
+        #expect(CLIFormatting.diagnostic("No clip with id a\rb") == "No clip with id a b\n")
+        #expect(CLIFormatting.diagnostic("plain").filter { $0 == "\n" }.count == 1)
+    }
+
     @Test("Flattening leaves printable text alone, joined emoji included")
     func summaryKeepsPrintableText() {
         // Guards the choice of predicate: `CharacterSet.controlCharacters` is
@@ -164,7 +195,7 @@ struct CLIOutputFunnelTests {
 
         // `printRow(` / `printErr(` / `printData(` do not contain `print(`, so
         // this matches only a bare call.
-        let funnel = "print(CLIFormatting.flattened(line))"
+        let funnel = "print(line)"
         let offenders = source.split(separator: "\n", omittingEmptySubsequences: false)
             .enumerated()
             .filter { $0.element.contains("print(") && !$0.element.contains(funnel) }
@@ -177,7 +208,30 @@ struct CLIOutputFunnelTests {
             "these rows bypass flattening — use printRow instead:\n\(offenders.joined(separator: "\n"))"
         )
         #expect(
-            source.contains(funnel),
-            "the funnel itself is gone; this guard would pass vacuously")
+            source.contains("private static func emit(") && source.contains(funnel),
+            "the stdout funnel itself is gone; this guard would pass vacuously")
+
+        // The regression this file shipped once: a row assembling its own `\t`
+        // and handing the finished string to the flattening funnel, which then
+        // eats the delimiters it was given. Tab-separated rows go through
+        // `printRow(columns:)`, which sanitizes fields and joins afterwards.
+        let selfDelimited = source.split(separator: "\n", omittingEmptySubsequences: false)
+            .enumerated()
+            .filter { $0.element.contains("printRow(") && $0.element.contains("\\t") }
+            .map { "GanchoCLI.swift:\($0.offset + 1)" }
+        #expect(
+            selfDelimited.isEmpty,
+            "these rows delimit before sanitizing, so flattening eats the tabs: \(selfDelimited)")
+
+        // stderr needs its own clause: the rule above says nothing about it, so
+        // dropping the flattening from `printErr` would leave every other test
+        // green while control characters reached the terminal again.
+        let stderrWrites =
+            source.components(separatedBy: "FileHandle.standardError.write").count - 1
+        #expect(
+            stderrWrites == 1, "stderr must be written from exactly one place, got \(stderrWrites)")
+        #expect(
+            source.contains("CLIFormatting.diagnostic("),
+            "the stderr funnel stopped routing through CLIFormatting.diagnostic")
     }
 }
