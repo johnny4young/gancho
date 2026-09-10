@@ -47,14 +47,57 @@ enum CLIFormatting {
     /// The result never exceeds ``summaryWidth`` INCLUDING the ellipsis — the
     /// ellipsis replaces a character rather than being appended past the limit.
     static func oneLine(_ item: ClipItem) -> String {
-        let text = item.title.isEmpty ? item.preview : item.title
-        let collapsed = String(text.map { rowSafe($0) ? $0 : " " })
+        let collapsed = flattened(item.title.isEmpty ? item.preview : item.title)
         guard collapsed.count > summaryWidth else { return collapsed }
         return String(collapsed.prefix(summaryWidth - 1)) + "…"
     }
 
+    /// One printable row: every character that could move the cursor, open a
+    /// column, or start an escape sequence replaced by a space.
+    ///
+    /// The single place that decision lives. Clip summaries were the first
+    /// caller, but a board name, a store path and an echoed argument all land
+    /// in the same kind of tab-separated or labelled row, and each of them can
+    /// carry text the CLI never chose: board names are trimmed only at the
+    /// EDGES, so an interior CR survives into the store and out to stdout.
+    ///
+    /// Length is deliberately not bounded here. ``oneLine(_:)`` truncates
+    /// because a clip preview is unbounded prose; a board name or a path is
+    /// not, and silently cutting one would hide the very thing the row exists
+    /// to show.
+    static func flattened(_ text: String) -> String {
+        String(text.map { rowSafe($0) ? $0 : " " })
+    }
+
+    /// One tab-separated row: each column flattened, then joined with a
+    /// delimiter the CLI owns.
+    ///
+    /// The order matters and is the whole point. Flattening the ASSEMBLED row
+    /// also eats the separators that were already placed, turning documented
+    /// tab-separated output into space-separated prose that nothing can parse.
+    /// Sanitize the fields, then delimit — never the reverse.
+    static func row(_ columns: [String]) -> String {
+        columns.map(flattened).joined(separator: "\t")
+    }
+
+    /// One diagnostic line for stderr: flattened, with the newline it owns.
+    ///
+    /// Lives here, beside the row builder, so the stderr funnel's formatting is
+    /// directly testable. Writing to a `FileHandle` is not, and a funnel whose
+    /// only proof is "the code says so" is one refactor away from silently
+    /// passing raw control characters through again.
+    static func diagnostic(_ message: String) -> String {
+        flattened(message) + "\n"
+    }
+
     /// False for anything that would move the cursor, open a column, or start
     /// an escape sequence once printed.
+    ///
+    /// Matched per grapheme cluster on the `control` general category (Cc)
+    /// rather than `CharacterSet.controlCharacters`, which is Cc *and* Cf —
+    /// Cf holds the zero-width joiner, so the broader set collapses a joined
+    /// family emoji into spaces. `isNewline` is needed alongside it because
+    /// LINE SEPARATOR and PARAGRAPH SEPARATOR are neither Cc nor Cf.
     private static func rowSafe(_ character: Character) -> Bool {
         !character.isNewline
             && !character.unicodeScalars.contains { $0.properties.generalCategory == .control }
