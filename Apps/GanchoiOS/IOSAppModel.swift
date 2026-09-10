@@ -495,11 +495,12 @@ final class IOSAppModel {
     /// user's other devices. The built-in Favorites board never counts against
     /// the free limit.
     func createBoard(named name: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let full else { return }
+        guard let full else { return }
         Task {
+            // No trim here any more: `BoardsController` owns that rule now, so
+            // macOS cannot keep creating blank-named boards this shell refused.
             let outcome = await BoardsController().createBoard(
-                name: trimmed, filing: nil, store: full, engine: syncController.engine,
+                name: name, filing: nil, store: full, engine: syncController.engine,
                 isPro: tier == .pro,
                 // Don't dead-end on a vanishing note: surface the Pro screen.
                 onFreeLimit: { self.proGateTick += 1 },
@@ -516,13 +517,13 @@ final class IOSAppModel {
     /// Create a board and file `item` into it in one step — the inline "+New
     /// board" path of the move-to-board sheet, where a clip is the reason the
     /// board is being made. Returns the new board's id so the sheet can refresh
-    /// its checkmarks; nil if the board limit is hit or the create fails.
+    /// its checkmarks; nil if the name is blank once trimmed, the board limit is
+    /// hit, or the create fails.
     @discardableResult
     func createBoard(named name: String, filing item: ClipItem) async -> UUID? {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let full else { return nil }
+        guard let full else { return nil }
         let outcome = await BoardsController().createBoard(
-            name: trimmed, filing: item, store: full, engine: syncController.engine,
+            name: name, filing: item, store: full, engine: syncController.engine,
             isPro: tier == .pro,
             onFreeLimit: { self.flashNote(String(localized: "Upgrade to Pro for more boards")) },
             onAssigned: {})
@@ -573,11 +574,10 @@ final class IOSAppModel {
     /// Rename a user board and propagate the new name (no-op on Favorites — the
     /// shared controller guards `isSystem`).
     func renameBoard(_ board: Pinboard, name: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let full else { return }
+        guard let full else { return }
         Task {
             let outcome = await BoardsController().renameBoard(
-                board, name: trimmed, store: full, engine: syncController.engine)
+                board, name: name, store: full, engine: syncController.engine)
             if outcome == .failed {
                 recordBoardFailure("Couldn’t rename the board.")
             }
