@@ -49,6 +49,36 @@ struct CLIFormattingTests {
         #expect(!CLIFormatting.oneLine(multiline).contains("\n"))
     }
 
+    @Test("Nothing in a summary can move the cursor or open a column")
+    func summaryFlattensEveryRowBreakingCharacter() {
+        // The row is `id \t kind \t summary`, so a stray TAB opens a phantom
+        // column and a bare CR returns the cursor to column 0 and overwrites
+        // the id and kind already printed. CRLF is the case the old
+        // `replacingOccurrences(of: "\n")` got actively WRONG rather than
+        // merely missed: it replaced the LF and left the CR behind, which is
+        // why it is listed separately from a lone CR here.
+        let breakers: [(String, String)] = [
+            ("LF", "\n"), ("CR", "\r"), ("CRLF", "\r\n"), ("NEL", "\u{85}"),
+            ("LINE SEPARATOR", "\u{2028}"), ("PARAGRAPH SEPARATOR", "\u{2029}"),
+            ("TAB", "\t"), ("ESC", "\u{1B}"), ("DEL", "\u{7F}")
+        ]
+        for (name, raw) in breakers {
+            let item = ClipItem(kind: .text, preview: "one\(raw)two", contentHash: "h")
+            let line = CLIFormatting.oneLine(item)
+            #expect(line == "one two", "\(name) produced \(line.debugDescription)")
+        }
+    }
+
+    @Test("Flattening leaves printable text alone, joined emoji included")
+    func summaryKeepsPrintableText() {
+        // Guards the choice of predicate: `CharacterSet.controlCharacters` is
+        // Cc AND Cf, and Cf holds the zero-width joiner — using it would
+        // collapse a whole family emoji into one space. Matching the `control`
+        // general category instead keeps it.
+        let item = ClipItem(kind: .text, preview: "héllo 👨‍👩‍👧 🎉 ok", contentHash: "h")
+        #expect(CLIFormatting.oneLine(item) == "héllo 👨‍👩‍👧 🎉 ok")
+    }
+
     @Test("JSON output is stable enough to diff and parse")
     func jsonIsSortedAndISO8601() throws {
         struct Row: Encodable {
@@ -68,9 +98,11 @@ struct CLIFormattingTests {
 
     @Test("A blank store-dir override is ignored, not treated as a path")
     func blankOverrideDoesNotRedirectTheStore() {
-        // An exported-but-empty variable is a shell accident. Honoring it would
-        // send the CLI to the filesystem root instead of the user's history —
-        // it would find no store and look like an empty clipboard.
+        // An exported-but-empty variable is a shell accident. Honoring it
+        // would NOT select the filesystem root: `URL(fileURLWithPath: "")`
+        // resolves against the process's current working directory, so the CLI
+        // would read a store from wherever it happened to be run, find none,
+        // and look like an empty clipboard.
         let real = CLIFormatting.storeDirectory(environment: [:])
         #expect(CLIFormatting.storeDirectory(environment: ["GANCHO_STORE_DIR": ""]) == real)
         #expect(CLIFormatting.storeDirectory(environment: ["GANCHO_STORE_DIR": "   "]) == real)
