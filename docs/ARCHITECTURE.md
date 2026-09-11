@@ -338,8 +338,12 @@ not by guesswork.
 2. **Tier 1 — Apple on-device models.** Structured annotations, titles,
    embeddings, OCR, semantic retrieval for board suggestions and grounded
    "ask your clipboard" Q&A, plus Smart Paste rewrites/translation when the
-   on-device models are available. Sensitive clips are filtered out first, and
-   failures never block capture or paste-back. Main history search remains FTS.
+   on-device models are available. Translation prefers Apple's Translation
+   framework when the language pair is already installed and falls back to the
+   on-device model for every other pair or when the framework fails; both
+   routes receive the same secret-redacted text. Sensitive clips are filtered
+   out first, and failures never block capture or paste-back. Main history
+   search remains FTS.
 3. **Tier 2 — opt-in external or private-cloud actions.** Used only for explicit
    transformations where the user approves the outbound content.
 
