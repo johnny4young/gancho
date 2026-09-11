@@ -22,7 +22,8 @@ extension AppModel {
             seedReuseSuggestionIfRequested(),
             seedClipEditingIfRequested(),
             seedMultiFileDragIfRequested(),
-            seedPrivateActivityReceiptIfRequested()
+            seedPrivateActivityReceiptIfRequested(),
+            seedExpiredSensitiveClipIfRequested()
         ].compactMap { $0 }
     }
 
@@ -264,6 +265,28 @@ extension AppModel {
             try? await fullStore.recordPrivateSkippedCapture(
                 isProtected: true, count: 2, at: now)
             try? await fullStore.recordPrivateSensitiveExpiry(count: 1, at: now)
+        }
+    }
+
+    /// UI-test hook: insert one synthetic sensitive clip created well before the
+    /// sensitive lifetime into a THROWAWAY durable store, then await one retention
+    /// pass, so the Privacy Center receipt shows an expiry the real pass counted
+    /// rather than one seeded directly. Both launch arguments are required; the
+    /// payload is synthetic and non-secret.
+    private func seedExpiredSensitiveClipIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-expired-sensitive-clip"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let fullStore
+        else { return nil }
+        return Task {
+            let createdAt = Date().addingTimeInterval(-(retentionPolicy.sensitiveLifetime + 3_600))
+            _ = try? await fullStore.insert(
+                ClipItem(
+                    createdAt: createdAt, updatedAt: createdAt,
+                    title: "Seed expired secret", preview: "seed expired secret",
+                    contentHash: "seed-expired-sensitive-clip", isSensitive: true),
+                content: .text("seed expired secret"))
+            await runRetentionPass(policy: retentionPolicy, tier: tier)
         }
     }
 }

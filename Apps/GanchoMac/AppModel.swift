@@ -1966,28 +1966,18 @@ final class AppModel {
     }
 
     private func runRetention() {
-        guard let grdbForEngines else { return }
         let policy = retentionPolicy
         let tier = tier
-        Task {
-            let now = Date()
-            if let summary = try? await RetentionEngine(store: grdbForEngines).runPurge(
-                policy: policy, now: now)
-            {
-                try? await grdbForEngines.recordPrivateSensitiveExpiry(
-                    count: summary.sensitiveExpired, at: now)
-            }
-            // The purge tombstoned any synced victims; enqueue those deletions
-            // now so they propagate immediately rather than at the next sync
-            // start(). Re-adding an already-pending deletion is a no-op in the
-            // engine, so sweeping the whole tombstone table is safe.
-            if syncController.isEnabled {
-                let recordIDs = (try? await grdbForEngines.pendingDeletionRecordIDs()) ?? []
-                let ids = recordIDs.compactMap { UUID(uuidString: $0) }
-                if !ids.isEmpty { await syncController.engine.enqueueDeletion(ids: ids) }
-            }
-            _ = try? await TierEnforcement(store: grdbForEngines).enforce(tier: tier)
-            await refreshRecents()
-        }
+        Task { await runRetentionPass(policy: policy, tier: tier) }
+    }
+
+    /// One retention pass through the shared `RetentionPass`, then a refresh of the
+    /// recent list. Awaitable so a UI-test seed can wait for the pass it starts;
+    /// the launch and timer paths go through `runRetention()`.
+    func runRetentionPass(policy: RetentionPolicy, tier: UserTier) async {
+        guard let grdbForEngines else { return }
+        await RetentionPass(steps: .live(store: grdbForEngines, sync: syncController))
+            .run(policy: policy, tier: tier, now: Date())
+        await refreshRecents()
     }
 }
