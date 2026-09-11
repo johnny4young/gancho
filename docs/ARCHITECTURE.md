@@ -340,7 +340,8 @@ not by guesswork.
    "ask your clipboard" Q&A, plus Smart Paste rewrites/translation when the
    on-device models are available. Translation prefers Apple's Translation
    framework when the language pair is already installed and falls back to the
-   on-device model for every other pair or when the framework fails; both
+   on-device model for every other pair, or when the framework fails for a
+   reason other than cancellation; a cancelled request never falls back. Both
    routes receive the same secret-redacted text. Sensitive clips are filtered
    out first, and failures never block capture or paste-back. Main history
    search remains FTS.
