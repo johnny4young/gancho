@@ -1,48 +1,34 @@
 import CloudKit
 import Foundation
 import GanchoKit
+import Synchronization
 import Testing
 
 @testable import GanchoSync
 
-/// The explicit pull's change-token file, which had no coverage while it lived
-/// inside the adapter: it ran only against a live CloudKit account.
-///
-/// What matters here is not the happy path but the DAMAGED ones. Every failure
-/// must degrade to "re-scan from the beginning", because a poll that re-scans
-/// costs one round trip while a poll that throws leaves the pull dead until the
-/// next launch.
-@Suite("SyncPollTokens — a damaged token file must cost a re-scan, not the pull")
+@Suite("SyncPollTokens persistence and recovery")
 struct SyncPollTokensTests {
-    /// In-memory `SyncStateStore`. A final class over a lock because the store's
-    /// closures are `@Sendable` and these assertions read back what a
-    /// synchronous call wrote.
-    private final class MemoryState: @unchecked Sendable {
-        private let lock = NSLock()
-        private var data: Data?
-        private(set) var saveCount = 0
+    private struct State: Sendable {
+        var data: Data?
+        var saveCount = 0
+    }
 
-        init(seed: Data? = nil) { data = seed }
+    private final class MemoryState: Sendable {
+        private let state: Mutex<State>
+
+        init(seed: Data? = nil) { state = Mutex(State(data: seed)) }
+
+        var saveCount: Int { state.withLock { $0.saveCount } }
 
         var store: SyncStateStore {
             SyncStateStore(
-                load: { [self] in
-                    lock.lock()
-                    defer { lock.unlock() }
-                    return data
-                },
+                load: { [self] in state.withLock { $0.data } },
                 save: { [self] value in
-                    lock.lock()
-                    defer { lock.unlock() }
-                    data = value
-                    saveCount += 1
+                    state.withLock {
+                        $0.data = value
+                        $0.saveCount += 1
+                    }
                 })
-        }
-
-        var stored: Data? {
-            lock.lock()
-            defer { lock.unlock() }
-            return data
         }
     }
 
@@ -53,9 +39,6 @@ struct SyncPollTokensTests {
 
     @Test("No store at all is the same as no file")
     func nilStoreLoadsEmpty() {
-        // The adapter is constructed without a poll store on every path that
-        // never polls (free tier, signed out), so this is a live case and not
-        // a defensive one.
         #expect(SyncPollTokens.load(from: nil) == SyncPollTokens())
         SyncPollTokens(database: Data([1])).save(to: nil)  // must not trap
     }
@@ -121,11 +104,53 @@ struct SyncPollTokensTests {
 
     @Test("An absent or damaged archive is a nil token, never a trap")
     func unarchiveDegradesQuietly() {
-        // `CKServerChangeToken` has no public initializer, so a test can never
-        // hold a real one — which is precisely why the DAMAGED paths are the
-        // ones worth pinning here.
         #expect(SyncPollTokens.unarchive(nil) == nil)
         #expect(SyncPollTokens.unarchive(Data()) == nil)
         #expect(SyncPollTokens.unarchive(Data("still not an archive".utf8)) == nil)
+    }
+
+    @Test("A secure archive of an unexpected class is rejected")
+    func unexpectedArchiveClassIsRejected() throws {
+        let data = try NSKeyedArchiver.archivedData(
+            withRootObject: NSString(string: "not a change token"), requiringSecureCoding: true)
+        #expect(SyncPollTokens.unarchive(data) == nil)
+    }
+
+    @Test("The adapter's existing property-list format remains compatible")
+    func existingFormatRemainsCompatible() throws {
+        let legacy: [String: Any] = [
+            "database": Data([1]),
+            "zones": ["ClipsZone": Data([2]), "BoardsZone": Data([3])]
+        ]
+        for format in [PropertyListSerialization.PropertyListFormat.binary, .xml] {
+            let bytes = try PropertyListSerialization.data(
+                fromPropertyList: legacy, format: format, options: 0)
+            let state = MemoryState(seed: bytes)
+            let loaded = SyncPollTokens.load(from: state.store)
+            #expect(loaded.database == Data([1]))
+            #expect(loaded.zones == ["ClipsZone": Data([2]), "BoardsZone": Data([3])])
+            loaded.save(to: state.store)
+            let saved = try #require(state.store.load())
+            let decoded =
+                try PropertyListSerialization.propertyList(
+                    from: saved, options: [], format: nil) as? NSDictionary
+            #expect(decoded == legacy as NSDictionary)
+        }
+    }
+
+    @Test("Concurrent store callbacks preserve complete writes and save counts")
+    func concurrentStoreCallbacks() async {
+        let state = MemoryState()
+        let tokens = SyncPollTokens(database: Data([1]), zones: ["ClipsZone": Data([2])])
+        tokens.save(to: state.store)
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 0..<100 {
+                group.addTask {
+                    tokens.save(to: state.store)
+                    #expect(SyncPollTokens.load(from: state.store) == tokens)
+                }
+            }
+        }
+        #expect(state.saveCount == 101)
     }
 }

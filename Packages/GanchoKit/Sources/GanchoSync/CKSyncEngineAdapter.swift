@@ -106,9 +106,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
 
     // MARK: - Explicit pull (hosts that receive no push)
 
-    /// In-memory cache of the poll tokens. Their SHAPE and serialization live
-    /// in ``SyncPollTokens``; the cache stays here so the actor keeps owning
-    /// poll state, which is the point of the split.
+    /// Actor-owned cache; ``SyncPollTokens`` handles persistence.
     private var pollTokens: SyncPollTokens?
 
     private func loadPollTokens() -> SyncPollTokens {

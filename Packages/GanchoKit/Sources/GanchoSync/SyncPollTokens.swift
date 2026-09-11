@@ -2,19 +2,10 @@ import CloudKit
 import Foundation
 import GanchoKit
 
-/// The explicit pull's change tokens: their shape, their serialization, and how
-/// a missing or damaged file degrades.
-///
-/// Persisted SEPARATELY from `CKSyncEngine`'s own opaque state blob, because
-/// piggybacking on that would corrupt the engine's serialization. Losing this
-/// file is harmless by design — the next poll re-scans every zone and the
-/// upserts are last-writer-wins idempotent — so every failure path here returns
-/// EMPTY tokens instead of throwing. A poll that re-scans costs a round trip; a
-/// poll that throws leaves the pull dead until the next launch.
-///
-/// A pure value on purpose. ``CKSyncEngineAdapter`` keeps the in-memory cache,
-/// so lifting the serialization out leaves the actor owning poll state exactly
-/// as it did.
+/// Explicit-pull tokens, persisted separately from `CKSyncEngine` state.
+/// A missing or invalid property list loads empty; a damaged token archive
+/// decodes to nil when used. Refetches use the adapter's idempotent apply path.
+/// ``CKSyncEngineAdapter`` owns the in-memory cache and polling lifecycle.
 struct SyncPollTokens: Codable, Equatable, Sendable {
     /// Database-level change token, archived. Nil until the first poll that
     /// completes far enough to be handed one.
@@ -32,11 +23,9 @@ struct SyncPollTokens: Codable, Equatable, Sendable {
     /// The persisted tokens, or empty ones when the file is absent, unreadable,
     /// or was written in a shape this version no longer understands.
     ///
-    /// Never throws. A file missing `zones` is rejected WHOLESALE rather than
-    /// half-restored, because pulling one zone incrementally while re-scanning
-    /// another is harder to reason about than starting clean. A missing
-    /// `database` is not damage and does decode: nil is exactly the state
-    /// before the first poll is handed a database token.
+    /// `zones` is required by the existing file format. `database` is optional,
+    /// including before the first completed database poll. Archive contents are
+    /// validated separately by ``unarchive(_:)``.
     static func load(from store: SyncStateStore?) -> SyncPollTokens {
         guard let data = store?.load(),
             let decoded = try? PropertyListDecoder().decode(SyncPollTokens.self, from: data)
@@ -44,17 +33,14 @@ struct SyncPollTokens: Codable, Equatable, Sendable {
         return decoded
     }
 
-    /// Persists best-effort. An encode failure is deliberately silent: the only
-    /// consequence is that the next poll re-scans, and a diagnostics entry for
-    /// it would be noise on a path that self-heals.
+    /// Best-effort persistence. A failed write leaves the previous on-disk
+    /// tokens in place; the adapter retains its current in-memory tokens.
     func save(to store: SyncStateStore?) {
         guard let store, let data = try? PropertyListEncoder().encode(self) else { return }
         store.save(data)
     }
 
-    /// `CKServerChangeToken` has no public initializer, so an archive is the
-    /// only way it crosses a file boundary — and the only way a test can hold
-    /// one at all.
+    /// Archives an opaque CloudKit token using secure coding.
     static func archive(_ token: CKServerChangeToken) -> Data? {
         try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true)
     }
