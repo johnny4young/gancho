@@ -178,7 +178,7 @@ final class WelcomeWindowController {
             created.title = String(localized: "Welcome to Gancho")
             created.styleMask = [.titled, .closable]
             created.isReleasedWhenClosed = false
-            created.center()
+            created.sizeToFitContentAndCenter()
             window = created
         }
         window?.makeKeyAndOrderFront(nil)

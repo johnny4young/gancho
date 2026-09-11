@@ -242,7 +242,7 @@ final class PaywallWindowController {
         created.title = String(localized: "Gancho Pro")
         created.styleMask = [.titled, .closable]
         created.isReleasedWhenClosed = false
-        created.center()
+        created.sizeToFitContentAndCenter()
         window = created
         created.makeKeyAndOrderFront(nil)
         NSApp.activate()

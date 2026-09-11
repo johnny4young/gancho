@@ -100,7 +100,7 @@ final class PasteboardPermissionWindowController {
             created.title = String(localized: "Clipboard Access")
             created.styleMask = [.titled, .closable]
             created.isReleasedWhenClosed = false
-            created.center()
+            created.sizeToFitContentAndCenter()
             window = created
         }
         window?.makeKeyAndOrderFront(nil)

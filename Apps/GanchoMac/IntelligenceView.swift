@@ -301,7 +301,7 @@ final class IntelligenceWindowController {
             created.title = String(localized: "Intelligence")
             created.styleMask = [.titled, .closable]
             created.isReleasedWhenClosed = false
-            created.center()
+            created.sizeToFitContentAndCenter()
             window = created
         }
         window?.makeKeyAndOrderFront(nil)

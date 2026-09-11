@@ -23,6 +23,12 @@ final class MCPAccessUITests: XCTestCase {
 
         let revoke = app.buttons["mcp-revoke-client-claude-desktop"].firstMatch
         XCTAssertTrue(revoke.waitForExistence(timeout: 3))
+        // A window that opens partly off-screen leaves this button out of
+        // reach. Report that here, not as a revocation that never published.
+        guard revoke.isCenterOnDisplay else {
+            XCTFail("the Revoke button is not on any display (frame \(revoke.frame))")
+            return
+        }
 
         XCTAssertTrue(
             revokeGrant(
@@ -115,12 +121,12 @@ final class MCPAccessUITests: XCTestCase {
             guard app.wait(for: .runningForeground, timeout: 3) else { continue }
             if button.waitForHittable(timeout: 3) {
                 button.click()
-            } else if button.exists, !button.frame.isEmpty {
-                // Hosted macOS runners occasionally report toolbar-adjacent
-                // SwiftUI buttons as non-hittable even though their on-screen
-                // frame is valid. Click the element's center and prove delivery
-                // through the live state transition below rather than trusting
-                // that transient AX flag.
+            } else if button.isCenterOnDisplay {
+                // XCTest called the button non-hittable while its center is on
+                // a display: click that center anyway and prove delivery
+                // through the live state transition below. An off-screen
+                // center is never clicked, because the click would be clamped
+                // to the screen edge and land on whatever sits there.
                 button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
             } else {
                 continue
