@@ -266,4 +266,27 @@ extension AppModel {
             try? await fullStore.recordPrivateSensitiveExpiry(count: 1, at: now)
         }
     }
+
+    /// UI-test hook: insert one synthetic sensitive clip created well before the
+    /// sensitive lifetime into a THROWAWAY durable store, and nothing else. The
+    /// pass that expires it is the one `scheduleRetention(after:)` starts at
+    /// launch, which waits for this insert first — so a receipt entry is evidence
+    /// that the scheduled pass ran, not that a test called it. Started from the
+    /// composition root rather than the seed list for that ordering. Both launch
+    /// arguments are required; the payload is synthetic and non-secret.
+    func seedExpiredSensitiveClipIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-expired-sensitive-clip"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let fullStore
+        else { return nil }
+        return Task {
+            let createdAt = Date().addingTimeInterval(-(retentionPolicy.sensitiveLifetime + 3_600))
+            _ = try? await fullStore.insert(
+                ClipItem(
+                    createdAt: createdAt, updatedAt: createdAt,
+                    title: "Seed expired secret", preview: "seed expired secret",
+                    contentHash: "seed-expired-sensitive-clip", isSensitive: true),
+                content: .text("seed expired secret"))
+        }
+    }
 }

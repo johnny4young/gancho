@@ -350,23 +350,8 @@ final class IOSAppModel {
             return false
         }
         let policy = RetentionPolicy.load(from: defaults)
-        let now = Date()
-        if let summary = try? await RetentionEngine(store: grdb).runPurge(
-            policy: policy, now: now)
-        {
-            try? await grdb.recordPrivateSensitiveExpiry(
-                count: summary.sensitiveExpired, at: now)
-        }
-        // The purge tombstoned any synced victims; enqueue those deletions now
-        // so they propagate immediately rather than at the next sync start().
-        // Re-adding an already-pending deletion is a no-op in the engine, so
-        // sweeping the whole tombstone table is safe.
-        if syncController.isEnabled {
-            let recordIDs = (try? await grdb.pendingDeletionRecordIDs()) ?? []
-            let ids = recordIDs.compactMap { UUID(uuidString: $0) }
-            if !ids.isEmpty { await syncController.engine.enqueueDeletion(ids: ids) }
-        }
-        _ = try? await TierEnforcement(store: grdb).enforce(tier: tier)
+        await RetentionPass(steps: .live(store: grdb, sync: syncController))
+            .run(policy: policy, tier: { self.tier }, now: Date())
         defaults.set(Date(), forKey: Self.lastMaintenanceKey)
         if refreshingList { await search() }
         return true

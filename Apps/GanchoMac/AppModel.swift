@@ -464,7 +464,10 @@ final class AppModel {
                 captureLifecycle.stopCapture()
             }
         #endif
-        scheduleRetention()
+        // UI-test hook: this seed must land BEFORE the launch pass, so the
+        // receipt can only show its expiry if the scheduled pass really ran.
+        let expiredSensitiveSeed = seedExpiredSensitiveClipIfRequested()
+        let launchRetentionPass = scheduleRetention(after: expiredSensitiveSeed)
         scheduleSyncPoll()
         panel.attach(model: self)
         // Intents resolve the SAME model instance the UI uses.
@@ -540,7 +543,12 @@ final class AppModel {
                 String(localized: "Couldn’t open secure storage — running in memory."))
         }
         Task { await refreshRecents() }
-        let uiTestSeedTasks = seedUITestFixturesIfRequested()
+        // Whatever waits on the seeds must also wait on the launch pass: the pass
+        // is what turns the expired-secret seed into a receipt entry. Built in one
+        // expression so the array stays a `let` the seed-waiting tasks can capture.
+        let uiTestSeedTasks =
+            seedUITestFixturesIfRequested()
+            + (expiredSensitiveSeed.map { [$0, launchRetentionPass] } ?? [])
         // Post-launch maintenance, sequential at utility priority once the UI
         // is wired up: the cosmetic legacy-preview backfill (moved off the
         // synchronous store open — it scanned image rows on every launch),
@@ -1942,12 +1950,20 @@ final class AppModel {
 
     // MARK: - Retention
 
-    private func scheduleRetention() {
-        runRetention()
+    /// Starts the launch pass and the five-minute timer, returning the launch
+    /// pass so a UI-test flow can wait for the run it triggered.
+    ///
+    /// - Parameter seed: a UI-test fixture the launch pass must see; the pass
+    ///   waits for it before purging. Nil on every normal launch, which makes
+    ///   the wait a no-op and leaves launch behavior unchanged.
+    @discardableResult
+    private func scheduleRetention(after seed: Task<Void, Never>? = nil) -> Task<Void, Never> {
+        let launch = runRetention(after: seed)
         retentionTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) {
             [weak self] _ in
             Task { @MainActor in self?.runRetention() }
         }
+        return launch
     }
 
     /// Periodic pull (and push of anything pending) for the Mac. CloudKit push
@@ -1965,29 +1981,23 @@ final class AppModel {
         }
     }
 
-    private func runRetention() {
-        guard let grdbForEngines else { return }
+    @discardableResult
+    private func runRetention(after seed: Task<Void, Never>? = nil) -> Task<Void, Never> {
         let policy = retentionPolicy
-        let tier = tier
-        Task {
-            let now = Date()
-            if let summary = try? await RetentionEngine(store: grdbForEngines).runPurge(
-                policy: policy, now: now)
-            {
-                try? await grdbForEngines.recordPrivateSensitiveExpiry(
-                    count: summary.sensitiveExpired, at: now)
-            }
-            // The purge tombstoned any synced victims; enqueue those deletions
-            // now so they propagate immediately rather than at the next sync
-            // start(). Re-adding an already-pending deletion is a no-op in the
-            // engine, so sweeping the whole tombstone table is safe.
-            if syncController.isEnabled {
-                let recordIDs = (try? await grdbForEngines.pendingDeletionRecordIDs()) ?? []
-                let ids = recordIDs.compactMap { UUID(uuidString: $0) }
-                if !ids.isEmpty { await syncController.engine.enqueueDeletion(ids: ids) }
-            }
-            _ = try? await TierEnforcement(store: grdbForEngines).enforce(tier: tier)
-            await refreshRecents()
+        return Task {
+            await seed?.value
+            await runRetentionPass(policy: policy)
         }
+    }
+
+    /// One retention pass through the shared `RetentionPass`, refreshing the recent
+    /// list only when the pass actually moved rows — an idle tick every five
+    /// minutes has nothing to reload. The tier is read inside the pass, at the
+    /// moment its limits are enforced.
+    private func runRetentionPass(policy: RetentionPolicy) async {
+        guard let grdbForEngines else { return }
+        let changed = await RetentionPass(steps: .live(store: grdbForEngines, sync: syncController))
+            .run(policy: policy, tier: { self.tier }, now: Date())
+        if changed { await refreshRecents() }
     }
 }

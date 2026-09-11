@@ -54,7 +54,7 @@ final class PrivateActivityReceiptUITests: XCTestCase {
         let cleared = XCTNSPredicateExpectation(
             predicate: NSPredicate { element, _ in
                 guard let element = element as? XCUIElement else { return false }
-                return Self.integer(in: Self.accessibleText(of: element)) == 0
+                return AccessibleValue.firstInteger(in: AccessibleValue.text(of: element)) == 0
             },
             object: reused)
         XCTAssertEqual(XCTWaiter().wait(for: [cleared], timeout: 5), .completed)
@@ -65,20 +65,11 @@ final class PrivateActivityReceiptUITests: XCTestCase {
     private func value(of identifier: String, in app: XCUIApplication) -> String {
         let element = app.descendants(matching: .any)[identifier].firstMatch
         XCTAssertTrue(element.waitForExistence(timeout: 5), "Missing element: \(identifier)")
-        return Self.accessibleText(of: element)
+        return AccessibleValue.text(of: element)
     }
 
     @MainActor
     private func count(of identifier: String, in app: XCUIApplication) -> Int? {
-        Self.integer(in: value(of: identifier, in: app))
-    }
-
-    @MainActor
-    private static func accessibleText(of element: XCUIElement) -> String {
-        (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
-    }
-
-    private static func integer(in text: String) -> Int? {
-        text.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }.first
+        AccessibleValue.firstInteger(in: value(of: identifier, in: app))
     }
 }

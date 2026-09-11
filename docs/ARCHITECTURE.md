@@ -59,8 +59,8 @@ App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/
        SyncController, ClipIngestionCoordinator, CaptureLifecycleController and
        PasteBackWorkflow (macOS), ReuseController, ClipCurationController,
        ClipEditingController, ClipPreviewLoader, BoardsController,
-       EnrichmentService, DeletionCoordinator, BoardSuggestionService,
-       ClipItemFactory. Store
+       EnrichmentService, DeletionCoordinator, RetentionPass,
+       BoardSuggestionService, ClipItemFactory. Store
        access is facet-typed, so each unit runs against an in-memory fake in
        GanchoAppCoreTests.
 
@@ -122,6 +122,15 @@ the panel, gives focus a beat to return to the target app, posts the paste, and
 credits that app in the reuse ledger only when the paste was really posted; a
 copy-only outcome credits none. The shell keeps what differs per entry point:
 toasts, activation counters, reuse suggestions, and snippet usage.
+
+`RetentionPass` is the one retention sequence both shells run: purge, record the
+secrets that expired on the on-device receipt, enqueue every deletion still
+waiting for iCloud — the purge's tombstones and any earlier one not yet
+uploaded — then enforce the tier. The enqueue reads tombstones back only after
+the purge's transaction commits, and asks whether sync is on only then; the tier
+is read when enforcement runs, so a purchase mid-pass is not overwritten. The Mac runs it at launch and every five minutes; iOS runs it on return
+to the foreground (at most once per ten minutes), on the way to the
+background, and from background refresh.
 
 `ReuseController` owns the reusable session state that follows successful user
 actions: the recent metadata page, local use/search signals, exact-threshold
