@@ -19,10 +19,12 @@
     ///
     /// The order is the contract. The panel hides first and focus gets a beat to
     /// return to the app the user was working in, because ⌘V posted any sooner
-    /// lands in whatever still holds focus. Only then is the paste posted, and
-    /// the reuse ledger credits the intended app only when the paste really was:
-    /// a copy-only outcome put nothing into that app, so crediting it would
-    /// misreport where the clip was used.
+    /// lands in whatever still holds focus. Only then is the paste posted and the
+    /// timing interval closed. A copy-only outcome is noticed next, before any
+    /// bookkeeping, so the user learns the paste did not land without waiting on
+    /// a store write. Last, the reuse ledger credits the intended app only when
+    /// the paste really was: a copy-only outcome put nothing into that app, so
+    /// crediting it would misreport where the clip was used.
     ///
     /// Presentation stays with the caller: a copy-only outcome is reported through
     /// ``Effects/noticeCopyOnly``, and whatever else an entry point does — a

@@ -82,7 +82,9 @@
             let delivery = await deliver(.text("hello"), answering: .copiedOnly, into: log)
 
             #expect(delivery == .delivered(.copiedOnly))
-            #expect(log.steps.filter { $0 == "notice" }.count == 1)
+            // The whole sequence, not a count: the notice comes once, after the
+            // interval closes and before the bookkeeping.
+            #expect(log.steps == ["hide", "wait", "paste", "end", "notice", "record"])
             // Nothing reached the intended app, so it must not be credited.
             #expect(log.recordedTargets == [nil])
         }
