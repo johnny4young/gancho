@@ -595,7 +595,7 @@ extension ClipPeek {
                 Menu {
                     ForEach(Self.translateLanguageCodes, id: \.self) { code in
                         Button(Self.localizedLanguageName(code)) {
-                            runTranslate(to: Self.englishLanguageName(code))
+                            runTranslate(to: Locale.Language(identifier: code))
                         }
                     }
                 } label: {
@@ -628,22 +628,21 @@ extension ClipPeek {
     }
 
     /// Common targets for Smart Paste translation. Names render in the user's
-    /// language (via `Locale`); the prompt gets the English name for clarity.
+    /// language (via `Locale`). The CODE is what travels: the native Translation
+    /// session needs it, and the service derives the English name the model
+    /// fallback's prompt wants.
     private static let translateLanguageCodes = [
         "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh"
     ]
     private static func localizedLanguageName(_ code: String) -> String {
         Locale.current.localizedString(forLanguageCode: code) ?? code
     }
-    private static func englishLanguageName(_ code: String) -> String {
-        Locale(identifier: "en").localizedString(forLanguageCode: code) ?? code
-    }
 
-    private func runTranslate(to language: String) {
+    private func runTranslate(to target: Locale.Language) {
         actionResult = nil
         isThinking = true
         Task {
-            let result = await model.smartTranslate(presentedText, to: language)
+            let result = await model.smartTranslate(presentedText, to: target)
             isThinking = false
             actionResult = result ?? String(localized: "Couldn’t run that — try again.")
         }

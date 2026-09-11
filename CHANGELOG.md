@@ -7,6 +7,14 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Translate now uses Apple's built-in Translation engine whenever the language
+  pair is already installed on your device, which is noticeably faster than
+  the on-device model once it is warm. Every other pair still falls back to
+  the model. Both paths redact secrets before translating, and Gancho never
+  downloads language assets on its own.
+
 ### Fixed
 
 - Sparkle updated to 2.9.6, which hardens the update installer: it now rejects

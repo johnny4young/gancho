@@ -168,9 +168,15 @@ struct PromptEvalTests {
         try #require(SmartPasteService.isAvailable, "Apple Intelligence must be enabled")
         let service = SmartPasteService()
         let input = "Good morning! The review moved to Thursday, please bring the slides."
+        // This suite evaluates the PROMPT. With Spanish installed the service
+        // would route to the native session and this would silently stop
+        // measuring the model at all, so pin the model path.
+        var modelOnly = TranslationEngines.live
+        modelOnly.pairStatus = { _, _ in .unsupported }
 
         let start = ContinuousClock.now
-        let output = try await service.translate(input, to: "Spanish")
+        let output = try await service.translate(
+            input, to: Locale.Language(identifier: "es"), engines: modelOnly)
         let latencies = [ContinuousClock.now - start]
         #expect(!output.isEmpty)
         #expect(output != input, "a translation must not pass the input through")

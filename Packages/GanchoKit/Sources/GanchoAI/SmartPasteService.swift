@@ -80,19 +80,75 @@ public struct SmartPasteService: Sendable {
         PromptCatalog.translateInstructions(to: language)
     }
 
-    /// On-device translation (via the same system model). Kept separate from
-    /// `SmartPasteAction` because it carries a target language.
-    public func translate(_ text: String, to language: String) async throws -> String {
-        guard #available(macOS 26.0, iOS 26.0, *), Self.isAvailable else {
-            throw AnnotationError.backendUnavailable
-        }
-        // Structural secret redaction BEFORE the model sees the text — the
-        // live evaluation proved instructions alone don't stop echo.
+    /// On-device translation to `target`. Kept separate from `SmartPasteAction`
+    /// because it carries a target language.
+    ///
+    /// Prefers Apple's native Translation session when the language pair is
+    /// already installed — a purpose-built engine that outruns prompting the
+    /// model once warm, though a first short translation can pay a cold start —
+    /// and falls back to the on-device model otherwise (see
+    /// ``TranslationRoute/route(for:)`` for why a downloadable pair does too).
+    ///
+    /// Secret redaction runs BEFORE either engine sees the text. The live
+    /// evaluation proved instructions alone don't stop a model echoing a secret,
+    /// and redacting only ahead of the model would hand the native route the
+    /// unredacted original — the two routes must agree on what leaves this call.
+    ///
+    /// Cancellation is checked before each engine starts and again when it
+    /// answers, and a `CancellationError` an engine throws is rethrown, never
+    /// retried. An abandoned request therefore starts no engine, even when it was
+    /// cancelled during the availability query, which cannot throw; never falls
+    /// back to the second, slower engine; and throws `CancellationError` rather
+    /// than delivering an answer that arrives after it was abandoned.
+    public func translate(
+        _ text: String, to target: Locale.Language, engines: TranslationEngines = .live
+    ) async throws -> String {
         let safe = ModelInputSanitizer.sanitized(text)
         let clipped = String(safe.prefix(maxPromptCharacters))
-        let session = LanguageModelSession(instructions: Self.translateInstructions(to: language))
-        let response = try await session.respond(to: clipped)
-        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let source = engines.identifySource(clipped),
+            TranslationRoute.route(for: await engines.pairStatus(source, target)) == .native
+        {
+            do {
+                return try await Self.answer { try await engines.native(clipped, source, target) }
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch {
+                // Any other native failure (a pair uninstalled since the check,
+                // an unsupported combination) takes the model path below, whose
+                // own cancellation check keeps an abandoned request from starting it.
+            }
+        }
+        return try await Self.answer {
+            try await engines.languageModel(clipped, Self.englishLanguageName(for: target))
+        }
+    }
+
+    /// Runs one engine for a request that is still wanted, trimming its answer.
+    ///
+    /// The check before it starts is the only place a cancellation during
+    /// `pairStatus` can surface, since that query cannot throw. The check after
+    /// it answers discards a result nobody is waiting for.
+    private static func answer(from engine: () async throws -> String) async throws -> String {
+        try Task.checkCancellation()
+        let result = try await engine()
+        try Task.checkCancellation()
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The English name the model fallback's prompt needs for an unambiguous
+    /// target: "Spanish" for `es`.
+    ///
+    /// Named from the MINIMAL identifier rather than the bare language code, so
+    /// a script or region that changes the answer survives into the prompt:
+    /// `zh-Hant` minimizes to `zh-TW`, "Chinese (Taiwan)", and `pt-PT` stays
+    /// "Portuguese (Portugal)". A subtag that is already the language's default
+    /// folds away (`pt-BR` minimizes to `pt`), exactly as CLDR's likely-subtags
+    /// data treats it, which also keeps every base code the app offers on the
+    /// plain name its prompt always used.
+    static func englishLanguageName(for language: Locale.Language) -> String {
+        let identifier = language.minimalIdentifier
+        return Locale(identifier: "en").localizedString(forIdentifier: identifier) ?? identifier
     }
 
     /// Runs the action on a FRESH session (no transcript carryover) and returns
