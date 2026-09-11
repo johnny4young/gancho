@@ -195,7 +195,9 @@ final class AppModel {
     private var retentionTimer: Timer?
     /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
     private var syncPollTimer: Timer?
-    private var uiTestPanelObserver: NSObjectProtocol?
+    /// Held so the observer outlives `init`; set by the UI-test launch hook in
+    /// `AppModel+UITestLaunch`, which is why it is not private.
+    var uiTestPanelObserver: NSObjectProtocol?
     /// Wake-from-sleep sync catch-up (see the `didWakeNotification` observer).
     private var wakeObserver: NSObjectProtocol?
 
@@ -598,62 +600,25 @@ final class AppModel {
 
         coordinator.start(subscribingTo: storeChanges)
 
-        // UI-test hook: deterministic panel access without the global hotkey.
-        if CommandLine.arguments.contains("-open-panel-on-launch") {
-            NSApplication.shared.setActivationPolicy(.regular)
-            uiTestPanelObserver = NotificationCenter.default.addObserver(
-                forName: NSApplication.didFinishLaunchingNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    for task in uiTestSeedTasks { await task.value }
-                    panel.show(model: self)
-                    _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
-                    try? await Task.sleep(for: .milliseconds(250))
-                    panel.show(model: self)
-                    _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
-                }
-            }
-            Task { @MainActor in
-                for task in uiTestSeedTasks { await task.value }
-                try? await Task.sleep(for: .seconds(1))
-                if !panel.isVisible { panel.show(model: self) }
-                _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
-            }
-        } else if CommandLine.arguments.contains("-open-welcome-on-launch")
-            || !defaults.bool(forKey: "has-seen-welcome")
+        // What a launch opens is one decision (`LaunchPresentation`), taken here
+        // and presented by the shell. The UI-test hooks that open a window
+        // directly live in `AppModel+UITestLaunch`.
+        switch LaunchPresentation.decide(
+            opensPanel: CommandLine.arguments.contains("-open-panel-on-launch"),
+            forcesWelcome: CommandLine.arguments.contains("-open-welcome-on-launch"),
+            hasSeenWelcome: defaults.bool(forKey: "has-seen-welcome"),
+            monitorStatus: monitor.status)
         {
+        case .panel:
+            showPanelOnLaunchForUITest(afterSeeds: uiTestSeedTasks)
+        case .welcome:
             Task { welcomeWindow.show(model: self) }
-        } else if monitor.status == .deniedByPrivacySettings {
+        case .pasteboardPermission:
             Task { permissionWindow.show(model: self) }
+        case .menuBarOnly:
+            break
         }
-
-        // UI-test hook: open the Privacy Center directly, without depending on the
-        // status-item menu (which self-skips on headless runners). Pairs with
-        // `-force-ephemeral-store` to assert the diagnostics "Recent issues" log.
-        if CommandLine.arguments.contains("-open-privacy-center-on-launch") {
-            NSApplication.shared.setActivationPolicy(.regular)
-            Task { @MainActor in
-                // Wait for the durable seeds (incl. the private-activity-receipt
-                // fixture) before opening the Privacy Center. The non-receipt
-                // seeds are no-ops when their launch args are absent.
-                for task in uiTestSeedTasks { await task.value }
-                try? await Task.sleep(for: .milliseconds(300))
-                privacyCenterWindow.show(model: self)
-                _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
-            }
-        }
-        if CommandLine.arguments.contains("-open-mcp-access-on-launch") {
-            NSApplication.shared.setActivationPolicy(.regular)
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(300))
-                await refreshBoards()
-                mcpAccessWindow.show(model: self)
-                _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
-            }
-        }
+        openUITestWindowsIfRequested(afterSeeds: uiTestSeedTasks)
     }
 
     private func applyAppearance() {
