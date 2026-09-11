@@ -29,7 +29,8 @@ struct TranslationRoutingTests {
         calls: Calls,
         source: Locale.Language? = Locale.Language(identifier: "en"),
         status: TranslationPairStatus,
-        native: @escaping @Sendable () throws -> String = { "native" }
+        native: @escaping @Sendable () throws -> String = { "native" },
+        model: @escaping @Sendable () throws -> String = { "model" }
     ) -> TranslationEngines {
         TranslationEngines(
             identifySource: { _ in source },
@@ -43,8 +44,26 @@ struct TranslationRoutingTests {
             },
             languageModel: { text, name in
                 await calls.recordModel(text, name)
-                return "model"
+                return try model()
             })
+    }
+
+    /// Runs `translate` in a task of its own, so a fake can cancel exactly that
+    /// request, never the test's task, at the step the test is about.
+    private func translateInOwnTask(engines: TranslationEngines) async -> Result<String, any Error>
+    {
+        await Task {
+            try await SmartPasteService().translate(
+                "Good morning", to: Locale.Language(identifier: "es"), engines: engines)
+        }.result
+    }
+
+    /// Cancels the task the calling engine runs in. Deterministic, unlike racing
+    /// `Task.cancel()` against a task that may not have reached that step yet.
+    private static func cancelCurrentTask() {
+        withUnsafeCurrentTask { task in
+            if let task { task.cancel() }
+        }
     }
 
     private let spanish = Locale.Language(identifier: "es")
@@ -144,5 +163,100 @@ struct TranslationRoutingTests {
         _ = try await SmartPasteService().translate(
             "Good morning", to: spanish, engines: engines(calls: calls, status: .unsupported))
         #expect(await calls.model.map(\.englishName) == ["Spanish"])
+    }
+
+    @Test("A variant's region survives into the model's prompt")
+    func variantSurvivesIntoTheModelPrompt() async throws {
+        let calls = Calls()
+        _ = try await SmartPasteService().translate(
+            "Good morning", to: Locale.Language(identifier: "pt-PT"),
+            engines: engines(calls: calls, status: .unsupported))
+
+        let name = try #require(await calls.model.first?.englishName)
+        let base = SmartPasteService.englishLanguageName(for: Locale.Language(identifier: "pt"))
+        // Asserted against the base name rather than CLDR's exact wording: what
+        // must hold is that Portugal survived, not how Foundation phrases it.
+        #expect(name != base)
+        #expect(name.contains("Portugal"))
+    }
+
+    @Test("A base language keeps its plain name; a non-default script does not collapse")
+    func baseNamesStayPlainAndScriptsSurvive() {
+        let name = { SmartPasteService.englishLanguageName(for: Locale.Language(identifier: $0)) }
+        // Codes the app offers keep the plain names the shipped prompt always used.
+        #expect(name("zh") == "Chinese")
+        #expect(name("pt") == "Portuguese")
+        // Traditional is not CLDR's default script for `zh`, so it must not be
+        // requested as plain "Chinese".
+        #expect(name("zh-Hant") != name("zh"))
+    }
+
+    @Test(
+        "A cancellation during the availability query starts no engine",
+        arguments: [TranslationPairStatus.installed, .downloadable])
+    func cancellationDuringStatusQueryStartsNoEngine(status: TranslationPairStatus) async {
+        let calls = Calls()
+        var routed = engines(calls: calls, status: status)
+        routed.pairStatus = { _, _ in
+            // The query cannot throw, so cancelling is all it can do.
+            Self.cancelCurrentTask()
+            return status
+        }
+        let result = await translateInOwnTask(engines: routed)
+
+        #expect(throws: CancellationError.self) { try result.get() }
+        #expect(await calls.native.isEmpty)
+        #expect(await calls.model.isEmpty)
+    }
+
+    @Test("A request cancelled before its source is identified starts no engine")
+    func cancellationBeforeIdentificationStartsNoEngine() async {
+        let calls = Calls()
+        var unidentified = engines(calls: calls, source: nil, status: .installed)
+        unidentified.identifySource = { _ in
+            Self.cancelCurrentTask()
+            return nil
+        }
+        let result = await translateInOwnTask(engines: unidentified)
+
+        #expect(throws: CancellationError.self) { try result.get() }
+        #expect(await calls.model.isEmpty)
+    }
+
+    @Test(
+        "An answer that arrives after cancellation is discarded, not delivered",
+        arguments: [TranslationPairStatus.installed, .unsupported])
+    func lateAnswerAfterCancellationIsDiscarded(status: TranslationPairStatus) async {
+        let calls = Calls()
+        let result = await translateInOwnTask(
+            engines: engines(
+                calls: calls, status: status,
+                native: {
+                    Self.cancelCurrentTask()
+                    return "native"
+                },
+                model: {
+                    Self.cancelCurrentTask()
+                    return "model"
+                }))
+
+        #expect(throws: CancellationError.self) { try result.get() }
+        // Exactly one engine ran: the discarded answer is not retried on the other.
+        #expect(await calls.native.count + calls.model.count == 1)
+    }
+
+    @Test("A native failure while cancelled does not start the fallback")
+    func nativeFailureWhileCancelledDoesNotFallBack() async {
+        let calls = Calls()
+        let result = await translateInOwnTask(
+            engines: engines(
+                calls: calls, status: .installed,
+                native: {
+                    Self.cancelCurrentTask()
+                    throw NativeFailure()
+                }))
+
+        #expect(throws: CancellationError.self) { try result.get() }
+        #expect(await calls.model.isEmpty, "an abandoned request must not start the fallback")
     }
 }
