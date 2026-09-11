@@ -80,19 +80,49 @@ public struct SmartPasteService: Sendable {
         PromptCatalog.translateInstructions(to: language)
     }
 
-    /// On-device translation (via the same system model). Kept separate from
-    /// `SmartPasteAction` because it carries a target language.
-    public func translate(_ text: String, to language: String) async throws -> String {
-        guard #available(macOS 26.0, iOS 26.0, *), Self.isAvailable else {
-            throw AnnotationError.backendUnavailable
-        }
-        // Structural secret redaction BEFORE the model sees the text — the
-        // live evaluation proved instructions alone don't stop echo.
+    /// On-device translation to `target`. Kept separate from `SmartPasteAction`
+    /// because it carries a target language.
+    ///
+    /// Prefers Apple's native Translation session when the language pair is
+    /// already installed — a purpose-built engine that outruns prompting the
+    /// model once warm, though a first short translation can pay a cold start —
+    /// and falls back to the on-device model otherwise (see
+    /// ``TranslationRoute/route(for:)`` for why a downloadable pair does too).
+    ///
+    /// Secret redaction runs BEFORE either engine sees the text. The live
+    /// evaluation proved instructions alone don't stop a model echoing a secret,
+    /// and redacting only ahead of the model would hand the native route the
+    /// unredacted original — the two routes must agree on what leaves this call.
+    ///
+    /// Cancellation is rethrown, never retried: a request the user abandoned must
+    /// not quietly start the second, slower engine.
+    public func translate(
+        _ text: String, to target: Locale.Language, engines: TranslationEngines = .live
+    ) async throws -> String {
         let safe = ModelInputSanitizer.sanitized(text)
         let clipped = String(safe.prefix(maxPromptCharacters))
-        let session = LanguageModelSession(instructions: Self.translateInstructions(to: language))
-        let response = try await session.respond(to: clipped)
-        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let source = engines.identifySource(clipped),
+            TranslationRoute.route(for: await engines.pairStatus(source, target)) == .native
+        {
+            do {
+                return try await engines.native(clipped, source, target)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                if error is CancellationError || Task.isCancelled { throw error }
+                // Any other native failure (a pair uninstalled since the check,
+                // an unsupported combination) takes the model path below.
+            }
+        }
+        return try await engines.languageModel(clipped, Self.englishLanguageName(for: target))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The English name of `language` — what the model fallback's prompt needs
+    /// for an unambiguous target (e.g. "Spanish" for `es`).
+    static func englishLanguageName(for language: Locale.Language) -> String {
+        let code = language.languageCode?.identifier ?? language.minimalIdentifier
+        return Locale(identifier: "en").localizedString(forLanguageCode: code) ?? code
     }
 
     /// Runs the action on a FRESH session (no transcript carryover) and returns

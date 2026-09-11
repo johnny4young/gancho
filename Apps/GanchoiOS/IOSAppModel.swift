@@ -718,8 +718,8 @@ final class IOSAppModel {
         await intelligenceFacade.transform(text, action: action)
     }
 
-    func smartTranslate(_ text: String, to language: String) async -> String? {
-        await intelligenceFacade.translate(text, to: language)
+    func smartTranslate(_ text: String, to target: Locale.Language) async -> String? {
+        await intelligenceFacade.translate(text, to: target)
     }
 
     // MARK: - Ask your clipboard (grounded on-device QA)
