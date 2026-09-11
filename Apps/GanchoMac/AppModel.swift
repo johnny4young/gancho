@@ -21,6 +21,19 @@ import SwiftUI
     private struct UITestAllowedPasteboardAccessPolicy: PasteboardAccessPolicy {
         func currentVerdict() -> PasteboardAccessVerdict { .allowed }
     }
+
+    /// UI-test paste sink: writes nothing, so a paste flow can run on a
+    /// developer's desktop without replacing their clipboard. Opted in by launch
+    /// argument only (see `AppModel.makePasteBackService`).
+    private struct UITestDiscardingPasteboardWriter: PasteboardWriting {
+        func write(_ content: ClipContent, asPlainText: Bool) {}
+        func currentText() -> String? { nil }
+    }
+
+    /// UI-test paste sink: posts no ⌘V, so a test can never type into another app.
+    private struct UITestDiscardingKeyEventPoster: KeyEventPosting {
+        func postCommandKey(keyCode: CGKeyCode) {}
+    }
 #endif
 
 /// The app's appearance override — Auto follows the system, Light/Dark force
@@ -89,7 +102,7 @@ final class AppModel {
     let monitor: MacPasteboardMonitor
     private let captureLifecycle: CaptureLifecycleController
     var monitorStatus: MonitorStatus { captureLifecycle.status }
-    let pasteBack = PasteBackService()
+    let pasteBack = AppModel.makePasteBackService()
     let privacyEvents = InMemoryPrivacyEventRecorder()
     /// Content-free log of recent operational issues (storage that wouldn't
     /// open, a sync that failed) for the Privacy Center and support — never any
@@ -775,28 +788,60 @@ final class AppModel {
 
     // MARK: - Actions
 
+    /// The real paste-back service or, in DEBUG UI tests only, one that writes
+    /// nothing and posts nothing. `-ui-test-paste-sink pasted` answers as if
+    /// Accessibility were granted; any other value, or none, answers copy-only.
+    /// It fails safe: a mistyped value still never reaches the real pasteboard
+    /// or types ⌘V into whatever app is frontmost.
+    private static func makePasteBackService() -> PasteBackService {
+        #if DEBUG
+            if let index = CommandLine.arguments.firstIndex(of: "-ui-test-paste-sink") {
+                let answersPasted =
+                    CommandLine.arguments.indices.contains(index + 1)
+                    && CommandLine.arguments[index + 1] == "pasted"
+                return PasteBackService(
+                    writer: UITestDiscardingPasteboardWriter(),
+                    poster: UITestDiscardingKeyEventPoster(),
+                    isAccessibilityTrusted: { answersPasted })
+            }
+        #endif
+        return PasteBackService()
+    }
+
+    /// The paste sequence every entry point below shares; see `PasteBackWorkflow`.
+    private var pasteBackWorkflow: PasteBackWorkflow {
+        PasteBackWorkflow(
+            effects: .init(
+                hidePanel: { [panel] in panel.hide() },
+                // One beat for focus to return to the app the user was in.
+                waitForFocusToReturn: { try? await Task.sleep(for: .milliseconds(80)) },
+                paste: { [pasteBack] content, asPlainText in
+                    pasteBack.paste(content, asPlainText: asPlainText)
+                },
+                noticeCopyOnly: { [weak self] in self?.showCopyOnlyToast() }))
+    }
+
     /// Paste a stored clip into the frontmost app (panel Enter / menu click).
     func paste(_ item: ClipItem, asPlainText: Bool = false) {
-        let intendedTargetBundleID = currentReuseTargetBundleID()
+        let intendedTarget = currentReuseTargetBundleID()
         Task {
-            // Paste action → event posted; the target app's behavior is
-            // deliberately outside the interval. The failure path closes it
-            // too, so an unreadable clip never reads as an eternal paste.
+            // Paste action → event posted. The target app's behavior and the
+            // reuse bookkeeping are deliberately outside the interval, and an
+            // unreadable clip closes it too, so it never reads as an eternal paste.
             let interval = Signpost.pasteDispatch.begin()
-            guard let content = try? await store.content(for: item.id) else {
-                Signpost.pasteDispatch.end(interval)
-                return
-            }
-            panel.hide()
-            // Give focus one beat to return to the previous app.
-            try? await Task.sleep(for: .milliseconds(80))
-            let pasteOutcome = pasteBack.paste(content, asPlainText: asPlainText)
-            Signpost.pasteDispatch.end(interval)
-            switch pasteOutcome {
-            case .copiedOnly:
-                showCopyOnlyToast()
-            case .pasted:
-                if asPlainText { toasts.show(GanchoToast(message: "Pasted as plain text")) }
+            let content = try? await store.content(for: item.id)
+            let delivery = await pasteBackWorkflow.deliver(
+                content,
+                asPlainText: asPlainText,
+                intendedTarget: intendedTarget,
+                endInterval: { Signpost.pasteDispatch.end(interval) },
+                recordReuse: { confirmedTarget in
+                    await recordSuccessfulReuse(
+                        .paste, items: [item], targetBundleID: confirmedTarget)
+                })
+            guard case .delivered(let outcome) = delivery else { return }
+            if outcome == .pasted, asPlainText {
+                toasts.show(GanchoToast(message: "Pasted as plain text"))
             }
             // Activation metric (local, content-free): first paste-back ever.
             if defaults.object(forKey: "first-pasteback-at") == nil {
@@ -804,12 +849,8 @@ final class AppModel {
             }
             defaults.set(
                 defaults.integer(forKey: "pasteback-count") + 1, forKey: "pasteback-count")
-            await recordSuccessfulReuse(
-                .paste,
-                items: [item],
-                targetBundleID: pasteOutcome == .pasted ? intendedTargetBundleID : nil)
             if let suggestion = await reuseController.recordPaste(of: item),
-                shouldPresentReuseSuggestion(after: pasteOutcome)
+                shouldPresentReuseSuggestion(after: outcome)
             {
                 await presentReuseSuggestion(suggestion)
             }
@@ -920,37 +961,35 @@ final class AppModel {
 
     /// Paste with a pure transform applied at paste time.
     func paste(_ item: ClipItem, transform: PasteTransform) {
-        let intendedTargetBundleID = currentReuseTargetBundleID()
+        let intendedTarget = currentReuseTargetBundleID()
         Task {
             guard case .text(let text)? = try? await store.content(for: item.id) else {
                 paste(item, asPlainText: transform == .plainText)
                 return
             }
-            panel.hide()
-            try? await Task.sleep(for: .milliseconds(80))
-            let pasteOutcome = pasteBack.paste(
-                .text(transform.apply(to: text)), asPlainText: true)
-            if pasteOutcome == .copiedOnly {
-                showCopyOnlyToast()
-            }
-            await recordSuccessfulReuse(
-                .transform,
-                items: [item],
-                targetBundleID: pasteOutcome == .pasted ? intendedTargetBundleID : nil)
+            let delivery = await pasteBackWorkflow.deliver(
+                .text(transform.apply(to: text)),
+                asPlainText: true,
+                intendedTarget: intendedTarget,
+                recordReuse: { confirmedTarget in
+                    await recordSuccessfulReuse(
+                        .transform, items: [item], targetBundleID: confirmedTarget)
+                })
+            guard case .delivered(let outcome) = delivery else { return }
             if let suggestion = await reuseController.recordPaste(of: item),
-                shouldPresentReuseSuggestion(after: pasteOutcome)
+                shouldPresentReuseSuggestion(after: outcome)
             {
                 await presentReuseSuggestion(suggestion)
             }
         }
     }
 
-    /// Operational paste feedback outranks optional curation. The isolated UI
-    /// fixture still exercises the nudge when its host cannot grant Accessibility.
+    /// Operational paste feedback outranks optional curation: a copy-only paste
+    /// is already showing the Accessibility notice, so no suggestion competes
+    /// with it. UI tests reach the suggestion honestly, through
+    /// `-ui-test-paste-sink pasted`, rather than through an exception here.
     private func shouldPresentReuseSuggestion(after outcome: PasteBackOutcome) -> Bool {
         outcome == .pasted
-            || (CommandLine.arguments.contains("-seed-reuse-suggestion")
-                && CommandLine.arguments.contains("-use-temp-durable-store"))
     }
 
     /// Turns the exact third-use signal into one non-blocking curation action.
@@ -1028,20 +1067,17 @@ final class AppModel {
     /// non-template snippet (or fields left blank → their defaults apply).
     func pasteSnippet(_ snippet: ClipItem, values: [String: String]) {
         guard fullStore != nil else { return }
-        let intendedTargetBundleID = currentReuseTargetBundleID()
+        let intendedTarget = currentReuseTargetBundleID()
         Task {
             guard case .text(let body)? = try? await store.content(for: snippet.id) else { return }
-            let filled = SnippetTemplate.fill(body, values: values)
-            panel.hide()
-            try? await Task.sleep(for: .milliseconds(80))
-            let pasteOutcome = pasteBack.paste(.text(filled), asPlainText: false)
-            if pasteOutcome == .copiedOnly {
-                showCopyOnlyToast()
-            }
-            await recordSuccessfulReuse(
-                .snippet,
-                items: [snippet],
-                targetBundleID: pasteOutcome == .pasted ? intendedTargetBundleID : nil)
+            await pasteBackWorkflow.deliver(
+                .text(SnippetTemplate.fill(body, values: values)),
+                asPlainText: false,
+                intendedTarget: intendedTarget,
+                recordReuse: { confirmedTarget in
+                    await recordSuccessfulReuse(
+                        .snippet, items: [snippet], targetBundleID: confirmedTarget)
+                })
             await reuseController.recordSnippetPaste(of: snippet)
         }
     }
@@ -1111,19 +1147,16 @@ final class AppModel {
     /// Pastes arbitrary text (a Smart Paste or filled-snippet result) into the
     /// frontmost app via the same paste-back path as a normal paste.
     func pasteText(_ text: String) {
-        let intendedTargetBundleID = currentReuseTargetBundleID()
+        let intendedTarget = currentReuseTargetBundleID()
         Task {
-            panel.hide()
-            try? await Task.sleep(for: .milliseconds(80))
-            let pasteOutcome = pasteBack.paste(.text(text), asPlainText: false)
-            if pasteOutcome == .copiedOnly {
-                showCopyOnlyToast()
-            }
-            await recordSuccessfulReuse(
-                .smartPaste,
-                items: [],
-                itemCount: 1,
-                targetBundleID: pasteOutcome == .pasted ? intendedTargetBundleID : nil)
+            await pasteBackWorkflow.deliver(
+                .text(text),
+                asPlainText: false,
+                intendedTarget: intendedTarget,
+                recordReuse: { confirmedTarget in
+                    await recordSuccessfulReuse(
+                        .smartPaste, items: [], itemCount: 1, targetBundleID: confirmedTarget)
+                })
         }
     }
 
