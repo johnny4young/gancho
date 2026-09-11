@@ -56,10 +56,11 @@ App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/
   └─ GanchoAppCore: the testable app logic both shells share and forward to —
        PanelSearchModel + PanelNavigation + PanelCapturePresentation +
        PanelPreviewModel (macOS panel), HistoryListViewModel (iOS list),
-       SyncController, ClipIngestionCoordinator, CaptureLifecycleController
-       (macOS), ReuseController, ClipCurationController, ClipEditingController,
-       ClipPreviewLoader, BoardsController, EnrichmentService,
-       DeletionCoordinator, BoardSuggestionService, ClipItemFactory. Store
+       SyncController, ClipIngestionCoordinator, CaptureLifecycleController and
+       PasteBackWorkflow (macOS), ReuseController, ClipCurationController,
+       ClipEditingController, ClipPreviewLoader, BoardsController,
+       EnrichmentService, DeletionCoordinator, BoardSuggestionService,
+       ClipItemFactory. Store
        access is facet-typed, so each unit runs against an in-memory fake in
        GanchoAppCoreTests.
 
@@ -114,6 +115,13 @@ board-deletion confirmation, and the single sheet slot shared by snippet filling
 and board appearance — binding to the owner's state and reaching the app model
 only through closures. `PanelView` retains navigation focus, pagination, row
 action effects, and the short preview debounce.
+
+`PasteBackWorkflow` is the one paste sequence every macOS entry point runs: a
+stored clip, a transform, a filled snippet, or a Smart Paste result. It hides
+the panel, gives focus a beat to return to the target app, posts the paste, and
+credits that app in the reuse ledger only when the paste was really posted; a
+copy-only outcome credits none. The shell keeps what differs per entry point:
+toasts, activation counters, reuse suggestions, and snippet usage.
 
 `ReuseController` owns the reusable session state that follows successful user
 actions: the recent metadata page, local use/search signals, exact-threshold

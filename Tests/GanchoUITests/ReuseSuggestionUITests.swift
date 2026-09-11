@@ -7,6 +7,9 @@ final class ReuseSuggestionUITests: XCTestCase {
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-reuse-suggestion",
+            // A real paste, answered by the sink: the suggestion follows only a
+            // posted paste, and the sink never touches the real clipboard.
+            "-ui-test-paste-sink", "pasted",
             "-force-free-tier", "-AppleLanguages", "(en)"
         ]
         app.launch()
