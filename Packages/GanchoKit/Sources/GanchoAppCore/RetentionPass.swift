@@ -13,6 +13,10 @@ import GanchoKit
 /// the engine already has pending is a no-op. Whether sync is on is asked after
 /// the purge, so a toggle that lands while it runs is honored.
 ///
+/// The tier is read at the enforcement step rather than at the call, so a
+/// purchase that lands mid-pass is honored instead of being overwritten by the
+/// tier the pass started with.
+///
 /// Every step is best effort, as in the two shells this replaced: a failed purge
 /// records no expiry but still lets pending deletions propagate and the tier be
 /// enforced, and a failed read of pending deletions enqueues nothing without
@@ -31,8 +35,9 @@ public struct RetentionPass {
         public var pendingDeletionRecordIDs: @MainActor () async throws -> [String]
         /// The engine that propagates deletions, or nil when sync is off.
         public var syncEngine: @MainActor () -> (any SyncEngine)?
-        /// Applies the tier's limits once the purge is done.
-        public var enforceTier: @MainActor (UserTier) async throws -> Void
+        /// Applies the tier's limits once the purge is done, reporting what it
+        /// archived or released.
+        public var enforceTier: @MainActor (UserTier) async throws -> TierEnforcement.Summary
 
         public init(
             purge: @escaping @MainActor (RetentionPolicy, Date) async throws -> PurgeSummary,
@@ -40,7 +45,7 @@ public struct RetentionPass {
                 @escaping @MainActor (_ count: Int, _ at: Date) async throws -> Void,
             pendingDeletionRecordIDs: @escaping @MainActor () async throws -> [String],
             syncEngine: @escaping @MainActor () -> (any SyncEngine)?,
-            enforceTier: @escaping @MainActor (UserTier) async throws -> Void
+            enforceTier: @escaping @MainActor (UserTier) async throws -> TierEnforcement.Summary
         ) {
             self.purge = purge
             self.recordSensitiveExpiry = recordSensitiveExpiry
@@ -61,7 +66,7 @@ public struct RetentionPass {
                 pendingDeletionRecordIDs: { try await store.pendingDeletionRecordIDs() },
                 syncEngine: { sync.isEnabled ? sync.engine : nil },
                 enforceTier: { tier in
-                    _ = try await TierEnforcement(store: store).enforce(tier: tier)
+                    try await TierEnforcement(store: store).enforce(tier: tier)
                 })
         }
     }
@@ -76,11 +81,21 @@ public struct RetentionPass {
     ///
     /// - Parameters:
     ///   - policy: The retention policy to apply.
-    ///   - tier: The tier whose limits are enforced after the purge.
+    ///   - tier: The tier whose limits are enforced. Read WHEN enforcement runs,
+    ///     not when the pass starts: a purchase or restore that lands while the
+    ///     purge is running must not be overwritten by the tier it started with.
     ///   - now: The pass's clock, used for the purge and for the receipt entry.
-    public func run(policy: RetentionPolicy, tier: UserTier, now: Date) async {
-        if let summary = try? await steps.purge(policy, now) {
-            try? await steps.recordSensitiveExpiry(summary.sensitiveExpired, now)
+    /// - Returns: whether the pass moved any row, so a caller can skip reloading
+    ///   a list that cannot have changed.
+    @discardableResult
+    public func run(
+        policy: RetentionPolicy, tier: @MainActor () -> UserTier, now: Date
+    ) async
+        -> Bool
+    {
+        let purged = try? await steps.purge(policy, now)
+        if let purged {
+            try? await steps.recordSensitiveExpiry(purged.sensitiveExpired, now)
         }
         if let engine = steps.syncEngine() {
             let recordIDs = (try? await steps.pendingDeletionRecordIDs()) ?? []
@@ -89,6 +104,8 @@ public struct RetentionPass {
                 await engine.enqueueDeletion(ids: ids)
             }
         }
-        try? await steps.enforceTier(tier)
+        let enforced = try? await steps.enforceTier(tier())
+        return (purged?.totalRowsPurged ?? 0) > 0
+            || (enforced.map { $0.archived + $0.released } ?? 0) > 0
     }
 }

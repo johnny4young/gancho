@@ -11,12 +11,23 @@ private actor Timeline {
         let at: Date
     }
 
+    struct Purge: Sendable, Equatable {
+        let policy: RetentionPolicy
+        let at: Date
+    }
+
     private(set) var events: [String] = []
+    private(set) var purges: [Purge] = []
     private(set) var expiries: [Expiry] = []
     private(set) var enqueued: [[UUID]] = []
     private(set) var enforcedTiers: [UserTier] = []
 
     func note(_ event: String) { events.append(event) }
+
+    func notePurge(_ policy: RetentionPolicy, at: Date) {
+        events.append("purge")
+        purges.append(Purge(policy: policy, at: at))
+    }
 
     func noteExpiry(_ count: Int, at: Date) {
         events.append("record-expiry")
@@ -54,109 +65,143 @@ private final class SyncSwitch {
     var isOn = false
 }
 
+/// The shell's tier, so a test can change it mid-pass the way a purchase does.
+@MainActor
+private final class TierBox {
+    var tier: UserTier
+
+    init(_ tier: UserTier) { self.tier = tier }
+}
+
 /// The retention pass both shells run. Every store and sync effect is a fake:
-/// what must hold on any machine is the order, which count and clock reach the
-/// receipt, when deletions are propagated, and that one failed step does not
-/// silently skip the rest.
+/// what must hold on any machine is the order, what the purge and the receipt
+/// are given, when deletions are propagated, which tier is enforced and when it
+/// is read, and that one failed step does not silently skip the rest.
 @MainActor
 @Suite("Retention pass")
 struct RetentionPassTests {
-    private let now = Date(timeIntervalSince1970: 1_800_000_000)
-    private let tombstoned = UUID()
+    private static let now = Date(timeIntervalSince1970: 1_800_000_000)
+    private static let tombstoned = UUID()
     /// Non-zero in every clause, so recording anything but the sensitive count shows.
-    private let summary = PurgeSummary(
+    private static let summary = PurgeSummary(
         expiredByOwnDate: 1, sensitiveExpired: 2, byKindWindow: 3, byGlobalWindow: 4)
 
     private func pass(
         _ timeline: Timeline,
-        purgeResult: @escaping @MainActor () throws -> PurgeSummary,
-        pendingIDs: @escaping @MainActor () throws -> [String],
-        syncEngine: @escaping @MainActor () -> (any SyncEngine)?
+        purgeResult: @escaping @MainActor () throws -> PurgeSummary = { summary },
+        recordExpiry: @escaping @MainActor () throws -> Void = {},
+        pendingIDs: @escaping @MainActor () throws -> [String] = { [tombstoned.uuidString] },
+        syncEngine: @escaping @MainActor () -> (any SyncEngine)?,
+        tierResult: @escaping @MainActor () -> TierEnforcement.Summary = { .init() }
     ) -> RetentionPass {
         RetentionPass(
             steps: .init(
-                purge: { _, _ in
-                    await timeline.note("purge")
+                purge: { policy, at in
+                    await timeline.notePurge(policy, at: at)
                     return try purgeResult()
                 },
-                recordSensitiveExpiry: { count, at in await timeline.noteExpiry(count, at: at) },
+                recordSensitiveExpiry: { count, at in
+                    await timeline.noteExpiry(count, at: at)
+                    try recordExpiry()
+                },
                 pendingDeletionRecordIDs: {
                     await timeline.note("read-pending")
                     return try pendingIDs()
                 },
                 syncEngine: syncEngine,
-                enforceTier: { tier in await timeline.noteTier(tier) }))
+                enforceTier: { tier in
+                    await timeline.noteTier(tier)
+                    return tierResult()
+                }))
     }
 
     private func run(
-        purgeResult: @escaping @MainActor () throws -> PurgeSummary? = { nil },
-        pendingIDs: @escaping @MainActor () throws -> [String]? = { nil },
+        policy: RetentionPolicy = RetentionPolicy(),
+        purgeResult: @escaping @MainActor () throws -> PurgeSummary = { summary },
+        recordExpiry: @escaping @MainActor () throws -> Void = {},
+        pendingIDs: @escaping @MainActor () throws -> [String] = { [tombstoned.uuidString] },
         syncOn: Bool = true,
-        tier: UserTier = .pro
-    ) async -> Timeline {
+        tier: UserTier = .pro,
+        tierResult: @escaping @MainActor () -> TierEnforcement.Summary = { .init() }
+    ) async -> (timeline: Timeline, changed: Bool) {
         let timeline = Timeline()
         let spy = DeletionSpy(timeline: timeline)
-        let summary = summary
-        let tombstoned = tombstoned
-        await pass(
-            timeline,
-            purgeResult: { try purgeResult() ?? summary },
-            pendingIDs: { try pendingIDs() ?? [tombstoned.uuidString] },
-            syncEngine: { syncOn ? spy : nil }
-        ).run(policy: RetentionPolicy(), tier: tier, now: now)
-        return timeline
+        let changed = await pass(
+            timeline, purgeResult: purgeResult, recordExpiry: recordExpiry,
+            pendingIDs: pendingIDs, syncEngine: { syncOn ? spy : nil }, tierResult: tierResult
+        ).run(policy: policy, tier: { tier }, now: Self.now)
+        return (timeline, changed)
     }
 
     @Test("Deletions are enqueued only after the purge has committed its tombstones")
     func purgeCommitsBeforeDeletionsAreEnqueued() async {
-        let timeline = await run()
+        let (timeline, _) = await run()
 
         #expect(
             await timeline.events == [
                 "purge", "record-expiry", "read-pending", "enqueue", "enforce-tier"
             ])
-        #expect(await timeline.enqueued == [[tombstoned]])
+        #expect(await timeline.enqueued == [[Self.tombstoned]])
+    }
+
+    @Test("The purge gets the caller's policy and the pass's clock")
+    func purgeUsesTheCallersPolicyAndClock() async {
+        // A policy no default can be mistaken for: a shorter secret lifetime is
+        // exactly what a user who tightened retention expects to be honored.
+        let policy = RetentionPolicy(global: .week, sensitiveLifetime: 60)
+        let (timeline, _) = await run(policy: policy)
+
+        #expect(await timeline.purges == [.init(policy: policy, at: Self.now)])
     }
 
     @Test("The receipt gets the pass's sensitive count, stamped with the pass's clock")
     func receiptRecordsTheSensitiveCountAtThePassTime() async {
-        let timeline = await run()
+        let (timeline, _) = await run()
 
-        #expect(await timeline.expiries == [.init(count: 2, at: now)])
+        #expect(await timeline.expiries == [.init(count: 2, at: Self.now)])
     }
 
     @Test("A failed purge records no expiry but still propagates and enforces the tier")
     func failedPurgeStillPropagatesAndEnforces() async {
-        let timeline = await run(purgeResult: { throw StepFailure() })
+        let (timeline, _) = await run(purgeResult: { throw StepFailure() })
 
         #expect(await timeline.events == ["purge", "read-pending", "enqueue", "enforce-tier"])
     }
 
+    @Test("A failed receipt write still propagates deletions and enforces the tier")
+    func failedExpiryRecordStillPropagatesAndEnforces() async {
+        let (timeline, _) = await run(recordExpiry: { throw StepFailure() })
+
+        #expect(
+            await timeline.events == [
+                "purge", "record-expiry", "read-pending", "enqueue", "enforce-tier"
+            ])
+    }
+
     @Test("With sync off, nothing is read back or enqueued")
     func syncOffReadsAndEnqueuesNothing() async {
-        let timeline = await run(syncOn: false)
+        let (timeline, _) = await run(syncOn: false)
 
         #expect(await timeline.events == ["purge", "record-expiry", "enforce-tier"])
     }
 
     @Test("Only record IDs that are real UUIDs are enqueued")
     func onlyValidRecordIDsAreEnqueued() async {
-        let tombstoned = tombstoned
-        let timeline = await run(pendingIDs: { ["not-a-uuid", tombstoned.uuidString] })
+        let (timeline, _) = await run(pendingIDs: { ["not-a-uuid", Self.tombstoned.uuidString] })
 
-        #expect(await timeline.enqueued == [[tombstoned]])
+        #expect(await timeline.enqueued == [[Self.tombstoned]])
     }
 
     @Test("No pending deletions means the engine is not called at all")
     func noPendingDeletionsEnqueuesNothing() async {
-        let timeline = await run(pendingIDs: { [] })
+        let (timeline, _) = await run(pendingIDs: { [] })
 
         #expect(await timeline.events == ["purge", "record-expiry", "read-pending", "enforce-tier"])
     }
 
     @Test("A failed read of pending deletions enqueues nothing but still enforces the tier")
     func failedPendingReadStillEnforcesTheTier() async {
-        let timeline = await run(pendingIDs: { throw StepFailure() })
+        let (timeline, _) = await run(pendingIDs: { throw StepFailure() })
 
         #expect(await timeline.events == ["purge", "record-expiry", "read-pending", "enforce-tier"])
     }
@@ -166,26 +211,63 @@ struct RetentionPassTests {
         let timeline = Timeline()
         let spy = DeletionSpy(timeline: timeline)
         let syncSwitch = SyncSwitch()
-        let summary = summary
-        let tombstoned = tombstoned
         await pass(
             timeline,
             purgeResult: {
                 // Sync turns on while the purge runs.
                 syncSwitch.isOn = true
-                return summary
+                return Self.summary
             },
-            pendingIDs: { [tombstoned.uuidString] },
             syncEngine: { syncSwitch.isOn ? spy : nil }
-        ).run(policy: RetentionPolicy(), tier: .free, now: now)
+        ).run(policy: RetentionPolicy(), tier: { .free }, now: Self.now)
 
-        #expect(await timeline.enqueued == [[tombstoned]])
+        #expect(await timeline.enqueued == [[Self.tombstoned]])
+    }
+
+    @Test("The tier is read when enforcement runs, not when the pass starts")
+    func tierIsReadWhenEnforcementRuns() async {
+        let timeline = Timeline()
+        let spy = DeletionSpy(timeline: timeline)
+        let box = TierBox(.free)
+        await pass(
+            timeline,
+            purgeResult: {
+                // The purchase lands while the purge is running.
+                box.tier = .pro
+                return Self.summary
+            },
+            syncEngine: { spy }
+        ).run(policy: RetentionPolicy(), tier: { box.tier }, now: Self.now)
+
+        #expect(await timeline.enforcedTiers == [.pro])
     }
 
     @Test("The tier the caller passed is the one enforced", arguments: [UserTier.free, .pro])
     func enforcesTheGivenTier(tier: UserTier) async {
-        let timeline = await run(tier: tier)
+        let (timeline, _) = await run(tier: tier)
 
         #expect(await timeline.enforcedTiers == [tier])
+    }
+
+    @Test("A pass that purged rows reports a change")
+    func purgedRowsReportAChange() async {
+        let (_, changed) = await run()
+
+        #expect(changed)
+    }
+
+    @Test("A pass that archived or released rows reports a change")
+    func tierWorkReportsAChange() async {
+        let (_, changed) = await run(
+            purgeResult: { PurgeSummary() }, tierResult: { .init(archived: 1) })
+
+        #expect(changed)
+    }
+
+    @Test("A pass that moved nothing reports no change")
+    func idlePassReportsNoChange() async {
+        let (_, changed) = await run(purgeResult: { PurgeSummary() })
+
+        #expect(!changed, "an idle tick must not make the shell reload its list")
     }
 }

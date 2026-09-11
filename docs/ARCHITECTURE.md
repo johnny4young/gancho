@@ -124,10 +124,11 @@ copy-only outcome credits none. The shell keeps what differs per entry point:
 toasts, activation counters, reuse suggestions, and snippet usage.
 
 `RetentionPass` is the one retention sequence both shells run: purge, record the
-secrets that expired on the on-device receipt, enqueue the purge's tombstoned
-deletions for iCloud, then enforce the tier. The enqueue reads tombstones back
-only after the purge's transaction commits, and asks whether sync is on only
-then. The Mac runs it at launch and every five minutes; iOS runs it on return
+secrets that expired on the on-device receipt, enqueue every deletion still
+waiting for iCloud — the purge's tombstones and any earlier one not yet
+uploaded — then enforce the tier. The enqueue reads tombstones back only after
+the purge's transaction commits, and asks whether sync is on only then; the tier
+is read when enforcement runs, so a purchase mid-pass is not overwritten. The Mac runs it at launch and every five minutes; iOS runs it on return
 to the foreground (at most once per ten minutes), on the way to the
 background, and from background refresh.
 

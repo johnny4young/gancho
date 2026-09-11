@@ -351,7 +351,7 @@ final class IOSAppModel {
         }
         let policy = RetentionPolicy.load(from: defaults)
         await RetentionPass(steps: .live(store: grdb, sync: syncController))
-            .run(policy: policy, tier: tier, now: Date())
+            .run(policy: policy, tier: { self.tier }, now: Date())
         defaults.set(Date(), forKey: Self.lastMaintenanceKey)
         if refreshingList { await search() }
         return true
