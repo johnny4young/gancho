@@ -725,7 +725,7 @@ final class SettingsWindowController {
             created.titleVisibility = .hidden
             created.isReleasedWhenClosed = false
             created.collectionBehavior = [.moveToActiveSpace]
-            created.center()
+            created.sizeToFitContentAndCenter()
             window = created
         }
 

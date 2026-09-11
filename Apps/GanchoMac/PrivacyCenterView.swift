@@ -368,7 +368,7 @@ final class PrivacyCenterWindowController {
             created.title = String(localized: "Privacy Center")
             created.styleMask = [.titled, .closable]
             created.isReleasedWhenClosed = false
-            created.center()
+            created.sizeToFitContentAndCenter()
             window = created
         }
         window?.makeKeyAndOrderFront(nil)

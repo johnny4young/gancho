@@ -484,7 +484,7 @@ final class MCPAccessWindowController {
             created.title = String(localized: "MCP Access")
             created.styleMask = [.titled, .closable, .resizable]
             created.isReleasedWhenClosed = false
-            created.center()
+            created.sizeToFitContentAndCenter()
             window = created
         }
         window?.makeKeyAndOrderFront(nil)

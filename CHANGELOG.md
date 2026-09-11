@@ -21,6 +21,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   a package-based install whose signature validation failed, guards how the
   downloaded archive is moved into place, and stops copying its progress tool
   for the root user.
+- Gancho's windows now open centered on the screen. Settings, Welcome, Privacy
+  Center, Intelligence, MCP Access, Clipboard Access and Gancho Pro used to
+  open with their left edge at the middle of the screen, so on a narrow
+  display, such as a scaled one 1024 points wide, part of the window sat
+  off-screen. In MCP Access, that hid the Revoke buttons.
 
 ## [0.8.3] - 2026-08-10
 

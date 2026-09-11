@@ -126,15 +126,33 @@ extension XCUIElement {
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
-    /// Polls until the element reports itself hittable. Hosted macOS runners
-    /// occasionally misreport toolbar-adjacent SwiftUI buttons as non-hittable
-    /// even though their on-screen frame is valid, so callers should fall back
-    /// to a coordinate click on the element's center when this times out (see
-    /// `MCPAccessUITests.revokeGrant`).
+    /// Polls until the element reports itself hittable. A caller that falls
+    /// back to a coordinate click when this times out must check
+    /// `isCenterOnDisplay` first (see `MCPAccessUITests.revokeGrant`). The MCP
+    /// revoke failures once blamed on a misreported hittable flag were a
+    /// window opening partly off-screen: XCTest was right, and the fallback
+    /// clicked a point clamped to the screen edge.
     @MainActor
     func waitForHittable(timeout: TimeInterval) -> Bool {
         let predicate = NSPredicate(format: "exists == true AND hittable == true")
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    /// True when the element's center lies on an active display. A coordinate
+    /// click aimed anywhere else is clamped to the nearest screen edge and
+    /// lands on whatever sits there.
+    @MainActor
+    var isCenterOnDisplay: Bool {
+        guard exists, !frame.isEmpty, !frame.isInfinite else { return false }
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        var displays = [CGDirectDisplayID](repeating: 0, count: 16)
+        var displayCount: UInt32 = 0
+        guard
+            CGGetActiveDisplayList(UInt32(displays.count), &displays, &displayCount) == .success
+        else { return false }
+        return displays.prefix(Int(displayCount)).contains { display in
+            CGDisplayBounds(display).contains(center)
+        }
     }
 }
