@@ -7660,6 +7660,136 @@
           }
         }
       }
+    },
+    "Copy text from image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar texto de la imagen"
+          }
+        }
+      }
+    },
+    "Recognizing text…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconociendo texto…"
+          }
+        }
+      }
+    },
+    "Text copied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto copiado"
+          }
+        }
+      }
+    },
+    "Text ready — clipboard unchanged": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto listo: portapapeles sin cambios"
+          }
+        }
+      }
+    },
+    "No readable text found": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontró texto legible"
+          }
+        }
+      }
+    },
+    "Image is no longer available for OCR": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La imagen ya no está disponible para OCR"
+          }
+        }
+      }
+    },
+    "Couldn’t read this image. Try another image.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer esta imagen. Prueba con otra."
+          }
+        }
+      }
+    },
+    "Review recognized text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisar texto reconocido"
+          }
+        }
+      }
+    },
+    "Changes stay here until you copy or save them.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los cambios se quedan aquí hasta que los copies o guardes."
+          }
+        }
+      }
+    },
+    "This action couldn’t be completed. Check the source and try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo completar esta acción. Comprueba el origen e inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Save as clip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como clip"
+          }
+        }
+      }
+    },
+    "Copy text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar texto"
+          }
+        }
+      }
+    },
+    "Review": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisar"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

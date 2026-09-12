@@ -9,7 +9,7 @@ final class PasteBackUITests: XCTestCase {
 
     @MainActor
     private func launchSeededPanel(pasteSink answer: String) -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-force-ephemeral-store", "-seed-sample-clips",

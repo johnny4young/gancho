@@ -1,6 +1,7 @@
 import AppKit
 import ClipboardCore
 import Foundation
+import GanchoAppCore
 import GanchoKit
 
 /// Deterministic UI-test fixtures, kept out of the production composition-root
@@ -9,6 +10,19 @@ import GanchoKit
 /// writes anything, so a normal launch is a byte-for-byte no-op and a real
 /// user's history is never touched. Mirrors `IOSAppModel+UITestSeeds`.
 extension AppModel {
+    /// Exercise monitor lifecycle without collecting unrelated desktop content.
+    /// The isolation hook cannot replace the reader of a production store.
+    static func pasteboardReaderForLaunch() -> any PasteboardReading {
+        #if DEBUG
+            if CommandLine.arguments.contains("-isolate-ui-test-system-clipboard"),
+                StoreBootstrap.request() != .production
+            {
+                return UITestEmptyPasteboardReader()
+            }
+        #endif
+        return NSPasteboardReader()
+    }
+
     /// Runs every requested `-seed-*` fixture in the original launch order and
     /// returns the durable-seed tasks the `-open-panel-on-launch` flow awaits
     /// before showing the panel. A normal launch returns an empty array.
@@ -21,6 +35,7 @@ extension AppModel {
             seedSourceAppsIfRequested(),
             seedReuseSuggestionIfRequested(),
             seedClipEditingIfRequested(),
+            seedManualOCRIfRequested(),
             seedMultiFileDragIfRequested(),
             seedPrivateActivityReceiptIfRequested()
         ].compactMap { $0 }
@@ -177,6 +192,39 @@ extension AppModel {
         }
     }
 
+    private func seedManualOCRIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-manual-ocr"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            intelligence.searchableScreenshots = false
+            let image = NSImage(size: NSSize(width: 640, height: 160))
+            image.lockFocus()
+            NSColor.white.setFill()
+            NSRect(x: 0, y: 0, width: 640, height: 160).fill()
+            ("Hola Gancho\nTexto de una imagen" as NSString).draw(
+                in: NSRect(x: 20, y: 20, width: 600, height: 120),
+                withAttributes: [
+                    .font: NSFont.systemFont(ofSize: 32), .foregroundColor: NSColor.black
+                ])
+            image.unlockFocus()
+            guard let tiff = image.tiffRepresentation,
+                let data = NSBitmapImageRep(data: tiff)?.representation(
+                    using: .png, properties: [:])
+            else { return nil }
+            return Task {
+                let item = ClipItem(
+                    kind: .image, title: "OCR sample", preview: "Sample image",
+                    contentHash: "manual-ocr-fixture")
+                _ = try? await fullStore.insert(
+                    item, content: .binary(data: data, typeIdentifier: "public.png"))
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
+    }
+
     /// UI-test hook: seed a THROWAWAY durable store with a few PINNED clips plus
     /// several same-day clips, so a UI test can assert the grouped panel render
     /// keeps exactly one row selected and hands each row a DISTINCT ⌘N shortcut —
@@ -290,3 +338,11 @@ extension AppModel {
         }
     }
 }
+
+#if DEBUG
+    private struct UITestEmptyPasteboardReader: PasteboardReading {
+        func currentChangeCount() -> Int { 0 }
+        func currentTypes() -> Set<String> { [] }
+        func readPayload() -> PasteboardCapture.Payload? { nil }
+    }
+#endif

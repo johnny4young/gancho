@@ -366,6 +366,12 @@ struct ClipPeek: View {
                 model.paste(item, asPlainText: true)
             }
         ]
+        if model.canCopyImageText(item) {
+            actions.insert(
+                PeekAction(
+                    id: "image-copy-text", title: "Copy text from image", symbol: "text.viewfinder"
+                ) { model.copyImageText(item) }, at: 0)
+        }
         if !ClipSafePresentation.requiresMasking(item) {
             for action in DevActions.actions(for: item.kind) {
                 actions.append(

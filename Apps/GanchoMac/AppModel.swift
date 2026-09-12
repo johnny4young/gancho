@@ -111,6 +111,8 @@ final class AppModel {
     let panel: PanelController
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
     let toasts = ToastPresenter()
+    let manualOCR = ManualOCRSession()
+    let manualOCRWindow = ManualOCRWindowController()
     /// Content-free store-mutation fan-out. Mutation sites post here instead of
     /// each remembering to call every reconciler; the `SpotlightCoordinator`
     /// subscribes and rebuilds the curated Spotlight set once per burst. This
@@ -423,6 +425,7 @@ final class AppModel {
             pasteboardAccessPolicy = SystemPasteboardAccessPolicy()
         #endif
         let resolvedMonitor = MacPasteboardMonitor(
+            reader: Self.pasteboardReaderForLaunch(),
             accessPolicy: pasteboardAccessPolicy,
             preferences: loadedPreferences)
         monitor = resolvedMonitor
