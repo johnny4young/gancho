@@ -4,7 +4,7 @@ import Foundation
 /// store's job, never the caller's (reliability rule: no input may break
 /// the query).
 public struct ClipSearchQuery: Sendable, Equatable {
-    public enum Mode: Sendable, Equatable {
+    public enum Mode: String, Sendable, Equatable, Codable, CaseIterable {
         /// Whole input as one phrase, in order.
         case exact
         /// Every token prefix-matches (type-to-search from the 1st key).
@@ -23,6 +23,8 @@ public struct ClipSearchQuery: Sendable, Equatable {
     public var dateRange: ClosedRange<Date>?
     /// Restrict to clips that belong to this board (nil = any board).
     public var boardID: UUID?
+    /// Restrict to pinned clips, independently of board membership.
+    public var pinnedOnly: Bool
     /// Restrict to user-marked clips: pinned or assigned to at least one board.
     public var markedOnly: Bool
     /// Restrict to an explicit local id set (nil = any id). Used by curated
@@ -40,6 +42,7 @@ public struct ClipSearchQuery: Sendable, Equatable {
         dateRange: ClosedRange<Date>? = nil,
         boardID: UUID? = nil,
         markedOnly: Bool = false,
+        pinnedOnly: Bool = false,
         includedIDs: Set<UUID>? = nil,
         excludesSensitive: Bool = false
     ) {
@@ -49,6 +52,7 @@ public struct ClipSearchQuery: Sendable, Equatable {
         self.sourceAppBundleID = sourceAppBundleID
         self.dateRange = dateRange
         self.boardID = boardID
+        self.pinnedOnly = pinnedOnly
         self.markedOnly = markedOnly
         self.includedIDs = includedIDs
         self.excludesSensitive = excludesSensitive

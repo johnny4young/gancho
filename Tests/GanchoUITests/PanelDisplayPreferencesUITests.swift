@@ -9,7 +9,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
     func testPanelSizeAndTextSizePersistAcrossRelaunch() throws {
         let suite = "com.johnny4young.gancho.uitests.panel-display-\(UUID().uuidString)"
         let settingsURL = try XCTUnwrap(URL(string: "gancho://settings"))
-        let panelURL = try XCTUnwrap(URL(string: "gancho://panel"))
+        let commandToken = UUID().uuidString
         let persistenceArguments = [
             "-ui-test-defaults-suite", suite,
             "-force-ephemeral-store", "-seed-sample-clips", "-opaque-panel-for-ui-test",
@@ -17,16 +17,17 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         ]
         let settingsArguments = [
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
+            "-command-nonce", commandToken,
             "-open-deep-link-on-launch", settingsURL.absoluteString
         ]
 
-        var app = XCUIApplication()
+        var app: XCUIApplication = GanchoUITestApplication()
         app.launchArguments = settingsArguments + persistenceArguments
         app.launch()
         waitForAppToStart(app)
         XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 5))
 
-        XCTAssertTrue(NSWorkspace.shared.open(panelURL))
+        GanchoUITestCommands.post("openPanel", token: commandToken)
         let panel = historyPanel(in: app)
         XCTAssertTrue(panel.waitForExistence(timeout: 5))
         XCTAssertEqual(panel.value as? String, "standard")
@@ -47,7 +48,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         XCTAssertTrue(textSize.waitForExistence(timeout: 3))
         textSize.radioButtons["Large"].click()
 
-        XCTAssertTrue(NSWorkspace.shared.open(panelURL))
+        GanchoUITestCommands.post("openPanel", token: commandToken)
         XCTAssertTrue(panel.waitForExistence(timeout: 5))
         XCTAssertTrue(
             waitForPanelWidth(in: app) { $0 >= standardWidth + 100 },
@@ -79,7 +80,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
 
     @MainActor
     private func launchWithPanel(extraArguments: [String]) -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = ["-open-panel-on-launch", "-use-in-process-status-item"]
         app.launchArguments += extraArguments
         app.launch()

@@ -57,6 +57,7 @@ enum PanelFocus: Hashable { case search, peek }
 struct PanelView: View {
     // swiftlint:enable type_body_length
     @Environment(AppModel.self) private var model
+    @State private var filterDraft: SmartCollectionRule?
     @FocusState private var focus: PanelFocus?
     /// The search + list state (query, results, filters, selection, paging,
     /// grouping) — lifted into `PanelSearchModel` so it is `@Observable` and
@@ -171,6 +172,11 @@ struct PanelView: View {
             await search.refresh()
         }
         .task { await model.refreshBoards() }
+        .sheet(item: $filterDraft) { rule in
+            SavedFilterEditor(rule: rule, boards: model.boards) {
+                await model.savedFilters.save($0)
+            }
+        }
         .onChange(of: search.query) { _, newValue in
             // A new query invalidates a previous answer and drops rail focus
             // (you're typing in the search field again).
@@ -216,7 +222,7 @@ struct PanelView: View {
             Task { await search.refresh() }
         }
         // The kind filter narrows client-side, so regroup without a re-query.
-        .onChange(of: search.kindFilter) { _, _ in search.rebuildGroups() }
+        .onChange(of: search.kindFilter) { _, _ in Task { await search.refresh() } }
         .modifier(
             PanelSheetPresentations(
                 boardSheetTitle: boardSheetTitle,
@@ -469,6 +475,15 @@ struct PanelView: View {
             boardRail
 
             filterRail
+            HStack {
+                Spacer()
+                Button("Save filter", systemImage: "line.3.horizontal.decrease.circle") {
+                    filterDraft = search.savedRule(named: "")
+                }
+                .disabled(model.fullStore == nil)
+                .accessibilityIdentifier("filter-save")
+            }
+            .padding(.horizontal, 12)
 
             selectionContextBar
 

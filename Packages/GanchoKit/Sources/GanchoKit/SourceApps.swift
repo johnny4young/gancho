@@ -11,6 +11,8 @@ extension GRDBClipboardStore {
         let hasFilter =
             query.kinds?.isEmpty == false || query.sourceAppBundleID != nil
             || query.dateRange != nil || query.boardID != nil
+            || query.pinnedOnly || query.markedOnly || query.includedIDs != nil
+            || query.excludesSensitive
         guard hasFilter else { return [] }
 
         return try await writer.read { db in

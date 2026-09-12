@@ -76,6 +76,15 @@ struct StoreBootstrapTests {
         try? FileManager.default.removeItem(at: secondDirectory)
     }
 
+    @Test("Encrypted disposable opening never needs the production Keychain")
+    func encryptedThrowawayUsesDisposableKey() throws {
+        let opened = StoreBootstrap.open(
+            .throwaway, configuration: configuration(encryptedThrowaway: true))
+        let directory = try #require(opened.directory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        #expect(opened.durable != nil)
+    }
+
     @Test("The location is reported even when the store could not be opened")
     func locationSurvivesAFailedOpen() {
         // A FAILING opener, injected. Two reasons this is not just convenience:

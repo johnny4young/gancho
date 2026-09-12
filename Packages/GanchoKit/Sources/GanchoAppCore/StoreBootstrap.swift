@@ -7,7 +7,7 @@ import GanchoKit
 /// with its own spelling, and the two differences that produced are not alike.
 ///
 /// The ENCRYPTION difference is live on every throwaway launch and deliberate:
-/// macOS encrypts so its UI tests exercise the real open path, iOS does not so
+/// macOS encrypts its temporary database, iOS does not so
 /// a simulator run never reaches the user's App Group Keychain. It survives
 /// here as ``Configuration/throwawayIsEncrypted``.
 ///
@@ -47,7 +47,7 @@ public enum StoreBootstrap {
         /// with its extensions; macOS has none to share and passes nil.
         public var keychainAccessGroup: String?
         /// Whether the THROWAWAY store is encrypted. Deliberately per-shell:
-        /// macOS encrypts so its UI tests exercise the real open path, iOS does
+        /// macOS encrypts its temporary database, iOS does
         /// not so a simulator run never reaches the user's App Group Keychain.
         public var throwawayIsEncrypted: Bool
         /// Prefix for the throwaway directory, kept distinct per shell so a
@@ -126,11 +126,19 @@ public enum StoreBootstrap {
             : try? GRDBClipboardStore(directory: directory)
     }
 
+    /// Disposable databases still exercise SQLCipher and encrypted blobs, but
+    /// must never ask for a real user's Keychain key. The key lives only for
+    /// this process and cannot reopen another launch's temporary database.
+    private static let throwawayOpener: Opener = { directory, encrypted, _ in
+        let key = encrypted ? UUID().uuidString + UUID().uuidString : nil
+        return try? GRDBClipboardStore(directory: directory, passphrase: key)
+    }
+
     /// Opens the store this request describes. Never throws.
     public static func open(
         _ request: Request,
         configuration: Configuration,
-        opener: Opener = liveOpener
+        opener: Opener? = nil
     ) -> Opened {
         switch request {
         case .ephemeral:
@@ -145,12 +153,13 @@ public enum StoreBootstrap {
             // No access group: the throwaway store is per-launch and disposable,
             // and both shells opened it without one.
             return Opened(
-                durable: opener(directory, configuration.throwawayIsEncrypted, nil),
+                durable: (opener ?? throwawayOpener)(
+                    directory, configuration.throwawayIsEncrypted, nil),
                 directory: directory)
         case .production:
             let directory = configuration.productionDirectory()
             return Opened(
-                durable: opener(directory, true, configuration.keychainAccessGroup),
+                durable: (opener ?? liveOpener)(directory, true, configuration.keychainAccessGroup),
                 directory: directory)
         }
     }

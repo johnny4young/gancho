@@ -38,6 +38,9 @@ public struct PanelDateGroup: Identifiable, Sendable {
 @MainActor @Observable public final class PanelSearchModel {
     /// The live search field text. Empty shows the paginated recent list.
     public var query = ""
+    public var mode: ClipSearchQuery.Mode = .fuzzy
+    public var pinnedOnly = false
+    private var refreshID = UUID()
     /// The rows returned by the current query/board/recent load, pre-filter.
     public var results: [ClipItem] = [] {
         didSet { rebuildVisible() }
@@ -160,20 +163,23 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// "Clear filters" affordance.
     public var hasActiveFilter: Bool {
         kindFilter != .all || selectedBoardID != nil || selectedSourceAppBundleID != nil
+            || pinnedOnly
     }
 
     /// The recent list is showing — the only date-grouped view. Boards
     /// paginate too but render flat; a query is a bounded ranked set.
     public var isGroupedView: Bool {
-        ClipListShape.isGrouped(
-            query: query, boardID: selectedBoardID,
-            sourceAppBundleID: selectedSourceAppBundleID)
+        kindFilter == .all && !pinnedOnly
+            && ClipListShape.isGrouped(
+                query: query, boardID: selectedBoardID,
+                sourceAppBundleID: selectedSourceAppBundleID)
     }
 
     /// The list appends pages on scroll: the recent browse or a board view.
     /// A query or source-app filter is a bounded top-N set and never appends.
     private var isPaginatedView: Bool {
-        ClipListShape.isPaginated(query: query, sourceAppBundleID: selectedSourceAppBundleID)
+        kindFilter == .all && !pinnedOnly
+            && ClipListShape.isPaginated(query: query, sourceAppBundleID: selectedSourceAppBundleID)
     }
 
     /// Refreshes app choices independently from text search so typing never
@@ -206,19 +212,37 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// Type-to-search: first keystroke already narrows; empty query shows
     /// recents (pins first, store order). The recent list paginates on demand.
     public func refresh() async {
-        // `kinds: nil` on purpose — macOS narrows by kind on the client, since
-        // that filter also feeds de-duplication and selection, both of which are
-        // client-side anyway. iOS pushes it into SQL instead.
-        let page = await core.firstPage(
-            query: query, boardID: selectedBoardID,
-            sourceAppBundleID: selectedSourceAppBundleID)
+        let request = UUID()
+        refreshID = request
+        let page: ClipListPage
+        if kindFilter != .all || pinnedOnly || mode != .fuzzy {
+            let rule = savedRule(named: "")
+            let items = await source.search(rule.query, limit: query.isEmpty ? 500 : 100)
+            page = ClipListPage(items: FrecencyRanker.reranked(items), reachedEnd: true)
+        } else {
+            page = await core.firstPage(
+                query: query, boardID: selectedBoardID,
+                sourceAppBundleID: selectedSourceAppBundleID)
+        }
+        guard refreshID == request else { return }
         results = page.items
         reachedEnd = page.reachedEnd
         // A query that exactly matches a snippet's keyword offers a one-keystroke
         // insert (filling {fields} first if it's a template).
-        snippetMatch = query.isEmpty ? nil : await source.snippet(matchingKeyword: query)
+        let snippet = query.isEmpty ? nil : await source.snippet(matchingKeyword: query)
+        guard refreshID == request else { return }
+        snippetMatch = snippet
         selectedIndex = 0
         rebuildGroups()
+    }
+
+    public func savedRule(named name: String) -> SmartCollectionRule {
+        SmartCollectionRule(
+            name: name,
+            kinds: kindFilter == .all
+                ? nil : Set(ClipContentKind.allCases.filter(kindFilter.matches)),
+            sourceAppBundleID: selectedSourceAppBundleID, textContains: query,
+            pinnedOnly: pinnedOnly, boardID: selectedBoardID, searchMode: mode)
     }
 
     /// Append the next page when the displayed cursor/scroll nears the end. Safe
