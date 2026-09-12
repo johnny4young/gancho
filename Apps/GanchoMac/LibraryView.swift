@@ -292,6 +292,7 @@ struct LibraryView: View {
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 scopeTitle.font(.headline)
                 Text("\(clips.count) clips").foregroundStyle(.secondary)
+                    .accessibilityIdentifier("library-scope-count")
                 Spacer(minLength: 0)
                 SyncStatusView(status: model.syncStatus)
             }
@@ -318,6 +319,7 @@ struct LibraryView: View {
                     }
                     .padding(GanchoTokens.Spacing.md)
                 }
+                .accessibilityIdentifier("library-clips-scroll")
             }
         }
     }

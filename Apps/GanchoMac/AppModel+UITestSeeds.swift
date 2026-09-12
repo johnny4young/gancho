@@ -160,10 +160,14 @@ extension AppModel {
                 CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
             else { return nil }
             return Task {
-                let image = NSImage(size: NSSize(width: 600, height: 300))
+                let scaleFixture = CommandLine.arguments.contains("-seed-visual-library-scale")
+                let size =
+                    scaleFixture
+                    ? NSSize(width: 2048, height: 1024) : NSSize(width: 600, height: 300)
+                let image = NSImage(size: size)
                 image.lockFocus()
                 NSColor.systemTeal.setFill()
-                NSRect(x: 0, y: 0, width: 600, height: 300).fill()
+                NSRect(origin: .zero, size: size).fill()
                 NSColor.systemOrange.setFill()
                 NSBezierPath(ovalIn: NSRect(x: 200, y: 50, width: 200, height: 200)).fill()
                 image.unlockFocus()
@@ -171,6 +175,18 @@ extension AppModel {
                     let bitmap = NSBitmapImageRep(data: tiff),
                     let data = bitmap.representation(using: .png, properties: [:])
                 else { return }
+                if scaleFixture {
+                    for index in 0..<2_000 {
+                        let item = ClipItem(
+                            createdAt: Date(timeIntervalSince1970: 1_800_000_000 - Double(index)),
+                            kind: .image, title: "Synthetic scale image \(index)",
+                            contentHash: "library-scale-\(index)")
+                        _ = try? await fullStore.insert(
+                            item, content: .binary(data: data, typeIdentifier: "public.png"))
+                    }
+                    await refreshRecents()
+                    return
+                }
                 for item in [
                     ClipItem(
                         kind: .image, title: "Synthetic landscape", contentHash: "library-image"),
