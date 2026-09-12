@@ -6,7 +6,7 @@ import XCTest
 final class SettingsPrivacyUITests: XCTestCase {
     @MainActor
     func testSpotlightIndexingExplainsThePrivacyBoundaryAndCapturesEvidence() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
             "-use-temp-durable-store", "-start-capture-paused",

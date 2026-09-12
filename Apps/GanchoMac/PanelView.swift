@@ -171,6 +171,9 @@ struct PanelView: View {
             await search.refresh()
         }
         .task { await model.refreshBoards() }
+        .onChange(of: search.selectedItem?.id) { _, _ in
+            model.cancelManualOCRIfRecognizing()
+        }
         .onChange(of: search.query) { _, newValue in
             // A new query invalidates a previous answer and drops rail focus
             // (you're typing in the search field again).
@@ -966,6 +969,10 @@ struct PanelView: View {
     /// with the panel's Quick Look evolution.
     @ViewBuilder
     private func contextMenu(for item: ClipItem) -> some View {
+        if model.canCopyImageText(item) {
+            Button("Copy text from image") { model.copyImageText(item) }
+                .accessibilityIdentifier("image-copy-text")
+        }
         Button(item.isPinned ? "Unpin" : "Pin") {
             model.togglePin(item)
         }

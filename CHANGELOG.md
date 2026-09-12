@@ -7,6 +7,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Free manual image OCR on Mac: copy text from a saved image, optionally review
+  or edit it, and save it as a separate clip only when requested. Automatic
+  searchable-image indexing remains Pro. No network or automatic paste.
+
 ### Changed
 
 - Translate now uses Apple's built-in Translation engine whenever the language

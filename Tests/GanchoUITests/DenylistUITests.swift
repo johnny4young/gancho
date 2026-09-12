@@ -1,4 +1,3 @@
-import AppKit
 import XCTest
 
 /// Settings → Capture: the editable never-capture app list. Drives
@@ -104,16 +103,16 @@ final class DenylistUITests: XCTestCase {
     private func launchIntoCaptureSettings(
         extraArguments: [String] = []
     ) throws -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         let defaultsSuite = "com.johnny4young.gancho.uitests.denylist.\(UUID().uuidString)"
         app.launchArguments =
             [
-                "-use-in-process-status-item", "-ui-test-defaults-suite", defaultsSuite
+                "-regular-activation-for-ui-tests", "-use-in-process-status-item",
+                "-ui-test-defaults-suite", defaultsSuite,
+                "-open-deep-link-on-launch", "gancho://settings"
             ] + extraArguments
         app.launch()
 
-        let url = try XCTUnwrap(URL(string: "gancho://settings"))
-        XCTAssertTrue(NSWorkspace.shared.open(url))
         guard app.windows["Settings"].firstMatch.waitForExistence(timeout: 5) else {
             app.terminate()
             throw XCTSkip("Settings window not exposed to the UI runner")

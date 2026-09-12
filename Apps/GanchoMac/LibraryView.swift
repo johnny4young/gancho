@@ -53,7 +53,10 @@ struct LibraryView: View {
         .frame(minWidth: 800, minHeight: 560)
         .accessibilityIdentifier("library")
         .task { await refreshAll() }
-        .onChange(of: selection) { _, _ in Task { await loadScope() } }
+        .onChange(of: selection) { _, _ in
+            model.cancelManualOCRIfRecognizing()
+            Task { await loadScope() }
+        }
         .onChange(of: model.syncStatus) { _, status in
             // A finished sync may have pulled new boards/clips — refresh so they
             // appear here without reopening the window.
@@ -395,6 +398,10 @@ struct LibraryView: View {
     }
 
     @ViewBuilder private func clipMenu(_ clip: ClipItem) -> some View {
+        if model.canCopyImageText(clip) {
+            Button("Copy text from image") { model.copyImageText(clip) }
+                .accessibilityIdentifier("image-copy-text")
+        }
         Button(clip.isPinned ? "Unpin" : "Pin") { mutate { model.togglePin(clip) } }
         Menu("Add to board") {
             ForEach(boards) { board in

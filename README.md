@@ -173,7 +173,10 @@ stay in reusable modules.
 - Deterministic tier-0 classifier — 17 kinds (URL, email, phone, address, date,
   color, JWT, JSON, UUID, code + language, credit card, tracking number, …) in
   under 5 ms.
-- Apple Intelligence titles (fallback-safe), screenshot OCR, and semantic
+- Manual image OCR on macOS (Free, unreleased): copy recognized text, review
+  or edit it, and save only on request. It works with automatic OCR disabled,
+  preserves newer clipboard copies, and never rewrites the source image.
+- Apple Intelligence titles (fallback-safe), automatic screenshot OCR (Pro), and semantic
   indexing for grounded Q&A and board suggestions — each behind a per-stage
   toggle on the Intelligence screen.
 - Dev Actions (JWT decode, JSON pretty/minify, Base64, URL parse, color
