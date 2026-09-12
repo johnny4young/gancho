@@ -7660,6 +7660,26 @@
           }
         }
       }
+    },
+    "Image preview": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista previa de imagen"
+          }
+        }
+      }
+    },
+    "Loading preview": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cargando vista previa"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

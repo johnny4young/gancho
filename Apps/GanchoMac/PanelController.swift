@@ -64,6 +64,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel?.isVisible == true
     }
 
+    func isPanelWindow(_ window: NSWindow) -> Bool { window === panel }
+
     var position: PanelPosition {
         get {
             PanelPosition(

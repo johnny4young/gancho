@@ -90,7 +90,7 @@ public struct ClipCard: View {
     ) {
         self.item = item
         self.isSelected = isSelected
-        self.previewsHidden = previewsHidden
+        self.previewsHidden = previewsHidden || ClipSafePresentation.requiresMasking(item)
         self.shortcutNumber = shortcutNumber
         self.thumbnail = thumbnail
     }
