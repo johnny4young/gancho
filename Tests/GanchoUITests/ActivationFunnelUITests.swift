@@ -12,7 +12,10 @@ final class ActivationFunnelUITests: XCTestCase {
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
             "-force-ephemeral-store", "-force-capture-active",
             "-force-pasteboard-access-allowed", "-disable-screen-share-auto-pause",
-            "-open-welcome-on-launch", "-seed-sample-clips",
+            // No `-open-welcome-on-launch`: the fresh defaults suite below makes
+            // this a real first run, so onboarding opening at all is part of what
+            // this test proves.
+            "-seed-sample-clips",
             "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.\(UUID().uuidString)",
             "-telemetry-consent", "notAsked", "-AppleLanguages", "(en)"
         ]

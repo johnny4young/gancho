@@ -60,7 +60,7 @@ App-layer models and coordinators (actor-isolated when mutable; NO AppKit/UIKit/
        PasteBackWorkflow (macOS), ReuseController, ClipCurationController,
        ClipEditingController, ClipPreviewLoader, BoardsController,
        EnrichmentService, DeletionCoordinator, RetentionPass,
-       BoardSuggestionService, ClipItemFactory. Store
+       LaunchPresentation (macOS), BoardSuggestionService, ClipItemFactory. Store
        access is facet-typed, so each unit runs against an in-memory fake in
        GanchoAppCoreTests.
 
@@ -131,6 +131,11 @@ the purge's transaction commits, and asks whether sync is on only then; the tier
 is read when enforcement runs, so a purchase mid-pass is not overwritten. The Mac runs it at launch and every five minutes; iOS runs it on return
 to the foreground (at most once per ten minutes), on the way to the
 background, and from background refresh.
+
+`LaunchPresentation` decides what a Mac launch opens: onboarding on a first run,
+the pasteboard explainer when macOS is refusing reads, and otherwise nothing at
+all — a menu-bar agent has no main window. Onboarding outranks the explainer, so
+a first run introduces the app before asking anyone to change a system setting.
 
 `ReuseController` owns the reusable session state that follows successful user
 actions: the recent metadata page, local use/search signals, exact-threshold
