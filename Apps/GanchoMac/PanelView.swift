@@ -269,7 +269,10 @@ struct PanelView: View {
             DispatchQueue.main.async { focus = .search }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
-            _ in
+            notification in
+            guard let window = notification.object as? NSWindow,
+                model.panel.isPanelWindow(window)
+            else { return }
             focus = .search
         }
     }

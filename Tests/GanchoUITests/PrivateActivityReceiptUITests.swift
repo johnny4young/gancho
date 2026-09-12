@@ -5,7 +5,7 @@ import XCTest
 final class PrivateActivityReceiptUITests: XCTestCase {
     @MainActor
     func testReceiptRendersAndClearsIndependently() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-private-activity-receipt",

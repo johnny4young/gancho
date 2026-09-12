@@ -7,6 +7,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Visual Mac Library cards with lazy image thumbnails, readable color swatches,
+  and code previews. Protected clips stay masked and the quick panel stays compact.
+
 ### Changed
 
 - Translate now uses Apple's built-in Translation engine whenever the language
@@ -17,6 +22,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Sensitive clip cards now mask titles and thumbnails as well as text previews.
 - Sparkle updated to 2.9.6, which hardens the update installer: it now rejects
   a package-based install whose signature validation failed, guards how the
   downloaded archive is moved into place, and stops copying its progress tool
