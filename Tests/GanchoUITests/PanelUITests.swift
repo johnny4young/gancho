@@ -8,7 +8,7 @@ import XCTest
 final class PanelUITests: XCTestCase {
     @MainActor
     func testPanelShortcutRestoresAndRegistersOnLaunch() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
             "-diagnose-global-shortcut-for-ui-test",
@@ -53,7 +53,7 @@ final class PanelUITests: XCTestCase {
             )
         }
         terminateMenuBarHelpers()
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launch()
         defer {
             app.terminate()
@@ -198,7 +198,7 @@ final class PanelUITests: XCTestCase {
         commandNonce: String? = nil,
         opening deepLink: URL? = nil
     ) -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         // Regular activation is a UI-test-only host requirement. On macOS 26 a
         // hidden accessory status item correctly triggers Gancho's production
         // terminationOnRemoval contract before XCUITest can attach.
@@ -214,7 +214,7 @@ final class PanelUITests: XCTestCase {
 
     @MainActor
     private func launchWithPanel(extraArguments: [String] = []) -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = ["-open-panel-on-launch", "-use-in-process-status-item"]
         app.launchArguments += extraArguments
         app.launch()
@@ -420,7 +420,7 @@ final class PanelUITests: XCTestCase {
 
     @MainActor
     func testEphemeralStorageShowsWarningBanner() {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-force-ephemeral-store",
             "-force-capture-active", "-force-pasteboard-access-allowed",
@@ -456,7 +456,7 @@ final class PanelUITests: XCTestCase {
     func testPrivacyCenterRecentIssuesLogsEphemeralStorage() {
         // Force the in-memory fallback so AppModel records a content-free
         // "Storage" issue at launch, then open the Privacy Center directly.
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-force-ephemeral-store",
             "-open-privacy-center-on-launch"
@@ -486,7 +486,8 @@ final class PanelUITests: XCTestCase {
     func testFilterPillExposesSelectedState() throws {
         let app = launchWithPanel()
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
 
         // Activating a filter marks it selected (the non-colour active cue +
         // VoiceOver state, WCAG 1.4.1). Use the keyboard-first rail path the
@@ -496,6 +497,13 @@ final class PanelUITests: XCTestCase {
         XCTAssertTrue(links.waitForExistence(timeout: 3), "the Links filter pill must exist")
 
         try SynthesizedInput.requireForeground(app)
+        // This keyboard path starts in the search field, not merely in the
+        // foreground app. Establish and verify that first-responder precondition.
+        search.click()
+        guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 2) else {
+            XCTFail("the search field must own keyboard focus before rail navigation")
+            return
+        }
         app.typeKey(.upArrow, modifierFlags: [])
         app.typeKey(.rightArrow, modifierFlags: [])
         app.typeKey(.space, modifierFlags: [])

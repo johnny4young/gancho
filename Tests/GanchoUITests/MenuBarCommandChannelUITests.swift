@@ -11,7 +11,7 @@ final class MenuBarCommandChannelUITests: XCTestCase {
         let app = launch(commandNonce: token)
         defer { app.terminate() }
 
-        postCommand("settings", token: token)
+        GanchoUITestCommands.post("settings", token: token)
 
         XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 5))
     }
@@ -21,14 +21,14 @@ final class MenuBarCommandChannelUITests: XCTestCase {
         let app = launch(commandNonce: UUID().uuidString)
         defer { app.terminate() }
 
-        postCommand("settings", token: UUID().uuidString)
+        GanchoUITestCommands.post("settings", token: UUID().uuidString)
 
         XCTAssertFalse(app.windows["Settings"].firstMatch.waitForExistence(timeout: 3))
     }
 
     @MainActor
     private func launch(commandNonce: String) -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-command-nonce", commandNonce
@@ -38,11 +38,4 @@ final class MenuBarCommandChannelUITests: XCTestCase {
         return app
     }
 
-    private func postCommand(_ command: String, token: String) {
-        DistributedNotificationCenter.default().postNotificationName(
-            Notification.Name("com.johnny4young.gancho.menu-bar-command.\(command)"),
-            object: token,
-            userInfo: nil,
-            options: [.deliverImmediately])
-    }
 }

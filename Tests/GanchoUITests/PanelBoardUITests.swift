@@ -122,7 +122,7 @@ final class PanelBoardUITests: XCTestCase {
 
     @MainActor
     private func launchWithPanel() -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier"

@@ -7,6 +7,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Review, reorder and copy selected text clips together with a configurable separator, without saving a new clip or pasting automatically.
+
 ### Changed
 
 - Translate now uses Apple's built-in Translation engine whenever the language
