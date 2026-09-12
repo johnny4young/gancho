@@ -7,27 +7,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- Translate now uses Apple's built-in Translation engine whenever the language
-  pair is already installed on your device, which is noticeably faster than
-  the on-device model once it is warm. Every other pair still falls back to
-  the model. Both paths redact secrets before translating, and Gancho never
-  downloads language assets on its own.
-
-### Fixed
-
-- Sparkle updated to 2.9.6, which hardens the update installer: it now rejects
-  a package-based install whose signature validation failed, guards how the
-  downloaded archive is moved into place, and stops copying its progress tool
-  for the root user.
-- Gancho's windows now open centered on the screen. Settings, Welcome, Privacy
-  Center, Intelligence, MCP Access, Clipboard Access and Gancho Pro used to
-  open with their left edge at the middle of the screen, so on a narrow
-  display, such as a scaled one 1024 points wide, part of the window sat
-  off-screen. In MCP Access, that hid the Revoke buttons.
-
-## [0.8.3] - 2026-08-10
+## [0.8.3] - 2026-09-12
 
 ### Security
 
@@ -37,6 +17,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Squeezy store, so a merely-valid key for someone else's product could
   previously have unlocked Pro. An answer that names no store at all still
   never revokes an existing activation — only an explicit answer can.
+- On iPhone and iPad, clips you share into Gancho from another app are now
+  sealed with the key that encrypts your history while they wait in the shared
+  container for Gancho to pick them up. They previously sat there as plaintext
+  until the app next came to the foreground. If that key cannot be read, the
+  share fails with an error haptic instead of falling back to plaintext, and a
+  queued share that cannot be read yet is kept for the next pickup instead of
+  being discarded.
 
 ### Added
 
@@ -77,6 +64,28 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the obsolete local token signer, its embedded key wiring, the install
   fingerprint, and the keypair generator from the distributed source and build
   configuration.
+- Translate now uses Apple's built-in Translation engine whenever the language
+  pair is already installed on your device, which is noticeably faster than
+  the on-device model once it is warm. Every other pair still falls back to
+  the model. Both paths redact secrets before translating, and Gancho never
+  downloads language assets on its own.
+- Large histories do less work. List pages no longer load clip bodies they
+  never show, the Mac panel no longer rebuilds its visible list for every row
+  it draws, finding source apps uses an index instead of scanning the whole
+  history each time the panel opens, semantic search reads stored vectors in
+  place instead of copying every one into memory first, and incoming sync
+  changes are committed once per page instead of twice per record. Semantic
+  search measured about twice as fast on a 100,000-clip test history, and
+  applying a 400-record sync page about twice as fast.
+- Gancho enriches at most two new clips at a time with on-device intelligence,
+  so a burst of copies waits its turn in order instead of starting a model
+  session for every clip at once.
+- History backups are written out as they are produced instead of holding the
+  entire history in memory twice.
+- Local AI clients connected over MCP now get tool descriptions that match what
+  each tool does: which fields a search returns, how an out-of-range limit or an
+  unknown search mode is handled, and how a withheld clip body differs from a
+  refused request.
 
 ### Fixed
 
@@ -90,7 +99,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of failing silently; restore accepts backups from earlier versions
   that skipped a missing payload, verifies exactly the bytes it imports, and
   its safety ceilings sit far above anything Gancho itself produces.
-- Sparkle updated to 2.9.5.
+- Sparkle updated to 2.9.6, which hardens the update installer: it now rejects
+  a package-based install whose signature validation failed, guards how the
+  downloaded archive is moved into place, and stops copying its progress tool
+  for the root user.
 - A response Gancho cannot recognize no longer counts as Lemon Squeezy denying
   a license, so a change to their reply format cannot revoke Pro for everyone
   at once; only an explicit rejection does, and an unreachable service falls
@@ -101,6 +113,37 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A revoked license drops to Free for the session even if clearing the stored
   record fails, and a clock set backwards no longer postpones the next license
   check indefinitely.
+- Gancho's windows now open centered on the screen. Settings, Welcome, Privacy
+  Center, Intelligence, MCP Access, Clipboard Access and Gancho Pro used to
+  open with their left edge at the middle of the screen, so on a narrow
+  display, such as a scaled one 1024 points wide, part of the window sat
+  off-screen. In MCP Access, that hid the Revoke buttons.
+- With iCloud sync on, a clip whose delete fails on this device is no longer
+  removed from your other devices. The failed delete used to go out anyway, so
+  the clip vanished everywhere else while surviving here, with nothing to put
+  it back. Only deletes that land locally are sent now, and a failure is
+  reported instead of passing silently.
+- On iPhone and iPad, clips flagged sensitive now expire when you leave Gancho,
+  and iOS may also run that cleanup in the background, instead of waiting for
+  the app to be opened again. The background run happens at the system's
+  discretion, so it is an extra opportunity, not a schedule.
+- On the Mac, exporting settings, saving a support bundle, changing local AI
+  client (MCP) access, buying or restoring Pro, turning off Remember searches,
+  and editing a snippet now report a failure instead of looking like they
+  worked. Cancelling a purchase stays silent.
+- The Mac no longer lets a board be created or renamed with a blank name. Board
+  names are trimmed the way they already were on iPhone and iPad.
+- The Library refreshes once a board rename or delete has actually landed,
+  instead of after a fixed delay that could read the list too early, and a
+  delete that fails no longer moves the selection to All clips.
+- Gancho's app, its extensions, and the command-line tool now wait up to two
+  seconds for one another when the history database is busy, instead of
+  failing a write immediately.
+- The `gancho` command-line tool ignores a blank `GANCHO_STORE_DIR` instead of
+  looking for your history in the current directory and reporting an empty
+  clipboard, and it strips control characters from board names, paths, and
+  echoed arguments so they cannot break its output or reach the terminal raw.
+- The license key field in Gancho Pro is now translated into Spanish.
 
 ## [0.8.2] - 2026-07-25
 
