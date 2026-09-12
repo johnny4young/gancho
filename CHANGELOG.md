@@ -7,6 +7,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Save and edit local encrypted search filters, preserving type, app, board, mode and pinned-only predicates.
+
 ### Changed
 
 - Translate now uses Apple's built-in Translation engine whenever the language

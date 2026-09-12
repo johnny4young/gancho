@@ -10,7 +10,7 @@ final class MenuBarLifecycleUITests: XCTestCase {
 
     @MainActor
     func testPlainLaunchUsesAccessoryActivationPolicy() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-use-in-process-status-item", "-use-temp-durable-store", "-start-capture-paused",
             "-ui-test-defaults-suite", defaultsSuiteName()
@@ -29,7 +29,7 @@ final class MenuBarLifecycleUITests: XCTestCase {
 
     @MainActor
     func testAffordanceLossTerminatesTheHistoryProcess() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-use-temp-durable-store", "-start-capture-paused",
             "-remove-menu-bar-affordance-after-launch", "-ui-test-defaults-suite",
@@ -57,7 +57,7 @@ final class MenuBarLifecycleUITests: XCTestCase {
         }
 
         terminateMenuBarHelpers()
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = ["-use-temp-durable-store", "-start-capture-paused"]
         app.launch()
         defer {

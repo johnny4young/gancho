@@ -12,10 +12,13 @@ public struct SmartCollectionRule: Sendable, Equatable, Codable, Identifiable {
     public var sourceAppBundleID: String?
     public var textContains: String?
     public var pinnedOnly: Bool
+    public var boardID: UUID?
+    public var searchMode: ClipSearchQuery.Mode?
 
     public init(
         id: UUID = UUID(), name: String, kinds: Set<ClipContentKind>? = nil,
-        sourceAppBundleID: String? = nil, textContains: String? = nil, pinnedOnly: Bool = false
+        sourceAppBundleID: String? = nil, textContains: String? = nil, pinnedOnly: Bool = false,
+        boardID: UUID? = nil, searchMode: ClipSearchQuery.Mode? = nil
     ) {
         self.id = id
         self.name = name
@@ -23,9 +26,17 @@ public struct SmartCollectionRule: Sendable, Equatable, Codable, Identifiable {
         self.sourceAppBundleID = sourceAppBundleID
         self.textContains = textContains
         self.pinnedOnly = pinnedOnly
+        self.boardID = boardID
+        self.searchMode = searchMode
     }
 
-    private static let defaultsKey = "smart-collections"
+    public var query: ClipSearchQuery {
+        ClipSearchQuery(
+            text: textContains ?? "", mode: searchMode ?? .fuzzy, kinds: kinds,
+            sourceAppBundleID: sourceAppBundleID, boardID: boardID, pinnedOnly: pinnedOnly)
+    }
+
+    static let defaultsKey = "smart-collections"
 
     public static func loadAll(from defaults: UserDefaults) -> [SmartCollectionRule] {
         guard let data = defaults.data(forKey: defaultsKey),
@@ -47,30 +58,19 @@ extension GRDBClipboardStore {
     ) async throws
         -> [ClipItem]
     {
-        if let text = rule.textContains, !text.isEmpty {
-            var hits = try await search(
-                ClipSearchQuery(
-                    text: text, kinds: rule.kinds,
-                    sourceAppBundleID: rule.sourceAppBundleID),
-                limit: limit)
-            if rule.pinnedOnly { hits = hits.filter(\.isPinned) }
-            return hits
+        guard rule.kinds?.isEmpty != true else { return [] }
+        if let boardID = rule.boardID,
+            !(try await pinboards()).contains(where: { $0.id == boardID })
+        {
+            throw SavedFilterError.missingBoard
         }
-        return try await writer.read { db in
-            var query = ClipRow.select(ClipRow.metadataColumns)
-                .filter(Column("isArchived") == false)
-            if let kinds = rule.kinds, !kinds.isEmpty {
-                query = query.filter(kinds.map(\.rawValue).contains(Column("kind")))
-            }
-            if let app = rule.sourceAppBundleID {
-                query = query.filter(Column("sourceAppBundleID") == app)
-            }
-            if rule.pinnedOnly {
-                query = query.filter(Column("isPinned") == true)
-            }
-            return try query.order(Column("createdAt").desc).limit(limit)
-                .fetchAll(db).map(\.item)
+        if (rule.textContains ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            rule.searchMode != .regex, rule.kinds == nil, rule.sourceAppBundleID == nil,
+            rule.boardID == nil, !rule.pinnedOnly
+        {
+            return try await recentForBrowse(offset: 0, limit: limit)
         }
+        return try await search(rule.query, limit: limit)
     }
 }
 

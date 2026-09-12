@@ -1,6 +1,7 @@
 import AppKit
 import ClipboardCore
 import Foundation
+import GanchoAppCore
 import GanchoKit
 
 /// Deterministic UI-test fixtures, kept out of the production composition-root
@@ -9,6 +10,19 @@ import GanchoKit
 /// writes anything, so a normal launch is a byte-for-byte no-op and a real
 /// user's history is never touched. Mirrors `IOSAppModel+UITestSeeds`.
 extension AppModel {
+    /// Exercise monitor lifecycle without collecting unrelated desktop content.
+    /// The isolation hook cannot replace the reader of a production store.
+    static func pasteboardReaderForLaunch() -> any PasteboardReading {
+        #if DEBUG
+            if CommandLine.arguments.contains("-isolate-ui-test-system-clipboard"),
+                StoreBootstrap.request() != .production
+            {
+                return UITestEmptyPasteboardReader()
+            }
+        #endif
+        return NSPasteboardReader()
+    }
+
     /// Runs every requested `-seed-*` fixture in the original launch order and
     /// returns the durable-seed tasks the `-open-panel-on-launch` flow awaits
     /// before showing the panel. A normal launch returns an empty array.
@@ -290,3 +304,11 @@ extension AppModel {
         }
     }
 }
+
+#if DEBUG
+    private struct UITestEmptyPasteboardReader: PasteboardReading {
+        func currentChangeCount() -> Int { 0 }
+        func currentTypes() -> Set<String> { [] }
+        func readPayload() -> PasteboardCapture.Payload? { nil }
+    }
+#endif

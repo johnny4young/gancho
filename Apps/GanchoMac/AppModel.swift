@@ -130,6 +130,7 @@ final class AppModel {
     let paywallWindow = PaywallWindowController()
     let permissionWindow = PasteboardPermissionWindowController()
     let libraryWindow = LibraryWindowController()
+    let savedFilters: SavedFiltersController
     let settingsWindow = SettingsWindowController()
     let mcpAccessWindow = MCPAccessWindowController()
     let intelligenceWindow = IntelligenceWindowController()
@@ -198,6 +199,7 @@ final class AppModel {
     /// Held so the observer outlives `init`; set by the UI-test launch hook in
     /// `AppModel+UITestLaunch`, which is why it is not private.
     var uiTestPanelObserver: NSObjectProtocol?
+    var uiTestPanelHasOpened = false
     /// Wake-from-sleep sync catch-up (see the `didWakeNotification` observer).
     private var wakeObserver: NSObjectProtocol?
 
@@ -320,6 +322,7 @@ final class AppModel {
                 "gancho-uitest-mcp-\(UUID().uuidString)", isDirectory: true)
         self.mcpConfigDirectory = mcpConfigDirectory
         self.fullStore = grdb
+        self.savedFilters = SavedFiltersController(store: grdb)
         self.grdbForEngines = grdb
         if let grdb {
             self.store = grdb
@@ -423,6 +426,7 @@ final class AppModel {
             pasteboardAccessPolicy = SystemPasteboardAccessPolicy()
         #endif
         let resolvedMonitor = MacPasteboardMonitor(
+            reader: Self.pasteboardReaderForLaunch(),
             accessPolicy: pasteboardAccessPolicy,
             preferences: loadedPreferences)
         monitor = resolvedMonitor
@@ -598,6 +602,7 @@ final class AppModel {
 
         Signpost.launchToStoreReady.end(launchInterval)
 
+        Task { await savedFilters.load(migrating: defaults) }
         coordinator.start(subscribingTo: storeChanges)
 
         // What a launch opens is one decision (`LaunchPresentation`), taken here

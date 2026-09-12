@@ -7,7 +7,7 @@ import XCTest
 final class MigrationImportUITests: XCTestCase {
     @MainActor
     func testOnboardingOffersGuidedMigration() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
             "-force-ephemeral-store",
@@ -87,7 +87,7 @@ final class MigrationImportUITests: XCTestCase {
 
     @MainActor
     private func launchImporter(seedArgument: String) throws -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
             "-open-deep-link-on-launch", "gancho://settings",

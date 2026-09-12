@@ -1,6 +1,7 @@
 import AppKit
 import ClipboardCore
 import GanchoAI
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import SwiftUI
@@ -26,6 +27,9 @@ struct LibraryView: View {
     @State private var pinnedCount = 0
     @State private var clips: [ClipItem] = []
     @State private var snippets: [ClipItem] = []
+    @State private var filterDraft: SmartCollectionRule?
+    @State private var filterNeedsEditing = false
+    @State private var filterLoadID = UUID()
 
     // Snippet editor state (the right pane when a snippet is selected).
     @State private var editingSnippet: ClipItem?
@@ -35,7 +39,7 @@ struct LibraryView: View {
     @FocusState private var focusedField: EditorField?
 
     // Board name prompt (create / rename).
-    @State private var boardSheet: BoardSheet?
+    @State private var boardSheet: LibraryBoardSheet?
     @State private var boardNameField = ""
     /// The board a destructive "Delete board" is awaiting confirmation on.
     @State private var boardPendingDeletion: Pinboard?
@@ -53,6 +57,13 @@ struct LibraryView: View {
         .frame(minWidth: 800, minHeight: 560)
         .accessibilityIdentifier("library")
         .task { await refreshAll() }
+        .sheet(item: $filterDraft) { rule in
+            SavedFilterEditor(rule: rule, boards: boards) {
+                let saved = await model.savedFilters.save($0)
+                if saved { await loadScope() }
+                return saved
+            }
+        }
         .onChange(of: selection) { _, _ in Task { await loadScope() } }
         .onChange(of: model.syncStatus) { _, status in
             // A finished sync may have pulled new boards/clips — refresh so they
@@ -62,7 +73,7 @@ struct LibraryView: View {
         .alert(boardSheetTitle, isPresented: boardSheetPresented) {
             TextField("Board name", text: $boardNameField)
             Button("Cancel", role: .cancel) {}
-            Button(boardSheetConfirm) { commitBoardSheet() }
+            Button(boardSheetConfirm) { commitLibraryBoardSheet() }
         }
         .confirmationDialog(
             "Delete this board?",
@@ -121,6 +132,28 @@ struct LibraryView: View {
                     sectionHeader(Text("Boards"), identifier: "board-new", badge: boardLimitBadge) {
                         boardNameField = ""
                         boardSheet = .new
+                    }
+                }
+
+                Section("Saved filters") {
+                    ForEach(model.savedFilters.rules) { rule in
+                        Text(verbatim: rule.name).tag(LibrarySelection.savedFilter(rule.id))
+                            .accessibilityIdentifier("saved-filter-row")
+                            .contextMenu {
+                                Button("Edit filter…") { filterDraft = rule }
+                                Button("Delete filter", role: .destructive) {
+                                    Task {
+                                        await model.savedFilters.delete(rule.id)
+                                        if selection == .savedFilter(rule.id) {
+                                            selection = .allClips
+                                        }
+                                    }
+                                }
+                            }
+                    }
+                    if model.savedFilters.failed {
+                        Text("Saved filters couldn’t be loaded. Retry by reopening the Library.")
+                            .font(.caption)
                     }
                 }
 
@@ -292,7 +325,12 @@ struct LibraryView: View {
 
             Divider()
 
-            if clips.isEmpty {
+            if filterNeedsEditing {
+                Text(
+                    "This filter needs editing: its board is missing or its expression is invalid."
+                )
+                .padding().accessibilityIdentifier("saved-filter-needs-editing")
+            } else if clips.isEmpty {
                 emptyScope
             } else {
                 ScrollView {
@@ -326,6 +364,8 @@ struct LibraryView: View {
             } else {
                 Text("All clips")
             }
+        case .savedFilter(let id):
+            Text(verbatim: model.savedFilters.rules.first { $0.id == id }?.name ?? "")
         case .snippet: Text("All clips")
         }
     }
@@ -382,6 +422,7 @@ struct LibraryView: View {
         .contentShape(Rectangle())
         .onTapGesture { copy(clip) }
         .contextMenu { clipMenu(clip) }
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("library-clip")
     }
 
@@ -571,18 +612,49 @@ struct LibraryView: View {
     /// Loads whatever the current selection points at: a board's clips, or a
     /// snippet's editable title/keyword/body.
     private func loadScope() async {
+        let request = UUID()
+        filterLoadID = request
+        filterNeedsEditing = false
         switch selection ?? .allClips {
         case .allClips:
-            clips = (try? await model.store.items(offset: 0, limit: 200)) ?? []
+            let matches = (try? await model.store.items(offset: 0, limit: 200)) ?? []
+            guard request == filterLoadID else { return }
+            clips = matches
             editingSnippet = nil
         case .pinned:
-            clips = ((try? await model.store.items(offset: 0, limit: 200)) ?? []).filter(\.isPinned)
+            let matches = ((try? await model.store.items(offset: 0, limit: 200)) ?? []).filter(
+                \.isPinned)
+            guard request == filterLoadID else { return }
+            clips = matches
             editingSnippet = nil
         case .board(let id):
             // Bounded like the sibling scopes above — the Library is a manager,
             // not a scroll-through; huge boards browse in the panel.
-            clips = (try? await model.fullStore?.items(inBoard: id, offset: 0, limit: 200)) ?? []
+            let matches =
+                (try? await model.fullStore?.items(inBoard: id, offset: 0, limit: 200)) ?? []
+            guard request == filterLoadID else { return }
+            clips = matches
             editingSnippet = nil
+        case .savedFilter(let id):
+            editingSnippet = nil
+            guard let rule = model.savedFilters.rules.first(where: { $0.id == id }) else {
+                clips = []
+                return
+            }
+            do {
+                let matches =
+                    try await model.fullStore?.items(
+                        matching: rule, limit: (rule.textContains ?? "").isEmpty ? 500 : 100) ?? []
+                guard request == filterLoadID else { return }
+                let ranked =
+                    !(rule.textContains ?? "").isEmpty || rule.kinds != nil
+                    || rule.sourceAppBundleID != nil || rule.pinnedOnly
+                clips = ranked ? FrecencyRanker.reranked(matches) : matches
+            } catch {
+                guard request == filterLoadID else { return }
+                clips = []
+                filterNeedsEditing = true
+            }
         case .snippet(let id):
             editingSnippet = snippets.first { $0.id == id }
             title = editingSnippet?.title ?? ""
@@ -730,7 +802,7 @@ struct LibraryView: View {
         return "Create"
     }
 
-    private func commitBoardSheet() {
+    private func commitLibraryBoardSheet() {
         let name = boardNameField.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
         let sheet = boardSheet
@@ -748,50 +820,5 @@ struct LibraryView: View {
             }
         case nil: break
         }
-    }
-}
-
-/// What the Library sidebar can have selected. Boards browse clips; a snippet
-/// opens the editor.
-private enum LibrarySelection: Hashable {
-    case allClips
-    case pinned
-    case board(UUID)
-    case snippet(UUID)
-}
-
-/// Drives the new-board / rename-board name prompt.
-private enum BoardSheet: Identifiable {
-    case new
-    case rename(Pinboard)
-
-    var id: String {
-        switch self {
-        case .new: "new"
-        case .rename(let board): board.id.uuidString
-        }
-    }
-}
-
-@MainActor
-final class LibraryWindowController {
-    private var window: NSWindow?
-
-    func show(model: AppModel) {
-        if window == nil {
-            let hosting = NSHostingController(
-                rootView: LibraryView().environment(model).ganchoTinted())
-            let created = NSWindow(contentViewController: hosting)
-            created.title = String(localized: "Library")
-            created.styleMask = [.titled, .closable, .resizable]
-            created.isReleasedWhenClosed = false
-            // Open roomy and never let it shrink below the two-pane layout's needs.
-            created.setContentSize(NSSize(width: 900, height: 640))
-            created.contentMinSize = NSSize(width: 800, height: 560)
-            created.center()
-            window = created
-        }
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
     }
 }
