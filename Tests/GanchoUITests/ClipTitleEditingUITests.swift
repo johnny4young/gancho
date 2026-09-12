@@ -3,7 +3,7 @@ import XCTest
 final class ClipTitleEditingUITests: XCTestCase {
     @MainActor
     func testUntitledClipCanBeNamedInlineAndCapturesEvidence() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-clip-editing",

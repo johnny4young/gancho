@@ -423,6 +423,7 @@ final class AppModel {
             pasteboardAccessPolicy = SystemPasteboardAccessPolicy()
         #endif
         let resolvedMonitor = MacPasteboardMonitor(
+            reader: Self.pasteboardReaderForLaunch(),
             accessPolicy: pasteboardAccessPolicy,
             preferences: loadedPreferences)
         monitor = resolvedMonitor

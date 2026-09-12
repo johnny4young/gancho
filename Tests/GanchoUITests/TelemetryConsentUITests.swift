@@ -3,7 +3,7 @@ import XCTest
 final class TelemetryConsentUITests: XCTestCase {
     @MainActor
     func testTelemetryConsentStartsDisabledAndCanBeDeclined() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-force-capture-active", "-force-pasteboard-access-allowed",

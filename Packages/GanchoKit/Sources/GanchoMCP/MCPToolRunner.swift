@@ -276,7 +276,8 @@ public struct MCPToolRunner: Sendable {
         await record(.pasteStack, grant: grant, count: clips.count)
         return ok(
             PasteStackResult(
-                clips: clips, combinedText: clips.map(\.text).joined(separator: "\n\n"),
+                clips: clips,
+                combinedText: try TextComposition.join(clips.map(\.text), separator: "\n\n"),
                 count: clips.count))
     }
 
