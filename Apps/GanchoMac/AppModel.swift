@@ -113,6 +113,7 @@ final class AppModel {
     let toasts = ToastPresenter()
     let manualOCR = ManualOCRSession()
     let manualOCRWindow = ManualOCRWindowController()
+    let screenTextWorkflow = ScreenTextWorkflow()
     /// Content-free store-mutation fan-out. Mutation sites post here instead of
     /// each remembering to call every reconciler; the `SpotlightCoordinator`
     /// subscribes and rebuilds the curated Spotlight set once per burst. This
@@ -197,6 +198,8 @@ final class AppModel {
     private var retentionTimer: Timer?
     /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
     private var syncPollTimer: Timer?
+    /// A deliberate user gesture supersedes delayed test-launch presentation.
+    var uiTestLaunchPresentationIsSuppressed = false
     /// Held so the observer outlives `init`; set by the UI-test launch hook in
     /// `AppModel+UITestLaunch`, which is why it is not private.
     var uiTestPanelObserver: NSObjectProtocol?
@@ -482,6 +485,9 @@ final class AppModel {
         }
         KeyboardShortcuts.onKeyUp(for: .cyclicPaste) { [weak self] in
             self?.cyclicPaste()
+        }
+        KeyboardShortcuts.onKeyUp(for: .copyScreenText) { [weak self] in
+            self?.copyScreenText()
         }
         KeyboardShortcuts.onKeyUp(for: .pasteFromStack) { [weak self] in
             self?.pasteNextFromStack()

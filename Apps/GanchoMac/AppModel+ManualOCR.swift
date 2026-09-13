@@ -12,6 +12,7 @@ extension AppModel {
 
     func copyImageText(_ item: ClipItem) {
         guard canCopyImageText(item), let reader = store as? any ImageTextReading else { return }
+        screenTextWorkflow.cancel()
         manualOCRWindow.close()
         manualOCR.start(
             recognize: { try await ManualImageTextService().text(for: item.id, store: reader) },
@@ -51,7 +52,7 @@ extension AppModel {
         SystemPasteboardWriter().write(.text(text), asPlainText: true)
     }
 
-    private func finishManualOCR(_ state: ManualOCRSession.State) {
+    func finishManualOCR(_ state: ManualOCRSession.State) {
         switch state {
         case .copied, .ready:
             toasts.show(

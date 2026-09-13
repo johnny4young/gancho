@@ -9,6 +9,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Copy text from a selected screen region with a configurable shortcut, a
+  fused hook-and-crosshair cursor, local recognition and transient review.
+
 - Free manual image OCR on Mac: copy text from a saved image, optionally review
   or edit it, and save it as a separate clip only when requested. Automatic
   searchable-image indexing remains Pro. No network or automatic paste.

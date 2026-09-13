@@ -22,9 +22,11 @@ extension AppModel {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 for task in seeds { await task.value }
+                guard !uiTestLaunchPresentationIsSuppressed else { return }
                 panel.show(model: self)
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
                 try? await Task.sleep(for: .milliseconds(250))
+                guard !uiTestLaunchPresentationIsSuppressed else { return }
                 panel.show(model: self)
                 _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             }
@@ -32,6 +34,7 @@ extension AppModel {
         Task { @MainActor in
             for task in seeds { await task.value }
             try? await Task.sleep(for: .seconds(1))
+            guard !uiTestLaunchPresentationIsSuppressed else { return }
             if !panel.isVisible { panel.show(model: self) }
             _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
         }

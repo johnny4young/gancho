@@ -269,10 +269,16 @@ struct PanelView: View {
             // ready when onAppear fires, so an immediate focus is dropped
             // (arrow keys beep). The notification below re-grabs it on every
             // key transition, which covers first open and reopens alike.
-            DispatchQueue.main.async { focus = .search }
+            DispatchQueue.main.async {
+                guard model.panel.isVisible, model.panel.isKeyWindow else { return }
+                focus = .search
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
             _ in
+            // A selector, review or inspector becoming key is not a request
+            // to focus this panel's search field, especially while it is hidden.
+            guard model.panel.isVisible, model.panel.isKeyWindow else { return }
             focus = .search
         }
     }
