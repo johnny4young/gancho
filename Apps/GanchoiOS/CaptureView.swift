@@ -582,6 +582,7 @@ struct CaptureView: View {
                     Spacer(minLength: 8)
                     PasteControlView { providers in model.ingest(providers: providers) }
                         .frame(width: 108, height: 34)
+                        .accessibilityIdentifier("paste-control")
                 }
                 .padding(.vertical, 10)
                 Divider()
@@ -598,7 +599,6 @@ struct CaptureView: View {
                 }
                 .padding(.vertical, 9)
             }
-            .accessibilityIdentifier("pasteboard-capture")
         } header: {
             HStack {
                 Text("Pasteboard")
@@ -756,12 +756,8 @@ struct PasteControlView: UIViewRepresentable {
         config.baseForegroundColor = .white
         let control = UIPasteControl(configuration: config)
         control.target = context.coordinator.target
-        // Set the identifier on the system UIView itself: SwiftUI's
-        // `.accessibilityIdentifier` modifier does not propagate onto a
-        // `UIViewRepresentable`'s underlying view, so XCUITest could not find the
-        // control by id. Make the wrapper element explicit too: on simulator
-        // runners `UIPasteControl` can keep its internal label accessible while
-        // leaving the outer control unqueryable by identifier.
+        // Set the identifier on both representations of the system control.
+        // A card-level identifier would propagate to this button and mask it.
         control.isAccessibilityElement = true
         control.accessibilityIdentifier = "paste-control"
         control.accessibilityLabel = String(localized: "Save clipboard")

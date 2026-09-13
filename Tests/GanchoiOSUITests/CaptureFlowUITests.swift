@@ -112,9 +112,9 @@ final class CaptureFlowUITests: XCTestCase {
             throw XCTSkip("capture screen not exposed to the UI runner in this environment")
         }
         let paste = app.descendants(matching: .any)["paste-control"].firstMatch
-        guard paste.waitForExistence(timeout: 5) else {
-            throw XCTSkip("paste control not exposed to the UI runner")
-        }
+        XCTAssertTrue(
+            paste.waitForExistence(timeout: 5),
+            "the paste control must keep its own accessibility identifier, not inherit the card's")
         paste.tap()
 
         // The handoff runs `IOSAppModel.ingest(providers:)` → the card flashes the

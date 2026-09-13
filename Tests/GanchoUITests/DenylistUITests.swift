@@ -1,4 +1,3 @@
-import AppKit
 import XCTest
 
 /// Settings → Capture: the editable never-capture app list. Drives
@@ -72,13 +71,22 @@ final class DenylistUITests: XCTestCase {
         }
         app.activate()
         try SynthesizedInput.requireForeground(app)
+        // The manual-entry field follows the built-in exclusions below the
+        // form's fold. A coordinate click on its offscreen AX frame cannot
+        // focus it and may land on a different control. Reveal it first.
+        let form = app.scrollViews.containing(.textField, identifier: "denylist-add-field")
+            .firstMatch
+        for _ in 0..<12 where !field.isHittable {
+            try SynthesizedInput.requireForeground(app)
+            form.scroll(byDeltaX: 0, deltaY: -160)
+        }
+        guard field.isHittable else {
+            throw XCTSkip("denylist add field is not hittable after scrolling the form")
+        }
         var fieldIsFocused = false
         for _ in 0..<2 where !fieldIsFocused {
-            if field.isHittable {
-                field.click()
-            } else {
-                field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
-            }
+            try SynthesizedInput.requireForeground(app)
+            field.click()
             fieldIsFocused = SynthesizedInput.waitForKeyboardFocus(field, timeout: 1)
         }
         guard fieldIsFocused else {
@@ -108,12 +116,13 @@ final class DenylistUITests: XCTestCase {
         let defaultsSuite = "com.johnny4young.gancho.uitests.denylist.\(UUID().uuidString)"
         app.launchArguments =
             [
-                "-use-in-process-status-item", "-ui-test-defaults-suite", defaultsSuite
+                "-regular-activation-for-ui-tests", "-use-in-process-status-item",
+                "-force-ephemeral-store", "-force-free-tier", "-start-capture-paused",
+                "-ui-test-defaults-suite", defaultsSuite,
+                "-open-deep-link-on-launch", "gancho://settings"
             ] + extraArguments
         app.launch()
 
-        let url = try XCTUnwrap(URL(string: "gancho://settings"))
-        XCTAssertTrue(NSWorkspace.shared.open(url))
         guard app.windows["Settings"].firstMatch.waitForExistence(timeout: 5) else {
             app.terminate()
             throw XCTSkip("Settings window not exposed to the UI runner")
