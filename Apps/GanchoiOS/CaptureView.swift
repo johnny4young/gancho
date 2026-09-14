@@ -49,6 +49,7 @@ struct CaptureView: View {
     @State private var answer: IOSAppModel.ClipboardAnswer?
     @State private var isAsking = false
     @State private var askTask: Task<Void, Never>?
+    @State private var showPasteboardInfo = false
 
     var body: some View {
         @Bindable var model = model
@@ -102,6 +103,26 @@ struct CaptureView: View {
                     }
                 }
                 .toolbar {
+                    // Search keeps its bottom-bar slot (a bottom item alone
+                    // would move the field back under the title), and the
+                    // system paste control rides beside it: the one action the
+                    // screen is for, within thumb reach, drawn by the OS so
+                    // the one-tap consent stays the system's. Its own glass
+                    // would double the control's green capsule, so the shared
+                    // background steps aside.
+                    DefaultToolbarItem(kind: .search, placement: .bottomBar)
+                    ToolbarItem(placement: .bottomBar) {
+                        // One accessibility element: the bar item otherwise
+                        // exposes a wrapper labelled by the control's visible
+                        // text, and the label set here never reaches it.
+                        PasteControlView { providers in model.ingest(providers: providers) }
+                            .frame(width: 112, height: 44)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityIdentifier("paste-control")
+                            .accessibilityLabel(Text("Paste into Gancho"))
+                    }
+                    .sharedBackgroundVisibility(.hidden)
                     ToolbarItem(placement: .topBarTrailing) {
                         kindFilterMenu
                     }
@@ -552,89 +573,75 @@ struct CaptureView: View {
         await model.search()
     }
 
-    /// The consensual capture card (the design's Pasteboard section). gancho
-    /// senses the clipboard's TYPE via `detectPatterns` — no read, no "pasted
-    /// from" banner — and the green `UIPasteControl` is the user's one-tap "yes,
-    /// save this". Privacy is the function, not an apology.
+    /// The pasteboard status line (the design's Pasteboard section, folded to
+    /// one row). gancho senses the clipboard's TYPE via `detectPatterns` — no
+    /// read, no "pasted from" banner — and says so in a chip that carries
+    /// contrast; the explanation lives behind the info button. The one-tap
+    /// "yes, save this" is the system paste control in the bottom bar, next to
+    /// search, where the thumb already is. Privacy is the function, not an
+    /// apology.
     @ViewBuilder private var pasteboardSection: some View {
         Section {
-            if let note = model.saveNote {
-                Label(note, systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(GanchoTokens.Palette.success)
-                    .accessibilityIdentifier("save-note")
-            }
-            // No accessibility identifier on this card: SwiftUI applies an
-            // ancestor's identifier to the hosted `UIPasteControl` and would
-            // overwrite the control's own `paste-control`.
-            VStack(spacing: 0) {
-                HStack(spacing: 11) {
-                    captureTile
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(senseTitle)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if model.hints.hasContent {
-                            if alreadyCaptured {
-                                captureTag(Text("Saved"), tint: GanchoTokens.Palette.success)
-                            } else {
-                                captureTag(
-                                    Text("not read yet"), tint: GanchoTokens.Palette.warning)
-                            }
-                        }
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                if let note = model.saveNote {
+                    statusChip(Text(note), systemImage: "checkmark.circle.fill")
+                        .accessibilityIdentifier("save-note")
+                } else if alreadyCaptured {
+                    statusChip(Text("Saved"), systemImage: "checkmark.circle.fill")
+                } else {
+                    statusChip(Text("Sensed, not read"), systemImage: "shield.lefthalf.filled")
+                }
+                Text(senseTitle)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button {
+                    showPasteboardInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("How Gancho senses your clipboard"))
+                .accessibilityIdentifier("pasteboard-info")
+                .popover(isPresented: $showPasteboardInfo, arrowEdge: .top) {
+                    Label {
+                        Text(
+                            "Gancho never reads your clipboard on its own. It only sees the type until you tap Paste."
+                        )
+                        .font(.footnote)
+                        .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "checkmark.shield.fill")
+                            .foregroundStyle(GanchoTokens.Palette.accent)
                     }
-                    Spacer(minLength: 8)
-                    PasteControlView { providers in model.ingest(providers: providers) }
-                        .frame(width: 108, height: 34)
-                        .accessibilityIdentifier("paste-control")
-                        .accessibilityLabel(Text("Save clipboard"))
+                    .padding(GanchoTokens.Spacing.md)
+                    .frame(width: 300)
+                    .presentationCompactAdaptation(.popover)
                 }
-                .padding(.vertical, 10)
-                Divider()
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.shield.fill")
-                        .font(.caption)
-                        .foregroundStyle(GanchoTokens.Palette.accent)
-                    Text(
-                        "Gancho never reads your clipboard on its own. It only sees the type until you tap Save."
-                    )
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.vertical, 9)
             }
-        } header: {
-            HStack {
-                Text("Pasteboard")
-                Spacer()
-                Label("sensed, not read", systemImage: "shield.lefthalf.filled")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .textCase(nil)
-            }
+            .listRowBackground(Color.clear)
+            .listRowInsets(
+                EdgeInsets(
+                    top: GanchoTokens.Spacing.xxs, leading: GanchoTokens.Spacing.xxs,
+                    bottom: GanchoTokens.Spacing.xxs, trailing: GanchoTokens.Spacing.xxs))
         }
     }
 
-    private var captureTile: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(GanchoTokens.Palette.accent.opacity(0.15))
-            .frame(width: 38, height: 38)
-            .overlay {
-                Image(systemName: senseSymbol)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(GanchoTokens.Palette.accent)
-            }
-    }
-
-    /// Amber "not read yet" pill.
-    private func captureTag(_ text: Text, tint: Color) -> some View {
-        text
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(tint.opacity(0.16), in: Capsule())
+    /// Green state pill: the privacy claim before a save, the confirmation after.
+    private func statusChip(_ text: Text, systemImage: String) -> some View {
+        Label {
+            text
+        } icon: {
+            Image(systemName: systemImage)
+        }
+        .font(.caption2.weight(.semibold))
+        .labelStyle(.titleAndIcon)
+        .foregroundStyle(GanchoTokens.Palette.success)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 4)
+        .background(GanchoTokens.Palette.success.opacity(0.14), in: Capsule())
+        .fixedSize()
     }
 
     /// True when the copy currently on the clipboard is the one we just saved
@@ -647,17 +654,10 @@ struct CaptureView: View {
     /// What `detectPatterns` sensed, as a title — derived without reading.
     private var senseTitle: LocalizedStringKey {
         guard model.hints.hasContent else { return "Pasteboard is empty" }
-        if model.hints.probableWebURL { return "A link is on your clipboard" }
-        if model.hints.probableWebSearch { return "Search text is on your clipboard" }
-        if model.hints.number { return "A number is on your clipboard" }
-        return "Something is on your clipboard"
-    }
-
-    private var senseSymbol: String {
-        if model.hints.probableWebURL { return "link" }
-        if model.hints.probableWebSearch { return "magnifyingglass" }
-        if model.hints.number { return "number" }
-        return "doc.on.clipboard"
+        if model.hints.probableWebURL { return "Link on your clipboard" }
+        if model.hints.probableWebSearch { return "Search text on your clipboard" }
+        if model.hints.number { return "Number on your clipboard" }
+        return "Something on your clipboard"
     }
 
     /// Shown only when the durable store failed to open — captures are running
@@ -765,12 +765,12 @@ struct PasteControlView: UIViewRepresentable {
         // The identifier and label assistive tech sees come from the SwiftUI
         // modifiers at the call site: SwiftUI writes its accessibility attributes
         // onto the hosted view (the UIKit-side label alone left VoiceOver reading
-        // the system's "Paste"), which is also why an identifier on the enclosing
-        // card used to mask this control. The UIKit-side copies only keep the
+        // the system's "Paste"), which is also why an identifier on an enclosing
+        // container would mask this control. The UIKit-side copies only keep the
         // control queryable if those modifiers are ever dropped.
         control.isAccessibilityElement = true
         control.accessibilityIdentifier = "paste-control"
-        control.accessibilityLabel = String(localized: "Save clipboard")
+        control.accessibilityLabel = String(localized: "Paste into Gancho")
         control.accessibilityTraits.insert(.button)
         return control
     }

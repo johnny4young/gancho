@@ -98,15 +98,17 @@ final class CaptureFlowUITests: XCTestCase {
 
     /// Drives the `UIPasteControl` tap end to end. The control grants one-shot
     /// pasteboard access on tap with NO permission prompt, so a synthetic tap
-    /// exercises the real handoff: seed the system pasteboard, tap, and the
-    /// capture card flashes its `save-note` ("Saved") confirmation via `ingest`.
+    /// exercises the real handoff: seed the system pasteboard, tap the control
+    /// in the bottom bar, and the status row flashes its `save-note` ("Saved")
+    /// confirmation via `ingest`.
     @MainActor
     func testPasteControlTapSavesPasteboardContent() throws {
         // The runner seeds the simulator's general pasteboard, which Simulator
-        // mirrors to the host clipboard by default — put the previous contents
-        // back when the test ends.
-        let previousItems = UIPasteboard.general.items
-        defer { UIPasteboard.general.items = previousItems }
+        // mirrors to the host clipboard by default — clear the sample when the
+        // test ends. It is cleared, not restored: reading the previous items
+        // from the runner process asks iOS for paste permission, and that
+        // prompt once stalled this test for 26 minutes.
+        defer { UIPasteboard.general.items = [] }
         UIPasteboard.general.string = "gancho paste-drive sample"
         let app = XCUIApplication()
         app.launchArguments = [
@@ -126,7 +128,7 @@ final class CaptureFlowUITests: XCTestCase {
         }
         // SwiftUI writes its accessibility attributes onto the hosted control;
         // the wrapper's own VoiceOver label must survive that bridging.
-        XCTAssertEqual(paste.label, "Save clipboard")
+        XCTAssertEqual(paste.label, "Paste into Gancho")
         paste.tap()
 
         // The handoff runs `IOSAppModel.ingest(providers:)` → the card flashes the

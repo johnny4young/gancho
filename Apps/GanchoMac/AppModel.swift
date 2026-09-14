@@ -1832,12 +1832,31 @@ final class AppModel {
     /// wouldn't refresh the Settings list until an unrelated state change.
     private(set) var denylistRevision = 0
 
-    var denylistEntries: [String] {
+    /// The apps the user excluded on top of the built-in list, sorted for a
+    /// stable Settings order.
+    var userDenylistEntries: [String] {
         _ = denylistRevision
-        let effective = SourceAppDenylist.suggestedBundleIDs
-            .subtracting(monitor.denylist.disabledSuggestions)
-            .union(monitor.denylist.userBundleIDs)
-        return effective.sorted()
+        return monitor.denylist.userBundleIDs.sorted()
+    }
+
+    /// Whether a built-in exclusion is currently active (the user has not
+    /// switched it off).
+    func isSuggestedExclusionActive(_ bundleID: String) -> Bool {
+        _ = denylistRevision
+        return !monitor.denylist.disabledSuggestions.contains(bundleID)
+    }
+
+    /// Switches one built-in exclusion on or off. Off records the suggestion
+    /// as disabled rather than deleting it, so "Restore default exclusions"
+    /// can bring it back.
+    func setSuggestedExclusion(_ bundleID: String, active: Bool) {
+        if active {
+            monitor.denylist.disabledSuggestions.remove(bundleID)
+        } else {
+            monitor.denylist.remove(bundleID)
+        }
+        monitor.denylist.save(to: defaults)
+        denylistRevision += 1
     }
 
     /// True when the user re-enabled captures from any built-in exclusion —

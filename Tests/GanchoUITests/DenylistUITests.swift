@@ -45,32 +45,53 @@ final class DenylistUITests: XCTestCase {
             "the removed app must leave the list immediately")
     }
 
-    /// The manual add path (bundle-id field + Add). Needs real keyboard focus,
-    /// which a menu-bar agent's window doesn't always get under the runner —
-    /// the shared typing helper skips rather than typing into whatever else has
-    /// the keyboard.
+    /// The manual add path: Add app → By bundle identifier… reveals the field,
+    /// which validates as you type (Add stays disabled and the reason shows
+    /// under it until the text has a bundle identifier's shape). Needs real
+    /// keyboard focus, which a menu-bar agent's window doesn't always get under
+    /// the runner — the shared typing helper skips rather than typing into
+    /// whatever else has the keyboard.
     @MainActor
     func testAddDenylistEntryByTyping() throws {
         let app = try launchIntoCaptureSettings()
         defer { app.terminate() }
 
-        let field = app.textFields["denylist-add-field"].firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 3), "the manual-entry field must be exposed")
         let form = captureForm(in: app)
+        let addMenu = app.descendants(matching: .any)["denylist-add-menu"].firstMatch
+        XCTAssertTrue(addMenu.waitForExistence(timeout: 3), "the Add app menu must be exposed")
         app.activate()
         try SynthesizedInput.requireForeground(app)
         XCTAssertTrue(
-            field.revealByScrolling(in: form),
-            "the manual-entry field must be reachable in the Capture form")
+            addMenu.revealByScrolling(in: form),
+            "the Add app menu must be reachable in the Capture form")
+        addMenu.click()
+        let byIdentifier = app.menuItems["By bundle identifier…"].firstMatch
+        XCTAssertTrue(
+            byIdentifier.waitForExistence(timeout: 3), "the menu must list the typed path")
+        byIdentifier.click()
+
+        let field = app.textFields["denylist-add-field"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 3), "the manual-entry field must appear")
+        let add = app.buttons["denylist-add-button"].firstMatch
+        let error = app.staticTexts["denylist-add-error"].firstMatch
+
+        // A bare word is refused live: Add stays off and the reason is shown.
+        try typeTextReliably("safari", into: field, in: app)
+        XCTAssertTrue(error.waitForExistence(timeout: 2), "an implausible id must explain itself")
+        XCTAssertFalse(add.isEnabled, "Add must stay disabled for an implausible id")
+
+        // The helper select-all-replaces, so this is the corrected entry.
         try typeTextReliably(typedBundleID, into: field, in: app)
-        app.buttons["denylist-add-button"].firstMatch.click()
+        XCTAssertTrue(error.waitForNonexistence(timeout: 2), "a plausible id clears the error")
+        XCTAssertTrue(add.isEnabled)
+        add.click()
 
         let row = app.staticTexts[denylistRowIdentifier(for: typedBundleID)].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 3), "the added app must appear in the list")
+        XCTAssertTrue(
+            field.waitForNonexistence(timeout: 2), "adding folds the field back into the menu")
 
-        // Cleanup doubles as the remove assertion for this path. The new row
-        // sorts to the top of the section, away from wherever the form was
-        // scrolled to reach the field, so bring it back into view first.
+        // Cleanup doubles as the remove assertion for this path.
         let remove = app.buttons[denylistRemoveIdentifier(for: typedBundleID)].firstMatch
         XCTAssertTrue(remove.waitForExistence(timeout: 3))
         XCTAssertTrue(
@@ -105,11 +126,11 @@ final class DenylistUITests: XCTestCase {
         return app
     }
 
-    /// The grouped Capture form, located through the field it must contain so
-    /// the horizontal tab bar (also a scroll view) can never match.
+    /// The grouped Capture form, located through the Add app menu it must
+    /// contain so no other scroll view in the window can match.
     @MainActor
     private func captureForm(in app: XCUIApplication) -> XCUIElement {
-        app.scrollViews.containing(.textField, identifier: "denylist-add-field").firstMatch
+        app.scrollViews.containing(.any, identifier: "denylist-add-menu").firstMatch
     }
 
     private func denylistRowIdentifier(for bundleID: String) -> String {

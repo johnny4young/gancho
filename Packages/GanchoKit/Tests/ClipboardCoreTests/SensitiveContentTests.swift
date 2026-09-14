@@ -116,6 +116,41 @@
             #expect(denylist.disabledSuggestions.isEmpty)
         }
 
+        @Test("Built-in suggestions carry a name and a category, and the set matches")
+        func suggestionsAreDescribed() {
+            let ids = SourceAppDenylist.suggestions.map(\.id)
+            #expect(Set(ids) == SourceAppDenylist.suggestedBundleIDs)
+            #expect(ids.count == Set(ids).count, "no duplicate bundle ids")
+            #expect(SourceAppDenylist.suggestions.allSatisfy { !$0.name.isEmpty })
+            for category in SourceAppDenylist.SuggestionCategory.allCases {
+                #expect(
+                    SourceAppDenylist.suggestions.contains { $0.category == category },
+                    "every category lists at least one app")
+            }
+        }
+
+        @Test(
+            "Bundle identifier plausibility: reverse-DNS shape, nothing else",
+            arguments: [
+                ("com.apple.Safari", true),
+                ("  com.example.banking\n", true),
+                ("com.enpass.Enpass-Desktop", true),
+                ("org.keepassxc.keepassxc", true),
+                ("a.b", true),
+                ("safari", false),
+                ("", false),
+                ("   ", false),
+                ("com.", false),
+                (".apple", false),
+                ("com..apple", false),
+                ("com.apple.Safari app", false),
+                ("com/apple", false),
+                ("com.apple.sáfari", false)
+            ])
+        func bundleIdentifierPlausibility(candidate: String, expected: Bool) {
+            #expect(SourceAppDenylist.isPlausibleBundleIdentifier(candidate) == expected)
+        }
+
         @Test("Manual denylist entries are trimmed before storage and matching")
         func manualEntryTrimming() {
             var denylist = SourceAppDenylist()
