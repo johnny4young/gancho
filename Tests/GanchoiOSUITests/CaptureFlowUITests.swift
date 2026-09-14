@@ -3,15 +3,16 @@ import XCTest
 
 /// iOS UI coverage for the capture→enrich path the GanchoAppCore refactor
 /// touched. XCTest lives ONLY in UI-test targets; package unit tests are Swift
-/// Testing. These run under `make test-ui` / Xcode and are NOT part of CI, and
-/// self-skip — never hard-fail — where an element isn't exposed on a
-/// headless/hosted runner, exactly like `PrivacyCenterUITests`.
+/// Testing. These run under `make test-ui-ios` / Xcode and on the weekly hosted
+/// UI workflow, outside the pull-request gate. Reaching a screen self-skips
+/// where a headless runner doesn't expose it, like `PrivacyCenterUITests`; the
+/// presence of an app-owned accessibility identifier is asserted, because a
+/// missing one is a product regression, not an environment limitation.
 final class CaptureFlowUITests: XCTestCase {
-    /// Capture→saved via the deterministic seed path. The system `UIPasteControl`
-    /// is mediated by an OS paste-permission tap that XCUITest can't drive on a
-    /// headless runner, and `UIPasteboard` can't be seeded from the UI runner —
-    /// so this drives the SAME `IOSAppModel.ingest` capture→enrich path via
-    /// `-seed-sample-clips` and asserts a seeded clip lands in the history list.
+    /// Capture→saved via the deterministic seed path, independent of the system
+    /// paste control exercised below: drives the SAME `IOSAppModel.ingest`
+    /// capture→enrich path via `-seed-sample-clips` and asserts a seeded clip
+    /// lands in the history list.
     @MainActor
     func testSeededCaptureAppearsInHistory() throws {
         let app = XCUIApplication()
@@ -101,9 +102,16 @@ final class CaptureFlowUITests: XCTestCase {
     /// capture card flashes its `save-note` ("Saved") confirmation via `ingest`.
     @MainActor
     func testPasteControlTapSavesPasteboardContent() throws {
+        // The runner seeds the simulator's general pasteboard, which Simulator
+        // mirrors to the host clipboard by default — put the previous contents
+        // back when the test ends.
+        let previousItems = UIPasteboard.general.items
+        defer { UIPasteboard.general.items = previousItems }
         UIPasteboard.general.string = "gancho paste-drive sample"
         let app = XCUIApplication()
-        app.launchArguments = ["-skip-welcome-on-launch", "-force-ephemeral-store"]
+        app.launchArguments = [
+            "-skip-welcome-on-launch", "-force-ephemeral-store", "-AppleLanguages", "(en)"
+        ]
         app.launch()
         defer { app.terminate() }
 
@@ -112,9 +120,13 @@ final class CaptureFlowUITests: XCTestCase {
             throw XCTSkip("capture screen not exposed to the UI runner in this environment")
         }
         let paste = app.descendants(matching: .any)["paste-control"].firstMatch
-        XCTAssertTrue(
-            paste.waitForExistence(timeout: 5),
-            "the paste control must keep its own accessibility identifier, not inherit the card's")
+        guard paste.waitForExistence(timeout: 5) else {
+            XCTFail("paste control not found on the capture screen (see PasteControlView)")
+            return
+        }
+        // SwiftUI writes its accessibility attributes onto the hosted control;
+        // the wrapper's own VoiceOver label must survive that bridging.
+        XCTAssertEqual(paste.label, "Save clipboard")
         paste.tap()
 
         // The handoff runs `IOSAppModel.ingest(providers:)` → the card flashes the

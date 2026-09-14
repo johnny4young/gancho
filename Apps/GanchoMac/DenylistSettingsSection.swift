@@ -16,13 +16,9 @@ struct DenylistSettingsSection: View {
 
     var body: some View {
         Section("Never capture from these apps") {
-            ForEach(model.denylistEntries, id: \.self) { bundleID in
-                denylistRow(bundleID)
-            }
-            if model.hasDisabledDenylistSuggestions {
-                Button("Restore default exclusions") { model.restoreDenylistDefaults() }
-                    .accessibilityIdentifier("denylist-restore-defaults")
-            }
+            // The add affordances lead the section: twenty built-in exclusions
+            // follow, and the fixed-height Settings window would otherwise hide
+            // every way to add an app below the fold.
             Menu("Add a running app…") {
                 ForEach(runningApps) { app in
                     Button {
@@ -52,6 +48,13 @@ struct DenylistSettingsSection: View {
             Text("Password managers and banking apps are excluded by default.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            ForEach(model.denylistEntries, id: \.self) { bundleID in
+                denylistRow(bundleID)
+            }
+            if model.hasDisabledDenylistSuggestions {
+                Button("Restore default exclusions") { model.restoreDenylistDefaults() }
+                    .accessibilityIdentifier("denylist-restore-defaults")
+            }
         }
     }
 

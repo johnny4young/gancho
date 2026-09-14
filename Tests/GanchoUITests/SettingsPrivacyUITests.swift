@@ -6,19 +6,12 @@ import XCTest
 final class SettingsPrivacyUITests: XCTestCase {
     @MainActor
     func testSpotlightIndexingExplainsThePrivacyBoundaryAndCapturesEvidence() throws {
-        let app = XCUIApplication()
-        app.launchArguments = [
-            "-regular-activation-for-ui-tests", "-use-in-process-status-item",
+        let app = try launchSettingsWindow(extraArguments: [
             "-use-temp-durable-store", "-start-capture-paused",
-            "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.settings-privacy",
-            "-open-deep-link-on-launch", "gancho://settings",
-            "-AppleLanguages", "(en)"
-        ]
-        app.launch()
+            "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.settings-privacy"
+        ])
         defer { app.terminate() }
-
         let settings = app.windows["Settings"].firstMatch
-        XCTAssertTrue(settings.waitForExistence(timeout: 8))
 
         let privacyTab = app.buttons["settings-tab-privacy"].firstMatch
         XCTAssertTrue(privacyTab.waitForExistence(timeout: 3))

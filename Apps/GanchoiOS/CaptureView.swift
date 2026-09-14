@@ -450,6 +450,7 @@ struct CaptureView: View {
             .padding(.horizontal, GanchoTokens.Spacing.md)
             .padding(.vertical, GanchoTokens.Spacing.xs)
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("board-rail")
     }
 
@@ -562,6 +563,9 @@ struct CaptureView: View {
                     .foregroundStyle(GanchoTokens.Palette.success)
                     .accessibilityIdentifier("save-note")
             }
+            // No accessibility identifier on this card: SwiftUI applies an
+            // ancestor's identifier to the hosted `UIPasteControl` and would
+            // overwrite the control's own `paste-control`.
             VStack(spacing: 0) {
                 HStack(spacing: 11) {
                     captureTile
@@ -583,6 +587,7 @@ struct CaptureView: View {
                     PasteControlView { providers in model.ingest(providers: providers) }
                         .frame(width: 108, height: 34)
                         .accessibilityIdentifier("paste-control")
+                        .accessibilityLabel(Text("Save clipboard"))
                 }
                 .padding(.vertical, 10)
                 Divider()
@@ -722,6 +727,7 @@ struct CaptureView: View {
                         .accessibilityIdentifier("sync-retry")
                 }
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("sync-status")
         }
     }
@@ -756,8 +762,12 @@ struct PasteControlView: UIViewRepresentable {
         config.baseForegroundColor = .white
         let control = UIPasteControl(configuration: config)
         control.target = context.coordinator.target
-        // Set the identifier on both representations of the system control.
-        // A card-level identifier would propagate to this button and mask it.
+        // The identifier and label assistive tech sees come from the SwiftUI
+        // modifiers at the call site: SwiftUI writes its accessibility attributes
+        // onto the hosted view (the UIKit-side label alone left VoiceOver reading
+        // the system's "Paste"), which is also why an identifier on the enclosing
+        // card used to mask this control. The UIKit-side copies only keep the
+        // control queryable if those modifiers are ever dropped.
         control.isAccessibilityElement = true
         control.accessibilityIdentifier = "paste-control"
         control.accessibilityLabel = String(localized: "Save clipboard")

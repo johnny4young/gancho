@@ -361,10 +361,10 @@ private struct CaptureSettingsTab: View {
             Toggle("Keep rich text formatting", isOn: $model.preferences.captureRichText)
 
             // The editable never-capture list sits with the capture toggles —
-            // it's the same question ("what gets captured?"), and at the form's
-            // tail it hid below the fold of the default window height. Its own
-            // file: it grew rows with names/icons, an /Applications picker,
-            // and a restore affordance.
+            // it's the same question ("what gets captured?"). Its add controls
+            // lead the section, because the built-in rows alone outgrow the
+            // fixed window height. Its own file: it grew rows with names/icons,
+            // an /Applications picker, and a restore affordance.
             DenylistSettingsSection()
 
             Section("Intelligence") {
