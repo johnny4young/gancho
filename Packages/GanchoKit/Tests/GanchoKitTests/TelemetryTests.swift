@@ -36,33 +36,84 @@ private final class SenderFactoryProbe: @unchecked Sendable {
     }
 }
 
-private final class BlockingSenderFactory: @unchecked Sendable {
-    let sender = SpySender()
-    private let entered = DispatchSemaphore(value: 0)
+/// A one-shot signal that a blocking call raises and a test awaits without
+/// holding a thread. Waiting on a `DispatchSemaphore` inside an async test parks
+/// a thread of Swift's cooperative pool; on a runner with few cores the task
+/// the test is waiting for may then never be scheduled.
+private final class AsyncSignal: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isRaised = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func raise() {
+        let waiting = lock.withLock { () -> [CheckedContinuation<Void, Never>] in
+            guard !isRaised else { return [] }
+            isRaised = true
+            defer { waiters.removeAll() }
+            return waiters
+        }
+        for continuation in waiting { continuation.resume() }
+    }
+
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            let alreadyRaised = lock.withLock { () -> Bool in
+                guard !isRaised else { return true }
+                waiters.append(continuation)
+                return false
+            }
+            if alreadyRaised { continuation.resume() }
+        }
+    }
+}
+
+/// Holds a call inside the pipeline until the test opens it, the way a slow
+/// SDK initializer or transport call would.
+private final class Gate: Sendable {
+    let entered = AsyncSignal()
     private let release = DispatchSemaphore(value: 0)
 
-    func makeSender() -> any TelemetrySending {
-        entered.signal()
-        release.wait()
-        return sender
+    /// Runs on the held call's own thread, never on the cooperative pool.
+    func pass() {
+        entered.raise()
+        // Only a hang guard: a test that never opens the gate fails on its time
+        // limit first instead of leaving this thread parked forever.
+        _ = release.wait(timeout: .now() + 90)
     }
 
-    func waitUntilEntered() -> Bool {
-        // Generous timeout: the barrier is deterministic (semaphore signal),
-        // so this only guards against a genuine hang. 2s was too tight for a
-        // loaded CI runner where the detached task is scheduled late.
-        entered.wait(timeout: .now() + 15) == .success
-    }
-
-    func unblock() {
+    func open() {
         release.signal()
     }
 }
 
+/// Runs a pipeline call on a dedicated thread, off Swift's cooperative pool, so
+/// the call can block for as long as a test holds its gate while the test keeps
+/// awaiting instead of occupying a pool thread.
+private final class OffPoolCall: Sendable {
+    let finished = AsyncSignal()
+
+    init(_ call: @escaping @Sendable () -> Void) {
+        let finished = finished
+        Thread {
+            call()
+            finished.raise()
+        }.start()
+    }
+}
+
+private final class BlockingSenderFactory: Sendable {
+    let sender = SpySender()
+    let gate = Gate()
+
+    func makeSender() -> any TelemetrySending {
+        gate.pass()
+        return sender
+    }
+}
+
 private final class BlockingSendSender: TelemetrySending, @unchecked Sendable {
+    let gate = Gate()
     private let lock = NSLock()
-    private let entered = DispatchSemaphore(value: 0)
-    private let release = DispatchSemaphore(value: 0)
     private var _sendCount = 0
     private var _shutdownCount = 0
 
@@ -70,24 +121,12 @@ private final class BlockingSendSender: TelemetrySending, @unchecked Sendable {
     var shutdownCount: Int { lock.withLock { _shutdownCount } }
 
     func send(name _: String, parameters _: [String: String]) {
-        entered.signal()
-        release.wait()
+        gate.pass()
         lock.withLock { _sendCount += 1 }
     }
 
     func shutdown() {
         lock.withLock { _shutdownCount += 1 }
-    }
-
-    func waitUntilEntered() -> Bool {
-        // Generous timeout: the barrier is deterministic (semaphore signal),
-        // so this only guards against a genuine hang. 2s was too tight for a
-        // loaded CI runner where the detached task is scheduled late.
-        entered.wait(timeout: .now() + 15) == .success
-    }
-
-    func unblock() {
-        release.signal()
     }
 }
 
@@ -191,17 +230,23 @@ struct TelemetryTests {
         #expect(probe.constructionCount == 2)
     }
 
-    @Test("Withdrawal rejects and shuts down a sender still being constructed")
+    // The two withdrawal tests hold a pipeline call at a gate on its own thread
+    // and await it. They used to block a cooperative-pool thread while the held
+    // call ran in a detached task; on a busy hosted runner that task started
+    // late, after the withdrawal, and the consent changes ran in reverse order.
+    @Test(
+        "Withdrawal rejects and shuts down a sender still being constructed",
+        .timeLimit(.minutes(1)))
     func withdrawalDuringConstruction() async {
         let factory = BlockingSenderFactory()
         let pipeline = TelemetryPipeline(
             consent: .notAsked, senderFactory: { factory.makeSender() })
 
-        let enabling = Task.detached { pipeline.setConsent(.enabled) }
-        #expect(factory.waitUntilEntered())
+        let enabling = OffPoolCall { pipeline.setConsent(.enabled) }
+        await factory.gate.entered.wait()
         pipeline.setConsent(.disabled)
-        factory.unblock()
-        await enabling.value
+        factory.gate.open()
+        await enabling.finished.wait()
 
         #expect(factory.sender.shutdownCount == 1)
         pipeline.record(.appLaunched)
@@ -209,24 +254,30 @@ struct TelemetryTests {
         #expect(factory.sender.sent.isEmpty)
     }
 
-    @Test("Withdrawal is a barrier for transport calls already in progress")
+    @Test(
+        "Withdrawal is a barrier for transport calls already in progress",
+        .timeLimit(.minutes(1)))
     func withdrawalWaitsForInFlightSend() async {
         let sender = BlockingSendSender()
         let pipeline = TelemetryPipeline(consent: .enabled, senderFactory: { sender })
 
-        let recording = Task.detached { pipeline.record(.appLaunched) }
-        guard sender.waitUntilEntered() else {
-            sender.unblock()
-            Issue.record("The test sender never received its signal")
-            return
-        }
-        let withdrawing = Task.detached { pipeline.setConsent(.disabled) }
-        try? await Task.sleep(for: .milliseconds(20))
-        #expect(sender.shutdownCount == 0)
+        let recording = OffPoolCall { pipeline.record(.appLaunched) }
+        await sender.gate.entered.wait()
+        #expect(pipeline.counts() == ["app_launched": 1])
 
-        sender.unblock()
-        await recording.value
-        await withdrawing.value
+        let withdrawing = OffPoolCall { pipeline.setConsent(.disabled) }
+        // Withdrawal clears the local counts before it shuts the transport down,
+        // so empty counts prove it has reached the barrier, not merely that it
+        // has not started yet.
+        while !pipeline.counts().isEmpty, !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        try? await Task.sleep(for: .milliseconds(20))
+        #expect(sender.shutdownCount == 0, "withdrawal must wait for the send in progress")
+
+        sender.gate.open()
+        await recording.finished.wait()
+        await withdrawing.finished.wait()
         #expect(sender.sendCount == 1)
         #expect(sender.shutdownCount == 1)
 
