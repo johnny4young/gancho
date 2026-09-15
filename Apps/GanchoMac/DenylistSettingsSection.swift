@@ -77,7 +77,7 @@ struct DenylistSettingsSection: View {
                 Menu("Running app") {
                     ForEach(runningApps) { app in
                         Button {
-                            model.addToDenylist(app.id)
+                            addApp(app.id)
                         } label: {
                             Text(verbatim: app.name)
                         }
@@ -148,7 +148,7 @@ struct DenylistSettingsSection: View {
 
     private func addTypedIdentifier() {
         guard typedIdentifierIsPlausible else { return }
-        model.addToDenylist(newDenylistEntry.trimmingCharacters(in: .whitespacesAndNewlines))
+        addApp(newDenylistEntry)
         newDenylistEntry = ""
         isAddingByIdentifier = false
     }
@@ -285,6 +285,16 @@ struct DenylistSettingsSection: View {
         return DeniedAppInfo(name: name, icon: NSWorkspace.shared.icon(forFile: url.path))
     }
 
+    /// Every add path lands here. A built-in app is switched back on instead of
+    /// being listed twice, so open its group to show the switch that changed.
+    private func addApp(_ bundleID: String) {
+        let trimmed = bundleID.trimmingCharacters(in: .whitespacesAndNewlines)
+        model.addToDenylist(trimmed)
+        if SourceAppDenylist.suggestedBundleIDs.contains(trimmed) {
+            showsBuiltInExclusions = true
+        }
+    }
+
     /// The no-typing path for apps that aren't running: pick bundles straight
     /// from /Applications.
     private func chooseApplicationsToExclude() {
@@ -296,7 +306,7 @@ struct DenylistSettingsSection: View {
         guard panel.runModal() == .OK else { return }
         for url in panel.urls {
             if let bundleID = Bundle(url: url)?.bundleIdentifier {
-                model.addToDenylist(bundleID)
+                addApp(bundleID)
             }
         }
     }
@@ -306,16 +316,18 @@ struct DenylistSettingsSection: View {
         let name: String
     }
 
-    /// Currently-running, Dock-visible apps not already on the denylist — the
-    /// no-typing way to add one (you rarely know an app's bundle id by heart).
+    /// Currently-running, Dock-visible apps whose copies are still captured —
+    /// the no-typing way to add one (you rarely know an app's bundle id by
+    /// heart). Apps already excluded, by the user or by an active built-in,
+    /// are left out; a built-in the user switched off stays offered, and
+    /// picking it switches it back on.
     private var runningApps: [RunningApp] {
-        let denied = Set(model.userDenylistEntries)
         var seen = Set<String>()
         return NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
             .compactMap { app -> RunningApp? in
                 guard let id = app.bundleIdentifier, let name = app.localizedName,
-                    !denied.contains(id), seen.insert(id).inserted
+                    !model.isExcludedFromCapture(id), seen.insert(id).inserted
                 else { return nil }
                 return RunningApp(id: id, name: name)
             }

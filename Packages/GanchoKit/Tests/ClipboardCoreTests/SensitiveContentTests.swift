@@ -151,6 +151,87 @@
             #expect(SourceAppDenylist.isPlausibleBundleIdentifier(candidate) == expected)
         }
 
+        @Test("Adding a built-in app switches it back on instead of listing it twice")
+        func addingABuiltInKeepsOneEntry() {
+            var denylist = SourceAppDenylist()
+            denylist.setSuggestion("com.apple.Passwords", active: false)
+            #expect(!denylist.contains("com.apple.Passwords"))
+
+            denylist.add("com.apple.Passwords")
+
+            #expect(denylist.contains("com.apple.Passwords"))
+            #expect(denylist.isSuggestionActive("com.apple.Passwords"))
+            #expect(
+                denylist.userBundleIDs.isEmpty,
+                "a built-in app never becomes a removable user entry")
+        }
+
+        @Test(
+            "No built-in app ever lands in the user entries, however it is added",
+            arguments: SourceAppDenylist.suggestions.map(\.id))
+        func builtInsStayOutOfUserEntries(bundleID: String) {
+            var added = SourceAppDenylist()
+            added.setSuggestion(bundleID, active: false)
+            added.add(" \(bundleID)\n")
+            #expect(added.userBundleIDs.isEmpty, "the Settings user rows never list a built-in app")
+            #expect(added.contains(bundleID))
+
+            let constructed = SourceAppDenylist(userBundleIDs: [bundleID, "com.example.banking"])
+            #expect(constructed.userBundleIDs == ["com.example.banking"])
+            #expect(constructed.contains(bundleID))
+        }
+
+        @Test("The built-in switch drives one app, leaves user entries alone, and restores")
+        func suggestionSwitch() {
+            var denylist = SourceAppDenylist()
+            denylist.add("com.example.banking")
+
+            denylist.setSuggestion("com.bitwarden.desktop", active: false)
+            #expect(!denylist.isSuggestionActive("com.bitwarden.desktop"))
+            #expect(!denylist.contains("com.bitwarden.desktop"))
+            #expect(denylist.contains("com.example.banking"))
+
+            denylist.setSuggestion("com.bitwarden.desktop", active: true)
+            #expect(denylist.contains("com.bitwarden.desktop"))
+
+            denylist.setSuggestion("com.example.banking", active: false)
+            #expect(
+                denylist.contains("com.example.banking"), "the switch only drives built-in apps")
+            #expect(!denylist.isSuggestionActive("com.example.banking"))
+
+            denylist.setSuggestion("com.apple.Passwords", active: false)
+            denylist.restoreSuggestions()
+            #expect(denylist.isSuggestionActive("com.apple.Passwords"))
+            #expect(denylist.userBundleIDs == ["com.example.banking"])
+        }
+
+        @Test(
+            "A list saved with built-in apps as user entries loads folded, protecting the same apps",
+            arguments: [false, true])
+        func legacyOverlapLoadsFolded(builtInWasSwitchedOff: Bool) throws {
+            let disabled =
+                builtInWasSwitchedOff
+                ? #"["com.apple.Passwords","com.bitwarden.desktop"]"#
+                : #"["com.bitwarden.desktop"]"#
+            let legacy =
+                #"{"userBundleIDs":["com.apple.Passwords","com.example.banking"],"disabledSuggestions":\#(disabled)}"#
+
+            let loaded = try JSONDecoder().decode(SourceAppDenylist.self, from: Data(legacy.utf8))
+
+            #expect(loaded.userBundleIDs == ["com.example.banking"])
+            #expect(
+                loaded.contains("com.apple.Passwords"), "the user's explicit add still protects it")
+            #expect(loaded.isSuggestionActive("com.apple.Passwords"))
+            #expect(!loaded.contains("com.bitwarden.desktop"), "an unrelated switch-off survives")
+            #expect(loaded.contains("com.example.banking"))
+
+            let suite = "denylist-legacy-\(UUID().uuidString)"
+            let defaults = try #require(UserDefaults(suiteName: suite))
+            defer { defaults.removePersistentDomain(forName: suite) }
+            loaded.save(to: defaults)
+            #expect(SourceAppDenylist.load(from: defaults) == loaded)
+        }
+
         @Test("Manual denylist entries are trimmed before storage and matching")
         func manualEntryTrimming() {
             var denylist = SourceAppDenylist()

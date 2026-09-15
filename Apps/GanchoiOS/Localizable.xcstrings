@@ -1511,16 +1511,6 @@
         }
       }
     },
-    "iOS apps can't watch the clipboard in the background — no app can. Capture with the button above, the share sheet from any app, or a Shortcut on your Action Button.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Las apps de iOS no pueden vigilar el portapapeles en segundo plano — ninguna puede. Captura con el botón de arriba, el share sheet desde cualquier app o un Atajo en tu Action Button."
-          }
-        }
-      }
-    },
     "image": {
       "localizations": {
         "es": {
@@ -3698,6 +3688,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pegar en Gancho"
+          }
+        }
+      }
+    },
+    "iOS apps can't watch the clipboard in the background — no app can. Capture with the Paste button, the share sheet from any app, or a Shortcut on your Action Button.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las apps de iOS no pueden vigilar el portapapeles en segundo plano — ninguna puede. Captura con el botón Pegar, el share sheet desde cualquier app o un Atajo en tu Action Button."
           }
         }
       }

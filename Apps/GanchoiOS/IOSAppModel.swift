@@ -39,8 +39,8 @@ final class IOSAppModel {
     var hints = IntentionalPasteboardSource.ContentHints()
     /// The pasteboard `changeCount` of the last clip captured via the paste
     /// control. When it matches the current `hints.changeCount`, the copy on
-    /// the clipboard has already been read — so the card says "Saved", not
-    /// "not read yet". nil until the first capture this session.
+    /// the clipboard has already been read — so the status row says "Saved",
+    /// not "Sensed, not read". nil until the first capture this session.
     var lastCapturedChangeCount: Int?
     /// Transient feedback ("Saved" / "Already in your history").
     var saveNote: String?
@@ -225,6 +225,9 @@ final class IOSAppModel {
         // refresh an open screen.
         recordStorageHealthIfNeeded()
         seedSampleClipsIfRequested()
+        #if DEBUG
+            pinLongSaveNoteIfRequested()
+        #endif
         uiTestPrivateActivityReceiptSeedTask = seedDurableUITestFixturesIfRequested()
         telemetry.record(.appLaunched)
         #if DEBUG

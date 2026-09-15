@@ -15,6 +15,8 @@ final class DenylistUITests: XCTestCase {
     /// first in the section.
     private let seededBundleID = "app.gancho.uitests.seeded"
     private let typedBundleID = "app.gancho.uitests.typed"
+    /// A built-in exclusion that ships installed on every Mac.
+    private let builtInBundleID = "com.apple.Passwords"
 
     /// Deterministic acceptance: the seeded entry renders as a row and its
     /// remove button deletes it live (AppModel → SourceAppDenylist →
@@ -36,9 +38,12 @@ final class DenylistUITests: XCTestCase {
         // verifiably frontmost before the form is scrolled.
         app.activate()
         try SynthesizedInput.requireForeground(app)
-        XCTAssertTrue(
-            remove.revealByScrolling(in: captureForm(in: app)),
-            "the seeded row's remove button must be reachable in the Capture form")
+        // A failed assertion does not stop the test, and a click on a button
+        // that never came into view must not run: stop here instead.
+        guard remove.revealByScrolling(in: captureForm(in: app)) else {
+            XCTFail("the seeded row's remove button must be reachable in the Capture form")
+            return
+        }
         remove.click()
         XCTAssertTrue(
             row.waitForNonexistence(timeout: 3),
@@ -61,9 +66,10 @@ final class DenylistUITests: XCTestCase {
         XCTAssertTrue(addMenu.waitForExistence(timeout: 3), "the Add app menu must be exposed")
         app.activate()
         try SynthesizedInput.requireForeground(app)
-        XCTAssertTrue(
-            addMenu.revealByScrolling(in: form),
-            "the Add app menu must be reachable in the Capture form")
+        guard addMenu.revealByScrolling(in: form) else {
+            XCTFail("the Add app menu must be reachable in the Capture form")
+            return
+        }
         addMenu.click()
         let byIdentifier = app.menuItems["By bundle identifier…"].firstMatch
         XCTAssertTrue(
@@ -94,11 +100,67 @@ final class DenylistUITests: XCTestCase {
         // Cleanup doubles as the remove assertion for this path.
         let remove = app.buttons[denylistRemoveIdentifier(for: typedBundleID)].firstMatch
         XCTAssertTrue(remove.waitForExistence(timeout: 3))
-        XCTAssertTrue(
-            remove.revealByScrolling(in: form),
-            "the new row's remove button must be reachable in the Capture form")
+        guard remove.revealByScrolling(in: form) else {
+            XCTFail("the new row's remove button must be reachable in the Capture form")
+            return
+        }
         remove.click()
         XCTAssertTrue(row.waitForNonexistence(timeout: 3))
+    }
+
+    /// Adding a built-in app (the seed takes the same model call as every Add
+    /// path) keeps one control: its switch under Built-in exclusions, never a
+    /// removable user row whose removal would switch the protection off.
+    /// Switching it off and restoring the defaults drive that same switch.
+    @MainActor
+    func testAddingABuiltInAppKeepsOneSwitch() throws {
+        let app = try launchIntoCaptureSettings(
+            extraArguments: ["-seed-denylist-entry", builtInBundleID])
+        defer { app.terminate() }
+
+        let form = captureForm(in: app)
+        let addMenu = app.descendants(matching: .any)["denylist-add-menu"].firstMatch
+        XCTAssertTrue(addMenu.waitForExistence(timeout: 3), "the Capture form must load")
+        XCTAssertFalse(
+            app.buttons[denylistRemoveIdentifier(for: builtInBundleID)].firstMatch.exists,
+            "a built-in app must not also appear as a removable user entry")
+
+        app.activate()
+        try SynthesizedInput.requireForeground(app)
+        let builtIns = app.descendants(matching: .any)["denylist-built-in"].firstMatch
+        guard builtIns.waitForExistence(timeout: 3), builtIns.revealByScrolling(in: form) else {
+            XCTFail("the Built-in exclusions row must be reachable in the Capture form")
+            return
+        }
+        builtIns.click()
+
+        let toggle = app.descendants(matching: .any)[
+            denylistToggleIdentifier(for: builtInBundleID)
+        ].firstMatch
+        guard toggle.waitForExistence(timeout: 3), toggle.revealByScrolling(in: form) else {
+            XCTFail("the built-in app's switch must be reachable")
+            return
+        }
+        XCTAssertTrue(isOn(toggle), "adding a built-in app keeps its protection switched on")
+
+        toggle.click()
+        XCTAssertTrue(
+            waitForSwitch(toggle, on: false, timeout: 3), "the switch turns the protection off")
+
+        let restore = app.buttons["denylist-restore-defaults"].firstMatch
+        guard restore.waitForExistence(timeout: 3), restore.revealByScrolling(in: form) else {
+            XCTFail("a switched-off built-in must offer Restore default exclusions")
+            return
+        }
+        restore.click()
+        XCTAssertTrue(restore.waitForNonexistence(timeout: 3))
+        guard toggle.revealByScrolling(in: form) else {
+            XCTFail("the built-in app's switch must stay reachable after restoring")
+            return
+        }
+        XCTAssertTrue(
+            waitForSwitch(toggle, on: true, timeout: 3),
+            "restoring the defaults switches the protection back on")
     }
 
     /// Launches into Settings via the shared launcher and switches to the
@@ -139,6 +201,27 @@ final class DenylistUITests: XCTestCase {
 
     private func denylistRemoveIdentifier(for bundleID: String) -> String {
         "denylist-remove-\(denylistIdentifierSlug(bundleID))"
+    }
+
+    private func denylistToggleIdentifier(for bundleID: String) -> String {
+        "denylist-toggle-\(denylistIdentifierSlug(bundleID))"
+    }
+
+    /// A macOS switch reports its state as a number; tolerate a string too.
+    @MainActor
+    private func isOn(_ element: XCUIElement) -> Bool {
+        if let number = element.value as? NSNumber { return number.boolValue }
+        return (element.value as? String) == "1"
+    }
+
+    @MainActor
+    private func waitForSwitch(_ element: XCUIElement, on: Bool, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if isOn(element) == on { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return isOn(element) == on
     }
 
     private func denylistIdentifierSlug(_ bundleID: String) -> String {

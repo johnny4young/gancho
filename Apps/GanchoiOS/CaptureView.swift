@@ -49,7 +49,6 @@ struct CaptureView: View {
     @State private var answer: IOSAppModel.ClipboardAnswer?
     @State private var isAsking = false
     @State private var askTask: Task<Void, Never>?
-    @State private var showPasteboardInfo = false
 
     var body: some View {
         @Bindable var model = model
@@ -555,7 +554,7 @@ struct CaptureView: View {
                     .foregroundStyle(.secondary)
                 Text(
                     // swiftlint:disable:next line_length
-                    "iOS apps can't watch the clipboard in the background — no app can. Capture with the button above, the share sheet from any app, or a Shortcut on your Action Button."
+                    "iOS apps can't watch the clipboard in the background — no app can. Capture with the Paste button, the share sheet from any app, or a Shortcut on your Action Button."
                 )
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
@@ -573,91 +572,17 @@ struct CaptureView: View {
         await model.search()
     }
 
-    /// The pasteboard status line (the design's Pasteboard section, folded to
-    /// one row). gancho senses the clipboard's TYPE via `detectPatterns` — no
-    /// read, no "pasted from" banner — and says so in a chip that carries
-    /// contrast; the explanation lives behind the info button. The one-tap
-    /// "yes, save this" is the system paste control in the bottom bar, next to
-    /// search, where the thumb already is. Privacy is the function, not an
-    /// apology.
-    @ViewBuilder private var pasteboardSection: some View {
+    /// The design's Pasteboard section: the status row the capture screen
+    /// shows above history (see `PasteboardStatusRow`).
+    private var pasteboardSection: some View {
         Section {
-            HStack(spacing: GanchoTokens.Spacing.xs) {
-                if let note = model.saveNote {
-                    statusChip(Text(note), systemImage: "checkmark.circle.fill")
-                        .accessibilityIdentifier("save-note")
-                } else if alreadyCaptured {
-                    statusChip(Text("Saved"), systemImage: "checkmark.circle.fill")
-                } else {
-                    statusChip(Text("Sensed, not read"), systemImage: "shield.lefthalf.filled")
-                }
-                Text(senseTitle)
-                    .font(.subheadline.weight(.medium))
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Button {
-                    showPasteboardInfo = true
-                } label: {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.tertiary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("How Gancho senses your clipboard"))
-                .accessibilityIdentifier("pasteboard-info")
-                .popover(isPresented: $showPasteboardInfo, arrowEdge: .top) {
-                    Label {
-                        Text(
-                            "Gancho never reads your clipboard on its own. It only sees the type until you tap Paste."
-                        )
-                        .font(.footnote)
-                        .fixedSize(horizontal: false, vertical: true)
-                    } icon: {
-                        Image(systemName: "checkmark.shield.fill")
-                            .foregroundStyle(GanchoTokens.Palette.accent)
-                    }
-                    .padding(GanchoTokens.Spacing.md)
-                    .frame(width: 300)
-                    .presentationCompactAdaptation(.popover)
-                }
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(
-                EdgeInsets(
-                    top: GanchoTokens.Spacing.xxs, leading: GanchoTokens.Spacing.xxs,
-                    bottom: GanchoTokens.Spacing.xxs, trailing: GanchoTokens.Spacing.xxs))
+            PasteboardStatusRow()
+                .listRowBackground(Color.clear)
+                .listRowInsets(
+                    EdgeInsets(
+                        top: GanchoTokens.Spacing.xxs, leading: GanchoTokens.Spacing.xxs,
+                        bottom: GanchoTokens.Spacing.xxs, trailing: GanchoTokens.Spacing.xxs))
         }
-    }
-
-    /// Green state pill: the privacy claim before a save, the confirmation after.
-    private func statusChip(_ text: Text, systemImage: String) -> some View {
-        Label {
-            text
-        } icon: {
-            Image(systemName: systemImage)
-        }
-        .font(.caption2.weight(.semibold))
-        .labelStyle(.titleAndIcon)
-        .foregroundStyle(GanchoTokens.Palette.success)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 4)
-        .background(GanchoTokens.Palette.success.opacity(0.14), in: Capsule())
-        .fixedSize()
-    }
-
-    /// True when the copy currently on the clipboard is the one we just saved
-    /// (matched by the pasteboard's change counter — metadata, no read).
-    private var alreadyCaptured: Bool {
-        model.lastCapturedChangeCount != nil
-            && model.hints.changeCount == model.lastCapturedChangeCount
-    }
-
-    /// What `detectPatterns` sensed, as a title — derived without reading.
-    private var senseTitle: LocalizedStringKey {
-        guard model.hints.hasContent else { return "Pasteboard is empty" }
-        if model.hints.probableWebURL { return "Link on your clipboard" }
-        if model.hints.probableWebSearch { return "Search text on your clipboard" }
-        if model.hints.number { return "Number on your clipboard" }
-        return "Something on your clipboard"
     }
 
     /// Shown only when the durable store failed to open — captures are running
@@ -753,8 +678,8 @@ struct PasteControlView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> UIPasteControl {
-        // Styled as the design's green "Save" — a system paste button that
-        // grants one-time access on tap, no "pasted from" banner.
+        // The design's green Paste button, drawn by the system: it grants
+        // one-time access on tap, with no "pasted from" banner.
         let config = UIPasteControl.Configuration()
         config.cornerStyle = .capsule
         config.displayMode = .iconAndLabel

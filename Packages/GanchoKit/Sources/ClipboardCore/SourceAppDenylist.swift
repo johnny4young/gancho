@@ -86,14 +86,38 @@ public struct SourceAppDenylist: Sendable, Equatable, Codable {
         }
     }
 
-    /// Bundle IDs the user added on top of the suggestions.
-    public var userBundleIDs: Set<String>
-    /// Suggested entries the user explicitly re-enabled (captures allowed).
-    public var disabledSuggestions: Set<String>
+    /// Bundle IDs the user added on top of the suggestions. Never a built-in
+    /// app: adding one switches its suggestion back on instead, so every
+    /// exclusion has exactly one control in Settings and removing a user entry
+    /// can never switch off a built-in protection behind it.
+    public private(set) var userBundleIDs: Set<String>
+    /// Suggested entries the user switched off (captures allowed).
+    public private(set) var disabledSuggestions: Set<String>
 
     public init(userBundleIDs: Set<String> = [], disabledSuggestions: Set<String> = []) {
-        self.userBundleIDs = Set(userBundleIDs.compactMap(Self.normalizedBundleID))
+        let users = Set(userBundleIDs.compactMap(Self.normalizedBundleID))
+        // Earlier builds stored an added built-in app as a user entry as well.
+        // That add meant "exclude this app", so it keeps the suggestion on.
+        // Folding the overlap never changes what `contains` answers for any app.
+        let builtInsAddedByUser = users.intersection(Self.suggestedBundleIDs)
+        self.userBundleIDs = users.subtracting(Self.suggestedBundleIDs)
         self.disabledSuggestions = Set(disabledSuggestions.compactMap(Self.normalizedBundleID))
+            .intersection(Self.suggestedBundleIDs)
+            .subtracting(builtInsAddedByUser)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case userBundleIDs, disabledSuggestions
+    }
+
+    /// Decodes through the normalizing initializer, so a list saved by an
+    /// earlier build loads with its overlaps folded.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            userBundleIDs: try container.decode(Set<String>.self, forKey: .userBundleIDs),
+            disabledSuggestions: try container.decode(
+                Set<String>.self, forKey: .disabledSuggestions))
     }
 
     /// The veto check the monitor runs pre-read.
@@ -104,16 +128,46 @@ public struct SourceAppDenylist: Sendable, Equatable, Codable {
             && !disabledSuggestions.contains(bundleID)
     }
 
+    /// Excludes an app. A built-in app is switched back on rather than stored
+    /// as a user entry, so it is never listed twice.
     public mutating func add(_ bundleID: String) {
         guard let bundleID = Self.normalizedBundleID(bundleID) else { return }
-        userBundleIDs.insert(bundleID)
-        disabledSuggestions.remove(bundleID)
+        if Self.suggestedBundleIDs.contains(bundleID) {
+            disabledSuggestions.remove(bundleID)
+        } else {
+            userBundleIDs.insert(bundleID)
+        }
     }
 
+    /// Allows captures from an app again: drops a user entry, or switches a
+    /// built-in app off.
     public mutating func remove(_ bundleID: String) {
         guard let bundleID = Self.normalizedBundleID(bundleID) else { return }
         userBundleIDs.remove(bundleID)
         if Self.suggestedBundleIDs.contains(bundleID) {
+            disabledSuggestions.insert(bundleID)
+        }
+    }
+
+    /// Whether a built-in app's exclusion is switched on. False for an app that
+    /// is not a built-in suggestion.
+    public func isSuggestionActive(_ bundleID: String) -> Bool {
+        guard let bundleID = Self.normalizedBundleID(bundleID),
+            Self.suggestedBundleIDs.contains(bundleID)
+        else { return false }
+        return !disabledSuggestions.contains(bundleID)
+    }
+
+    /// The Settings switch for one built-in app. Off allows its copies until it
+    /// is switched back on or the defaults are restored. User entries are never
+    /// touched, and an app that is not a built-in suggestion is ignored.
+    public mutating func setSuggestion(_ bundleID: String, active: Bool) {
+        guard let bundleID = Self.normalizedBundleID(bundleID),
+            Self.suggestedBundleIDs.contains(bundleID)
+        else { return }
+        if active {
+            disabledSuggestions.remove(bundleID)
+        } else {
             disabledSuggestions.insert(bundleID)
         }
     }
