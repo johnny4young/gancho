@@ -33,5 +33,9 @@ func launchSettingsWindow(
         app.terminate()
         throw CocoaError(.fileNoSuchFile)
     }
+    // The first click into a window that is not yet key only activates it;
+    // make sure the agent is frontmost before a suite drives the sidebar.
+    app.activate()
+    _ = app.wait(for: .runningForeground, timeout: 5)
     return app
 }
