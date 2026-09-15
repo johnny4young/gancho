@@ -15,12 +15,13 @@ extension IOSAppModel {
 
     #if DEBUG
         /// UI-test hook: `-pin-long-save-note` shows a long real status note
-        /// (the load failure) and never dismisses it, so a layout test can
-        /// measure the status row with it in any language and text size.
-        /// Nothing is read or saved.
+        /// (the load failure, a failure-kind note) and never dismisses it, so a
+        /// test can measure the status row and read its kind in any language
+        /// and text size. Nothing is read or saved.
         func pinLongSaveNoteIfRequested() {
             guard ProcessInfo.processInfo.arguments.contains("-pin-long-save-note") else { return }
-            saveNote = String(localized: "Couldn’t load this clip — try again.")
+            saveNote = CaptureStatusNote(
+                text: String(localized: "Couldn’t load this clip — try again."), kind: .failure)
         }
     #endif
 

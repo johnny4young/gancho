@@ -3701,6 +3701,26 @@
           }
         }
       }
+    },
+    "Limit reached": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Límite alcanzado"
+          }
+        }
+      }
+    },
+    "Error": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
