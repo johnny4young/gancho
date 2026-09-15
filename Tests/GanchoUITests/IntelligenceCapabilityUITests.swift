@@ -7,21 +7,13 @@ import XCTest
 final class IntelligenceCapabilityUITests: XCTestCase {
     @MainActor
     func testSimulatedSequoiaExplainsTheMacOS26Requirement() throws {
-        let app = XCUIApplication()
-        app.launchArguments = [
-            "-regular-activation-for-ui-tests", "-use-in-process-status-item",
+        let app = try launchSettingsWindow(extraArguments: [
             "-use-temp-durable-store", "-start-capture-paused",
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.intelligence-capability",
-            "-open-deep-link-on-launch", "gancho://settings",
-            "-simulate-sequoia-capabilities",
-            "-AppleLanguages", "(en)"
-        ]
-        app.launch()
+            "-simulate-sequoia-capabilities"
+        ])
         defer { app.terminate() }
-
-        let settings = app.windows["Settings"].firstMatch
-        XCTAssertTrue(settings.waitForExistence(timeout: 8))
 
         let captureTab = app.buttons["settings-tab-capture"].firstMatch
         XCTAssertTrue(captureTab.waitForExistence(timeout: 3))

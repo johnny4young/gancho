@@ -1832,12 +1832,35 @@ final class AppModel {
     /// wouldn't refresh the Settings list until an unrelated state change.
     private(set) var denylistRevision = 0
 
-    var denylistEntries: [String] {
+    /// The apps the user excluded on top of the built-in list, sorted for a
+    /// stable Settings order. Never a built-in app: `SourceAppDenylist` keeps
+    /// the two disjoint, so each exclusion has one control.
+    var userDenylistEntries: [String] {
         _ = denylistRevision
-        let effective = SourceAppDenylist.suggestedBundleIDs
-            .subtracting(monitor.denylist.disabledSuggestions)
-            .union(monitor.denylist.userBundleIDs)
-        return effective.sorted()
+        return monitor.denylist.userBundleIDs.sorted()
+    }
+
+    /// Whether a built-in exclusion is currently active (the user has not
+    /// switched it off).
+    func isSuggestedExclusionActive(_ bundleID: String) -> Bool {
+        _ = denylistRevision
+        return monitor.denylist.isSuggestionActive(bundleID)
+    }
+
+    /// Whether copies from this app are vetoed right now: a user entry or an
+    /// active built-in. The running-app picker offers only the rest.
+    func isExcludedFromCapture(_ bundleID: String) -> Bool {
+        _ = denylistRevision
+        return monitor.denylist.contains(bundleID)
+    }
+
+    /// Switches one built-in exclusion on or off. Off records the suggestion
+    /// as disabled rather than deleting it, so "Restore default exclusions"
+    /// can bring it back.
+    func setSuggestedExclusion(_ bundleID: String, active: Bool) {
+        monitor.denylist.setSuggestion(bundleID, active: active)
+        monitor.denylist.save(to: defaults)
+        denylistRevision += 1
     }
 
     /// True when the user re-enabled captures from any built-in exclusion —
@@ -1847,6 +1870,8 @@ final class AppModel {
         return !monitor.denylist.disabledSuggestions.isEmpty
     }
 
+    /// Excludes an app. A built-in app is switched back on rather than listed
+    /// twice.
     func addToDenylist(_ bundleID: String) {
         // Trim pasted whitespace/newlines so a manual entry actually matches the
         // frontmost app's bundle id (an untrimmed entry silently never matches).
