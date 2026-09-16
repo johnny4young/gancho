@@ -160,10 +160,12 @@ final class CaptureFlowUITests: XCTestCase {
         paste.tap()
 
         // The handoff runs `IOSAppModel.ingest(providers:)` → the status row
-        // flashes the `save-note` ("Saved") chip.
+        // flashes the `save-note` ("Saved") chip, a success-kind note.
+        let note = app.descendants(matching: .any)["save-note"].firstMatch
         XCTAssertTrue(
-            app.descendants(matching: .any)["save-note"].firstMatch.waitForExistence(timeout: 8),
+            note.waitForExistence(timeout: 8),
             "tapping the paste control must save the pasteboard content (Saved note)")
+        XCTAssertEqual(note.value as? String, "Done", "a saved note must expose its success kind")
     }
 
     /// Spanish at the largest accessibility text size once squeezed the sensed
@@ -220,6 +222,10 @@ final class CaptureFlowUITests: XCTestCase {
             let note = app.descendants(matching: .any)["save-note"].firstMatch
             XCTAssertTrue(note.waitForExistence(timeout: 3), "the pinned note must show")
             XCTAssertTrue(screen.contains(note.frame), "a long note must wrap, not run off screen")
+            // The pinned load failure must not read as a success: its kind is
+            // the chip's accessibility value ("Error" in Spanish too).
+            XCTAssertEqual(
+                note.value as? String, "Error", "a failure note must expose its kind")
         }
     }
 }

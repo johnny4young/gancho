@@ -27,7 +27,9 @@ struct PasteboardStatusRow: View {
             }
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
                 chip(wraps: true)
-                HStack(alignment: .top, spacing: GanchoTokens.Spacing.xs) {
+                // Centered, not top-aligned: the button's 44 pt frame would
+                // otherwise sit visibly below a one-line type.
+                HStack(spacing: GanchoTokens.Spacing.xs) {
                     title
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -38,16 +40,26 @@ struct PasteboardStatusRow: View {
     }
 
     /// The state pill: a status note while one shows, "Saved" once the copy on
-    /// the clipboard is captured, the privacy claim before that.
+    /// the clipboard is captured, the privacy claim before that. A note takes
+    /// the symbol and tint of its kind and states the kind as its accessibility
+    /// value, so an error never reads as a success and color is never the only
+    /// signal.
     @ViewBuilder private func chip(wraps: Bool) -> some View {
         if let note = model.saveNote {
-            statusChip(Text(note), systemImage: "checkmark.circle.fill", wraps: wraps)
-                .accessibilityIdentifier("save-note")
+            statusChip(
+                Text(note.text), systemImage: note.kind.symbolName, tint: note.kind.tint,
+                wraps: wraps
+            )
+            .accessibilityValue(note.kind.accessibilityValue)
+            .accessibilityIdentifier("save-note")
         } else if alreadyCaptured {
-            statusChip(Text("Saved"), systemImage: "checkmark.circle.fill", wraps: wraps)
+            statusChip(
+                Text("Saved"), systemImage: "checkmark.circle.fill",
+                tint: GanchoTokens.Palette.success, wraps: wraps)
         } else {
             statusChip(
-                Text("Sensed, not read"), systemImage: "shield.lefthalf.filled", wraps: wraps)
+                Text("Sensed, not read"), systemImage: "shield.lefthalf.filled",
+                tint: GanchoTokens.Palette.success, wraps: wraps)
         }
     }
 
@@ -87,9 +99,11 @@ struct PasteboardStatusRow: View {
         }
     }
 
-    /// Green state pill. On one line it is a capsule; when it has to wrap it
+    /// State pill in `tint`. On one line it is a capsule; when it has to wrap it
     /// becomes a rounded rectangle, so a second line never spills past a curve.
-    private func statusChip(_ text: Text, systemImage: String, wraps: Bool) -> some View {
+    private func statusChip(
+        _ text: Text, systemImage: String, tint: Color, wraps: Bool
+    ) -> some View {
         Label {
             text
         } icon: {
@@ -97,12 +111,12 @@ struct PasteboardStatusRow: View {
         }
         .font(.caption2.weight(.semibold))
         .labelStyle(.titleAndIcon)
-        .foregroundStyle(GanchoTokens.Palette.success)
+        .foregroundStyle(tint)
         .fixedSize(horizontal: !wraps, vertical: true)
         .padding(.horizontal, 9)
         .padding(.vertical, 4)
         .background(
-            GanchoTokens.Palette.success.opacity(0.14),
+            tint.opacity(0.14),
             in: wraps
                 ? AnyShape(
                     RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
@@ -123,5 +137,34 @@ struct PasteboardStatusRow: View {
         if model.hints.probableWebSearch { return "Search text on your clipboard" }
         if model.hints.number { return "Number on your clipboard" }
         return "Something on your clipboard"
+    }
+}
+
+/// How each kind of status note reads.
+extension CaptureStatusNote.Kind {
+    fileprivate var symbolName: String {
+        switch self {
+        case .success: "checkmark.circle.fill"
+        case .limit: "exclamationmark.circle.fill"
+        case .failure: "exclamationmark.triangle.fill"
+        }
+    }
+
+    fileprivate var tint: Color {
+        switch self {
+        case .success: GanchoTokens.Palette.success
+        case .limit: GanchoTokens.Palette.warning
+        case .failure: GanchoTokens.Palette.danger
+        }
+    }
+
+    /// Spoken after the note's text, so VoiceOver users hear the outcome that
+    /// the symbol and tint show.
+    fileprivate var accessibilityValue: Text {
+        switch self {
+        case .success: Text("Done")
+        case .limit: Text("Limit reached")
+        case .failure: Text("Error")
+        }
     }
 }
