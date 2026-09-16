@@ -23,6 +23,17 @@ extension IOSAppModel {
             saveNote = CaptureStatusNote(
                 text: String(localized: "Couldn’t load this clip — try again."), kind: .failure)
         }
+
+        /// UI-test hook: `-ui-test-keep-save-notes` leaves every REAL status
+        /// note on screen until the next one replaces it, instead of the
+        /// two-second flash. A hosted runner can take longer than two seconds
+        /// between two accessibility snapshots, so a test that asserts the
+        /// note would race the product's own dismissal and miss a note that
+        /// did show. Only the dismissal changes; what is noted, and when, does
+        /// not.
+        var keepsSaveNotesForUITests: Bool {
+            ProcessInfo.processInfo.arguments.contains("-ui-test-keep-save-notes")
+        }
     #endif
 
     private func seedSampleBoardsIfRequested() {
