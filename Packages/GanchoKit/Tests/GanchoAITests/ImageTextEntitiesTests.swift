@@ -52,6 +52,41 @@ struct ImageTextEntitiesTests {
                 == .email(address: "ana@example.com", url: mail))
     }
 
+    @Test("The offer identifies the language on the sanitized text translate will send")
+    func offerReadsSanitizedInput() async {
+        // A secret-shaped span is redacted before either engine sees the text;
+        // the offer must look at that same redacted text, or it could promise
+        // an engine the call then never uses.
+        let raw = "Contraseña de acceso: sk-live-1234567890abcdefghijklmnop Texto en español"
+        let seen = Seen()
+        let engines = TranslationEngines(
+            identifySource: { text in
+                seen.record(text)
+                return Locale.Language(identifier: "es")
+            },
+            pairStatus: { _, _ in .installed },
+            native: { text, _, _ in text },
+            languageModel: { text, _ in text })
+        _ = await ImageTextTranslation.offer(
+            for: raw, interface: Locale.Language(identifier: "en"), modelAvailable: false,
+            engines: engines)
+        let identified = seen.texts.first ?? ""
+        #expect(!identified.isEmpty)
+        #expect(
+            !identified.contains("sk-live-1234567890abcdefghijklmnop"),
+            "the offer must never see the unredacted secret")
+    }
+
+    private final class Seen: @unchecked Sendable {
+        private let lock = NSLock()
+        private(set) var texts: [String] = []
+        func record(_ text: String) {
+            lock.lock()
+            defer { lock.unlock() }
+            texts.append(text)
+        }
+    }
+
     @Test("Text without entities yields no chips")
     func nothing() {
         #expect(ImageTextEntityDetector().entities(in: "Reunión de kickoff · martes 10:00").isEmpty)

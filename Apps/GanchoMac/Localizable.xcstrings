@@ -7901,6 +7901,26 @@
         }
       }
     },
+    "Email %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribir a %@"
+          }
+        }
+      }
+    },
+    "Couldn’t open that link.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir ese enlace."
+          }
+        }
+      }
+    },
     "Copy text from image": {
       "localizations": {
         "es": {

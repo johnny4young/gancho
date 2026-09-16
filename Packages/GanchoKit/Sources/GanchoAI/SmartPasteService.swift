@@ -103,14 +103,13 @@ public struct SmartPasteService: Sendable {
     public func translate(
         _ text: String, to target: Locale.Language, engines: TranslationEngines = .live
     ) async throws -> String {
-        let safe = ModelInputSanitizer.sanitized(text)
-        let clipped = String(safe.prefix(maxPromptCharacters))
+        let clipped = prepared(text)
 
-        if let source = engines.identifySource(clipped),
-            TranslationRoute.route(for: await engines.pairStatus(source, target)) == .native
-        {
+        if let plan = await route(for: text, to: target, engines: engines), plan.route == .native {
             do {
-                return try await Self.answer { try await engines.native(clipped, source, target) }
+                return try await Self.answer {
+                    try await engines.native(clipped, plan.source, target)
+                }
             } catch let cancellation as CancellationError {
                 throw cancellation
             } catch {
@@ -122,6 +121,24 @@ public struct SmartPasteService: Sendable {
         return try await Self.answer {
             try await engines.languageModel(clipped, Self.englishLanguageName(for: target))
         }
+    }
+
+    /// What `translate` will do with this text right now: the language it
+    /// reads and the engine it will start, or nil when the language cannot be
+    /// told. It looks at EXACTLY the text `translate` sends — sanitized and
+    /// clipped — so a surface that offers a translation can never promise an
+    /// engine the call itself will not use.
+    public func route(
+        for text: String, to target: Locale.Language, engines: TranslationEngines = .live
+    ) async -> (source: Locale.Language, route: TranslationRoute)? {
+        guard let source = engines.identifySource(prepared(text)) else { return nil }
+        return (source, TranslationRoute.route(for: await engines.pairStatus(source, target)))
+    }
+
+    /// Secret redaction plus the context-window clip, applied once for both
+    /// the routing decision and the engine call.
+    private func prepared(_ text: String) -> String {
+        String(ModelInputSanitizer.sanitized(text).prefix(maxPromptCharacters))
     }
 
     /// Runs one engine for a request that is still wanted, trimming its answer.

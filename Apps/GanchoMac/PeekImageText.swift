@@ -126,10 +126,34 @@ struct PeekImageTextSection: View {
     /// Entity chips: what the recognized text can DO, computed from the text
     /// itself and never shown for a masked secret.
     @State private var entities: [ImageTextEntity] = []
-    @State private var translationTarget: Locale.Language?
-    @State private var isTranslating = false
-    @State private var translation: String?
-    @State private var translationFailed = false
+    /// One value for the whole translation lifecycle, so the states that must
+    /// not coexist cannot: a finished translation keeps its target, and a
+    /// refresh of the offer never erases it.
+    @State private var translation: TranslationState = .none
+    @State private var translationTask: Task<Void, Never>?
+    @State private var translationCopied = false
+
+    enum TranslationState: Equatable {
+        case none
+        case offered(Locale.Language)
+        case running(Locale.Language)
+        case done(Locale.Language, String)
+        case failed(Locale.Language)
+
+        var target: Locale.Language? {
+            switch self {
+            case .none: nil
+            case .offered(let t), .running(let t), .done(let t, _), .failed(let t): t
+            }
+        }
+        /// A result on screen or in flight survives an offer refresh.
+        var isSettled: Bool {
+            switch self {
+            case .running, .done: true
+            default: false
+            }
+        }
+    }
 
     private var session: ManualOCRSession { model.manualOCR }
     private var masked: Bool { PeekImageText.isMasked(session, revealed: revealSecret) }
@@ -175,10 +199,9 @@ struct PeekImageTextSection: View {
         .onChange(of: session.requestID) { _, _ in
             copiedAll = false
             isEditing = false
-            translation = nil
-            translationFailed = false
-            isTranslating = false
+            cancelTranslation()
         }
+        .onDisappear { cancelTranslation() }
         .task(id: "\(session.requestID)|\(session.state)|\(session.isSensitive)") {
             await refreshOffers()
         }
@@ -367,46 +390,62 @@ struct PeekImageTextSection: View {
         }
     }
 
+    private func copyAll() async {
+        guard await model.copyManualText(session.text) else { return }
+        withAnimation { copiedAll = true }
+    }
+
+    @discardableResult
+    private func save(_ text: String) async -> Bool {
+        guard let validated = await session.reviewedText(text) else { return false }
+        return await model.saveManualText(validated)
+    }
+}
+
+// MARK: - Entity chips and translation
+
+extension PeekImageTextSection {
     // MARK: - Entity chips
 
     /// Links, emails and Translate, from the recognized text itself. Chips wrap
     /// instead of truncating, and none appears for a secret: a flagged text is
     /// never sent anywhere, not even to the on-device model.
     @ViewBuilder private var entityChips: some View {
-        if !session.isSensitive, !entities.isEmpty || translationTarget != nil {
-            ChipFlow(spacing: GanchoTokens.Spacing.xxs) {
+        if !session.isSensitive, !entities.isEmpty || translation.target != nil {
+            FlowLayout(spacing: GanchoTokens.Spacing.xxs) {
                 ForEach(Array(entities.enumerated()), id: \.offset) { index, entity in
                     switch entity {
                     case .link(let url):
                         chip(
                             Text("Open \(url.host ?? url.absoluteString)"),
                             systemImage: "arrow.up.right", identifier: "peek-ocr-link-\(index)"
-                        ) { model.openRecognizedLink(url) }
-                    case .email(_, let url):
+                        ) { model.openRecognizedEntity(entity) }
+                    case .email(let address, _):
+                        // The address IS the label: two recipients must never
+                        // read as the same chip, to the eye or to VoiceOver.
                         chip(
-                            Text("Send email"), systemImage: "envelope",
+                            Text("Email \(address)"), systemImage: "envelope",
                             identifier: "peek-ocr-email-\(index)"
-                        ) { model.openRecognizedLink(url) }
+                        ) { model.openRecognizedEntity(entity) }
                     }
                 }
-                if let target = translationTarget, translation == nil {
-                    if isTranslating {
-                        chip(
-                            Text("Translating…"), systemImage: "globe",
-                            identifier: "peek-ocr-translating"
-                        ) {}
-                        .disabled(true)
-                    } else {
-                        chip(
-                            Text("Translate"), systemImage: "globe",
-                            identifier: "peek-ocr-translate"
-                        ) {
-                            translate(to: target)
-                        }
+                switch translation {
+                case .offered(let target), .failed(let target):
+                    chip(Text("Translate"), systemImage: "globe", identifier: "peek-ocr-translate")
+                    {
+                        translate(to: target)
                     }
+                case .running:
+                    chip(
+                        Text("Translating…"), systemImage: "globe",
+                        identifier: "peek-ocr-translating"
+                    ) {}
+                    .disabled(true)
+                case .none, .done:
+                    EmptyView()
                 }
             }
-            if translationFailed {
+            if case .failed = translation {
                 Text("Couldn’t run that — try again.")
                     .font(.caption)
                     .foregroundStyle(GanchoTokens.Palette.danger)
@@ -416,37 +455,58 @@ struct PeekImageTextSection: View {
     }
 
     /// The translation reads beside the original, at the same body size, with
-    /// its own Copy and Paste: the common case is "translate and paste".
+    /// its own Copy and Paste: the common case is "translate and paste". Both
+    /// go through the same revalidation as every other copy from this section.
     @ViewBuilder private var translationBlock: some View {
-        if let translation, let target = translationTarget {
+        if case .done(let target, let text) = translation {
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
                 HStack(spacing: GanchoTokens.Spacing.xs) {
                     Text("Translation")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
-                    Text(verbatim: Self.languageName(target))
+                    Text(verbatim: LanguageName.localized(target))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                     Spacer(minLength: 0)
+                    if translationCopied {
+                        Label("Copied to clipboard", systemImage: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(GanchoTokens.Palette.success)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(Text("Copied to clipboard"))
+                            .accessibilityIdentifier("peek-ocr-translation-status")
+                    }
                 }
-                Text(verbatim: translation)
-                    .font(.body)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("peek-ocr-translation")
+                // Capped like the peek's other long outputs (`resultBox`): the
+                // peek column does not scroll, so an uncapped block would push
+                // the action list off the panel.
+                ScrollView {
+                    Text(verbatim: text)
+                        .font(.body)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("peek-ocr-translation")
+                }
+                .frame(maxHeight: 140)
                 fitting {
                     ActionButton(
                         "Copy translation", systemImage: "doc.on.doc",
                         identifier: "peek-ocr-translation-copy"
                     ) {
-                        model.writeManualText(translation)
+                        Task {
+                            guard await model.copyManualText(text) else { return }
+                            withAnimation { translationCopied = true }
+                        }
                     }
                     ActionButton(
                         "Paste translation", systemImage: "doc.on.clipboard",
                         identifier: "peek-ocr-translation-paste"
                     ) {
-                        model.pasteText(translation)
+                        Task {
+                            guard let validated = await session.reviewedText(text) else { return }
+                            model.pasteText(validated)
+                        }
                     }
                 }
             }
@@ -465,7 +525,10 @@ struct PeekImageTextSection: View {
                 Image(systemName: systemImage)
             }
             .font(.subheadline.weight(.medium))
-            .lineLimit(1)
+            // No line limit: a long host wraps inside the chip, so the full
+            // destination stays readable and nothing is ever cut to a
+            // trusted-looking prefix.
+            .multilineTextAlignment(.leading)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(
@@ -476,101 +539,58 @@ struct PeekImageTextSection: View {
         .accessibilityIdentifier(identifier)
     }
 
-    private static func languageName(_ language: Locale.Language) -> String {
-        let code = language.languageCode?.identifier ?? language.minimalIdentifier
-        return Locale.current.localizedString(forLanguageCode: code) ?? code
-    }
-
     /// Recompute what the text can do whenever the result changes. Detection is
     /// synchronous and cheap; the translation offer asks the platform which
-    /// engine can run, so it lands a beat later.
+    /// engine can run, so it lands a beat later. A translation already running
+    /// or on screen is left alone: the offer only fills an empty slot.
     private func refreshOffers() async {
         guard session.state == .copied || session.state == .ready, !session.isSensitive else {
             entities = []
-            translationTarget = nil
+            cancelTranslation()
             return
         }
+        let request = session.requestID
         let text = session.text
         entities = ImageTextEntityDetector().entities(in: text)
-        translationTarget = nil
+        guard !translation.isSettled else { return }
+        translation = .none
         guard model.smartPasteAvailable else { return }
         let target = await ImageTextTranslation.offer(
             for: text, interface: Locale.current.language,
             modelAvailable: model.smartPasteModelAvailable)
-        guard !Task.isCancelled, text == session.text else { return }
-        translationTarget = target
+        guard !Task.isCancelled, request == session.requestID, !translation.isSettled else {
+            return
+        }
+        translation = target.map(TranslationState.offered) ?? .none
     }
 
+    /// Runs on the SAME revalidation as a copy: a source that stopped
+    /// permitting reuse (private mode, deletion, expiry) is never sent to the
+    /// model. The task is keyed to the request and cancelled with it, so a
+    /// superseded translation can neither re-enable the chip nor land.
     private func translate(to target: Locale.Language) {
-        isTranslating = true
-        translationFailed = false
-        let text = session.text
-        Task {
+        translationTask?.cancel()
+        translation = .running(target)
+        let request = session.requestID
+        translationTask = Task {
+            guard let text = await session.reviewedText(session.text) else {
+                if request == session.requestID { translation = .failed(target) }
+                return
+            }
             let result = await model.smartTranslate(text, to: target)
-            isTranslating = false
-            guard text == session.text else { return }
+            guard !Task.isCancelled, request == session.requestID else { return }
             if let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                translation = result
+                translation = .done(target, result)
             } else {
-                translationFailed = true
+                translation = .failed(target)
             }
         }
     }
 
-    private func copyAll() async {
-        guard await model.copyManualText(session.text) else { return }
-        withAnimation { copiedAll = true }
-    }
-
-    @discardableResult
-    private func save(_ text: String) async -> Bool {
-        guard let validated = await session.reviewedText(text) else { return false }
-        return await model.saveManualText(validated)
-    }
-}
-
-/// Lays chips out in rows that wrap, so a hint row never truncates a label.
-struct ChipFlow: Layout {
-    var spacing: CGFloat = 6
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? .infinity
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-        var widest: CGFloat = 0
-        for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > width {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-            widest = max(widest, x - spacing)
-        }
-        return CGSize(width: width.isFinite ? width : widest, height: y + rowHeight)
-    }
-
-    func placeSubviews(
-        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
-    ) {
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-        for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > bounds.width {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            view.place(
-                at: CGPoint(x: bounds.minX + x, y: bounds.minY + y), anchor: .topLeading,
-                proposal: .unspecified)
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
+    private func cancelTranslation() {
+        translationTask?.cancel()
+        translationTask = nil
+        translation = .none
+        translationCopied = false
     }
 }

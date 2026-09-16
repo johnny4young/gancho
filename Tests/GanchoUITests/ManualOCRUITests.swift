@@ -35,7 +35,10 @@ final class ManualOCRUITests: XCTestCase {
         let link = app.buttons["peek-ocr-link-0"].firstMatch
         XCTAssertTrue(link.waitForExistence(timeout: 5), "the link chip never appeared")
         XCTAssertEqual(link.label, "Open gancho.app")
-        XCTAssertFalse(app.buttons["peek-ocr-link-1"].exists, "one link in the image, one chip")
+        XCTAssertEqual(
+            app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'peek-ocr-link-'"))
+                .count,
+            1, "one link in the image, one chip")
         link.click()
         XCTAssertTrue(firstLine.exists, "opening a link must not dismiss the section")
         attachPanel(app, named: "Manual OCR — English dark peek")

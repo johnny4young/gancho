@@ -769,7 +769,10 @@ final class AppModel {
     /// Accessibility were granted; `-ui-test-paste-sink copy-only` — like any
     /// other value, or none — answers copy-only. Those two spellings are the
     /// only ones a test should pass, so a reader never has to guess whether an
-    /// invented third value means something.
+    /// invented third value means something. The flag's presence also keeps
+    /// manual OCR from writing the clipboard (`writeManualText`) and from
+    /// launching a browser or mail client (`openRecognizedEntity`): every
+    /// side effect that would leave the test process is behind it.
     /// It fails safe: a mistyped value still never reaches the real pasteboard
     /// or types ⌘V into whatever app is frontmost.
     private static func makePasteBackService() -> PasteBackService {

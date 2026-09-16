@@ -19,7 +19,9 @@ public enum ImageTextEntity: Sendable, Hashable {
 
 /// Finds actionable entities in OCR output. `NSDataDetector` does the matching,
 /// the same detector `RuleClassifier` relies on, so a link INSIDE a sentence
-/// counts and a bare domain ("gancho.app/docs") gets its scheme.
+/// counts and a bare classic domain ("www.example.com/docs") gets its scheme.
+/// It is the ONLY way to build an `ImageTextEntity`, so whoever opens one
+/// inherits this allowlist instead of repeating it.
 public struct ImageTextEntityDetector: Sendable {
     /// Chips are a hint row, not a directory: three is the most the peek shows.
     public static let limit = 3
@@ -64,16 +66,17 @@ public struct ImageTextEntityDetector: Sendable {
 public enum ImageTextTranslation {
     /// The target to offer, or nil when translating would be pointless (same
     /// language, language unknown) or would fail (no installed pair and no
-    /// model). `downloadable` counts as unavailable: a package service cannot
-    /// present Apple's download sheet, so routing there would fail every time.
+    /// model). The decision is `SmartPasteService.route`'s own, on the same
+    /// sanitized text `translate` will send, so the chip never appears for a
+    /// text the call would then refuse.
     public static func offer(
         for text: String, interface: Locale.Language, modelAvailable: Bool,
         engines: TranslationEngines = .live
     ) async -> Locale.Language? {
-        guard let source = engines.identifySource(text),
-            source.languageCode != interface.languageCode
+        guard
+            let plan = await SmartPasteService().route(for: text, to: interface, engines: engines),
+            plan.source.languageCode != interface.languageCode
         else { return nil }
-        if modelAvailable { return interface }
-        return await engines.pairStatus(source, interface) == .installed ? interface : nil
+        return plan.route == .native || modelAvailable ? interface : nil
     }
 }

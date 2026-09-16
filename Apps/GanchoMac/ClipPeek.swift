@@ -609,7 +609,7 @@ extension ClipPeek {
                 Divider()
                 Menu {
                     ForEach(Self.translateLanguageCodes, id: \.self) { code in
-                        Button(Self.localizedLanguageName(code)) {
+                        Button(LanguageName.localized(code: code)) {
                             runTranslate(to: Locale.Language(identifier: code))
                         }
                     }
@@ -649,10 +649,6 @@ extension ClipPeek {
     private static let translateLanguageCodes = [
         "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh"
     ]
-    private static func localizedLanguageName(_ code: String) -> String {
-        Locale.current.localizedString(forLanguageCode: code) ?? code
-    }
-
     private func runTranslate(to target: Locale.Language) {
         actionResult = nil
         isThinking = true

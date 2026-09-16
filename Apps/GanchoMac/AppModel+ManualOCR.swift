@@ -167,17 +167,21 @@ extension AppModel {
         }
     }
 
-    /// Opens a link or mailto found in recognized text. The detector already
-    /// admits only http, https and mailto; this re-checks because OCR output is
-    /// untrusted and a chip must never launch anything else.
-    func openRecognizedLink(_ url: URL) {
-        guard ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") else { return }
+    /// Opens a link or mailto found in recognized text. It takes the entity,
+    /// not a URL: `ImageTextEntityDetector` is the only way to make one, so its
+    /// allowlist (http, https, mailto with a host) is the single gate and an
+    /// unvetted URL cannot reach this call. A launch the system refuses (no
+    /// mail client, no browser) is reported, never a dead click.
+    func openRecognizedEntity(_ entity: ImageTextEntity) {
         #if DEBUG
             // UI automation must never open a browser or a mail client on the
-            // runner; the paste sink marks such a launch.
+            // runner; the paste sink marks that launch too (see
+            // `makePasteBackService`).
             if CommandLine.arguments.contains("-ui-test-paste-sink") { return }
         #endif
-        NSWorkspace.shared.open(url)
+        if !NSWorkspace.shared.open(entity.url) {
+            toasts.show(GanchoToast(message: "Couldn’t open that link.", style: .warning))
+        }
     }
 
     func saveManualText(_ text: String) async -> Bool {
