@@ -1,4 +1,5 @@
 import Foundation
+import GanchoAI
 import Observation
 
 /// One transient, explicitly requested OCR result. Nothing here persists,
@@ -16,6 +17,16 @@ public final class ManualOCRSession {
 
     public private(set) var state: State = .idle
     public private(set) var text = ""
+    /// The lines behind `text`, in reading order, with their regions when
+    /// recognition produced them. A surface can draw them over the image.
+    public private(set) var lines: [RecognizedTextLine] = []
+    /// The clip this request belongs to, so a surface shows the result beside
+    /// the right item and nowhere else.
+    public private(set) var itemID: UUID?
+    /// Recognition found something the secret detector flags. Such text is
+    /// NEVER copied automatically: every copy is an explicit action after a
+    /// reveal, the same contract sensitive clips already have.
+    public private(set) var isSensitive = false
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var permitsResult: @Sendable () async -> Bool = { false }
@@ -29,19 +40,25 @@ public final class ManualOCRSession {
         task?.cancel()
         task = nil
         text = ""
+        lines = []
+        itemID = nil
+        isSensitive = false
         state = .idle
         permitsResult = { false }
     }
 
     public func start(
-        recognize: @escaping @Sendable () async throws -> String?,
+        itemID: UUID? = nil,
+        recognize: @escaping @Sendable () async throws -> ManualOCRResult?,
         isAllowed: @escaping @Sendable () async -> Bool,
+        isSensitive detectSecret: @escaping @Sendable (String) -> Bool = { _ in false },
         clipboardRevision: @escaping @MainActor () -> Int,
         copy: @escaping @MainActor (String) -> Void,
         didFinish: @escaping @MainActor (State) -> Void
     ) {
         cancel()
         let request = generation
+        self.itemID = itemID
         let revision = clipboardRevision()
         permitsResult = isAllowed
         state = .recognizing
@@ -59,14 +76,16 @@ public final class ManualOCRSession {
                     return
                 }
                 guard let self, request == self.generation, !Task.isCancelled else { return }
-                guard let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                else {
+                guard let result, !result.isEmpty else {
                     self.finish(.noText, request: request, notify: didFinish)
                     return
                 }
-                self.text = result
-                if revision == clipboardRevision() {
-                    copy(result)
+                self.lines = result.lines
+                self.text = result.text
+                let sensitive = detectSecret(result.text)
+                self.isSensitive = sensitive
+                if !sensitive, revision == clipboardRevision() {
+                    copy(result.text)
                     self.finish(.copied, request: request, notify: didFinish)
                 } else {
                     self.finish(.ready, request: request, notify: didFinish)

@@ -1,4 +1,5 @@
 import Foundation
+import GanchoAI
 import GanchoKit
 import Testing
 
@@ -60,7 +61,7 @@ struct ManualOCRSessionTests {
         var copies: [String] = []
         let result = await withCheckedContinuation { continuation in
             session.start(
-                recognize: { "Hola\nGancho" }, isAllowed: { true },
+                recognize: { ManualOCRResult(text: "Hola\nGancho") }, isAllowed: { true },
                 clipboardRevision: { 1 }, copy: { copies.append($0) },
                 didFinish: { continuation.resume(returning: $0) })
         }
@@ -80,7 +81,8 @@ struct ManualOCRSessionTests {
         let clipboard = OCRClipboardProbe()
         var copies = 0
         session.start(
-            recognize: { await latch.recognize() }, isAllowed: { true },
+            recognize: { (await latch.recognize()).map(ManualOCRResult.init(text:)) },
+            isAllowed: { true },
             clipboardRevision: { clipboard.revision }, copy: { _ in copies += 1 },
             didFinish: { _ in })
         #expect(await latch.waitUntilStarted(), "the recognizer never started")
@@ -98,7 +100,8 @@ struct ManualOCRSessionTests {
         let latch = OCRLatch()
         var copies = 0
         session.start(
-            recognize: { await latch.recognize() }, isAllowed: { true },
+            recognize: { (await latch.recognize()).map(ManualOCRResult.init(text:)) },
+            isAllowed: { true },
             clipboardRevision: { 0 }, copy: { _ in copies += 1 },
             didFinish: { _ in Issue.record("late result") })
         #expect(await latch.waitUntilStarted(), "the recognizer never started")
@@ -115,13 +118,14 @@ struct ManualOCRSessionTests {
         let latch = OCRLatch()
         var copies: [String] = []
         session.start(
-            recognize: { await latch.recognize() }, isAllowed: { true },
+            recognize: { (await latch.recognize()).map(ManualOCRResult.init(text:)) },
+            isAllowed: { true },
             clipboardRevision: { 0 }, copy: { copies.append($0) },
             didFinish: { _ in Issue.record("old request") })
         #expect(await latch.waitUntilStarted(), "the recognizer never started")
         await withCheckedContinuation { continuation in
             session.start(
-                recognize: { "new" }, isAllowed: { true },
+                recognize: { ManualOCRResult(text: "new") }, isAllowed: { true },
                 clipboardRevision: { 0 }, copy: { copies.append($0) },
                 didFinish: { _ in continuation.resume() })
         }
@@ -135,7 +139,7 @@ struct ManualOCRSessionTests {
         let session = ManualOCRSession()
         await withCheckedContinuation { continuation in
             session.start(
-                recognize: { result }, isAllowed: { true },
+                recognize: { result.map(ManualOCRResult.init(text:)) }, isAllowed: { true },
                 clipboardRevision: { 0 }, copy: { _ in Issue.record("unexpected copy") },
                 didFinish: { _ in continuation.resume() })
         }
@@ -147,9 +151,9 @@ struct ManualOCRSessionTests {
     func denied() async {
         let session = ManualOCRSession()
         await withCheckedContinuation { continuation in
-            let forbiddenRead: @Sendable () async throws -> String? = {
+            let forbiddenRead: @Sendable () async throws -> ManualOCRResult? = {
                 Issue.record("unexpected read")
-                return "bad"
+                return ManualOCRResult(text: "bad")
             }
             session.start(
                 recognize: forbiddenRead, isAllowed: { false },
@@ -179,7 +183,8 @@ struct ManualOCRSessionTests {
         let latch = OCRLatch()
         let session = ManualOCRSession()
         session.start(
-            recognize: { await latch.recognize() }, isAllowed: { await permission.read() },
+            recognize: { (await latch.recognize()).map(ManualOCRResult.init(text:)) },
+            isAllowed: { await permission.read() },
             clipboardRevision: { 0 }, copy: { _ in Issue.record("protected copy") },
             didFinish: { _ in })
         #expect(await latch.waitUntilStarted(), "the recognizer never started")
@@ -196,7 +201,8 @@ struct ManualOCRSessionTests {
         let session = ManualOCRSession()
         await withCheckedContinuation { continuation in
             session.start(
-                recognize: { "safe when requested" }, isAllowed: { await permission.read() },
+                recognize: { ManualOCRResult(text: "safe when requested") },
+                isAllowed: { await permission.read() },
                 clipboardRevision: { 0 }, copy: { _ in },
                 didFinish: { _ in continuation.resume() })
         }
@@ -214,7 +220,8 @@ struct ManualOCRSessionTests {
         var copied: [String] = []
         await withCheckedContinuation { continuation in
             session.start(
-                recognize: { "Synthetic OCR" }, isAllowed: { await permission.read() },
+                recognize: { ManualOCRResult(text: "Synthetic OCR") },
+                isAllowed: { await permission.read() },
                 clipboardRevision: { clipboard.revision }, copy: { _ in },
                 didFinish: { _ in continuation.resume() })
         }
@@ -244,7 +251,8 @@ struct ManualOCRSessionTests {
         let permission = OCRPermission()
         await withCheckedContinuation { continuation in
             session.start(
-                recognize: { "Synthetic OCR" }, isAllowed: { await permission.read() },
+                recognize: { ManualOCRResult(text: "Synthetic OCR") },
+                isAllowed: { await permission.read() },
                 clipboardRevision: { 0 }, copy: { _ in },
                 didFinish: { _ in continuation.resume() })
         }
@@ -277,25 +285,65 @@ struct ManualOCRSessionTests {
         #expect(session.text.isEmpty)
     }
 
+    @Test("A recognized secret is never copied automatically")
+    func secretStaysOutOfTheClipboard() async {
+        let session = ManualOCRSession()
+        var copies = 0
+        let result = await withCheckedContinuation { continuation in
+            session.start(
+                itemID: UUID(),
+                recognize: { ManualOCRResult(text: "card 4242 4242 4242 4242") },
+                isAllowed: { true }, isSensitive: { $0.contains("4242") },
+                clipboardRevision: { 0 }, copy: { _ in copies += 1 },
+                didFinish: { continuation.resume(returning: $0) })
+        }
+        #expect(result == .ready)
+        #expect(session.isSensitive)
+        #expect(copies == 0, "a flagged secret waits for an explicit copy")
+        // An explicit copy after review is still the user's call.
+        #expect(await session.reviewedText(session.text) == session.text)
+    }
+
+    @Test("The session remembers which clip it serves and forgets it on cancel")
+    func itemIdentity() async {
+        let session = ManualOCRSession()
+        let id = UUID()
+        let lines = [
+            RecognizedTextLine(text: "a", box: CGRect(x: 0, y: 0, width: 0.5, height: 0.1)),
+            RecognizedTextLine(text: "b")
+        ]
+        await withCheckedContinuation { continuation in
+            session.start(
+                itemID: id, recognize: { ManualOCRResult(lines: lines) }, isAllowed: { true },
+                clipboardRevision: { 0 }, copy: { _ in }, didFinish: { _ in continuation.resume() })
+        }
+        #expect(session.itemID == id)
+        #expect(session.lines == lines)
+        #expect(session.text == "a\nb")
+        session.cancel()
+        #expect(session.itemID == nil)
+        #expect(session.lines.isEmpty)
+    }
+
     @Test("Cached text avoids OCR; binary input uses injected recognition")
     func cachedAndFresh() async throws {
         let service = ManualImageTextService()
-        let cached = try await service.text(
+        let cached = try await service.result(
             for: UUID(), store: ImageReaderStub(input: .cached("cached"))
         ) { _ in
             Issue.record("unexpected recognition")
-            return nil
+            return []
         }
-        #expect(cached == "cached")
-        let fresh = try await service.text(
+        #expect(cached?.text == "cached")
+        let fresh = try await service.result(
             for: UUID(), store: ImageReaderStub(input: .image(Data([1])))
         ) { data in
             #expect(data == Data([1]))
-            return "fresh"
+            return [RecognizedTextLine(text: "fresh")]
         }
-        #expect(fresh == "fresh")
+        #expect(fresh?.text == "fresh")
         await #expect(throws: ManualImageTextError.self) {
-            try await service.text(for: UUID(), store: ImageReaderStub(input: nil))
+            try await service.result(for: UUID(), store: ImageReaderStub(input: nil))
         }
     }
 
@@ -328,9 +376,9 @@ struct ManualOCRStorageCancellationTests {
         let reader = DelayedImageReader(
             latch: latch, input: cached ? .cached("synthetic") : .image(Data([1])))
         let task = Task {
-            try await ManualImageTextService().text(for: UUID(), store: reader) { _ in
+            try await ManualImageTextService().result(for: UUID(), store: reader) { _ in
                 Issue.record("Canceled storage read must not start recognition")
-                return "synthetic"
+                return [RecognizedTextLine(text: "synthetic")]
             }
         }
         #expect(await latch.waitUntilStarted(), "the recognizer never started")

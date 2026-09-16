@@ -1,40 +1,63 @@
 import XCTest
 
+/// Manual OCR from the history panel renders IN the peek: the recognized text
+/// appears beside the image with one region per line on the thumbnail, the
+/// copy is automatic only when the clipboard stayed untouched, edits stay
+/// transient until Save, and Paste keeps position 0 of the action list.
 final class ManualOCRUITests: XCTestCase {
     @MainActor
-    func testFreeManualOCRWithAutomaticOCRDisabled() throws {
+    func testRecognizedTextAppearsInThePeekWithoutCreatingAClip() throws {
         let app = launchOCR(language: "en", appearance: "dark")
         defer { app.terminate() }
-        let text = try openReview(in: app)
-        XCTAssertTrue((text.value as? String)?.contains("Hola Gancho") == true)
-        XCTAssertTrue((text.value as? String)?.contains("Texto de una imagen") == true)
-        attach(app.windows["Review recognized text"], named: "Manual OCR — English dark review")
-        app.buttons["ocr-review-copy"].click()
-        XCTAssertTrue(text.waitForNonExistence(timeout: 5))
-        XCTAssertEqual(rows(in: app).count, 1, "Copying OCR must not create another history clip")
+        try recognizeSeededImage(in: app)
+        let firstLine = element("peek-ocr-line-0", in: app)
+        XCTAssertTrue(firstLine.waitForExistence(timeout: 15), "the section never rendered a line")
+        XCTAssertTrue(
+            firstLine.label.contains("Hola"), "first recognized line was \(firstLine.label)")
+        let secondLine = app.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "identifier BEGINSWITH 'peek-ocr-line-' AND label CONTAINS 'imagen'")
+        ).firstMatch
+        XCTAssertTrue(secondLine.waitForExistence(timeout: 5), "the second line is missing")
+        // The seed leaves the clipboard untouched, so the text was copied
+        // automatically and the section says so — no toast, no window.
+        let status = element("peek-ocr-status", in: app)
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertEqual(status.label, "Copied to clipboard")
+        XCTAssertTrue(
+            element("peek-ocr-region-1", in: app).exists,
+            "every recognized line gets a region over the thumbnail")
+        XCTAssertFalse(app.buttons["ocr-review"].exists, "the peek surface must not toast")
+        XCTAssertEqual(rows(in: app).count, 1, "Recognizing must not create another history clip")
+        attachPanel(app, named: "Manual OCR — English dark peek")
     }
 
     @MainActor
-    func testSpanishReviewEditsAndSavesOnlyOnRequest() throws {
+    func testSpanishEditKeepsTheDraftTransientUntilSave() throws {
         let app = launchOCR(language: "es", appearance: "light")
         defer { app.terminate() }
-        var text = try openReview(in: app)
-        XCTAssertEqual(app.buttons["ocr-review-copy"].label, "Copiar texto")
-        XCTAssertEqual(app.buttons["ocr-review-save"].label, "Guardar como clip")
-        try typeTextReliably("Texto editado: canción y café", into: text, in: app)
-        attach(app.windows["Revisar texto reconocido"], named: "Manual OCR — Spanish light review")
-        app.buttons["ocr-review-close"].click()
-        XCTAssertTrue(text.waitForNonExistence(timeout: 5))
-        XCTAssertEqual(rows(in: app).count, 1, "Closing an edited review must not save a clip")
-        text = try openReview(in: app)
-        try typeTextReliably("Texto editado: canción y café", into: text, in: app)
-        app.buttons["ocr-review-save"].click()
-        XCTAssertTrue(text.waitForNonExistence(timeout: 5))
+        try recognizeSeededImage(in: app)
+        let edit = app.buttons["peek-ocr-edit"].firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 15))
+        XCTAssertEqual(edit.label, "Editar")
+        XCTAssertEqual(app.buttons["peek-ocr-copy"].firstMatch.label, "Copiar todo")
+        edit.click()
+        let editor = app.textViews["peek-ocr-editor"].firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        try typeTextReliably("Texto editado: canción y café", into: editor, in: app)
+        attachPanel(app, named: "Manual OCR — Spanish light inline editor")
+        app.buttons["peek-ocr-editor-cancel"].click()
+        XCTAssertTrue(editor.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(rows(in: app).count, 1, "Cancelling an edit must not save a clip")
+        app.buttons["peek-ocr-edit"].firstMatch.click()
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        try typeTextReliably("Texto editado: canción y café", into: editor, in: app)
+        app.buttons["peek-ocr-editor-save"].click()
         let count = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "count == 2"), object: rows(in: app))
-        XCTAssertEqual(XCTWaiter.wait(for: [count], timeout: 5), .completed)
         XCTAssertEqual(
-            rows(in: app).count, 2, "Explicit Save must add one clip, preserving the image")
+            XCTWaiter.wait(for: [count], timeout: 5), .completed,
+            "Explicit Save must add one clip, preserving the image")
     }
 
     /// Position 0 of the peek action list is what Return runs (`actionIndex`
@@ -46,8 +69,8 @@ final class ManualOCRUITests: XCTestCase {
         let app = launchOCR(language: "en", appearance: "dark")
         defer { app.terminate() }
         XCTAssertTrue(rows(in: app).firstMatch.waitForExistence(timeout: 15))
-        let paste = app.descendants(matching: .any).matching(identifier: "preview-paste").firstMatch
-        let ocr = app.descendants(matching: .any).matching(identifier: "image-copy-text").firstMatch
+        let paste = element("preview-paste", in: app)
+        let ocr = element("image-copy-text", in: app)
         XCTAssertTrue(paste.waitForExistence(timeout: 10), "the peek must offer Paste")
         XCTAssertTrue(ocr.waitForExistence(timeout: 10), "the peek must offer OCR on an image")
         XCTAssertLessThan(
@@ -75,34 +98,34 @@ final class ManualOCRUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: "clip-row")
     }
 
-    /// The only way into the review window is a toast button that auto-dismisses,
-    /// so a loaded runner can let it expire between the wait returning and the
-    /// click landing. Re-run the whole request instead of weakening an assertion:
-    /// recognition is idempotent, writes no clip, and never touches the image.
     @MainActor
-    private func openReview(in app: XCUIApplication, attempts: Int = 3) throws -> XCUIElement {
-        let text = app.textViews["ocr-review-text"].firstMatch
-        for attempt in 1...attempts {
-            let row = rows(in: app).firstMatch
-            XCTAssertTrue(row.waitForExistence(timeout: 15))
-            try SynthesizedInput.requireForeground(app)
-            row.rightClick()
-            let extract = app.menuItems["image-copy-text"].firstMatch
-            XCTAssertTrue(extract.waitForExistence(timeout: 3))
-            extract.click()
-            let review = app.buttons["ocr-review"].firstMatch
-            XCTAssertTrue(review.waitForExistence(timeout: 15), "no result toast")
-            review.click()
-            if text.waitForExistence(timeout: 5) { return text }
-            XCTAssertTrue(
-                attempt < attempts, "the review window never opened in \(attempts) attempts")
-        }
-        return text
+    private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
+    /// Right-click the seeded image row and ask for its text. The row is the
+    /// selected clip, so the request lands in the peek.
     @MainActor
-    private func attach(_ window: XCUIElement, named name: String) {
-        let attachment = XCTAttachment(screenshot: window.screenshot())
+    private func recognizeSeededImage(in app: XCUIApplication) throws {
+        let row = rows(in: app).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        try SynthesizedInput.requireForeground(app)
+        row.rightClick()
+        let extract = app.menuItems["image-copy-text"].firstMatch
+        XCTAssertTrue(extract.waitForExistence(timeout: 3))
+        extract.click()
+    }
+
+    /// The panel is a floating NSPanel on the ACTIVE display, so a screen
+    /// capture could show an unrelated desktop; capture the panel element only.
+    @MainActor
+    private func attachPanel(_ app: XCUIApplication, named name: String) {
+        guard
+            let panel = app.children(matching: .any).allElementsBoundByIndex.first(where: {
+                $0.exists && $0.frame.width > 200 && $0.frame.height > 200
+            })
+        else { return }
+        let attachment = XCTAttachment(screenshot: panel.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)

@@ -178,8 +178,10 @@ stay in reusable modules.
 - Deterministic tier-0 classifier — 17 kinds (URL, email, phone, address, date,
   color, JWT, JSON, UUID, code + language, credit card, tracking number, …) in
   under 5 ms.
-- Manual image OCR on macOS (Free, unreleased): copy recognized text, review
-  or edit it, and save only on request. It works with automatic OCR disabled,
+- Manual image OCR on macOS (Free, unreleased): the recognized text appears in
+  the panel's peek beside the image, one selectable region per line. Copy a
+  line or all of it, edit inline, and save only on request. It works with
+  automatic OCR disabled, never copies a recognized secret automatically,
   preserves newer clipboard copies, and never rewrites the source image.
 - Apple Intelligence titles (fallback-safe), automatic screenshot OCR (Pro), and semantic
   indexing for grounded Q&A and board suggestions — each behind a per-stage

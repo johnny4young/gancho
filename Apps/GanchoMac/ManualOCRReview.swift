@@ -19,7 +19,8 @@ struct ManualOCRReview: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Review recognized text").font(.headline)
+            // The window title already says "Review recognized text"; repeating
+            // it as a headline only spent a line the text could use.
             Text("Changes stay here until you copy or save them.")
                 .font(.callout).foregroundStyle(.secondary)
             TextEditor(text: $draft)

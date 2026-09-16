@@ -1,10 +1,22 @@
 import AppKit
 import ClipboardCore
+import GanchoAI
 import GanchoAppCore
 import GanchoKit
 
 extension AppModel {
-    /// How long a finished result stays reachable. The result toast carries the
+    /// Where an OCR request shows its progress and result.
+    enum ManualOCRSurface {
+        /// The history panel's peek: the "Text in image" section renders every
+        /// state in place, so no toast and no auto-discard — the result lives
+        /// exactly as long as the clip stays selected.
+        case peek
+        /// Any other entry point (Library, large preview): toasts plus the
+        /// review window, because there is no pane to render into.
+        case detached
+    }
+
+    /// How long a detached result stays reachable. The result toast carries the
     /// only way to reopen it, so this is ALSO the toast's duration: the two must
     /// be one number, or the text outlives its affordance (unreachable) or dies
     /// while the button is still on screen (a click that silently does nothing).
@@ -26,11 +38,13 @@ extension AppModel {
             && (item.expiresAt.map { $0 > .now } ?? true)
     }
 
-    func copyImageText(_ item: ClipItem) {
+    func copyImageText(_ item: ClipItem, surface: ManualOCRSurface = .detached) {
         guard canCopyImageText(item), let reader = store as? any ImageTextReading else { return }
         manualOCRWindow.close()
+        let detector = SensitiveDataDetector()
         manualOCR.start(
-            recognize: { try await ManualImageTextService().text(for: item.id, store: reader) },
+            itemID: item.id,
+            recognize: { try await ManualImageTextService().result(for: item.id, store: reader) },
             isAllowed: { [weak self] in
                 guard (try? await reader.permitsImageText(id: item.id, now: .now)) == true else {
                     return false
@@ -40,9 +54,11 @@ extension AppModel {
                     return self.canCopyImageText(item)
                 }
             },
+            isSensitive: { detector.detect($0) != nil },
             clipboardRevision: { NSPasteboard.general.changeCount },
             copy: { [weak self] in self?.writeManualText($0) },
-            didFinish: { [weak self] state in self?.finishManualOCR(state) })
+            didFinish: { [weak self] state in self?.finishManualOCR(state, surface: surface) })
+        guard surface == .detached else { return }
         toasts.show(
             GanchoToast(
                 message: "Recognizing text…", style: .pending,
@@ -62,12 +78,65 @@ extension AppModel {
         SystemPasteboardWriter().write(.text(text), asPlainText: true)
     }
 
-    private func finishManualOCR(_ state: ManualOCRSession.State) {
+    /// Copies one recognized line, or an edited draft, after the same
+    /// revalidation the review window applies: the source must still permit it.
+    @discardableResult
+    func copyManualText(_ text: String) async -> Bool {
+        guard let validated = await manualOCR.reviewedText(text) else { return false }
+        writeManualText(validated)
+        return true
+    }
+
+    private func finishManualOCR(_ state: ManualOCRSession.State, surface: ManualOCRSurface) {
+        switch surface {
+        case .peek:
+            // The section shows the state; sighted users need no toast. The
+            // section is not focused, so VoiceOver still gets one announcement.
+            announceManualOCR(state)
+        case .detached:
+            showDetachedManualOCRToast(state)
+        }
+    }
+
+    private func announceManualOCR(_ state: ManualOCRSession.State) {
+        let message: String? =
+            switch state {
+            case .copied: String(localized: "Text copied")
+            case .ready:
+                if manualOCR.isSensitive {
+                    String(localized: "Text contains a secret — review before copying")
+                } else {
+                    String(localized: "Text ready — clipboard unchanged")
+                }
+            case .noText: String(localized: "No readable text found")
+            case .unavailable: String(localized: "Image is no longer available for OCR")
+            case .failed: String(localized: "Couldn’t read this image. Try another image.")
+            case .idle, .recognizing: nil
+            }
+        guard let message else { return }
+        NSAccessibility.post(
+            element: NSApp as Any,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: message,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue
+            ])
+    }
+
+    private func showDetachedManualOCRToast(_ state: ManualOCRSession.State) {
         switch state {
         case .copied, .ready:
+            let message: LocalizedStringResource =
+                if state == .copied {
+                    "Text copied"
+                } else if manualOCR.isSensitive {
+                    "Text contains a secret — review before copying"
+                } else {
+                    "Text ready — clipboard unchanged"
+                }
             toasts.show(
                 GanchoToast(
-                    message: state == .copied ? "Text copied" : "Text ready — clipboard unchanged",
+                    message: message,
                     action: ToastAction(title: "Review", accessibilityIdentifier: "ocr-review") {
                         [weak self] in
                         guard let self else { return }
