@@ -7,8 +7,11 @@ import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Settings scene, six tabs in the design's pill tab bar. Every control binds
-/// straight into the model, so changes apply live — no restart, no Apply button.
+/// Settings scene: a sidebar of sections and the selected section's form.
+/// Every control binds straight into the model, so changes apply live — no
+/// restart, no Apply button. The sidebar replaced a horizontal pill strip that
+/// clipped its last tabs at the fixed width and left every section fighting a
+/// 400 pt window.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
 
@@ -17,16 +20,23 @@ struct SettingsView: View {
     @State private var appliedMigrationUITestLaunch = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            SettingsTabBar(selection: $tab)
-                .padding(.horizontal, GanchoTokens.Spacing.md)
-                .padding(.top, GanchoTokens.Spacing.sm)
-                .padding(.bottom, GanchoTokens.Spacing.xs)
+        HStack(spacing: 0) {
+            SettingsSidebar(selection: $tab)
             Divider()
-            selectedTab
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(tab.titleKey)
+                    .font(.title2.weight(.bold))
+                    .padding(.horizontal, GanchoTokens.Spacing.xl)
+                    .padding(.top, GanchoTokens.Spacing.lg)
+                selectedTab
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
-        .frame(width: 520, height: 400)
+        .frame(width: 760, height: 500)
+        // A container, not a plain group: SwiftUI otherwise writes this
+        // identifier onto every descendant (the sidebar buttons lost their
+        // `settings-tab-<id>` to it).
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("settings")
         .sheet(isPresented: $showMigrationImporter) {
             MigrationImportView()
@@ -59,9 +69,8 @@ struct SettingsView: View {
     }
 }
 
-/// The Settings tabs. Rendered as the design's `TabBar`: plain-text tabs with
-/// thin dividers, the active one a solid accent pill (accent follows the OS
-/// accent — brand green by default), the rest quiet gray.
+/// The Settings sections. Each one is a sidebar row with a symbol; the
+/// selected row takes the accent (brand green unless the OS accent is set).
 private enum SettingsTab: String, CaseIterable, Identifiable {
     case general, capture, retention, privacy, integrations, pro, about
 
@@ -78,50 +87,66 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .about: "About"
         }
     }
+
+    var symbolName: String {
+        switch self {
+        case .general: "gearshape"
+        case .capture: "doc.on.clipboard"
+        case .retention: "clock"
+        case .privacy: "lock.shield"
+        case .integrations: "puzzlepiece.extension"
+        case .pro: "sparkles"
+        case .about: "info.circle"
+        }
+    }
 }
 
-private struct SettingsTabBar: View {
+private struct SettingsSidebar: View {
     @Binding var selection: SettingsTab
 
     var body: some View {
-        // Horizontal scroll so every tab keeps its FULL label (with seven tabs
-        // the fixed-width bar squeezed them to "Ge…", "Cap…", …). The selected
-        // tab scrolls into view so a hidden one is never silently omitted.
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: GanchoTokens.Spacing.xs) {
-                    ForEach(Array(SettingsTab.allCases.enumerated()), id: \.element.id) {
-                        index, tab in
-                        if index > 0 {
-                            Divider().frame(height: 14)
-                        }
-                        tabButton(tab).id(tab)
-                    }
-                }
-                .padding(.horizontal, 2)
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(SettingsTab.allCases) { tab in
+                sidebarRow(tab)
             }
-            .scrollClipDisabled()
-            .onChange(of: selection) { _, new in
-                withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(new, anchor: .center) }
-            }
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, GanchoTokens.Spacing.sm)
+        // The window's title bar is transparent and content-sized, so the
+        // traffic lights sit over this column: keep the first row under them.
+        .padding(.top, 38)
+        .frame(width: 210)
+        .frame(maxHeight: .infinity)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
-    private func tabButton(_ tab: SettingsTab) -> some View {
+    /// Plain buttons rather than a selectable `List`: the rows stay buttons to
+    /// accessibility (the UI suites click `settings-tab-<id>`), and selection
+    /// is one state the window owns.
+    private func sidebarRow(_ tab: SettingsTab) -> some View {
         let isActive = tab == selection
         return Button {
             selection = tab
         } label: {
-            Text(tab.titleKey)
-                .font(.callout.weight(isActive ? .semibold : .regular))
-                .lineLimit(1)
-                .padding(.horizontal, GanchoTokens.Spacing.sm)
-                .padding(.vertical, GanchoTokens.Spacing.xxs)
-                .foregroundStyle(isActive ? Color.white : Color.secondary)
-                .background(
-                    isActive ? GanchoTokens.Palette.accent : Color.clear, in: Capsule()
-                )
-                .contentShape(Capsule())
+            Label {
+                Text(tab.titleKey)
+                    .font(.callout.weight(isActive ? .semibold : .regular))
+            } icon: {
+                Image(systemName: tab.symbolName)
+                    .font(.callout)
+                    .frame(width: 18)
+            }
+            .lineLimit(1)
+            .padding(.horizontal, GanchoTokens.Spacing.sm)
+            .padding(.vertical, GanchoTokens.Spacing.xs)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .foregroundStyle(isActive ? Color.white : Color.primary)
+            .background(
+                isActive ? GanchoTokens.Palette.accent : Color.clear,
+                in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+            )
+            .contentShape(
+                RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("settings-tab-\(tab.rawValue)")
@@ -361,10 +386,9 @@ private struct CaptureSettingsTab: View {
             Toggle("Keep rich text formatting", isOn: $model.preferences.captureRichText)
 
             // The editable never-capture list sits with the capture toggles —
-            // it's the same question ("what gets captured?"), and at the form's
-            // tail it hid below the fold of the default window height. Its own
-            // file: it grew rows with names/icons, an /Applications picker,
-            // and a restore affordance.
+            // it's the same question ("what gets captured?"). Its own file: the
+            // user's entries, one Add-app menu, and the built-in exclusions
+            // folded into a disclosure so the section fits the window.
             DenylistSettingsSection()
 
             Section("Intelligence") {
@@ -719,10 +743,12 @@ final class SettingsWindowController {
                 rootView: SettingsView().environment(model).ganchoTinted())
             let created = NSWindow(contentViewController: hosting)
             created.title = String(localized: "Settings")
-            created.styleMask = [.titled, .closable]
-            // The tab strip labels the window; a visible "Settings" title only
-            // crowded it against the title bar.
+            created.styleMask = [.titled, .closable, .fullSizeContentView]
+            // The sidebar runs under a transparent title bar, like the
+            // system's Settings; the section title labels the content, so the
+            // window title stays hidden.
             created.titleVisibility = .hidden
+            created.titlebarAppearsTransparent = true
             created.isReleasedWhenClosed = false
             created.collectionBehavior = [.moveToActiveSpace]
             created.sizeToFitContentAndCenter()

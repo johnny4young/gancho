@@ -39,11 +39,14 @@ final class IOSAppModel {
     var hints = IntentionalPasteboardSource.ContentHints()
     /// The pasteboard `changeCount` of the last clip captured via the paste
     /// control. When it matches the current `hints.changeCount`, the copy on
-    /// the clipboard has already been read — so the card says "Saved", not
-    /// "not read yet". nil until the first capture this session.
+    /// the clipboard has already been read — so the status row says "Saved",
+    /// not "Sensed, not read". nil until the first capture this session.
     var lastCapturedChangeCount: Int?
-    /// Transient feedback ("Saved" / "Already in your history").
-    var saveNote: String?
+    /// Transient feedback on the capture screen, with the kind that decides how
+    /// it reads: "Saved" is a success, a Pro upsell is a limit, a load error is
+    /// a failure.
+    var saveNote: CaptureStatusNote?
+
     @ObservationIgnored private var saveNoteTask: Task<Void, Never>?
     /// One non-modal curation action produced at the exact third successful use.
     /// Metadata only; exact-threshold dismissal needs no persisted state.
@@ -225,6 +228,9 @@ final class IOSAppModel {
         // refresh an open screen.
         recordStorageHealthIfNeeded()
         seedSampleClipsIfRequested()
+        #if DEBUG
+            pinLongSaveNoteIfRequested()
+        #endif
         uiTestPrivateActivityReceiptSeedTask = seedDurableUITestFixturesIfRequested()
         telemetry.record(.appLaunched)
         #if DEBUG
@@ -416,7 +422,7 @@ final class IOSAppModel {
             refreshSpotlight()
             // Refresh first so the two-second confirmation remains visible
             // after the durable mutation has settled and the UI is idle.
-            flashNote(String(localized: "Saved as snippet"))
+            flashNote(String(localized: "Saved as snippet"), kind: .success)
         case .freeLimitReached:
             proGateTick += 1
         case .clipUnavailable:
@@ -510,7 +516,9 @@ final class IOSAppModel {
         let outcome = await BoardsController().createBoard(
             name: name, filing: item, store: full, engine: syncController.engine,
             isPro: tier == .pro,
-            onFreeLimit: { self.flashNote(String(localized: "Upgrade to Pro for more boards")) },
+            onFreeLimit: {
+                self.flashNote(String(localized: "Upgrade to Pro for more boards"), kind: .limit)
+            },
             onAssigned: {})
         if outcome == .failed {
             recordBoardFailure("Couldn’t create the board.")
@@ -630,7 +638,7 @@ final class IOSAppModel {
         guard let content = try? await store.content(for: item.id) else {
             // Silent before: the user tapped Copy, felt the (missing) result, and
             // pasted stale content. Say the load failed instead.
-            flashNote(String(localized: "Couldn’t load this clip — try again."))
+            flashNote(String(localized: "Couldn’t load this clip — try again."), kind: .failure)
             diagnostics.record(
                 String(localized: "Copy"),
                 String(localized: "A clip’s content couldn’t be loaded."))
@@ -918,9 +926,9 @@ final class IOSAppModel {
         await ingest(capture)
     }
 
-    private func flashNote(_ text: String) {
+    private func flashNote(_ text: String, kind: CaptureStatusNote.Kind) {
         saveNoteTask?.cancel()
-        saveNote = text
+        saveNote = CaptureStatusNote(text: text, kind: kind)
         // The note is a transient overlay VoiceOver won't focus on its own; speak
         // it so a blind user gets the same confirmation a sighted one sees.
         UIAccessibility.post(notification: .announcement, argument: text)
@@ -1025,7 +1033,8 @@ final class IOSAppModel {
             at: capture.capturedAt)
         flashNote(
             outcome.isNew
-                ? String(localized: "Saved") : String(localized: "Already in your history"))
+                ? String(localized: "Saved") : String(localized: "Already in your history"),
+            kind: .success)
         // Bounded like every other load — search() pulls the first page only.
         await search()
         reloadWidgets()
@@ -1060,4 +1069,15 @@ final class IOSAppModel {
             }
         }
     }
+}
+
+/// One transient status note on the capture screen: its text and what kind of
+/// outcome it reports.
+struct CaptureStatusNote: Equatable {
+    enum Kind: Equatable {
+        case success, limit, failure
+    }
+
+    let text: String
+    let kind: Kind
 }

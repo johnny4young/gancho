@@ -3388,42 +3388,12 @@
         }
       }
     },
-    "Password managers and banking apps are excluded by default.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los gestores de contraseñas y apps bancarias están excluidos por defecto."
-          }
-        }
-      }
-    },
     "Restore default exclusions": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Restaurar exclusiones por defecto"
-          }
-        }
-      }
-    },
-    "Choose from Applications…": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Elegir de Aplicaciones…"
-          }
-        }
-      }
-    },
-    "Default": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Por defecto"
           }
         }
       }
@@ -5417,26 +5387,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Los secretos detectados — contraseñas, llaves, tarjetas — siempre siguen este límite, incluso cuando tu historial guarda todo por más tiempo. Es una protección de seguridad que puedes acortar pero no extender."
-          }
-        }
-      }
-    },
-    "Add a running app…": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agregar una app abierta…"
-          }
-        }
-      }
-    },
-    "A bundle identifier looks like com.apple.Safari.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un identificador de paquete se ve así: com.apple.Safari."
           }
         }
       }
@@ -7657,6 +7607,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "Se quitó de este Mac, pero no se pudo liberar el espacio en Lemon Squeezy. Libéralo desde tu cuenta."
+          }
+        }
+      }
+    },
+    "Add app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar app"
+          }
+        }
+      }
+    },
+    "Running app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App en ejecución"
+          }
+        }
+      }
+    },
+    "From Applications…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desde Aplicaciones…"
+          }
+        }
+      }
+    },
+    "By bundle identifier…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por identificador de bundle…"
+          }
+        }
+      }
+    },
+    "Built-in exclusions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exclusiones integradas"
+          }
+        }
+      }
+    },
+    "%lld · password managers and banking apps": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld · gestores de contraseñas y apps bancarias"
+          }
+        }
+      }
+    },
+    "Password managers": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestores de contraseñas"
+          }
+        }
+      }
+    },
+    "Banking": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Banca"
+          }
+        }
+      }
+    },
+    "Not installed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No instalada"
+          }
+        }
+      }
+    },
+    "Built-in exclusions switch off one by one; your own entries are removed with the minus.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las exclusiones integradas se apagan una por una; tus propias entradas se quitan con el menos."
+          }
+        }
+      }
+    },
+    "A bundle identifier has at least two dot-separated parts, like com.apple.Safari.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un identificador de bundle tiene al menos dos partes separadas por punto, como com.apple.Safari."
           }
         }
       }

@@ -102,6 +102,26 @@ struct CaptureView: View {
                     }
                 }
                 .toolbar {
+                    // Search keeps its bottom-bar slot (a bottom item alone
+                    // would move the field back under the title), and the
+                    // system paste control rides beside it: the one action the
+                    // screen is for, within thumb reach, drawn by the OS so
+                    // the one-tap consent stays the system's. Its own glass
+                    // would double the control's green capsule, so the shared
+                    // background steps aside.
+                    DefaultToolbarItem(kind: .search, placement: .bottomBar)
+                    ToolbarItem(placement: .bottomBar) {
+                        // One accessibility element: the bar item otherwise
+                        // exposes a wrapper labelled by the control's visible
+                        // text, and the label set here never reaches it.
+                        PasteControlView { providers in model.ingest(providers: providers) }
+                            .frame(width: 112, height: 44)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityIdentifier("paste-control")
+                            .accessibilityLabel(Text("Paste into Gancho"))
+                    }
+                    .sharedBackgroundVisibility(.hidden)
                     ToolbarItem(placement: .topBarTrailing) {
                         kindFilterMenu
                     }
@@ -450,6 +470,7 @@ struct CaptureView: View {
             .padding(.horizontal, GanchoTokens.Spacing.md)
             .padding(.vertical, GanchoTokens.Spacing.xs)
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("board-rail")
     }
 
@@ -533,7 +554,7 @@ struct CaptureView: View {
                     .foregroundStyle(.secondary)
                 Text(
                     // swiftlint:disable:next line_length
-                    "iOS apps can't watch the clipboard in the background — no app can. Capture with the button above, the share sheet from any app, or a Shortcut on your Action Button."
+                    "iOS apps can't watch the clipboard in the background — no app can. Capture with the Paste button, the share sheet from any app, or a Shortcut on your Action Button."
                 )
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
@@ -551,108 +572,17 @@ struct CaptureView: View {
         await model.search()
     }
 
-    /// The consensual capture card (the design's Pasteboard section). gancho
-    /// senses the clipboard's TYPE via `detectPatterns` — no read, no "pasted
-    /// from" banner — and the green `UIPasteControl` is the user's one-tap "yes,
-    /// save this". Privacy is the function, not an apology.
-    @ViewBuilder private var pasteboardSection: some View {
+    /// The design's Pasteboard section: the status row the capture screen
+    /// shows above history (see `PasteboardStatusRow`).
+    private var pasteboardSection: some View {
         Section {
-            if let note = model.saveNote {
-                Label(note, systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(GanchoTokens.Palette.success)
-                    .accessibilityIdentifier("save-note")
-            }
-            VStack(spacing: 0) {
-                HStack(spacing: 11) {
-                    captureTile
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(senseTitle)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if model.hints.hasContent {
-                            if alreadyCaptured {
-                                captureTag(Text("Saved"), tint: GanchoTokens.Palette.success)
-                            } else {
-                                captureTag(
-                                    Text("not read yet"), tint: GanchoTokens.Palette.warning)
-                            }
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    PasteControlView { providers in model.ingest(providers: providers) }
-                        .frame(width: 108, height: 34)
-                }
-                .padding(.vertical, 10)
-                Divider()
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.shield.fill")
-                        .font(.caption)
-                        .foregroundStyle(GanchoTokens.Palette.accent)
-                    Text(
-                        "Gancho never reads your clipboard on its own. It only sees the type until you tap Save."
-                    )
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.vertical, 9)
-            }
-            .accessibilityIdentifier("pasteboard-capture")
-        } header: {
-            HStack {
-                Text("Pasteboard")
-                Spacer()
-                Label("sensed, not read", systemImage: "shield.lefthalf.filled")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .textCase(nil)
-            }
+            PasteboardStatusRow()
+                .listRowBackground(Color.clear)
+                .listRowInsets(
+                    EdgeInsets(
+                        top: GanchoTokens.Spacing.xxs, leading: GanchoTokens.Spacing.xxs,
+                        bottom: GanchoTokens.Spacing.xxs, trailing: GanchoTokens.Spacing.xxs))
         }
-    }
-
-    private var captureTile: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(GanchoTokens.Palette.accent.opacity(0.15))
-            .frame(width: 38, height: 38)
-            .overlay {
-                Image(systemName: senseSymbol)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(GanchoTokens.Palette.accent)
-            }
-    }
-
-    /// Amber "not read yet" pill.
-    private func captureTag(_ text: Text, tint: Color) -> some View {
-        text
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(tint.opacity(0.16), in: Capsule())
-    }
-
-    /// True when the copy currently on the clipboard is the one we just saved
-    /// (matched by the pasteboard's change counter — metadata, no read).
-    private var alreadyCaptured: Bool {
-        model.lastCapturedChangeCount != nil
-            && model.hints.changeCount == model.lastCapturedChangeCount
-    }
-
-    /// What `detectPatterns` sensed, as a title — derived without reading.
-    private var senseTitle: LocalizedStringKey {
-        guard model.hints.hasContent else { return "Pasteboard is empty" }
-        if model.hints.probableWebURL { return "A link is on your clipboard" }
-        if model.hints.probableWebSearch { return "Search text is on your clipboard" }
-        if model.hints.number { return "A number is on your clipboard" }
-        return "Something is on your clipboard"
-    }
-
-    private var senseSymbol: String {
-        if model.hints.probableWebURL { return "link" }
-        if model.hints.probableWebSearch { return "magnifyingglass" }
-        if model.hints.number { return "number" }
-        return "doc.on.clipboard"
     }
 
     /// Shown only when the durable store failed to open — captures are running
@@ -722,6 +652,7 @@ struct CaptureView: View {
                         .accessibilityIdentifier("sync-retry")
                 }
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("sync-status")
         }
     }
@@ -747,8 +678,8 @@ struct PasteControlView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> UIPasteControl {
-        // Styled as the design's green "Save" — a system paste button that
-        // grants one-time access on tap, no "pasted from" banner.
+        // The design's green Paste button, drawn by the system: it grants
+        // one-time access on tap, with no "pasted from" banner.
         let config = UIPasteControl.Configuration()
         config.cornerStyle = .capsule
         config.displayMode = .iconAndLabel
@@ -756,15 +687,15 @@ struct PasteControlView: UIViewRepresentable {
         config.baseForegroundColor = .white
         let control = UIPasteControl(configuration: config)
         control.target = context.coordinator.target
-        // Set the identifier on the system UIView itself: SwiftUI's
-        // `.accessibilityIdentifier` modifier does not propagate onto a
-        // `UIViewRepresentable`'s underlying view, so XCUITest could not find the
-        // control by id. Make the wrapper element explicit too: on simulator
-        // runners `UIPasteControl` can keep its internal label accessible while
-        // leaving the outer control unqueryable by identifier.
+        // The identifier and label assistive tech sees come from the SwiftUI
+        // modifiers at the call site: SwiftUI writes its accessibility attributes
+        // onto the hosted view (the UIKit-side label alone left VoiceOver reading
+        // the system's "Paste"), which is also why an identifier on an enclosing
+        // container would mask this control. The UIKit-side copies only keep the
+        // control queryable if those modifiers are ever dropped.
         control.isAccessibilityElement = true
         control.accessibilityIdentifier = "paste-control"
-        control.accessibilityLabel = String(localized: "Save clipboard")
+        control.accessibilityLabel = String(localized: "Paste into Gancho")
         control.accessibilityTraits.insert(.button)
         return control
     }

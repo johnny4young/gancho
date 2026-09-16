@@ -13,6 +13,18 @@ extension IOSAppModel {
         return seedPrivateActivityReceiptIfRequested()
     }
 
+    #if DEBUG
+        /// UI-test hook: `-pin-long-save-note` shows a long real status note
+        /// (the load failure, a failure-kind note) and never dismisses it, so a
+        /// test can measure the status row and read its kind in any language
+        /// and text size. Nothing is read or saved.
+        func pinLongSaveNoteIfRequested() {
+            guard ProcessInfo.processInfo.arguments.contains("-pin-long-save-note") else { return }
+            saveNote = CaptureStatusNote(
+                text: String(localized: "Couldn’t load this clip — try again."), kind: .failure)
+        }
+    #endif
+
     private func seedSampleBoardsIfRequested() {
         guard ProcessInfo.processInfo.arguments.contains("-seed-sample-boards"),
             ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
