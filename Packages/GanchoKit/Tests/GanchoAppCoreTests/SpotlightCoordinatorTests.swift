@@ -53,7 +53,7 @@ struct SpotlightCoordinatorTests {
     func busBurstReconcilesOnce() async {
         let bus = StoreChangeBus()
         var reconciles = 0
-        // Yielding debounce plus bounded polling avoids wall-clock timing.
+        // The debounce is injected; wait for observable completion below.
         let coordinator = SpotlightCoordinator(
             coalescer: StoreChangeCoalescer(window: .zero, sleep: { _ in await Task.yield() }),
             reconcile: {
@@ -62,12 +62,9 @@ struct SpotlightCoordinatorTests {
             }, onFailure: {})
         coordinator.start(subscribingTo: bus)
         for _ in 0..<10 { bus.post(.curation) }
-        var attempts = 1_000
-        while reconciles == 0, attempts > 0 {
-            await Task.yield()
-            attempts -= 1
-        }
+        let reconciled = await waitUntil { reconciles > 0 }
         coordinator.stop()
+        #expect(reconciled, "the subscriber must process the posted burst")
         #expect(reconciles == 1, "a single burst must drive exactly one reconcile")
     }
 
@@ -83,11 +80,8 @@ struct SpotlightCoordinatorTests {
         #expect(firstBus.subscriberCount == 1)
         coordinator.start(subscribingTo: secondBus)
 
-        var attempts = 1_000
-        while firstBus.subscriberCount != 0, attempts > 0 {
-            await Task.yield()
-            attempts -= 1
-        }
+        let unsubscribed = await waitUntil { firstBus.subscriberCount == 0 }
+        #expect(unsubscribed, "the canceled subscription must terminate")
         #expect(firstBus.subscriberCount == 0)
         #expect(secondBus.subscriberCount == 1)
         coordinator.stop()
@@ -109,4 +103,16 @@ struct SpotlightCoordinatorTests {
         coordinator.stop()
         #expect(reconciles == 0)
     }
+
+    /// Task.yield() may immediately resume a higher-priority test instead of
+    /// the utility-priority subscriber. Suspend between condition checks so
+    /// the producer gets scheduled; a deadline still fails a lost event.
+    private func waitUntil(_ condition: @MainActor () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !condition(), ContinuousClock.now < deadline {
+            do { try await Task.sleep(for: .milliseconds(10)) } catch { return false }
+        }
+        return condition()
+    }
+
 }

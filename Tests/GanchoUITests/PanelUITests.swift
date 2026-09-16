@@ -8,7 +8,7 @@ import XCTest
 final class PanelUITests: XCTestCase {
     @MainActor
     func testPanelShortcutRestoresAndRegistersOnLaunch() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
             "-diagnose-global-shortcut-for-ui-test",
@@ -53,7 +53,7 @@ final class PanelUITests: XCTestCase {
             )
         }
         terminateMenuBarHelpers()
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launch()
         defer {
             app.terminate()
@@ -198,7 +198,7 @@ final class PanelUITests: XCTestCase {
         commandNonce: String? = nil,
         opening deepLink: URL? = nil
     ) -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         // Regular activation is a UI-test-only host requirement. On macOS 26 a
         // hidden accessory status item correctly triggers Gancho's production
         // terminationOnRemoval contract before XCUITest can attach.
@@ -214,7 +214,7 @@ final class PanelUITests: XCTestCase {
 
     @MainActor
     private func launchWithPanel(extraArguments: [String] = []) -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = ["-open-panel-on-launch", "-use-in-process-status-item"]
         app.launchArguments += extraArguments
         app.launch()
@@ -420,7 +420,7 @@ final class PanelUITests: XCTestCase {
 
     @MainActor
     func testEphemeralStorageShowsWarningBanner() {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-force-ephemeral-store",
             "-force-capture-active", "-force-pasteboard-access-allowed",
@@ -456,7 +456,7 @@ final class PanelUITests: XCTestCase {
     func testPrivacyCenterRecentIssuesLogsEphemeralStorage() {
         // Force the in-memory fallback so AppModel records a content-free
         // "Storage" issue at launch, then open the Privacy Center directly.
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-force-ephemeral-store",
             "-open-privacy-center-on-launch"

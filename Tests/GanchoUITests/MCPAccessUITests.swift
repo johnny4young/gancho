@@ -74,7 +74,7 @@ final class MCPAccessUITests: XCTestCase {
 
     @MainActor
     private func launchMCPAccess() throws -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
             "-use-temp-durable-store",

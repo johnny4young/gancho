@@ -7,7 +7,7 @@ import XCTest
 final class ActivationFunnelUITests: XCTestCase {
     @MainActor
     func testOnboardingHandsOffToRealPanel() {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
             "-force-ephemeral-store", "-force-capture-active",

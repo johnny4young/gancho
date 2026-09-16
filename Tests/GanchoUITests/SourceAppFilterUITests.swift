@@ -13,7 +13,7 @@ final class SourceAppFilterUITests: XCTestCase {
 
     @MainActor
     private func launchSeededPanel() -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = Self.launchArguments
         app.launch()
         return app

@@ -111,6 +111,8 @@ final class AppModel {
     let panel: PanelController
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
     let toasts = ToastPresenter()
+    let manualOCR = ManualOCRSession()
+    let manualOCRWindow = ManualOCRWindowController()
     /// Content-free store-mutation fan-out. Mutation sites post here instead of
     /// each remembering to call every reconciler; the `SpotlightCoordinator`
     /// subscribes and rebuilds the curated Spotlight set once per burst. This
@@ -423,6 +425,7 @@ final class AppModel {
             pasteboardAccessPolicy = SystemPasteboardAccessPolicy()
         #endif
         let resolvedMonitor = MacPasteboardMonitor(
+            reader: Self.pasteboardReaderForLaunch(),
             accessPolicy: pasteboardAccessPolicy,
             preferences: loadedPreferences)
         monitor = resolvedMonitor
@@ -763,7 +766,10 @@ final class AppModel {
 
     /// The real paste-back service or, in DEBUG UI tests only, one that writes
     /// nothing and posts nothing. `-ui-test-paste-sink pasted` answers as if
-    /// Accessibility were granted; any other value, or none, answers copy-only.
+    /// Accessibility were granted; `-ui-test-paste-sink copy-only` — like any
+    /// other value, or none — answers copy-only. Those two spellings are the
+    /// only ones a test should pass, so a reader never has to guess whether an
+    /// invented third value means something.
     /// It fails safe: a mistyped value still never reaches the real pasteboard
     /// or types ⌘V into whatever app is frontmost.
     private static func makePasteBackService() -> PasteBackService {

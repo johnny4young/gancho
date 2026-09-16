@@ -145,7 +145,7 @@ final class PanelReproUITests: XCTestCase {
     /// session pasteboard's independent file-URL item count.
     @MainActor
     func testMultiFileClipDragsEveryFileAndKeepsPanelOpen() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-multi-file-drag",
@@ -207,7 +207,7 @@ final class PanelReproUITests: XCTestCase {
     /// context-menu gesture once multi-file preflight activates it.
     @MainActor
     func testMultiFileRowControlClickOpensContextMenu() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-multi-file-drag",
@@ -248,7 +248,7 @@ final class PanelReproUITests: XCTestCase {
     /// invariants the report violated.
     @MainActor
     func testGroupedPanelKeepsOneSelectionAndDistinctShortcuts() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier"
@@ -289,7 +289,7 @@ final class PanelReproUITests: XCTestCase {
 
     @MainActor
     func testKeyboardSelectionLoadsOnlyTheSelectedPreview() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier",
@@ -337,7 +337,7 @@ final class PanelReproUITests: XCTestCase {
 
     @MainActor
     func testShiftArrowExtendsAContiguousSelection() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier",

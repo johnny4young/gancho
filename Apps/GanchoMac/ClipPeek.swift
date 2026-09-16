@@ -2,6 +2,7 @@ import AppKit
 import ClipboardCore
 import Combine
 import GanchoAI
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import SwiftUI
@@ -41,6 +42,13 @@ struct ClipPeek: View {
     /// While the multiline editor owns the keyboard, parent navigation must
     /// not intercept Return, arrows, or Escape.
     @State private var isEditingText = false
+    /// Shared by the two OCR views (regions over the thumbnail, section under
+    /// it): the line under the cursor, the line just copied, the reveal state
+    /// of a recognized secret, and whether the inline editor has the keyboard.
+    @State private var ocrHoveredLine: Int?
+    @State private var ocrCopiedLine: Int?
+    @State private var ocrRevealSecret = false
+    @State private var isEditingOCR = false
 
     init(
         item: ClipItem, text: String, isTextEditable: Bool,
@@ -79,6 +87,11 @@ struct ClipPeek: View {
                 suggestionChip(suggestedBoard)
             }
             peekBody
+            if ocrShowsHere {
+                PeekImageTextSection(
+                    item: item, hoveredLine: $ocrHoveredLine, copiedLine: $ocrCopiedLine,
+                    revealSecret: $ocrRevealSecret, isEditing: $isEditingOCR)
+            }
             insightStrip
             if canTransform || canSmartPaste {
                 HStack(spacing: GanchoTokens.Spacing.xxs) {
@@ -134,6 +147,18 @@ struct ClipPeek: View {
         }
         .onChange(of: focus.wrappedValue) { _, newValue in
             if newValue == .peek { actionIndex = 0 }
+        }
+        // A new request (same clip, run again) starts from a clean section.
+        .onChange(of: model.manualOCR.requestID) { _, _ in
+            ocrHoveredLine = nil
+            ocrCopiedLine = nil
+            ocrRevealSecret = false
+            isEditingOCR = false
+        }
+        // The result is transient and lives exactly as long as this clip stays
+        // selected: leaving the clip, or hiding the panel, discards it.
+        .onDisappear {
+            if model.manualOCR.itemID == item.id { model.manualOCR.cancel() }
         }
         .onChange(of: item.title) { _, newTitle in
             guard !isEditingTitle else { return }
@@ -265,6 +290,14 @@ struct ClipPeek: View {
             thumbnail
                 .resizable()
                 .scaledToFit()
+                // Live Text, Gancho style: recognized lines become regions on the
+                // thumbnail. The overlay sits BEFORE the frame so it takes the
+                // image's fitted size, which is what the normalized boxes map to.
+                .overlay {
+                    PeekImageTextRegions(
+                        item: item, hoveredLine: $ocrHoveredLine, copiedLine: $ocrCopiedLine,
+                        revealSecret: $ocrRevealSecret)
+                }
                 .frame(maxWidth: .infinity, maxHeight: 220, alignment: .topLeading)
                 .clipShape(
                     RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
@@ -366,6 +399,16 @@ struct ClipPeek: View {
                 model.paste(item, asPlainText: true)
             }
         ]
+        // APPENDED, never inserted at 0: `actionIndex` resets to 0 whenever peek
+        // takes focus and Return runs `navActions[actionIndex]`, so position 0 IS
+        // the default keyboard action. Putting OCR there would silently turn
+        // Return on an image clip from Paste into Copy text from image.
+        if model.canCopyImageText(item) {
+            actions.append(
+                PeekAction(
+                    id: "image-copy-text", title: "Copy text from image", symbol: "text.viewfinder"
+                ) { model.copyImageText(item, surface: .peek) })
+        }
         if !ClipSafePresentation.requiresMasking(item) {
             for action in DevActions.actions(for: item.kind) {
                 actions.append(
@@ -431,39 +474,6 @@ struct ClipPeek: View {
         }
     }
 
-    private func moveAction(_ delta: Int) -> KeyPress.Result {
-        let count = navActions.count
-        guard count > 0 else { return .handled }
-        actionIndex = (actionIndex + delta + count) % count
-        return .handled
-    }
-
-    private func runFocusedAction() {
-        guard navActions.indices.contains(actionIndex) else { return }
-        navActions[actionIndex].run()
-    }
-
-    private func resultBox(_ result: String) -> some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
-            ScrollView {
-                Text(result)
-                    .font(.body.monospaced())
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-            }
-            .frame(maxHeight: 140)
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                ActionButton("Paste", systemImage: "doc.on.clipboard", identifier: "paste-result") {
-                    model.pasteText(result)
-                }
-                ActionButton("Copy result", systemImage: "doc.on.doc", identifier: "copy-result") {
-                    SystemPasteboardWriter().write(.text(result), asPlainText: true)
-                    model.toasts.show(GanchoToast(message: "Copied"))
-                }
-            }
-        }
-    }
-
 }
 
 // MARK: - Smart Paste & deterministic transforms
@@ -491,7 +501,12 @@ extension ClipPeek {
     }
 
     private var isInlineEditing: Bool {
-        isEditingTitle || isEditingText
+        isEditingTitle || isEditingText || isEditingOCR
+    }
+
+    /// The OCR session belongs to THIS clip and has something to show.
+    private var ocrShowsHere: Bool {
+        model.manualOCR.itemID == item.id && model.manualOCR.state != .idle
     }
 
     private func beginTitleEditing() {
@@ -645,6 +660,39 @@ extension ClipPeek {
             let result = await model.smartTranslate(presentedText, to: target)
             isThinking = false
             actionResult = result ?? String(localized: "Couldn’t run that — try again.")
+        }
+    }
+
+    private func moveAction(_ delta: Int) -> KeyPress.Result {
+        let count = navActions.count
+        guard count > 0 else { return .handled }
+        actionIndex = (actionIndex + delta + count) % count
+        return .handled
+    }
+
+    private func runFocusedAction() {
+        guard navActions.indices.contains(actionIndex) else { return }
+        navActions[actionIndex].run()
+    }
+
+    private func resultBox(_ result: String) -> some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
+            ScrollView {
+                Text(result)
+                    .font(.body.monospaced())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(maxHeight: 140)
+            HStack(spacing: GanchoTokens.Spacing.xxs) {
+                ActionButton("Paste", systemImage: "doc.on.clipboard", identifier: "paste-result") {
+                    model.pasteText(result)
+                }
+                ActionButton("Copy result", systemImage: "doc.on.doc", identifier: "copy-result") {
+                    SystemPasteboardWriter().write(.text(result), asPlainText: true)
+                    model.toasts.show(GanchoToast(message: "Copied"))
+                }
+            }
         }
     }
 }

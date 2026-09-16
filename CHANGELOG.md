@@ -7,6 +7,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Free manual image OCR on Mac, read in place: the history panel's peek shows
+  the recognized text beside the image, with one selectable region per line on
+  the thumbnail (Live Text style). Copy one line or all of it, edit inline, and
+  save it as a separate clip only when requested; a recognized secret is never
+  copied automatically. Other entry points keep the review window. Automatic
+  searchable-image indexing remains Pro. No network or automatic paste.
+- The history panel's list and peek now share one surface separated by a
+  hairline, instead of two floating panes with a gap.
+
 ## [0.8.3] - 2026-09-12
 
 ### Security

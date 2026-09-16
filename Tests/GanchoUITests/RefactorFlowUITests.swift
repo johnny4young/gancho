@@ -15,7 +15,7 @@ final class RefactorFlowUITests: XCTestCase {
     /// panel without the global hotkey.
     @MainActor
     private func launchSeededPanel(extraArguments: [String] = []) -> XCUIApplication {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments =
             [
                 "-open-panel-on-launch", "-use-in-process-status-item",
@@ -146,7 +146,7 @@ final class RefactorFlowUITests: XCTestCase {
     /// is a unique temp directory, so the user's real boards are never touched.
     @MainActor
     func testCreatingBoardBeyondFreeLimitShowsPaywall() throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-sample-boards",
@@ -202,7 +202,7 @@ final class RefactorFlowUITests: XCTestCase {
     /// the chosen palette token survives the editor's save and model refresh.
     @MainActor
     func testBoardAppearanceEditorPersistsPaletteSelection() async throws {
-        let app = XCUIApplication()
+        let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-sample-boards",

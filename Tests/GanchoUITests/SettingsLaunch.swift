@@ -13,13 +13,16 @@ import XCTest
 ///
 /// The window is asserted, not skipped: with the in-process hook a missing
 /// Settings window is a routing regression, not an environment limitation.
+///
+/// The app is a `GanchoUITestApplication`, so every Settings suite also gets the
+/// isolated store, defaults, clipboard and tier that wrapper guarantees.
 @MainActor
 func launchSettingsWindow(
     extraArguments: [String] = [],
     file: StaticString = #filePath,
     line: UInt = #line
 ) throws -> XCUIApplication {
-    let app = XCUIApplication()
+    let app = GanchoUITestApplication()
     app.launchArguments =
         [
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
