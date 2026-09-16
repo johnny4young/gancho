@@ -11,12 +11,22 @@ private actor OCRLatch {
         started = true
         return await withCheckedContinuation { waiter = $0 }
     }
-    func waitUntilStarted() async { while !started { await Task.yield() } }
+    /// Bounded: an unbounded spin makes a regression hang the whole package run
+    /// instead of failing one test, which is exactly how a lost signal hides.
+    func waitUntilStarted() async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !started, ContinuousClock.now < deadline { await Task.yield() }
+        return started
+    }
     func release() {
         waiter?.resume(returning: "old result")
         waiter = nil
     }
 }
+
+/// Stands in for Vision failing on a readable image, as opposed to the source
+/// clip having gone away (`ManualImageTextError.unavailable`).
+private struct OCRRecognizerFailure: Error {}
 
 private struct ImageReaderStub: ImageTextReading {
     let input: ImageTextInput?
@@ -42,7 +52,7 @@ private actor OCRPermission {
     func revoke() { allowed = false }
 }
 
-@Suite("Manual OCR — transient, latest request wins") @MainActor
+@Suite("Manual OCR — transient, latest request wins", .timeLimit(.minutes(1))) @MainActor
 struct ManualOCRSessionTests {
     @Test("Copies without any entitlement or automatic-enrichment preference")
     func copies() async {
@@ -73,10 +83,10 @@ struct ManualOCRSessionTests {
             recognize: { await latch.recognize() }, isAllowed: { true },
             clipboardRevision: { clipboard.revision }, copy: { _ in copies += 1 },
             didFinish: { _ in })
-        await latch.waitUntilStarted()
+        #expect(await latch.waitUntilStarted(), "the recognizer never started")
         clipboard.revision = 2
         await latch.release()
-        while session.state == .recognizing { await Task.yield() }
+        #expect(await settled(session), "the session never left .recognizing")
         #expect(session.state == .ready)
         #expect(copies == 0)
         #expect(session.text == "old result")
@@ -91,7 +101,7 @@ struct ManualOCRSessionTests {
             recognize: { await latch.recognize() }, isAllowed: { true },
             clipboardRevision: { 0 }, copy: { _ in copies += 1 },
             didFinish: { _ in Issue.record("late result") })
-        await latch.waitUntilStarted()
+        #expect(await latch.waitUntilStarted(), "the recognizer never started")
         session.cancel()
         await latch.release()
         #expect(session.state == .idle)
@@ -108,7 +118,7 @@ struct ManualOCRSessionTests {
             recognize: { await latch.recognize() }, isAllowed: { true },
             clipboardRevision: { 0 }, copy: { copies.append($0) },
             didFinish: { _ in Issue.record("old request") })
-        await latch.waitUntilStarted()
+        #expect(await latch.waitUntilStarted(), "the recognizer never started")
         await withCheckedContinuation { continuation in
             session.start(
                 recognize: { "new" }, isAllowed: { true },
@@ -149,6 +159,20 @@ struct ManualOCRSessionTests {
         #expect(session.state == .unavailable)
     }
 
+    @Test("A source that vanished mid-read reports unavailable, not a read failure")
+    func vanishedSourceIsUnavailable() async {
+        let session = ManualOCRSession()
+        await withCheckedContinuation { continuation in
+            session.start(
+                recognize: { throw ManualImageTextError.unavailable }, isAllowed: { true },
+                clipboardRevision: { 0 }, copy: { _ in Issue.record("unexpected copy") },
+                didFinish: { _ in continuation.resume() })
+        }
+        // .failed tells the user to try ANOTHER image; this image is simply gone.
+        #expect(session.state == .unavailable)
+        #expect(session.text.isEmpty)
+    }
+
     @Test("Source protection during recognition prevents late delivery")
     func revokedDuringRecognition() async {
         let permission = OCRPermission()
@@ -158,10 +182,10 @@ struct ManualOCRSessionTests {
             recognize: { await latch.recognize() }, isAllowed: { await permission.read() },
             clipboardRevision: { 0 }, copy: { _ in Issue.record("protected copy") },
             didFinish: { _ in })
-        await latch.waitUntilStarted()
+        #expect(await latch.waitUntilStarted(), "the recognizer never started")
         await permission.revoke()
         await latch.release()
-        while session.state == .recognizing { await Task.yield() }
+        #expect(await settled(session), "the session never left .recognizing")
         #expect(session.state == .unavailable)
         #expect(session.text.isEmpty)
     }
@@ -201,7 +225,7 @@ struct ManualOCRSessionTests {
                 "Edited draft", clipboardRevision: { clipboard.revision },
                 copy: { copied.append($0) })
         }
-        await latch.waitUntilStarted()
+        #expect(await latch.waitUntilStarted(), "the recognizer never started")
         clipboard.revision += 1
         await latch.release()
         #expect(await task.value == .clipboardChanged)
@@ -231,7 +255,7 @@ struct ManualOCRSessionTests {
                 "Edited draft", clipboardRevision: { 0 },
                 copy: { _ in Issue.record("Canceled review must not copy") })
         }
-        await latch.waitUntilStarted()
+        #expect(await latch.waitUntilStarted(), "the recognizer never started")
         session.cancel()
         await latch.release()
         #expect(await task.value == .unavailable)
@@ -242,8 +266,10 @@ struct ManualOCRSessionTests {
     func failure() async {
         let session = ManualOCRSession()
         await withCheckedContinuation { continuation in
+            // A recognizer error, NOT a vanished source: those map to different
+            // states because they need different advice from the user.
             session.start(
-                recognize: { throw ManualImageTextError.unavailable }, isAllowed: { true },
+                recognize: { throw OCRRecognizerFailure() }, isAllowed: { true },
                 clipboardRevision: { 0 }, copy: { _ in Issue.record("unexpected copy") },
                 didFinish: { _ in continuation.resume() })
         }
@@ -272,6 +298,16 @@ struct ManualOCRSessionTests {
             try await service.text(for: UUID(), store: ImageReaderStub(input: nil))
         }
     }
+
+    /// Bounded wait for a terminal state. Without the deadline a session that
+    /// never finishes hangs the package run instead of failing this test.
+    private func settled(_ session: ManualOCRSession) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while session.state == .recognizing, ContinuousClock.now < deadline {
+            await Task.yield()
+        }
+        return session.state != .recognizing
+    }
 }
 
 private struct DelayedImageReader: ImageTextReading {
@@ -284,7 +320,7 @@ private struct DelayedImageReader: ImageTextReading {
     func permitsImageText(id: UUID, now: Date) async throws -> Bool { true }
 }
 
-@Suite("Manual OCR storage cancellation")
+@Suite("Manual OCR storage cancellation", .timeLimit(.minutes(1)))
 struct ManualOCRStorageCancellationTests {
     @Test("Cancel during the image read stops cached and fresh OCR", arguments: [true, false])
     func canceledRead(cached: Bool) async {
@@ -297,7 +333,7 @@ struct ManualOCRStorageCancellationTests {
                 return "synthetic"
             }
         }
-        await latch.waitUntilStarted()
+        #expect(await latch.waitUntilStarted(), "the recognizer never started")
         task.cancel()
         await latch.release()
         await #expect(throws: CancellationError.self) { try await task.value }

@@ -37,13 +37,31 @@ final class ManualOCRUITests: XCTestCase {
             rows(in: app).count, 2, "Explicit Save must add one clip, preserving the image")
     }
 
+    /// Position 0 of the peek action list is what Return runs (`actionIndex`
+    /// resets to 0 on focus), so offering OCR must not displace Paste as the
+    /// default keyboard action on an image clip. Asserted by geometry, because
+    /// the rows render top-down in list order.
+    @MainActor
+    func testPasteStaysTheFirstPeekActionForImageClips() throws {
+        let app = launchOCR(language: "en", appearance: "dark")
+        defer { app.terminate() }
+        XCTAssertTrue(rows(in: app).firstMatch.waitForExistence(timeout: 15))
+        let paste = app.descendants(matching: .any).matching(identifier: "preview-paste").firstMatch
+        let ocr = app.descendants(matching: .any).matching(identifier: "image-copy-text").firstMatch
+        XCTAssertTrue(paste.waitForExistence(timeout: 10), "the peek must offer Paste")
+        XCTAssertTrue(ocr.waitForExistence(timeout: 10), "the peek must offer OCR on an image")
+        XCTAssertLessThan(
+            paste.frame.minY, ocr.frame.minY,
+            "Paste must stay the first peek action: position 0 is what Return runs")
+    }
+
     @MainActor
     private func launchOCR(language: String, appearance: String) -> XCUIApplication {
         let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
             "-seed-manual-ocr", "-force-free-tier", "-start-capture-paused",
-            "-ui-test-paste-sink", "copiedOnly", "-AppleLanguages", "(\(language))",
+            "-ui-test-paste-sink", "copy-only", "-AppleLanguages", "(\(language))",
             "-appearance", appearance
         ]
         app.launch()
@@ -57,20 +75,28 @@ final class ManualOCRUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: "clip-row")
     }
 
+    /// The only way into the review window is a toast button that auto-dismisses,
+    /// so a loaded runner can let it expire between the wait returning and the
+    /// click landing. Re-run the whole request instead of weakening an assertion:
+    /// recognition is idempotent, writes no clip, and never touches the image.
     @MainActor
-    private func openReview(in app: XCUIApplication) throws -> XCUIElement {
-        let row = rows(in: app).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
-        try SynthesizedInput.requireForeground(app)
-        row.rightClick()
-        let extract = app.menuItems["image-copy-text"].firstMatch
-        XCTAssertTrue(extract.waitForExistence(timeout: 3))
-        extract.click()
-        let review = app.buttons["ocr-review"].firstMatch
-        XCTAssertTrue(review.waitForExistence(timeout: 15))
-        review.click()
+    private func openReview(in app: XCUIApplication, attempts: Int = 3) throws -> XCUIElement {
         let text = app.textViews["ocr-review-text"].firstMatch
-        XCTAssertTrue(text.waitForExistence(timeout: 5))
+        for attempt in 1...attempts {
+            let row = rows(in: app).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 15))
+            try SynthesizedInput.requireForeground(app)
+            row.rightClick()
+            let extract = app.menuItems["image-copy-text"].firstMatch
+            XCTAssertTrue(extract.waitForExistence(timeout: 3))
+            extract.click()
+            let review = app.buttons["ocr-review"].firstMatch
+            XCTAssertTrue(review.waitForExistence(timeout: 15), "no result toast")
+            review.click()
+            if text.waitForExistence(timeout: 5) { return text }
+            XCTAssertTrue(
+                attempt < attempts, "the review window never opened in \(attempts) attempts")
+        }
         return text
     }
 

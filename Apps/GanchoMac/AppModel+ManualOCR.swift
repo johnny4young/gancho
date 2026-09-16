@@ -4,8 +4,24 @@ import GanchoAppCore
 import GanchoKit
 
 extension AppModel {
+    /// How long a finished result stays reachable. The result toast carries the
+    /// only way to reopen it, so this is ALSO the toast's duration: the two must
+    /// be one number, or the text outlives its affordance (unreachable) or dies
+    /// while the button is still on screen (a click that silently does nothing).
+    private static let manualOCRReviewWindow: Duration = .seconds(12)
+
+    /// Upper bound for the "Recognizing text…" toast. Recognition can outrun the
+    /// default actionable-toast life, and the toast carries the only Cancel, so
+    /// it stays until a terminal state replaces or dismisses it.
+    private static let manualOCRRecognizingToastLifetime: Duration = .seconds(120)
+
     func canCopyImageText(_ item: ClipItem) -> Bool {
-        item.kind == .image && !ClipSafePresentation.requiresMasking(item)
+        // The reader check belongs HERE, not only in `copyImageText`: every call
+        // site renders the menu item from this predicate, and an in-memory store
+        // (a failed durable open) conforms to no reader — offering an action that
+        // returns silently is worse than not offering it.
+        store is any ImageTextReading && item.kind == .image
+            && !ClipSafePresentation.requiresMasking(item)
             && !preferences.isPrivateModePaused && !pendingDeletionIDs.contains(item.id)
             && (item.expiresAt.map { $0 > .now } ?? true)
     }
@@ -34,13 +50,8 @@ extension AppModel {
                     [weak self] in
                     self?.manualOCR.cancel()
                     self?.toasts.dismiss()
-                }))
-    }
-
-    func cancelManualOCRIfRecognizing() {
-        guard manualOCR.state == .recognizing else { return }
-        manualOCR.cancel()
-        toasts.dismiss()
+                }),
+            duration: Self.manualOCRRecognizingToastLifetime)
     }
 
     func writeManualText(_ text: String) {
@@ -62,10 +73,13 @@ extension AppModel {
                         guard let self else { return }
                         self.toasts.dismiss()
                         self.manualOCRWindow.show(model: self)
-                    }))
+                    }),
+                duration: Self.manualOCRReviewWindow)
             let request = manualOCR.requestID
             Task { [weak self] in
-                try? await Task.sleep(for: .seconds(6))
+                // Same window as the toast above, plus a beat so the result can
+                // never expire while its only button is still clickable.
+                try? await Task.sleep(for: Self.manualOCRReviewWindow + .seconds(1))
                 guard let self, self.manualOCR.requestID == request,
                     !self.manualOCRWindow.isVisible
                 else { return }

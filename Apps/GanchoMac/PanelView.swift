@@ -171,9 +171,6 @@ struct PanelView: View {
             await search.refresh()
         }
         .task { await model.refreshBoards() }
-        .onChange(of: search.selectedItem?.id) { _, _ in
-            model.cancelManualOCRIfRecognizing()
-        }
         .onChange(of: search.query) { _, newValue in
             // A new query invalidates a previous answer and drops rail focus
             // (you're typing in the search field again).

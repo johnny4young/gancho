@@ -7821,6 +7821,16 @@
         }
       }
     },
+    "The source clip is no longer available. Copy the text you need before closing.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El clip de origen ya no está disponible. Copia el texto que necesites antes de cerrar."
+          }
+        }
+      }
+    },
     "Save as clip": {
       "localizations": {
         "es": {

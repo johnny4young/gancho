@@ -766,7 +766,10 @@ final class AppModel {
 
     /// The real paste-back service or, in DEBUG UI tests only, one that writes
     /// nothing and posts nothing. `-ui-test-paste-sink pasted` answers as if
-    /// Accessibility were granted; any other value, or none, answers copy-only.
+    /// Accessibility were granted; `-ui-test-paste-sink copy-only` — like any
+    /// other value, or none — answers copy-only. Those two spellings are the
+    /// only ones a test should pass, so a reader never has to guess whether an
+    /// invented third value means something.
     /// It fails safe: a mistyped value still never reaches the real pasteboard
     /// or types ⌘V into whatever app is frontmost.
     private static func makePasteBackService() -> PasteBackService {

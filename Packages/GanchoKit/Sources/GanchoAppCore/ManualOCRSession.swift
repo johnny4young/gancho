@@ -73,6 +73,12 @@ public final class ManualOCRSession {
                 }
             } catch is CancellationError {
                 if let self, request == self.generation { self.cancel() }
+            } catch ManualImageTextError.unavailable {
+                // The source vanished, expired or became protected between the
+                // permission check and the read. That is NOT a recognition
+                // failure: telling the user to try another image would be wrong
+                // advice about an image that is simply gone.
+                self?.finish(.unavailable, request: request, notify: didFinish)
             } catch {
                 self?.finish(.failed, request: request, notify: didFinish)
             }

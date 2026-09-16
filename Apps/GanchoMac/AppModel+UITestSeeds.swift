@@ -192,10 +192,16 @@ extension AppModel {
         }
     }
 
+    /// UI-test hook: seed ONE synthetic image clip carrying known rendered text
+    /// so the explicit OCR flow can be driven end to end with automatic OCR off.
+    /// It writes a preference as well as the store, so it requires the isolated
+    /// defaults suite too — without that guard it would switch off a real user's
+    /// "searchable screenshots" in their own preferences domain.
     private func seedManualOCRIfRequested() -> Task<Void, Never>? {
         #if DEBUG
             guard CommandLine.arguments.contains("-seed-manual-ocr"),
-                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+                CommandLine.arguments.contains("-use-temp-durable-store"),
+                Self.uiTestDefaultsSuiteName() != nil, let fullStore
             else { return nil }
             intelligence.searchableScreenshots = false
             let image = NSImage(size: NSSize(width: 640, height: 160))

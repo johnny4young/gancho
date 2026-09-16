@@ -366,11 +366,15 @@ struct ClipPeek: View {
                 model.paste(item, asPlainText: true)
             }
         ]
+        // APPENDED, never inserted at 0: `actionIndex` resets to 0 whenever peek
+        // takes focus and Return runs `navActions[actionIndex]`, so position 0 IS
+        // the default keyboard action. Putting OCR there would silently turn
+        // Return on an image clip from Paste into Copy text from image.
         if model.canCopyImageText(item) {
-            actions.insert(
+            actions.append(
                 PeekAction(
                     id: "image-copy-text", title: "Copy text from image", symbol: "text.viewfinder"
-                ) { model.copyImageText(item) }, at: 0)
+                ) { model.copyImageText(item) })
         }
         if !ClipSafePresentation.requiresMasking(item) {
             for action in DevActions.actions(for: item.kind) {
