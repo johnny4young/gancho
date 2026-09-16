@@ -29,6 +29,15 @@ final class ManualOCRUITests: XCTestCase {
             "every recognized line gets a region over the thumbnail")
         XCTAssertFalse(app.buttons["ocr-review"].exists, "the peek surface must not toast")
         XCTAssertEqual(rows(in: app).count, 1, "Recognizing must not create another history clip")
+        // The fixture's third line is a link, so exactly one link chip appears,
+        // named by its host. Clicking it never leaves the app under the paste
+        // sink, and the section stays put.
+        let link = app.buttons["peek-ocr-link-0"].firstMatch
+        XCTAssertTrue(link.waitForExistence(timeout: 5), "the link chip never appeared")
+        XCTAssertEqual(link.label, "Open gancho.app")
+        XCTAssertFalse(app.buttons["peek-ocr-link-1"].exists, "one link in the image, one chip")
+        link.click()
+        XCTAssertTrue(firstLine.exists, "opening a link must not dismiss the section")
         attachPanel(app, named: "Manual OCR — English dark peek")
     }
 

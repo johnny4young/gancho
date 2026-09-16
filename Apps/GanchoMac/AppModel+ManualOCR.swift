@@ -167,6 +167,19 @@ extension AppModel {
         }
     }
 
+    /// Opens a link or mailto found in recognized text. The detector already
+    /// admits only http, https and mailto; this re-checks because OCR output is
+    /// untrusted and a chip must never launch anything else.
+    func openRecognizedLink(_ url: URL) {
+        guard ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") else { return }
+        #if DEBUG
+            // UI automation must never open a browser or a mail client on the
+            // runner; the paste sink marks such a launch.
+            if CommandLine.arguments.contains("-ui-test-paste-sink") { return }
+        #endif
+        NSWorkspace.shared.open(url)
+    }
+
     func saveManualText(_ text: String) async -> Bool {
         guard !preferences.isPrivateModePaused else { return false }
         do {

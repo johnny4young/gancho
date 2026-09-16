@@ -204,12 +204,14 @@ extension AppModel {
                 Self.uiTestDefaultsSuiteName() != nil, let fullStore
             else { return nil }
             intelligence.searchableScreenshots = false
-            let image = NSImage(size: NSSize(width: 640, height: 160))
+            // Three lines: two of prose and one link, so the entity chips have
+            // something to find without a second fixture.
+            let image = NSImage(size: NSSize(width: 640, height: 200))
             image.lockFocus()
             NSColor.white.setFill()
-            NSRect(x: 0, y: 0, width: 640, height: 160).fill()
-            ("Hola Gancho\nTexto de una imagen" as NSString).draw(
-                in: NSRect(x: 20, y: 20, width: 600, height: 120),
+            NSRect(x: 0, y: 0, width: 640, height: 200).fill()
+            ("Hola Gancho\nTexto de una imagen\nhttps://gancho.app/docs" as NSString).draw(
+                in: NSRect(x: 20, y: 20, width: 600, height: 160),
                 withAttributes: [
                     .font: NSFont.systemFont(ofSize: 32), .foregroundColor: NSColor.black
                 ])

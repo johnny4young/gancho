@@ -123,6 +123,13 @@ struct PeekImageTextSection: View {
     @Environment(AppModel.self) private var model
     @State private var copiedAll = false
     @State private var draft = ""
+    /// Entity chips: what the recognized text can DO, computed from the text
+    /// itself and never shown for a masked secret.
+    @State private var entities: [ImageTextEntity] = []
+    @State private var translationTarget: Locale.Language?
+    @State private var isTranslating = false
+    @State private var translation: String?
+    @State private var translationFailed = false
 
     private var session: ManualOCRSession { model.manualOCR }
     private var masked: Bool { PeekImageText.isMasked(session, revealed: revealSecret) }
@@ -154,6 +161,8 @@ struct PeekImageTextSection: View {
                     editor
                 } else {
                     lines
+                    entityChips
+                    translationBlock
                     actions
                 }
             case .idle:
@@ -166,6 +175,12 @@ struct PeekImageTextSection: View {
         .onChange(of: session.requestID) { _, _ in
             copiedAll = false
             isEditing = false
+            translation = nil
+            translationFailed = false
+            isTranslating = false
+        }
+        .task(id: "\(session.requestID)|\(session.state)|\(session.isSensitive)") {
+            await refreshOffers()
         }
     }
 
@@ -352,6 +367,156 @@ struct PeekImageTextSection: View {
         }
     }
 
+    // MARK: - Entity chips
+
+    /// Links, emails and Translate, from the recognized text itself. Chips wrap
+    /// instead of truncating, and none appears for a secret: a flagged text is
+    /// never sent anywhere, not even to the on-device model.
+    @ViewBuilder private var entityChips: some View {
+        if !session.isSensitive, !entities.isEmpty || translationTarget != nil {
+            ChipFlow(spacing: GanchoTokens.Spacing.xxs) {
+                ForEach(Array(entities.enumerated()), id: \.offset) { index, entity in
+                    switch entity {
+                    case .link(let url):
+                        chip(
+                            Text("Open \(url.host ?? url.absoluteString)"),
+                            systemImage: "arrow.up.right", identifier: "peek-ocr-link-\(index)"
+                        ) { model.openRecognizedLink(url) }
+                    case .email(_, let url):
+                        chip(
+                            Text("Send email"), systemImage: "envelope",
+                            identifier: "peek-ocr-email-\(index)"
+                        ) { model.openRecognizedLink(url) }
+                    }
+                }
+                if let target = translationTarget, translation == nil {
+                    if isTranslating {
+                        chip(
+                            Text("Translating…"), systemImage: "globe",
+                            identifier: "peek-ocr-translating"
+                        ) {}
+                        .disabled(true)
+                    } else {
+                        chip(
+                            Text("Translate"), systemImage: "globe",
+                            identifier: "peek-ocr-translate"
+                        ) {
+                            translate(to: target)
+                        }
+                    }
+                }
+            }
+            if translationFailed {
+                Text("Couldn’t run that — try again.")
+                    .font(.caption)
+                    .foregroundStyle(GanchoTokens.Palette.danger)
+                    .accessibilityIdentifier("peek-ocr-translation-error")
+            }
+        }
+    }
+
+    /// The translation reads beside the original, at the same body size, with
+    /// its own Copy and Paste: the common case is "translate and paste".
+    @ViewBuilder private var translationBlock: some View {
+        if let translation, let target = translationTarget {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                HStack(spacing: GanchoTokens.Spacing.xs) {
+                    Text("Translation")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                    Text(verbatim: Self.languageName(target))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                    Spacer(minLength: 0)
+                }
+                Text(verbatim: translation)
+                    .font(.body)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("peek-ocr-translation")
+                fitting {
+                    ActionButton(
+                        "Copy translation", systemImage: "doc.on.doc",
+                        identifier: "peek-ocr-translation-copy"
+                    ) {
+                        model.writeManualText(translation)
+                    }
+                    ActionButton(
+                        "Paste translation", systemImage: "doc.on.clipboard",
+                        identifier: "peek-ocr-translation-paste"
+                    ) {
+                        model.pasteText(translation)
+                    }
+                }
+            }
+        }
+    }
+
+    /// 11 pt medium: the macOS floor for an interactive label, one step above
+    /// the 10 pt metadata around it, so a chip reads as a control.
+    private func chip(
+        _ title: Text, systemImage: String, identifier: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label {
+                title
+            } icon: {
+                Image(systemName: systemImage)
+            }
+            .font(.subheadline.weight(.medium))
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                GanchoTokens.Palette.accent.opacity(0.1),
+                in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
+    }
+
+    private static func languageName(_ language: Locale.Language) -> String {
+        let code = language.languageCode?.identifier ?? language.minimalIdentifier
+        return Locale.current.localizedString(forLanguageCode: code) ?? code
+    }
+
+    /// Recompute what the text can do whenever the result changes. Detection is
+    /// synchronous and cheap; the translation offer asks the platform which
+    /// engine can run, so it lands a beat later.
+    private func refreshOffers() async {
+        guard session.state == .copied || session.state == .ready, !session.isSensitive else {
+            entities = []
+            translationTarget = nil
+            return
+        }
+        let text = session.text
+        entities = ImageTextEntityDetector().entities(in: text)
+        translationTarget = nil
+        guard model.smartPasteAvailable else { return }
+        let target = await ImageTextTranslation.offer(
+            for: text, interface: Locale.current.language,
+            modelAvailable: model.smartPasteModelAvailable)
+        guard !Task.isCancelled, text == session.text else { return }
+        translationTarget = target
+    }
+
+    private func translate(to target: Locale.Language) {
+        isTranslating = true
+        translationFailed = false
+        let text = session.text
+        Task {
+            let result = await model.smartTranslate(text, to: target)
+            isTranslating = false
+            guard text == session.text else { return }
+            if let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                translation = result
+            } else {
+                translationFailed = true
+            }
+        }
+    }
+
     private func copyAll() async {
         guard await model.copyManualText(session.text) else { return }
         withAnimation { copiedAll = true }
@@ -361,5 +526,51 @@ struct PeekImageTextSection: View {
     private func save(_ text: String) async -> Bool {
         guard let validated = await session.reviewedText(text) else { return false }
         return await model.saveManualText(validated)
+    }
+}
+
+/// Lays chips out in rows that wrap, so a hint row never truncates a label.
+struct ChipFlow: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var widest: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > width {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+            widest = max(widest, x - spacing)
+        }
+        return CGSize(width: width.isFinite ? width : widest, height: y + rowHeight)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+    ) {
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > bounds.width {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            view.place(
+                at: CGPoint(x: bounds.minX + x, y: bounds.minY + y), anchor: .topLeading,
+                proposal: .unspecified)
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }

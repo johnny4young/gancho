@@ -17,6 +17,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   searchable-image indexing remains Pro. No network or automatic paste.
 - The history panel's list and peek now share one surface separated by a
   hairline, instead of two floating panes with a gap.
+- Entity chips under the recognized image text: links open in the browser
+  (http and https only) and email addresses open a mail draft, named by host;
+  when the text reads in another language and an on-device engine can run, a
+  Translate chip renders the translation beside the original with Copy and
+  Paste. Nothing appears for a recognized secret.
 
 ## [0.8.3] - 2026-09-12
 
