@@ -133,6 +133,7 @@ final class AppModel {
     let paywallWindow = PaywallWindowController()
     let permissionWindow = PasteboardPermissionWindowController()
     let libraryWindow = LibraryWindowController()
+    let savedFilters: SavedFiltersController
     let settingsWindow = SettingsWindowController()
     let mcpAccessWindow = MCPAccessWindowController()
     let intelligenceWindow = IntelligenceWindowController()
@@ -324,6 +325,7 @@ final class AppModel {
                 "gancho-uitest-mcp-\(UUID().uuidString)", isDirectory: true)
         self.mcpConfigDirectory = mcpConfigDirectory
         self.fullStore = grdb
+        self.savedFilters = SavedFiltersController(store: grdb)
         self.grdbForEngines = grdb
         if let grdb {
             self.store = grdb
@@ -614,6 +616,7 @@ final class AppModel {
 
         Signpost.launchToStoreReady.end(launchInterval)
 
+        reloadSavedFilters()
         coordinator.start(subscribingTo: storeChanges)
 
         // What a launch opens is one decision (`LaunchPresentation`), taken here
@@ -756,6 +759,13 @@ final class AppModel {
                 }
             }
         }
+    }
+
+    /// Re-reads the saved-filter definitions, retrying the legacy import as
+    /// well. Runs at launch and every time the Library is presented, so a
+    /// read that failed once is retried by reopening the window.
+    func reloadSavedFilters() {
+        Task { await savedFilters.load(migrating: defaults) }
     }
 
     func refreshRecents() async {

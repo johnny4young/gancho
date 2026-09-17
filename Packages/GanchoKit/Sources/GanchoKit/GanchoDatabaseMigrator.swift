@@ -26,6 +26,7 @@ enum GanchoDatabaseMigrator {
         case mcpClientLedger = "v19-mcp-client-ledger"
         case privateActivityReceipt = "v20-private-activity-receipt"
         case discoveryIndexes = "v21-discovery-indexes"
+        case savedFilters = "v22-saved-filters"
     }
 
     static var identifiers: [String] {
@@ -42,6 +43,12 @@ enum GanchoDatabaseMigrator {
         GRDBClipboardStore.registerMCPClientLedgerMigration(in: &migrator)
         GRDBClipboardStore.registerPrivateActivityReceiptMigration(in: &migrator)
         registerDiscoveryIndexMigrations(in: &migrator)
+        migrator.registerMigration(Identifier.savedFilters.rawValue) { db in
+            try db.create(table: "saved_filter") { table in
+                table.primaryKey("id", .text)
+                table.column("definition", .blob).notNull()
+            }
+        }
         return migrator
     }
 

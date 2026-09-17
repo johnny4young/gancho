@@ -9,6 +9,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Save and edit local encrypted search filters, preserving type, app, board,
+  mode and pinned-only predicates.
+
 - Visual Mac Library cards with lazy image thumbnails, readable color swatches,
   and code previews. Protected clips stay masked and the quick panel stays compact.
 - Free manual image OCR on Mac, read in place: the history panel's peek shows
