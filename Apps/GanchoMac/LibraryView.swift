@@ -374,6 +374,10 @@ struct LibraryView: View {
     }
 
     @ViewBuilder private func clipMenu(_ clip: ClipItem) -> some View {
+        if model.canCopyImageText(clip) {
+            Button("Copy text from image") { model.copyImageText(clip) }
+                .accessibilityIdentifier("image-copy-text")
+        }
         Button(clip.isPinned ? "Unpin" : "Pin") { mutate { model.togglePin(clip) } }
         Menu("Add to board") {
             ForEach(boards) { board in

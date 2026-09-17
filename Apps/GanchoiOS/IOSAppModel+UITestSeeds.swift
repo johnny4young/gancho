@@ -13,6 +13,42 @@ extension IOSAppModel {
         return seedPrivateActivityReceiptIfRequested()
     }
 
+    #if DEBUG
+        /// UI-test hook: `-pin-long-save-note` shows a long real status note
+        /// (the load failure, a failure-kind note) and never dismisses it, so a
+        /// test can measure the status row and read its kind in any language
+        /// and text size. Nothing is read or saved.
+        func pinLongSaveNoteIfRequested() {
+            guard ProcessInfo.processInfo.arguments.contains("-pin-long-save-note") else { return }
+            saveNote = CaptureStatusNote(
+                text: String(localized: "Couldn’t load this clip — try again."), kind: .failure)
+        }
+
+    #endif
+
+    /// How long a status note stays before `flashNote` dismisses it: two
+    /// seconds, or the value of `-ui-test-save-note-lifetime <seconds>` in a
+    /// DEBUG build. A hosted UI runner can take longer than two seconds
+    /// between two accessibility snapshots, so a test that asserts the REAL
+    /// note asks for a longer life and then asserts the dismissal too. Only
+    /// the duration changes; what is noted, and when, does not — the dismissal
+    /// path runs in every build.
+    static func saveNoteLifetime(
+        arguments: [String] = ProcessInfo.processInfo.arguments
+    )
+        -> Duration
+    {
+        #if DEBUG
+            if let index = arguments.firstIndex(of: "-ui-test-save-note-lifetime"),
+                arguments.indices.contains(index + 1),
+                let seconds = Double(arguments[index + 1]), seconds > 0
+            {
+                return .seconds(seconds)
+            }
+        #endif
+        return .seconds(2)
+    }
+
     private func seedSampleBoardsIfRequested() {
         guard ProcessInfo.processInfo.arguments.contains("-seed-sample-boards"),
             ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),

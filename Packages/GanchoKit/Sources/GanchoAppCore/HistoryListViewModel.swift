@@ -81,7 +81,16 @@ public typealias HistoryListSource = ClipListSource
         sourceApps = await core.sourceApps(limit: 8)
     }
 
+    /// Counts searches so an overlapping earlier one can never land after a
+    /// newer one. A paste starts two: the hint refresh before the insert and
+    /// the reload after it; if the first query answered last, it replaced the
+    /// list with a page taken BEFORE the clip existed and the fresh clip
+    /// vanished until the next refresh.
+    private var searchGeneration = 0
+
     public func search() async {
+        searchGeneration += 1
+        let generation = searchGeneration
         // iOS pushes the kind filter into SQL; macOS narrows on the client
         // because its filter also feeds de-duplication and selection. That is
         // the only difference between the two loads, and it is expressed here
@@ -90,6 +99,7 @@ public typealias HistoryListSource = ClipListSource
             query: query, boardID: selectedBoardID,
             sourceAppBundleID: selectedSourceAppBundleID,
             kinds: kindFilter.map { [$0] })
+        guard generation == searchGeneration else { return }
         captures = page.items
         reachedEnd = page.reachedEnd
         rebuildSections()

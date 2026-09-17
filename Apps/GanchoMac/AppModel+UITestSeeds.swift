@@ -36,6 +36,7 @@ extension AppModel {
             seedReuseSuggestionIfRequested(),
             seedClipEditingIfRequested(),
             seedVisualLibraryIfRequested(),
+            seedManualOCRIfRequested(),
             seedMultiFileDragIfRequested(),
             seedPrivateActivityReceiptIfRequested()
         ].compactMap { $0 }
@@ -248,6 +249,47 @@ extension AppModel {
                     "Yesterday: fixed search\nToday: improve editing\nBlockers: none"))
             await refreshRecents()
         }
+    }
+
+    /// UI-test hook: seed ONE synthetic image clip carrying known rendered text
+    /// so the explicit OCR flow can be driven end to end with automatic OCR off.
+    /// It writes a preference as well as the store, so it requires the isolated
+    /// defaults suite too — without that guard it would switch off a real user's
+    /// "searchable screenshots" in their own preferences domain.
+    private func seedManualOCRIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-manual-ocr"),
+                CommandLine.arguments.contains("-use-temp-durable-store"),
+                Self.uiTestDefaultsSuiteName() != nil, let fullStore
+            else { return nil }
+            intelligence.searchableScreenshots = false
+            // Three lines: two of prose and one link, so the entity chips have
+            // something to find without a second fixture.
+            let image = NSImage(size: NSSize(width: 640, height: 200))
+            image.lockFocus()
+            NSColor.white.setFill()
+            NSRect(x: 0, y: 0, width: 640, height: 200).fill()
+            ("Hola Gancho\nTexto de una imagen\nhttps://gancho.app/docs" as NSString).draw(
+                in: NSRect(x: 20, y: 20, width: 600, height: 160),
+                withAttributes: [
+                    .font: NSFont.systemFont(ofSize: 32), .foregroundColor: NSColor.black
+                ])
+            image.unlockFocus()
+            guard let tiff = image.tiffRepresentation,
+                let data = NSBitmapImageRep(data: tiff)?.representation(
+                    using: .png, properties: [:])
+            else { return nil }
+            return Task {
+                let item = ClipItem(
+                    kind: .image, title: "OCR sample", preview: "Sample image",
+                    contentHash: "manual-ocr-fixture")
+                _ = try? await fullStore.insert(
+                    item, content: .binary(data: data, typeIdentifier: "public.png"))
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
     }
 
     /// UI-test hook: seed a THROWAWAY durable store with a few PINNED clips plus
