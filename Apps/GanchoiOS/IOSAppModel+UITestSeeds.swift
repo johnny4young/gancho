@@ -24,17 +24,30 @@ extension IOSAppModel {
                 text: String(localized: "Couldn’t load this clip — try again."), kind: .failure)
         }
 
-        /// UI-test hook: `-ui-test-keep-save-notes` leaves every REAL status
-        /// note on screen until the next one replaces it, instead of the
-        /// two-second flash. A hosted runner can take longer than two seconds
-        /// between two accessibility snapshots, so a test that asserts the
-        /// note would race the product's own dismissal and miss a note that
-        /// did show. Only the dismissal changes; what is noted, and when, does
-        /// not.
-        var keepsSaveNotesForUITests: Bool {
-            ProcessInfo.processInfo.arguments.contains("-ui-test-keep-save-notes")
-        }
     #endif
+
+    /// How long a status note stays before `flashNote` dismisses it: two
+    /// seconds, or the value of `-ui-test-save-note-lifetime <seconds>` in a
+    /// DEBUG build. A hosted UI runner can take longer than two seconds
+    /// between two accessibility snapshots, so a test that asserts the REAL
+    /// note asks for a longer life and then asserts the dismissal too. Only
+    /// the duration changes; what is noted, and when, does not — the dismissal
+    /// path runs in every build.
+    static func saveNoteLifetime(
+        arguments: [String] = ProcessInfo.processInfo.arguments
+    )
+        -> Duration
+    {
+        #if DEBUG
+            if let index = arguments.firstIndex(of: "-ui-test-save-note-lifetime"),
+                arguments.indices.contains(index + 1),
+                let seconds = Double(arguments[index + 1]), seconds > 0
+            {
+                return .seconds(seconds)
+            }
+        #endif
+        return .seconds(2)
+    }
 
     private func seedSampleBoardsIfRequested() {
         guard ProcessInfo.processInfo.arguments.contains("-seed-sample-boards"),

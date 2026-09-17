@@ -112,6 +112,12 @@ struct PasteboardStatusRow: View {
         .font(.caption2.weight(.semibold))
         .labelStyle(.titleAndIcon)
         .foregroundStyle(tint)
+        // ONE element, labelled by its text. Left to SwiftUI, the identifier
+        // and value land on the symbol child, whose label is the symbol's own
+        // ("Selected" for a checkmark): VoiceOver would read the icon, and a
+        // test would too, instead of "Saved".
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text)
         .fixedSize(horizontal: !wraps, vertical: true)
         .padding(.horizontal, 9)
         .padding(.vertical, 4)
