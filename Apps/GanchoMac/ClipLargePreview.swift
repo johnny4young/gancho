@@ -60,6 +60,10 @@ struct ClipLargePreview: View {
                 .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
+            if model.canCopyImageText(item) {
+                Button("Copy text from image") { model.copyImageText(item) }
+                    .accessibilityIdentifier("image-copy-text")
+            }
             Button("Close", systemImage: "xmark") { onClose() }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.borderless)

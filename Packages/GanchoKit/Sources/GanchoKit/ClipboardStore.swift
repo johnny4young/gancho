@@ -60,6 +60,12 @@ public protocol ClipboardStore: ClipIngesting {
 
     func count() async throws -> Int
 
+    /// Current metadata for one clip, or nil once it is gone. Every store has
+    /// this — the durable one as a keyed read, the in-memory fallback as a
+    /// scan — so a safety re-check before a copy never depends on which
+    /// store the app booted with.
+    func item(id: UUID) async throws -> ClipItem?
+
     func delete(id: UUID) async throws
 
     /// Full content for paste-back/detail — the only blob-loading call.
@@ -163,6 +169,10 @@ public actor InMemoryClipboardStore: ClipboardStore, ClipImporting {
         storage.count
     }
 
+    public func item(id: UUID) async throws -> ClipItem? {
+        storage.first { $0.id == id }
+    }
+
     public func delete(id: UUID) async throws {
         storage.removeAll { $0.id == id }
         contents[id] = nil
@@ -187,5 +197,20 @@ public actor InMemoryClipboardStore: ClipboardStore, ClipImporting {
                 "\(item.kind.rawValue),\"\(item.preview.replacingOccurrences(of: "\"", with: "\"\""))\"\n"
         }
         return Data(csv.utf8)
+    }
+}
+
+extension ClipboardStore {
+    /// Default: walk the paged list. Only test doubles and the smallest
+    /// stores should land here — a keyed store overrides with a direct read.
+    public func item(id: UUID) async throws -> ClipItem? {
+        var offset = 0
+        while true {
+            try Task.checkCancellation()
+            let page = try await items(offset: offset, limit: 200)
+            if let match = page.first(where: { $0.id == id }) { return match }
+            if page.count < 200 { return nil }
+            offset += page.count
+        }
     }
 }

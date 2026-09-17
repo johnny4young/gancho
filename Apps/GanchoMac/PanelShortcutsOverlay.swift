@@ -44,6 +44,7 @@ struct PanelShortcutsOverlay: View {
             shortcutLine(["⌘", "S"], "Save as snippet")
             shortcutLine(["⌘", "B"], "Add to board")
             shortcutLine(["⌘", "Y"], "Preview")
+            shortcutLine(["⇧", "⌘", "C"], "Copy text from image")
             shortcutLine(["⌘", "↑"], "Recall recent searches")
             shortcutLine(["⌘", "A"], "Select all in search")
             shortcutLine(["esc"], "Close")
