@@ -89,14 +89,15 @@ func typeTextReliably(
     // has the keyboard — select-all-deleting someone else's text. Skip (not
     // fail) when the environment can't grant us the keyboard safely.
     try SynthesizedInput.requireForeground(app)
-    if field.isHittable {
-        field.click()
-    } else {
-        // The field exists but isn't hittable (e.g. overlaid during a
-        // transition). With the app verified frontmost, its center coordinate
-        // is over OUR window, so the focus click is safe.
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+    // A field that exists but isn't hittable yet (overlaid during a transition,
+    // or under a form's fold) gets a short wait, never a raw coordinate click:
+    // the AX frame of an offscreen element is clamped to the screen edge or
+    // sits over a different control, and the click lands there instead.
+    guard field.waitForHittable(timeout: 2) else {
+        throw XCTSkip(
+            "field is not hittable — skipping synthesized input", file: file, line: line)
     }
+    field.click()
     guard SynthesizedInput.waitForKeyboardFocus(field, timeout: 2) else {
         throw XCTSkip("keyboard focus not grantable to the field — skipping synthesized input")
     }
@@ -126,7 +127,9 @@ extension XCUIElement {
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
-    /// Polls until the element reports itself hittable. A caller that falls
+    /// Polls until the element reports itself hittable. XCTest evaluates a
+    /// predicate expectation once per second, so a timeout under one second
+    /// never checks at all — pass at least 1. A caller that falls
     /// back to a coordinate click when this times out must check
     /// `isCenterOnDisplay` first (see `MCPAccessUITests.revokeGrant`). The MCP
     /// revoke failures once blamed on a misreported hittable flag were a
@@ -137,6 +140,26 @@ extension XCUIElement {
         let predicate = NSPredicate(format: "exists == true AND hittable == true")
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    /// Scrolls `container` until `self` is hittable and reports the outcome, so
+    /// the caller decides between skip and fail. The wheel sign that moves
+    /// content toward the fold depends on the host's scroller settings, so the
+    /// probe walks one way and then back past the origin. `scroll` already
+    /// waits for the app to idle, so one hittability snapshot per step is
+    /// enough. Wheel events land on the window under the pointer: call
+    /// `SynthesizedInput.requireForeground` first.
+    @MainActor
+    func revealByScrolling(
+        in container: XCUIElement,
+        deltas: [CGFloat] = [-400, -400, -400, 1600, 400, 400]
+    ) -> Bool {
+        if isHittable { return true }
+        for delta in deltas {
+            container.scroll(byDeltaX: 0, deltaY: delta)
+            if isHittable { return true }
+        }
+        return false
     }
 
     /// True when the element's center lies on an active display. A coordinate

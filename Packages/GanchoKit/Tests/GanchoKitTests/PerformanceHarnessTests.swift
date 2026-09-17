@@ -499,6 +499,31 @@ struct PerformanceHarnessTests {
             "warm p95 \(warm.p95) blew the \(Self.effectiveWarmSearchP95Budget) budget")
     }
 
+    @Test("Saved pinned filters preserve the existing 100k search budgets")
+    func savedFilterBudget() async throws {
+        let store = try await makeSeededStore()
+        let rule = SmartCollectionRule(
+            name: "Synthetic filter", textContains: "deploy", pinnedOnly: true)
+        let coldStart = ContinuousClock.now
+        _ = try await store.items(matching: rule, limit: 50)
+        let cold = ContinuousClock.now - coldStart
+        var latencies: [Duration] = []
+        for _ in 0..<Self.searchRounds {
+            for query in Self.searchQueries {
+                let rule = SmartCollectionRule(
+                    name: "Synthetic filter", textContains: query, pinnedOnly: true)
+                let start = ContinuousClock.now
+                let hits = try await store.items(matching: rule, limit: 50)
+                latencies.append(ContinuousClock.now - start)
+                #expect(hits.allSatisfy { $0.isPinned })
+            }
+        }
+        let warm = LatencySummary(latencies)
+        print("perf: saved filters cold=\(cold) warm-p95=\(warm.p95) samples=\(latencies.count)")
+        #expect(cold < Self.coldSearchBudget)
+        #expect(warm.p95 < Self.effectiveWarmSearchP95Budget)
+    }
+
     @Test("FTS index build over 100k existing rows stays under 10s")
     func migrationBudget() async throws {
         // Populate at v1 (no FTS), then measure what v2 costs on real data.

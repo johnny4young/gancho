@@ -3388,42 +3388,12 @@
         }
       }
     },
-    "Password managers and banking apps are excluded by default.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los gestores de contraseñas y apps bancarias están excluidos por defecto."
-          }
-        }
-      }
-    },
     "Restore default exclusions": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Restaurar exclusiones por defecto"
-          }
-        }
-      }
-    },
-    "Choose from Applications…": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Elegir de Aplicaciones…"
-          }
-        }
-      }
-    },
-    "Default": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Por defecto"
           }
         }
       }
@@ -5417,26 +5387,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Los secretos detectados — contraseñas, llaves, tarjetas — siempre siguen este límite, incluso cuando tu historial guarda todo por más tiempo. Es una protección de seguridad que puedes acortar pero no extender."
-          }
-        }
-      }
-    },
-    "Add a running app…": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agregar una app abierta…"
-          }
-        }
-      }
-    },
-    "A bundle identifier looks like com.apple.Safari.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un identificador de paquete se ve así: com.apple.Safari."
           }
         }
       }
@@ -7945,6 +7895,778 @@
           "stringUnit": {
             "state": "translated",
             "value": "Personalizado"
+          }
+        }
+      }
+    },
+    "Saved filter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved filter"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtro guardado"
+          }
+        }
+      }
+    },
+    "Saved filters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved filters"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtros guardados"
+          }
+        }
+      }
+    },
+    "Save filter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save filter"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar filtro"
+          }
+        }
+      }
+    },
+    "Edit filter…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit filter…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar filtro…"
+          }
+        }
+      }
+    },
+    "Delete filter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete filter"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar filtro"
+          }
+        }
+      }
+    },
+    "Search mode": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search mode"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modo de búsqueda"
+          }
+        }
+      }
+    },
+    "Prefix matching": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prefix matching"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coincidencia por prefijo"
+          }
+        }
+      }
+    },
+    "Exact phrase": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exact phrase"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frase exacta"
+          }
+        }
+      }
+    },
+    "Regular expression": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regular expression"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expresión regular"
+          }
+        }
+      }
+    },
+    "Source application ID": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source application ID"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ID de la aplicación de origen"
+          }
+        }
+      }
+    },
+    "Missing board — choose another": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missing board — choose another"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Board eliminado — elige otro"
+          }
+        }
+      }
+    },
+    "Pinned only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinned only"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo fijados"
+          }
+        }
+      }
+    },
+    "Content types": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Content types"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipos de contenido"
+          }
+        }
+      }
+    },
+    "Couldn’t save this filter. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t save this filter. Try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el filtro. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Retry": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reintentar"
+          }
+        }
+      }
+    },
+    "Saved filters couldn’t be loaded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron cargar los filtros guardados."
+          }
+        }
+      }
+    },
+    "Older saved filters couldn’t be imported; the ones here are intact.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron importar los filtros guardados antiguos; los de aquí están intactos."
+          }
+        }
+      }
+    },
+    "This filter needs editing: its board is missing or its expression is invalid.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This filter needs editing: its board is missing or its expression is invalid."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edita este filtro: su board no existe o su expresión no es válida."
+          }
+        }
+      }
+    },
+    "Name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre"
+          }
+        }
+      }
+    },
+    "Search": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar"
+          }
+        }
+      }
+    },
+    "Image preview": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista previa de imagen"
+          }
+        }
+      }
+    },
+    "Loading preview": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cargando vista previa"
+          }
+        }
+      }
+    },
+    "Add app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar app"
+          }
+        }
+      }
+    },
+    "Running app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App en ejecución"
+          }
+        }
+      }
+    },
+    "From Applications…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desde Aplicaciones…"
+          }
+        }
+      }
+    },
+    "By bundle identifier…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por identificador de bundle…"
+          }
+        }
+      }
+    },
+    "Built-in exclusions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exclusiones integradas"
+          }
+        }
+      }
+    },
+    "%lld · password managers and banking apps": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld · gestores de contraseñas y apps bancarias"
+          }
+        }
+      }
+    },
+    "Password managers": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestores de contraseñas"
+          }
+        }
+      }
+    },
+    "Banking": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Banca"
+          }
+        }
+      }
+    },
+    "Not installed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No instalada"
+          }
+        }
+      }
+    },
+    "Built-in exclusions switch off one by one; your own entries are removed with the minus.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las exclusiones integradas se apagan una por una; tus propias entradas se quitan con el menos."
+          }
+        }
+      }
+    },
+    "A bundle identifier has at least two dot-separated parts, like com.apple.Safari.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un identificador de bundle tiene al menos dos partes separadas por punto, como com.apple.Safari."
+          }
+        }
+      }
+    },
+    "Text in image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto en la imagen"
+          }
+        }
+      }
+    },
+    "Copied to clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiado al portapapeles"
+          }
+        }
+      }
+    },
+    "Clipboard unchanged": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Portapapeles sin cambios"
+          }
+        }
+      }
+    },
+    "Contains a secret": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contiene un secreto"
+          }
+        }
+      }
+    },
+    "Line copied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Línea copiada"
+          }
+        }
+      }
+    },
+    "Copy line": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar línea"
+          }
+        }
+      }
+    },
+    "Copy all": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar todo"
+          }
+        }
+      }
+    },
+    "Reveal": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revelar"
+          }
+        }
+      }
+    },
+    "Hide": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar"
+          }
+        }
+      }
+    },
+    "Text contains a secret — review before copying": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El texto contiene un secreto: revísalo antes de copiar"
+          }
+        }
+      }
+    },
+    "actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "acciones"
+          }
+        }
+      }
+    },
+    "Open %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir %@"
+          }
+        }
+      }
+    },
+    "Send email": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviar correo"
+          }
+        }
+      }
+    },
+    "Translate": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducir"
+          }
+        }
+      }
+    },
+    "Translating…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traduciendo…"
+          }
+        }
+      }
+    },
+    "Translation": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducción"
+          }
+        }
+      }
+    },
+    "Copy translation": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar traducción"
+          }
+        }
+      }
+    },
+    "Paste translation": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar traducción"
+          }
+        }
+      }
+    },
+    "Email %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribir a %@"
+          }
+        }
+      }
+    },
+    "Couldn’t open that link.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir ese enlace."
+          }
+        }
+      }
+    },
+    "Copy text from image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar texto de la imagen"
+          }
+        }
+      }
+    },
+    "Recognizing text…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconociendo texto…"
+          }
+        }
+      }
+    },
+    "Text copied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto copiado"
+          }
+        }
+      }
+    },
+    "Text ready — clipboard unchanged": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto listo: portapapeles sin cambios"
+          }
+        }
+      }
+    },
+    "No readable text found": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontró texto legible"
+          }
+        }
+      }
+    },
+    "Image is no longer available for OCR": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La imagen ya no está disponible para OCR"
+          }
+        }
+      }
+    },
+    "Couldn’t read this image. Try another image.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer esta imagen. Prueba con otra."
+          }
+        }
+      }
+    },
+    "Review recognized text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisar texto reconocido"
+          }
+        }
+      }
+    },
+    "Changes stay here until you copy or save them.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los cambios se quedan aquí hasta que los copies o guardes."
+          }
+        }
+      }
+    },
+    "This action couldn’t be completed. Check the source and try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo completar esta acción. Comprueba el origen e inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "The source clip is no longer available. Copy the text you need before closing.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El clip de origen ya no está disponible. Copia el texto que necesites antes de cerrar."
+          }
+        }
+      }
+    },
+    "Save as clip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como clip"
+          }
+        }
+      }
+    },
+    "Copy text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar texto"
+          }
+        }
+      }
+    },
+    "Review": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisar"
           }
         }
       }

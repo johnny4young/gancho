@@ -38,6 +38,27 @@ struct ClipThumbnailStoreTests {
             })
     }
 
+    @Test("Library-sized cache tolerates corrupt thumbnail bytes without retaining an image")
+    func corruptLibraryThumbnail() async {
+        let store = ClipThumbnailStore(
+            maxCached: 64, maxPixel: 256,
+            skipsSensitiveClips: true, decodePriority: .utility, imageData: { _ in Data([1, 2, 3]) }
+        )
+        let item = ClipItem(kind: .image)
+        await store.ensureLoaded(item)
+        #expect(store.cached(for: item.id) == nil)
+    }
+
+    @Test("Library-sized cache stays bounded while browsing many image clips")
+    func boundedLibraryThumbnails() async {
+        let store = makeStore(maxCached: 4)
+        let items = (0..<2_000).map { _ in ClipItem(kind: .image) }
+        for item in items { await store.ensureLoaded(item) }
+        #expect(items.filter { store.cached(for: $0.id) != nil }.count == 4)
+        #expect(store.cached(for: items[0].id) == nil)
+        #expect(store.cached(for: items[1_999].id) != nil)
+    }
+
     @Test("Decodes and caches an image clip's thumbnail")
     func cachesImageClip() async {
         let store = makeStore()

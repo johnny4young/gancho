@@ -98,6 +98,7 @@ final class AppModel {
     let grdbForEngines: GRDBClipboardStore?
     /// Cached image thumbnails for the history rows and the peek.
     let thumbnails: ClipThumbnailStore
+    let libraryThumbnails: GanchoDesign.ClipThumbnailStore
 
     let monitor: MacPasteboardMonitor
     private let captureLifecycle: CaptureLifecycleController
@@ -111,6 +112,8 @@ final class AppModel {
     let panel: PanelController
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
     let toasts = ToastPresenter()
+    let manualOCR = ManualOCRSession()
+    let manualOCRWindow = ManualOCRWindowController()
     /// Content-free store-mutation fan-out. Mutation sites post here instead of
     /// each remembering to call every reconciler; the `SpotlightCoordinator`
     /// subscribes and rebuilds the curated Spotlight set once per burst. This
@@ -130,6 +133,7 @@ final class AppModel {
     let paywallWindow = PaywallWindowController()
     let permissionWindow = PasteboardPermissionWindowController()
     let libraryWindow = LibraryWindowController()
+    let savedFilters: SavedFiltersController
     let settingsWindow = SettingsWindowController()
     let mcpAccessWindow = MCPAccessWindowController()
     let intelligenceWindow = IntelligenceWindowController()
@@ -198,6 +202,7 @@ final class AppModel {
     /// Held so the observer outlives `init`; set by the UI-test launch hook in
     /// `AppModel+UITestLaunch`, which is why it is not private.
     var uiTestPanelObserver: NSObjectProtocol?
+    var uiTestPanelHasOpened = false
     /// Wake-from-sleep sync catch-up (see the `didWakeNotification` observer).
     private var wakeObserver: NSObjectProtocol?
 
@@ -320,6 +325,7 @@ final class AppModel {
                 "gancho-uitest-mcp-\(UUID().uuidString)", isDirectory: true)
         self.mcpConfigDirectory = mcpConfigDirectory
         self.fullStore = grdb
+        self.savedFilters = SavedFiltersController(store: grdb)
         self.grdbForEngines = grdb
         if let grdb {
             self.store = grdb
@@ -352,6 +358,17 @@ final class AppModel {
             }
             return nil
         })
+        let libraryReader = self.fullStore
+        self.libraryThumbnails = GanchoDesign.ClipThumbnailStore(
+            maxCached: 64, maxPixel: 256, skipsSensitiveClips: true, decodePriority: .utility,
+            imageData: { id in
+                guard let reader = libraryReader, let item = try? await reader.item(id: id),
+                    item.kind == .image, !ClipSafePresentation.requiresMasking(item),
+                    item.expiresAt.map({ $0 > .now }) ?? true
+                else { return nil }
+                return try? await reader.thumbnailData(for: id)
+            })
+
         var loadedMCPConfig = MCPServerConfig.load(fromStoreDirectory: mcpConfigDirectory)
         #if DEBUG
             // Only ever into a THROWAWAY store — seeding grants beside the
@@ -599,6 +616,7 @@ final class AppModel {
 
         Signpost.launchToStoreReady.end(launchInterval)
 
+        reloadSavedFilters()
         coordinator.start(subscribingTo: storeChanges)
 
         // What a launch opens is one decision (`LaunchPresentation`), taken here
@@ -743,6 +761,13 @@ final class AppModel {
         }
     }
 
+    /// Re-reads the saved-filter definitions, retrying the legacy import as
+    /// well. Runs at launch and every time the Library is presented, so a
+    /// read that failed once is retried by reopening the window.
+    func reloadSavedFilters() {
+        Task { await savedFilters.load(migrating: defaults) }
+    }
+
     func refreshRecents() async {
         await reuseController.refreshRecents()
     }
@@ -764,7 +789,13 @@ final class AppModel {
 
     /// The real paste-back service or, in DEBUG UI tests only, one that writes
     /// nothing and posts nothing. `-ui-test-paste-sink pasted` answers as if
-    /// Accessibility were granted; any other value, or none, answers copy-only.
+    /// Accessibility were granted; `-ui-test-paste-sink copy-only` — like any
+    /// other value, or none — answers copy-only. Those two spellings are the
+    /// only ones a test should pass, so a reader never has to guess whether an
+    /// invented third value means something. The flag's presence also keeps
+    /// manual OCR from writing the clipboard (`writeManualText`) and from
+    /// launching a browser or mail client (`openRecognizedEntity`): every
+    /// side effect that would leave the test process is behind it.
     /// It fails safe: a mistyped value still never reaches the real pasteboard
     /// or types ⌘V into whatever app is frontmost.
     private static func makePasteBackService() -> PasteBackService {
@@ -1833,12 +1864,35 @@ final class AppModel {
     /// wouldn't refresh the Settings list until an unrelated state change.
     private(set) var denylistRevision = 0
 
-    var denylistEntries: [String] {
+    /// The apps the user excluded on top of the built-in list, sorted for a
+    /// stable Settings order. Never a built-in app: `SourceAppDenylist` keeps
+    /// the two disjoint, so each exclusion has one control.
+    var userDenylistEntries: [String] {
         _ = denylistRevision
-        let effective = SourceAppDenylist.suggestedBundleIDs
-            .subtracting(monitor.denylist.disabledSuggestions)
-            .union(monitor.denylist.userBundleIDs)
-        return effective.sorted()
+        return monitor.denylist.userBundleIDs.sorted()
+    }
+
+    /// Whether a built-in exclusion is currently active (the user has not
+    /// switched it off).
+    func isSuggestedExclusionActive(_ bundleID: String) -> Bool {
+        _ = denylistRevision
+        return monitor.denylist.isSuggestionActive(bundleID)
+    }
+
+    /// Whether copies from this app are vetoed right now: a user entry or an
+    /// active built-in. The running-app picker offers only the rest.
+    func isExcludedFromCapture(_ bundleID: String) -> Bool {
+        _ = denylistRevision
+        return monitor.denylist.contains(bundleID)
+    }
+
+    /// Switches one built-in exclusion on or off. Off records the suggestion
+    /// as disabled rather than deleting it, so "Restore default exclusions"
+    /// can bring it back.
+    func setSuggestedExclusion(_ bundleID: String, active: Bool) {
+        monitor.denylist.setSuggestion(bundleID, active: active)
+        monitor.denylist.save(to: defaults)
+        denylistRevision += 1
     }
 
     /// True when the user re-enabled captures from any built-in exclusion —
@@ -1848,6 +1902,8 @@ final class AppModel {
         return !monitor.denylist.disabledSuggestions.isEmpty
     }
 
+    /// Excludes an app. A built-in app is switched back on rather than listed
+    /// twice.
     func addToDenylist(_ bundleID: String) {
         // Trim pasted whitespace/newlines so a manual entry actually matches the
         // frontmost app's bundle id (an untrimmed entry silently never matches).

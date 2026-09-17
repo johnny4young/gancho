@@ -39,11 +39,14 @@ final class IOSAppModel {
     var hints = IntentionalPasteboardSource.ContentHints()
     /// The pasteboard `changeCount` of the last clip captured via the paste
     /// control. When it matches the current `hints.changeCount`, the copy on
-    /// the clipboard has already been read — so the card says "Saved", not
-    /// "not read yet". nil until the first capture this session.
+    /// the clipboard has already been read — so the status row says "Saved",
+    /// not "Sensed, not read". nil until the first capture this session.
     var lastCapturedChangeCount: Int?
-    /// Transient feedback ("Saved" / "Already in your history").
-    var saveNote: String?
+    /// Transient feedback on the capture screen, with the kind that decides how
+    /// it reads: "Saved" is a success, a Pro upsell is a limit, a load error is
+    /// a failure.
+    var saveNote: CaptureStatusNote?
+
     @ObservationIgnored private var saveNoteTask: Task<Void, Never>?
     /// One non-modal curation action produced at the exact third successful use.
     /// Metadata only; exact-threshold dismissal needs no persisted state.
@@ -225,6 +228,9 @@ final class IOSAppModel {
         // refresh an open screen.
         recordStorageHealthIfNeeded()
         seedSampleClipsIfRequested()
+        #if DEBUG
+            pinLongSaveNoteIfRequested()
+        #endif
         uiTestPrivateActivityReceiptSeedTask = seedDurableUITestFixturesIfRequested()
         telemetry.record(.appLaunched)
         #if DEBUG
@@ -416,7 +422,7 @@ final class IOSAppModel {
             refreshSpotlight()
             // Refresh first so the two-second confirmation remains visible
             // after the durable mutation has settled and the UI is idle.
-            flashNote(String(localized: "Saved as snippet"))
+            flashNote(String(localized: "Saved as snippet"), kind: .success)
         case .freeLimitReached:
             proGateTick += 1
         case .clipUnavailable:
@@ -510,7 +516,9 @@ final class IOSAppModel {
         let outcome = await BoardsController().createBoard(
             name: name, filing: item, store: full, engine: syncController.engine,
             isPro: tier == .pro,
-            onFreeLimit: { self.flashNote(String(localized: "Upgrade to Pro for more boards")) },
+            onFreeLimit: {
+                self.flashNote(String(localized: "Upgrade to Pro for more boards"), kind: .limit)
+            },
             onAssigned: {})
         if outcome == .failed {
             recordBoardFailure("Couldn’t create the board.")
@@ -630,7 +638,7 @@ final class IOSAppModel {
         guard let content = try? await store.content(for: item.id) else {
             // Silent before: the user tapped Copy, felt the (missing) result, and
             // pasted stale content. Say the load failed instead.
-            flashNote(String(localized: "Couldn’t load this clip — try again."))
+            flashNote(String(localized: "Couldn’t load this clip — try again."), kind: .failure)
             diagnostics.record(
                 String(localized: "Copy"),
                 String(localized: "A clip’s content couldn’t be loaded."))
@@ -918,14 +926,17 @@ final class IOSAppModel {
         await ingest(capture)
     }
 
-    private func flashNote(_ text: String) {
+    /// Resolved once: launch arguments cannot change after launch.
+    private static let saveNoteLifetime = saveNoteLifetime()
+
+    private func flashNote(_ text: String, kind: CaptureStatusNote.Kind) {
         saveNoteTask?.cancel()
-        saveNote = text
+        saveNote = CaptureStatusNote(text: text, kind: kind)
         // The note is a transient overlay VoiceOver won't focus on its own; speak
         // it so a blind user gets the same confirmation a sighted one sees.
         UIAccessibility.post(notification: .announcement, argument: text)
         saveNoteTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: Self.saveNoteLifetime)
             guard !Task.isCancelled else { return }
             saveNote = nil
             saveNoteTask = nil
@@ -970,34 +981,48 @@ final class IOSAppModel {
     /// never shows an alert. Providers carry text, URLs, or images.
     func ingest(providers: [NSItemProvider]) {
         // Mark this copy as read (metadata only — the change counter), so the
-        // capture card flips from "not read yet" to "Saved" until a new copy.
-        lastCapturedChangeCount = UIPasteboard.general.changeCount
-        Task { await refreshHints() }
+        // capture card flips from "not read yet" to "Saved" until a new copy —
+        // but only once the clip is actually stored. Marking it up front would
+        // show "Saved" for a paste the store refused.
+        let changeCount = UIPasteboard.general.changeCount
         for provider in providers {
             if provider.canLoadObject(ofClass: UIImage.self) {
                 _ = provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
                     guard let png = (object as? UIImage)?.pngData() else { return }
                     Task { @MainActor in
-                        await self?.ingest(
-                            PasteboardCapture(
-                                payload: .image(data: png, typeIdentifier: "public.png")))
+                        await self?.markPasteRead(
+                            changeCount,
+                            saved: self?.ingest(
+                                PasteboardCapture(
+                                    payload: .image(data: png, typeIdentifier: "public.png"))))
                     }
                 }
             } else if provider.canLoadObject(ofClass: NSString.self) {
                 _ = provider.loadObject(ofClass: NSString.self) { [weak self] object, _ in
                     guard let text = object as? String, !text.isEmpty else { return }
                     Task { @MainActor in
-                        await self?.ingest(PasteboardCapture(text: text))
+                        await self?.markPasteRead(
+                            changeCount, saved: self?.ingest(PasteboardCapture(text: text)))
                     }
                 }
             }
         }
     }
 
+    /// The durable "Saved" state of the capture card follows a successful
+    /// store write, never the tap alone.
+    private func markPasteRead(_ changeCount: Int, saved: Bool?) async {
+        guard saved == true else { return }
+        lastCapturedChangeCount = changeCount
+        await refreshHints()
+    }
+
+    /// True once the clip is in the store; false when ingestion refused it.
+    @discardableResult
     private func ingest(
         _ capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil
     )
-        async
+        async -> Bool
     {
         let configuration = ClipIngestionCoordinator.Configuration(
             sensitiveLifetime: RetentionPolicy.load(from: defaults).sensitiveLifetime,
@@ -1017,7 +1042,7 @@ final class IOSAppModel {
                 store: store,
                 syncEngine: syncController.engine,
                 didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
-        else { return }
+        else { return false }
         if outcome.isNew { recordActivationMilestone(.firstCapture) }
         try? await full?.recordPrivateCapture(
             sourceAppBundleID: capture.sourceAppBundleID,
@@ -1025,7 +1050,8 @@ final class IOSAppModel {
             at: capture.capturedAt)
         flashNote(
             outcome.isNew
-                ? String(localized: "Saved") : String(localized: "Already in your history"))
+                ? String(localized: "Saved") : String(localized: "Already in your history"),
+            kind: .success)
         // Bounded like every other load — search() pulls the first page only.
         await search()
         reloadWidgets()
@@ -1033,6 +1059,7 @@ final class IOSAppModel {
         // sensitive) on the Dynamic Island / lock screen.
         clipActivity.show(outcome.item, sync: ClipSyncBadge(syncStatus))
         enrich(outcome)
+        return true
     }
 
     /// On-device enrichment of a clip captured ON this iPhone — Apple
@@ -1060,4 +1087,15 @@ final class IOSAppModel {
             }
         }
     }
+}
+
+/// One transient status note on the capture screen: its text and what kind of
+/// outcome it reports.
+struct CaptureStatusNote: Equatable {
+    enum Kind: Equatable {
+        case success, limit, failure
+    }
+
+    let text: String
+    let kind: Kind
 }

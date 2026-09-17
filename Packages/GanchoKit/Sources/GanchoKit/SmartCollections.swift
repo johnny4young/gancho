@@ -12,10 +12,13 @@ public struct SmartCollectionRule: Sendable, Equatable, Codable, Identifiable {
     public var sourceAppBundleID: String?
     public var textContains: String?
     public var pinnedOnly: Bool
+    public var boardID: UUID?
+    public var searchMode: ClipSearchQuery.Mode?
 
     public init(
         id: UUID = UUID(), name: String, kinds: Set<ClipContentKind>? = nil,
-        sourceAppBundleID: String? = nil, textContains: String? = nil, pinnedOnly: Bool = false
+        sourceAppBundleID: String? = nil, textContains: String? = nil, pinnedOnly: Bool = false,
+        boardID: UUID? = nil, searchMode: ClipSearchQuery.Mode? = nil
     ) {
         self.id = id
         self.name = name
@@ -23,9 +26,50 @@ public struct SmartCollectionRule: Sendable, Equatable, Codable, Identifiable {
         self.sourceAppBundleID = sourceAppBundleID
         self.textContains = textContains
         self.pinnedOnly = pinnedOnly
+        self.boardID = boardID
+        self.searchMode = searchMode
     }
 
-    private static let defaultsKey = "smart-collections"
+    public var query: ClipSearchQuery {
+        ClipSearchQuery(
+            text: textContains ?? "", mode: searchMode ?? .fuzzy, kinds: kinds,
+            sourceAppBundleID: sourceAppBundleID, boardID: boardID, pinnedOnly: pinnedOnly)
+    }
+
+    private static func words(in text: String) -> [String] {
+        text.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init)
+    }
+
+    static let defaultsKey = "smart-collections"
+
+    /// The same predicate the store evaluates in SQL, over one clip's
+    /// metadata — for the in-memory fallback, which has no FTS. Board
+    /// membership is not on `ClipItem`, so `boardID` is not evaluated here;
+    /// the fallback store has no boards either. Text runs over the preview,
+    /// case-insensitively; an invalid regular expression matches nothing.
+    public func matches(_ item: ClipItem) -> Bool {
+        if let kinds, !kinds.contains(item.kind) { return false }
+        if let sourceAppBundleID, item.sourceAppBundleID != sourceAppBundleID { return false }
+        if pinnedOnly, !item.isPinned { return false }
+        let text = (textContains ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return true }
+        let preview = item.preview
+        switch searchMode ?? .fuzzy {
+        case .exact:
+            return preview.localizedCaseInsensitiveContains(text)
+        case .fuzzy:
+            // Tokenize like the FTS tokenizer: every run of letters/digits is
+            // a word, so "two" prefix-matches inside "example.test/two".
+            let words = Self.words(in: preview)
+            return Self.words(in: text).allSatisfy { token in words.contains { $0.hasPrefix(token) }
+            }
+        case .regex:
+            guard let regex = try? NSRegularExpression(pattern: text, options: [.caseInsensitive])
+            else { return false }
+            let range = NSRange(preview.startIndex..., in: preview)
+            return regex.firstMatch(in: preview, range: range) != nil
+        }
+    }
 
     public static func loadAll(from defaults: UserDefaults) -> [SmartCollectionRule] {
         guard let data = defaults.data(forKey: defaultsKey),
@@ -47,30 +91,19 @@ extension GRDBClipboardStore {
     ) async throws
         -> [ClipItem]
     {
-        if let text = rule.textContains, !text.isEmpty {
-            var hits = try await search(
-                ClipSearchQuery(
-                    text: text, kinds: rule.kinds,
-                    sourceAppBundleID: rule.sourceAppBundleID),
-                limit: limit)
-            if rule.pinnedOnly { hits = hits.filter(\.isPinned) }
-            return hits
+        guard rule.kinds?.isEmpty != true else { return [] }
+        if let boardID = rule.boardID,
+            !(try await pinboards()).contains(where: { $0.id == boardID })
+        {
+            throw SavedFilterError.missingBoard
         }
-        return try await writer.read { db in
-            var query = ClipRow.select(ClipRow.metadataColumns)
-                .filter(Column("isArchived") == false)
-            if let kinds = rule.kinds, !kinds.isEmpty {
-                query = query.filter(kinds.map(\.rawValue).contains(Column("kind")))
-            }
-            if let app = rule.sourceAppBundleID {
-                query = query.filter(Column("sourceAppBundleID") == app)
-            }
-            if rule.pinnedOnly {
-                query = query.filter(Column("isPinned") == true)
-            }
-            return try query.order(Column("createdAt").desc).limit(limit)
-                .fetchAll(db).map(\.item)
+        if (rule.textContains ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            rule.searchMode != .regex, rule.kinds == nil, rule.sourceAppBundleID == nil,
+            rule.boardID == nil, !rule.pinnedOnly
+        {
+            return try await recentForBrowse(offset: 0, limit: limit)
         }
+        return try await search(rule.query, limit: limit)
     }
 }
 

@@ -36,9 +36,10 @@ struct DatabaseMigrationTests {
                 "v18-fts-prefix-indexes",
                 "v19-mcp-client-ledger",
                 "v20-private-activity-receipt",
-                "v21-discovery-indexes"
+                "v21-discovery-indexes",
+                "v22-saved-filters"
             ])
-        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 21)
+        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 22)
     }
 
     @Test(

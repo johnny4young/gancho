@@ -35,6 +35,8 @@ extension AppModel {
             seedSourceAppsIfRequested(),
             seedReuseSuggestionIfRequested(),
             seedClipEditingIfRequested(),
+            seedVisualLibraryIfRequested(),
+            seedManualOCRIfRequested(),
             seedMultiFileDragIfRequested(),
             seedPrivateActivityReceiptIfRequested()
         ].compactMap { $0 }
@@ -152,6 +154,64 @@ extension AppModel {
         }
     }
 
+    /// Synthetic media only, isolated from real history and capture.
+    private func seedVisualLibraryIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-visual-library"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            return Task {
+                let scaleFixture = CommandLine.arguments.contains("-seed-visual-library-scale")
+                let size =
+                    scaleFixture
+                    ? NSSize(width: 2048, height: 1024) : NSSize(width: 600, height: 300)
+                let image = NSImage(size: size)
+                image.lockFocus()
+                NSColor.systemTeal.setFill()
+                NSRect(origin: .zero, size: size).fill()
+                NSColor.systemOrange.setFill()
+                NSBezierPath(ovalIn: NSRect(x: 200, y: 50, width: 200, height: 200)).fill()
+                image.unlockFocus()
+                guard let tiff = image.tiffRepresentation,
+                    let bitmap = NSBitmapImageRep(data: tiff),
+                    let data = bitmap.representation(using: .png, properties: [:])
+                else { return }
+                if scaleFixture {
+                    for index in 0..<2_000 {
+                        let item = ClipItem(
+                            createdAt: Date(timeIntervalSince1970: 1_800_000_000 - Double(index)),
+                            kind: .image, title: "Synthetic scale image \(index)",
+                            contentHash: "library-scale-\(index)")
+                        _ = try? await fullStore.insert(
+                            item, content: .binary(data: data, typeIdentifier: "public.png"))
+                    }
+                    await refreshRecents()
+                    return
+                }
+                for item in [
+                    ClipItem(
+                        kind: .image, title: "Synthetic landscape", contentHash: "library-image"),
+                    ClipItem(
+                        kind: .image, title: "Hidden fixture title",
+                        contentHash: "library-protected", isSensitive: true)
+                ] {
+                    _ = try? await fullStore.insert(
+                        item, content: .binary(data: data, typeIdentifier: "public.png"))
+                }
+                let color = ClipItem(
+                    kind: .color, title: "Ocean", preview: "#008080", contentHash: "library-color")
+                _ = try? await fullStore.insert(color, content: .text("#008080"))
+                let code = ClipItem(
+                    kind: .code, title: "Example", preview: "let greeting = \"Hello\"",
+                    contentHash: "library-code")
+                _ = try? await fullStore.insert(code, content: .text(code.preview))
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
+    }
+
     /// UI-test hook: seed one synthetic clip at two uses so a double-click
     /// drives the real paste-back → atomic third-use → suggestion path. It is
     /// available only with the throwaway durable store.
@@ -189,6 +249,47 @@ extension AppModel {
                     "Yesterday: fixed search\nToday: improve editing\nBlockers: none"))
             await refreshRecents()
         }
+    }
+
+    /// UI-test hook: seed ONE synthetic image clip carrying known rendered text
+    /// so the explicit OCR flow can be driven end to end with automatic OCR off.
+    /// It writes a preference as well as the store, so it requires the isolated
+    /// defaults suite too — without that guard it would switch off a real user's
+    /// "searchable screenshots" in their own preferences domain.
+    private func seedManualOCRIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-manual-ocr"),
+                CommandLine.arguments.contains("-use-temp-durable-store"),
+                Self.uiTestDefaultsSuiteName() != nil, let fullStore
+            else { return nil }
+            intelligence.searchableScreenshots = false
+            // Three lines: two of prose and one link, so the entity chips have
+            // something to find without a second fixture.
+            let image = NSImage(size: NSSize(width: 640, height: 200))
+            image.lockFocus()
+            NSColor.white.setFill()
+            NSRect(x: 0, y: 0, width: 640, height: 200).fill()
+            ("Hola Gancho\nTexto de una imagen\nhttps://gancho.app/docs" as NSString).draw(
+                in: NSRect(x: 20, y: 20, width: 600, height: 160),
+                withAttributes: [
+                    .font: NSFont.systemFont(ofSize: 32), .foregroundColor: NSColor.black
+                ])
+            image.unlockFocus()
+            guard let tiff = image.tiffRepresentation,
+                let data = NSBitmapImageRep(data: tiff)?.representation(
+                    using: .png, properties: [:])
+            else { return nil }
+            return Task {
+                let item = ClipItem(
+                    kind: .image, title: "OCR sample", preview: "Sample image",
+                    contentHash: "manual-ocr-fixture")
+                _ = try? await fullStore.insert(
+                    item, content: .binary(data: data, typeIdentifier: "public.png"))
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
     }
 
     /// UI-test hook: seed a THROWAWAY durable store with a few PINNED clips plus
