@@ -67,7 +67,11 @@ struct CombinedTextReview: View {
                 TextField("Custom separator", text: $customSeparator).disabled(copyTask != nil)
             }
             ScrollView {
-                Text(verbatim: composed ?? "").textSelection(.enabled).frame(
+                // Read-only on purpose: a selectable preview would give ⌘C and
+                // the context menu a second clipboard-write path that skips the
+                // revalidation and the self-write marker the Copy button goes
+                // through. The one way out of this sheet is that button.
+                Text(verbatim: composed ?? "").textSelection(.disabled).frame(
                     maxWidth: .infinity, alignment: .leading)
             }
             .frame(minHeight: 100).accessibilityIdentifier("combined-text-preview")
@@ -80,7 +84,8 @@ struct CombinedTextReview: View {
                     .orange)
             }
             HStack {
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Cancel") { cancel() }.keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("combined-text-cancel")
                 Spacer()
                 Button("Copy") { copy() }.keyboardShortcut(.defaultAction)
                     .disabled(loading || composed == nil || copyTask != nil)
@@ -92,10 +97,22 @@ struct CombinedTextReview: View {
                 if paused { dismiss() }
             }
             .onDisappear {
+                // Lifecycle fallback for every other way the sheet can go away
+                // (private mode, window close); Cancel itself cancels first.
                 copyTask?.cancel()
                 copyTask = nil
                 parts = []
             }
+    }
+
+    /// Cancels a copy that is still awaiting its store read BEFORE the sheet
+    /// goes away — `onDisappear` runs after dismissal has animated, and a read
+    /// resuming in that window would otherwise write to the clipboard with no
+    /// sheet left to show the outcome.
+    private func cancel() {
+        copyTask?.cancel()
+        copyTask = nil
+        dismiss()
     }
 
     private func status(_ part: CombinedTextPart) -> LocalizedStringKey {

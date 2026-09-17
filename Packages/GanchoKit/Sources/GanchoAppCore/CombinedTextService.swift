@@ -31,7 +31,10 @@ public struct CombinedTextService: Sendable {
             try Task.checkCancellation()
             let content: CombinedTextPart.Content
             if let item = visible[id] {
-                if item.isSensitive || item.kind == .secret
+                // The same policy every preview surface applies: detector-flagged
+                // rows AND inherently masked kinds (a bare JWT or card number is
+                // stored non-sensitive on purpose) never leave the store in clear.
+                if ClipSafePresentation.requiresMasking(item)
                     || item.expiresAt.map({ $0 <= .now }) == true
                 {
                     content = .protected
@@ -58,7 +61,7 @@ public struct CombinedTextService: Sendable {
         return parts.map { part in
             guard case .text = part.content else { return part }
             guard let before = visible[part.id], let after = current[part.id],
-                !after.isSensitive, after.kind != .secret, after.kind == before.kind,
+                !ClipSafePresentation.requiresMasking(after), after.kind == before.kind,
                 after.updatedAt == before.updatedAt, after.contentHash == before.contentHash,
                 after.expiresAt.map({ $0 > .now }) ?? true
             else { return CombinedTextPart(id: part.id, content: .unavailable) }

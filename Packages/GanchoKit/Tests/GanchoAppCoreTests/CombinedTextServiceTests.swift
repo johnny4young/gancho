@@ -66,6 +66,12 @@ struct CombinedTextSourceTests {
         let image = ClipItem(kind: .image, contentHash: "image")
         let protected = ClipItem(contentHash: "protected", isSensitive: true)
         let expired = ClipItem(contentHash: "expired", expiresAt: .distantPast)
+        // Stored non-sensitive on purpose (`ClipItemFactory` keeps a bare token
+        // that way); the kind alone must protect it, exactly as previews do.
+        let token = ClipItem(kind: .jwt, contentHash: "token")
+        let card = ClipItem(kind: .creditCard, contentHash: "card")
+        _ = try await store.insert(token, content: .text("synthetic.jwt.token"))
+        _ = try await store.insert(card, content: .text("4111 1111 1111 1111"))
         _ = try await store.insert(text, content: .text("first"))
         _ = try await store.insert(
             image, content: .binary(data: Data([1]), typeIdentifier: "public.png"))
@@ -73,13 +79,15 @@ struct CombinedTextSourceTests {
         _ = try await store.insert(expired, content: .text("synthetic expired"))
         let missing = UUID()
         let service = CombinedTextService()
-        let ids = [missing, text.id, image.id, protected.id, expired.id]
+        let ids = [missing, text.id, image.id, protected.id, expired.id, token.id, card.id]
         let parts = try await service.load(ids: ids, from: store)
         #expect(parts.map(\.id) == ids)
         #expect(
             parts.map(\.content) == [
-                .unavailable, .text("first"), .incompatible, .protected, .protected
+                .unavailable, .text("first"), .incompatible, .protected, .protected, .protected,
+                .protected
             ])
+        #expect(!token.isSensitive && ClipSafePresentation.requiresMasking(token))
         #expect(try service.compose(parts, separator: "\n") == nil)
         try await store.delete(id: text.id)
         #expect(try await service.load(ids: [text.id], from: store).first?.content == .unavailable)
@@ -88,7 +96,7 @@ struct CombinedTextSourceTests {
 
 /// A later content read changes an earlier clip before the batch finishes.
 private actor ChangingCombinationReader: ClipReading {
-    enum Change: Sendable { case protect, delete, replace, expire }
+    enum Change: Sendable { case protect, maskedKind, delete, replace, expire }
     let first = ClipItem(contentHash: "first")
     let second = ClipItem(contentHash: "second")
     private let change: Change
@@ -106,6 +114,7 @@ private actor ChangingCombinationReader: ClipReading {
             var current = first
             switch change {
             case .protect: current.isSensitive = true
+            case .maskedKind: current.kind = .jwt
             case .delete: return nil
             case .replace: current.contentHash = "replacement"
             case .expire: current.expiresAt = .distantPast
@@ -129,7 +138,7 @@ struct CombinedTextBatchValidationTests {
     @Test(
         "Later reads cannot release an earlier changed clip",
         arguments: [
-            ChangingCombinationReader.Change.protect, .delete, .replace, .expire
+            ChangingCombinationReader.Change.protect, .maskedKind, .delete, .replace, .expire
         ])
     fileprivate func revalidatesWholeBatch(change: ChangingCombinationReader.Change) async throws {
         let reader = ChangingCombinationReader(change: change)

@@ -38,7 +38,14 @@ final class CombinedTextUITests: XCTestCase {
         let copy = app.buttons["combined-text-copy"]
         XCTAssertTrue(copy.waitForHittable(timeout: 5))
         XCTAssertTrue(copy.isEnabled)
-        app.buttons["Cancel"].firstMatch.click()
+        // The preview is read-only: ⌘C over it must neither select nor copy
+        // anything (no second write path around the Copy button), and the
+        // sheet stays put.
+        app.typeKey("c", modifierFlags: .command)
+        XCTAssertTrue(preview.staticTexts[expectedText].exists)
+        XCTAssertTrue(copy.isEnabled)
+        XCTAssertEqual(rows.count, count)
+        app.buttons["combined-text-cancel"].firstMatch.click()
         XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
         XCTAssertEqual(rows.count, count)
         combined.click()
