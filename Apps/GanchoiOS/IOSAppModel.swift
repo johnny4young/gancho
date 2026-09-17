@@ -932,6 +932,11 @@ final class IOSAppModel {
         // The note is a transient overlay VoiceOver won't focus on its own; speak
         // it so a blind user gets the same confirmation a sighted one sees.
         UIAccessibility.post(notification: .announcement, argument: text)
+        #if DEBUG
+            // A UI test may ask to keep the note until the next one; see
+            // `keepsSaveNotesForUITests`.
+            if keepsSaveNotesForUITests { return }
+        #endif
         saveNoteTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(2))
             guard !Task.isCancelled else { return }

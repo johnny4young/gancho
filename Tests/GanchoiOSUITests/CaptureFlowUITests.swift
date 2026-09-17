@@ -109,6 +109,14 @@ final class CaptureFlowUITests: XCTestCase {
     /// once stalled this test for 26 minutes). So occupancy is checked through
     /// metadata alone, the sample is written only onto an empty pasteboard, and
     /// teardown clears it only while the sample is still the latest write.
+    ///
+    /// The note normally flashes for two seconds. On the hosted runner the
+    /// paste landed (the history row and the durable "Saved" chip were in the
+    /// failure hierarchy) but the note had come and gone between two
+    /// accessibility snapshots, which can be seconds apart there. The app is
+    /// therefore launched with `-ui-test-keep-save-notes`, which keeps a real
+    /// note until the next one, and the test also asserts the durable outcome:
+    /// the pasted text as a history row.
     @MainActor
     func testPasteControlTapSavesPasteboardContent() throws {
         let pasteboard = UIPasteboard.general
@@ -131,7 +139,8 @@ final class CaptureFlowUITests: XCTestCase {
 
         let app = XCUIApplication()
         app.launchArguments = [
-            "-skip-welcome-on-launch", "-force-ephemeral-store", "-AppleLanguages", "(en)"
+            "-skip-welcome-on-launch", "-force-ephemeral-store", "-AppleLanguages", "(en)",
+            "-ui-test-keep-save-notes"
         ]
         app.launch()
         defer { app.terminate() }
@@ -159,12 +168,20 @@ final class CaptureFlowUITests: XCTestCase {
         }
         paste.tap()
 
-        // The handoff runs `IOSAppModel.ingest(providers:)` → the status row
-        // flashes the `save-note` ("Saved") chip, a success-kind note.
-        let note = app.descendants(matching: .any)["save-note"].firstMatch
+        // The handoff runs `IOSAppModel.ingest(providers:)`: the pasted text
+        // lands in history as a row, and the status row shows the `save-note`
+        // ("Saved") chip, a success-kind note kept on screen by the launch
+        // argument above. Both waits are bounded generously: the hosted runner
+        // is slow, and existence polling samples about once per second.
+        let row = app.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "identifier == 'clip-row' AND label CONTAINS 'gancho paste-drive sample'")
+        ).firstMatch
         XCTAssertTrue(
-            note.waitForExistence(timeout: 8),
-            "tapping the paste control must save the pasteboard content (Saved note)")
+            row.waitForExistence(timeout: 15),
+            "tapping the paste control must save the pasteboard content as a history row")
+        let note = app.descendants(matching: .any)["save-note"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 15), "the Saved note must show and stay")
         XCTAssertEqual(note.value as? String, "Done", "a saved note must expose its success kind")
     }
 
