@@ -35,6 +35,7 @@ extension AppModel {
             seedSourceAppsIfRequested(),
             seedReuseSuggestionIfRequested(),
             seedClipEditingIfRequested(),
+            seedVisualLibraryIfRequested(),
             seedManualOCRIfRequested(),
             seedMultiFileDragIfRequested(),
             seedPrivateActivityReceiptIfRequested()
@@ -151,6 +152,64 @@ extension AppModel {
             }
             await refreshRecents()
         }
+    }
+
+    /// Synthetic media only, isolated from real history and capture.
+    private func seedVisualLibraryIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-visual-library"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            return Task {
+                let scaleFixture = CommandLine.arguments.contains("-seed-visual-library-scale")
+                let size =
+                    scaleFixture
+                    ? NSSize(width: 2048, height: 1024) : NSSize(width: 600, height: 300)
+                let image = NSImage(size: size)
+                image.lockFocus()
+                NSColor.systemTeal.setFill()
+                NSRect(origin: .zero, size: size).fill()
+                NSColor.systemOrange.setFill()
+                NSBezierPath(ovalIn: NSRect(x: 200, y: 50, width: 200, height: 200)).fill()
+                image.unlockFocus()
+                guard let tiff = image.tiffRepresentation,
+                    let bitmap = NSBitmapImageRep(data: tiff),
+                    let data = bitmap.representation(using: .png, properties: [:])
+                else { return }
+                if scaleFixture {
+                    for index in 0..<2_000 {
+                        let item = ClipItem(
+                            createdAt: Date(timeIntervalSince1970: 1_800_000_000 - Double(index)),
+                            kind: .image, title: "Synthetic scale image \(index)",
+                            contentHash: "library-scale-\(index)")
+                        _ = try? await fullStore.insert(
+                            item, content: .binary(data: data, typeIdentifier: "public.png"))
+                    }
+                    await refreshRecents()
+                    return
+                }
+                for item in [
+                    ClipItem(
+                        kind: .image, title: "Synthetic landscape", contentHash: "library-image"),
+                    ClipItem(
+                        kind: .image, title: "Hidden fixture title",
+                        contentHash: "library-protected", isSensitive: true)
+                ] {
+                    _ = try? await fullStore.insert(
+                        item, content: .binary(data: data, typeIdentifier: "public.png"))
+                }
+                let color = ClipItem(
+                    kind: .color, title: "Ocean", preview: "#008080", contentHash: "library-color")
+                _ = try? await fullStore.insert(color, content: .text("#008080"))
+                let code = ClipItem(
+                    kind: .code, title: "Example", preview: "let greeting = \"Hello\"",
+                    contentHash: "library-code")
+                _ = try? await fullStore.insert(code, content: .text(code.preview))
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
     }
 
     /// UI-test hook: seed one synthetic clip at two uses so a double-click

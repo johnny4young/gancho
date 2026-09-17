@@ -98,6 +98,7 @@ final class AppModel {
     let grdbForEngines: GRDBClipboardStore?
     /// Cached image thumbnails for the history rows and the peek.
     let thumbnails: ClipThumbnailStore
+    let libraryThumbnails: GanchoDesign.ClipThumbnailStore
 
     let monitor: MacPasteboardMonitor
     private let captureLifecycle: CaptureLifecycleController
@@ -200,6 +201,7 @@ final class AppModel {
     /// Held so the observer outlives `init`; set by the UI-test launch hook in
     /// `AppModel+UITestLaunch`, which is why it is not private.
     var uiTestPanelObserver: NSObjectProtocol?
+    var uiTestPanelHasOpened = false
     /// Wake-from-sleep sync catch-up (see the `didWakeNotification` observer).
     private var wakeObserver: NSObjectProtocol?
 
@@ -354,6 +356,17 @@ final class AppModel {
             }
             return nil
         })
+        let libraryReader = self.fullStore
+        self.libraryThumbnails = GanchoDesign.ClipThumbnailStore(
+            maxCached: 64, maxPixel: 256, skipsSensitiveClips: true, decodePriority: .utility,
+            imageData: { id in
+                guard let reader = libraryReader, let item = try? await reader.item(id: id),
+                    item.kind == .image, !ClipSafePresentation.requiresMasking(item),
+                    item.expiresAt.map({ $0 > .now }) ?? true
+                else { return nil }
+                return try? await reader.thumbnailData(for: id)
+            })
+
         var loadedMCPConfig = MCPServerConfig.load(fromStoreDirectory: mcpConfigDirectory)
         #if DEBUG
             // Only ever into a THROWAWAY store — seeding grants beside the
