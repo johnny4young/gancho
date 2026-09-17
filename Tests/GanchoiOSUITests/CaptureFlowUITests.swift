@@ -8,7 +8,10 @@ import XCTest
 /// where a headless runner doesn't expose it, like `PrivacyCenterUITests`; the
 /// presence of an app-owned accessibility identifier is asserted, because a
 /// missing one is a product regression, not an environment limitation. The
-/// paste handoff runs only on a pasteboard the test can own.
+/// paste handoff runs only on a pasteboard the test can own. Every `-seed-*`,
+/// `-pin-*` and `-ui-test-*` launch argument these tests pass is a DEBUG-only
+/// hook (the GanchoiOS scheme tests the Debug configuration); a Release build
+/// ignores them.
 final class CaptureFlowUITests: XCTestCase {
     /// Capture→saved via the deterministic seed path, independent of the system
     /// paste control exercised below: drives the SAME `IOSAppModel.ingest`
@@ -100,8 +103,8 @@ final class CaptureFlowUITests: XCTestCase {
     /// Drives the `UIPasteControl` tap end to end. The control grants one-shot
     /// pasteboard access on tap with NO permission prompt, so a synthetic tap
     /// exercises the real handoff: seed the system pasteboard, tap the control
-    /// in the bottom bar, and the status row flashes its `save-note` ("Saved")
-    /// confirmation via `ingest`.
+    /// in the bottom bar, and `ingest` shows the `save-note` ("Saved")
+    /// confirmation, saves the text as a history row, and dismisses the note.
     ///
     /// The test only ever touches a pasteboard it owns. Simulator mirrors this
     /// pasteboard to the Mac's clipboard when pasteboard sync is on, and
@@ -110,15 +113,18 @@ final class CaptureFlowUITests: XCTestCase {
     /// metadata alone, the sample is written only onto an empty pasteboard, and
     /// teardown clears it only while the sample is still the latest write.
     ///
-    /// The note normally flashes for two seconds. On the hosted runner the
-    /// paste landed (the history row and the durable "Saved" chip were in the
+    /// The note normally lives two seconds. On the hosted runner the paste
+    /// landed (the history row and the durable "Saved" chip were in the
     /// failure hierarchy) but the note had come and gone between two
     /// accessibility snapshots, which can be seconds apart there. The app is
-    /// therefore launched with `-ui-test-keep-save-notes`, which keeps a real
-    /// note until the next one, and the test also asserts the durable outcome:
-    /// the pasted text as a history row.
+    /// therefore launched with a longer note lifetime, the test proves the
+    /// note is the tap's own (none is on screen before it), asserts the
+    /// durable outcome (the pasted text as a history row), and then asserts
+    /// the dismissal, so the product's own timer stays covered.
     @MainActor
     func testPasteControlTapSavesPasteboardContent() throws {
+        let sample = "gancho paste-drive sample"
+        let noteLifetime = 15
         let pasteboard = UIPasteboard.general
         // Metadata only: none of these reads the content or prompts.
         let occupied =
@@ -126,7 +132,7 @@ final class CaptureFlowUITests: XCTestCase {
             || pasteboard.hasColors
         var sampleChangeCount: Int?
         if !occupied {
-            pasteboard.string = "gancho paste-drive sample"
+            pasteboard.string = sample
             sampleChangeCount = pasteboard.changeCount
         }
         defer {
@@ -140,7 +146,7 @@ final class CaptureFlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-skip-welcome-on-launch", "-force-ephemeral-store", "-AppleLanguages", "(en)",
-            "-ui-test-keep-save-notes"
+            "-ui-test-save-note-lifetime", "\(noteLifetime)"
         ]
         app.launch()
         defer { app.terminate() }
@@ -166,23 +172,31 @@ final class CaptureFlowUITests: XCTestCase {
                     + "the paste handoff runs only on an empty pasteboard so a synced clipboard "
                     + "is never replaced. Run it on a fresh simulator.")
         }
+        // Causation: the note asserted below must be THIS tap's. A leftover
+        // shared-inbox item ingested at activation would already show one.
+        let note = app.descendants(matching: .any)["save-note"].firstMatch
+        XCTAssertFalse(note.exists, "no status note may be on screen before the tap")
         paste.tap()
 
-        // The handoff runs `IOSAppModel.ingest(providers:)`: the pasted text
-        // lands in history as a row, and the status row shows the `save-note`
-        // ("Saved") chip, a success-kind note kept on screen by the launch
-        // argument above. Both waits are bounded generously: the hosted runner
-        // is slow, and existence polling samples about once per second.
+        // The handoff runs `IOSAppModel.ingest(providers:)`: the status row
+        // shows the `save-note` ("Saved") chip, a success-kind note, and the
+        // pasted text lands in history as a row. The waits are bounded
+        // generously: the hosted runner is slow, and existence polling samples
+        // about once per second — which is also why the note lifetime above
+        // is far longer than the two seconds a user sees.
+        XCTAssertTrue(note.waitForExistence(timeout: 15), "the Saved note must show")
+        XCTAssertTrue(note.label.contains("Saved"), "the note was \(note.label)")
+        XCTAssertEqual(note.value as? String, "Done", "a saved note must expose its success kind")
         let row = app.descendants(matching: .any).matching(
-            NSPredicate(
-                format: "identifier == 'clip-row' AND label CONTAINS 'gancho paste-drive sample'")
+            NSPredicate(format: "identifier == 'clip-row' AND label CONTAINS %@", sample)
         ).firstMatch
         XCTAssertTrue(
             row.waitForExistence(timeout: 15),
             "tapping the paste control must save the pasteboard content as a history row")
-        let note = app.descendants(matching: .any)["save-note"].firstMatch
-        XCTAssertTrue(note.waitForExistence(timeout: 15), "the Saved note must show and stay")
-        XCTAssertEqual(note.value as? String, "Done", "a saved note must expose its success kind")
+        // The product's own dismissal, at the lifetime the launch asked for.
+        XCTAssertTrue(
+            note.waitForNonExistence(timeout: Double(noteLifetime) + 15),
+            "the note must dismiss after its lifetime")
     }
 
     /// Spanish at the largest accessibility text size once squeezed the sensed

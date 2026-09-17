@@ -926,19 +926,17 @@ final class IOSAppModel {
         await ingest(capture)
     }
 
+    /// Resolved once: launch arguments cannot change after launch.
+    private static let saveNoteLifetime = saveNoteLifetime()
+
     private func flashNote(_ text: String, kind: CaptureStatusNote.Kind) {
         saveNoteTask?.cancel()
         saveNote = CaptureStatusNote(text: text, kind: kind)
         // The note is a transient overlay VoiceOver won't focus on its own; speak
         // it so a blind user gets the same confirmation a sighted one sees.
         UIAccessibility.post(notification: .announcement, argument: text)
-        #if DEBUG
-            // A UI test may ask to keep the note until the next one; see
-            // `keepsSaveNotesForUITests`.
-            if keepsSaveNotesForUITests { return }
-        #endif
         saveNoteTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: Self.saveNoteLifetime)
             guard !Task.isCancelled else { return }
             saveNote = nil
             saveNoteTask = nil
@@ -983,34 +981,48 @@ final class IOSAppModel {
     /// never shows an alert. Providers carry text, URLs, or images.
     func ingest(providers: [NSItemProvider]) {
         // Mark this copy as read (metadata only — the change counter), so the
-        // capture card flips from "not read yet" to "Saved" until a new copy.
-        lastCapturedChangeCount = UIPasteboard.general.changeCount
-        Task { await refreshHints() }
+        // capture card flips from "not read yet" to "Saved" until a new copy —
+        // but only once the clip is actually stored. Marking it up front would
+        // show "Saved" for a paste the store refused.
+        let changeCount = UIPasteboard.general.changeCount
         for provider in providers {
             if provider.canLoadObject(ofClass: UIImage.self) {
                 _ = provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
                     guard let png = (object as? UIImage)?.pngData() else { return }
                     Task { @MainActor in
-                        await self?.ingest(
-                            PasteboardCapture(
-                                payload: .image(data: png, typeIdentifier: "public.png")))
+                        await self?.markPasteRead(
+                            changeCount,
+                            saved: self?.ingest(
+                                PasteboardCapture(
+                                    payload: .image(data: png, typeIdentifier: "public.png"))))
                     }
                 }
             } else if provider.canLoadObject(ofClass: NSString.self) {
                 _ = provider.loadObject(ofClass: NSString.self) { [weak self] object, _ in
                     guard let text = object as? String, !text.isEmpty else { return }
                     Task { @MainActor in
-                        await self?.ingest(PasteboardCapture(text: text))
+                        await self?.markPasteRead(
+                            changeCount, saved: self?.ingest(PasteboardCapture(text: text)))
                     }
                 }
             }
         }
     }
 
+    /// The durable "Saved" state of the capture card follows a successful
+    /// store write, never the tap alone.
+    private func markPasteRead(_ changeCount: Int, saved: Bool?) async {
+        guard saved == true else { return }
+        lastCapturedChangeCount = changeCount
+        await refreshHints()
+    }
+
+    /// True once the clip is in the store; false when ingestion refused it.
+    @discardableResult
     private func ingest(
         _ capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil
     )
-        async
+        async -> Bool
     {
         let configuration = ClipIngestionCoordinator.Configuration(
             sensitiveLifetime: RetentionPolicy.load(from: defaults).sensitiveLifetime,
@@ -1030,7 +1042,7 @@ final class IOSAppModel {
                 store: store,
                 syncEngine: syncController.engine,
                 didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
-        else { return }
+        else { return false }
         if outcome.isNew { recordActivationMilestone(.firstCapture) }
         try? await full?.recordPrivateCapture(
             sourceAppBundleID: capture.sourceAppBundleID,
@@ -1047,6 +1059,7 @@ final class IOSAppModel {
         // sensitive) on the Dynamic Island / lock screen.
         clipActivity.show(outcome.item, sync: ClipSyncBadge(syncStatus))
         enrich(outcome)
+        return true
     }
 
     /// On-device enrichment of a clip captured ON this iPhone — Apple
