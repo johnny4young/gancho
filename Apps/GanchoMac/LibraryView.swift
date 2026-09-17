@@ -1,6 +1,7 @@
 import AppKit
 import ClipboardCore
 import GanchoAI
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import SwiftUI
@@ -572,31 +573,40 @@ struct LibraryView: View {
         }
     }
 
+    /// Pages through `LibraryPager`, so a page that never arrived (the last
+    /// card's `.task` is cancelled whenever it scrolls out) leaves the scope
+    /// open for the next request, and rows that moved under the loaded list
+    /// (retention, a capture, a pin flip) are reconciled rather than skipped.
     private func loadMore() async {
         guard !loadingPage, !reachedEnd else { return }
         let scope = selection ?? .allClips
         let generation = loadGeneration
-        let offset = clips.count
         loadingPage = true
         defer { if generation == loadGeneration { loadingPage = false } }
-        let page: [ClipItem]
+        let outcome: LibraryPager.Outcome
         switch scope {
         case .allClips:
-            page = (try? await model.store.items(offset: offset, limit: 100)) ?? []
+            outcome = await LibraryPager.nextPage(loaded: clips) {
+                try await model.store.items(offset: $0, limit: $1)
+            }
         case .pinned:
             // The store orders pins before all unpinned rows, so this walks
             // the complete pinned prefix rather than an arbitrary recent page.
-            page = ((try? await model.store.items(offset: offset, limit: 100)) ?? []).filter(
-                \.isPinned)
+            outcome = await LibraryPager.nextPage(
+                loaded: clips, stopAt: { !$0.isPinned },
+                fetch: { try await model.store.items(offset: $0, limit: $1) })
         case .board(let id):
-            page =
-                (try? await model.fullStore?.items(inBoard: id, offset: offset, limit: 100)) ?? []
+            guard let fullStore = model.fullStore else { return }
+            outcome = await LibraryPager.nextPage(loaded: clips) {
+                try await fullStore.items(inBoard: id, offset: $0, limit: $1)
+            }
         case .snippet: return
         }
-        guard generation == loadGeneration, scope == selection ?? .allClips else { return }
-        let existing = Set(clips.map(\.id))
-        clips.append(contentsOf: page.filter { !existing.contains($0.id) })
-        reachedEnd = page.count < 100 || page.allSatisfy { existing.contains($0.id) }
+        guard generation == loadGeneration, scope == selection ?? .allClips,
+            case .loaded(let rows, let reachedEnd) = outcome
+        else { return }
+        clips = rows
+        self.reachedEnd = reachedEnd
     }
 
     /// Re-runs the model action, then reloads the scope + counts once the write
@@ -626,11 +636,11 @@ struct LibraryView: View {
         Task {
             guard !model.preferences.isPrivateModePaused,
                 !model.pendingDeletionIDs.contains(clip.id),
-                let current = try? await model.fullStore?.items(ids: [clip.id]).first,
+                let current = try? await model.store.item(id: clip.id),
                 !ClipSafePresentation.requiresMasking(current),
                 current.expiresAt.map({ $0 > .now }) ?? true,
                 let content = try? await model.store.content(for: clip.id),
-                let latest = try? await model.fullStore?.items(ids: [clip.id]).first,
+                let latest = try? await model.store.item(id: clip.id),
                 !Task.isCancelled, !model.preferences.isPrivateModePaused,
                 !model.pendingDeletionIDs.contains(clip.id),
                 !ClipSafePresentation.requiresMasking(latest),
