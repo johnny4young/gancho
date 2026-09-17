@@ -7831,6 +7831,96 @@
         }
       }
     },
+    "Open %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir %@"
+          }
+        }
+      }
+    },
+    "Send email": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviar correo"
+          }
+        }
+      }
+    },
+    "Translate": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducir"
+          }
+        }
+      }
+    },
+    "Translating…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traduciendo…"
+          }
+        }
+      }
+    },
+    "Translation": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducción"
+          }
+        }
+      }
+    },
+    "Copy translation": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar traducción"
+          }
+        }
+      }
+    },
+    "Paste translation": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar traducción"
+          }
+        }
+      }
+    },
+    "Email %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribir a %@"
+          }
+        }
+      }
+    },
+    "Couldn’t open that link.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir ese enlace."
+          }
+        }
+      }
+    },
     "Copy text from image": {
       "localizations": {
         "es": {

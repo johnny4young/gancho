@@ -123,6 +123,37 @@ struct PeekImageTextSection: View {
     @Environment(AppModel.self) private var model
     @State private var copiedAll = false
     @State private var draft = ""
+    /// Entity chips: what the recognized text can DO, computed from the text
+    /// itself and never shown for a masked secret.
+    @State private var entities: [ImageTextEntity] = []
+    /// One value for the whole translation lifecycle, so the states that must
+    /// not coexist cannot: a finished translation keeps its target, and a
+    /// refresh of the offer never erases it.
+    @State private var translation: TranslationState = .none
+    @State private var translationTask: Task<Void, Never>?
+    @State private var translationCopied = false
+
+    enum TranslationState: Equatable {
+        case none
+        case offered(Locale.Language)
+        case running(Locale.Language)
+        case done(Locale.Language, String)
+        case failed(Locale.Language)
+
+        var target: Locale.Language? {
+            switch self {
+            case .none: nil
+            case .offered(let t), .running(let t), .done(let t, _), .failed(let t): t
+            }
+        }
+        /// A result on screen or in flight survives an offer refresh.
+        var isSettled: Bool {
+            switch self {
+            case .running, .done: true
+            default: false
+            }
+        }
+    }
 
     private var session: ManualOCRSession { model.manualOCR }
     private var masked: Bool { PeekImageText.isMasked(session, revealed: revealSecret) }
@@ -154,6 +185,8 @@ struct PeekImageTextSection: View {
                     editor
                 } else {
                     lines
+                    entityChips
+                    translationBlock
                     actions
                 }
             case .idle:
@@ -166,6 +199,11 @@ struct PeekImageTextSection: View {
         .onChange(of: session.requestID) { _, _ in
             copiedAll = false
             isEditing = false
+            cancelTranslation()
+        }
+        .onDisappear { cancelTranslation() }
+        .task(id: "\(session.requestID)|\(session.state)|\(session.isSensitive)") {
+            await refreshOffers()
         }
     }
 
@@ -361,5 +399,198 @@ struct PeekImageTextSection: View {
     private func save(_ text: String) async -> Bool {
         guard let validated = await session.reviewedText(text) else { return false }
         return await model.saveManualText(validated)
+    }
+}
+
+// MARK: - Entity chips and translation
+
+extension PeekImageTextSection {
+    // MARK: - Entity chips
+
+    /// Links, emails and Translate, from the recognized text itself. Chips wrap
+    /// instead of truncating, and none appears for a secret: a flagged text is
+    /// never sent anywhere, not even to the on-device model.
+    @ViewBuilder private var entityChips: some View {
+        if !session.isSensitive, !entities.isEmpty || translation.target != nil {
+            FlowLayout(spacing: GanchoTokens.Spacing.xxs) {
+                ForEach(Array(entities.enumerated()), id: \.offset) { index, entity in
+                    switch entity {
+                    case .link(let url):
+                        chip(
+                            Text("Open \(url.host ?? url.absoluteString)"),
+                            systemImage: "arrow.up.right", identifier: "peek-ocr-link-\(index)"
+                        ) { model.openRecognizedEntity(entity) }
+                    case .email(let address, _):
+                        // The address IS the label: two recipients must never
+                        // read as the same chip, to the eye or to VoiceOver.
+                        chip(
+                            Text("Email \(address)"), systemImage: "envelope",
+                            identifier: "peek-ocr-email-\(index)"
+                        ) { model.openRecognizedEntity(entity) }
+                    }
+                }
+                switch translation {
+                case .offered(let target), .failed(let target):
+                    chip(Text("Translate"), systemImage: "globe", identifier: "peek-ocr-translate")
+                    {
+                        translate(to: target)
+                    }
+                case .running:
+                    chip(
+                        Text("Translating…"), systemImage: "globe",
+                        identifier: "peek-ocr-translating"
+                    ) {}
+                    .disabled(true)
+                case .none, .done:
+                    EmptyView()
+                }
+            }
+            if case .failed = translation {
+                Text("Couldn’t run that — try again.")
+                    .font(.caption)
+                    .foregroundStyle(GanchoTokens.Palette.danger)
+                    .accessibilityIdentifier("peek-ocr-translation-error")
+            }
+        }
+    }
+
+    /// The translation reads beside the original, at the same body size, with
+    /// its own Copy and Paste: the common case is "translate and paste". Both
+    /// go through the same revalidation as every other copy from this section.
+    @ViewBuilder private var translationBlock: some View {
+        if case .done(let target, let text) = translation {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                HStack(spacing: GanchoTokens.Spacing.xs) {
+                    Text("Translation")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                    Text(verbatim: LanguageName.localized(target))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                    Spacer(minLength: 0)
+                    if translationCopied {
+                        Label("Copied to clipboard", systemImage: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(GanchoTokens.Palette.success)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(Text("Copied to clipboard"))
+                            .accessibilityIdentifier("peek-ocr-translation-status")
+                    }
+                }
+                // Capped like the peek's other long outputs (`resultBox`): the
+                // peek column does not scroll, so an uncapped block would push
+                // the action list off the panel.
+                ScrollView {
+                    Text(verbatim: text)
+                        .font(.body)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("peek-ocr-translation")
+                }
+                .frame(maxHeight: 140)
+                fitting {
+                    ActionButton(
+                        "Copy translation", systemImage: "doc.on.doc",
+                        identifier: "peek-ocr-translation-copy"
+                    ) {
+                        Task {
+                            guard await model.copyManualText(text) else { return }
+                            withAnimation { translationCopied = true }
+                        }
+                    }
+                    ActionButton(
+                        "Paste translation", systemImage: "doc.on.clipboard",
+                        identifier: "peek-ocr-translation-paste"
+                    ) {
+                        Task {
+                            guard let validated = await session.reviewedText(text) else { return }
+                            model.pasteText(validated)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// 11 pt medium: the macOS floor for an interactive label, one step above
+    /// the 10 pt metadata around it, so a chip reads as a control.
+    private func chip(
+        _ title: Text, systemImage: String, identifier: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label {
+                title
+            } icon: {
+                Image(systemName: systemImage)
+            }
+            .font(.subheadline.weight(.medium))
+            // No line limit: a long host wraps inside the chip, so the full
+            // destination stays readable and nothing is ever cut to a
+            // trusted-looking prefix.
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                GanchoTokens.Palette.accent.opacity(0.1),
+                in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
+    }
+
+    /// Recompute what the text can do whenever the result changes. Detection is
+    /// synchronous and cheap; the translation offer asks the platform which
+    /// engine can run, so it lands a beat later. A translation already running
+    /// or on screen is left alone: the offer only fills an empty slot.
+    private func refreshOffers() async {
+        guard session.state == .copied || session.state == .ready, !session.isSensitive else {
+            entities = []
+            cancelTranslation()
+            return
+        }
+        let request = session.requestID
+        let text = session.text
+        entities = ImageTextEntityDetector().entities(in: text)
+        guard !translation.isSettled else { return }
+        translation = .none
+        guard model.smartPasteAvailable else { return }
+        let target = await ImageTextTranslation.offer(
+            for: text, interface: Locale.current.language,
+            modelAvailable: model.smartPasteModelAvailable)
+        guard !Task.isCancelled, request == session.requestID, !translation.isSettled else {
+            return
+        }
+        translation = target.map(TranslationState.offered) ?? .none
+    }
+
+    /// Runs on the SAME revalidation as a copy: a source that stopped
+    /// permitting reuse (private mode, deletion, expiry) is never sent to the
+    /// model. The task is keyed to the request and cancelled with it, so a
+    /// superseded translation can neither re-enable the chip nor land.
+    private func translate(to target: Locale.Language) {
+        translationTask?.cancel()
+        translation = .running(target)
+        let request = session.requestID
+        translationTask = Task {
+            guard let text = await session.reviewedText(session.text) else {
+                if request == session.requestID { translation = .failed(target) }
+                return
+            }
+            let result = await model.smartTranslate(text, to: target)
+            guard !Task.isCancelled, request == session.requestID else { return }
+            if let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                translation = .done(target, result)
+            } else {
+                translation = .failed(target)
+            }
+        }
+    }
+
+    private func cancelTranslation() {
+        translationTask?.cancel()
+        translationTask = nil
+        translation = .none
+        translationCopied = false
     }
 }
