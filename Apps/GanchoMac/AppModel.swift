@@ -616,7 +616,7 @@ final class AppModel {
 
         Signpost.launchToStoreReady.end(launchInterval)
 
-        Task { await savedFilters.load(migrating: defaults) }
+        reloadSavedFilters()
         coordinator.start(subscribingTo: storeChanges)
 
         // What a launch opens is one decision (`LaunchPresentation`), taken here
@@ -759,6 +759,13 @@ final class AppModel {
                 }
             }
         }
+    }
+
+    /// Re-reads the saved-filter definitions, retrying the legacy import as
+    /// well. Runs at launch and every time the Library is presented, so a
+    /// read that failed once is retried by reopening the window.
+    func reloadSavedFilters() {
+        Task { await savedFilters.load(migrating: defaults) }
     }
 
     func refreshRecents() async {

@@ -17,7 +17,7 @@ import SwiftUI
 /// creation, not browsing.
 struct LibraryView: View {
     // swiftlint:enable type_body_length
-    @Environment(AppModel.self) private var model
+    @Environment(AppModel.self) var model
 
     /// What the sidebar has selected; `nil` is treated as "All clips".
     @State private var selection: LibrarySelection? = .allClips
@@ -35,10 +35,10 @@ struct LibraryView: View {
 
     // Snippet editor state (the right pane when a snippet is selected).
     @State private var editingSnippet: ClipItem?
-    @State private var title = ""
-    @State private var snippetBody = ""
-    @State private var keyword = ""
-    @FocusState private var focusedField: EditorField?
+    @State var title = ""
+    @State var snippetBody = ""
+    @State var keyword = ""
+    @FocusState var focusedField: EditorField?
 
     // Board name prompt (create / rename).
     @State private var boardSheet: LibraryBoardSheet?
@@ -47,7 +47,7 @@ struct LibraryView: View {
     @State private var boardPendingDeletion: Pinboard?
     @State private var boardAppearanceTarget: Pinboard?
 
-    private enum EditorField { case title, keyword }
+    enum EditorField { case title, keyword }
 
     var body: some View {
         HSplitView {
@@ -67,6 +67,17 @@ struct LibraryView: View {
             }
         }
         .onChange(of: selection) { _, _ in Task { await loadScope() } }
+        .onChange(of: model.recentItems) { previous, current in
+            // A saved filter is live: a local capture, delete, edit, or pin that
+            // moves the recents must show here without switching scopes.
+            var savedFilterSelected = false
+            if case .savedFilter = selection { savedFilterSelected = true }
+            if LibraryScopeReload.isNeeded(
+                savedFilterSelected: savedFilterSelected, previous: previous, current: current)
+            {
+                Task { await loadScope() }
+            }
+        }
         .onChange(of: model.syncStatus) { _, status in
             // A finished sync may have pulled new boards/clips — refresh so they
             // appear here without reopening the window.
@@ -101,7 +112,7 @@ struct LibraryView: View {
 
     // MARK: - Sidebar
 
-    private var roundedCard: RoundedRectangle {
+    var roundedCard: RoundedRectangle {
         RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
     }
 
@@ -158,8 +169,16 @@ struct LibraryView: View {
                             }
                     }
                     if model.savedFilters.failed {
-                        Text("Saved filters couldn’t be loaded. Retry by reopening the Library.")
+                        Text("Saved filters couldn’t be loaded.")
                             .font(.caption)
+                        Button("Retry") { model.reloadSavedFilters() }
+                            .buttonStyle(.link)
+                            .font(.caption)
+                            .accessibilityIdentifier("saved-filters-retry")
+                    } else if model.savedFilters.legacyImportFailed {
+                        Text("Older saved filters couldn’t be imported; the ones here are intact.")
+                            .font(.caption)
+                            .accessibilityIdentifier("saved-filters-import-warning")
                     }
                 }
 
@@ -444,135 +463,6 @@ struct LibraryView: View {
         Button("Delete", role: .destructive) { mutate { model.delete(clip) } }
     }
 
-    // MARK: - Snippet editor
-
-    private func snippetEditor(_ snippet: ClipItem) -> some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-            TextField("Snippet title", text: $title)
-                .textFieldStyle(.plain)
-                .font(.title2.weight(.semibold))
-                .focused($focusedField, equals: .title)
-                .onSubmit { save() }
-                .accessibilityIdentifier("snippet-title")
-
-            HStack(spacing: GanchoTokens.Spacing.xs) {
-                kindPill(snippet.kind)
-                keywordField
-                Spacer(minLength: 0)
-            }
-
-            SyntaxTextView(text: $snippetBody)
-                .frame(minHeight: 220)
-                .clipShape(roundedCard)
-                .overlay(
-                    roundedCard.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-
-            Text(
-                // swiftlint:disable:next line_length
-                "Type the keyword in the panel to insert this snippet. Add {field} placeholders to fill in before pasting."
-            )
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-
-            let fields = SnippetTemplate.fields(in: snippetBody)
-            if !fields.isEmpty {
-                fieldStrip(fields)
-            }
-
-            snippetFooter(for: snippet)
-        }
-        .padding(GanchoTokens.Spacing.md)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onChange(of: focusedField) { previous, _ in
-            // Commit a rename or keyword edit the moment focus leaves the field —
-            // no need to hunt for Save for those quick edits.
-            if previous == .title || previous == .keyword { save() }
-        }
-    }
-
-    private func kindPill(_ kind: ClipContentKind) -> some View {
-        Label(LocalizedStringKey(kind.rawValue), systemImage: kind.symbolName)
-            .font(.caption.weight(.medium))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, GanchoTokens.Spacing.xs)
-            .padding(.vertical, GanchoTokens.Spacing.xxs)
-            .background(.quaternary, in: Capsule())
-            .accessibilityIdentifier("snippet-kind")
-    }
-
-    private var keywordField: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "bolt.fill")
-                .font(.caption2)
-                .foregroundStyle(GanchoTokens.Palette.accent)
-            TextField("Keyword", text: $keyword)
-                .textFieldStyle(.plain)
-                .font(.callout.monospaced())
-                .frame(maxWidth: 160)
-                .focused($focusedField, equals: .keyword)
-                .onSubmit { save() }
-                .accessibilityIdentifier("snippet-keyword")
-        }
-        .padding(.horizontal, GanchoTokens.Spacing.xs)
-        .padding(.vertical, GanchoTokens.Spacing.xxs)
-        .background(.quaternary, in: Capsule())
-    }
-
-    private func fieldStrip(_ fields: [SnippetTemplate.Field]) -> some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
-            Text("Fields").font(.caption2).foregroundStyle(.secondary)
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                ForEach(fields) { field in
-                    Text(verbatim: "{\(field.name)}")
-                        .font(.caption.monospaced())
-                        .padding(.horizontal, GanchoTokens.Spacing.xs)
-                        .padding(.vertical, 2)
-                        .background(
-                            GanchoTokens.Palette.kindTint(for: .code).opacity(0.15), in: Capsule()
-                        )
-                        .foregroundStyle(GanchoTokens.Palette.kindTint(for: .code))
-                }
-            }
-        }
-    }
-
-    private func snippetFooter(for snippet: ClipItem) -> some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-            HStack(spacing: GanchoTokens.Spacing.md) {
-                Label(
-                    "Created \(snippet.createdAt.formatted(date: .abbreviated, time: .omitted))",
-                    systemImage: "clock"
-                )
-                Label("\(snippetBody.count) characters", systemImage: "text.alignleft")
-                if snippet.uses > 0 {
-                    Label("\(snippet.uses) uses", systemImage: "arrow.up.right")
-                }
-                Spacer(minLength: 0)
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-
-            HStack(spacing: GanchoTokens.Spacing.xs) {
-                ActionButton(
-                    "Move to history", systemImage: "arrow.uturn.backward",
-                    identifier: "snippet-demote"
-                ) {
-                    demote()
-                }
-                .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-                ActionButton("Copy", systemImage: "doc.on.doc", identifier: "snippet-copy") {
-                    SystemPasteboardWriter().write(.text(snippetBody), asPlainText: true)
-                    model.toasts.show(GanchoToast(message: "Copied"))
-                }
-                ActionButton("Save", systemImage: "checkmark", identifier: "snippet-save") {
-                    save()
-                }
-            }
-        }
-    }
-
     // MARK: - Data
 
     private func refreshAll() async {
@@ -732,7 +622,7 @@ struct LibraryView: View {
         snippetBody = text
     }
 
-    private func save() {
+    func save() {
         guard let editingSnippet else { return }
         // Capture target + values NOW (synchronously). The async write must not
         // read @State later — by then a different snippet may be selected, and
@@ -761,7 +651,7 @@ struct LibraryView: View {
         }
     }
 
-    private func demote() {
+    func demote() {
         guard let editingSnippet else { return }
         Task {
             try? await model.fullStore?.demoteFromSnippet(id: editingSnippet.id)

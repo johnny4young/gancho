@@ -7835,18 +7835,32 @@
         }
       }
     },
-    "Saved filters couldn’t be loaded. Retry by reopening the Library.": {
+    "Retry": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saved filters couldn’t be loaded. Retry by reopening the Library."
-          }
-        },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudieron cargar los filtros. Vuelve a abrir la biblioteca."
+            "value": "Reintentar"
+          }
+        }
+      }
+    },
+    "Saved filters couldn’t be loaded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron cargar los filtros guardados."
+          }
+        }
+      }
+    },
+    "Older saved filters couldn’t be imported; the ones here are intact.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron importar los filtros guardados antiguos; los de aquí están intactos."
           }
         }
       }

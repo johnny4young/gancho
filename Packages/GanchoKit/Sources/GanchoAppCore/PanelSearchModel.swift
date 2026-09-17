@@ -217,8 +217,15 @@ public struct PanelDateGroup: Identifiable, Sendable {
         let page: ClipListPage
         if kindFilter != .all || pinnedOnly || mode != .fuzzy {
             let rule = savedRule(named: "")
-            let items = await source.search(rule.query, limit: query.isEmpty ? 500 : 100)
-            page = ClipListPage(items: FrecencyRanker.reranked(items), reachedEnd: true)
+            if source.isDurable {
+                let items = await source.search(rule.query, limit: query.isEmpty ? 500 : 100)
+                page = ClipListPage(items: FrecencyRanker.reranked(items), reachedEnd: true)
+            } else {
+                // `search` is durable-only (it answers [] on the in-memory
+                // fallback), so a type or pin filter must narrow the scan
+                // client-side, the way a typed query already does.
+                page = await core.fallbackPage(matching: rule)
+            }
         } else {
             page = await core.firstPage(
                 query: query, boardID: selectedBoardID,

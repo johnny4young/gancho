@@ -36,7 +36,40 @@ public struct SmartCollectionRule: Sendable, Equatable, Codable, Identifiable {
             sourceAppBundleID: sourceAppBundleID, boardID: boardID, pinnedOnly: pinnedOnly)
     }
 
+    private static func words(in text: String) -> [String] {
+        text.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init)
+    }
+
     static let defaultsKey = "smart-collections"
+
+    /// The same predicate the store evaluates in SQL, over one clip's
+    /// metadata — for the in-memory fallback, which has no FTS. Board
+    /// membership is not on `ClipItem`, so `boardID` is not evaluated here;
+    /// the fallback store has no boards either. Text runs over the preview,
+    /// case-insensitively; an invalid regular expression matches nothing.
+    public func matches(_ item: ClipItem) -> Bool {
+        if let kinds, !kinds.contains(item.kind) { return false }
+        if let sourceAppBundleID, item.sourceAppBundleID != sourceAppBundleID { return false }
+        if pinnedOnly, !item.isPinned { return false }
+        let text = (textContains ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return true }
+        let preview = item.preview
+        switch searchMode ?? .fuzzy {
+        case .exact:
+            return preview.localizedCaseInsensitiveContains(text)
+        case .fuzzy:
+            // Tokenize like the FTS tokenizer: every run of letters/digits is
+            // a word, so "two" prefix-matches inside "example.test/two".
+            let words = Self.words(in: preview)
+            return Self.words(in: text).allSatisfy { token in words.contains { $0.hasPrefix(token) }
+            }
+        case .regex:
+            guard let regex = try? NSRegularExpression(pattern: text, options: [.caseInsensitive])
+            else { return false }
+            let range = NSRange(preview.startIndex..., in: preview)
+            return regex.firstMatch(in: preview, range: range) != nil
+        }
+    }
 
     public static func loadAll(from defaults: UserDefaults) -> [SmartCollectionRule] {
         guard let data = defaults.data(forKey: defaultsKey),
