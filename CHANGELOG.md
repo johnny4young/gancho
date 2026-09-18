@@ -33,6 +33,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The history panel's glass now fills its window edge to edge, so no outline shows
+  around it, and the shortcut card, board picker and consent prompt dim only the
+  panel instead of revealing the window's transparent shell.
 - Sensitive clip cards now mask titles and thumbnails as well as text previews.
 
 ## [0.8.3] - 2026-09-12

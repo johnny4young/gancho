@@ -40,7 +40,6 @@ struct PanelBoardPicker: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.18)
-                .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { onClose() }
             card

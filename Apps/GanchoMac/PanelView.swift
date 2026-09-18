@@ -163,14 +163,22 @@ struct PanelView: View {
             }
             statusFooter
         }
-        .ganchoSurface(radius: GanchoTokens.Radius.lg)
-        .padding(GanchoTokens.Spacing.sm)
-        .frame(minWidth: 720, minHeight: 460)
-        .dynamicTypeSize(panelTextSize.dynamicTypeSize)
+        // Every modal layer (shortcut card, board picker, consent prompt) is
+        // drawn INSIDE the glass and clipped to it. Applied outside, their dim
+        // would paint the window's transparent shell — title-bar band and all
+        // — and reveal an outline the panel never shows otherwise.
         .overlay { PanelShortcutsOverlay(isPresented: $showShortcuts) }
         .overlay { boardPickerOverlay }
         .overlay { telemetryConsentPrompt }
         .overlay(alignment: .top) { uiTestMultiFileDropTarget }
+        .clipShape(RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
+        .ganchoSurface(radius: GanchoTokens.Radius.lg)
+        // The glass IS the panel: it fills the window edge to edge, title-bar
+        // band included, so there is no transparent ring for AppKit's window
+        // outline to show through.
+        .ignoresSafeArea()
+        .frame(minWidth: 720, minHeight: 460)
+        .dynamicTypeSize(panelTextSize.dynamicTypeSize)
         .background {
             #if DEBUG
                 if CommandLine.arguments.contains("-opaque-panel-for-ui-test") {

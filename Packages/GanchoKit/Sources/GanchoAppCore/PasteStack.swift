@@ -56,8 +56,17 @@ public struct PasteStack: Equatable, Sendable {
         entries.removeAll { $0.id == entryID }
     }
 
+    /// Same contract as SwiftUI's `move(fromOffsets:toOffset:)` — `destination`
+    /// is an offset into the list BEFORE the move — implemented here so this
+    /// engine module never links SwiftUI (the macOS 27 SDK moved that helper
+    /// into SwiftUICore, which package test products may not link).
     public mutating func move(fromOffsets source: IndexSet, toOffset destination: Int) {
-        entries.move(fromOffsets: source, toOffset: destination)
+        let moving = source.compactMap { entries.indices.contains($0) ? entries[$0] : nil }
+        guard !moving.isEmpty else { return }
+        var kept = entries.enumerated().filter { !source.contains($0.offset) }.map(\.element)
+        let insertion = min(destination - source.filter { $0 < destination }.count, kept.count)
+        kept.insert(contentsOf: moving, at: max(insertion, 0))
+        entries = kept
     }
 
     public mutating func clear() {
