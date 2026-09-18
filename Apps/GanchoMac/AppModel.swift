@@ -111,9 +111,10 @@ final class AppModel {
     let diagnostics = DiagnosticLog()
     let panel: PanelController
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
-    let toasts = ToastPresenter()
-    let manualOCR = ManualOCRSession()
+    let toasts: ToastPresenter
+    let manualOCR: ManualOCRSession
     let manualOCRWindow = ManualOCRWindowController()
+    let screenTextWorkflow: ScreenTextWorkflow
     /// Content-free store-mutation fan-out. Mutation sites post here instead of
     /// each remembering to call every reconciler; the `SpotlightCoordinator`
     /// subscribes and rebuilds the curated Spotlight set once per burst. This
@@ -199,6 +200,8 @@ final class AppModel {
     private var retentionTimer: Timer?
     /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
     private var syncPollTimer: Timer?
+    /// A deliberate user gesture supersedes delayed test-launch presentation.
+    var uiTestLaunchPresentationIsSuppressed = false
     /// Held so the observer outlives `init`; set by the UI-test launch hook in
     /// `AppModel+UITestLaunch`, which is why it is not private.
     var uiTestPanelObserver: NSObjectProtocol?
@@ -445,12 +448,27 @@ final class AppModel {
             preferences: loadedPreferences)
         monitor = resolvedMonitor
         let screenShareDetector = ScreenShareDetector()
+        let manualOCR = ManualOCRSession()
+        let screenTextWorkflow = ScreenTextWorkflow()
+        let toasts = ToastPresenter()
+        self.manualOCR = manualOCR
+        self.screenTextWorkflow = screenTextWorkflow
+        self.toasts = toasts
         captureLifecycle = CaptureLifecycleController(
             monitor: resolvedMonitor,
             preferences: loadedPreferences,
             autoPauseOnScreenShare: loadedAutoPauseOnScreenShare,
             screenShareIsActive: { screenShareDetector.isScreenSharePresumed() },
-            onPreferencesChanged: { $0.save(to: appDefaults) },
+            onPreferencesChanged: { preferences in
+                preferences.save(to: appDefaults)
+                guard preferences.isPrivateModePaused else { return }
+                // All entry points (Settings, menu and shortcut) use this
+                // callback. Cancelling here also prevents pause/resume from
+                // reviving a selection or recognition already in flight.
+                screenTextWorkflow.cancel()
+                manualOCR.cancel()
+                toasts.dismiss()
+            },
             onAutoPauseChanged: {
                 appDefaults.set($0, forKey: "auto-pause-screen-share")
             })
@@ -497,6 +515,9 @@ final class AppModel {
         }
         KeyboardShortcuts.onKeyUp(for: .cyclicPaste) { [weak self] in
             self?.cyclicPaste()
+        }
+        KeyboardShortcuts.onKeyUp(for: .copyScreenText) { [weak self] in
+            self?.copyScreenText()
         }
         KeyboardShortcuts.onKeyUp(for: .pasteFromStack) { [weak self] in
             self?.pasteNextFromStack()

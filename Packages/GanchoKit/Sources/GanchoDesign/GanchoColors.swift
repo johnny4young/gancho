@@ -21,6 +21,11 @@ extension GanchoTokens {
         public static let brandGreen = dynamic(
             light: (0x34, 0xC7, 0x59), dark: (0x30, 0xD1, 0x58))
 
+        /// Deeper green for the region-selection cursor, not a global brand override.
+        /// A cursor crosses other apps' light and dark content independently of our appearance.
+        public static let regionSelectionCursor = Color(
+            .sRGB, red: 0x2E / 255, green: 0xAD / 255, blue: 0x50 / 255, opacity: 1)
+
         // MARK: Semantic status roles
 
         /// Fixed success / "Synced" tint — ALWAYS green, regardless of the

@@ -53,9 +53,11 @@ struct SpotlightCoordinatorTests {
     func busBurstReconcilesOnce() async {
         let bus = StoreChangeBus()
         var reconciles = 0
-        // The debounce is injected; wait for observable completion below.
+        // Hold every debounce until all ten events have reached the coalescer.
+        // A zero-duration yield can flush midway through this very burst.
+        let barrier = DebounceTestBarrier(arrivals: 10)
         let coordinator = SpotlightCoordinator(
-            coalescer: StoreChangeCoalescer(window: .zero, sleep: { _ in await Task.yield() }),
+            coalescer: StoreChangeCoalescer(window: .zero, sleep: { _ in await barrier.sleep() }),
             reconcile: {
                 reconciles += 1
                 return true
@@ -64,6 +66,7 @@ struct SpotlightCoordinatorTests {
         for _ in 0..<10 { bus.post(.curation) }
         let reconciled = await waitUntil { reconciles > 0 }
         coordinator.stop()
+        await barrier.release()
         #expect(reconciled, "the subscriber must process the posted burst")
         #expect(reconciles == 1, "a single burst must drive exactly one reconcile")
     }

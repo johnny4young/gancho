@@ -131,11 +131,10 @@ struct StoreChangeBusTests {
 
     @Test("A quiet-separated burst emits exactly one coalesced batch")
     func coalescerEmitsOneBatchPerBurst() async {
-        // The source is fully buffered before consumption. The injected yield
-        // lets each replaced debounce task observe cancellation without using
-        // wall-clock timing.
+        // Do not release a debounce until the complete buffered burst arrived.
+        let barrier = DebounceTestBarrier(arrivals: 3)
         let coalescer = StoreChangeCoalescer(
-            window: .zero, sleep: { _ in await Task.yield() })
+            window: .zero, sleep: { _ in await barrier.sleep() })
         let (source, continuation) = AsyncStream.makeStream(of: StoreChange.self)
 
         continuation.yield(.clips)

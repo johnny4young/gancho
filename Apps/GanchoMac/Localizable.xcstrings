@@ -1089,8 +1089,13 @@
       }
     },
     "Continue": {
-      "extractionState": "stale",
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -8667,6 +8672,150 @@
           "stringUnit": {
             "state": "translated",
             "value": "Revisar"
+          }
+        }
+      }
+    },
+    "Copy text from screen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy text from screen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar texto de la pantalla"
+          }
+        }
+      }
+    },
+    "Copy screen text shortcut:": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy screen text shortcut:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajo para copiar texto de la pantalla:"
+          }
+        }
+      }
+    },
+    "Drag to select text. Escape cancels.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag to select text. Escape cancels."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrastra para seleccionar texto. Escape cancela."
+          }
+        }
+      }
+    },
+    "Allow Screen Recording in System Settings to copy text from the screen.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow Screen Recording in System Settings to copy text from the screen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite la grabación de pantalla en Ajustes del Sistema para copiar texto de la pantalla."
+          }
+        }
+      }
+    },
+    "Open Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Ajustes"
+          }
+        }
+      }
+    },
+    "Copy screen text privately": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy screen text privately"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia texto de la pantalla de forma privada"
+          }
+        }
+      }
+    },
+    "Allow region capture. OCR stays on this Mac; nothing is saved automatically.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow region capture. OCR stays on this Mac; nothing is saved automatically."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite capturar la región. El OCR se realiza en este Mac; nada se guarda automáticamente."
+          }
+        }
+      }
+    },
+    "Couldn’t read this screen region. Try selecting it again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t read this screen region. Try selecting it again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer esta región. Intenta seleccionarla de nuevo."
+          }
+        }
+      }
+    },
+    "Screen capture permission changed. Check Screen Recording in System Settings and retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen capture permission changed. Check Screen Recording in System Settings and retry."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El permiso de captura cambió. Revisa Grabación de pantalla en Ajustes del Sistema y reintenta."
           }
         }
       }

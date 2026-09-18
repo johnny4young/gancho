@@ -40,6 +40,7 @@ extension AppModel {
 
     func copyImageText(_ item: ClipItem, surface: ManualOCRSurface = .detached) {
         guard canCopyImageText(item), let reader = store as? any ImageTextReading else { return }
+        screenTextWorkflow.cancel()
         manualOCRWindow.close()
         let detector = SensitiveDataDetector()
         manualOCR.start(
@@ -59,6 +60,10 @@ extension AppModel {
             copy: { [weak self] in self?.writeManualText($0) },
             didFinish: { [weak self] state in self?.finishManualOCR(state, surface: surface) })
         guard surface == .detached else { return }
+        showManualOCRProgress()
+    }
+
+    func showManualOCRProgress() {
         toasts.show(
             GanchoToast(
                 message: "Recognizing text…", style: .pending,
@@ -87,7 +92,7 @@ extension AppModel {
         return true
     }
 
-    private func finishManualOCR(_ state: ManualOCRSession.State, surface: ManualOCRSurface) {
+    func finishManualOCR(_ state: ManualOCRSession.State, surface: ManualOCRSurface) {
         switch surface {
         case .peek:
             // The section shows the state; sighted users need no toast. The

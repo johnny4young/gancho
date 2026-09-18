@@ -35,6 +35,11 @@ final class MenuBarLifecycleUITests: XCTestCase {
             "-remove-menu-bar-affordance-after-launch", "-ui-test-defaults-suite",
             defaultsSuiteName()
         ]
+        if ProcessInfo.processInfo.environment["GANCHO_UI_ADHOC_SIGNING"] == "1" {
+            // Exercise the same lifetime contract without launching a helper that
+            // requires Apple Development signing on this host.
+            app.launchArguments.append("-use-in-process-status-item")
+        }
         app.launch()
         defer { if app.state != .notRunning { app.terminate() } }
 

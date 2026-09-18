@@ -181,6 +181,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         addCommand(.library)
         addCommand(.openPanel)
+        addCommand(.copyScreenText)
         addCommand(
             .toggleCapture,
             title: GanchoMenuBarCommand.toggleCapture.title(

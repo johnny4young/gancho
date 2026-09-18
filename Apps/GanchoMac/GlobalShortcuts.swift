@@ -15,6 +15,8 @@ extension KeyboardShortcuts.Name {
     static let cyclicPaste = Self("cyclic-paste")
     /// Pops and pastes the front of the paste stack.
     static let pasteFromStack = Self("paste-from-stack")
+    static let copyScreenText = Self(
+        "copy-screen-text", initial: .init(.t, modifiers: [.control, .option]))
 }
 
 #if DEBUG

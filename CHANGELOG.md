@@ -9,6 +9,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Copy text from a selected screen region with a configurable shortcut, a
+  fused hook-and-crosshair cursor, local recognition and transient review.
+  Entering Private Mode cancels pending selection and recognition.
+
 - Review, reorder and copy selected text clips together with a configurable
   separator, without saving a new clip or pasting automatically.
 
