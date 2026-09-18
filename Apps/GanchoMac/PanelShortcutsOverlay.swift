@@ -11,7 +11,6 @@ struct PanelShortcutsOverlay: View {
         if isPresented {
             ZStack {
                 Color.black.opacity(0.18)
-                    .ignoresSafeArea()
                     .contentShape(Rectangle())
                     .onTapGesture { isPresented = false }
                 shortcutsCard
