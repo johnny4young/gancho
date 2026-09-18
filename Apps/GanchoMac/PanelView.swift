@@ -57,6 +57,7 @@ enum PanelFocus: Hashable { case search, peek }
 struct PanelView: View {
     // swiftlint:enable type_body_length
     @Environment(AppModel.self) private var model
+    @State private var combinedSelection: CombinedTextSelection?
     @State private var filterDraft: SmartCollectionRule?
     @FocusState private var focus: PanelFocus?
     /// The search + list state (query, results, filters, selection, paging,
@@ -192,6 +193,9 @@ struct PanelView: View {
             await search.refresh()
         }
         .task { await model.refreshBoards() }
+        .sheet(item: $combinedSelection) { selection in
+            CombinedTextReview(ids: selection.ids).environment(model)
+        }
         .sheet(item: $filterDraft) { rule in
             SavedFilterEditor(rule: rule, boards: model.boards) {
                 await model.savedFilters.save($0)
@@ -388,6 +392,9 @@ struct PanelView: View {
         @Bindable var search = search
         return VStack(spacing: GanchoTokens.Spacing.xs) {
             SearchField("Search your clipboard", text: $search.query)
+                // Queries are literal input; system completions must not cover
+                // the selection controls or consume their keyboard navigation.
+                .autocorrectionDisabled()
                 .focused($focus, equals: .search)
                 .onKeyPress(.downArrow, phases: [.down, .repeat]) { press in
                     if railFocus == nil, press.modifiers.contains(.shift),
@@ -572,6 +579,9 @@ struct PanelView: View {
         if search.selectionCount > 1 {
             PanelSelectionContextBar(
                 selectionCount: search.selectionCount,
+                copyCombined: {
+                    combinedSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
+                },
                 addToStack: { model.pushToStack(search.selectedItems) },
                 addToBoard: { showBoardPicker = true },
                 delete: { model.delete(search.selectedItems) },

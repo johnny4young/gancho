@@ -7,6 +7,7 @@ import SwiftUI
 /// `AppModel` and from the selection reducer that decides which rows are active.
 struct PanelSelectionContextBar: View {
     let selectionCount: Int
+    let copyCombined: () -> Void
     let addToStack: () -> Void
     let addToBoard: () -> Void
     let delete: () -> Void
@@ -19,6 +20,12 @@ struct PanelSelectionContextBar: View {
                 .monospacedDigit()
                 .foregroundStyle(GanchoTokens.Palette.accent)
             Spacer(minLength: 0)
+            Button(action: copyCombined) {
+                Image(systemName: "doc.on.doc")
+            }
+            .help("Copy combined…")
+            .accessibilityLabel("Copy combined…")
+            .accessibilityIdentifier("selection-copy-combined-button")
             Button(action: addToStack) {
                 Image(systemName: "square.stack.3d.up")
             }
