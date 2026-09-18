@@ -81,6 +81,26 @@ struct PasteStackTests {
         #expect(stack.items.map(\.id) == [c.id, a.id, b.id])
     }
 
+    @Test("move keeps SwiftUI's offset contract: the destination is read before the move")
+    func reorderDownwardAndMultiple() {
+        var stack = PasteStack()
+        let a = clip("a")
+        let b = clip("b")
+        let c = clip("c")
+        let last = clip("d")
+        for item in [a, b, c, last] { stack.push(item) }
+        // First item to the end: `toOffset: count` means "after the last one".
+        stack.move(fromOffsets: IndexSet(integer: 0), toOffset: 4)
+        #expect(stack.items.map(\.id) == [b.id, c.id, last.id, a.id])
+        // Two non-adjacent items in front of the one at offset 1, in order.
+        stack.move(fromOffsets: IndexSet([0, 2]), toOffset: 1)
+        #expect(stack.items.map(\.id) == [b.id, last.id, c.id, a.id])
+        // Out-of-range and empty sources are no-ops.
+        stack.move(fromOffsets: IndexSet(integer: 9), toOffset: 0)
+        stack.move(fromOffsets: IndexSet(), toOffset: 0)
+        #expect(stack.items.map(\.id) == [b.id, last.id, c.id, a.id])
+    }
+
     @Test("clear empties the queue but never reuses entry ids")
     func clearAll() {
         var stack = PasteStack()
