@@ -1,6 +1,7 @@
 import AppKit
 import ClipboardCore
 import GanchoAI
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import SwiftUI
@@ -16,7 +17,7 @@ import SwiftUI
 /// creation, not browsing.
 struct LibraryView: View {
     // swiftlint:enable type_body_length
-    @Environment(AppModel.self) private var model
+    @Environment(AppModel.self) var model
 
     /// What the sidebar has selected; `nil` is treated as "All clips".
     @State private var selection: LibrarySelection? = .allClips
@@ -26,22 +27,27 @@ struct LibraryView: View {
     @State private var pinnedCount = 0
     @State private var clips: [ClipItem] = []
     @State private var snippets: [ClipItem] = []
+    @State private var filterDraft: SmartCollectionRule?
+    @State private var filterNeedsEditing = false
+    @State private var loadingPage = false
+    @State private var reachedEnd = false
+    @State private var loadGeneration = UUID()
 
     // Snippet editor state (the right pane when a snippet is selected).
     @State private var editingSnippet: ClipItem?
-    @State private var title = ""
-    @State private var snippetBody = ""
-    @State private var keyword = ""
-    @FocusState private var focusedField: EditorField?
+    @State var title = ""
+    @State var snippetBody = ""
+    @State var keyword = ""
+    @FocusState var focusedField: EditorField?
 
     // Board name prompt (create / rename).
-    @State private var boardSheet: BoardSheet?
+    @State private var boardSheet: LibraryBoardSheet?
     @State private var boardNameField = ""
     /// The board a destructive "Delete board" is awaiting confirmation on.
     @State private var boardPendingDeletion: Pinboard?
     @State private var boardAppearanceTarget: Pinboard?
 
-    private enum EditorField { case title, keyword }
+    enum EditorField { case title, keyword }
 
     var body: some View {
         HSplitView {
@@ -53,9 +59,24 @@ struct LibraryView: View {
         .frame(minWidth: 800, minHeight: 560)
         .accessibilityIdentifier("library")
         .task { await refreshAll() }
-        .onChange(of: selection) { _, _ in
-            model.cancelManualOCRIfRecognizing()
-            Task { await loadScope() }
+        .sheet(item: $filterDraft) { rule in
+            SavedFilterEditor(rule: rule, boards: boards) {
+                let saved = await model.savedFilters.save($0)
+                if saved { await loadScope() }
+                return saved
+            }
+        }
+        .onChange(of: selection) { _, _ in Task { await loadScope() } }
+        .onChange(of: model.recentItems) { previous, current in
+            // A saved filter is live: a local capture, delete, edit, or pin that
+            // moves the recents must show here without switching scopes.
+            var savedFilterSelected = false
+            if case .savedFilter = selection { savedFilterSelected = true }
+            if LibraryScopeReload.isNeeded(
+                savedFilterSelected: savedFilterSelected, previous: previous, current: current)
+            {
+                Task { await loadScope() }
+            }
         }
         .onChange(of: model.syncStatus) { _, status in
             // A finished sync may have pulled new boards/clips — refresh so they
@@ -65,7 +86,7 @@ struct LibraryView: View {
         .alert(boardSheetTitle, isPresented: boardSheetPresented) {
             TextField("Board name", text: $boardNameField)
             Button("Cancel", role: .cancel) {}
-            Button(boardSheetConfirm) { commitBoardSheet() }
+            Button(boardSheetConfirm) { commitLibraryBoardSheet() }
         }
         .confirmationDialog(
             "Delete this board?",
@@ -90,6 +111,10 @@ struct LibraryView: View {
     }
 
     // MARK: - Sidebar
+
+    var roundedCard: RoundedRectangle {
+        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+    }
 
     private var sidebar: some View {
         VStack(spacing: 0) {
@@ -124,6 +149,36 @@ struct LibraryView: View {
                     sectionHeader(Text("Boards"), identifier: "board-new", badge: boardLimitBadge) {
                         boardNameField = ""
                         boardSheet = .new
+                    }
+                }
+
+                Section("Saved filters") {
+                    ForEach(model.savedFilters.rules) { rule in
+                        Text(verbatim: rule.name).tag(LibrarySelection.savedFilter(rule.id))
+                            .accessibilityIdentifier("saved-filter-row")
+                            .contextMenu {
+                                Button("Edit filter…") { filterDraft = rule }
+                                Button("Delete filter", role: .destructive) {
+                                    Task {
+                                        await model.savedFilters.delete(rule.id)
+                                        if selection == .savedFilter(rule.id) {
+                                            selection = .allClips
+                                        }
+                                    }
+                                }
+                            }
+                    }
+                    if model.savedFilters.failed {
+                        Text("Saved filters couldn’t be loaded.")
+                            .font(.caption)
+                        Button("Retry") { model.reloadSavedFilters() }
+                            .buttonStyle(.link)
+                            .font(.caption)
+                            .accessibilityIdentifier("saved-filters-retry")
+                    } else if model.savedFilters.legacyImportFailed {
+                        Text("Older saved filters couldn’t be imported; the ones here are intact.")
+                            .font(.caption)
+                            .accessibilityIdentifier("saved-filters-import-warning")
                     }
                 }
 
@@ -288,6 +343,7 @@ struct LibraryView: View {
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 scopeTitle.font(.headline)
                 Text("\(clips.count) clips").foregroundStyle(.secondary)
+                    .accessibilityIdentifier("library-scope-count")
                 Spacer(minLength: 0)
                 SyncStatusView(status: model.syncStatus)
             }
@@ -295,7 +351,12 @@ struct LibraryView: View {
 
             Divider()
 
-            if clips.isEmpty {
+            if filterNeedsEditing {
+                Text(
+                    "This filter needs editing: its board is missing or its expression is invalid."
+                )
+                .padding().accessibilityIdentifier("saved-filter-needs-editing")
+            } else if clips.isEmpty {
                 emptyScope
             } else {
                 ScrollView {
@@ -307,10 +368,14 @@ struct LibraryView: View {
                     ) {
                         ForEach(clips) { clip in
                             clipCard(clip)
+                                .task {
+                                    if clip.id == clips.last?.id { await loadMore() }
+                                }
                         }
                     }
                     .padding(GanchoTokens.Spacing.md)
                 }
+                .accessibilityIdentifier("library-clips-scroll")
             }
         }
     }
@@ -329,6 +394,8 @@ struct LibraryView: View {
             } else {
                 Text("All clips")
             }
+        case .savedFilter(let id):
+            Text(verbatim: model.savedFilters.rules.first { $0.id == id }?.name ?? "")
         case .snippet: Text("All clips")
         }
     }
@@ -350,51 +417,19 @@ struct LibraryView: View {
         .accessibilityIdentifier("library-empty")
     }
 
-    /// One clip in the grid: kind glyph (or colour swatch), title, preview, and
-    /// the full set of management actions on right-click. A click copies it.
+    /// Keep copy as the primary action and retain all management commands.
     private func clipCard(_ clip: ClipItem) -> some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                if clip.kind == .color, let color = Color(hexString: clip.preview) {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(color).frame(width: 14, height: 14)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-                } else {
-                    Image(systemName: clip.kind.symbolName)
-                        .font(.caption)
-                        .foregroundStyle(GanchoTokens.Palette.kindTint(for: clip.kind))
-                }
-                cardTitle(clip).font(.callout.weight(.semibold)).lineLimit(1)
-                Spacer(minLength: 0)
-                if clip.isPinned {
-                    Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.secondary)
-                }
-            }
-            Text(verbatim: clip.preview)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        Button {
+            copy(clip)
+        } label: {
+            LibraryClipCard(
+                clip: clip, thumbnails: model.libraryThumbnails,
+                previewsHidden: model.preferences.isPrivateModePaused)
         }
-        .padding(GanchoTokens.Spacing.sm)
-        .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-        .background(.background.secondary, in: roundedCard)
-        .overlay(roundedCard.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-        .contentShape(Rectangle())
-        .onTapGesture { copy(clip) }
+        .buttonStyle(.plain)
         .contextMenu { clipMenu(clip) }
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("library-clip")
-    }
-
-    private var roundedCard: RoundedRectangle {
-        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-    }
-
-    private func cardTitle(_ clip: ClipItem) -> Text {
-        clip.title.isEmpty
-            ? Text(LocalizedStringKey(clip.kind.rawValue)) : Text(verbatim: clip.title)
     }
 
     @ViewBuilder private func clipMenu(_ clip: ClipItem) -> some View {
@@ -424,136 +459,8 @@ struct LibraryView: View {
         Button("Save as snippet") { mutate { model.promoteToSnippet(clip) } }
         Divider()
         Button("Copy", systemImage: "doc.on.doc") { copy(clip) }
+            .accessibilityIdentifier("library-copy-action")
         Button("Delete", role: .destructive) { mutate { model.delete(clip) } }
-    }
-
-    // MARK: - Snippet editor
-
-    private func snippetEditor(_ snippet: ClipItem) -> some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-            TextField("Snippet title", text: $title)
-                .textFieldStyle(.plain)
-                .font(.title2.weight(.semibold))
-                .focused($focusedField, equals: .title)
-                .onSubmit { save() }
-                .accessibilityIdentifier("snippet-title")
-
-            HStack(spacing: GanchoTokens.Spacing.xs) {
-                kindPill(snippet.kind)
-                keywordField
-                Spacer(minLength: 0)
-            }
-
-            SyntaxTextView(text: $snippetBody)
-                .frame(minHeight: 220)
-                .clipShape(roundedCard)
-                .overlay(
-                    roundedCard.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-
-            Text(
-                // swiftlint:disable:next line_length
-                "Type the keyword in the panel to insert this snippet. Add {field} placeholders to fill in before pasting."
-            )
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-
-            let fields = SnippetTemplate.fields(in: snippetBody)
-            if !fields.isEmpty {
-                fieldStrip(fields)
-            }
-
-            snippetFooter(for: snippet)
-        }
-        .padding(GanchoTokens.Spacing.md)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onChange(of: focusedField) { previous, _ in
-            // Commit a rename or keyword edit the moment focus leaves the field —
-            // no need to hunt for Save for those quick edits.
-            if previous == .title || previous == .keyword { save() }
-        }
-    }
-
-    private func kindPill(_ kind: ClipContentKind) -> some View {
-        Label(LocalizedStringKey(kind.rawValue), systemImage: kind.symbolName)
-            .font(.caption.weight(.medium))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, GanchoTokens.Spacing.xs)
-            .padding(.vertical, GanchoTokens.Spacing.xxs)
-            .background(.quaternary, in: Capsule())
-            .accessibilityIdentifier("snippet-kind")
-    }
-
-    private var keywordField: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "bolt.fill")
-                .font(.caption2)
-                .foregroundStyle(GanchoTokens.Palette.accent)
-            TextField("Keyword", text: $keyword)
-                .textFieldStyle(.plain)
-                .font(.callout.monospaced())
-                .frame(maxWidth: 160)
-                .focused($focusedField, equals: .keyword)
-                .onSubmit { save() }
-                .accessibilityIdentifier("snippet-keyword")
-        }
-        .padding(.horizontal, GanchoTokens.Spacing.xs)
-        .padding(.vertical, GanchoTokens.Spacing.xxs)
-        .background(.quaternary, in: Capsule())
-    }
-
-    private func fieldStrip(_ fields: [SnippetTemplate.Field]) -> some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
-            Text("Fields").font(.caption2).foregroundStyle(.secondary)
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                ForEach(fields) { field in
-                    Text(verbatim: "{\(field.name)}")
-                        .font(.caption.monospaced())
-                        .padding(.horizontal, GanchoTokens.Spacing.xs)
-                        .padding(.vertical, 2)
-                        .background(
-                            GanchoTokens.Palette.kindTint(for: .code).opacity(0.15), in: Capsule()
-                        )
-                        .foregroundStyle(GanchoTokens.Palette.kindTint(for: .code))
-                }
-            }
-        }
-    }
-
-    private func snippetFooter(for snippet: ClipItem) -> some View {
-        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-            HStack(spacing: GanchoTokens.Spacing.md) {
-                Label(
-                    "Created \(snippet.createdAt.formatted(date: .abbreviated, time: .omitted))",
-                    systemImage: "clock"
-                )
-                Label("\(snippetBody.count) characters", systemImage: "text.alignleft")
-                if snippet.uses > 0 {
-                    Label("\(snippet.uses) uses", systemImage: "arrow.up.right")
-                }
-                Spacer(minLength: 0)
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-
-            HStack(spacing: GanchoTokens.Spacing.xs) {
-                ActionButton(
-                    "Move to history", systemImage: "arrow.uturn.backward",
-                    identifier: "snippet-demote"
-                ) {
-                    demote()
-                }
-                .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-                ActionButton("Copy", systemImage: "doc.on.doc", identifier: "snippet-copy") {
-                    SystemPasteboardWriter().write(.text(snippetBody), asPlainText: true)
-                    model.toasts.show(GanchoToast(message: "Copied"))
-                }
-                ActionButton("Save", systemImage: "checkmark", identifier: "snippet-save") {
-                    save()
-                }
-            }
-        }
     }
 
     // MARK: - Data
@@ -578,24 +485,80 @@ struct LibraryView: View {
     /// Loads whatever the current selection points at: a board's clips, or a
     /// snippet's editable title/keyword/body.
     private func loadScope() async {
+        let generation = UUID()
+        loadGeneration = generation
+        reachedEnd = false
+        loadingPage = false
+        filterNeedsEditing = false
         switch selection ?? .allClips {
-        case .allClips:
-            clips = (try? await model.store.items(offset: 0, limit: 200)) ?? []
+        case .savedFilter(let id):
+            // A saved filter is one ranked, bounded result set — it never pages.
             editingSnippet = nil
-        case .pinned:
-            clips = ((try? await model.store.items(offset: 0, limit: 200)) ?? []).filter(\.isPinned)
-            editingSnippet = nil
-        case .board(let id):
-            // Bounded like the sibling scopes above — the Library is a manager,
-            // not a scroll-through; huge boards browse in the panel.
-            clips = (try? await model.fullStore?.items(inBoard: id, offset: 0, limit: 200)) ?? []
-            editingSnippet = nil
+            reachedEnd = true
+            guard let rule = model.savedFilters.rules.first(where: { $0.id == id }) else {
+                clips = []
+                return
+            }
+            do {
+                let matches =
+                    try await model.fullStore?.items(
+                        matching: rule, limit: (rule.textContains ?? "").isEmpty ? 500 : 100) ?? []
+                guard generation == loadGeneration else { return }
+                let ranked =
+                    !(rule.textContains ?? "").isEmpty || rule.kinds != nil
+                    || rule.sourceAppBundleID != nil || rule.pinnedOnly
+                clips = ranked ? FrecencyRanker.reranked(matches) : matches
+            } catch {
+                guard generation == loadGeneration else { return }
+                clips = []
+                filterNeedsEditing = true
+            }
         case .snippet(let id):
             editingSnippet = snippets.first { $0.id == id }
             title = editingSnippet?.title ?? ""
             keyword = editingSnippet?.keyword ?? ""
             await loadBody()
+        default:
+            editingSnippet = nil
+            clips = []
+            await loadMore()
         }
+    }
+
+    /// Pages through `LibraryPager`, so a page that never arrived (the last
+    /// card's `.task` is cancelled whenever it scrolls out) leaves the scope
+    /// open for the next request, and rows that moved under the loaded list
+    /// (retention, a capture, a pin flip) are reconciled rather than skipped.
+    private func loadMore() async {
+        guard !loadingPage, !reachedEnd else { return }
+        let scope = selection ?? .allClips
+        let generation = loadGeneration
+        loadingPage = true
+        defer { if generation == loadGeneration { loadingPage = false } }
+        let outcome: LibraryPager.Outcome
+        switch scope {
+        case .allClips:
+            outcome = await LibraryPager.nextPage(loaded: clips) {
+                try await model.store.items(offset: $0, limit: $1)
+            }
+        case .pinned:
+            // The store orders pins before all unpinned rows, so this walks
+            // the complete pinned prefix rather than an arbitrary recent page.
+            outcome = await LibraryPager.nextPage(
+                loaded: clips, stopAt: { !$0.isPinned },
+                fetch: { try await model.store.items(offset: $0, limit: $1) })
+        case .board(let id):
+            guard let fullStore = model.fullStore else { return }
+            outcome = await LibraryPager.nextPage(loaded: clips) {
+                try await fullStore.items(inBoard: id, offset: $0, limit: $1)
+            }
+        case .snippet, .savedFilter: return
+        }
+        guard generation == loadGeneration, scope == selection ?? .allClips,
+            case .loaded(let rows, let reachedEnd) = outcome
+        else { return }
+        clips = rows
+        self.reachedEnd = reachedEnd
     }
 
     /// Re-runs the model action, then reloads the scope + counts once the write
@@ -621,12 +584,30 @@ struct LibraryView: View {
     }
 
     private func copy(_ clip: ClipItem) {
+        let revision = NSPasteboard.general.changeCount
         Task {
-            if case .text(let text)? = try? await model.store.content(for: clip.id) {
-                SystemPasteboardWriter().write(.text(text), asPlainText: false)
-            } else {
-                SystemPasteboardWriter().write(.text(clip.preview), asPlainText: true)
-            }
+            guard !model.preferences.isPrivateModePaused,
+                !model.pendingDeletionIDs.contains(clip.id),
+                let current = try? await model.store.item(id: clip.id),
+                !ClipSafePresentation.requiresMasking(current),
+                current.expiresAt.map({ $0 > .now }) ?? true,
+                let content = try? await model.store.content(for: clip.id),
+                let latest = try? await model.store.item(id: clip.id),
+                !Task.isCancelled, !model.preferences.isPrivateModePaused,
+                !model.pendingDeletionIDs.contains(clip.id),
+                !ClipSafePresentation.requiresMasking(latest),
+                latest.expiresAt.map({ $0 > .now }) ?? true,
+                latest.updatedAt == current.updatedAt, latest.kind == current.kind,
+                latest.contentHash == current.contentHash,
+                revision == NSPasteboard.general.changeCount
+            else { return }
+            #if DEBUG
+                if !CommandLine.arguments.contains("-ui-test-paste-sink") {
+                    SystemPasteboardWriter().write(content, asPlainText: false)
+                }
+            #else
+                SystemPasteboardWriter().write(content, asPlainText: false)
+            #endif
             model.toasts.show(GanchoToast(message: "Copied"))
         }
     }
@@ -641,7 +622,7 @@ struct LibraryView: View {
         snippetBody = text
     }
 
-    private func save() {
+    func save() {
         guard let editingSnippet else { return }
         // Capture target + values NOW (synchronously). The async write must not
         // read @State later — by then a different snippet may be selected, and
@@ -670,7 +651,7 @@ struct LibraryView: View {
         }
     }
 
-    private func demote() {
+    func demote() {
         guard let editingSnippet else { return }
         Task {
             try? await model.fullStore?.demoteFromSnippet(id: editingSnippet.id)
@@ -737,7 +718,7 @@ struct LibraryView: View {
         return "Create"
     }
 
-    private func commitBoardSheet() {
+    private func commitLibraryBoardSheet() {
         let name = boardNameField.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
         let sheet = boardSheet
@@ -755,50 +736,5 @@ struct LibraryView: View {
             }
         case nil: break
         }
-    }
-}
-
-/// What the Library sidebar can have selected. Boards browse clips; a snippet
-/// opens the editor.
-private enum LibrarySelection: Hashable {
-    case allClips
-    case pinned
-    case board(UUID)
-    case snippet(UUID)
-}
-
-/// Drives the new-board / rename-board name prompt.
-private enum BoardSheet: Identifiable {
-    case new
-    case rename(Pinboard)
-
-    var id: String {
-        switch self {
-        case .new: "new"
-        case .rename(let board): board.id.uuidString
-        }
-    }
-}
-
-@MainActor
-final class LibraryWindowController {
-    private var window: NSWindow?
-
-    func show(model: AppModel) {
-        if window == nil {
-            let hosting = NSHostingController(
-                rootView: LibraryView().environment(model).ganchoTinted())
-            let created = NSWindow(contentViewController: hosting)
-            created.title = String(localized: "Library")
-            created.styleMask = [.titled, .closable, .resizable]
-            created.isReleasedWhenClosed = false
-            // Open roomy and never let it shrink below the two-pane layout's needs.
-            created.setContentSize(NSSize(width: 900, height: 640))
-            created.contentMinSize = NSSize(width: 800, height: 560)
-            created.center()
-            window = created
-        }
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
     }
 }

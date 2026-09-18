@@ -170,6 +170,15 @@ public enum ClipListShape {
         return ClipListPage(items: ranked(filtered), reachedEnd: true)
     }
 
+    /// The predicates FTS would evaluate (kind, pin, search mode), without a
+    /// durable store: the same bounded scan as the query fallback above,
+    /// narrowed in Swift by `SmartCollectionRule.matches`. Keeps a populated
+    /// in-memory panel populated when the user picks Links or Pinned.
+    public func fallbackPage(matching rule: SmartCollectionRule) async -> ClipListPage {
+        let all = await source.items(offset: 0, limit: Self.clientFallbackLimit)
+        return ClipListPage(items: ranked(all.filter(rule.matches)), reachedEnd: true)
+    }
+
     /// The next page for an already-loaded paginated list.
     ///
     /// The caller re-checks its own state after this returns — the view can

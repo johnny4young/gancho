@@ -83,6 +83,11 @@ struct StoreBootstrapTests {
         let directory = try #require(opened.directory)
         defer { try? FileManager.default.removeItem(at: directory) }
         #expect(opened.durable != nil)
+        // The disposable key must really engage SQLCipher. Opening the same file
+        // WITHOUT a passphrase has to fail: "the store opened" alone would still
+        // be satisfied by a silent fallback to a plaintext database, which is
+        // what the per-process key exists to rule out.
+        #expect(throws: (any Error).self) { _ = try GRDBClipboardStore(directory: directory) }
     }
 
     @Test("The location is reported even when the store could not be opened")

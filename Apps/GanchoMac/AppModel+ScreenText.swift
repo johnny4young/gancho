@@ -1,4 +1,5 @@
 import AppKit
+import GanchoAI
 import GanchoAppCore
 
 extension AppModel {
@@ -32,23 +33,18 @@ extension AppModel {
         }
         let workflow = screenTextWorkflow
         let request = workflow.begin(previousApp: previousApp)
+        let detector = SensitiveDataDetector()
         manualOCR.start(
             recognize: { [weak self] in
-                try await workflow.recognize(request) { [weak self] in
-                    self?.toasts.show(
-                        GanchoToast(
-                            message: "Recognizing text…", style: .pending,
-                            action: ToastAction(
-                                title: "Cancel", accessibilityIdentifier: "ocr-cancel"
-                            ) { [weak self] in
-                                self?.manualOCR.cancel()
-                                self?.toasts.dismiss()
-                            }))
-                }
+                try await workflow.recognize(
+                    request,
+                    isAllowed: { [weak self] in self?.preferences.isPrivateModePaused == false },
+                    didCapture: { [weak self] in self?.showManualOCRProgress() })
             },
             isAllowed: { [weak self] in
                 await MainActor.run { self?.preferences.isPrivateModePaused == false }
             },
+            isSensitive: { detector.detect($0) != nil },
             clipboardRevision: { NSPasteboard.general.changeCount },
             copy: { [weak self] in self?.writeManualText($0) },
             didFinish: { [weak self] state in
@@ -64,7 +60,7 @@ extension AppModel {
                 : "Screen capture permission changed. Check Screen Recording in System Settings and retry."
             toasts.show(GanchoToast(message: message, style: .warning))
         } else {
-            finishManualOCR(state)
+            finishManualOCR(state, surface: .detached)
         }
     }
 

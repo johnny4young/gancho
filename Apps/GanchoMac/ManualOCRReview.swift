@@ -8,6 +8,10 @@ struct ManualOCRReview: View {
     @State private var draft: String
     @State private var isWorking = false
     @State private var failed = false
+    /// The source clip went away mid-review. Distinct from `failed`: retrying
+    /// cannot help, so the buttons go away and the draft is kept on screen for
+    /// the user to salvage by hand.
+    @State private var sourceGone = false
     @State private var clipboardChanged = false
     @State private var actionTask: Task<Void, Never>?
 
@@ -15,7 +19,8 @@ struct ManualOCRReview: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Review recognized text").font(.headline)
+            // The window title already says "Review recognized text"; repeating
+            // it as a headline only spent a line the text could use.
             Text("Changes stay here until you copy or save them.")
                 .font(.callout).foregroundStyle(.secondary)
             TextEditor(text: $draft)
@@ -24,7 +29,12 @@ struct ManualOCRReview: View {
             if clipboardChanged {
                 Text("Text ready — clipboard unchanged").foregroundStyle(.secondary)
             }
-            if failed {
+            if sourceGone {
+                Text(
+                    "The source clip is no longer available. Copy the text you need before closing."
+                )
+                .foregroundStyle(.red).accessibilityIdentifier("ocr-review-error")
+            } else if failed {
                 Text("This action couldn’t be completed. Check the source and try again.")
                     .foregroundStyle(.red).accessibilityIdentifier("ocr-review-error")
             }
@@ -34,11 +44,13 @@ struct ManualOCRReview: View {
                     .accessibilityIdentifier("ocr-review-close")
                 Spacer()
                 if isWorking { ProgressView().controlSize(.small) }
-                Button("Save as clip") { run(save: true) }
-                    .accessibilityIdentifier("ocr-review-save")
-                Button("Copy text") { run(save: false) }
-                    .keyboardShortcut(.defaultAction)
-                    .accessibilityIdentifier("ocr-review-copy")
+                if !sourceGone {
+                    Button("Save as clip") { run(save: true) }
+                        .accessibilityIdentifier("ocr-review-save")
+                    Button("Copy text") { run(save: false) }
+                        .keyboardShortcut(.defaultAction)
+                        .accessibilityIdentifier("ocr-review-copy")
+                }
             }
             .disabled(isWorking)
         }
@@ -93,10 +105,13 @@ struct ManualOCRReview: View {
         }
     }
 
+    /// The source stopped permitting reuse mid-review. Cancel the session, but
+    /// KEEP the draft on screen: it is the user's own typing plus the only copy
+    /// of a result that was never written anywhere, and clearing it leaves an
+    /// empty editor under a message telling them to try again with nothing.
     private func rejectSource() {
-        draft = ""
         model.manualOCR.cancel()
-        failed = true
+        sourceGone = true
     }
 }
 
@@ -108,6 +123,14 @@ struct ManualOCRReview: View {
 
     func show(model: AppModel) {
         guard !model.manualOCR.text.isEmpty else { return }
+        // A second show() would orphan the first window while staying its
+        // delegate, so closing the orphan later would cancel the live session and
+        // nil out the reference to the window still on screen. Reuse instead.
+        if let window {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate()
+            return
+        }
         self.model = model
         restorePanel = model.panel.isVisible
         model.panel.hide()

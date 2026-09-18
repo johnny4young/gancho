@@ -25,6 +25,7 @@ extension GRDBClipboardStore {
             sql += " AND clip.id IN (SELECT clipID FROM clip_board WHERE boardID = ?)"
             arguments.append(boardID.uuidString)
         }
+        if query.pinnedOnly { sql += " AND clip.isPinned = 1" }
         if query.markedOnly {
             sql +=
                 " AND (clip.isPinned = 1 OR EXISTS "

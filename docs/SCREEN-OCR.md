@@ -32,7 +32,10 @@ unopened result are short-lived; open Review promptly if you need to edit.
   clipboard content. Review and copy the OCR result explicitly instead.
 - Starting another OCR request supersedes the previous one. Cancellation, an
   empty selection or an unreadable image must not erase the clipboard.
-- Private Mode prevents this action. Permission to capture the screen is
+- Private Mode prevents this action and cancels pending selection or recognition.
+  Turning it off does not resume an earlier request; invoke the action again.
+  Recognized secrets stay masked in Review and are never copied automatically.
+  Permission to capture the screen is
   independent of copying text from an image already saved in Gancho.
 
 ## If capture is unavailable

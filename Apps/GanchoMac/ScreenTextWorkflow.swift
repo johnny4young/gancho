@@ -1,5 +1,6 @@
 import AppKit
 import GanchoAI
+import GanchoAppCore
 
 /// Main-actor window ownership is separate from asynchronous image work. A
 /// superseded request may finish, but can neither close the new selector nor
@@ -33,7 +34,9 @@ import GanchoAI
         restore(request)
     }
 
-    func recognize(_ id: UUID, didCapture: @MainActor () -> Void) async throws -> String? {
+    func recognize(
+        _ id: UUID, isAllowed: @MainActor () -> Bool, didCapture: @MainActor () -> Void
+    ) async throws -> ManualOCRResult? {
         defer { restore(id) }
         guard request == id else { throw CancellationError() }
         try Task.checkCancellation()
@@ -42,22 +45,18 @@ import GanchoAI
         let visible = NSApp.windows.filter(\.isVisible)
         windows = visible
         for window in visible { window.orderOut(nil) }
-        guard
-            let region = await withTaskCancellationHandler(
-                operation: {
-                    await selector.select(id: id)
-                }, onCancel: { Task { @MainActor [weak self] in self?.cancel(id) } })
-        else { throw CancellationError() }
-        try Task.checkCancellation()
-        // Allow the window server to remove overlays before the one-shot
-        // snapshot. This delay is not a substitute for real compositor QA.
-        try await Task.sleep(for: .milliseconds(100))
-        guard request == id else { throw CancellationError() }
-        let data = try await capture(region)
-        try Task.checkCancellation()
+        let data = try await ScreenTextAcquisition.image(
+            select: {
+                await withTaskCancellationHandler(
+                    operation: { await selector.select(id: id) },
+                    onCancel: { Task { @MainActor [weak self] in self?.cancel(id) } })
+            },
+            isAllowed: { self.request == id && isAllowed() },
+            capture: capture)
         restore(id)
         didCapture()
-        return try await ImageTextExtractor().extractText(from: data)
+        let lines = try await ImageTextExtractor().recognizeLines(in: data)
+        return ManualOCRResult(lines: lines)
     }
 
     private func cancel(_ id: UUID) {

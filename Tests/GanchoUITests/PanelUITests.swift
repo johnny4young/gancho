@@ -486,7 +486,8 @@ final class PanelUITests: XCTestCase {
     func testFilterPillExposesSelectedState() throws {
         let app = launchWithPanel()
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].firstMatch.waitForExistence(timeout: 5))
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
 
         // Activating a filter marks it selected (the non-colour active cue +
         // VoiceOver state, WCAG 1.4.1). Use the keyboard-first rail path the
@@ -496,6 +497,13 @@ final class PanelUITests: XCTestCase {
         XCTAssertTrue(links.waitForExistence(timeout: 3), "the Links filter pill must exist")
 
         try SynthesizedInput.requireForeground(app)
+        // This keyboard path starts in the search field, not merely in the
+        // foreground app. Establish and verify that first-responder precondition.
+        search.click()
+        guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 2) else {
+            XCTFail("the search field must own keyboard focus before rail navigation")
+            return
+        }
         app.typeKey(.upArrow, modifierFlags: [])
         app.typeKey(.rightArrow, modifierFlags: [])
         app.typeKey(.space, modifierFlags: [])

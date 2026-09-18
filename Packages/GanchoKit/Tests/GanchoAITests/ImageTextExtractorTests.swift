@@ -53,6 +53,37 @@
             }
         }
 
+        @Test("Lines carry top-left normalized regions in reading order")
+        @MainActor func regions() async throws {
+            let lines = try await ImageTextExtractor().recognizeLines(
+                in: renderImage(text: "Primera línea arriba\nSegunda línea abajo"))
+            #expect(lines.count >= 2, "got: \(lines.map(\.text))")
+            for line in lines {
+                let box = try #require(line.box)
+                #expect(box.minX >= 0 && box.maxX <= 1 && box.minY >= 0 && box.maxY <= 1)
+                #expect(box.width > 0 && box.height > 0)
+            }
+            let first = try #require(lines.first?.box)
+            let last = try #require(lines.last?.box)
+            #expect(first.minY < last.minY, "top-left origin: the first line sits higher")
+        }
+
+        @Test("Reading order sorts rows top-down and columns left-right")
+        func readingOrder() {
+            let lines = [
+                RecognizedTextLine(
+                    text: "right-top", box: CGRect(x: 0.6, y: 0.1, width: 0.3, height: 0.1)),
+                RecognizedTextLine(
+                    text: "bottom", box: CGRect(x: 0.1, y: 0.7, width: 0.3, height: 0.1)),
+                RecognizedTextLine(
+                    text: "left-top", box: CGRect(x: 0.1, y: 0.12, width: 0.3, height: 0.1)),
+                RecognizedTextLine(text: "stored", box: nil)
+            ]
+            #expect(
+                ImageTextExtractor.readingOrder(lines).map(\.text)
+                    == ["left-top", "right-top", "bottom", "stored"])
+        }
+
         @Test("Honors upside-down EXIF image orientation")
         @MainActor func orientation() async throws {
             let data = renderImage(text: "GANCHO ORIENTATION")

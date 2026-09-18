@@ -57,6 +57,8 @@ enum PanelFocus: Hashable { case search, peek }
 struct PanelView: View {
     // swiftlint:enable type_body_length
     @Environment(AppModel.self) private var model
+    @State private var combinedSelection: CombinedTextSelection?
+    @State private var filterDraft: SmartCollectionRule?
     @FocusState private var focus: PanelFocus?
     /// The search + list state (query, results, filters, selection, paging,
     /// grouping) — lifted into `PanelSearchModel` so it is `@Observable` and
@@ -121,6 +123,12 @@ struct PanelView: View {
                 }
             }
             .keyboardShortcut("y", modifiers: .command)
+            // ⇧⌘C reads the selected image's text into the peek. Return keeps
+            // pasting; the OCR action never takes position 0 of the peek list.
+            Button("") {
+                if let item = search.selectedItem { model.copyImageText(item, surface: .peek) }
+            }
+            .keyboardShortcut("c", modifiers: [.command, .shift])
         }
         .opacity(0)
         .frame(width: 0, height: 0)
@@ -129,34 +137,48 @@ struct PanelView: View {
 
     var body: some View {
         let panelTextSize = PanelTextSize.resolved(panelTextSizeRaw)
-        HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
-            listColumn
-                .frame(minWidth: 360, idealWidth: 440, maxWidth: .infinity)
-            // The peek opens BESIDE the list (not a modal) and follows the
-            // hovered / selected clip — Quick-Look-style.
-            if let selected = search.selectedItem {
-                let presentation = preview.presentation(for: selected)
-                ClipPeek(
-                    item: selected,
-                    text: presentation.text,
-                    isTextEditable: presentation.isTextEditable,
-                    focus: $focus
-                )
-                // Drafts, async save callbacks, and action state belong to one
-                // clip only. A new selection gets a fresh preview identity.
-                .id(selected.id)
-                .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
-                .ganchoSurface(radius: GanchoTokens.Radius.lg)
-                .transition(.opacity)
+        // ONE surface for list and peek. The peek opens BESIDE the list (not a
+        // modal) and follows the selected clip, Quick-Look-style, but it is part
+        // of the same panel: a hairline separates the panes, never a gap, and
+        // the status footer spans both.
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
+                listColumn
+                    .frame(minWidth: 360, idealWidth: 440, maxWidth: .infinity)
+                if let selected = search.selectedItem {
+                    let presentation = preview.presentation(for: selected)
+                    Divider()
+                    ClipPeek(
+                        item: selected,
+                        text: presentation.text,
+                        isTextEditable: presentation.isTextEditable,
+                        focus: $focus
+                    )
+                    // Drafts, async save callbacks, and action state belong to
+                    // one clip only. A new selection gets a fresh preview identity.
+                    .id(selected.id)
+                    .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
+                    .transition(.opacity)
+                }
             }
+            statusFooter
         }
-        .padding(GanchoTokens.Spacing.sm)
-        .frame(minWidth: 720, minHeight: 460)
-        .dynamicTypeSize(panelTextSize.dynamicTypeSize)
+        // Every modal layer (shortcut card, board picker, consent prompt) is
+        // drawn INSIDE the glass and clipped to it. Applied outside, their dim
+        // would paint the window's transparent shell — title-bar band and all
+        // — and reveal an outline the panel never shows otherwise.
         .overlay { PanelShortcutsOverlay(isPresented: $showShortcuts) }
         .overlay { boardPickerOverlay }
         .overlay { telemetryConsentPrompt }
         .overlay(alignment: .top) { uiTestMultiFileDropTarget }
+        .clipShape(RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
+        .ganchoSurface(radius: GanchoTokens.Radius.lg)
+        // The glass IS the panel: it fills the window edge to edge, title-bar
+        // band included, so there is no transparent ring for AppKit's window
+        // outline to show through.
+        .ignoresSafeArea()
+        .frame(minWidth: 720, minHeight: 460)
+        .dynamicTypeSize(panelTextSize.dynamicTypeSize)
         .background {
             #if DEBUG
                 if CommandLine.arguments.contains("-opaque-panel-for-ui-test") {
@@ -171,8 +193,13 @@ struct PanelView: View {
             await search.refresh()
         }
         .task { await model.refreshBoards() }
-        .onChange(of: search.selectedItem?.id) { _, _ in
-            model.cancelManualOCRIfRecognizing()
+        .sheet(item: $combinedSelection) { selection in
+            CombinedTextReview(ids: selection.ids).environment(model)
+        }
+        .sheet(item: $filterDraft) { rule in
+            SavedFilterEditor(rule: rule, boards: model.boards) {
+                await model.savedFilters.save($0)
+            }
         }
         .onChange(of: search.query) { _, newValue in
             // A new query invalidates a previous answer and drops rail focus
@@ -219,7 +246,7 @@ struct PanelView: View {
             Task { await search.refresh() }
         }
         // The kind filter narrows client-side, so regroup without a re-query.
-        .onChange(of: search.kindFilter) { _, _ in search.rebuildGroups() }
+        .onChange(of: search.kindFilter) { _, _ in Task { await search.refresh() } }
         .modifier(
             PanelSheetPresentations(
                 boardSheetTitle: boardSheetTitle,
@@ -269,16 +296,13 @@ struct PanelView: View {
             // ready when onAppear fires, so an immediate focus is dropped
             // (arrow keys beep). The notification below re-grabs it on every
             // key transition, which covers first open and reopens alike.
-            DispatchQueue.main.async {
-                guard model.panel.isVisible, model.panel.isKeyWindow else { return }
-                focus = .search
-            }
+            DispatchQueue.main.async { focus = .search }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
-            _ in
-            // A selector, review or inspector becoming key is not a request
-            // to focus this panel's search field, especially while it is hidden.
-            guard model.panel.isVisible, model.panel.isKeyWindow else { return }
+            notification in
+            guard let window = notification.object as? NSWindow,
+                model.panel.isPanelWindow(window)
+            else { return }
             focus = .search
         }
     }
@@ -368,6 +392,9 @@ struct PanelView: View {
         @Bindable var search = search
         return VStack(spacing: GanchoTokens.Spacing.xs) {
             SearchField("Search your clipboard", text: $search.query)
+                // Queries are literal input; system completions must not cover
+                // the selection controls or consume their keyboard navigation.
+                .autocorrectionDisabled()
                 .focused($focus, equals: .search)
                 .onKeyPress(.downArrow, phases: [.down, .repeat]) { press in
                     if railFocus == nil, press.modifiers.contains(.shift),
@@ -478,6 +505,15 @@ struct PanelView: View {
             boardRail
 
             filterRail
+            HStack {
+                Spacer()
+                Button("Save filter", systemImage: "line.3.horizontal.decrease.circle") {
+                    filterDraft = search.savedRule(named: "")
+                }
+                .disabled(model.fullStore == nil)
+                .accessibilityIdentifier("filter-save")
+            }
+            .padding(.horizontal, 12)
 
             selectionContextBar
 
@@ -509,12 +545,15 @@ struct PanelView: View {
                 row: { index, item in
                     clipRow(index: index, item: item)
                 })
-            PanelStatusFooter(
-                syncStatus: model.syncStatus,
-                capture: capturePresentation,
-                showKeyboardShortcuts: { showShortcuts.toggle() })
         }
-        .ganchoSurface(radius: GanchoTokens.Radius.lg)
+    }
+
+    /// Sync state, capture state and the shortcut hints, under BOTH panes.
+    private var statusFooter: some View {
+        PanelStatusFooter(
+            syncStatus: model.syncStatus,
+            capture: capturePresentation,
+            showKeyboardShortcuts: { showShortcuts.toggle() })
     }
 
     /// The design's type-filter rail: All / Links / Code / Colors / Images /
@@ -540,6 +579,9 @@ struct PanelView: View {
         if search.selectionCount > 1 {
             PanelSelectionContextBar(
                 selectionCount: search.selectionCount,
+                copyCombined: {
+                    combinedSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
+                },
                 addToStack: { model.pushToStack(search.selectedItems) },
                 addToBoard: { showBoardPicker = true },
                 delete: { model.delete(search.selectedItems) },
@@ -976,8 +1018,17 @@ struct PanelView: View {
     @ViewBuilder
     private func contextMenu(for item: ClipItem) -> some View {
         if model.canCopyImageText(item) {
-            Button("Copy text from image") { model.copyImageText(item) }
-                .accessibilityIdentifier("image-copy-text")
+            Button("Copy text from image") {
+                // Land the result in the peek when this row can be selected;
+                // otherwise fall back to the detached toast flow — never silence.
+                if let index = search.filtered.firstIndex(where: { $0.id == item.id }) {
+                    select(index)
+                }
+                let surface: AppModel.ManualOCRSurface =
+                    search.selectedItem?.id == item.id ? .peek : .detached
+                model.copyImageText(item, surface: surface)
+            }
+            .accessibilityIdentifier("image-copy-text")
         }
         Button(item.isPinned ? "Unpin" : "Pin") {
             model.togglePin(item)

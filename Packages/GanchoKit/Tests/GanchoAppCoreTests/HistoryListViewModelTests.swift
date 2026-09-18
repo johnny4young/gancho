@@ -14,9 +14,17 @@ import Testing
     var board: [ClipItem] = []
     var sourceApps: [ClipSourceApp] = []
     var lastSearchQuery: ClipSearchQuery?
+    /// When set, the next recent-page read snapshots `recent`, then waits on
+    /// the gate before answering — a query that ran early and answers late.
+    var holdNextRecentBrowse: SearchGate?
 
     func recentBrowse(offset: Int, limit: Int) async -> [ClipItem] {
-        Array(recent.dropFirst(offset).prefix(limit))
+        let snapshot = recent
+        if let gate = holdNextRecentBrowse {
+            holdNextRecentBrowse = nil
+            await gate.hold()
+        }
+        return Array(snapshot.dropFirst(offset).prefix(limit))
     }
     func items(offset: Int, limit: Int) async -> [ClipItem] {
         Array(recent.dropFirst(offset).prefix(limit))
@@ -35,11 +43,51 @@ import Testing
     }
 }
 
+/// Parks one read until the test releases it, and reports when it is parked.
+actor SearchGate {
+    private var waiter: CheckedContinuation<Void, Never>?
+    private var entered = false
+
+    func hold() async {
+        entered = true
+        await withCheckedContinuation { waiter = $0 }
+    }
+
+    func waitUntilEntered() async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !entered, ContinuousClock.now < deadline { await Task.yield() }
+        return entered
+    }
+
+    func release() {
+        waiter?.resume()
+        waiter = nil
+    }
+}
+
 @MainActor
-@Suite("History list view model (iOS)")
+@Suite("History list view model (iOS)", .timeLimit(.minutes(1)))
 struct HistoryListViewModelTests {
     private func items(_ n: Int, kind: ClipContentKind = .text) -> [ClipItem] {
         (0..<n).map { ClipItem(kind: kind, preview: "item \($0)") }
+    }
+
+    /// A paste starts two searches: the hint refresh before the insert and
+    /// the reload after it. The one that queried first may answer last; its
+    /// pre-insert page must not replace the newer list.
+    @Test func anEarlierSearchThatAnswersLateNeverReplacesTheNewerList() async {
+        let source = FakeSource()
+        let model = HistoryListViewModel(source: source)
+        let gate = SearchGate()
+        source.holdNextRecentBrowse = gate
+        let early = Task { await model.search() }
+        #expect(await gate.waitUntilEntered(), "the early search never reached its read")
+        source.recent = items(1)
+        await model.search()
+        #expect(model.captures.count == 1)
+        await gate.release()
+        await early.value
+        #expect(model.captures.count == 1, "the stale pre-insert page replaced the list")
     }
 
     @Test func emptyQueryLoadsTheFirstRecentPageAndFlagsAShortList() async {

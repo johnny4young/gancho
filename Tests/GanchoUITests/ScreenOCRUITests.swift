@@ -35,7 +35,9 @@ final class ScreenOCRUITests: XCTestCase {
         let extract = app.menuItems["image-copy-text"].firstMatch
         XCTAssertTrue(extract.waitForExistence(timeout: 3))
         extract.click()
-        XCTAssertTrue(app.buttons["ocr-review"].firstMatch.waitForExistence(timeout: 15))
+        let line = app.descendants(matching: .any).matching(identifier: "peek-ocr-line-0")
+            .firstMatch
+        XCTAssertTrue(line.waitForExistence(timeout: 15))
         XCTAssertFalse(app.descendants(matching: .any)["screen-ocr-selector"].exists)
     }
 
@@ -87,10 +89,33 @@ final class ScreenOCRUITests: XCTestCase {
     }
 
     @MainActor
+    func testPrivateModeCancelsSelectionAndResumeDoesNotReviveIt() throws {
+        let nonce = UUID().uuidString
+        let app = launchApp(nonce: nonce, permissionArgument: "-screen-ocr-selector-for-ui-test")
+        defer { app.terminate() }
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        let selector = app.descendants(matching: .any)["screen-ocr-selector"].firstMatch
+        GanchoUITestCommands.post("copyScreenText", token: nonce)
+        XCTAssertTrue(selector.waitForExistence(timeout: 5))
+        GanchoUITestCommands.post("togglePrivateMode", token: nonce)
+        XCTAssertTrue(selector.waitForNonexistence(timeout: 5))
+        GanchoUITestCommands.post("togglePrivateMode", token: nonce)
+        XCTAssertFalse(selector.waitForExistence(timeout: 1))
+        XCTAssertFalse(app.buttons["ocr-review"].firstMatch.exists)
+        GanchoUITestCommands.post("copyScreenText", token: nonce)
+        XCTAssertTrue(selector.waitForExistence(timeout: 5))
+        try SynthesizedInput.requireForeground(app)
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(selector.waitForNonexistence(timeout: 5))
+    }
+
+    @MainActor
     private func launchApp(nonce: String, permissionArgument: String) -> XCUIApplication {
         let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+            "-place-panel-for-ui-test",
             "-seed-manual-ocr", "-force-free-tier", "-start-capture-paused",
             "-ui-test-paste-sink", "copiedOnly", permissionArgument,
             "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.screen.\(UUID())",

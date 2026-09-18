@@ -14,13 +14,26 @@ public protocol ImageTextReading: Sendable {
 }
 
 extension GRDBClipboardStore: ImageTextReading {
+    /// Exactly the columns the permission predicate reads. Deliberately NOT
+    /// `ClipRow.metadataColumns`: that list carries `title` and `preview`, so
+    /// every check would materialize the clip's own text — including for the
+    /// sensitive rows this predicate exists to refuse — and one OCR request
+    /// checks permission three times (before the read, after recognition, and
+    /// again for each review action).
+    private static let permissionColumns = [
+        Column("kind"), Column("isArchived"), Column("isSensitive"), Column("expiresAt")
+    ]
+
     public func permitsImageText(id: UUID, now: Date) async throws -> Bool {
         try await writer.read { db in
             guard
-                let row = try ClipRow.select(ClipRow.metadataColumns).filter(key: id.uuidString)
-                    .fetchOne(db)
+                let row = try ClipRow.filter(key: id.uuidString)
+                    .select(Self.permissionColumns).asRequest(of: Row.self).fetchOne(db)
             else { return false }
-            return Self.permitsImageText(row, now: now)
+            let expiresAt: Date? = row["expiresAt"]
+            return Self.permitsImageText(
+                kind: row["kind"], isArchived: row["isArchived"],
+                isSensitive: row["isSensitive"], expiresAt: expiresAt, now: now)
         }
     }
 
@@ -38,7 +51,17 @@ extension GRDBClipboardStore: ImageTextReading {
     }
 
     private static func permitsImageText(_ row: ClipRow, now: Date) -> Bool {
-        row.kind == ClipContentKind.image.rawValue && !row.isArchived && !row.isSensitive
-            && (row.expiresAt.map { $0 > now } ?? true)
+        permitsImageText(
+            kind: row.kind, isArchived: row.isArchived, isSensitive: row.isSensitive,
+            expiresAt: row.expiresAt, now: now)
+    }
+
+    /// One predicate for both readers, so the narrow permission projection and
+    /// the full-row read can never drift apart on what "permitted" means.
+    private static func permitsImageText(
+        kind: String, isArchived: Bool, isSensitive: Bool, expiresAt: Date?, now: Date
+    ) -> Bool {
+        kind == ClipContentKind.image.rawValue && !isArchived && !isSensitive
+            && (expiresAt.map { $0 > now } ?? true)
     }
 }

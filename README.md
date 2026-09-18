@@ -72,6 +72,11 @@ the account-gated launch pieces (App Store products and TestFlight).
 - **Make the Mac panel yours.** Resize the history window freely or jump to a
   Compact, Standard, or Large preset; Gancho remembers the geometry and a
   Small, Standard, or Large semantic text preference across relaunches.
+- **Trust the failure paths, not just the happy one.** In 0.8.3, clips shared
+  into Gancho on iPhone and iPad wait sealed instead of as plaintext, a delete
+  that fails locally is no longer sent to your other devices, sensitive clips
+  on iPhone expire when you leave the app, and failed exports, purchases, and
+  privacy settings on the Mac say so instead of looking like they worked.
 
 ![Gancho v0.8.3 direct-download Pro activation](site/assets/v0.8.3-release.png)
 
@@ -173,15 +178,18 @@ stay in reusable modules.
 - Deterministic tier-0 classifier — 17 kinds (URL, email, phone, address, date,
   color, JWT, JSON, UUID, code + language, credit card, tracking number, …) in
   under 5 ms.
-- Manual image OCR on macOS (Free, unreleased): copy recognized text, review
-  or edit it, and save only on request. It works with automatic OCR disabled,
+- Manual image OCR on macOS (Free, unreleased): the recognized text appears in
+  the panel's peek beside the image, one selectable region per line. Copy a
+  line or all of it, edit inline, and save only on request. It works with
+  automatic OCR disabled, never copies a recognized secret automatically,
   preserves newer clipboard copies, and never rewrites the source image.
 - Screen-region OCR on macOS (Free, unreleased): press Control–Option–T or
   choose **Copy text from screen** in the menu, then drag with the hook-and-crosshair
   cursor. Escape cancels. The shortcut is configurable in Settings. Capture
   permission is requested only when invoked; each selection stays on the display
-  where its drag began. Recognition copies plain text without pasting or saving
-  the capture. **Review** allows editing, copying and explicitly saving a clip;
+  where its drag began. Non-sensitive results copy as plain text without pasting
+  or saving the capture; recognized secrets require explicit review. **Review**
+  allows editing, copying and explicitly saving a clip;
   a newer clipboard copy is preserved. See [screen OCR](docs/SCREEN-OCR.md).
 - Apple Intelligence titles (fallback-safe), automatic screenshot OCR (Pro), and semantic
   indexing for grounded Q&A and board suggestions — each behind a per-stage

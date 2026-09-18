@@ -467,7 +467,7 @@ struct ClipDetailView: View {
                     if model.smartPasteModelAvailable {
                         Menu {
                             ForEach(Self.translateLanguageCodes, id: \.self) { code in
-                                Button(Self.localizedLanguageName(code)) {
+                                Button(LanguageName.localized(code: code)) {
                                     runTranslate(to: Locale.Language(identifier: code))
                                 }
                             }
@@ -501,10 +501,6 @@ struct ClipDetailView: View {
     private static let translateLanguageCodes = [
         "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh"
     ]
-    private static func localizedLanguageName(_ code: String) -> String {
-        Locale.current.localizedString(forLanguageCode: code) ?? code
-    }
-
     private func runSmartPaste(_ action: SmartPasteAction) {
         smartResult = nil
         isThinking = true

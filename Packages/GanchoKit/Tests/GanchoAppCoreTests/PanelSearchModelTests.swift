@@ -413,4 +413,41 @@ struct PanelSearchModelTests {
         await model.refresh()
         #expect(model.results.count == 2)  // case-insensitive contains over the preview
     }
+
+    @Test("Without a durable store a type filter narrows the in-memory list instead of emptying it")
+    func withoutADurableStoreAKindFilterFiltersClientSide() async {
+        let source = FakeSource()
+        source.isDurable = false
+        source.recent = [
+            ClipItem(kind: .url, preview: "https://example.test/one"),
+            ClipItem(preview: "plain text"),
+            ClipItem(kind: .url, preview: "https://example.test/two")
+        ]
+        let model = PanelSearchModel(source: source)
+        model.kindFilter = .links
+        await model.refresh()
+        #expect(model.results.count == 2)
+        #expect(source.lastSearchQuery == nil, "the durable-only search API is never asked")
+        model.query = "two"
+        await model.refresh()
+        #expect(model.results.map(\.preview) == ["https://example.test/two"])
+    }
+
+    @Test("Without a durable store pinned-only and exact mode also apply locally")
+    func withoutADurableStorePinnedAndModeFilterClientSide() async {
+        let source = FakeSource()
+        source.isDurable = false
+        source.recent = [
+            ClipItem(preview: "alpha beta", isPinned: true), ClipItem(preview: "alpha"),
+            ClipItem(preview: "beta alpha", isPinned: true)
+        ]
+        let model = PanelSearchModel(source: source)
+        model.pinnedOnly = true
+        await model.refresh()
+        #expect(model.results.count == 2)
+        model.mode = .exact
+        model.query = "alpha beta"
+        await model.refresh()
+        #expect(model.results.map(\.preview) == ["alpha beta"])
+    }
 }
