@@ -36,7 +36,13 @@ extension AppModel {
         let detector = SensitiveDataDetector()
         manualOCR.start(
             recognize: { [weak self] in
-                try await workflow.recognize(
+                #if DEBUG
+                    // Exercise result delivery without reading any screen pixels.
+                    if ScreenTextCapture.hasSensitiveResultFixture {
+                        return ManualOCRResult(text: "card 4242 4242 4242 4242")
+                    }
+                #endif
+                return try await workflow.recognize(
                     request,
                     isAllowed: { [weak self] in self?.preferences.isPrivateModePaused == false },
                     didCapture: { [weak self] in self?.showManualOCRProgress() })
@@ -66,6 +72,7 @@ extension AppModel {
 
     private func screenCaptureAuthorization() -> ScreenTextAuthorization {
         #if DEBUG
+            if ScreenTextCapture.hasSensitiveResultFixture { return .allowed }
             if ScreenTextCapture.isSelectionOnlyTest { return .allowed }
             if CommandLine.arguments.contains("-screen-ocr-denied-for-ui-test") { return .denied }
             if CommandLine.arguments.contains("-screen-ocr-purpose-for-ui-test") {

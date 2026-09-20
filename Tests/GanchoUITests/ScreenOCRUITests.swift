@@ -3,6 +3,44 @@ import XCTest
 
 final class ScreenOCRUITests: XCTestCase {
     @MainActor
+    func testSensitiveScreenResultRequiresRevealBeforeEditingOrCopying() throws {
+        let nonce = UUID().uuidString
+        let app = launchApp(
+            nonce: nonce, permissionArgument: "-screen-ocr-sensitive-result-for-ui-test")
+        defer { app.terminate() }
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 15))
+        GanchoUITestCommands.post("copyScreenText", token: nonce)
+        let review = app.buttons["ocr-review"].firstMatch
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        review.click()
+        let reveal = app.buttons["ocr-review-reveal"].firstMatch
+        XCTAssertTrue(reveal.waitForExistence(timeout: 5))
+        let editor = app.textViews["ocr-review-text"].firstMatch
+        XCTAssertFalse(editor.exists, "Masked text must not enter the accessibility tree")
+        XCTAssertFalse(app.buttons["ocr-review-copy"].exists)
+        XCTAssertFalse(app.buttons["ocr-review-save"].exists)
+        let masked = XCTAttachment(
+            screenshot: app.windows["Review recognized text"].firstMatch.screenshot())
+        masked.name = "Screen OCR — sensitive review before reveal"
+        masked.lifetime = .keepAlways
+        add(masked)
+        reveal.click()
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertEqual(editor.value as? String, "card 4242 4242 4242 4242")
+        XCTAssertTrue(app.buttons["ocr-review-copy"].isEnabled)
+        XCTAssertTrue(app.buttons["ocr-review-save"].isEnabled)
+        app.buttons["ocr-review-hide"].click()
+        XCTAssertTrue(editor.waitForNonexistence(timeout: 5))
+        XCTAssertFalse(app.buttons["ocr-review-copy"].exists)
+        app.buttons["ocr-review-close"].click()
+        // The toast may have dismissed the transient panel before Review opened.
+        GanchoUITestCommands.post("openPanel", token: nonce)
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(rows.count, 1, "Reviewing a secret must not save it")
+    }
+
+    @MainActor
     func testStatusMenuOffersScreenCapture() throws {
         let app = launchApp(
             nonce: UUID().uuidString, permissionArgument: "-screen-ocr-denied-for-ui-test")

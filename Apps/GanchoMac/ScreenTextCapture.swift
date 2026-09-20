@@ -13,6 +13,13 @@ struct ScreenTextCapture: Sendable {
                 && args.contains("-use-temp-durable-store")
                 && args.contains("-ui-test-paste-sink")
         }
+
+        nonisolated static var hasSensitiveResultFixture: Bool {
+            let args = CommandLine.arguments
+            return args.contains("-screen-ocr-sensitive-result-for-ui-test")
+                && args.contains("-use-temp-durable-store")
+                && args.contains("-ui-test-paste-sink")
+        }
     #endif
     @concurrent func image(in rect: CGRect) async throws -> Data {
         try Task.checkCancellation()

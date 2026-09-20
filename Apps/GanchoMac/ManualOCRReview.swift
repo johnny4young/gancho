@@ -5,7 +5,9 @@ import SwiftUI
 
 struct ManualOCRReview: View {
     @Environment(AppModel.self) private var model
+    private let isSensitive: Bool
     @State private var draft: String
+    @State private var isRevealed = false
     @State private var isWorking = false
     @State private var failed = false
     /// The source clip went away mid-review. Distinct from `failed`: retrying
@@ -15,7 +17,12 @@ struct ManualOCRReview: View {
     @State private var clipboardChanged = false
     @State private var actionTask: Task<Void, Never>?
 
-    init(text: String) { _draft = State(initialValue: text) }
+    private var isMasked: Bool { isSensitive && !isRevealed }
+
+    init(text: String, isSensitive: Bool) {
+        self.isSensitive = isSensitive
+        _draft = State(initialValue: text)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -23,9 +30,19 @@ struct ManualOCRReview: View {
             // it as a headline only spent a line the text could use.
             Text("Changes stay here until you copy or save them.")
                 .font(.callout).foregroundStyle(.secondary)
-            TextEditor(text: $draft)
-                .font(.body).accessibilityIdentifier("ocr-review-text")
-                .disabled(isWorking)
+            if isMasked {
+                VStack(spacing: 12) {
+                    Text("Text contains a secret — review before copying")
+                        .foregroundStyle(.secondary)
+                    Button("Reveal", systemImage: "eye", action: reveal)
+                        .accessibilityIdentifier("ocr-review-reveal")
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                TextEditor(text: $draft)
+                    .font(.body).accessibilityIdentifier("ocr-review-text")
+                    .disabled(isWorking)
+            }
             if clipboardChanged {
                 Text("Text ready — clipboard unchanged").foregroundStyle(.secondary)
             }
@@ -44,7 +61,11 @@ struct ManualOCRReview: View {
                     .accessibilityIdentifier("ocr-review-close")
                 Spacer()
                 if isWorking { ProgressView().controlSize(.small) }
-                if !sourceGone {
+                if isSensitive && !isMasked {
+                    Button("Hide", systemImage: "eye.slash", action: hide)
+                        .accessibilityIdentifier("ocr-review-hide")
+                }
+                if !sourceGone && !isMasked {
                     Button("Save as clip") { run(save: true) }
                         .accessibilityIdentifier("ocr-review-save")
                     Button("Copy text") { run(save: false) }
@@ -65,7 +86,11 @@ struct ManualOCRReview: View {
         }
     }
 
+    private func reveal() { isRevealed = true }
+    private func hide() { isRevealed = false }
+
     private func run(save: Bool) {
+        guard !isMasked else { return }
         isWorking = true
         failed = false
         clipboardChanged = false
@@ -135,7 +160,9 @@ struct ManualOCRReview: View {
         restorePanel = model.panel.isVisible
         model.panel.hide()
         let hosting = NSHostingController(
-            rootView: ManualOCRReview(text: model.manualOCR.text).environment(model).ganchoTinted())
+            rootView: ManualOCRReview(
+                text: model.manualOCR.text, isSensitive: model.manualOCR.isSensitive
+            ).environment(model).ganchoTinted())
         let created = NSWindow(contentViewController: hosting)
         created.title = String(localized: "Review recognized text")
         created.styleMask = [.titled, .closable, .resizable]
