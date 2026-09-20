@@ -13,10 +13,10 @@
 <meta property="og:image" content="https://gancho.app/assets/v0.8.3-release.png" />
 <meta property="og:image:width" content="1080" />
 <meta property="og:image:height" content="680" />
-<meta property="og:image:alt" content="Gancho v0.8.3 candidate preview on macOS" />
+<meta property="og:image:alt" content="Gancho v0.8.3 development preview on macOS" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:image" content="https://gancho.app/assets/v0.8.3-release.png" />
-<meta name="twitter:image:alt" content="Gancho v0.8.3 candidate preview on macOS" />
+<meta name="twitter:image:alt" content="Gancho v0.8.3 development preview on macOS" />
 <link rel="icon" href="assets/gancho-mark.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="styles.css" />
 <style>
@@ -458,13 +458,13 @@
     <div>
       <span class="eyebrow"><span class="dot"></span><span data-i18n="hero.badge">Privado por diseño · versión pública 0.8</span></span>
       <h1 class="display"><span data-i18n="hero.title">Tu portapapeles, en todas partes</span><span style="color:var(--text-tertiary)" data-i18n="hero.title2"> — privado por diseño.</span></h1>
-      <p class="lede" data-i18n="hero.lede">gancho convierte lo que copias en memoria privada: historial local, búsqueda y snippets. La descarga pública v0.8.2 mantiene el historial cifrado en tu Mac; la activación Pro del canal directo sigue pendiente de publicación.</p>
+      <p class="lede" data-i18n="hero.lede">gancho convierte lo que copias en memoria privada. v0.8.3 ya está disponible: historial cifrado, OCR manual gratuito y activación Pro desde la app. La validación real entre dispositivos sigue pendiente.</p>
       <div class="hero-cta">
         <a class="btn btn-accent" href="https://github.com/johnny4young/gancho/releases/latest" data-i18n="hero.cta1">Descargar para macOS</a>
         <a class="btn btn-ghost" href="#features" data-i18n="hero.cta2">Ver las funciones</a>
       </div>
       <div class="hero-foot">
-        <span data-i18n="hero.f1">macOS 26+ · iOS 26+</span><span class="sep"></span>
+        <span data-i18n="hero.f1">macOS 15.4+ · iOS 26+</span><span class="sep"></span>
         <span data-i18n="hero.f2">Gratis y de código abierto</span><span class="sep"></span>
         <span data-i18n="hero.f3">Sin servidores intermedios · sin telemetría de contenido</span>
       </div>
@@ -525,9 +525,9 @@
 <section class="band band-tint" id="latest-release">
   <div class="wrap release-grid">
     <div class="release-copy">
-      <span class="kicker" data-i18n="rel.kicker">En preparación · v0.8.3</span>
-      <h2 class="h2" data-i18n="rel.title">Próxima versión: copia desde imágenes y reutiliza más.</h2>
-      <p class="lede" data-i18n="rel.lede">v0.8.3 reúne OCR manual gratuito, captura de texto en pantalla, biblioteca visual, filtros guardados, texto combinado y activación Pro. La descarga actual sigue siendo v0.8.2. La matriz entre dispositivos se hará después de publicar; aún no está validada.</p>
+      <span class="kicker" data-i18n="rel.kicker">Disponible · v0.8.3</span>
+      <h2 class="h2" data-i18n="rel.title">Copia desde imágenes y reutiliza más.</h2>
+      <p class="lede" data-i18n="rel.lede">La descarga v0.8.3 incluye OCR manual gratuito, captura de texto en pantalla, biblioteca visual, filtros guardados, texto combinado y activación Pro. La matriz entre dispositivos, Sequoia y accesibilidad real sigue pendiente.</p>
       <ul class="release-list">
         <li data-i18n="rel.1"><b>Extrae texto sin fricción:</b> OCR local gratuito desde imágenes guardadas o una región de pantalla; guardar sigue siendo explícito.</li>
         <li data-i18n="rel.2"><b>Reconoce tus clips:</b> miniaturas, muestras de color y previews de código en la biblioteca existente.</li>
@@ -535,11 +535,11 @@
         <li data-i18n="rel.4"><b>Combina textos:</b> revisa el orden y el separador antes de copiar; no se guarda un clip nuevo automáticamente.</li>
         <li data-i18n="rel.5"><b>Pro sin secretos de pago embebidos:</b> activa con Lemon Squeezy; la aceptación de sync entre dispositivos sigue pendiente.</li>
       </ul>
-      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/blob/main/CHANGELOG.md" data-i18n="rel.cta">Ver todo lo que incluye 0.8</a>
+      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/releases/tag/v0.8.3" data-i18n="rel.cta">Ver notas y descargar v0.8.3</a>
     </div>
     <figure class="release-shot">
       <img src="assets/v0.8.3-release.png" width="1080" height="680" loading="lazy" decoding="async" alt="Activación Pro de Gancho para la descarga directa / Gancho Pro activation for the direct download" />
-      <figcaption data-i18n="rel.caption">Vista previa del candidato macOS v0.8.3 con fixtures sintéticos; no es evidencia de una release publicada.</figcaption>
+      <figcaption data-i18n="rel.caption">Vista previa de desarrollo de v0.8.3 con datos sintéticos; no sustituye las pruebas del DMG publicado.</figcaption>
     </figure>
   </div>
 </section>
@@ -550,34 +550,20 @@
     <div class="sec-head">
       <span class="kicker" data-i18n="evo.kicker">Evolución reciente</span>
       <h2 class="h2" data-i18n="evo.title">Cada versión amplía lo que Gancho puede recordar por ti.</h2>
-      <p class="lede" data-i18n="evo.lede">0.8 es el presente. Estos hitos muestran cómo Gancho pasó de una memoria local a una biblioteca privada, rápida y disponible en todos tus dispositivos.</p>
+      <p class="lede" data-i18n="evo.lede">Las mejoras de 0.8.2 y 0.8.1 prepararon el camino para las nuevas herramientas de 0.8.3.</p>
     </div>
     <div class="evolution-grid">
       <article class="milestone-card">
-        <div class="milestone-meta">
-          <span class="milestone-version">0.7.0</span>
-          <span class="milestone-date" data-i18n="evo.v070.d">Jul 2026 · biblioteca al sistema</span>
-        </div>
-        <h3 data-i18n="evo.v070.t">Tu biblioteca curada, disponible en todo el sistema.</h3>
-        <ul>
-          <li data-i18n="evo.v070.1">Spotlight indexa snippets y pins en Mac, iPhone y iPad, nunca el historial completo ni los secretos.</li>
-          <li data-i18n="evo.v070.2">Selección por lotes en el panel: envía al stack, archiva en un board o borra con un solo Undo.</li>
-          <li data-i18n="evo.v070.3">La IA on-device nunca recibe claves ni tokens, y la búsqueda semántica baja el p95 a menos de 30 ms.</li>
-        </ul>
-        <a class="milestone-link" href="#release-0-7-0" data-i18n="evo.v070.cta">Ver todo lo nuevo de 0.7 →</a>
+        <div class="milestone-meta"><span class="milestone-version">0.8.2</span><span class="milestone-date">25 Jul 2026</span></div>
+        <h3 data-i18n="evo.v082.t">Un panel más claro, en tu idioma.</h3>
+        <p data-i18n="evo.v082.p">Búsqueda y estados vacíos más claros; mejoras de idioma y navegación del panel.</p>
+        <a class="milestone-link" href="#release-0-8-2" data-i18n="evo.v082.cta">Ver notas de 0.8.2 →</a>
       </article>
       <article class="milestone-card">
-        <div class="milestone-meta">
-          <span class="milestone-version">0.6.0</span>
-          <span class="milestone-date" data-i18n="evo.v060.d">Jul 2026 · control y reutilización</span>
-        </div>
-        <h3 data-i18n="evo.v060.t">Encuentra, revisa y convierte clips en una biblioteca.</h3>
-        <ul>
-          <li data-i18n="evo.v060.1">Filtra por aplicación de origen y combina texto, tipo, board y fecha.</li>
-          <li data-i18n="evo.v060.2">Edita con seguridad, previsualiza con ⌘Y y convierte usos repetidos en snippets.</li>
-          <li data-i18n="evo.v060.3">Reconoce boards por color y emoji mientras la búsqueda sigue rápida al crecer.</li>
-        </ul>
-        <a class="milestone-link" href="#release-0-6-0" data-i18n="evo.v060.cta">Ver todo lo nuevo de 0.6 →</a>
+        <div class="milestone-meta"><span class="milestone-version">0.8.1</span><span class="milestone-date">22 Jul 2026</span></div>
+        <h3 data-i18n="evo.v081.t">Pro estable y recuperación de sync.</h3>
+        <p data-i18n="evo.v081.p">Una compra Pro se conserva ante fallos transitorios de StoreKit; recuperación de CloudKit más predecible.</p>
+        <a class="milestone-link" href="#release-0-8-1" data-i18n="evo.v081.cta">Ver notas de 0.8.1 →</a>
       </article>
     </div>
   </div>
@@ -651,7 +637,7 @@
       <div class="card">
         <div class="ic" style="background:color-mix(in srgb,var(--sync-ok) 16%,transparent);color:var(--sync-ok)"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a4 4 0 0 1 1-7.7A5.5 5.5 0 0 1 16 6.6 4 4 0 0 1 19 15Z"/><path d="M12 11v7M9 15l3 3 3-3"/></svg></div>
         <h3 data-i18n="feat.6.t">Sync por tu iCloud</h3>
-        <p data-i18n="feat.6.p">Sync Pro con CKSyncEngine en tu cuenta privada de iCloud, sin servidores intermedios. La activación segura del canal directo aún está en preparación.</p>
+        <p data-i18n="feat.6.p">Sync Pro con CKSyncEngine en tu cuenta privada de iCloud, sin servidores intermedios. La activación está disponible en v0.8.3; la matriz real de sync sigue pendiente.</p>
       </div>
     </div>
   </div>
@@ -898,7 +884,7 @@
           <span class="t" data-i18n="intel.f4.t">Capturas buscables</span>
           <span class="tier" data-i18n="intel.f4.tier">Visión · OCR</span>
         </div>
-        <p data-i18n="intel.f4.p">El OCR en el dispositivo (Vision) lee el texto de los clips de imagen y lo adjunta al mismo índice de texto completo — así una captura se encuentra por las palabras que contiene. Sin red, como en cada etapa. En la próxima versión, copiar texto manualmente de imágenes será gratis y no activará esta indexación.</p>
+        <p data-i18n="intel.f4.p">El OCR en el dispositivo (Vision) lee el texto de los clips de imagen y lo adjunta al mismo índice de texto completo — así una captura se encuentra por las palabras que contiene. Sin red, como en cada etapa. Copiar texto manualmente desde imágenes o una región de pantalla es gratis en v0.8.3 y no activa esta indexación.</p>
         <div class="ba">
           <div class="line"><span class="tag" data-i18n="intel.f4.l1">Imagen</span><span class="raw">screenshot.png · 1640×1024</span></div>
           <div class="line"><span class="tag" data-i18n="intel.f4.l2">Texto OCR</span><svg class="arrow i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg><span class="good" data-i18n="intel.f4.ocr">“Release checklist · v0.6”</span></div>
@@ -946,29 +932,29 @@
     <div class="sec-head" style="margin:0 auto;text-align:center">
       <span class="kicker" data-i18n="pro.kicker">Precios</span>
       <h2 class="h2" data-i18n="pro.title">Gratis para empezar. Pro para ir más lejos.</h2>
-      <p class="lede" data-i18n="pro.lede" style="margin-left:auto;margin-right:auto">gancho es gratis y de código abierto. La activación Pro con Lemon Squeezy está implementada en el candidato, pero todavía no está disponible en la descarga pública v0.8.2.</p>
+      <p class="lede" data-i18n="pro.lede" style="margin-left:auto;margin-right:auto">gancho es gratis y de código abierto. v0.8.3 incluye compra y activación Pro con Lemon Squeezy desde Ajustes → Pro. La validación entre dispositivos sigue pendiente.</p>
     </div>
     <div class="price-wrap">
       <div class="price-card">
         <span class="price-tier" data-i18n="pro.tier">gancho Pro · compra única</span>
         <div class="price-row">
-          <span class="price-now" data-i18n="pro.soon">Próximamente</span>
+          <span class="price-now" data-i18n="pro.availability">Desde la app</span>
         </div>
-        <p class="price-note" data-i18n="pro.note">La compra y activación desde la descarga directa requieren la próxima release validada.</p>
+        <p class="price-note" data-i18n="pro.note">Consulta el precio vigente en Ajustes → Pro antes de comprar. La IA basada en modelos requiere macOS 26.</p>
         <ul class="price-list">
           <li><span class="ck"><svg class="i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span data-i18n="pro.l1"><b>Historial ilimitado</b> — guarda todo, sin el tope de 1 año / 10.000 ítems del plan gratis.</span></li>
           <li><span class="ck"><svg class="i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span data-i18n="pro.l2"><b>Pins y boards ilimitados</b> — sin el límite de 15 pins en 3 boards.</span></li>
           <li><span class="ck"><svg class="i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span data-i18n="pro.l3"><b>IA on-device completa</b> — Ask your clipboard, sugerencias semánticas de boards e indexación OCR automática de capturas, además de títulos con IA sin límite.</span></li>
         </ul>
         <div class="price-actions">
-          <a class="btn btn-accent" href="#latest-release" data-i18n="pro.cta">Ver estado de la próxima versión</a>
+          <a class="btn btn-accent" href="#latest-release" data-i18n="pro.cta">Ver la release y sus límites</a>
           <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/releases/latest" data-i18n="pro.cta2">Descargar gratis</a>
         </div>
         <p class="price-fine" data-i18n="pro.fine">La licencia se valida con Lemon Squeezy; ninguna clave privada de firma se distribuye con Gancho.</p>
       </div>
       <div class="price-free">
         <svg class="mk i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3Z"/></svg>
-        <span data-i18n="pro.free">El DMG v0.8.2 mantiene gratis el historial local y una instalación nueva funciona solo en este Mac. La activación Pro y el sync del canal directo no están publicados todavía.</span>
+        <span data-i18n="pro.free">El DMG v0.8.3 mantiene gratis el historial local y el OCR manual. Pro desbloquea límites ampliados, indexación automática e iCloud; la matriz de sync publicada sigue pendiente.</span>
       </div>
     </div>
   </div>
@@ -983,6 +969,14 @@
       <p class="lede" data-i18n="log.lede">Explora cada versión, de la más reciente a la primera. Abre solo el hito que quieras conocer; sus metadatos y artefactos se verifican juntos en CI.</p>
     </div>
     <div class="log">
+      <details class="release-detail" id="release-0-8-2">
+        <summary><span class="log-meta"><span class="ver">0.8.2</span><span class="dt">25 Jul 2026</span></span><span class="release-summary-title" data-i18n="evo.v082.t">Un panel más claro, en tu idioma.</span><svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+        <div class="log-body"><ul><li data-i18n="evo.v082.p">Búsqueda y estados vacíos más claros; mejoras de idioma y navegación del panel.</li><li><a href="https://github.com/johnny4young/gancho/releases/tag/v0.8.2" data-i18n="evo.v082.cta">Ver notas de 0.8.2 →</a></li></ul></div>
+      </details>
+      <details class="release-detail" id="release-0-8-1">
+        <summary><span class="log-meta"><span class="ver">0.8.1</span><span class="dt">22 Jul 2026</span></span><span class="release-summary-title" data-i18n="evo.v081.t">Pro estable y recuperación de sync.</span><svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+        <div class="log-body"><ul><li data-i18n="evo.v081.p">Una compra Pro se conserva ante fallos transitorios de StoreKit; recuperación de CloudKit más predecible.</li><li><a href="https://github.com/johnny4young/gancho/releases/tag/v0.8.1" data-i18n="evo.v081.cta">Ver notas de 0.8.1 →</a></li></ul></div>
+      </details>
       <details class="release-detail" id="release-0-8-0">
         <summary>
           <span class="log-meta"><span class="ver">0.8.0</span><span class="dt" data-i18n="log.v080.d">Jul 2026 · daily driver</span></span>
@@ -1170,33 +1164,29 @@
       "nav.privacy": "Privacy", "nav.features": "Features", "nav.worlds": "How it works", "nav.platforms": "Platforms", "nav.pricing": "Pricing", "nav.changelog": "Changelog", "nav.download": "Download",
       "hero.badge": "Private by design · public v0.8",
       "hero.title": "Your clipboard, everywhere", "hero.title2": " — private by design.",
-      "hero.lede": "gancho turns what you copy into private memory: local history, search and snippets. The public v0.8.2 download keeps history encrypted on your Mac; direct-channel Pro activation is not published yet.",
+      "hero.lede": "gancho turns what you copy into private memory. v0.8.3 is available: encrypted history, free manual OCR and Pro activation in the app. Real cross-device acceptance remains pending.",
       "hero.cta1": "Download for macOS", "hero.cta2": "See the features",
-      "hero.f1": "macOS 26+ · iOS 26+", "hero.f2": "Free & open source", "hero.f3": "No middle servers · no content telemetry",
+      "hero.f1": "macOS 15.4+ · iOS 26+", "hero.f2": "Free & open source", "hero.f3": "No middle servers · no content telemetry",
       "panel.search": "Search your clipboard…", "panel.foot": "Local · encrypted on this Mac",
       "clip.code.t": "useEffect cleanup", "clip.secret.t": "OpenAI API key", "clip.url.t": "Privacy policy", "clip.color.t": "Brand green", "clip.image.t": "Launch mark", "clip.image.p": "PNG · 248 KB · 1640×1024 · encrypted",
       "trust.1": "Local-first", "trust.2": "Encrypted on device", "trust.3": "No middle servers", "trust.4": "No content telemetry",
-      "rel.kicker": "In preparation · v0.8.3", "rel.title": "Next release: copy from images and reuse more.",
-      "rel.lede": "v0.8.3 brings free manual OCR, screen text capture, visual Library cards, saved filters, combined text and Pro activation. The current download remains v0.8.2. The cross-device matrix is deferred until after publication and is not yet validated.",
+      "rel.kicker": "Available now · v0.8.3", "rel.title": "Copy from images and reuse more.",
+      "rel.lede": "The v0.8.3 download includes free manual OCR, screen text capture, visual Library cards, saved filters, combined text and Pro activation. Cross-device, Sequoia and real accessibility acceptance remain pending.",
       "rel.1": "<b>Extract text without friction:</b> free local OCR from saved images or a screen region; saving remains explicit.",
       "rel.2": "<b>Recognize your clips:</b> thumbnails, color swatches and code previews in the existing Library.",
       "rel.3": "<b>Recall searches:</b> save encrypted local filters for text, type, application, board and pinned clips.",
       "rel.4": "<b>Combine text:</b> review the order and separator before copying; no new clip is saved automatically.",
       "rel.5": "<b>Pro without embedded payment secrets:</b> activate through Lemon Squeezy; physical-device sync acceptance remains pending.",
-      "rel.cta": "See everything in 0.8",
-      "rel.caption": "Preview of the macOS v0.8.3 candidate with synthetic fixtures; not evidence of a published release.",
+      "rel.cta": "Read notes and download v0.8.3",
+      "rel.caption": "Development preview of v0.8.3 with synthetic data; not a substitute for testing the published DMG.",
+      "evo.v082.t": "A clearer panel, in your language.",
+      "evo.v082.p": "Clearer search and empty states, with panel language and navigation improvements.",
+      "evo.v082.cta": "Read 0.8.2 release notes →",
+      "evo.v081.t": "Stable Pro and sync recovery.",
+      "evo.v081.p": "A Pro purchase survives transient StoreKit gaps, with more predictable CloudKit recovery.",
+      "evo.v081.cta": "Read 0.8.1 release notes →",
       "evo.kicker": "Recent evolution", "evo.title": "Every release expands what Gancho can remember for you.",
-      "evo.lede": "0.8 is the present. These milestones show how Gancho grew from local memory into a private, fast library available across your devices.",
-      "evo.v070.d": "Jul 2026 · library into the system", "evo.v070.t": "Your curated library, available system-wide.",
-      "evo.v070.1": "Spotlight indexes snippets and pins on Mac, iPhone, and iPad — never raw history or secrets.",
-      "evo.v070.2": "Batch selection in the panel: send to the stack, file into a board, or delete with a single Undo.",
-      "evo.v070.3": "The on-device AI never receives keys or tokens, and semantic search drops p95 under 30 ms.",
-      "evo.v070.cta": "See everything new in 0.7 →",
-      "evo.v060.d": "Jul 2026 · control and reuse", "evo.v060.t": "Find, review, and turn clips into a library.",
-      "evo.v060.1": "Filter by source app and combine text, kind, board, and date.",
-      "evo.v060.2": "Edit safely, preview with ⌘Y, and turn repeated use into snippets.",
-      "evo.v060.3": "Recognize boards by color and emoji while search stays fast as history grows.",
-      "evo.v060.cta": "See everything new in 0.6 →",
+      "evo.lede": "The improvements in 0.8.2 and 0.8.1 prepared the way for the new tools in 0.8.3.",
       "evo.v050.d": "Jul 2026 · daily flow", "evo.v050.t": "Paste in sequence and keep more, without losing control.",
       "evo.v050.1": "Queue, reorder, and paste several clips from a visible stack in the panel.",
       "evo.v050.2": "See when a clip expires and keep up to one year or 10,000 items for free.",
@@ -1214,7 +1204,7 @@
       "feat.3.t": "Smart Actions", "feat.3.p": "Pure, offline per-kind transforms: decode a JWT, pretty-print JSON, base64, parse a URL, convert a color. No network, ever.",
       "feat.4.t": "Promote to Library", "feat.4.p": "The signature gesture: one shortcut turns an ephemeral history clip into a permanent, curated snippet. <i>It hooks you.</i>",
       "feat.5.t": "Paste stack", "feat.5.p": "Add clips from the panel, inspect the queue in its footer strip, and paste them in order with the configurable stack shortcut.",
-      "feat.6.t": "Sync via your iCloud", "feat.6.p": "Pro sync with CKSyncEngine in your private iCloud account, with no intermediary servers. Secure direct-channel activation is still in preparation.",
+      "feat.6.t": "Sync via your iCloud", "feat.6.p": "Pro sync with CKSyncEngine in your private iCloud account, with no intermediary servers. Activation is available in v0.8.3; the real sync matrix remains pending.",
       "worlds.kicker": "How it works", "worlds.title": "Two worlds, one gesture that joins them.",
       "worlds.lede": "History captures only; the Library saves with intent. One shortcut promotes the ephemeral into the permanent.",
       "worlds.h.lab": "Ephemeral · automatic", "worlds.h.t": "History", "worlds.h.p": "Everything you copy, captured in the background and sorted by kind. Instantly searchable, with retention you control.",
@@ -1242,7 +1232,7 @@
       "intel.f3.p": "A 512-dim embedding indexes history on-device for Ask your clipboard and board suggestions. Main history search remains FTS exact, fuzzy, and regex.",
       "intel.f3.l1": "You search", "intel.f3.l2": "It finds", "intel.f3.q": "“that error about aborting”",
       "intel.f4.t": "Searchable screenshots", "intel.f4.tier": "Vision · OCR",
-      "intel.f4.p": "On-device OCR (Vision) reads text out of image clips and attaches it to the same full-text index — so a screenshot is findable by the words inside it. No network, like every tier. In the next version, manually copying image text will be free and will not enable this indexing.",
+      "intel.f4.p": "On-device OCR (Vision) reads text out of image clips and attaches it to the same full-text index — so a screenshot is findable by the words inside it. No network, like every tier. Manually copying text from images or a screen region is free in v0.8.3 and does not enable this indexing.",
       "intel.f4.l1": "Image", "intel.f4.l2": "OCR text", "intel.f4.ocr": "“Release checklist · v0.6”",
       "intel.foot": "Every intelligence stage runs on this device. Model processing sends no clip text to analytics or AI servers.",
       "sa.kicker": "Smart Actions", "sa.title": "The right clip knows what you can do with it.",
@@ -1314,16 +1304,16 @@
       "log.6.1": "macOS capture, encrypted local store, FTS search, retention, paste-back, pins, boards, snippets, and a local MCP/CLI.",
       "log.6.2": "iPhone/iPad companion with share, keyboard, widgets, and iCloud sync plumbing.",
       "pro.kicker": "Pricing", "pro.title": "Free to start. Pro to go further.",
-      "pro.lede": "gancho is free and open source. Lemon Squeezy Pro activation is implemented in the candidate but is not available in the public v0.8.2 download yet.",
+      "pro.lede": "gancho is free and open source. v0.8.3 includes Lemon Squeezy Pro purchase and activation in Settings → Pro. Cross-device acceptance remains pending.",
       "pro.tier": "gancho Pro · one-time purchase",
-      "pro.soon": "Coming soon",
-      "pro.note": "Purchasing and activating through the direct download requires the next validated release.",
+      "pro.availability": "In the app",
+      "pro.note": "Check the current price in Settings → Pro before purchasing. Model-backed AI requires macOS 26.",
       "pro.l1": "<b>Unlimited history</b> — keep everything, with no 1-year / 10,000-item cap.",
       "pro.l2": "<b>Unlimited pins &amp; boards</b> — past the free 15 pins across 3 boards.",
       "pro.l3": "<b>Full on-device AI</b> — Ask your clipboard, semantic board suggestions, automatic screenshot OCR indexing, and unlimited AI titles.",
-      "pro.cta": "View next-release status", "pro.cta2": "Download for free",
+      "pro.cta": "View the release and its limitations", "pro.cta2": "Download for free",
       "pro.fine": "The license is validated by Lemon Squeezy; no private signing key is distributed with Gancho.",
-      "pro.free": "The v0.8.2 DMG keeps local history free and a fresh install runs only on this Mac. Direct-channel Pro activation and sync are not published yet.",
+      "pro.free": "The v0.8.3 DMG keeps local history and manual OCR free. Pro unlocks higher limits, automatic indexing and iCloud; the released-build sync matrix remains pending.",
       "cta.title": "Try gancho today.", "cta.lede": "A signed and notarized macOS release is available now; TestFlight and the App Store launch remain in preparation.",
       "cta.1": "Download the latest build", "cta.2": "View on GitHub",
       "foot.note": "Open source under the MIT license · public v0.8. No trackers or content analytics; optional anonymous app diagnostics are off by default."

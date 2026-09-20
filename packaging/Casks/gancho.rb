@@ -7,8 +7,8 @@
 # the DMG's SHA-256. See docs/RELEASING.md.
 #
 cask "gancho" do
-  version "0.1.0"
-  sha256 "6b4af3b643505d96b463bb3e97668571281c47c231c925af62ec94a2fd92cc7e"
+  version "0.8.3"
+  sha256 "9930633dc7f1372b6ffe329d33afa57a1aff510853273a392d37d32be298799e"
 
   url "https://github.com/johnny4young/gancho/releases/download/v#{version}/Gancho-#{version}.dmg"
   name "Gancho"
@@ -25,7 +25,7 @@ cask "gancho" do
   # Gancho keeps itself current in place via Sparkle (direct-download channel),
   # so Homebrew should not flag user-updated copies as outdated.
   auto_updates true
-  depends_on macos: :tahoe
+  depends_on macos: :sequoia
 
   app "Gancho.app"
   # The `gancho` CLI + local MCP server ships inside the bundle. It is named
@@ -40,4 +40,6 @@ cask "gancho" do
     "~/Library/Preferences/com.johnny4young.gancho.menubar-helper.plist",
     "~/Library/Preferences/com.johnny4young.gancho.plist",
   ]
+
+  caveats "Gancho requires macOS 15.4 or later. Homebrew checks only the major OS version."
 end

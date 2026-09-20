@@ -1,10 +1,14 @@
 # Deployment floor — minimum OS
 
 Gancho's source floor is `macOS 15.4 / iOS 26` (`Packages/GanchoKit/Package.swift`
-and `project.yml`). The published v0.8.2 direct download still requires macOS 26.
-The lower source floor is not a claim that a Sequoia-validated release is
-available. The next candidate must pass the oldest-supported-runtime matrix
-before the download site advertises macOS 15.4 support.
+and `project.yml`). The published v0.8.3 DMG and signed Sparkle feed declare
+macOS 15.4 as the minimum. This artifact requirement is not runtime certification:
+real Sequoia acceptance remains pending in the post-release matrix.
+
+Homebrew's cask dependency accepts major releases only: the cask selects
+Sequoia or later and displays the exact 15.4 requirement as a caveat. The signed
+app's `LSMinimumSystemVersion` enforces 15.4 when launching. Installing via
+Homebrew on 15.0–15.3 does not make those versions supported.
 
 ## How the floor is enforced
 
@@ -47,7 +51,7 @@ deployment decision; the iOS floor (26) has not been probed below 26.
 
 ## Runtime evidence
 
-Compiling at the floor is necessary, not sufficient. Before a release claims a
+Compiling at the floor is necessary, not sufficient. To validate a declared
 floor, the release checklist requires capture, paste-back, storage, the
 menu-bar agent, panel rendering without glass, licensing, and update smoke on
 real hardware running the oldest supported macOS.
