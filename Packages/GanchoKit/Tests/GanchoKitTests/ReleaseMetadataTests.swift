@@ -102,7 +102,7 @@ struct ReleaseMetadataTests {
     /// safety guarantees: it restores the manifest no matter how it exits, and
     /// it probes each target separately (a whole-package build would stop at
     /// the first blocker and hide the rest). The documented reality — the
-    /// shipped floor is macOS 15.4 with the FoundationModels tier and Liquid
+    /// source floor is macOS 15.4 with the FoundationModels tier and Liquid
     /// Glass gated behind macOS 26 — is captured in docs/DEPLOYMENT-FLOOR.md
     /// so a regression in that claim is reviewable.
     @Test func deploymentFloorInventoryExistsAndIsSafe() throws {
@@ -234,17 +234,29 @@ struct ReleaseMetadataTests {
 
         #expect(project.contains("macOS: \"15.4\""))
         #expect(project.contains("iOS: \"26.0\""))
-        // The site advertises the RELEASED floor. v0.8.3 is the first
-        // Sequoia-validated build, so the chip matches the source floor
-        // above (see check-product-truth.sh).
-        #expect(try Self.matchCount(in: site, pattern: #"macOS 15\.4\+ · iOS 26\+"#) == 2)
+        let publishedVersion = try Self.firstCapture(
+            in: readme, pattern: #"\*\*Status: public v([0-9]+\.[0-9]+\.[0-9]+);"#)
+        let publishedNotes = try Self.text("docs", "releases", "v\(publishedVersion).md")
+        let publishedFloor = try Self.firstCapture(
+            in: publishedNotes, pattern: #"Gancho requires macOS ([0-9.]+) or later"#)
+        let escapedFloor = NSRegularExpression.escapedPattern(for: publishedFloor)
+        #expect(
+            try Self.matchCount(in: site, pattern: "macOS \(escapedFloor)\\+ · iOS 26\\+") == 2)
+        #expect(readme.contains("**Source version: v\(marketingVersion)"))
+        #expect(truth.contains("GitHub release `v\(publishedVersion)`"))
+        if publishedVersion != marketingVersion {
+            let candidate = try Self.text("docs", "releases", "v\(marketingVersion).md")
+            #expect(readme.contains("(unreleased)"))
+            #expect(candidate.contains("## Release verification"))
+            #expect(site.contains("In preparation · v\(marketingVersion)"))
+            #expect(!readme.contains("published v\(marketingVersion) DMG"))
+        }
         #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.library\(name:"#) == 8)
         #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.executable\(name:"#) == 1)
         #expect(readme.contains("eight library products + a CLI"))
         #expect(readme.contains("disabled until explicit consent"))
         #expect(security.contains("Telemetry is disabled until the user consents"))
         #expect(site.contains("releases/latest"))
-        #expect(readme.contains("v\(marketingVersion) DMG"))
         #expect(truth.contains("v\(marketingVersion)"))
         #expect(site.contains("v\(marketingVersion)"))
     }

@@ -7,6 +7,11 @@ integration opens the same on-device store the app uses
 Homebrew-installed binary reaches the exact same database (GRDB in WAL mode →
 safe concurrent access, app open or closed).
 
+Local transport does not constrain an authorized client's later behavior. A
+client can send received content to its own model/provider; grant only the
+smallest context you intend to share. Revocation blocks subsequent reads, not
+copies the client already received.
+
 > Sensitive clips (passwords, keys, cards the detector flagged) are **never**
 > exposed through any integration, in any scope.
 

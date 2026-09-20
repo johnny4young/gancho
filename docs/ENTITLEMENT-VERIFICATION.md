@@ -105,17 +105,10 @@ print(raw.decode("utf-8", "ignore"))
 PY
 ```
 
-Verified 2026-09-09 on `iPhone 17 Pro (iOS 26.5)`: the section carries
-`JGWX5ZT2N2.com.johnny4young.gancho.keys`, and a build that logs
-`KeychainPassphraseStore.iosSharedAccessGroupResolution` at launch reports
-
-```
-GANCHO_PROBE source=entitlement group=JGWX5ZT2N2.com.johnny4young.gancho.keys contradicted=false
-```
-
-— so the runtime keychain read returns the real, fully expanded group, not a
-simulator placeholder. **Use the Simulator for this.** It is minutes, not a
-device day.
+Compare the expanded group in that section with the group's runtime resolution
+and with every extension. A positive, content-free probe should identify the
+entitlement source and report whether it contradicts the build-time fallback.
+Do not assume the result from a previous account or build still applies.
 
 What the Simulator still cannot tell you is anything that depends on a
 provisioning profile the simulator has no reason to honor (iCloud containers
@@ -127,25 +120,9 @@ Whatever rung you land on, check first that the thing you want to observe is
 produces no output and proves nothing. Add the positive signal first — or
 accept that silence is the result, and say so out loud.
 
-## Recorded answer for this account
+## When to repeat verification
 
-Measured 2026-09-09 against the four iOS Team Provisioning Profiles and a
-signed `Debug-iphoneos` build:
-
-| Target | App ID prefix | Team ID | Signed keychain group |
-| --- | --- | --- | --- |
-| `com.johnny4young.gancho` | `JGWX5ZT2N2` | `JGWX5ZT2N2` | `JGWX5ZT2N2.com.johnny4young.gancho.keys` |
-| `…gancho.share` | `JGWX5ZT2N2` | `JGWX5ZT2N2` | same |
-| `…gancho.keyboard` | `JGWX5ZT2N2` | `JGWX5ZT2N2` | same |
-| `…gancho.widgets` | `JGWX5ZT2N2` | `JGWX5ZT2N2` | same |
-
-Confirmed at runtime on the iPhone 17 Pro simulator (iOS 26.5), where the
-probe reported `source=entitlement` and the same group.
-
-Exactly one group per target, and the prefix equals the team ID. The build-time
-value `KeychainPassphraseStore.iosSharedAccessGroup` computes the identical
-string, so on this account the app and all three extensions already resolve the
-same, correct group.
-
-Re-run rungs 1 and 2 if the app is ever transferred to another team or account,
-which is the case that makes the prefix and the team ID diverge.
+Repeat rungs 1 and 2 after signing/profile changes or an app transfer to another
+team. That is where an App Identifier Prefix can differ from the Team ID.
+Attach the identified binary, OS and result to the relevant PR or release
+record rather than keeping a second, increasingly stale result table here.
