@@ -10,6 +10,8 @@ import AppKit
 extension GanchoMenuBarCommand {
     func perform(on model: AppModel) {
         switch self {
+        case .copyScreenText:
+            model.copyScreenText()
         case .library:
             model.libraryWindow.show(model: model)
         case .openPanel:

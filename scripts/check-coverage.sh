@@ -15,6 +15,18 @@ require_command() {
 	command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
 }
 
+export_coverage() {
+	local profile="$1"
+	local binary
+	shift
+	local arguments=("$1" "-instr-profile=$profile" -summary-only)
+	shift
+	for binary in "$@"; do
+		arguments+=(-object "$binary")
+	done
+	xcrun llvm-cov export "${arguments[@]}"
+}
+
 calculate_metrics() {
 	local coverage_json="$1"
 	local package_root="${2%/}/"
@@ -118,9 +130,8 @@ SWIFT
 	LLVM_PROFILE_FILE="$coverage_fixture_dir/partial.profraw" "$binary" --covered-path >/dev/null
 	xcrun llvm-profdata merge -sparse "$coverage_fixture_dir/partial.profraw" \
 		-o "$coverage_fixture_dir/partial.profdata"
-	xcrun llvm-cov export "$binary" \
-		-instr-profile "$coverage_fixture_dir/partial.profdata" \
-		-summary-only >"$coverage_fixture_dir/partial.json"
+	export_coverage "$coverage_fixture_dir/partial.profdata" "$binary" \
+		>"$coverage_fixture_dir/partial.json"
 
 	LLVM_PROFILE_FILE="$coverage_fixture_dir/full-covered.profraw" \
 		"$binary" --covered-path >/dev/null
@@ -129,9 +140,8 @@ SWIFT
 		"$coverage_fixture_dir/full-covered.profraw" \
 		"$coverage_fixture_dir/full-uncovered.profraw" \
 		-o "$coverage_fixture_dir/full.profdata"
-	xcrun llvm-cov export "$binary" \
-		-instr-profile "$coverage_fixture_dir/full.profdata" \
-		-summary-only >"$coverage_fixture_dir/full.json"
+	export_coverage "$coverage_fixture_dir/full.profdata" "$binary" \
+		>"$coverage_fixture_dir/full.json"
 
 	local partial_metrics full_metrics partial_percent full_percent
 	partial_metrics="$(calculate_metrics "$coverage_fixture_dir/partial.json" "$package_root")"
@@ -145,6 +155,29 @@ SWIFT
 
 	printf '✓ coverage classifier self-test passed (partial %.1f%% < full %.1f%%)\n' \
 		"$partial_percent" "$full_percent"
+
+	# SwiftPM's newer build engine emits one test binary per target. Verify that
+	# a second binary adds its production module rather than silently vanishing.
+	local second_source="$package_root/Sources/SecondFixture/SecondFixture.swift"
+	local second_binary="$coverage_fixture_dir/second fixture"
+	mkdir -p "$(dirname "$second_source")"
+	printf 'func secondModule() -> Int { 42 }\nprint(secondModule())\n' >"$second_source"
+	xcrun swiftc -profile-generate -profile-coverage-mapping "$second_source" -o "$second_binary"
+	LLVM_PROFILE_FILE="$coverage_fixture_dir/second.profraw" "$second_binary" >/dev/null
+	xcrun llvm-profdata merge -sparse \
+		"$coverage_fixture_dir/full-covered.profraw" \
+		"$coverage_fixture_dir/full-uncovered.profraw" "$coverage_fixture_dir/second.profraw" \
+		-o "$coverage_fixture_dir/combined.profdata"
+	export_coverage "$coverage_fixture_dir/combined.profdata" "$binary" "$second_binary" \
+		>"$coverage_fixture_dir/combined.json"
+	local combined_metrics
+	combined_metrics="$(calculate_metrics "$coverage_fixture_dir/combined.json" "$package_root")"
+	jq -e --argjson first "$full_metrics" '
+		([.modules[].name] == ["CoverageFixture", "SecondFixture"])
+		and (.production.lines > $first.production.lines)
+		and (.production.covered > $first.production.covered)
+	' <<<"$combined_metrics" >/dev/null || fail "coverage omitted a test binary's production module"
+	printf '✓ coverage collector includes every test binary\n'
 }
 
 if [[ "${1:-}" == "--self-test" ]]; then
@@ -171,19 +204,19 @@ coverage_floor="${COVERAGE_FLOOR:-80}"
 package_root="$(cd "$repo_root/$package_path" && pwd)"
 bin_path="$(swift build --package-path "$package_root" --show-bin-path)"
 profile_data="$bin_path/codecov/default.profdata"
-xctest_bundle="$(find "$bin_path" -maxdepth 1 -name '*.xctest' -print | head -1)"
 
 [[ -f "$profile_data" ]] || fail "coverage profile not found; run swift test --enable-code-coverage first"
-[[ -n "$xctest_bundle" ]] || fail "test bundle not found under $bin_path"
-
-test_binary="$xctest_bundle/Contents/MacOS/$(basename "$xctest_bundle" .xctest)"
-[[ -x "$test_binary" ]] || fail "test binary is missing or not executable: $test_binary"
+test_binaries=()
+while IFS= read -r xctest_bundle; do
+	test_binary="$xctest_bundle/Contents/MacOS/$(basename "$xctest_bundle" .xctest)"
+	[[ -x "$test_binary" ]] || fail "test binary is missing or not executable: $test_binary"
+	test_binaries+=("$test_binary")
+done < <(find "$bin_path" -maxdepth 1 -name '*.xctest' -print | sort)
+[[ "${#test_binaries[@]}" -gt 0 ]] || fail "test bundle not found under $bin_path"
 
 coverage_json="$(mktemp -t gancho-coverage.XXXXXX)"
 trap 'rm -f "${coverage_json:-}"' EXIT
-xcrun llvm-cov export "$test_binary" \
-	-instr-profile "$profile_data" \
-	-summary-only >"$coverage_json"
+export_coverage "$profile_data" "${test_binaries[@]}" >"$coverage_json"
 
 metrics_json="$(calculate_metrics "$coverage_json" "$package_root")"
 production_lines="$(jq -r '.production.lines' <<<"$metrics_json")"
