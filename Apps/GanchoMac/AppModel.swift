@@ -111,9 +111,10 @@ final class AppModel {
     let diagnostics = DiagnosticLog()
     let panel: PanelController
     /// Transient HUD for action feedback (copy-only paste, pin/unpin).
-    let toasts = ToastPresenter()
-    let manualOCR = ManualOCRSession()
+    let toasts: ToastPresenter
+    let manualOCR: ManualOCRSession
     let manualOCRWindow = ManualOCRWindowController()
+    let screenTextWorkflow: ScreenTextWorkflow
     /// Content-free store-mutation fan-out. Mutation sites post here instead of
     /// each remembering to call every reconciler; the `SpotlightCoordinator`
     /// subscribes and rebuilds the curated Spotlight set once per burst. This
@@ -199,6 +200,8 @@ final class AppModel {
     private var retentionTimer: Timer?
     /// Light periodic sync pull for the menu-bar agent (see `scheduleSyncPoll`).
     private var syncPollTimer: Timer?
+    /// A deliberate user gesture supersedes delayed test-launch presentation.
+    var uiTestLaunchPresentationIsSuppressed = false
     /// Held so the observer outlives `init`; set by the UI-test launch hook in
     /// `AppModel+UITestLaunch`, which is why it is not private.
     var uiTestPanelObserver: NSObjectProtocol?
@@ -445,12 +448,32 @@ final class AppModel {
             preferences: loadedPreferences)
         monitor = resolvedMonitor
         let screenShareDetector = ScreenShareDetector()
+        let manualOCR = ManualOCRSession()
+        let screenTextWorkflow = ScreenTextWorkflow()
+        let toasts = ToastPresenter()
+        self.manualOCR = manualOCR
+        self.screenTextWorkflow = screenTextWorkflow
+        self.toasts = toasts
         captureLifecycle = CaptureLifecycleController(
             monitor: resolvedMonitor,
             preferences: loadedPreferences,
             autoPauseOnScreenShare: loadedAutoPauseOnScreenShare,
             screenShareIsActive: { screenShareDetector.isScreenSharePresumed() },
-            onPreferencesChanged: { $0.save(to: appDefaults) },
+            onPreferencesChanged: { preferences in
+                preferences.save(to: appDefaults)
+            },
+            onPrivateModeEngaged: {
+                // All entry points (Settings, menu and shortcut) reach this
+                // callback. Cancelling here also prevents pause/resume from
+                // reviving a selection or recognition already in flight. It
+                // fires on the off → on TRANSITION only: hung off every
+                // preferences save, flipping an unrelated capture toggle with
+                // Private Mode already on would tear down in-flight OCR and
+                // dismiss a visible toast along with its only affordance.
+                screenTextWorkflow.cancel()
+                manualOCR.cancel()
+                toasts.dismiss()
+            },
             onAutoPauseChanged: {
                 appDefaults.set($0, forKey: "auto-pause-screen-share")
             })
@@ -490,6 +513,17 @@ final class AppModel {
         let launchRetentionPass = scheduleRetention(after: expiredSensitiveSeed)
         scheduleSyncPoll()
         panel.attach(model: self)
+        // The panel is `panel`'s to show, not AppKit's: brought back with a
+        // bare order it is never key, so it can never resign key and its
+        // auto-hide-on-focus-loss stays dead. See `ScreenTextWorkflow`.
+        screenTextWorkflow.restoreWindow = { [weak self] window in
+            guard let self else { return }
+            guard panel.isPanelWindow(window) else {
+                window.orderFrontRegardless()
+                return
+            }
+            panel.show(model: self)
+        }
         // Intents resolve the SAME model instance the UI uses.
         AppDependencyManager.shared.add(dependency: self)
         KeyboardShortcuts.onKeyUp(for: .togglePrivateMode) { [weak self] in
@@ -497,6 +531,9 @@ final class AppModel {
         }
         KeyboardShortcuts.onKeyUp(for: .cyclicPaste) { [weak self] in
             self?.cyclicPaste()
+        }
+        KeyboardShortcuts.onKeyUp(for: .copyScreenText) { [weak self] in
+            self?.copyScreenText()
         }
         KeyboardShortcuts.onKeyUp(for: .pasteFromStack) { [weak self] in
             self?.pasteNextFromStack()

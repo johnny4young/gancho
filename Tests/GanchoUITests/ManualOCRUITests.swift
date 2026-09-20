@@ -95,6 +95,7 @@ final class ManualOCRUITests: XCTestCase {
         let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+            "-place-panel-for-ui-test", "-opaque-panel-for-ui-test",
             "-seed-manual-ocr", "-force-free-tier", "-start-capture-paused",
             "-ui-test-paste-sink", "copy-only", "-AppleLanguages", "(\(language))",
             "-appearance", appearance

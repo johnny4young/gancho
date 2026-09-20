@@ -9,6 +9,7 @@ import Foundation
 /// command surface, while the main app remains the only process that performs
 /// private clipboard work.
 enum GanchoMenuBarCommand: String, CaseIterable {
+    case copyScreenText
     case library
     case openPanel
     case toggleCapture
@@ -59,7 +60,7 @@ enum GanchoMenuBarCommand: String, CaseIterable {
     /// titles in the helper and stateful titles/checkmarks in the in-process
     /// fallback.
     static let helperMenuSections: [[GanchoMenuBarCommand]] = [
-        [.openPanel, .library],
+        [.openPanel, .library, .copyScreenText],
         [.toggleCapture, .togglePrivateMode, .ignoreNextCopy],
         [.settings, .privacyCenter, .welcome, .wrapped],
         [.quit]
@@ -67,6 +68,7 @@ enum GanchoMenuBarCommand: String, CaseIterable {
 
     var title: String {
         switch self {
+        case .copyScreenText: String(localized: "Copy text from screen")
         case .library: String(localized: "Library")
         case .openPanel: String(localized: "Open panel")
         case .toggleCapture: String(localized: "Pause or resume capture")
@@ -84,7 +86,8 @@ enum GanchoMenuBarCommand: String, CaseIterable {
     var helperTitle: String {
         switch self {
         case .togglePrivateMode: String(localized: "Toggle Private Mode")
-        case .library, .openPanel, .toggleCapture, .ignoreNextCopy, .settings, .welcome,
+        case .copyScreenText, .library, .openPanel, .toggleCapture, .ignoreNextCopy, .settings,
+            .welcome,
             .privacyCenter, .wrapped, .fixClipboardAccess, .quit:
             title
         }
@@ -93,6 +96,7 @@ enum GanchoMenuBarCommand: String, CaseIterable {
     /// Leading SF Symbol for the row, matching the design's menu icons.
     var iconSymbol: String {
         switch self {
+        case .copyScreenText: "text.viewfinder"
         case .library: "books.vertical"
         case .openPanel: "macwindow"
         case .toggleCapture: "pause"
@@ -111,6 +115,7 @@ enum GanchoMenuBarCommand: String, CaseIterable {
 
     var accessibilityLabel: String {
         switch self {
+        case .copyScreenText: String(localized: "Copy text from screen")
         case .library: String(localized: "Open clipboard library")
         case .openPanel: String(localized: "Open clipboard panel")
         case .toggleCapture: String(localized: "Pause or resume clipboard capture")
@@ -130,7 +135,8 @@ enum GanchoMenuBarCommand: String, CaseIterable {
         case .openPanel: "v"
         case .settings: ","
         case .quit: "q"
-        case .library, .toggleCapture, .togglePrivateMode, .ignoreNextCopy, .welcome,
+        case .copyScreenText, .library, .toggleCapture, .togglePrivateMode, .ignoreNextCopy,
+            .welcome,
             .privacyCenter, .wrapped, .fixClipboardAccess:
             ""
         }
@@ -140,7 +146,8 @@ enum GanchoMenuBarCommand: String, CaseIterable {
         switch self {
         case .openPanel: [.command, .shift]
         case .settings, .quit: [.command]
-        case .library, .toggleCapture, .togglePrivateMode, .ignoreNextCopy, .welcome,
+        case .copyScreenText, .library, .toggleCapture, .togglePrivateMode, .ignoreNextCopy,
+            .welcome,
             .privacyCenter, .wrapped, .fixClipboardAccess:
             []
         }

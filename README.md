@@ -183,6 +183,14 @@ stay in reusable modules.
   line or all of it, edit inline, and save only on request. It works with
   automatic OCR disabled, never copies a recognized secret automatically,
   preserves newer clipboard copies, and never rewrites the source image.
+- Screen-region OCR on macOS (Free, unreleased): press Control–Option–T or
+  choose **Copy text from screen** in the menu, then drag with the hook-and-crosshair
+  cursor. Escape cancels. The shortcut is configurable in Settings. Capture
+  permission is requested only when invoked; each selection stays on the display
+  where its drag began. Non-sensitive results copy as plain text without pasting
+  or saving the capture; recognized secrets require explicit review. **Review**
+  allows editing, copying and explicitly saving a clip;
+  a newer clipboard copy is preserved. See [screen OCR](docs/SCREEN-OCR.md).
 - Apple Intelligence titles (fallback-safe), automatic screenshot OCR (Pro), and semantic
   indexing for grounded Q&A and board suggestions — each behind a per-stage
   toggle on the Intelligence screen.

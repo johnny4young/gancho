@@ -37,6 +37,7 @@
         var savedPreferences: [CapturePreferences] = []
         var savedAutoPauseValues: [Bool] = []
         var screenShareIsActive = false
+        var privateModeEngagedCount = 0
     }
 
     @Suite("Capture lifecycle controller — macOS monitor ownership")
@@ -53,6 +54,7 @@
                 autoPauseOnScreenShare: autoPauseOnScreenShare,
                 screenShareIsActive: { recorder.screenShareIsActive },
                 onPreferencesChanged: { recorder.savedPreferences.append($0) },
+                onPrivateModeEngaged: { recorder.privateModeEngagedCount += 1 },
                 onAutoPauseChanged: { recorder.savedAutoPauseValues.append($0) })
         }
 
@@ -118,6 +120,41 @@
             #expect(controller.preferences.isPrivateModePaused)
             #expect(monitor.preferences.isPrivateModePaused)
             #expect(recorder.savedPreferences == [controller.preferences])
+        }
+
+        /// The teardown hung off this callback cancels in-flight OCR and
+        /// dismisses whatever toast is on screen — including a "Clip deleted —
+        /// Undo" toast and its only affordance. Hung off every preferences
+        /// save instead of the transition, an unrelated Settings toggle would
+        /// silently destroy it.
+        @Test("Private mode engages once on the transition, never on later saves")
+        func privateModeEngagesOnlyOnTheTransition() {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            let controller = makeController(monitor: monitor, recorder: recorder)
+
+            // An unrelated toggle while Private Mode is off: nothing engages.
+            var updated = controller.preferences
+            updated.captureImages = false
+            controller.preferences = updated
+            #expect(recorder.privateModeEngagedCount == 0)
+
+            controller.togglePrivateMode()
+            #expect(recorder.privateModeEngagedCount == 1)
+
+            // An unrelated toggle while Private Mode is already ON must not
+            // re-engage, though it does still save.
+            updated = controller.preferences
+            updated.captureFileReferences = false
+            controller.preferences = updated
+            #expect(recorder.privateModeEngagedCount == 1)
+            #expect(recorder.savedPreferences.count == 3)
+
+            // Leaving and re-entering engages again, once.
+            controller.togglePrivateMode()
+            #expect(recorder.privateModeEngagedCount == 1)
+            controller.togglePrivateMode()
+            #expect(recorder.privateModeEngagedCount == 2)
         }
 
         @Test("Screen-share pause follows detection and the user opt-out")
