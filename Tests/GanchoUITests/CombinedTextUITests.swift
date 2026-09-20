@@ -9,7 +9,7 @@ final class CombinedTextUITests: XCTestCase {
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
             "-seed-source-apps", "-force-free-tier", "-start-capture-paused",
             "-opaque-panel-for-ui-test", "-suppress-storage-notice-for-ui-test",
-            "-ui-test-paste-sink", "copiedOnly", "-AppleLanguages", "(en)",
+            "-ui-test-paste-sink", "copy-only", "-AppleLanguages", "(en)",
             "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.combined.\(UUID())"
         ]
         app.launch()
@@ -17,7 +17,11 @@ final class CombinedTextUITests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         defer { app.terminate() }
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 15))
+        // The seed inserts its three clips from a fire-and-forget task, so the
+        // first row can exist while the rest are still landing. Wait for the
+        // last seeded row before snapshotting the count this test compares
+        // against later, or the snapshot races the seed.
+        XCTAssertTrue(rows.element(boundBy: 2).waitForExistence(timeout: 15))
         let count = rows.count
         XCTAssertGreaterThanOrEqual(count, 3)
         try SynthesizedInput.requireForeground(app)

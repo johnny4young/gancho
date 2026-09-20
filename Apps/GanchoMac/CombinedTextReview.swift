@@ -29,7 +29,12 @@ struct CombinedTextReview: View {
     private var composed: String? { try? service.compose(parts, separator: separator) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        // Joined once per render: `composed` walks and concatenates every part
+        // (up to 1 MiB), and the preview, the error condition and the Copy
+        // button all need it — reading the property three times joined it
+        // three times on every keystroke of the custom separator.
+        let combined = composed
+        return VStack(alignment: .leading, spacing: 12) {
             Text("Copy combined text").font(.headline)
             Text("Up to 100 clips and 1 MiB. Nothing is saved or pasted automatically.").font(
                 .caption)
@@ -71,11 +76,16 @@ struct CombinedTextReview: View {
                 // the context menu a second clipboard-write path that skips the
                 // revalidation and the self-write marker the Copy button goes
                 // through. The one way out of this sheet is that button.
-                Text(verbatim: composed ?? "").textSelection(.disabled).frame(
+                Text(verbatim: combined ?? "").textSelection(.disabled).frame(
                     maxWidth: .infinity, alignment: .leading)
             }
-            .frame(minHeight: 100).accessibilityIdentifier("combined-text-preview")
-            if failed || composed == nil && !loading {
+            .frame(minHeight: 100)
+            // Contain first: an identifier on a plain container propagates to
+            // every descendant and would overwrite the preview text's own
+            // element identity.
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("combined-text-preview")
+            if failed || combined == nil && !loading {
                 Text("Remove unavailable or incompatible clips, or reduce the combined size.")
                     .foregroundStyle(.red)
             }
@@ -88,7 +98,7 @@ struct CombinedTextReview: View {
                     .accessibilityIdentifier("combined-text-cancel")
                 Spacer()
                 Button("Copy") { copy() }.keyboardShortcut(.defaultAction)
-                    .disabled(loading || composed == nil || copyTask != nil)
+                    .disabled(loading || combined == nil || copyTask != nil)
                     .accessibilityIdentifier("combined-text-copy")
             }
         }.padding(20).frame(width: 540, height: 470)
@@ -141,7 +151,16 @@ struct CombinedTextReview: View {
     }
 
     private func copy() {
-        guard let store = model.fullStore else { return }
+        guard let store = model.fullStore else {
+            // Silently doing nothing on a click leaves the user pressing an
+            // enabled button; say it failed like every other refusal does.
+            failed = true
+            return
+        }
+        // A new attempt owns its own outcome: leaving the previous banner up
+        // tells the user to fix something they may already have fixed.
+        failed = false
+        changed = false
         let expected = parts
         let separator = separator
         let revision = NSPasteboard.general.changeCount
