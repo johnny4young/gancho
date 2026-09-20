@@ -1,9 +1,10 @@
 # Gancho — Threat Model & Data-Flow Privacy Spec
 
-The promise: clipboard content lives on the user's devices (and, when THEY
-enable sync, in THEIR iCloud private database). Nothing else, ever. This
-document is the engineering contract behind that promise; the Privacy
-Center, App Store privacy labels, and support answers all derive from it.
+Gancho keeps capture and recognition local, with optional sync to the user's
+private iCloud database. Explicit exports, paste-back and authorized local-agent
+access can deliver content outside Gancho; those recipients have their own
+retention and network behavior. This document defines the app's boundaries,
+not a guarantee about what an authorized destination does afterwards.
 
 ## Data flow (content vs metadata)
 
@@ -15,17 +16,25 @@ flowchart LR
     C --> D[Classify + sensitive scan\non-device, in-process]
     D --> E[(SQLite + disk blobs\nlocal, user's account)]
     E --> F[FTS index\nlocal]
-    E -->|user-enabled, E2E encrypted| G[(User's iCloud\nprivate DB)]
+    E -->|user-enabled; field/asset protections below| G[(User's iCloud\nprivate DB)]
     E --> H[Paste-back\nwrites pasteboard + self marker]
     E --> I[Export\nuser-initiated file]
-    E -.->|CONTENT NEVER| T[Optional telemetry / crash logs /\nsupport bundles / third parties]
+    E -->|curated, opt-in| S[Local Spotlight index]
+    E -->|explicit scoped grant| M[Local MCP client]
+    E -.->|CONTENT NEVER| T[Optional telemetry / crash logs /\nsupport bundles]
 ```
 
-Content exists in exactly five places: the pasteboard itself, the local
-store (rows + content-addressed blobs), the App Group share inbox on iOS, the
-user's iCloud private database (opt-in, `encryptedValues`), and user-initiated
-exports. The inbox is the short-lived handoff from the share extension to the
-app — the extension cannot open the store, so it seals each capture with the
+Primary storage and delivery locations are the pasteboard, the encrypted local
+store (rows and content-addressed blobs), the sealed iOS share inbox, optional
+private iCloud records, and user-chosen exports. Recognition/review also holds
+transient content in process memory; sync asset staging uses lifecycle-bounded
+files as described below. Opt-in Spotlight stores sanitized titles/previews of
+eligible curated clips in the local system index, not raw history. A scoped MCP
+grant permits eligible content to be read by the authorized local client;
+Gancho cannot retract bytes already delivered to that client.
+
+The inbox is the short-lived handoff from the share extension to the app. That
+extension uses the inbox rather than opening the store; it seals captures with the
 same content key (`StoreContentKey` → `SealedEnvelope`) and the app unseals it
 on the next drain. Without that key the extension refuses to deposit rather
 than writing plaintext. Everything else —
@@ -97,7 +106,7 @@ would mean introducing a NEW field and migrating writers, never converting.
 | Secrets copied by accident | on-device detector → masked stored preview + 10-min expiry | 28-pattern suite |
 | Screen sharing exposing the panel | private mode + share auto-pause (no `NSWindow.sharingType` — breaks DisplayPort, Maccy #1136) | unit tests on the pause path |
 | Content leaking into logs/crashes | NO logging APIs in engine modules; debug prints content-free | automated source sweep (`NoContentLoggingTests`) |
-| Extensions corrupting/duplicating the store | extensions never open SQLite; file-inbox handoff, app-side dedupe | inbox unit tests, WAL cross-process test |
+| Extensions corrupting/duplicating the store | the share extension uses a sealed inbox; keyboard and App Intent entry points can open the shared encrypted store through `IntentStore`. Cross-process database coordination and app-side dedupe remain required | inbox unit tests, WAL cross-process test |
 | Sync conflicts duplicating or resurrecting clips | hash+device dedupe key, last-writer-wins, tombstones | store tests; on-device verification checklist for the live path |
 | External AI seeing clips | tier 0/1 are fully on-device; tier 2 (PCC/external) is per-action opt-in, off by default | architecture boundary (`ClipAnnotating`) |
 | Exports grabbed by other software | exports are explicit user actions to user-chosen paths; no auto-export | settings/export code path |

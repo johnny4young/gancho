@@ -18,7 +18,8 @@ link instead of failing silently.
 
 ## Requirements
 
-- The `gancho` CLI (installed with the app, or `brew install gancho`).
+- The `gancho` CLI bundled with the Mac app. For Homebrew, follow the
+  published cask instructions in [the integration guide](../../docs/INTEGRATIONS.md#distribution-status).
 - Point the extension at a non-default binary with the **`gancho.path`**
   setting if needed.
 
@@ -35,5 +36,5 @@ package a `.vsix` with `npx @vscode/vsce package`.
 ## Publishing
 
 Marketplace publishing is owner-gated: it needs a `vsce` publisher account and
-`npx @vscode/vsce publish`. The `publisher` field in `package.json` is a
-placeholder until then.
+`npx @vscode/vsce publish`. The `publisher` field is `johnny4young`; that identifier alone is not proof
+that an extension is available in the Marketplace.

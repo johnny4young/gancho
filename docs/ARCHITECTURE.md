@@ -71,6 +71,12 @@ Persistence and sync implementations
   └─ future LAN / self-hosted / non-Apple transports behind SyncEngine
 ```
 
+The intended AppCore framework boundary above has a current exception:
+`DeviceProvenance` reads `UIDevice.current.name` through a conditional UIKit
+import. `CoreSpotlightIndexer` is also a platform adapter in this target. These
+are not permission for feature controllers to import UI frameworks; platform
+reads should be injected from the shells when those seams are refactored.
+
 App targets stay thin. If feature logic cannot be tested from a SwiftPM target,
 it probably lives in the wrong layer.
 
@@ -231,7 +237,7 @@ policy. Keychain replacement updates the existing record in place so a failed
 write cannot delete the last confirmed entitlement before its replacement is
 durable.
 
-Database internals are split by stable responsibility rather than hidden behind a generic repository. `GanchoDatabaseMigrator` is the only ordered registry for the append-only v1–v20 migration identifiers; feature-owned migration bodies can remain beside their feature but must source their identifier from that registry. `ClipRow` and `PinboardRow` are focused internal domain mappings, while `GRDBClipboardStore` owns the database handle and query/write behavior. `DatabaseMigrationTests` freezes the identifier sequence, upgrades plaintext and SQLCipher fixtures from v1, v8, and v16, and proves a failed DDL migration rolls back before a clean resume.
+Database internals are split by stable responsibility rather than hidden behind a generic repository. `GanchoDatabaseMigrator` is the only ordered registry for the append-only migration identifiers; feature-owned migration bodies can remain beside their feature but must source their identifier from that registry. `ClipRow` and `PinboardRow` are focused internal domain mappings, while `GRDBClipboardStore` owns the database handle and query/write behavior. `DatabaseMigrationTests` freezes the identifier sequence, upgrades plaintext and SQLCipher fixtures from v1, v8, and v16, and proves a failed DDL migration rolls back before a clean resume.
 
 ## Privacy invariants
 

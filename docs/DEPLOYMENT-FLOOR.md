@@ -1,11 +1,10 @@
 # Deployment floor — minimum OS
 
 Gancho's source floor is `macOS 15.4 / iOS 26` (`Packages/GanchoKit/Package.swift`
-and `project.yml`). The macOS floor dropped from 26 to 15.4 in August 2026
-after a measured probe showed the entire package stack and every macOS app
-shell compile at 15.4 with a small set of availability gates. v0.8.3 is the first
-Sequoia-validated release, so the published direct download and the website
-now advertise this same floor.
+and `project.yml`). The published v0.8.2 direct download still requires macOS 26.
+The lower source floor is not a claim that a Sequoia-validated release is
+available. The next candidate must pass the oldest-supported-runtime matrix
+before the download site advertises macOS 15.4 support.
 
 ## How the floor is enforced
 

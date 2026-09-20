@@ -7,6 +7,24 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-09-20
+
+### Security
+
+- Activating or re-validating a direct-download license now requires Lemon
+  Squeezy's answer to name the live Gancho Pro store and product and to not be
+  a test-mode key. The public License API accepts keys from every Lemon
+  Squeezy store, so a merely-valid key for someone else's product could
+  previously have unlocked Pro. An answer that names no store at all still
+  never revokes an existing activation — only an explicit answer can.
+- On iPhone and iPad, clips you share into Gancho from another app are now
+  sealed with the key that encrypts your history while they wait in the shared
+  container for Gancho to pick them up. They previously sat there as plaintext
+  until the app next came to the foreground. If that key cannot be read, the
+  share fails with an error haptic instead of falling back to plaintext, and a
+  queued share that cannot be read yet is kept for the next pickup instead of
+  being discarded.
+
 ### Added
 
 - Copy text from a selected screen region with a configurable shortcut, a
@@ -35,34 +53,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Translate chip renders the translation beside the original with Copy and
   Paste. Nothing appears for a recognized secret.
 
-### Fixed
-
-- The history panel's glass now fills its window edge to edge, so no outline shows
-  around it, and the shortcut card, board picker and consent prompt dim only the
-  panel instead of revealing the window's transparent shell.
-- Sensitive clip cards now mask titles and thumbnails as well as text previews.
-
-## [0.8.3] - 2026-09-12
-
-### Security
-
-- Activating or re-validating a direct-download license now requires Lemon
-  Squeezy's answer to name the live Gancho Pro store and product and to not be
-  a test-mode key. The public License API accepts keys from every Lemon
-  Squeezy store, so a merely-valid key for someone else's product could
-  previously have unlocked Pro. An answer that names no store at all still
-  never revokes an existing activation — only an explicit answer can.
-- On iPhone and iPad, clips you share into Gancho from another app are now
-  sealed with the key that encrypts your history while they wait in the shared
-  container for Gancho to pick them up. They previously sat there as plaintext
-  until the app next came to the foreground. If that key cannot be read, the
-  share fails with an error haptic instead of falling back to plaintext, and a
-  queued share that cannot be read yet is kept for the next pickup instead of
-  being discarded.
-
-### Added
-
-- **Gancho now runs on macOS 15.4 (Sequoia).** The Foundation Models tier
+- **The source now targets macOS 15.4 (Sequoia).** The Foundation Models tier
   requires macOS 26: below it, clip titles fall back to the deterministic
   heuristics, while model-backed Smart Paste rewrites, Translate, and Ask
   your clipboard are unavailable — exactly as when Apple Intelligence is
@@ -70,7 +61,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Intelligence screen states the OS requirement explicitly, and the interface
   uses an opaque material where Liquid Glass does not exist. Capture,
   encrypted history, search (exact, fuzzy, regex, and semantic), boards,
-  retention, sync, Pro, and updates all run fully on Sequoia.
+  retention, sync, Pro, and updates target Sequoia; real oldest-runtime and
+  cross-device acceptance remain pending after publication.
 - **Clips remember which device they were copied on.** Every new capture is
   stamped with the capturing device's name (as the OS reports it), the name
   travels with the clip when sync is enabled, and the iOS clip detail shows
@@ -123,6 +115,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   refused request.
 
 ### Fixed
+
+- The history panel's glass now fills its window edge to edge, so no outline shows
+  around it, and the shortcut card, board picker and consent prompt dim only the
+  panel instead of revealing the window's transparent shell.
+- Sensitive clip cards now mask titles and thumbnails as well as text previews.
+- Combined-text review avoids repeated composition, and MCP content tools and
+  search exclude intrinsically masked clips even when an optional flag is absent.
+- iOS capture status distinguishes saved, limit and failure outcomes, and its
+  system paste control remains accessible to the hosted UI runner.
 
 - A Lemon Squeezy outage, rate limit, or gateway error can no longer revoke an
   activated license: only a decodable answer that explicitly denies the key

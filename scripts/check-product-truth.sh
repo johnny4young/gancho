@@ -36,11 +36,16 @@ forbid_regex() {
 
 require_literal project.yml 'macOS: "15.4"'
 require_literal project.yml 'iOS: "26.0"'
-# The website deploys on every site/** push and advertises the RELEASED
-# artifact (the download button serves the latest published DMG), so its
-# floor chip advertises the RELEASED floor. v0.8.3 is the first
-# Sequoia-validated build, so the chip now matches the source floor.
-require_literal_count site/index.html 'macOS 15.4+ · iOS 26+' 2
+# Publication is independent of MARKETING_VERSION. The README names the verified
+# public tag; its retained release notes define that download's supported floor.
+published_version="$(sed -nE 's/^\*\*Status: public v([0-9]+\.[0-9]+\.[0-9]+);.*/\1/p' README.md)"
+[[ -n "$published_version" ]] || fail "README must name the verified published version"
+published_notes="docs/releases/v${published_version}.md"
+[[ -f "$published_notes" ]] || fail "published release notes are missing"
+published_floor="$(sed -nE 's/^Gancho requires macOS ([0-9.]+) or later.*/\1/p' "$published_notes")"
+[[ -n "$published_floor" ]] || fail "published release notes must state their macOS floor"
+require_literal_count site/index.html "macOS ${published_floor}+ · iOS 26+" 2
+require_literal docs/PRODUCT-TRUTH.md "GitHub release \`v${published_version}\`"
 require_literal README.md 'eight library products + a CLI'
 require_literal README.md 'disabled until explicit consent'
 require_literal README.md 'short-prefix indexes'
@@ -62,21 +67,23 @@ marketing_version="$({
 	grep -E '^[[:space:]]*MARKETING_VERSION:' project.yml | head -1
 } | sed -E 's/.*"?([0-9]+\.[0-9]+\.[0-9]+)"?.*/\1/')"
 [[ -n "$marketing_version" ]] || fail "could not read MARKETING_VERSION"
-release_series="${marketing_version%.*}"
-require_literal README.md "**Status: public v${marketing_version},"
-require_literal README.md "v${marketing_version} DMG"
-require_literal README.md "- [What's new in ${release_series}](#whats-new-in-${release_series//./})"
-require_literal README.md "## What's new in ${release_series}"
+release_series="${published_version%.*}"
+require_literal README.md "**Source version: v${marketing_version}"
 require_literal docs/PRODUCT-TRUTH.md "v${marketing_version}"
 require_literal site/index.html "v${marketing_version}"
-require_literal site/index.html "data-i18n=\"rel.kicker\">Nuevo en ${release_series}"
-require_literal site/index.html "\"rel.kicker\": \"New in ${release_series}\""
+if [[ "$published_version" != "$marketing_version" ]]; then
+	require_literal README.md "(unreleased)"
+	require_literal "docs/releases/v${marketing_version}.md" '## Release verification'
+	require_literal site/index.html "data-i18n=\"rel.kicker\">En preparación · v${marketing_version}"
+	require_literal site/index.html "\"rel.kicker\": \"In preparation · v${marketing_version}\""
+	forbid_regex README.md "published v${marketing_version//./\\.} DMG"
+fi
 require_literal site/index.html "data-i18n=\"hero.badge\">Privado por diseño · versión pública ${release_series}"
 require_literal site/index.html "\"hero.badge\": \"Private by design · public v${release_series}\""
 require_literal site/index.html "Código abierto bajo licencia MIT · versión pública ${release_series}."
 require_literal site/index.html "Open source under the MIT license · public v${release_series}."
-require_literal site/index.html "data-i18n=\"pro.free\">El DMG v${release_series} "
-require_literal site/index.html "\"pro.free\": \"The v${release_series} DMG "
+require_literal site/index.html "data-i18n=\"pro.free\">El DMG v${published_version} "
+require_literal site/index.html "\"pro.free\": \"The v${published_version} DMG "
 
 forbid_regex README.md 'seven library products'
 forbid_regex README.md 'Status:.*pre-release'

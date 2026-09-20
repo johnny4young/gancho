@@ -15,5 +15,5 @@
 - [ ] `make format` and `make lint` pass
 - [ ] `make test` passes
 - [ ] Conventional Commit message (no AI co-authorship / "generated-by" trailers)
-- [ ] No clipboard content in logs, tests, or fixtures
+- [ ] No real clipboard content in logs, tests, or fixtures; test data is synthetic
 - [ ] Docs / CHANGELOG updated if behavior changed
