@@ -4,14 +4,26 @@ import XCTest
 final class CombinedTextUITests: XCTestCase {
     @MainActor
     func testReviewCancelAndCopyDoNotCreateClips() throws {
+        try review(extraArguments: [], customSeparator: false)
+    }
+
+    @MainActor
+    func testLargeTextWithCustomSeparatorKeepsActionsVisible() throws {
+        try review(extraArguments: ["-panel-text-size", "large"], customSeparator: true)
+    }
+
+    @MainActor
+    private func review(extraArguments: [String], customSeparator: Bool) throws {
         let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
             "-seed-source-apps", "-force-free-tier", "-start-capture-paused",
-            "-opaque-panel-for-ui-test", "-suppress-storage-notice-for-ui-test",
+            "-place-panel-for-ui-test", "-opaque-panel-for-ui-test",
+            "-suppress-storage-notice-for-ui-test",
             "-ui-test-paste-sink", "copy-only", "-AppleLanguages", "(en)",
             "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.combined.\(UUID())"
         ]
+        app.launchArguments += extraArguments
         app.launch()
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
@@ -39,6 +51,9 @@ final class CombinedTextUITests: XCTestCase {
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
         let expectedText = "Xcode source sample\n\nSafari source alpha"
         XCTAssertTrue(preview.staticTexts[expectedText].waitForExistence(timeout: 5))
+        XCTAssertEqual(
+            app.descendants(matching: .any).matching(identifier: "combined-text-preview").count, 1,
+            "The preview identifier must belong to one container, not its descendants")
         let copy = app.buttons["combined-text-copy"]
         XCTAssertTrue(copy.waitForHittable(timeout: 5))
         XCTAssertTrue(copy.isEnabled)
@@ -56,6 +71,7 @@ final class CombinedTextUITests: XCTestCase {
         XCTAssertTrue(preview.staticTexts[expectedText].waitForExistence(timeout: 5))
         XCTAssertTrue(copy.waitForHittable(timeout: 5))
         XCTAssertTrue(copy.isEnabled)
+        if customSeparator { try verifyCustomSeparator(in: app, preview: preview, copy: copy) }
         let attachment = XCTAttachment(
             screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
         attachment.name = "Combined text review — synthetic source clips"
@@ -65,4 +81,23 @@ final class CombinedTextUITests: XCTestCase {
         XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
         XCTAssertEqual(rows.count, count)
     }
+
+    @MainActor
+    private func verifyCustomSeparator(
+        in app: XCUIApplication, preview: XCUIElement, copy: XCUIElement
+    ) throws {
+        XCTAssertEqual(app.dialogs["history-panel"].firstMatch.value as? String, "large")
+        app.popUpButtons["combined-text-separator"].click()
+        app.menuItems["Custom"].click()
+        let separator = app.textFields["combined-text-custom-separator"]
+        XCTAssertTrue(separator.waitForHittable(timeout: 5))
+        separator.click()
+        separator.typeText(" | ")
+        XCTAssertTrue(
+            preview.staticTexts["Xcode source sample | Safari source alpha"]
+                .waitForExistence(timeout: 5))
+        XCTAssertTrue(copy.isHittable)
+        XCTAssertTrue(app.buttons["combined-text-cancel"].isHittable)
+    }
+
 }

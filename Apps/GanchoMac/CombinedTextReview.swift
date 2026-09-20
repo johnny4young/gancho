@@ -68,8 +68,10 @@ struct CombinedTextReview: View {
                 Text("Blank line").tag(1)
                 Text("Custom").tag(2)
             }.disabled(copyTask != nil)
+                .accessibilityIdentifier("combined-text-separator")
             if separatorChoice == 2 {
                 TextField("Custom separator", text: $customSeparator).disabled(copyTask != nil)
+                    .accessibilityIdentifier("combined-text-custom-separator")
             }
             ScrollView {
                 // Read-only on purpose: a selectable preview would give ⌘C and

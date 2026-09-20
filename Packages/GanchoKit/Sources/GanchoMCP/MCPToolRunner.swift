@@ -95,6 +95,11 @@ public struct MCPToolRunner: Sendable {
         }
     }
 
+    // Apply the intrinsic-kind veto before LIMIT as well as at the return
+    // boundary, so masked matches cannot crowd safe results out of a search.
+    private static let unmaskedKinds = Set(
+        ClipContentKind.allCases.filter { !$0.prefersMaskedPreview })
+
     // MARK: - Tools
 
     private func searchClips(
@@ -106,11 +111,12 @@ public struct MCPToolRunner: Sendable {
                 var query = ClipSearchQuery(
                     text: args.query,
                     mode: Self.mode(args.mode),
+                    kinds: Self.unmaskedKinds,
                     markedOnly: grant.scope == .boards,
                     excludesSensitive: true)
                 query.markedOnly = grant.scope == .boards
                 var hits = try await store.search(query, limit: min(max(args.limit ?? 25, 1), 100))
-                hits.removeAll(where: { $0.isSensitive })
+                hits.removeAll(where: ClipSafePresentation.requiresMasking)
                 let summaries = hits.map(ClipSummary.init)
                 await record(.searchClips, grant: grant, count: summaries.count)
                 return ok(
@@ -126,6 +132,7 @@ public struct MCPToolRunner: Sendable {
         var query = ClipSearchQuery(
             text: args.query,
             mode: Self.mode(args.mode),
+            kinds: Self.unmaskedKinds,
             dateRange: pack.timeScope.lowerBound(relativeTo: currentTime).map { $0...currentTime },
             boardID: pack.boardID,
             markedOnly: grant.scope == .boards,
@@ -137,7 +144,8 @@ public struct MCPToolRunner: Sendable {
 
         var hits = try await store.search(query, limit: limit)
         hits.removeAll { item in
-            item.isSensitive || (!pack.clipIDs.isEmpty && !pack.clipIDs.contains(item.id))
+            ClipSafePresentation.requiresMasking(item)
+                || (!pack.clipIDs.isEmpty && !pack.clipIDs.contains(item.id))
         }
 
         let summaries = hits.map(ClipSummary.init)
@@ -159,7 +167,7 @@ public struct MCPToolRunner: Sendable {
             await record(.getClip, grant: grant, denial: .outsideContext)
             return MCPToolResult(text: "No clip with that id.", isError: true)
         }
-        if item.isSensitive {
+        if ClipSafePresentation.requiresMasking(item) {
             await record(.getClip, grant: grant, denial: .sensitive)
             return MCPToolResult(
                 text: "Clip is sensitive and cannot be read over MCP.", isError: true)
@@ -197,7 +205,7 @@ public struct MCPToolRunner: Sendable {
             await record(.createPin, grant: grant, denial: .outsideContext)
             return MCPToolResult(text: "No clip with that id.", isError: true)
         }
-        if item.isSensitive {
+        if ClipSafePresentation.requiresMasking(item) {
             await record(.createPin, grant: grant, denial: .sensitive)
             return MCPToolResult(text: "Sensitive clips cannot be pinned over MCP.", isError: true)
         }
@@ -268,7 +276,7 @@ public struct MCPToolRunner: Sendable {
             // so out-of-context and sensitive are never distinguishable if a
             // future change ever surfaces a per-item reason here.
             if !(try await isInsideContext(item, grant: grant)) { continue }
-            if item.isSensitive { continue }
+            if ClipSafePresentation.requiresMasking(item) { continue }
             if grant.scope == .boards, !(try await isMarked(item)) { continue }
             guard let body = try await contentText(for: id) else { continue }
             clips.append(StackClip(id: raw, title: item.title, text: body))
