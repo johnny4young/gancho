@@ -14,6 +14,10 @@ struct ManualOCRReview: View {
     /// cannot help, so the buttons go away and the draft is kept on screen for
     /// the user to salvage by hand.
     @State private var sourceGone = false
+    /// Which source vanished, captured before `cancel()` clears `itemID`.
+    /// Screen OCR has no clip, so the clip wording would name something the
+    /// user never had.
+    @State private var sourceWasClip = true
     @State private var clipboardChanged = false
     @State private var actionTask: Task<Void, Never>?
 
@@ -48,7 +52,9 @@ struct ManualOCRReview: View {
             }
             if sourceGone {
                 Text(
-                    "The source clip is no longer available. Copy the text you need before closing."
+                    sourceWasClip
+                        ? "The source clip is no longer available. Copy the text you need before closing."
+                        : "The screen region is no longer available. Copy the text you need before closing."
                 )
                 .foregroundStyle(.red).accessibilityIdentifier("ocr-review-error")
             } else if failed {
@@ -135,6 +141,8 @@ struct ManualOCRReview: View {
     /// of a result that was never written anywhere, and clearing it leaves an
     /// empty editor under a message telling them to try again with nothing.
     private func rejectSource() {
+        // Read the source kind BEFORE cancelling: `cancel()` clears `itemID`.
+        sourceWasClip = model.manualOCR.itemID != nil
         model.manualOCR.cancel()
         sourceGone = true
     }

@@ -3,7 +3,7 @@ import Testing
 
 @testable import GanchoAppCore
 
-@Suite("Store change bus — content-free mutation fan-out")
+@Suite("Store change bus — content-free mutation fan-out", .timeLimit(.minutes(1)))
 struct StoreChangeBusTests {
     @Test("One subscriber receives every posted change in order")
     func singleSubscriberInOrder() async {

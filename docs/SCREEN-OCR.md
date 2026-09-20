@@ -47,9 +47,16 @@ the previous clipboard content remains intact.
 
 ## Verification boundary
 
-Unit tests cover coordinate conversion, clipping, authorization decisions,
-request cancellation and clipboard conflicts. UI tests cover the selector,
-purpose cancellation, review and permission-denied behavior with isolated data.
+Unit tests cover coordinate conversion and confinement to the starting
+display, authorization decisions, acquisition cancellation (including Private
+Mode engaging mid-selection) and clipboard conflicts. UI tests cover the
+selector, purpose cancellation, review, the Private Mode refusal and
+permission-denied behavior with isolated data.
+
+Not unit-tested: request supersession and the window hide/restore in
+`ScreenTextWorkflow`. That type lives in the app target and owns AppKit
+windows, so only the UI tests exercise it, and only end to end.
+
 Those tests do not substitute for real OS permission changes, compositor/focus
 behavior or Retina/non-Retina and multimonitor capture checks. Record those
 separately before describing a build as fully validated.

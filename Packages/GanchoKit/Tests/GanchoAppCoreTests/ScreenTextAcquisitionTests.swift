@@ -4,7 +4,7 @@ import Testing
 
 @testable import GanchoAppCore
 
-@Suite("Screen OCR acquisition privacy")
+@Suite("Screen OCR acquisition privacy", .timeLimit(.minutes(1)))
 @MainActor struct ScreenTextAcquisitionTests {
     @Test func allowedSelectionCapturesOnlyItsRegion() async throws {
         let probe = Probe()
@@ -31,20 +31,22 @@ import Testing
         #expect(probe.regions.isEmpty)
     }
 
-    @Test func privateModeDuringSelectionPreventsCaptureWithoutRelyingOnCancellation() async {
+    @Test func privateModeDuringSelectionPreventsCaptureWithoutRelyingOnCancellation()
+        async throws
+    {
         let probe = Probe()
         let task = probe.start()
-        await probe.waitForSelection()
+        try await probe.waitForSelection()
         probe.allowed = false
         probe.finishSelection()
         await expectCancelled(task)
         #expect(probe.regions.isEmpty)
     }
 
-    @Test func cancellingOnPrivateModeCannotBeUndoneByResumingCapture() async {
+    @Test func cancellingOnPrivateModeCannotBeUndoneByResumingCapture() async throws {
         let probe = Probe()
         let task = probe.start()
-        await probe.waitForSelection()
+        try await probe.waitForSelection()
         probe.allowed = false
         task.cancel()
         probe.allowed = true
@@ -109,8 +111,16 @@ import Testing
             }
         }
 
-        func waitForSelection() async {
-            while selection == nil { await Task.yield() }
+        /// Bounded on purpose. An unbounded spin turns a regression that
+        /// stops the selector from ever being reached — an eligibility check
+        /// moved ahead of `select()`, say — into a test that hangs the main
+        /// actor instead of reporting it.
+        func waitForSelection() async throws {
+            let deadline = ContinuousClock.now + .seconds(5)
+            while selection == nil {
+                guard ContinuousClock.now < deadline else { throw SelectorNeverReached() }
+                await Task.yield()
+            }
         }
 
         func finishSelection() {
@@ -123,4 +133,6 @@ import Testing
             return Data([1])
         }
     }
+
+    private struct SelectorNeverReached: Error {}
 }

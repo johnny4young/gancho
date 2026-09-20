@@ -36,6 +36,13 @@
             didSet {
                 monitor.preferences = preferences
                 onPreferencesChanged(preferences)
+                // The TRANSITION, not the current value: every Settings toggle
+                // lands in this didSet, and work that tears down in-flight
+                // state must not run again each time Private Mode merely
+                // happens to be on.
+                if preferences.isPrivateModePaused, !oldValue.isPrivateModePaused {
+                    onPrivateModeEngaged()
+                }
             }
         }
 
@@ -47,6 +54,10 @@
         @ObservationIgnored private let screenShareIsActive: @MainActor () -> Bool
         @ObservationIgnored private let onPreferencesChanged:
             @MainActor (CapturePreferences) -> Void
+        /// Fired only as Private Mode goes off → on, for work that tears down
+        /// what is already in flight. `onPreferencesChanged` fires on every
+        /// save and is the wrong place for it.
+        @ObservationIgnored private let onPrivateModeEngaged: @MainActor () -> Void
         @ObservationIgnored private let onAutoPauseChanged: @MainActor (Bool) -> Void
         @ObservationIgnored private var statusTimer: Timer?
         @ObservationIgnored private var screenShareTimer: Timer?
@@ -57,6 +68,7 @@
             autoPauseOnScreenShare: Bool,
             screenShareIsActive: @escaping @MainActor () -> Bool,
             onPreferencesChanged: @escaping @MainActor (CapturePreferences) -> Void = { _ in },
+            onPrivateModeEngaged: @escaping @MainActor () -> Void = {},
             onAutoPauseChanged: @escaping @MainActor (Bool) -> Void = { _ in }
         ) {
             self.monitor = monitor
@@ -64,6 +76,7 @@
             self.autoPauseOnScreenShare = autoPauseOnScreenShare
             self.screenShareIsActive = screenShareIsActive
             self.onPreferencesChanged = onPreferencesChanged
+            self.onPrivateModeEngaged = onPrivateModeEngaged
             self.onAutoPauseChanged = onAutoPauseChanged
             status = monitor.status
             monitor.preferences = preferences

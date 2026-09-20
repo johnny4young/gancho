@@ -461,10 +461,15 @@ final class AppModel {
             screenShareIsActive: { screenShareDetector.isScreenSharePresumed() },
             onPreferencesChanged: { preferences in
                 preferences.save(to: appDefaults)
-                guard preferences.isPrivateModePaused else { return }
-                // All entry points (Settings, menu and shortcut) use this
+            },
+            onPrivateModeEngaged: {
+                // All entry points (Settings, menu and shortcut) reach this
                 // callback. Cancelling here also prevents pause/resume from
-                // reviving a selection or recognition already in flight.
+                // reviving a selection or recognition already in flight. It
+                // fires on the off → on TRANSITION only: hung off every
+                // preferences save, flipping an unrelated capture toggle with
+                // Private Mode already on would tear down in-flight OCR and
+                // dismiss a visible toast along with its only affordance.
                 screenTextWorkflow.cancel()
                 manualOCR.cancel()
                 toasts.dismiss()
@@ -508,6 +513,17 @@ final class AppModel {
         let launchRetentionPass = scheduleRetention(after: expiredSensitiveSeed)
         scheduleSyncPoll()
         panel.attach(model: self)
+        // The panel is `panel`'s to show, not AppKit's: brought back with a
+        // bare order it is never key, so it can never resign key and its
+        // auto-hide-on-focus-loss stays dead. See `ScreenTextWorkflow`.
+        screenTextWorkflow.restoreWindow = { [weak self] window in
+            guard let self else { return }
+            guard panel.isPanelWindow(window) else {
+                window.orderFrontRegardless()
+                return
+            }
+            panel.show(model: self)
+        }
         // Intents resolve the SAME model instance the UI uses.
         AppDependencyManager.shared.add(dependency: self)
         KeyboardShortcuts.onKeyUp(for: .togglePrivateMode) { [weak self] in

@@ -8819,6 +8819,36 @@
           }
         }
       }
+    },
+    "Private Mode is on. Turn it off to copy text from the screen.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El Modo Privado está activo. Desactívalo para copiar texto de la pantalla."
+          }
+        }
+      }
+    },
+    "That screen region is no longer available. Select it again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esa región de la pantalla ya no está disponible. Selecciónala de nuevo."
+          }
+        }
+      }
+    },
+    "The screen region is no longer available. Copy the text you need before closing.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La región de la pantalla ya no está disponible. Copia el texto que necesites antes de cerrar."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

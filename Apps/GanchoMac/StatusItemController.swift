@@ -181,7 +181,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         addCommand(.library)
         addCommand(.openPanel)
-        addCommand(.copyScreenText)
+        addCommand(.copyScreenText, isEnabled: model.canCopyScreenText)
         addCommand(
             .toggleCapture,
             title: GanchoMenuBarCommand.toggleCapture.title(
@@ -206,7 +206,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func addCommand(
         _ command: GanchoMenuBarCommand,
         title: String? = nil,
-        state: NSControl.StateValue = .off
+        state: NSControl.StateValue = .off,
+        isEnabled: Bool = true
     ) {
         let item = NSMenuItem(
             title: title ?? command.title,
@@ -216,6 +217,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         item.keyEquivalentModifierMask = command.modifiers
         item.representedObject = command.rawValue
         item.state = state
+        // The menu sets `autoenablesItems = false`, so an item that cannot act
+        // stays clickable unless it is disabled here.
+        item.isEnabled = isEnabled
         item.setAccessibilityIdentifier(command.accessibilityIdentifier)
         item.setAccessibilityLabel(command.accessibilityLabel)
         menu.addItem(item)

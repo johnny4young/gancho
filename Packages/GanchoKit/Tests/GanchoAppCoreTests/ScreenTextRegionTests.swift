@@ -24,7 +24,7 @@ struct ScreenTextRegionTests {
     }
 
     @Test("Drag cannot leave its starting display; clicks and tiny regions cancel")
-    func clampAndCancel() {
+    func confinementAndCancel() {
         let display = CGRect(x: 0, y: 0, width: 100, height: 100)
         #expect(
             ScreenTextRegion.selection(

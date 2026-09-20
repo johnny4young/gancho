@@ -148,6 +148,63 @@ final class ScreenOCRUITests: XCTestCase {
         XCTAssertTrue(selector.waitForNonexistence(timeout: 5))
     }
 
+    /// Private Mode must refuse VISIBLY. The shortcut cannot read a menu's
+    /// enabled state, so it says why instead of returning silently.
+    @MainActor
+    func testPrivateModeExplainsTheRefusalInsteadOfDoingNothing() throws {
+        let nonce = UUID().uuidString
+        let app = launchApp(nonce: nonce, permissionArgument: "-screen-ocr-selector-for-ui-test")
+        defer { app.terminate() }
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        let selector = app.descendants(matching: .any)["screen-ocr-selector"].firstMatch
+
+        // The selector disappearing is the checkpoint that Private Mode landed,
+        // so the refusal below cannot race the toggle.
+        GanchoUITestCommands.post("copyScreenText", token: nonce)
+        XCTAssertTrue(selector.waitForExistence(timeout: 5))
+        GanchoUITestCommands.post("togglePrivateMode", token: nonce)
+        XCTAssertTrue(selector.waitForNonexistence(timeout: 5))
+
+        GanchoUITestCommands.post("copyScreenText", token: nonce)
+        let toast = app.descendants(matching: .any)["gancho-toast"].firstMatch
+        XCTAssertTrue(toast.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.staticTexts["Private Mode is on. Turn it off to copy text from the screen."]
+                .exists)
+        XCTAssertFalse(selector.exists, "A refused request must not open the selector")
+    }
+
+    /// The menu renders the command from `canCopyScreenText`, the way the image
+    /// command already renders from `canCopyImageText`. Kept apart from the
+    /// refusal test above because reaching the status item can legitimately
+    /// skip on a runner whose menu bar is not hittable.
+    @MainActor
+    func testPrivateModeDisablesTheScreenCaptureMenuItem() throws {
+        let nonce = UUID().uuidString
+        let app = launchApp(nonce: nonce, permissionArgument: "-screen-ocr-selector-for-ui-test")
+        defer { app.terminate() }
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        let selector = app.descendants(matching: .any)["screen-ocr-selector"].firstMatch
+        GanchoUITestCommands.post("copyScreenText", token: nonce)
+        XCTAssertTrue(selector.waitForExistence(timeout: 5))
+        GanchoUITestCommands.post("togglePrivateMode", token: nonce)
+        XCTAssertTrue(selector.waitForNonexistence(timeout: 5))
+
+        let statusItem = app.statusItems.firstMatch
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        guard statusItem.isHittable else {
+            throw XCTSkip("status item is not hittable on this display/Space")
+        }
+        try SynthesizedInput.requireForeground(app)
+        statusItem.click()
+        let command = app.menuItems["Copy text from screen"].firstMatch
+        XCTAssertTrue(command.waitForExistence(timeout: 3))
+        XCTAssertFalse(command.isEnabled, "An item that cannot act must not stay clickable")
+        app.typeKey(.escape, modifierFlags: [])
+    }
+
     @MainActor
     private func launchApp(nonce: String, permissionArgument: String) -> XCUIApplication {
         let app = GanchoUITestApplication()
@@ -155,7 +212,7 @@ final class ScreenOCRUITests: XCTestCase {
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
             "-place-panel-for-ui-test",
             "-seed-manual-ocr", "-force-free-tier", "-start-capture-paused",
-            "-ui-test-paste-sink", "copiedOnly", permissionArgument,
+            "-ui-test-paste-sink", "copy-only", permissionArgument,
             "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.screen.\(UUID())",
             "-command-nonce", nonce, "-AppleLanguages", "(en)"
         ]

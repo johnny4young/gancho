@@ -4,7 +4,7 @@ import Testing
 @testable import GanchoAppCore
 
 @MainActor
-@Suite("SpotlightCoordinator — reconcile policy and failure routing")
+@Suite("SpotlightCoordinator — reconcile policy and failure routing", .timeLimit(.minutes(1)))
 struct SpotlightCoordinatorTests {
     /// Curation and clip changes stale the donated set; a board-only burst
     /// does not. This predicate is the whole "react to the right mutations"

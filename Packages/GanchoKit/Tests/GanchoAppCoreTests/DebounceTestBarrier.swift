@@ -1,5 +1,10 @@
 /// Advance a synthetic debounce only after the entire expected burst arrives.
 /// Even cancelled sleepers arrive: the coalescer checks cancellation after sleep.
+///
+/// `arrivals` is therefore coupled to that detail. If the debounce ever checks
+/// cancellation BEFORE sleeping, fewer sleepers arrive, `remaining` never
+/// reaches zero and the waiters are never resumed — so every suite using this
+/// barrier carries a `.timeLimit`, and a miscount fails instead of hanging.
 actor DebounceTestBarrier {
     private var remaining: Int
     private var waiters: [CheckedContinuation<Void, Never>] = []
