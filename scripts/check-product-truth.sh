@@ -46,6 +46,13 @@ published_floor="$(sed -nE 's/^Gancho requires macOS ([0-9.]+) or later.*/\1/p' 
 [[ -n "$published_floor" ]] || fail "published release notes must state their macOS floor"
 require_literal_count site/index.html "macOS ${published_floor}+ · iOS 26+" 2
 require_literal docs/PRODUCT-TRUTH.md "GitHub release \`v${published_version}\`"
+published_sha="$(sed -nE 's/^SHA-256: `([a-f0-9]{64})`.*/\1/p' "$published_notes")"
+[[ -n "$published_sha" ]] || fail "published release notes must state the DMG checksum"
+require_literal packaging/Casks/gancho.rb "version \"${published_version}\""
+require_literal packaging/Casks/gancho.rb "sha256 \"${published_sha}\""
+require_literal packaging/Casks/gancho.rb 'depends_on macos: :sequoia'
+require_literal packaging/Casks/gancho.rb "Gancho requires macOS ${published_floor} or later."
+
 require_literal README.md 'eight library products + a CLI'
 require_literal README.md 'disabled until explicit consent'
 require_literal README.md 'short-prefix indexes'
@@ -77,6 +84,10 @@ if [[ "$published_version" != "$marketing_version" ]]; then
 	require_literal site/index.html "data-i18n=\"rel.kicker\">En preparación · v${marketing_version}"
 	require_literal site/index.html "\"rel.kicker\": \"In preparation · v${marketing_version}\""
 	forbid_regex README.md "published v${marketing_version//./\\.} DMG"
+else
+	forbid_regex README.md '\(unreleased\)'
+	require_literal site/index.html "data-i18n=\"rel.kicker\">Disponible · v${published_version}"
+	require_literal site/index.html "\"rel.kicker\": \"Available now · v${published_version}\""
 fi
 require_literal site/index.html "data-i18n=\"hero.badge\">Privado por diseño · versión pública ${release_series}"
 require_literal site/index.html "\"hero.badge\": \"Private by design · public v${release_series}\""

@@ -4,16 +4,13 @@ name: Update Homebrew cask
 # johnny4young/homebrew-tap from this repo's source template
 # (packaging/Casks/gancho.rb) with a released DMG's version and SHA-256.
 #
-# Unlike Vitrine (whose DMG is built and signed in CI, so its cask bump runs
-# inline in the release workflow), Gancho's DMG is built, signed, and notarized
-# locally — the Developer ID identity and the EdDSA appcast signature both need
-# the maintainer's keys. So run this AFTER the DMG is attached to the release:
+# Release normally publishes the cask after signing and notarizing the DMG.
+# Dispatch this workflow to reconcile template-only changes against already
+# released bytes without rebuilding or changing the tag:
 #
-#   gh workflow run update-cask.yml -f tag=v0.1.0
+#   gh workflow run update-cask.yml -f tag=v0.8.3
 #
-# Requires the TAP_DEPLOY_KEY secret: an SSH deploy key with write access on
-# johnny4young/homebrew-tap (scoped to that one repo, unlike a PAT). Vitrine uses
-# the same key style for its own bump.
+# Requires TAP_DEPLOY_KEY, scoped to johnny4young/homebrew-tap.
 
 on:
   workflow_dispatch:

@@ -220,6 +220,24 @@ struct ReleaseMetadataTests {
         #expect(index.contains("CHANGELOG.md"))
     }
 
+    @Test func publishedCaskMatchesReleaseMetadata() throws {
+        let readme = try Self.text("README.md")
+        let version = try Self.firstCapture(
+            in: readme, pattern: #"\*\*Status: public v([0-9]+\.[0-9]+\.[0-9]+);"#)
+        let notes = try Self.text("docs", "releases", "v\(version).md")
+        let floor = try Self.firstCapture(
+            in: notes, pattern: #"Gancho requires macOS ([0-9.]+) or later"#)
+        let checksum = try Self.firstCapture(in: notes, pattern: #"SHA-256: `([a-f0-9]{64})`"#)
+        let cask = try Self.text("packaging", "Casks", "gancho.rb")
+        #expect(cask.contains("version \"\(version)\""))
+        #expect(cask.contains("sha256 \"\(checksum)\""))
+        #expect(cask.contains("depends_on macos: :sequoia"))
+        #expect(cask.contains("Gancho requires macOS \(floor) or later."))
+        let feed = try Self.text("site", "appcast.xml")
+        #expect(
+            feed.contains("<sparkle:shortVersionString>\(version)</sparkle:shortVersionString>"))
+    }
+
     @Test func publicProductTruthMatchesSourceContracts() throws {
         let project = try Self.text("project.yml")
         let package = try Self.text("Packages", "GanchoKit", "Package.swift")
@@ -250,6 +268,10 @@ struct ReleaseMetadataTests {
             #expect(candidate.contains("## Release verification"))
             #expect(site.contains("In preparation · v\(marketingVersion)"))
             #expect(!readme.contains("published v\(marketingVersion) DMG"))
+        } else {
+            #expect(!readme.contains("(unreleased)"))
+            #expect(site.contains("Available now · v\(publishedVersion)"))
+            #expect(site.contains("Disponible · v\(publishedVersion)"))
         }
         #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.library\(name:"#) == 8)
         #expect(try Self.matchCount(in: package, pattern: #"(?m)^\s*\.executable\(name:"#) == 1)

@@ -7,6 +7,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Align post-release documentation, the bilingual website and Homebrew cask
+  metadata with the published v0.8.3 DMG. Physical-device acceptance remains
+  pending; the published app, tag and checksum are unchanged.
+
 ## [0.8.3] - 2026-09-20
 
 ### Security

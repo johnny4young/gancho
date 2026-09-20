@@ -51,6 +51,7 @@ grep -q '<details class="release-detail" id="release-0-7-0">' site/index.html \
 
 previous_line=0
 for release_id in \
+	release-0-8-2 release-0-8-1 release-0-8-0 \
 	release-0-7-0 release-0-6-0 release-0-5-0 release-0-4-1 release-0-4-0 \
 	release-0-3-2 release-0-3-1 release-0-3-0 release-0-2-0 release-0-1-0; do
 	release_line="$(grep -n "id=\"${release_id}\"" site/index.html | head -1 | cut -d: -f1 || true)"
