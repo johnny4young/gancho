@@ -167,7 +167,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         } else {
             for clip in model.recentItems.prefix(5) {
                 let item = NSMenuItem(
-                    title: clip.preview,
+                    title: ClipSafePresentation.displayText(
+                        for: clip, privateMode: model.preferences.isPrivateModePaused),
                     action: #selector(pasteRecentItem(_:)),
                     keyEquivalent: "")
                 item.target = self

@@ -164,7 +164,7 @@ public enum GanchoArchive {
             try emit(Data("[".utf8))
             let cursor = try ClipRow.order(Column("createdAt").asc).fetchCursor(db)
             while var row = try cursor.next() {
-                if options.excludeSensitive, row.isSensitive { continue }
+                if options.excludeSensitive, row.requiresProtectedExport { continue }
                 if options.metadataOnly {
                     row.contentText = nil
                     row.contentBlobHash = nil

@@ -10,7 +10,22 @@ extension IOSAppModel {
         seedSourceAppsIfRequested()
         seedReuseSuggestionIfRequested()
         seedClipEditingIfRequested()
+        seedOutboundPrivacyIfRequested()
         return seedPrivateActivityReceiptIfRequested()
+    }
+
+    private func seedOutboundPrivacyIfRequested() {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-outbound-privacy"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let full
+            else { return }
+            Task {
+                let canary = "synthetic-protected-preview-canary"
+                let item = ClipItem(kind: .jwt, preview: canary, contentHash: "ui-outbound-privacy")
+                _ = try? await full.insert(item, content: .text(canary))
+                await search()
+            }
+        #endif
     }
 
     #if DEBUG

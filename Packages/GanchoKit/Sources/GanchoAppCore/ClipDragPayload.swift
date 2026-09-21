@@ -25,7 +25,7 @@ public enum ClipDragPayload {
     }
 
     /// The representations `item` offers, in fidelity order. Empty means the
-    /// clip is not draggable (today: exactly the sensitive clips).
+    /// clip requires protected presentation and cannot be dragged.
     public static func representations(for item: ClipItem) -> [Representation] {
         representations(for: item.kind, isSensitive: item.isSensitive)
     }
@@ -33,7 +33,9 @@ public enum ClipDragPayload {
     public static func representations(
         for kind: ClipContentKind, isSensitive: Bool
     ) -> [Representation] {
-        guard !isSensitive else { return [] }
+        guard !ClipSafePresentation.requiresMasking(kind: kind, isSensitive: isSensitive) else {
+            return []
+        }
         switch kind {
         case .image: return [.pngImage]
         case .fileReference: return [.fileURL, .plainText]
