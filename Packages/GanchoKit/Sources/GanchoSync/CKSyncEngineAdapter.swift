@@ -28,6 +28,13 @@ public actor CKSyncEngineAdapter: SyncEngine {
     /// next explicit `start()`. While paused we stop feeding new changes — the
     /// visible-sync-status work surfaces this to the user.
     private var isPaused = false
+    private var receiveHealth = SyncReceiveHealth()
+    private var pollTask: Task<Void, any Error>?
+    private var pollID: UUID?
+    private var receiveRetryTask: Task<Void, Never>?
+    private var receiveRetryID: UUID?
+    private var statePersistenceFailed = false
+    private var receiveGeneration = 0
 
     /// Status sink for the UI (set by the factory). Receives `SyncStatus`
     /// values only — state and counts, never clip content.
@@ -69,6 +76,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
     // MARK: - SyncEngine boundary
 
     public func start() async throws {
+        let generation = receiveGeneration
         isPaused = false
         // Staged CKAsset files are plaintext clip content; each is deleted the
         // moment its record is reported sent. Sweep the stragglers a crash or
@@ -82,6 +90,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
         ])
         await reenqueuePendingWork(into: engine)
         await reconcilePendingChanges(in: engine)
+        guard generation == receiveGeneration else { throw CancellationError() }
         emit(.syncing)
         do {
             // A REAL server check, then the engine's own cycle. The engine's
@@ -94,10 +103,19 @@ public actor CKSyncEngineAdapter: SyncEngine {
             // never arrive. `pollRemoteChanges()` asks the server directly
             // (one tiny database-changes call when idle) and applies through
             // the same code path as the engine's fetch events.
-            try await pollRemoteChanges()
+            do { try await pollRemoteChanges() } catch {
+                scheduleReceiveRecovery(after: error)
+                throw error
+            }
+            guard generation == receiveGeneration else { throw CancellationError() }
             try await engine.fetchChanges()
+            guard generation == receiveGeneration else { throw CancellationError() }
             try await engine.sendChanges()
+            guard generation == receiveGeneration else { throw CancellationError() }
         } catch {
+            guard generation == receiveGeneration, !(error is CancellationError) else {
+                throw CancellationError()
+            }
             emit(.failed(CloudKitSyncPolicy.interruption(for: error)))
             throw error
         }
@@ -116,9 +134,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
         return loaded
     }
 
-    private func savePollTokens(_ tokens: SyncPollTokens) {
+    private func savePollTokens(_ tokens: SyncPollTokens) throws {
+        try tokens.save(to: pollStateStore)
         pollTokens = tokens
-        tokens.save(to: pollStateStore)
     }
 
     /// Asks the SERVER whether our zones changed, and pulls + applies what did.
@@ -129,77 +147,112 @@ public actor CKSyncEngineAdapter: SyncEngine {
     /// first-run (sendChanges creates the zones) and skips silently; an expired
     /// token drops to a full re-scan, which the LWW upserts make idempotent.
     private func pollRemoteChanges() async throws {
-        let database = CKContainer(identifier: containerIdentifier).privateCloudDatabase
-        var tokens = loadPollTokens()
-        var changedZones: Set<CKRecordZone.ID> = []
-        do {
-            var token = SyncPollTokens.unarchive(tokens.database)
-            var moreComing = true
-            while moreComing {
-                let page = try await database.databaseChanges(since: token)
-                for modification in page.modifications {
-                    changedZones.insert(modification.zoneID)
-                }
-                for deletion in page.deletions {
-                    // Zone gone server-side: our per-zone token is meaningless.
-                    // The engine's own machinery recreates the zone on demand.
-                    tokens.zones[deletion.zoneID.zoneName] = nil
-                }
-                token = page.changeToken
-                moreComing = page.moreComing
-            }
-            // The loop always runs at least once and every page carries a
-            // token, so `token` is non-nil here.
-            if let token { tokens.database = SyncPollTokens.archive(token) }
-        } catch let error as CKError where error.code == .changeTokenExpired {
-            // Stale database token: forget everything and re-scan next cycle.
-            savePollTokens(SyncPollTokens())
-            return
-        }
-        for zone in [zoneID, boardZoneID] where changedZones.contains(zone) {
-            do {
-                let token = try await fetchZoneChanges(
-                    from: database, in: zone,
-                    since: SyncPollTokens.unarchive(tokens.zones[zone.zoneName]))
-                tokens.zones[zone.zoneName] = token.flatMap(SyncPollTokens.archive)
-            } catch let error as CKError where error.code == .changeTokenExpired {
-                // The database token was already advanced by the time the
-                // per-zone token proved stale, so "try again next cycle" would
-                // NOT see this zone as changed again. Re-scan the zone now
-                // from nil and persist the fresh zone token from that pass.
-                do {
-                    let token = try await fetchZoneChanges(from: database, in: zone, since: nil)
-                    tokens.zones[zone.zoneName] = token.flatMap(SyncPollTokens.archive)
-                } catch {
-                    guard CloudKitSyncPolicy.isMissingZone(error) else { throw error }
-                }
-            } catch {
-                guard CloudKitSyncPolicy.isMissingZone(error) else { throw error }
+        if let pollTask { return try await pollTask.value }
+        let id = UUID()
+        let task = Task { try await self.performPoll() }
+        pollID = id
+        pollTask = task
+        defer {
+            if pollID == id {
+                pollTask = nil
+                pollID = nil
             }
         }
-        savePollTokens(tokens)
+        try await task.value
     }
 
-    private func fetchZoneChanges(
-        from database: CKDatabase,
-        in zone: CKRecordZone.ID,
-        since startingToken: CKServerChangeToken?
-    ) async throws -> CKServerChangeToken? {
-        var token = startingToken
-        var moreComing = true
-        while moreComing {
-            let page = try await database.recordZoneChanges(inZoneWith: zone, since: token)
-            let records = page.modificationResultsByID.values.compactMap {
-                try? $0.get().record
+    private func performPoll() async throws {
+        let generation = receiveGeneration
+        let healthRevision = receiveHealth.revision
+        let database = CKContainer(identifier: containerIdentifier).privateCloudDatabase
+        let driver = SyncPullDriver(
+            databasePage: { token in
+                let page = try await database.databaseChanges(
+                    since: SyncPollTokens.unarchive(token))
+                return .init(
+                    changedZones: Set(page.modifications.map { $0.zoneID.zoneName }),
+                    deletedZones: Set(page.deletions.map { $0.zoneID.zoneName }),
+                    token: try Self.archiveCheckpoint(page.changeToken), moreComing: page.moreComing
+                )
+            },
+            zonePage: { zone, token in
+                let id = CKRecordZone.ID(zoneName: zone, ownerName: CKCurrentUserDefaultName)
+                let page = try await database.recordZoneChanges(
+                    inZoneWith: id, since: SyncPollTokens.unarchive(token))
+                let records = page.modificationResultsByID.values.map { result in
+                    result.map(\.record).mapError { $0 as any Error }
+                }
+                return .init(
+                    records: records, deletions: page.deletions.map(\.recordID),
+                    token: try Self.archiveCheckpoint(page.changeToken), moreComing: page.moreComing
+                )
+            },
+            apply: { [weak self] records, deletions in
+                guard let self else { throw CancellationError() }
+                try await self.applyPolled(
+                    records: records, deletions: deletions, generation: generation)
+            })
+        do {
+            let candidate = try await driver.pull(
+                from: loadPollTokens(), zones: [zoneID.zoneName, boardZoneID.zoneName])
+            guard generation == receiveGeneration else { throw CancellationError() }
+            try savePollTokens(candidate)
+            guard receiveHealth.recover(since: healthRevision) else {
+                throw SyncReceiveFailure.interruptedByNewFailure
             }
-            await applyFetched(records: records, deletions: page.deletions.map(\.recordID))
-            token = page.changeToken
-            moreComing = page.moreComing
+        } catch {
+            if generation == receiveGeneration, !(error is CancellationError) {
+                receiveHealth.fail(error)
+                emit(.failed(receiveHealth.failure ?? .unknown))
+            }
+            throw error
         }
-        return token
+    }
+
+    private func scheduleReceiveRecovery(after error: any Error) {
+        guard engine != nil, receiveRetryTask == nil, SyncReceiveRecovery.shouldRetry(error) else {
+            return
+        }
+        let id = UUID()
+        receiveRetryID = id
+        receiveRetryTask = Task { [weak self] in
+            let recovered = await SyncReceiveRecovery.run(after: error) { [weak self] in
+                guard let self else { throw CancellationError() }
+                try await self.pollRemoteChanges()
+            }
+            await self?.finishReceiveRecovery(id: id, recovered: recovered)
+        }
+    }
+
+    private func finishReceiveRecovery(id: UUID, recovered: Bool) async {
+        guard receiveRetryID == id else { return }
+        receiveRetryTask = nil
+        receiveRetryID = nil
+        if recovered { await emitCurrentStatus() }
+    }
+
+    private static func archiveCheckpoint(_ token: CKServerChangeToken) throws -> Data {
+        guard let data = SyncPollTokens.archive(token) else {
+            throw SyncReceiveFailure.checkpointEncoding
+        }
+        return data
+    }
+
+    private func applyPolled(
+        records: [CKRecord], deletions: [CKRecord.ID], generation: Int
+    ) async throws {
+        guard generation == receiveGeneration else { throw CancellationError() }
+        try await applyFetched(records: records, deletions: deletions)
     }
 
     public func stop() async {
+        receiveGeneration += 1
+        pollTask?.cancel()
+        pollTask = nil
+        pollID = nil
+        receiveRetryTask?.cancel()
+        receiveRetryTask = nil
+        receiveRetryID = nil
         // Dropping the engine ends its background sync; the persisted state
         // blob lets a later start() resume where we left off. Also breaks the
         // adapter ⇄ engine retain cycle (the engine holds this as its delegate).
@@ -283,6 +336,18 @@ public actor CKSyncEngineAdapter: SyncEngine {
     private func emitCurrentStatus() async {
         if isPaused {
             emit(.paused(.iCloudFull))
+            return
+        }
+        if let receiveFailure = receiveHealth.failure {
+            emit(.failed(receiveFailure))
+            return
+        }
+        if statePersistenceFailed {
+            emit(.failed(.unknown))
+            return
+        }
+        if pollTask != nil {
+            emit(.syncing)
             return
         }
         let uploads = (try? await store.pendingUploadCount()) ?? 0
@@ -397,10 +462,17 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
     }
 
     public func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
+        guard engine === syncEngine else { return }
         switch event {
         case .stateUpdate(let event):
-            if let data = try? stateEncoder.encode(event.stateSerialization) {
-                stateStore.save(data)
+            do {
+                try stateStore.save(stateEncoder.encode(event.stateSerialization))
+                statePersistenceFailed = false
+            } catch {
+                statePersistenceFailed = true
+                diagnostics?.record(
+                    "Sync", "Sync state could not be persisted; recovery remains pending.")
+                emit(.failed(.unknown))
             }
         case .accountChange(let event):
             await handleAccountChange(event, syncEngine: syncEngine)
@@ -461,18 +533,27 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
     private func handleFetchedRecordZoneChanges(
         _ event: CKSyncEngine.Event.FetchedRecordZoneChanges
     ) async {
-        await applyFetched(
-            records: event.modifications.map(\.record),
-            deletions: event.deletions.map(\.recordID))
+        let generation = receiveGeneration
+        do {
+            try await applyFetched(
+                records: event.modifications.map(\.record),
+                deletions: event.deletions.map(\.recordID))
+        } catch {
+            guard generation == receiveGeneration, !(error is CancellationError) else { return }
+            // The engine may persist its opaque fetch token regardless. The
+            // independent poll checkpoint has NOT moved and can replay it.
+            receiveHealth.fail(error)
+            emit(.failed(receiveHealth.failure ?? .unknown))
+            scheduleReceiveRecovery(after: error)
+        }
     }
 
     /// Applies a batch of fetched changes to the local store — shared by the
     /// engine's event handler (push-fed fetches) and `pollRemoteChanges()` (the
-    /// explicit pull for hosts that receive no push). Counts the records the
-    /// batch LOSES: a fetched change that fails to decode or apply used to
-    /// vanish without a trace, which is exactly what makes "device A never sees
-    /// device B's clips" undiagnosable. Counts only, never content.
-    func applyFetched(records: [CKRecord], deletions: [CKRecord.ID]) async {
+    /// explicit pull for hosts that receive no push). Incomplete batches throw,
+    /// retaining the poll checkpoint for replay; diagnostics contain counts
+    /// only, never the failed records or underlying database error text.
+    func applyFetched(records: [CKRecord], deletions: [CKRecord.ID]) async throws {
         var decodeFailures = 0
         var clips: [RemoteClipChange] = []
         var boards: [RemoteBoardChange] = []
@@ -502,6 +583,13 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                     systemFields: ClipRecordMapper.encodeSystemFields(record),
                     boardIDs: Set(ClipRecordMapper.boardIDs(from: record))))
         }
+        if decodeFailures > 0 {
+            diagnostics?.record(
+                "Sync",
+                "Fetched \(records.count + deletions.count) changes; \(decodeFailures) failed to decode, 0 failed to apply."
+            )
+            throw SyncReceiveFailure.undecodable(decodeFailures)
+        }
         let boardZone = boardZoneID.zoneName
         let deletionIDs = Dictionary(
             grouping: deletions, by: { $0.zoneID.zoneName == boardZone }
@@ -511,22 +599,25 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         // One transaction for the page instead of two per record. Decode
         // failures are counted here because a record that cannot be decoded
         // never reaches the store at all.
-        var applyFailures = 0
+        let summary: RemoteApplySummary
         do {
-            let summary = try await store.applyRemoteChanges(
+            summary = try await store.applyRemoteChanges(
                 clips: clips, boards: boards,
-                clipDeletions: deletionIDs[false] ?? [],
-                boardDeletions: deletionIDs[true] ?? [])
-            applyFailures = summary.failed
+                clipDeletions: deletionIDs[false] ?? [], boardDeletions: deletionIDs[true] ?? [])
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
-            // The transaction itself could not be opened, so nothing landed.
-            applyFailures = clips.count + boards.count + deletions.count
+            let count = clips.count + boards.count + deletions.count
+            diagnostics?.record(
+                "Sync", "Fetched \(count) changes; 0 failed to decode, \(count) failed to apply.")
+            throw SyncReceiveFailure.apply(count)
         }
-        if decodeFailures + applyFailures > 0 {
+        if summary.failed > 0 {
             diagnostics?.record(
                 "Sync",
-                "Fetched \(records.count + deletions.count) changes; "
-                    + "\(decodeFailures) failed to decode, \(applyFailures) failed to apply.")
+                "Fetched \(records.count + deletions.count) changes; 0 failed to decode, \(summary.failed) failed to apply."
+            )
+            throw SyncReceiveFailure.apply(summary.failed)
         }
     }
 

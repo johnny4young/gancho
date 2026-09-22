@@ -38,9 +38,9 @@ struct SyncPollTokensTests {
     }
 
     @Test("No store at all is the same as no file")
-    func nilStoreLoadsEmpty() {
+    func nilStoreLoadsEmpty() throws {
         #expect(SyncPollTokens.load(from: nil) == SyncPollTokens())
-        SyncPollTokens(database: Data([1])).save(to: nil)  // must not trap
+        try SyncPollTokens(database: Data([1])).save(to: nil)  // must not trap
     }
 
     @Test("Damaged bytes re-scan instead of throwing")
@@ -78,25 +78,26 @@ struct SyncPollTokensTests {
     }
 
     @Test("What was saved is what comes back")
-    func roundTripsThroughTheStore() {
+    func roundTripsThroughTheStore() throws {
         let state = MemoryState()
         let tokens = SyncPollTokens(
             database: Data([0xDE, 0xAD]),
             zones: ["clips": Data([0x01]), "boards": Data([0x02])])
-        tokens.save(to: state.store)
+        try tokens.save(to: state.store)
 
         #expect(state.saveCount == 1)
         #expect(SyncPollTokens.load(from: state.store) == tokens)
     }
 
     @Test("Resetting to empty is persisted, not skipped")
-    func emptyTokensOverwriteTheFile() {
+    func emptyTokensOverwriteTheFile() throws {
         // The expired-token path saves EMPTY tokens to force a full re-scan.
         // Treating that as "nothing to write" would leave the stale file in
         // place and re-scan nothing.
         let state = MemoryState()
-        SyncPollTokens(database: Data([0xAA]), zones: ["clips": Data([0x01])]).save(to: state.store)
-        SyncPollTokens().save(to: state.store)
+        try SyncPollTokens(database: Data([0xAA]), zones: ["clips": Data([0x01])]).save(
+            to: state.store)
+        try SyncPollTokens().save(to: state.store)
 
         #expect(state.saveCount == 2)
         #expect(SyncPollTokens.load(from: state.store) == SyncPollTokens())
@@ -129,7 +130,7 @@ struct SyncPollTokensTests {
             let loaded = SyncPollTokens.load(from: state.store)
             #expect(loaded.database == Data([1]))
             #expect(loaded.zones == ["ClipsZone": Data([2]), "BoardsZone": Data([3])])
-            loaded.save(to: state.store)
+            try loaded.save(to: state.store)
             let saved = try #require(state.store.load())
             let decoded =
                 try PropertyListSerialization.propertyList(
@@ -139,17 +140,18 @@ struct SyncPollTokensTests {
     }
 
     @Test("Concurrent store callbacks preserve complete writes and save counts")
-    func concurrentStoreCallbacks() async {
+    func concurrentStoreCallbacks() async throws {
         let state = MemoryState()
         let tokens = SyncPollTokens(database: Data([1]), zones: ["ClipsZone": Data([2])])
-        tokens.save(to: state.store)
-        await withTaskGroup(of: Void.self) { group in
+        try tokens.save(to: state.store)
+        try await withThrowingTaskGroup(of: Void.self) { group in
             for _ in 0..<100 {
                 group.addTask {
-                    tokens.save(to: state.store)
+                    try tokens.save(to: state.store)
                     #expect(SyncPollTokens.load(from: state.store) == tokens)
                 }
             }
+            try await group.waitForAll()
         }
         #expect(state.saveCount == 101)
     }
