@@ -44,7 +44,7 @@ final class CaptureFlowUITests: XCTestCase {
     /// Chooses a palette token through the iPhone UI and reopens the editor to
     /// prove the value survived the durable store write and model refresh.
     @MainActor
-    func testBoardAppearancePersistsPaletteSelection() async throws {
+    func testBoardAppearancePersistsPaletteSelection() throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "-skip-welcome-on-launch", "-use-temp-durable-store", "-seed-sample-boards",
@@ -74,10 +74,11 @@ final class CaptureFlowUITests: XCTestCase {
         let save = app.buttons["board-appearance-save"].firstMatch
         XCTAssertTrue(save.waitForExistence(timeout: 2))
         save.tap()
-        let dismissal = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"), object: save)
-        dismissal.expectationDescription = "a successful durable update must dismiss the editor"
-        await fulfillment(of: [dismissal], timeout: 5)
+        // Use XCTest's element wait so disappearance is checked against fresh
+        // accessibility snapshots, not an async generic predicate scheduler.
+        XCTAssertTrue(
+            save.waitForNonExistence(timeout: 5),
+            "a successful durable update must dismiss the editor")
 
         try openAppearanceEditor(for: board, in: app)
         XCTAssertEqual(
