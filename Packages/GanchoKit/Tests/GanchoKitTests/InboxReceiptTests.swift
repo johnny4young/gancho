@@ -91,7 +91,7 @@ struct InboxReceiptTests {
         let store = try GRDBClipboardStore(directory: root)
         let task = Task {
             withUnsafeCurrentTask { $0?.cancel() }
-            try await store.insertInboxDelivery(
+            _ = try await store.insertInboxDelivery(
                 id: "cancel", item: ClipItem(contentHash: "cancel"), content: .text("synthetic"))
         }
         await #expect(throws: CancellationError.self) { try await task.value }
