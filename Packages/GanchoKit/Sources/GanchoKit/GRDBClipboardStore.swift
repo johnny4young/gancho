@@ -14,7 +14,7 @@ import GRDB
 ///   NEVER edit a registered migration; append a new one.
 /// - The store never imports CloudKit: sync goes through the `SyncEngine`
 ///   boundary, fed by the same records.
-public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
+public final class GRDBClipboardStore: ClipboardStore, ClipImporting, InboxClipIngesting {
     /// Internal (not private) so same-module engines (retention, sync feed)
     /// and the test harness can run statements without widening the API.
     let writer: any DatabaseWriter
@@ -385,47 +385,70 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
 
     @discardableResult
     public func insert(_ item: ClipItem, content: ClipContent?) async throws -> ClipItem {
+        let row = try insertionRow(item, content: content)
+        return try await writer.write { db in try Self.insert(row, in: db).item }
+    }
+
+    public func insertInboxDelivery(
+        id: String, item: ClipItem, content: ClipContent?
+    ) async throws -> InboxInsertResult {
+        try Task.checkCancellation()
+        // Avoid touching payload blobs on the usual receipt replay path.
+        if try await writer.read({ db in try Self.hasInboxReceipt(id, in: db) }) {
+            return .alreadyCommitted
+        }
+        let row = try insertionRow(item, content: content)
+        return try await writer.write { db in
+            try Task.checkCancellation()
+            // The second check is authoritative across concurrent processes.
+            if try Self.hasInboxReceipt(id, in: db) { return .alreadyCommitted }
+            let stored = try Self.insert(row, in: db)
+            try db.execute(
+                sql: "INSERT INTO inbox_receipt (id, committedAt) VALUES (?, ?)",
+                arguments: [id, Date()])
+            try Task.checkCancellation()
+            return .inserted(stored.item)
+        }
+    }
+
+    private static func hasInboxReceipt(_ id: String, in db: Database) throws -> Bool {
+        try Bool.fetchOne(
+            db, sql: "SELECT EXISTS(SELECT 1 FROM inbox_receipt WHERE id = ?)", arguments: [id])
+            == true
+    }
+
+    private func insertionRow(_ item: ClipItem, content: ClipContent?) throws -> ClipRow {
         var row = ClipRow(item: item)
         switch content {
-        case .text(let text):
-            row.contentText = text
+        case .text(let text): row.contentText = text
         case .binary(let data, let typeIdentifier):
             row.contentBlobHash = try blobs.write(data)
             row.contentTypeIdentifier = typeIdentifier
         case .fileReferences(let paths):
             row.contentText = paths.joined(separator: "\n")
             row.contentTypeIdentifier = "public.file-url"
-        case nil:
-            break
+        case nil: break
         }
-        let finalRow = row
-        let stored = try await writer.write { db -> ClipRow in
-            // Dedupe key: contentHash + sourceDeviceName. The device matters:
-            // the same content synced FROM another device must keep its own
-            // row, or sync would ping-pong "moved to top" updates forever.
-            // Strict equality includes NULL: a stamped capture never adopts a
-            // pre-stamp NULL row (its origin is unknowable — it may have
-            // synced from another device), so re-copying legacy content makes
-            // one new stamped row instead of refreshing the old one.
-            if var existing =
-                try ClipRow
-                .filter(Column("contentHash") == finalRow.contentHash)
-                .filter(Column("sourceDeviceName") == finalRow.sourceDeviceName)
-                .fetchOne(db)
-            {
-                existing.lastUsedAt = Date()
-                existing.updatedAt = Date()
-                // A fresh copy is fresh activity: if tier enforcement had
-                // archived this row, re-copying it must surface it again —
-                // otherwise the capture silently lands in the hidden set.
-                existing.isArchived = false
-                try existing.update(db)
-                return existing
-            }
-            try finalRow.insert(db)
-            return finalRow
+        return row
+    }
+
+    private static func insert(_ row: ClipRow, in db: Database) throws -> ClipRow {
+        // Keep the original contentHash + sourceDeviceName dedupe contract,
+        // including strict NULL equality and unarchiving on a genuine recopy.
+        if var existing =
+            try ClipRow
+            .filter(Column("contentHash") == row.contentHash)
+            .filter(Column("sourceDeviceName") == row.sourceDeviceName)
+            .fetchOne(db)
+        {
+            existing.lastUsedAt = Date()
+            existing.updatedAt = Date()
+            existing.isArchived = false
+            try existing.update(db)
+            return existing
         }
-        return stored.item
+        try row.insert(db)
+        return row
     }
 
     public func items(offset: Int, limit: Int) async throws -> [ClipItem] {

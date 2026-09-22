@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import GanchoKit
 
@@ -94,121 +95,133 @@ public struct SharedInbox: Sendable {
         #endif
     }
 
-    /// What one drain did, so the host app can report a content-free health
-    /// note instead of losing captures silently.
-    public struct DrainSummary: Sendable, Equatable {
-        /// Captures handed to the app, oldest first.
-        public var captures: [PreparedCapture]
-        /// Files whose bytes were read but could not be opened or decoded, AND
-        /// were then successfully deleted: a poison capture must not wedge the
-        /// inbox. Only a real deletion counts here, so "discarded" is never
-        /// claimed for a file that is still on disk.
-        public var poisoned: Int
-        /// Files that could not be read at all and were LEFT IN PLACE for the
-        /// next drain — possibly mid-write, or momentarily unreadable under
-        /// data protection.
-        public var deferred: Int
-        /// Files that were processed but could NOT be removed, so they return
-        /// on the next drain. A readable one is handed over anyway and may
-        /// therefore arrive twice; an unreadable one keeps wedging the inbox.
-        /// Separate from `poisoned` because the promise differs: this one is
-        /// still there.
-        public var undeletable: Int
-
-        public init(
-            captures: [PreparedCapture], poisoned: Int = 0, deferred: Int = 0,
-            undeletable: Int = 0
-        ) {
-            self.captures = captures
-            self.poisoned = poisoned
-            self.deferred = deferred
-            self.undeletable = undeletable
-        }
+    /// Opaque authority to acknowledge exactly the bytes that were read.
+    /// Identity includes the existing filename and digest, so legacy names are
+    /// supported and a replacement file cannot inherit an earlier receipt.
+    public struct Delivery: Sendable, Equatable {
+        public let id: String
+        public let prepared: PreparedCapture
+        fileprivate let fileName: String
+        fileprivate let digest: Data
     }
 
-    /// Reads and removes all pending captures, oldest first (file creation
-    /// date).
-    public func drain() throws -> [PasteboardCapture] {
-        try drainPrepared().map(\.capture)
+    public struct Cursor: Sendable, Equatable {
+        fileprivate let date: Date
+        fileprivate let name: String
     }
 
-    /// Prepared drain, discarding the health counters.
-    public func drainPrepared() throws -> [PreparedCapture] {
-        try drainReportingHealth().captures
+    public struct ReadSummary: Sendable, Equatable {
+        public let deliveries: [Delivery]
+        public let poisoned: Int
+        public let deferred: Int
+        public let undeletable: Int
+        /// Continue after this metadata key on the next bounded drain. Nil
+        /// resets the scan so earlier deferred/new arrivals are retried too.
+        public let nextCursor: Cursor?
     }
 
-    /// Prepared drain: unseals (sealed deposits) then decodes the envelope,
-    /// tolerating LEGACY files — plaintext pre-sealing deposits AND
-    /// bare-capture pre-envelope deposits — so an app update never loses
-    /// queued shares.
-    public func drainReportingHealth() throws -> DrainSummary {
-        let files: [URL]
-        do {
-            files = try FileManager.default.contentsOfDirectory(
-                at: directory, includingPropertiesForKeys: [.creationDateKey])
-        } catch CocoaError.fileReadNoSuchFile {
-            return DrainSummary(captures: [])
-        }
-
-        let ordered = files.sorted { lhs, rhs in
-            let lhsDate =
-                (try? lhs.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
-            let rhsDate =
-                (try? rhs.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
-            return lhsDate < rhsDate
-        }
-
-        var captures: [PreparedCapture] = []
+    /// Reads at most `limit` candidates without removing good deliveries.
+    /// Authentication failures are deferred: wrong keys and damaged sealed
+    /// bytes cannot be distinguished safely. Only confirmed invalid plaintext
+    /// or successfully authenticated malformed JSON may be discarded.
+    public func readPending(after cursor: Cursor? = nil, limit: Int = 64) throws -> ReadSummary {
+        let candidates = try orderedCandidates(after: cursor)
+        let batch = Array(candidates.prefix(max(1, min(limit, 256))))
+        var deliveries: [Delivery] = []
         var poisoned = 0
         var deferred = 0
         var undeletable = 0
-        for file in ordered {
-            // A file we could not even READ is not poison — it is a capture
-            // that may still be mid-write, or briefly unreadable under data
-            // protection. Deleting it would silently destroy the user's clip,
-            // so leave it for the next drain. Only bytes we DID read and could
-            // not make sense of are poison, and those must go or they wedge
-            // the inbox forever.
-            guard let raw = try? Data(contentsOf: file) else {
+        for (file, _) in batch {
+            let values = try? file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard values?.isRegularFile == true, values?.isSymbolicLink != true,
+                let raw = try? Data(contentsOf: file)
+            else {
                 deferred += 1
                 continue
             }
-            var prepared: PreparedCapture?
-            if let data = openedPayload(raw) {
-                if let decoded = try? JSONDecoder().decode(PreparedCapture.self, from: data) {
-                    prepared = decoded
-                } else if let legacy = try? JSONDecoder().decode(
-                    PasteboardCapture.self, from: data)
-                {
-                    prepared = PreparedCapture(capture: legacy)
+            let data: Data
+            if SealedEnvelope.isSealed(raw) {
+                guard let key, let opened = try? SealedEnvelope.open(raw, key: key) else {
+                    deferred += 1
+                    continue
                 }
+                data = opened
+            } else {
+                data = raw
             }
-            // Hand over a good capture whether or not the file can be removed:
-            // a duplicate is absorbed by content-hash dedupe on insert, while
-            // dropping it loses the user's clip outright.
-            if let prepared { captures.append(prepared) }
-            do {
-                try FileManager.default.removeItem(at: file)
-                // "Discarded" is only true once the file is actually gone.
-                if prepared == nil { poisoned += 1 }
-            } catch {
-                // The file survived and comes back next drain. Counting it as
-                // poison would tell the user it was discarded while it is
-                // still sitting there being reprocessed on every drain.
-                undeletable += 1
+            let prepared =
+                (try? JSONDecoder().decode(PreparedCapture.self, from: data))
+                ?? (try? JSONDecoder().decode(PasteboardCapture.self, from: data)).map {
+                    PreparedCapture(capture: $0)
+                }
+            if let prepared {
+                let digest = Data(SHA256.hash(data: raw))
+                var identity = Data(file.lastPathComponent.utf8)
+                identity.append(0)
+                identity.append(digest)
+                let id = SHA256.hash(data: identity).map { String(format: "%02x", $0) }.joined()
+                deliveries.append(
+                    Delivery(
+                        id: id, prepared: prepared, fileName: file.lastPathComponent, digest: digest
+                    ))
+            } else {
+                do {
+                    try FileManager.default.removeItem(at: file)
+                    poisoned += 1
+                } catch { undeletable += 1 }
             }
         }
-        return DrainSummary(
-            captures: captures, poisoned: poisoned, deferred: deferred, undeletable: undeletable)
+        return ReadSummary(
+            deliveries: deliveries, poisoned: poisoned, deferred: deferred,
+            undeletable: undeletable,
+            nextCursor: candidates.count > batch.count ? batch.last?.1 : nil)
     }
 
-    /// Unwraps one file's payload. Sealed files open with the key; a sealed
-    /// file with no/wrong key returns nil and is discarded as poison, same
-    /// as unreadable JSON. Unsealed bytes pass through — legacy plaintext
-    /// deposits from before sealing landed.
-    private func openedPayload(_ raw: Data) -> Data? {
-        guard SealedEnvelope.isSealed(raw) else { return raw }
-        guard let key else { return nil }
-        return try? SealedEnvelope.open(raw, key: key)
+    /// Call only after an atomic durable insert/receipt or a confirmed receipt
+    /// replay. Failure leaves the file for another attempt; absence is already
+    /// acknowledged. Never delete a replaced file or traverse a symlink.
+    public func acknowledge(_ delivery: Delivery) throws {
+        let file = directory.appendingPathComponent(delivery.fileName)
+        do {
+            let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true else {
+                throw CocoaError(.fileReadUnknown)
+            }
+            let raw = try Data(contentsOf: file)
+            guard Data(SHA256.hash(data: raw)) == delivery.digest else {
+                throw CocoaError(.fileReadUnknown)
+            }
+            try FileManager.default.removeItem(at: file)
+        } catch CocoaError.fileReadNoSuchFile {
+            return
+        }
+    }
+
+    private func orderedCandidates(after cursor: Cursor?) throws -> [(URL, Cursor)] {
+        let files: [URL]
+        do {
+            files = try FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: [
+                    .creationDateKey, .isRegularFileKey, .isSymbolicLinkKey
+                ])
+        } catch CocoaError.fileReadNoSuchFile {
+            return []
+        }
+        return files.filter { $0.pathExtension == "json" }.map { file in
+            (
+                file,
+                Cursor(
+                    date: (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate)
+                        ?? .distantPast,
+                    name: file.lastPathComponent)
+            )
+        }.sorted { Self.precedes($0.1, $1.1) }.filter { entry in
+            cursor.map { Self.precedes($0, entry.1) } ?? true
+        }
+    }
+
+    private static func precedes(_ lhs: Cursor, _ rhs: Cursor) -> Bool {
+        lhs.date == rhs.date ? lhs.name < rhs.name : lhs.date < rhs.date
     }
 }

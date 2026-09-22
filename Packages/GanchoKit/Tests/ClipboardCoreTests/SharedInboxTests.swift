@@ -78,9 +78,10 @@ struct SharedInboxTests {
         try FileManager.default.setAttributes(
             [.posixPermissions: 0o000], ofItemAtPath: unreadable.path)
 
-        let summary = try inbox.drainReportingHealth()
+        let summary = try inbox.readPending()
 
-        #expect(summary.captures.map(\.capture.textRepresentation) == ["readable"])
+        #expect(
+            summary.deliveries.map(\.prepared).map(\.capture.textRepresentation) == ["readable"])
         #expect(summary.deferred == 1)
         #expect(summary.poisoned == 0)
         // The whole point: the file the drain could not read is STILL THERE.
@@ -98,25 +99,29 @@ struct SharedInboxTests {
         try Data("not json".utf8).write(
             to: dir.appendingPathComponent("poison.json"), options: .atomic)
 
-        let summary = try inbox.drainReportingHealth()
+        let summary = try inbox.readPending()
 
-        #expect(summary.captures.map(\.capture.textRepresentation) == ["good"])
+        #expect(summary.deliveries.map(\.prepared).map(\.capture.textRepresentation) == ["good"])
         #expect(summary.poisoned == 1)
         #expect(summary.deferred == 0)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).count == 1)
+        for delivery in summary.deliveries { try inbox.acknowledge(delivery) }
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty)
     }
 
-    @Test("A sealed deposit read with the wrong key is poison, not a silent pass-through")
-    func wrongKeyIsPoison() throws {
+    @Test("A sealed deposit with the wrong key is deferred and retained")
+    func wrongKeyIsDeferred() throws {
         let (writer, dir) = makeInbox(key: key)
         defer { try? FileManager.default.removeItem(at: dir) }
         try writer.deposit(PasteboardCapture(text: "secret"))
 
         let reader = SharedInbox(directory: dir, key: Data(repeating: 0x11, count: 32))
-        let summary = try reader.drainReportingHealth()
+        let summary = try reader.readPending()
 
-        #expect(summary.captures.isEmpty)
-        #expect(summary.poisoned == 1)
+        #expect(summary.deliveries.isEmpty)
+        #expect(summary.poisoned == 0)
+        #expect(summary.deferred == 1)
+        #expect(try writer.readPending().deliveries.count == 1)
     }
 
     @Test("Prepared envelope round-trips kind; legacy files still drain")
@@ -185,16 +190,16 @@ struct SharedInboxTests {
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty)
     }
 
-    @Test("A sealed file is poison to a key-less inbox: discarded, never wedged")
-    func sealedFileWithoutKeyDiscarded() throws {
+    @Test("A sealed file survives a key-less reader")
+    func sealedFileWithoutKeyRetained() throws {
         let (keyed, dir) = makeInbox(key: key)
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try keyed.deposit(PasteboardCapture(text: "sealed"))
         let keyless = SharedInbox(directory: dir)
 
-        #expect(try keyless.drain().isEmpty)
-        #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty)
+        #expect(try keyless.readPending().deliveries.isEmpty)
+        #expect(try keyed.readPending().deliveries.count == 1)
     }
     @Test("A file that cannot be deleted is reported as retained, never as discarded")
     func undeletableFileIsNotReportedAsDiscarded() throws {
@@ -212,16 +217,26 @@ struct SharedInboxTests {
             try? FileManager.default.removeItem(at: dir)
         }
 
-        let summary = try inbox.drainReportingHealth()
+        let summary = try inbox.readPending()
 
         // The old accounting called this poison and told the user it had been
         // discarded, while the file sat there being reprocessed on every drain.
         #expect(summary.undeletable == 1)
         #expect(summary.poisoned == 0)
-        #expect(summary.captures.isEmpty)
+        #expect(summary.deliveries.map(\.prepared).isEmpty)
         #expect(
             FileManager.default.fileExists(atPath: dir.appendingPathComponent("wedged.json").path),
             "the file must still be there — that is the whole point of the new count")
     }
 
+}
+
+extension SharedInbox {
+    fileprivate func drainPrepared() throws -> [PreparedCapture] {
+        let deliveries = try readPending().deliveries
+        for delivery in deliveries { try acknowledge(delivery) }
+        return deliveries.map(\.prepared)
+    }
+
+    fileprivate func drain() throws -> [PasteboardCapture] { try drainPrepared().map(\.capture) }
 }

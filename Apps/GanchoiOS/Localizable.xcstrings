@@ -3785,6 +3785,16 @@
           }
         }
       }
+    },
+    "Shared items could not be saved and were kept for later.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron guardar los elementos compartidos y se conservaron para después."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
