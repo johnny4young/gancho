@@ -400,6 +400,9 @@ scheduling. Failed acknowledgements leave durable dirty rows/tombstones for
 replay on the next explicit sync/start (not an unbounded cloud-write loop against
 a failed database); successful acknowledgements compare the sent clip revision
 or board snapshot within the database write so a newer local edit stays pending.
+Deleting a board advances affected clips' revisions in the same transaction as
+their dirty flags and removed memberships; an in-flight pre-deletion clip ack
+cannot clear the replacement upload.
 Clip conflicts reuse the received-page LWW/membership path; boards retain their
 existing server-wins contract rather than adding a cloud timestamp field.
 
