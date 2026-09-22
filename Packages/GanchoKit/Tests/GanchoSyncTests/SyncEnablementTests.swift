@@ -47,7 +47,7 @@ private struct StubSyncLocalStore: SyncLocalStore {
         nil
     }
     func pendingDeletionRecordIDs() async throws -> [String] { [] }
-    func markUploaded(id: UUID, systemFields: Data) async throws {}
+    func markUploaded(id: UUID, systemFields: Data, uploadedAt: Date?) async throws {}
     func systemFields(for id: UUID) async throws -> Data? { nil }
     func markNeedsUpload(id: UUID) async throws {}
     func applyRemoteUpsert(
@@ -62,7 +62,7 @@ private struct StubSyncLocalStore: SyncLocalStore {
     func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws {}
     func pendingBoardUploads() async throws -> [Pinboard] { [] }
     func markBoardNeedsUpload(id: UUID) async throws {}
-    func markBoardUploaded(id: UUID, systemFields: Data) async throws {}
+    func markBoardUploaded(id: UUID, systemFields: Data, uploaded: Pinboard?) async throws {}
     func boardSystemFields(for id: UUID) async throws -> Data? { nil }
     func applyRemoteBoardUpsert(_ board: Pinboard, systemFields: Data) async throws {}
     func forgetAllBoardSyncFields() async throws {}
