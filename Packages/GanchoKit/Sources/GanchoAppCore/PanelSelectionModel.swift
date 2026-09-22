@@ -9,6 +9,7 @@ import Observation
 /// selection mutation or expose reducer storage to SwiftUI.
 @MainActor @Observable final class PanelSelectionModel {
     private var state = PanelSelectionState()
+    private var cursorID: UUID?
 
     var snapshot: PanelSelectionState { state }
     var selectedIndex: Int { state.cursorIndex }
@@ -42,15 +43,15 @@ import Observation
     }
 
     func clear(in rows: [ClipItem]) {
-        let rowIDs = rows.map(\.id)
-        let reconciled = PanelSelection.reduce(.reconcile, state: state, rowIDs: rowIDs)
-        state = PanelSelection.reduce(
-            .replace(index: reconciled.cursorIndex),
-            state: reconciled,
-            rowIDs: rowIDs)
+        reconcile(in: rows)
+        apply(.replace(index: state.cursorIndex), in: rows)
     }
 
     private func apply(_ action: PanelSelectionAction, in rows: [ClipItem]) {
+        if let cursorID, let index = rows.firstIndex(where: { $0.id == cursorID }) {
+            state.cursorIndex = index
+        }
         state = PanelSelection.reduce(action, state: state, rowIDs: rows.map(\.id))
+        cursorID = rows.indices.contains(state.cursorIndex) ? rows[state.cursorIndex].id : nil
     }
 }
