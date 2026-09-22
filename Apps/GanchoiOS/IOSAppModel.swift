@@ -103,7 +103,11 @@ final class IOSAppModel {
     /// Device-local by design — they gate what runs HERE and never sync; the
     /// enriched results that ride the clip record (title/OCR/sensitive) do.
     var intelligence: IntelligencePreferences {
-        didSet { intelligence.save(to: defaults) }
+        didSet {
+            intelligence.save(to: defaults)
+            SharedCapture.updatePreferences(
+                retention: RetentionPolicy.load(from: defaults), intelligence: intelligence)
+        }
     }
 
     /// Curated-Library Spotlight donation (snippets + pins only — never raw
@@ -158,7 +162,10 @@ final class IOSAppModel {
     // swiftlint:disable:next function_body_length
     init() {
         let forceFreeTier = CommandLine.arguments.contains("-force-free-tier")
-        intelligence = IntelligencePreferences.load(from: defaults)
+        let initialIntelligence = IntelligencePreferences.load(from: defaults)
+        intelligence = initialIntelligence
+        SharedCapture.updatePreferences(
+            retention: RetentionPolicy.load(from: defaults), intelligence: initialIntelligence)
         spotlightIndexing =
             UserDefaults.standard.object(forKey: "spotlightIndexing") as? Bool ?? true
         var telemetryConsent = TelemetryConsent.load(from: defaults)
@@ -922,8 +929,7 @@ final class IOSAppModel {
 
     /// The user-initiated read (system paste transparency applies).
     func saveClipboard() async {
-        guard let capture = source.captureNow() else { return }
-        await ingest(capture)
+        await handleIntentionalRead(source.captureNow())
     }
 
     /// Resolved once: launch arguments cannot change after launch.
@@ -980,32 +986,27 @@ final class IOSAppModel {
     /// UIPasteControl handoff: the system mediates the tap, so this path
     /// never shows an alert. Providers carry text, URLs, or images.
     func ingest(providers: [NSItemProvider]) {
-        // Mark this copy as read (metadata only — the change counter), so the
-        // capture card flips from "not read yet" to "Saved" until a new copy —
-        // but only once the clip is actually stored. Marking it up front would
-        // show "Saved" for a paste the store refused.
-        let changeCount = UIPasteboard.general.changeCount
-        for provider in providers {
-            if provider.canLoadObject(ofClass: UIImage.self) {
-                _ = provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
-                    guard let png = (object as? UIImage)?.pngData() else { return }
-                    Task { @MainActor in
-                        await self?.markPasteRead(
-                            changeCount,
-                            saved: self?.ingest(
-                                PasteboardCapture(
-                                    payload: .image(data: png, typeIdentifier: "public.png"))))
-                    }
-                }
-            } else if provider.canLoadObject(ofClass: NSString.self) {
-                _ = provider.loadObject(ofClass: NSString.self) { [weak self] object, _ in
-                    guard let text = object as? String, !text.isEmpty else { return }
-                    Task { @MainActor in
-                        await self?.markPasteRead(
-                            changeCount, saved: self?.ingest(PasteboardCapture(text: text)))
-                    }
-                }
+        Task {
+            for result in await source.capture(providers: providers) {
+                await handleIntentionalRead(result)
             }
+        }
+    }
+
+    private func handleIntentionalRead(_ read: IntentionalCaptureRead.Result) async {
+        switch read {
+        case .captured(let capture, let changeCount):
+            await markPasteRead(changeCount, saved: ingest(capture))
+        case .refused:
+            flashNote(
+                String(localized: "This clipboard item cannot be saved for privacy reasons."),
+                kind: .failure)
+        case .empty:
+            flashNote(String(localized: "The clipboard is empty."), kind: .failure)
+        case .unavailable:
+            flashNote(
+                String(localized: "Couldn’t read the clipboard. Try pasting again."), kind: .failure
+            )
         }
     }
 
@@ -1042,7 +1043,10 @@ final class IOSAppModel {
                 store: store,
                 syncEngine: syncController.engine,
                 didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
-        else { return false }
+        else {
+            flashNote(String(localized: "Couldn’t save the clipboard. Try again."), kind: .failure)
+            return false
+        }
         if outcome.isNew { recordActivationMilestone(.firstCapture) }
         try? await full?.recordPrivateCapture(
             sourceAppBundleID: capture.sourceAppBundleID,

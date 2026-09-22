@@ -62,16 +62,85 @@
         /// the user's per-app "Paste from Other Apps" setting) — that is the
         /// honest contract of a user-initiated capture button. `UIPasteControl`
         /// is the no-alert path because the system itself mediates the tap.
-        public func captureNow() -> PasteboardCapture? {
+        public func captureNow() async -> IntentionalCaptureRead.Result {
             let pasteboard = UIPasteboard.general
-            if let image = pasteboard.image, let png = image.pngData() {
-                return PasteboardCapture(payload: .image(data: png, typeIdentifier: "public.png"))
+            return await IntentionalCaptureRead.read(
+                metadata: { Self.metadata(pasteboard) },
+                payload: {
+                    if let image = pasteboard.image, let png = image.pngData() {
+                        return .image(data: png, typeIdentifier: "public.png")
+                    }
+                    if let url = pasteboard.url { return .text(url.absoluteString) }
+                    if let text = pasteboard.string { return .text(text) }
+                    return nil
+                })
+        }
+
+        /// System-mediated paste retains the same marker policy. Union every
+        /// provider's advertised types before loading any object: a marker on a
+        /// sibling provider must veto the entire clipboard transaction.
+        public func capture(providers: [NSItemProvider]) async -> [IntentionalCaptureRead.Result] {
+            let pasteboard = UIPasteboard.general
+            let providerTypes = Set(providers.flatMap(\.registeredTypeIdentifiers))
+            let initial = Self.metadata(pasteboard, providerTypes: providerTypes)
+            guard !initial.isProtected else { return [.refused] }
+            guard !providers.isEmpty else { return [.empty] }
+            var results: [IntentionalCaptureRead.Result] = []
+            for provider in providers {
+                guard pasteboard.changeCount == initial.changeCount, !Task.isCancelled else {
+                    return [.unavailable]
+                }
+                let result = await IntentionalCaptureRead.read(
+                    metadata: { Self.metadata(pasteboard, providerTypes: providerTypes) },
+                    payload: { await Self.load(provider) })
+                // Do not deliver an earlier payload from a changed batch.
+                switch result {
+                case .refused, .unavailable: return [result]
+                default: results.append(result)
+                }
             }
-            if let url = pasteboard.url {
-                return PasteboardCapture(payload: .text(url.absoluteString))
+            return results
+        }
+
+        private static func metadata(
+            _ pasteboard: UIPasteboard, providerTypes: Set<String> = []
+        ) -> IntentionalCaptureRead.Metadata {
+            .init(
+                types: Set((pasteboard.types(forItemSet: nil) ?? []).flatMap { $0 }).union(
+                    providerTypes),
+                changeCount: pasteboard.changeCount,
+                hasContent: !providerTypes.isEmpty || pasteboard.hasStrings
+                    || pasteboard.hasURLs || pasteboard.hasImages)
+        }
+
+        private static func load(_ provider: NSItemProvider) async -> PasteboardCapture.Payload? {
+            if provider.canLoadObject(ofClass: UIImage.self) {
+                return await withCheckedContinuation { continuation in
+                    _ = provider.loadObject(ofClass: UIImage.self) { object, _ in
+                        let payload = (object as? UIImage)?.pngData().map {
+                            PasteboardCapture.Payload.image(data: $0, typeIdentifier: "public.png")
+                        }
+                        continuation.resume(returning: payload)
+                    }
+                }
             }
-            if let string = pasteboard.string, !string.isEmpty {
-                return PasteboardCapture(payload: .text(string))
+            if provider.canLoadObject(ofClass: NSURL.self) {
+                return await withCheckedContinuation { continuation in
+                    _ = provider.loadObject(ofClass: NSURL.self) { object, _ in
+                        let payload = (object as? URL).map {
+                            PasteboardCapture.Payload.text($0.absoluteString)
+                        }
+                        continuation.resume(returning: payload)
+                    }
+                }
+            }
+            if provider.canLoadObject(ofClass: NSString.self) {
+                return await withCheckedContinuation { continuation in
+                    _ = provider.loadObject(ofClass: NSString.self) { object, _ in
+                        continuation.resume(
+                            returning: (object as? String).map(PasteboardCapture.Payload.text))
+                    }
+                }
             }
             return nil
         }

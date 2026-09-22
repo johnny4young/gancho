@@ -284,7 +284,10 @@ final class KeyboardModel: ObservableObject {
 
     private static func message(for outcome: SharedCapture.Outcome) -> LocalizedStringResource {
         switch outcome {
-        case .savedText, .savedImage: "Saved to Gancho"
+        case .saved(let outcome): outcome.isNew ? "Saved to Gancho" : "Already in your history"
+        case .refused: "This clipboard item cannot be saved for privacy reasons."
+        case .unavailable: "Couldn’t read the clipboard. Try pasting again."
+        case .saveFailed: "Couldn’t save the clipboard. Try again."
         case .empty: "The clipboard is empty"
         case .storeUnavailable: "Couldn’t open Gancho"
         }
