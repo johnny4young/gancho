@@ -3,6 +3,12 @@ import Foundation
 import GanchoKit
 import UniformTypeIdentifiers
 
+#if canImport(AppKit)
+    import AppKit
+#elseif canImport(UIKit)
+    import UIKit
+#endif
+
 /// The share sheet requests bytes lazily, not the row's cached preview. Only
 /// identity/type are advertised; current store metadata authorizes each load.
 public struct ClipShareItem: Transferable {
@@ -29,7 +35,16 @@ public struct ClipShareItem: Transferable {
             switch try await item.load() {
             case .text(let text): return Data(text.utf8)
             case .fileReferences(let paths): return Data(paths.joined(separator: "\n").utf8)
-            case .binary: throw CocoaError(.fileReadUnknown)
+            case .binary(let data, let type):
+                guard UTType(type)?.conforms(to: .rtf) == true else {
+                    throw CocoaError(.fileReadUnknown)
+                }
+                let text = try NSAttributedString(
+                    data: data,
+                    options: [.documentType: NSAttributedString.DocumentType.rtf],
+                    documentAttributes: nil
+                ).string
+                return Data(text.utf8)
             }
         }
         .exportingCondition { $0.kind != .image }
