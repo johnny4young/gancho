@@ -97,6 +97,15 @@ final class PanelReproUITests: XCTestCase {
         _ app: XCUIApplication, search: XCUIElement, rows: XCUIElementQuery
     ) throws {
         try SynthesizedInput.requireForeground(app)
+        // Same-context refresh preserves identity, including the nearest cursor
+        // after delete/Undo. Anchor this range test explicitly instead of
+        // assuming every refresh resets the cursor to index zero.
+        let first = rows.firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        XCTAssertTrue(first.isHittable)
+        first.click()
+        XCTAssertTrue(first.isSelected)
+        search.click()
         guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
             throw XCTSkip("the panel never took keyboard focus — skipping synthesized input")
         }
