@@ -288,10 +288,23 @@ extension GRDBClipboardStore {
             try db.execute(
                 sql: "INSERT OR REPLACE INTO board_tombstone (recordID, deletedAt) VALUES (?, ?)",
                 arguments: [id.uuidString, now])
-            try db.execute(
-                sql: "UPDATE clip SET needsUpload = 1 "
-                    + "WHERE id IN (SELECT clipID FROM clip_board WHERE boardID = ?)",
+            let latestMemberRevision = try Date.fetchOne(
+                db,
+                sql: """
+                    SELECT MAX(updatedAt) FROM clip
+                    WHERE id IN (SELECT clipID FROM clip_board WHERE boardID = ?)
+                    """,
                 arguments: [id.uuidString])
+            // Membership travels on the clip record. A prior upload ack must
+            // never clear this new dirty state, even if the clock did not move.
+            let revision =
+                latestMemberRevision.map {
+                    max(now, $0.addingTimeInterval(0.001))
+                } ?? now
+            try db.execute(
+                sql: "UPDATE clip SET needsUpload = 1, updatedAt = ? "
+                    + "WHERE id IN (SELECT clipID FROM clip_board WHERE boardID = ?)",
+                arguments: [revision, id.uuidString])
             try db.execute(
                 sql: "DELETE FROM clip_board WHERE boardID = ?", arguments: [id.uuidString])
             try db.execute(sql: "DELETE FROM pinboard WHERE id = ?", arguments: [id.uuidString])

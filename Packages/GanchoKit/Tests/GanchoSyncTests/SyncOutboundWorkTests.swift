@@ -97,6 +97,31 @@ struct SyncOutboundWorkTests {
         #expect(try await fixture.store.pendingUploadIDs().isEmpty)
     }
 
+    @Test("A pre-deletion clip ack cannot clear a removed board membership")
+    func lateClipAckAfterBoardDeletion() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let item = try await fixture.insert()
+        let board = try await fixture.store.createPinboard(name: "synthetic board")
+        try await fixture.store.assign(clipID: item.id, toBoard: board.id)
+        let recordID = try fixture.record(item).recordID
+        let inFlight = try #require(try await fixture.work.prepare([recordID])[recordID])
+        let uploadedAt = try #require(inFlight["updatedAt"] as? Date)
+        #expect(ClipRecordMapper.boardIDs(from: inFlight) == [board.id])
+
+        // The delete happens after preparation but can share its timestamp.
+        try await fixture.store.deletePinboardForSync(id: board.id, now: uploadedAt)
+        try await fixture.work.acknowledge(inFlight)
+
+        #expect(try await fixture.store.pendingUploadIDs() == [item.id])
+        let newest = try #require(try await fixture.store.pendingUpload(id: item.id)?.item)
+        #expect(newest.updatedAt > uploadedAt)
+        let replacement = try #require(try await fixture.work.prepare([recordID])[recordID])
+        #expect(ClipRecordMapper.boardIDs(from: replacement).isEmpty)
+        try await fixture.work.acknowledge(replacement)
+        #expect(try await fixture.store.pendingUploadIDs().isEmpty)
+    }
+
     @Test("An old board ack preserves the renamed board as pending")
     func lateBoardAck() async throws {
         let fixture = try Fixture()
