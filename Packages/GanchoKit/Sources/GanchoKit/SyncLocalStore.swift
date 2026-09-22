@@ -67,9 +67,10 @@ public protocol SyncLocalStore: Sendable {
     /// Record IDs of deletions waiting to propagate (tombstones).
     func pendingDeletionRecordIDs() async throws -> [String]
 
-    /// After a successful upload: store the CKRecord system fields and clear
-    /// the dirty flag.
-    func markUploaded(id: UUID, systemFields: Data) async throws
+    /// Store the successful upload's system fields. Clear the dirty flag only
+    /// when the current revision matches the sent revision; nil is an explicit
+    /// unconditional acknowledgement for local setup/legacy callers.
+    func markUploaded(id: UUID, systemFields: Data, uploadedAt: Date?) async throws
     /// Archived CKRecord system fields for a clip (nil = never synced).
     func systemFields(for id: UUID) async throws -> Data?
     /// Flags a locally-edited clip for re-upload.
@@ -92,10 +93,8 @@ public protocol SyncLocalStore: Sendable {
     ///
     /// Each change still gets its own savepoint inside that transaction, so a
     /// record that throws rolls back alone and the rest of the page still
-    /// commits. That is deliberate rather than incidental: `applyFetched` does
-    /// not throw and the change token advances regardless, so a page that
-    /// failed as a unit would lose every change in it with no retry. One bad
-    /// record must not take the page down with it.
+    /// commits. The adapter checks `failed` and retains the durable checkpoint
+    /// on an incomplete page; successful changes can safely replay via LWW.
     func applyRemoteChanges(
         clips: [RemoteClipChange], boards: [RemoteBoardChange],
         clipDeletions: [String], boardDeletions: [String]
@@ -124,7 +123,7 @@ public protocol SyncLocalStore: Sendable {
     // so a board's name/glyph propagate. Membership rides the clip record.
     func pendingBoardUploads() async throws -> [Pinboard]
     func markBoardNeedsUpload(id: UUID) async throws
-    func markBoardUploaded(id: UUID, systemFields: Data) async throws
+    func markBoardUploaded(id: UUID, systemFields: Data, uploaded: Pinboard?) async throws
     func boardSystemFields(for id: UUID) async throws -> Data?
     func applyRemoteBoardUpsert(_ board: Pinboard, systemFields: Data) async throws
     func forgetAllBoardSyncFields() async throws
@@ -255,11 +254,15 @@ extension GRDBClipboardStore: SyncLocalStore {
         }
     }
 
-    public func markUploaded(id: UUID, systemFields: Data) async throws {
+    public func markUploaded(id: UUID, systemFields: Data, uploadedAt: Date? = nil) async throws {
         try await writer.write { db in
             try db.execute(
-                sql: "UPDATE clip SET syncSystemFields = ?, needsUpload = 0 WHERE id = ?",
-                arguments: [systemFields, id.uuidString])
+                sql: """
+                    UPDATE clip SET syncSystemFields = ?,
+                        needsUpload = CASE WHEN ? IS NULL OR updatedAt = ? THEN 0 ELSE 1 END
+                    WHERE id = ?
+                    """,
+                arguments: [systemFields, uploadedAt, uploadedAt, id.uuidString])
         }
     }
 
@@ -583,11 +586,15 @@ extension GRDBClipboardStore: SyncLocalStore {
         }
     }
 
-    public func markBoardUploaded(id: UUID, systemFields: Data) async throws {
+    public func markBoardUploaded(
+        id: UUID, systemFields: Data, uploaded: Pinboard? = nil
+    ) async throws {
         try await writer.write { db in
+            let current = try PinboardRow.fetchOne(db, key: id.uuidString)?.board
+            let unchanged = uploaded == nil || current == uploaded
             try db.execute(
-                sql: "UPDATE pinboard SET syncSystemFields = ?, needsUpload = 0 WHERE id = ?",
-                arguments: [systemFields, id.uuidString])
+                sql: "UPDATE pinboard SET syncSystemFields = ?, needsUpload = ? WHERE id = ?",
+                arguments: [systemFields, unchanged ? 0 : 1, id.uuidString])
         }
     }
 

@@ -40,7 +40,7 @@ struct CKSyncEngineAdapterTests {
                 for: item, content: .text("body"), systemFields: nil, zoneID: clipZone,
                 boardIDs: [boardID]))
 
-        await adapter.applyFetched(records: [record], deletions: [])
+        try await adapter.applyFetched(records: [record], deletions: [])
 
         let upserts = await store.upserts
         #expect(upserts.map(\.id) == [item.id])
@@ -60,7 +60,7 @@ struct CKSyncEngineAdapterTests {
                 for: ClipItem(preview: "old", contentHash: "h"), content: .text("old"),
                 systemFields: nil, zoneID: clipZone))
 
-        await adapter.applyFetched(records: [record], deletions: [])
+        try await adapter.applyFetched(records: [record], deletions: [])
 
         #expect(await store.membershipSets.isEmpty, "a losing remote must not touch boards")
         #expect(log.entries.isEmpty, "a normal LWW skip must not read as sync trouble")
@@ -77,7 +77,9 @@ struct CKSyncEngineAdapterTests {
                 for: ClipItem(preview: "x", contentHash: "h"), content: .text("x"),
                 systemFields: nil, zoneID: clipZone))
 
-        await adapter.applyFetched(records: [record], deletions: [])
+        await #expect(throws: (any Error).self) {
+            try await adapter.applyFetched(records: [record], deletions: [])
+        }
 
         let entry = try #require(log.entries.first)
         #expect(entry.category == "Sync")
@@ -95,20 +97,22 @@ struct CKSyncEngineAdapterTests {
             recordType: ClipRecordMapper.recordType,
             recordID: CKRecord.ID(recordName: "not-a-uuid", zoneID: clipZone))
 
-        await adapter.applyFetched(records: [broken], deletions: [])
+        await #expect(throws: (any Error).self) {
+            try await adapter.applyFetched(records: [broken], deletions: [])
+        }
 
         #expect(await store.upserts.isEmpty)
         #expect(log.entries.first?.message.contains("1 failed to decode") == true)
     }
 
     @Test("Deletions route by zone: clips to the clip store, boards to the board store")
-    func deletionsRouteByZone() async {
+    func deletionsRouteByZone() async throws {
         let store = RecordingStore()
         let adapter = makeAdapter(store: store)
         let clipID = UUID().uuidString
         let boardID = UUID().uuidString
 
-        await adapter.applyFetched(
+        try await adapter.applyFetched(
             records: [],
             deletions: [
                 CKRecord.ID(recordName: clipID, zoneID: clipZone),
@@ -182,7 +186,7 @@ private actor RecordingStore: SyncLocalStore {
     func pendingUploadIDs() async throws -> [UUID] { [] }
     func pendingUpload(id: UUID) async throws -> (item: ClipItem, content: ClipContent?)? { nil }
     func pendingDeletionRecordIDs() async throws -> [String] { [] }
-    func markUploaded(id: UUID, systemFields: Data) async throws {}
+    func markUploaded(id: UUID, systemFields: Data, uploadedAt: Date?) async throws {}
     func systemFields(for id: UUID) async throws -> Data? { nil }
     func markNeedsUpload(id: UUID) async throws {}
     func clearTombstone(recordID: String) async throws {}
@@ -190,7 +194,7 @@ private actor RecordingStore: SyncLocalStore {
     func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> { [] }
     func pendingBoardUploads() async throws -> [Pinboard] { [] }
     func markBoardNeedsUpload(id: UUID) async throws {}
-    func markBoardUploaded(id: UUID, systemFields: Data) async throws {}
+    func markBoardUploaded(id: UUID, systemFields: Data, uploaded: Pinboard?) async throws {}
     func boardSystemFields(for id: UUID) async throws -> Data? { nil }
     func applyRemoteBoardUpsert(_ board: Pinboard, systemFields: Data) async throws {}
     func forgetAllBoardSyncFields() async throws {}
