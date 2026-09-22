@@ -140,6 +140,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
                 throw error
             }
             guard generation == receiveGeneration else { throw CancellationError() }
+            // Polling may have discovered a deleted zone without any push.
+            // Its durable reset must also become engine work in this cycle.
+            try await reenqueuePendingWork(into: engine)
             try await engine.fetchChanges()
             guard generation == receiveGeneration else { throw CancellationError() }
             try await engine.sendChanges()
@@ -226,6 +229,10 @@ public actor CKSyncEngineAdapter: SyncEngine {
                 guard let self else { throw CancellationError() }
                 try await self.applyPolled(
                     records: records, deletions: deletions, generation: generation)
+            },
+            resetZones: { [weak self] zones in
+                guard let self else { throw CancellationError() }
+                try await self.resetPolledZones(zones, generation: generation)
             })
         do {
             let candidate = try await driver.pull(
@@ -263,7 +270,12 @@ public actor CKSyncEngineAdapter: SyncEngine {
         guard receiveRetryID == id else { return }
         receiveRetryTask = nil
         receiveRetryID = nil
-        if recovered { await emitCurrentStatus() }
+        if recovered {
+            if let engine {
+                do { try await reenqueuePendingWork(into: engine) } catch { failOutbound(.pending) }
+            }
+            await emitCurrentStatus()
+        }
     }
 
     private static func archiveCheckpoint(_ token: CKServerChangeToken) throws -> Data {
@@ -356,14 +368,27 @@ public actor CKSyncEngineAdapter: SyncEngine {
             pendingRecordZoneChanges: ids.map { .deleteRecord(boardRecordID(for: $0)) })
     }
 
-    func beginIdentityReset(zones: Set<String>) async throws {
-        receiveGeneration += 1
-        pollTask?.cancel()
-        pollTask = nil
-        pollID = nil
-        receiveRetryTask?.cancel()
-        receiveRetryTask = nil
-        receiveRetryID = nil
+    private func resetPolledZones(_ zones: Set<String>, generation: Int) async throws {
+        guard generation == receiveGeneration else { throw CancellationError() }
+        try await beginIdentityReset(zones: zones, interruptReceive: false)
+        guard generation == receiveGeneration else { throw CancellationError() }
+        engine?.state.add(
+            pendingDatabaseChanges: zones.map {
+                .saveZone(
+                    CKRecordZone(zoneID: .init(zoneName: $0, ownerName: CKCurrentUserDefaultName)))
+            })
+    }
+
+    func beginIdentityReset(zones: Set<String>, interruptReceive: Bool = true) async throws {
+        if interruptReceive {
+            receiveGeneration += 1
+            pollTask?.cancel()
+            pollTask = nil
+            pollID = nil
+            receiveRetryTask?.cancel()
+            receiveRetryTask = nil
+            receiveRetryID = nil
+        }
         var tokens = loadPollTokens()
         tokens.database = nil
         for zone in zones { tokens.zones[zone] = nil }
@@ -417,8 +442,11 @@ public actor CKSyncEngineAdapter: SyncEngine {
         CKRecord.ID(recordName: id.uuidString, zoneID: boardZoneID)
     }
 
-    // MARK: - Status
+}
 
+// MARK: - Durable work and status
+
+extension CKSyncEngineAdapter {
     private func emit(_ status: SyncStatus) {
         onStatus?(status)
     }

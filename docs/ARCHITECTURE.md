@@ -406,7 +406,11 @@ existing server-wins contract rather than adding a cloud timestamp field.
 Account/zone identity resets use an additive optional `identityResetZones` field
 in the local poll checkpoint file. The reset intent is saved before identity
 writes, and cleared only after all writes succeed. A restart resumes an
-incomplete reset before polling/sending. Original checkpoint files decode with
+incomplete reset before polling/sending. Independent polling uses the same reset
+journal for deleted/missing owned zones, without cancelling its own receive
+cycle; it re-registers durable pending work before sending. A local reset failure
+cannot acknowledge the new database token, even without a push callback.
+Original checkpoint files decode with
 no reset pending; no cloud schema or database migration is required. A rollback
 must finish or retain any pending identity-reset journal before using an older
 binary that does not understand it. Live account switching and multi-device

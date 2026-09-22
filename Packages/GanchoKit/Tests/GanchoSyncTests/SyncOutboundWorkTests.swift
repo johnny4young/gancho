@@ -329,4 +329,84 @@ struct SyncOutboundWorkTests {
         #expect(statuses.withLock { $0 } == [.syncing])
     }
 
+    @Test(
+        "Polling deleted or missing zones re-flags local rows without a push callback",
+        arguments: [false, true])
+    func polledZoneReset(missing: Bool) async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let item = try await fixture.insert()
+        try await fixture.store.markUploaded(id: item.id, systemFields: Data([1]))
+        let zone = fixture.work.clipZone.zoneName
+        let adapter = CKSyncEngineAdapter(
+            store: fixture.store, containerIdentifier: "iCloud.test.gancho",
+            stateStore: .init(load: { nil }, save: { _ in }))
+        let driver = SyncPullDriver(
+            databasePage: { _ in
+                .init(
+                    changedZones: missing ? [zone] : [],
+                    deletedZones: missing ? [] : [zone], token: Data([3]))
+            },
+            zonePage: { _, _ in throw CKError(.zoneNotFound) },
+            apply: { _, _ in Issue.record("a missing zone has no records to apply") },
+            resetZones: { zones in
+                try await adapter.beginIdentityReset(zones: zones, interruptReceive: false)
+            })
+        let checkpoint = SyncPollTokens(database: Data([1]), zones: [zone: Data([2])])
+        let next = try await driver.pull(from: checkpoint, zones: [zone])
+        #expect(next.database == Data([3]))
+        #expect(next.zones[zone] == nil)
+        #expect(try await fixture.store.systemFields(for: item.id) == nil)
+        #expect(try await fixture.store.pendingUploadIDs() == [item.id])
+    }
+
+    @Test("A polled reset write failure cannot acknowledge the new database checkpoint")
+    func polledResetFailure() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let item = try await fixture.insert()
+        try await fixture.store.markUploaded(id: item.id, systemFields: Data([1]))
+        let zone = fixture.work.clipZone.zoneName
+        let bytes = Mutex<Data?>(nil)
+        let journal = SyncStateStore(
+            load: { bytes.withLock { $0 } },
+            save: { data in bytes.withLock { $0 = data } })
+        let adapter = CKSyncEngineAdapter(
+            store: fixture.store, containerIdentifier: "iCloud.test.gancho",
+            stateStore: .init(load: { nil }, save: { _ in }), pollStateStore: journal)
+        try await fixture.writer.write { db in
+            try db.execute(
+                sql: """
+                    CREATE TRIGGER fail_polled_reset BEFORE UPDATE OF syncSystemFields ON clip
+                    BEGIN SELECT RAISE(ABORT, 'synthetic failure'); END
+                    """)
+        }
+        let driver = SyncPullDriver(
+            databasePage: { _ in .init(changedZones: [], deletedZones: [zone], token: Data([3])) },
+            zonePage: { _, _ in .init(records: [], token: Data([4])) },
+            apply: { _, _ in },
+            resetZones: { zones in
+                try await adapter.beginIdentityReset(zones: zones, interruptReceive: false)
+            })
+        await #expect(throws: (any Error).self) {
+            try await driver.pull(from: .init(database: Data([1])), zones: [zone])
+        }
+        #expect(SyncPollTokens.load(from: journal).database != Data([3]))
+        #expect(SyncPollTokens.load(from: journal).identityResetZones == [zone])
+        #expect(try await fixture.store.systemFields(for: item.id) == Data([1]))
+    }
+
+    @Test("Polling ignores identity resets for zones the adapter does not own")
+    func unrelatedZoneDeletion() async throws {
+        let driver = SyncPullDriver(
+            databasePage: { _ in
+                .init(changedZones: [], deletedZones: ["unrelated"], token: Data([3]))
+            },
+            zonePage: { _, _ in .init(records: [], token: Data([4])) },
+            apply: { _, _ in },
+            resetZones: { _ in Issue.record("unowned zone must not reset local data") })
+        let next = try await driver.pull(from: .init(), zones: ["clips"])
+        #expect(next.database == Data([3]))
+    }
+
 }

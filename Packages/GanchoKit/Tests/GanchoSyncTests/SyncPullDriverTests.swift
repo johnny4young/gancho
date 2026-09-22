@@ -38,7 +38,7 @@ private actor PullScript {
         .init(
             databasePage: { try await self.database($0) },
             zonePage: { _, token in try await self.zone(token) },
-            apply: { _, _ in try await self.apply() })
+            apply: { _, _ in try await self.apply() }, resetZones: { _ in })
     }
 }
 
@@ -191,7 +191,8 @@ struct SyncPullDriverTests {
         let driver = SyncPullDriver(
             databasePage: { _ in database },
             zonePage: { _, _ in await gate.fetch() },
-            apply: { _, _ in Issue.record("late cancelled page must not apply") })
+            apply: { _, _ in Issue.record("late cancelled page must not apply") },
+            resetZones: { _ in Issue.record("late cancelled page must not reset identities") })
         let task = Task { try await driver.pull(from: initial, zones: ["clips"]) }
         await gate.waitForFetch()
         task.cancel()
