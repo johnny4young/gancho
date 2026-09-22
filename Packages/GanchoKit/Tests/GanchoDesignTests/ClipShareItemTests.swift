@@ -19,6 +19,34 @@ struct ClipShareItemTests {
         #expect(try await transfer.exported(as: .utf8PlainText) == Data(text.utf8))
     }
 
+    @Test("Safe rich-text captures export their full plain text")
+    func richTextBinary() async throws {
+        let store = InMemoryClipboardStore()
+        let item = ClipItem(kind: .text, preview: "short preview")
+        let rtf = Data("{\\rtf1\\ansi Full synthetic rich text}".utf8)
+        try await store.insert(
+            item, content: .binary(data: rtf, typeIdentifier: "public.rtf"))
+        let transfer = ClipShareItem(id: item.id, kind: item.kind, store: store)
+
+        #expect(transfer.exportedContentTypes() == [.utf8PlainText])
+        #expect(
+            try await transfer.exported(as: .utf8PlainText)
+                == Data("Full synthetic rich text".utf8))
+    }
+
+    @Test("Non-RTF binary content cannot be mislabeled as plain text")
+    func nonTextBinary() async throws {
+        let store = InMemoryClipboardStore()
+        let item = ClipItem(kind: .text)
+        try await store.insert(
+            item, content: .binary(data: Data([0x89, 0x50]), typeIdentifier: "public.png"))
+        let transfer = ClipShareItem(id: item.id, kind: item.kind, store: store)
+
+        await #expect(throws: (any Error).self) {
+            try await transfer.exported(as: .utf8PlainText)
+        }
+    }
+
     @Test(arguments: [ClipContentKind.jwt, .creditCard, .secret, .text])
     func cannotExportProtectedKinds(kind: ClipContentKind) async throws {
         let store = InMemoryClipboardStore()
