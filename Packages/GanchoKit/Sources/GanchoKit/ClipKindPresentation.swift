@@ -37,6 +37,10 @@ extension ClipContentKind {
         }
     }
 
+    /// Every kind outside the masked set; the SQL `kinds` filter for surfaces
+    /// that must exclude protected content before their result limit.
+    public static let unmaskedKinds = Set(allCases.filter { !$0.prefersMaskedPreview })
+
     /// Kinds a user must never text-edit: structured/binary payloads (a color
     /// swatch, an image, a file reference have no free-text body) and EVERY
     /// masked-preview kind — editing would reveal a secret/card/JWT that a bare

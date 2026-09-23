@@ -1,6 +1,7 @@
 import CoreTransferable
 import Foundation
 import GanchoKit
+import ImageIO
 import UniformTypeIdentifiers
 
 #if canImport(AppKit)
@@ -15,20 +16,27 @@ public struct ClipShareItem: Transferable {
     let id: UUID
     let kind: ClipContentKind
     let store: any ClipboardStore
+    let isProtectedText: @Sendable (String) -> Bool
 
-    public init(id: UUID, kind: ClipContentKind, store: any ClipboardStore) {
+    /// `isProtectedText` classifies rich text whose plain rendering differs
+    /// from the classified plain companion; true refuses the export.
+    public init(
+        id: UUID, kind: ClipContentKind, store: any ClipboardStore,
+        isProtectedText: @escaping @Sendable (String) -> Bool
+    ) {
         self.id = id
         self.kind = kind
         self.store = store
+        self.isProtectedText = isProtectedText
     }
 
     public static var transferRepresentation: some TransferRepresentation {
-        DataRepresentation(exportedContentType: .image) { item in
+        DataRepresentation(exportedContentType: .png) { item in
             let payload = try await item.load()
             guard case .binary(let data, let type) = payload.content,
-                UTType(type)?.conforms(to: .image) == true
+                let png = pngData(from: data, typeIdentifier: type)
             else { throw CocoaError(.fileReadUnknown) }
-            return data
+            return png
         }
         .exportingCondition { $0.kind == .image }
         DataRepresentation(exportedContentType: .utf8PlainText) { item in
@@ -46,14 +54,34 @@ public struct ClipShareItem: Transferable {
                     documentAttributes: nil
                 ).string
                 let canonical = ContentNormalizer.canonicalText(text, kind: payload.item.kind)
-                guard
+                // RTF rendering rarely matches the plain companion byte for
+                // byte, so a mismatch is re-classified rather than refused.
+                let matchesClassified =
                     ClipItem.hash(of: canonical, kind: payload.item.kind)
-                        == payload.item.contentHash
+                    == payload.item.contentHash
+                guard !canonical.isEmpty, matchesClassified || !item.isProtectedText(canonical)
                 else { throw CocoaError(.fileReadUnknown) }
                 return Data(canonical.utf8)
             }
         }
         .exportingCondition { $0.kind != .image }
+    }
+
+    /// PNG passes through; other stored image formats are transcoded so the
+    /// share sheet always receives a concrete, declared type.
+    static func pngData(from data: Data, typeIdentifier: String) -> Data? {
+        guard let type = UTType(typeIdentifier), type.conforms(to: .image) else { return nil }
+        if type.conforms(to: .png) { return data }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else { return nil }
+        let output = NSMutableData()
+        guard
+            let destination = CGImageDestinationCreateWithData(
+                output, UTType.png.identifier as CFString, 1, nil)
+        else { return nil }
+        CGImageDestinationAddImage(destination, image, nil)
+        return CGImageDestinationFinalize(destination) ? output as Data : nil
     }
 
     private func load() async throws -> ClipSafeDelivery.Payload {

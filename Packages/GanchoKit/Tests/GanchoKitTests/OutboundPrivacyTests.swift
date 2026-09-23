@@ -39,6 +39,14 @@ struct OutboundPrivacyTests {
         #expect(entries.map(\.id) == [safe.id])
     }
 
+    @Test("Expired clips never reach the keyboard list")
+    func expiredExcludedFromKeyboard() {
+        let expired = ClipItem(preview: "synthetic-expired", expiresAt: .now - 1)
+        let safe = ClipItem(preview: "synthetic-safe")
+        let entries = KeyboardClips.ordered(pinned: [expired], recent: [expired, safe])
+        #expect(entries.map(\.id) == [safe.id])
+    }
+
     @Test(arguments: [ClipContentKind.jwt, .creditCard, .secret, .text])
     func excludedFromEveryExportUnlessExplicitlyIncluded(kind: ClipContentKind) async throws {
         let root = FileManager.default.temporaryDirectory
