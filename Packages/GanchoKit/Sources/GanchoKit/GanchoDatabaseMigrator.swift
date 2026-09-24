@@ -27,6 +27,8 @@ enum GanchoDatabaseMigrator {
         case privateActivityReceipt = "v20-private-activity-receipt"
         case discoveryIndexes = "v21-discovery-indexes"
         case savedFilters = "v22-saved-filters"
+        case inboxReceipts = "v23-inbox-receipts"
+        case inboxReceiptClip = "v24-inbox-receipt-clip"
     }
 
     static var identifiers: [String] {
@@ -47,6 +49,17 @@ enum GanchoDatabaseMigrator {
             try db.create(table: "saved_filter") { table in
                 table.primaryKey("id", .text)
                 table.column("definition", .blob).notNull()
+            }
+        }
+        migrator.registerMigration(Identifier.inboxReceipts.rawValue) { db in
+            try db.create(table: "inbox_receipt") { table in
+                table.primaryKey("id", .text)
+                table.column("committedAt", .datetime).notNull()
+            }
+        }
+        migrator.registerMigration(Identifier.inboxReceiptClip.rawValue) { db in
+            try db.alter(table: "inbox_receipt") { table in
+                table.add(column: "clipID", .text)
             }
         }
         return migrator

@@ -492,6 +492,7 @@ targets:
           - GanchoKit
           - ClipboardCore
           - GanchoAI
+          - GanchoAppCore
     info:
       path: Apps/GanchoWidgets/Info.plist
       properties:
@@ -529,6 +530,7 @@ targets:
           - GanchoKit
           - ClipboardCore
           - GanchoAI
+          - GanchoAppCore
           - GanchoDesign
     info:
       path: Apps/GanchoKeyboard/Info.plist

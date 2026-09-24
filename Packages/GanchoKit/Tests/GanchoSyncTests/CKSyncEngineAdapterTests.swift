@@ -87,8 +87,8 @@ struct CKSyncEngineAdapterTests {
         #expect(!entry.message.contains("x"), "diagnostics must stay content-free")
     }
 
-    @Test("An undecodable record surfaces as a decode failure, never silently")
-    func decodeFailureIsCounted() async {
+    @Test("An undecodable record is counted and skipped; the rest of the page applies")
+    func decodeFailureIsCountedNotRetained() async throws {
         let store = RecordingStore()
         let log = DiagnosticLog()
         let adapter = makeAdapter(store: store, diagnostics: log)
@@ -96,13 +96,33 @@ struct CKSyncEngineAdapterTests {
         let broken = CKRecord(
             recordType: ClipRecordMapper.recordType,
             recordID: CKRecord.ID(recordName: "not-a-uuid", zoneID: clipZone))
+        let item = ClipItem(preview: "synthetic", contentHash: "h")
+        let good = try #require(
+            ClipRecordMapper.record(
+                for: item, content: .text("synthetic"), systemFields: nil, zoneID: clipZone))
 
-        await #expect(throws: (any Error).self) {
-            try await adapter.applyFetched(records: [broken], deletions: [])
-        }
+        try await adapter.applyFetched(records: [broken, good], deletions: [])
 
-        #expect(await store.upserts.isEmpty)
+        #expect(await store.upserts.map(\.id) == [item.id])
         #expect(log.entries.first?.message.contains("1 failed to decode") == true)
+        #expect(log.entries.first?.message.contains("0 failed to apply") == true)
+    }
+
+    @Test("Past the retry limit an apply failure is counted instead of retained")
+    func applyFailureCanBeAccepted() async throws {
+        let store = RecordingStore()
+        await store.setApplyError(RecordingStore.Failure.boom)
+        let log = DiagnosticLog()
+        let adapter = makeAdapter(store: store, diagnostics: log)
+        let record = try #require(
+            ClipRecordMapper.record(
+                for: ClipItem(preview: "x", contentHash: "h"), content: .text("x"),
+                systemFields: nil, zoneID: clipZone))
+
+        try await adapter.applyFetched(
+            records: [record], deletions: [], retainingApplyFailures: false)
+
+        #expect(log.entries.first?.message.contains("1 failed to apply") == true)
     }
 
     @Test("Deletions route by zone: clips to the clip store, boards to the board store")

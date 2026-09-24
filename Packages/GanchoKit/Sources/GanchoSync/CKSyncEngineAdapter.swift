@@ -59,6 +59,11 @@ public actor CKSyncEngineAdapter: SyncEngine {
         emit(.failed(.unknown))
     }
 
+    /// Consecutive polls that failed on a local apply. Past the limit a page is
+    /// accepted with its failures counted, so one bad record cannot wedge a zone.
+    private var applyFailureStreak = 0
+    private static let applyRetryLimit = 4
+
     /// Status sink for the UI (set by the factory). Receives `SyncStatus`
     /// values only — state and counts, never clip content.
     private let onStatus: (@Sendable (SyncStatus) -> Void)?
@@ -135,9 +140,11 @@ public actor CKSyncEngineAdapter: SyncEngine {
             // never arrive. `pollRemoteChanges()` asks the server directly
             // (one tiny database-changes call when idle) and applies through
             // the same code path as the engine's fetch events.
+            // A receive failure must not also hold back this device's uploads.
+            var receiveError: (any Error)?
             do { try await pollRemoteChanges() } catch {
                 scheduleReceiveRecovery(after: error)
-                throw error
+                receiveError = error
             }
             guard generation == receiveGeneration else { throw CancellationError() }
             // Polling may have discovered a deleted zone without any push.
@@ -147,6 +154,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
             guard generation == receiveGeneration else { throw CancellationError() }
             try await engine.sendChanges()
             guard generation == receiveGeneration else { throw CancellationError() }
+            if let receiveError { throw receiveError }
         } catch {
             guard generation == receiveGeneration, !(error is CancellationError) else {
                 throw CancellationError()
@@ -199,9 +207,8 @@ public actor CKSyncEngineAdapter: SyncEngine {
     private func performPoll() async throws {
         let generation = receiveGeneration
         let healthRevision = receiveHealth.revision
-        guard loadPollTokens().identityResetZones == nil else {
-            throw SyncOutboundFailure.localWrite
-        }
+        // Finish an interrupted reset first rather than failing every poll.
+        if loadPollTokens().identityResetZones != nil { try await completeIdentityReset() }
         let database = CKContainer(identifier: containerIdentifier).privateCloudDatabase
         let driver = SyncPullDriver(
             databasePage: { token in
@@ -233,16 +240,19 @@ public actor CKSyncEngineAdapter: SyncEngine {
             resetZones: { [weak self] zones in
                 guard let self else { throw CancellationError() }
                 try await self.resetPolledZones(zones, generation: generation)
-            })
+            },
+            skipped: { [weak self] count in await self?.recordSkippedRecords(count) })
         do {
             let candidate = try await driver.pull(
                 from: loadPollTokens(), zones: [zoneID.zoneName, boardZoneID.zoneName])
             guard generation == receiveGeneration else { throw CancellationError() }
             try savePollTokens(candidate)
+            applyFailureStreak = 0
             guard receiveHealth.recover(since: healthRevision) else {
                 throw SyncReceiveFailure.interruptedByNewFailure
             }
         } catch {
+            if case SyncReceiveFailure.apply = error { applyFailureStreak += 1 }
             if generation == receiveGeneration, !(error is CancellationError) {
                 receiveHealth.fail(error)
                 emit(.failed(receiveHealth.failure ?? .unknown))
@@ -285,11 +295,17 @@ public actor CKSyncEngineAdapter: SyncEngine {
         return data
     }
 
+    private func recordSkippedRecords(_ count: Int) {
+        diagnostics?.record("Sync", "\(count) fetched changes could not be read and were skipped.")
+    }
+
     private func applyPolled(
         records: [CKRecord], deletions: [CKRecord.ID], generation: Int
     ) async throws {
         guard generation == receiveGeneration else { throw CancellationError() }
-        try await applyFetched(records: records, deletions: deletions)
+        try await applyFetched(
+            records: records, deletions: deletions,
+            retainingApplyFailures: applyFailureStreak < Self.applyRetryLimit)
     }
 
     public func stop() async {
@@ -495,20 +511,28 @@ extension CKSyncEngineAdapter {
 
     /// Re-registers everything the local store still considers unsynced — used
     /// on a fresh start, after sign-in, and after a server zone reset.
-    private func reenqueuePendingWork(
-        into engine: CKSyncEngine, only recordIDs: Set<CKRecord.ID>? = nil
-    ) async throws {
+    private func reenqueuePendingWork(into engine: CKSyncEngine) async throws {
         let work = try await outbound.pending()
         guard self.engine === engine else { throw CancellationError() }
-        let changes = work.changes(clipZoneID: zoneID, boardZoneID: boardZoneID)
         engine.state.add(
-            pendingRecordZoneChanges: changes.filter { change in
-                guard let recordIDs else { return true }
-                switch change {
-                case .saveRecord(let id), .deleteRecord(let id): return recordIDs.contains(id)
-                @unknown default: return false
-                }
-            })
+            pendingRecordZoneChanges: work.changes(clipZoneID: zoneID, boardZoneID: boardZoneID))
+    }
+
+    /// Re-adds acknowledged saves whose rows a newer local edit left dirty,
+    /// reading only the save queues those records can be in.
+    private func requeueStillDirty(
+        _ acknowledged: Set<CKRecord.ID>, into engine: CKSyncEngine
+    ) async throws {
+        let clips = Set(try await store.pendingUploadIDs())
+        let boards =
+            acknowledged.contains { $0.zoneID == boardZoneID }
+            ? Set(try await store.pendingBoardUploads().map(\.id)) : []
+        guard self.engine === engine else { throw CancellationError() }
+        let dirty = acknowledged.filter { recordID in
+            guard let id = UUID(uuidString: recordID.recordName) else { return false }
+            return recordID.zoneID == boardZoneID ? boards.contains(id) : clips.contains(id)
+        }
+        engine.state.add(pendingRecordZoneChanges: dirty.map { .saveRecord($0) })
     }
 
     /// Drop pending `.saveRecord` changes the store no longer wants uploaded. A
@@ -564,6 +588,14 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             failOutbound(.preparation)
             return nil  // Returning a batch with nil providers would drop real work.
         }
+        // CKSyncEngine drops a save whose provider returns nil; the durable dirty
+        // row re-enqueues it next cycle, so only the count is surfaced here.
+        let missing = saveIDs.count(where: { built[$0] == nil })
+        if missing > 0 {
+            diagnostics?.record(
+                "Sync",
+                "\(missing) pending upload(s) had no sendable local row; retrying next cycle.")
+        }
         let records = UncheckedSendableBox(built)
         return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: pendingChanges) {
             recordID in records.value[recordID]
@@ -578,9 +610,11 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                 try stateStore.save(stateEncoder.encode(event.stateSerialization))
                 statePersistenceFailed = false
             } catch {
+                if !statePersistenceFailed {
+                    diagnostics?.record(
+                        "Sync", "Sync state could not be persisted; recovery remains pending.")
+                }
                 statePersistenceFailed = true
-                diagnostics?.record(
-                    "Sync", "Sync state could not be persisted; recovery remains pending.")
                 emit(.failed(.unknown))
             }
         case .accountChange(let event):
@@ -622,7 +656,14 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             do {
                 try await beginIdentityReset(zones: [zoneID.zoneName, boardZoneID.zoneName])
                 emit(.idle)
-            } catch { failOutbound(.reset) }
+            } catch {
+                failOutbound(.reset)
+                return
+            }
+            // A new account can sync now; a signed-out one waits for sign-in.
+            if case .switchAccounts = event.changeType {
+                Task { try? await self.start() }
+            }
         @unknown default:
             break
         }
@@ -672,10 +713,12 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
 
     /// Applies a batch of fetched changes to the local store — shared by the
     /// engine's event handler (push-fed fetches) and `pollRemoteChanges()` (the
-    /// explicit pull for hosts that receive no push). Incomplete batches throw,
-    /// retaining the poll checkpoint for replay; diagnostics contain counts
-    /// only, never the failed records or underlying database error text.
-    func applyFetched(records: [CKRecord], deletions: [CKRecord.ID]) async throws {
+    /// explicit pull for hosts that receive no push). Local apply failures throw
+    /// while `retainingApplyFailures`, keeping the poll checkpoint for replay;
+    /// undecodable records are skipped. Diagnostics carry counts only.
+    func applyFetched(
+        records: [CKRecord], deletions: [CKRecord.ID], retainingApplyFailures: Bool = true
+    ) async throws {
         var decodeFailures = 0
         var clips: [RemoteClipChange] = []
         var boards: [RemoteBoardChange] = []
@@ -705,41 +748,34 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                     systemFields: ClipRecordMapper.encodeSystemFields(record),
                     boardIDs: Set(ClipRecordMapper.boardIDs(from: record))))
         }
-        if decodeFailures > 0 {
-            diagnostics?.record(
-                "Sync",
-                "Fetched \(records.count + deletions.count) changes; \(decodeFailures) failed to decode, 0 failed to apply."
-            )
-            throw SyncReceiveFailure.undecodable(decodeFailures)
-        }
         let boardZone = boardZoneID.zoneName
         let deletionIDs = Dictionary(
             grouping: deletions, by: { $0.zoneID.zoneName == boardZone }
         )
         .mapValues { $0.map(\.recordName) }
 
-        // One transaction for the page instead of two per record. Decode
-        // failures are counted here because a record that cannot be decoded
-        // never reaches the store at all.
-        let summary: RemoteApplySummary
+        // One transaction for the page instead of two per record. Undecodable
+        // records never reach the store and a replay cannot decode them either,
+        // so they are counted and skipped rather than retained.
+        var applyFailures = 0
         do {
-            summary = try await store.applyRemoteChanges(
+            let summary = try await store.applyRemoteChanges(
                 clips: clips, boards: boards,
                 clipDeletions: deletionIDs[false] ?? [], boardDeletions: deletionIDs[true] ?? [])
+            applyFailures = summary.failed
         } catch is CancellationError {
             throw CancellationError()
         } catch {
-            let count = clips.count + boards.count + deletions.count
-            diagnostics?.record(
-                "Sync", "Fetched \(count) changes; 0 failed to decode, \(count) failed to apply.")
-            throw SyncReceiveFailure.apply(count)
+            applyFailures = clips.count + boards.count + deletions.count
         }
-        if summary.failed > 0 {
+        if decodeFailures + applyFailures > 0 {
             diagnostics?.record(
                 "Sync",
-                "Fetched \(records.count + deletions.count) changes; 0 failed to decode, \(summary.failed) failed to apply."
-            )
-            throw SyncReceiveFailure.apply(summary.failed)
+                "Fetched \(records.count + deletions.count) changes; "
+                    + "\(decodeFailures) failed to decode, \(applyFailures) failed to apply.")
+        }
+        if applyFailures > 0, retainingApplyFailures {
+            throw SyncReceiveFailure.apply(applyFailures)
         }
     }
 
@@ -771,7 +807,7 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         }
         // A late successful acknowledgement can leave a newer local edit dirty.
         if !acknowledged.isEmpty {
-            do { try await reenqueuePendingWork(into: syncEngine, only: acknowledged) } catch {
+            do { try await requeueStillDirty(acknowledged, into: syncEngine) } catch {
                 failOutbound(.pending)
             }
         }

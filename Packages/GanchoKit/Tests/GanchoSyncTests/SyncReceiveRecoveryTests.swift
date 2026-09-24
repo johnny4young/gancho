@@ -26,7 +26,7 @@ struct SyncReceiveRecoveryTests {
         var health = SyncReceiveHealth()
         health.fail(SyncReceiveFailure.apply(1))
         let old = health.revision
-        health.fail(SyncReceiveFailure.undecodable(1))
+        health.fail(SyncReceiveFailure.nonAdvancingPage)
         let clearedOld = health.recover(since: old)
         #expect(!clearedOld)
         #expect(health.failure != nil)
@@ -74,7 +74,7 @@ struct SyncReceiveRecoveryTests {
     @Test("Malformed data, account gates and cancellation do not start a hot loop")
     func permanentFailure() async {
         let errors: [any Error] = [
-            SyncReceiveFailure.undecodable(1), SyncReceiveFailure.checkpointEncoding,
+            SyncReceiveFailure.nonAdvancingPage, SyncReceiveFailure.checkpointEncoding,
             CKError(.notAuthenticated), CKError(.quotaExceeded), CancellationError()
         ]
         for error in errors {

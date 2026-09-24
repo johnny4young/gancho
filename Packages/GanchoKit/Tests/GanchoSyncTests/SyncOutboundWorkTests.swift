@@ -9,7 +9,7 @@ import Testing
 
 @Suite("Sync outbound durable outcomes")
 struct SyncOutboundWorkTests {
-    private struct Fixture {
+    fileprivate struct Fixture {
         let writer: DatabaseQueue
         let store: GRDBClipboardStore
         let work: SyncOutboundWork
@@ -190,18 +190,6 @@ struct SyncOutboundWorkTests {
         record["updatedAt"] = Date().addingTimeInterval(60)
         #expect(try await !fixture.work.resolveConflict(record))
         #expect(try await fixture.store.pendingUploadIDs().isEmpty)
-    }
-
-    @Test("Corrupt local system fields fail preparation without dropping the durable row")
-    func corruptFields() async throws {
-        let fixture = try Fixture()
-        defer { fixture.clean() }
-        let item = try await fixture.insert()
-        try await fixture.store.markUploaded(id: item.id, systemFields: Data([1]))
-        try await fixture.store.markNeedsUpload(id: item.id)
-        let id = try fixture.record(item).recordID
-        await #expect(throws: (any Error).self) { try await fixture.work.prepare([id]) }
-        #expect(try await fixture.store.pendingUploadIDs() == [item.id])
     }
 
     @Test("Adapter cannot report up-to-date after a local read failure")
@@ -434,4 +422,49 @@ struct SyncOutboundWorkTests {
         #expect(next.database == Data([3]))
     }
 
+}
+
+extension SyncOutboundWorkTests {
+    @Test("Corrupt local system fields fall back to a fresh record instead of blocking")
+    func corruptFields() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let item = try await fixture.insert()
+        let other = try await fixture.insert()
+        try await fixture.store.markUploaded(id: item.id, systemFields: Data([1]))
+        try await fixture.store.markNeedsUpload(id: item.id)
+        let id = try fixture.record(item).recordID
+        let otherID = try fixture.record(other).recordID
+        let prepared = try await fixture.work.prepare([id, otherID])
+        #expect(prepared[id] != nil)
+        #expect(prepared[id]?.recordChangeTag == nil)
+        #expect(prepared[otherID] != nil)
+        #expect(Set(try await fixture.store.pendingUploadIDs()) == [item.id, other.id])
+    }
+
+    @Test("A sub-millisecond round-trip difference still acknowledges the same revision")
+    func clipAckTolerance() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let item = try await fixture.insert()
+        let record = try fixture.record(item)
+        record["updatedAt"] = item.updatedAt.addingTimeInterval(0.0002)
+        try await fixture.work.acknowledge(record)
+        #expect(try await fixture.store.pendingUploadIDs().isEmpty)
+    }
+
+    @Test("A board ack ignores createdAt precision and compares editable fields")
+    func boardAckIgnoresCreatedAtPrecision() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let board = Pinboard(name: "synthetic", createdAt: Date(timeIntervalSince1970: 1000))
+        try await fixture.store.applyRemoteBoardUpsert(board, systemFields: Data())
+        try await fixture.store.markBoardNeedsUpload(id: board.id)
+        let record = try #require(
+            BoardRecordMapper.record(
+                for: board, systemFields: nil, zoneID: fixture.work.boardZone))
+        record["createdAt"] = board.createdAt.addingTimeInterval(0.0003)
+        try await fixture.work.acknowledge(record)
+        #expect(try await !fixture.store.pendingBoardUploads().map(\.id).contains(board.id))
+    }
 }

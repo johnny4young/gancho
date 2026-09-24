@@ -93,8 +93,10 @@ public protocol SyncLocalStore: Sendable {
     ///
     /// Each change still gets its own savepoint inside that transaction, so a
     /// record that throws rolls back alone and the rest of the page still
-    /// commits. The adapter checks `failed` and retains the durable checkpoint
-    /// on an incomplete page; successful changes can safely replay via LWW.
+    /// commits. That is deliberate rather than incidental: a page that failed as
+    /// a unit would hold every change in it behind one record until the poll's
+    /// bounded retries give up on that page. One bad record must not take the
+    /// page down with it.
     func applyRemoteChanges(
         clips: [RemoteClipChange], boards: [RemoteBoardChange],
         clipDeletions: [String], boardDeletions: [String]
@@ -256,14 +258,23 @@ extension GRDBClipboardStore: SyncLocalStore {
 
     public func markUploaded(id: UUID, systemFields: Data, uploadedAt: Date? = nil) async throws {
         try await writer.write { db in
+            var unchanged = true
+            if let uploadedAt,
+                let current = try Date.fetchOne(
+                    db, sql: "SELECT updatedAt FROM clip WHERE id = ?", arguments: [id.uuidString])
+            {
+                unchanged = Self.isSameRevision(current, uploadedAt)
+            }
             try db.execute(
-                sql: """
-                    UPDATE clip SET syncSystemFields = ?,
-                        needsUpload = CASE WHEN ? IS NULL OR updatedAt = ? THEN 0 ELSE 1 END
-                    WHERE id = ?
-                    """,
-                arguments: [systemFields, uploadedAt, uploadedAt, id.uuidString])
+                sql: "UPDATE clip SET syncSystemFields = ?, needsUpload = ? WHERE id = ?",
+                arguments: [systemFields, unchanged ? 0 : 1, id.uuidString])
         }
+    }
+
+    /// Stored dates keep millisecond text and CloudKit returns a float, so a
+    /// round trip can differ below a millisecond; distinct revisions do not.
+    static func isSameRevision(_ lhs: Date, _ rhs: Date) -> Bool {
+        abs(lhs.timeIntervalSince(rhs)) < 0.0005
     }
 
     public func systemFields(for id: UUID) async throws -> Data? {
@@ -591,7 +602,15 @@ extension GRDBClipboardStore: SyncLocalStore {
     ) async throws {
         try await writer.write { db in
             let current = try PinboardRow.fetchOne(db, key: id.uuidString)?.board
-            let unchanged = uploaded == nil || current == uploaded
+            // Only fields a local edit can change decide; createdAt is fixed.
+            let unchanged =
+                uploaded.map { uploaded in
+                    current.map {
+                        $0.name == uploaded.name && $0.sfSymbol == uploaded.sfSymbol
+                            && $0.sortIndex == uploaded.sortIndex
+                            && $0.colorHex == uploaded.colorHex && $0.emoji == uploaded.emoji
+                    } ?? true
+                } ?? true
             try db.execute(
                 sql: "UPDATE pinboard SET syncSystemFields = ?, needsUpload = ? WHERE id = ?",
                 arguments: [systemFields, unchanged ? 0 : 1, id.uuidString])

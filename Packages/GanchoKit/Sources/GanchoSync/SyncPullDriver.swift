@@ -23,6 +23,8 @@ struct SyncPullDriver: Sendable {
     let zonePage: @Sendable (String, Data?) async throws -> ZonePage
     let apply: @Sendable ([CKRecord], [CKRecord.ID]) async throws -> Void
     let resetZones: @Sendable (Set<String>) async throws -> Void
+    /// Count of records a page could never deliver, reported content-free.
+    var skipped: @Sendable (Int) async -> Void = { _ in }
 
     func pull(from checkpoint: SyncPollTokens, zones: [String]) async throws -> SyncPollTokens {
         var candidate = checkpoint
@@ -71,10 +73,21 @@ struct SyncPullDriver: Sendable {
             try Task.checkCancellation()
             do {
                 let page = try await zonePage(zone, token)
-                // Never compactMap a failed record out of a successful page.
-                let records = try page.records.map { try $0.get() }
+                // A transient per-record error retains the checkpoint; a record
+                // the server will never deliver is skipped rather than wedging.
+                var records: [CKRecord] = []
+                var permanentFailures = 0
+                for result in page.records {
+                    switch result {
+                    case .success(let record): records.append(record)
+                    case .failure(let error):
+                        guard Self.isPermanentRecordFailure(error) else { throw error }
+                        permanentFailures += 1
+                    }
+                }
                 try Task.checkCancellation()
                 try await apply(records, page.deletions)
+                if permanentFailures > 0 { await skipped(permanentFailures) }
                 try Task.checkCancellation()
                 if page.moreComing, page.token == token {
                     throw SyncReceiveFailure.nonAdvancingPage
@@ -89,10 +102,19 @@ struct SyncPullDriver: Sendable {
     }
 }
 
-/// Content-free failures with distinct retry policy: undecodable remote data
-/// needs an explicit retry after remediation, not an automatic hot loop.
+extension SyncPullDriver {
+    static func isPermanentRecordFailure(_ error: any Error) -> Bool {
+        guard let error = error as? CKError else { return false }
+        switch error.code {
+        case .unknownItem, .assetFileNotFound, .assetFileModified, .invalidArguments: return true
+        default: return false
+        }
+    }
+}
+
+/// Content-free failures with distinct retry policy: a broken checkpoint needs
+/// an explicit retry after remediation, not an automatic hot loop.
 enum SyncReceiveFailure: Error, Equatable {
-    case undecodable(Int)
     case apply(Int)
     case checkpointEncoding
     case nonAdvancingPage

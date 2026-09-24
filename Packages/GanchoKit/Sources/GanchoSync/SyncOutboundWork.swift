@@ -38,23 +38,33 @@ struct SyncOutboundWork: Sendable {
                 guard let id = UUID(uuidString: recordID.recordName) else {
                     throw SyncOutboundFailure.invalidRecord
                 }
+                // Undecodable saved system fields fall back to a fresh record;
+                // the server's conflict reply then restores a valid change tag.
                 let record: CKRecord?
                 if recordID.zoneID == boardZone {
                     guard let board = boards[id] else { continue }
-                    record = try await BoardRecordMapper.record(
-                        for: board, systemFields: store.boardSystemFields(for: id),
-                        zoneID: boardZone)
+                    let fields = try await store.boardSystemFields(for: id)
+                    record =
+                        BoardRecordMapper.record(
+                            for: board, systemFields: fields, zoneID: boardZone)
+                        ?? BoardRecordMapper.record(
+                            for: board, systemFields: nil, zoneID: boardZone)
                 } else if recordID.zoneID == clipZone {
                     guard let entry = try await store.pendingUpload(id: id) else { continue }
                     let fields = try await store.systemFields(for: id)
-                    let membership = try await store.boardIDs(forClip: id)
-                    record = ClipRecordMapper.record(
-                        for: entry.item, content: entry.content, systemFields: fields,
-                        zoneID: clipZone, maxAssetBytes: maxAssetBytes, boardIDs: Array(membership))
+                    let membership = Array(try await store.boardIDs(forClip: id))
+                    record =
+                        ClipRecordMapper.record(
+                            for: entry.item, content: entry.content, systemFields: fields,
+                            zoneID: clipZone, maxAssetBytes: maxAssetBytes, boardIDs: membership)
+                        ?? ClipRecordMapper.record(
+                            for: entry.item, content: entry.content, systemFields: nil,
+                            zoneID: clipZone, maxAssetBytes: maxAssetBytes, boardIDs: membership)
                 } else {
                     throw SyncOutboundFailure.invalidRecord
                 }
-                guard let record else { throw SyncOutboundFailure.invalidRecord }
+                // Skipping one unbuildable record must not hold back the batch.
+                guard let record else { continue }
                 records[recordID] = record
             }
             return records

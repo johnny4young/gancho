@@ -16,12 +16,12 @@ struct ClipDragPayloadTests {
         #expect(!ClipDragPayload.isDraggable(ClipItem(kind: .secret, isSensitive: true)))
     }
 
-    @Test("Every non-sensitive kind is draggable")
-    func nonSensitiveAlwaysDraggable() {
+    @Test("Intrinsic masked kinds stay excluded even without the sensitivity flag")
+    func unflaggedKindsRespectIntrinsicPrivacy() {
         for kind in ClipContentKind.allCases {
             #expect(
-                !ClipDragPayload.representations(for: kind, isSensitive: false).isEmpty,
-                "a non-sensitive \(kind.rawValue) clip should offer at least one type")
+                ClipDragPayload.representations(for: kind, isSensitive: false).isEmpty
+                    == kind.prefersMaskedPreview)
         }
     }
 

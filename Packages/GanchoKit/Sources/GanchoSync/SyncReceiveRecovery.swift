@@ -24,7 +24,7 @@ enum SyncReceiveRecovery {
         if error is CancellationError { return false }
         if let failure = error as? SyncReceiveFailure {
             switch failure {
-            case .undecodable, .checkpointEncoding, .nonAdvancingPage: return false
+            case .checkpointEncoding, .nonAdvancingPage: return false
             case .apply, .interruptedByNewFailure: return true
             }
         }
