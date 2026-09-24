@@ -76,30 +76,23 @@
                 })
         }
 
-        /// System-mediated paste retains the same marker policy. Union every
-        /// provider's advertised types before loading any object: a marker on a
-        /// sibling provider must veto the entire clipboard transaction.
+        /// System-mediated paste retains the same marker policy. Every
+        /// provider's advertised types count before any object loads, so a
+        /// marker on a sibling provider vetoes the whole paste.
         public func capture(providers: [NSItemProvider]) async -> [IntentionalCaptureRead.Result] {
             let pasteboard = UIPasteboard.general
             let providerTypes = Set(providers.flatMap(\.registeredTypeIdentifiers))
-            let initial = Self.metadata(pasteboard, providerTypes: providerTypes)
-            guard !initial.isProtected else { return [.refused] }
-            guard !providers.isEmpty else { return [.empty] }
-            var results: [IntentionalCaptureRead.Result] = []
-            for provider in providers {
-                guard pasteboard.changeCount == initial.changeCount, !Task.isCancelled else {
-                    return [.unavailable]
-                }
-                let result = await IntentionalCaptureRead.read(
-                    metadata: { Self.metadata(pasteboard, providerTypes: providerTypes) },
-                    payload: { await Self.load(provider) })
-                // Do not deliver an earlier payload from a changed batch.
-                switch result {
-                case .refused, .unavailable: return [result]
-                default: results.append(result)
-                }
-            }
-            return results
+            return await IntentionalCaptureRead.readBatch(
+                count: providers.count,
+                metadata: { Self.metadata(pasteboard, providerTypes: providerTypes) },
+                isSupported: { Self.isSupported(providers[$0]) },
+                payload: { await Self.load(providers[$0]) })
+        }
+
+        private static func isSupported(_ provider: NSItemProvider) -> Bool {
+            provider.canLoadObject(ofClass: UIImage.self)
+                || provider.canLoadObject(ofClass: NSURL.self)
+                || provider.canLoadObject(ofClass: NSString.self)
         }
 
         private static func metadata(

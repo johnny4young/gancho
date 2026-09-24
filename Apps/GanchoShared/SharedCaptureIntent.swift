@@ -26,17 +26,7 @@ struct SaveClipboardIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        switch await SharedCapture.saveCurrentClipboard() {
-        case .saved(let outcome):
-            if !outcome.isNew { return .result(dialog: "Already in your history.") }
-            if outcome.item.kind == .image { return .result(dialog: "Saved the image to Gancho.") }
-            return .result(dialog: "Saved to Gancho.")
-        case .refused:
-            return .result(dialog: "This clipboard item cannot be saved for privacy reasons.")
-        case .unavailable: return .result(dialog: "Couldn’t read the clipboard. Try pasting again.")
-        case .saveFailed: return .result(dialog: "Couldn’t save the clipboard. Try again.")
-        case .empty: return .result(dialog: "The clipboard is empty.")
-        case .storeUnavailable: return .result(dialog: "Couldn't open Gancho.")
-        }
+        let outcome = await SharedCapture.saveCurrentClipboard()
+        return .result(dialog: IntentDialog(SharedCapture.message(for: outcome)))
     }
 }

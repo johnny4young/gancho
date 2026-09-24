@@ -102,12 +102,9 @@ final class IOSAppModel {
     /// Per-device on-device intelligence toggles (the iOS Intelligence screen).
     /// Device-local by design — they gate what runs HERE and never sync; the
     /// enriched results that ride the clip record (title/OCR/sensitive) do.
+    /// Stored in the App Group so the keyboard and Save Clipboard read the same.
     var intelligence: IntelligencePreferences {
-        didSet {
-            intelligence.save(to: defaults)
-            SharedCapture.updatePreferences(
-                retention: RetentionPolicy.load(from: defaults), intelligence: intelligence)
-        }
+        didSet { intelligence.save(to: SharedCapture.preferences) }
     }
 
     /// Curated-Library Spotlight donation (snippets + pins only — never raw
@@ -162,10 +159,8 @@ final class IOSAppModel {
     // swiftlint:disable:next function_body_length
     init() {
         let forceFreeTier = CommandLine.arguments.contains("-force-free-tier")
-        let initialIntelligence = IntelligencePreferences.load(from: defaults)
-        intelligence = initialIntelligence
-        SharedCapture.updatePreferences(
-            retention: RetentionPolicy.load(from: defaults), intelligence: initialIntelligence)
+        SharedCapture.adoptLegacyPreferences(from: defaults)
+        intelligence = IntelligencePreferences.load(from: SharedCapture.preferences)
         spotlightIndexing =
             UserDefaults.standard.object(forKey: "spotlightIndexing") as? Bool ?? true
         var telemetryConsent = TelemetryConsent.load(from: defaults)
@@ -362,7 +357,7 @@ final class IOSAppModel {
         {
             return false
         }
-        let policy = RetentionPolicy.load(from: defaults)
+        let policy = RetentionPolicy.load(from: SharedCapture.preferences)
         await RetentionPass(steps: .live(store: grdb, sync: syncController))
             .run(policy: policy, tier: { self.tier }, now: Date())
         defaults.set(Date(), forKey: Self.lastMaintenanceKey)
@@ -929,7 +924,7 @@ final class IOSAppModel {
 
     /// The user-initiated read (system paste transparency applies).
     func saveClipboard() async {
-        await handleIntentionalRead(source.captureNow())
+        await handleIntentionalReads([source.captureNow()])
     }
 
     /// Resolved once: launch arguments cannot change after launch.
@@ -986,47 +981,68 @@ final class IOSAppModel {
     /// UIPasteControl handoff: the system mediates the tap, so this path
     /// never shows an alert. Providers carry text, URLs, or images.
     func ingest(providers: [NSItemProvider]) {
-        Task {
-            for result in await source.capture(providers: providers) {
-                await handleIntentionalRead(result)
-            }
-        }
+        Task { await handleIntentionalReads(source.capture(providers: providers)) }
     }
 
-    private func handleIntentionalRead(_ read: IntentionalCaptureRead.Result) async {
-        switch read {
-        case .captured(let capture, let changeCount):
-            await markPasteRead(changeCount, saved: ingest(capture))
-        case .refused:
+    /// Persists every captured item, then shows one note for the whole paste so
+    /// a later item never overwrites an earlier item's result.
+    private func handleIntentionalReads(_ reads: [IntentionalCaptureRead.Result]) async {
+        var saved: [ClipIngestionCoordinator.Outcome] = []
+        var failedWrites = 0
+        var savedChangeCount: Int?
+        for read in reads {
+            guard case .captured(let capture, let changeCount) = read else { continue }
+            if let outcome = await persist(capture) {
+                saved.append(outcome)
+                savedChangeCount = changeCount
+            } else {
+                failedWrites += 1
+            }
+        }
+        // The capture card's "Saved" state follows a durable write, never the tap.
+        if let savedChangeCount {
+            lastCapturedChangeCount = savedChangeCount
+            await refreshHints()
+        }
+        if reads.contains(.refused) {
             flashNote(
                 String(localized: "This clipboard item cannot be saved for privacy reasons."),
                 kind: .failure)
-        case .empty:
-            flashNote(String(localized: "The clipboard is empty."), kind: .failure)
-        case .unavailable:
+        } else if failedWrites > 0 {
+            flashNote(String(localized: "Couldn’t save the clipboard. Try again."), kind: .failure)
+        } else if reads.contains(.unavailable) {
             flashNote(
                 String(localized: "Couldn’t read the clipboard. Try pasting again."), kind: .failure
             )
+        } else if saved.contains(where: \.isNew) {
+            flashNote(String(localized: "Saved"), kind: .success)
+        } else if !saved.isEmpty {
+            flashNote(String(localized: "Already in your history"), kind: .success)
+        } else {
+            flashNote(String(localized: "The clipboard is empty."), kind: .failure)
         }
     }
 
-    /// The durable "Saved" state of the capture card follows a successful
-    /// store write, never the tap alone.
-    private func markPasteRead(_ changeCount: Int, saved: Bool?) async {
-        guard saved == true else { return }
-        lastCapturedChangeCount = changeCount
-        await refreshHints()
+    /// Stores one capture from the share inbox or a seed and confirms it.
+    private func ingest(_ capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil) async
+    {
+        guard let outcome = await persist(capture, precomputedKind: precomputedKind) else { return }
+        flashNote(
+            outcome.isNew
+                ? String(localized: "Saved") : String(localized: "Already in your history"),
+            kind: .success)
     }
 
-    /// True once the clip is in the store; false when ingestion refused it.
-    @discardableResult
-    private func ingest(
+    /// The durable write plus its side effects; nil when the store refused it.
+    /// Callers own the user-facing note.
+    private func persist(
         _ capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil
     )
-        async -> Bool
+        async -> ClipIngestionCoordinator.Outcome?
     {
         let configuration = ClipIngestionCoordinator.Configuration(
-            sensitiveLifetime: RetentionPolicy.load(from: defaults).sensitiveLifetime,
+            sensitiveLifetime: RetentionPolicy.load(from: SharedCapture.preferences)
+                .sensitiveLifetime,
             detectSecrets: intelligence.detectSecrets,
             precomputedKind: precomputedKind,
             tier: tier,
@@ -1043,19 +1059,12 @@ final class IOSAppModel {
                 store: store,
                 syncEngine: syncController.engine,
                 didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
-        else {
-            flashNote(String(localized: "Couldn’t save the clipboard. Try again."), kind: .failure)
-            return false
-        }
+        else { return nil }
         if outcome.isNew { recordActivationMilestone(.firstCapture) }
         try? await full?.recordPrivateCapture(
             sourceAppBundleID: capture.sourceAppBundleID,
             count: 1,
             at: capture.capturedAt)
-        flashNote(
-            outcome.isNew
-                ? String(localized: "Saved") : String(localized: "Already in your history"),
-            kind: .success)
         // Bounded like every other load — search() pulls the first page only.
         await search()
         reloadWidgets()
@@ -1063,7 +1072,7 @@ final class IOSAppModel {
         // sensitive) on the Dynamic Island / lock screen.
         clipActivity.show(outcome.item, sync: ClipSyncBadge(syncStatus))
         enrich(outcome)
-        return true
+        return outcome
     }
 
     /// On-device enrichment of a clip captured ON this iPhone — Apple
