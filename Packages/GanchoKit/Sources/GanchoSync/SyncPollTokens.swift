@@ -14,6 +14,8 @@ struct SyncPollTokens: Codable, Equatable, Sendable {
     /// `CKRecordZone.ID` — the id is not `Codable`, and the name is what
     /// survives a zone being recreated under the same name.
     var zones: [String: Data]
+    /// Additive local journal; nil in the original token-file format.
+    var identityResetZones: Set<String>?
 
     init(database: Data? = nil, zones: [String: Data] = [:]) {
         self.database = database
@@ -33,11 +35,11 @@ struct SyncPollTokens: Codable, Equatable, Sendable {
         return decoded
     }
 
-    /// Best-effort persistence. A failed write leaves the previous on-disk
-    /// tokens in place; the adapter retains its current in-memory tokens.
-    func save(to store: SyncStateStore?) {
-        guard let store, let data = try? PropertyListEncoder().encode(self) else { return }
-        store.save(data)
+    /// Persist before advancing the actor's cache. A write failure retains the
+    /// previous checkpoint both on disk and in memory for idempotent replay.
+    func save(to store: SyncStateStore?) throws {
+        guard let store else { return }
+        try store.save(PropertyListEncoder().encode(self))
     }
 
     /// Archives an opaque CloudKit token using secure coding.

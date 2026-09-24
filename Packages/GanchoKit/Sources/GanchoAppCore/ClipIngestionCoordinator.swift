@@ -113,6 +113,32 @@ public struct ClipIngestionCoordinator: Sendable {
         didFinishInsert?()
         await syncEngine.enqueue([stored])
 
+        return makeOutcome(
+            stored: stored, content: content, isNew: stored.id == proposed.id,
+            configuration: configuration)
+    }
+
+    /// Rebuild only the best-effort enrichment plan after a receipt replay;
+    /// never insert again or mutate recency. The file still holds the capture
+    /// until these post-commit effects have been attempted.
+    func replayOutcome(
+        for stored: ClipItem, capture: PasteboardCapture, configuration: Configuration
+    ) -> Outcome {
+        let (_, content) = ClipItemFactory.make(
+            from: capture,
+            classifier: classifier,
+            detector: detector,
+            sensitiveLifetime: configuration.sensitiveLifetime,
+            detectSecrets: configuration.detectSecrets,
+            precomputedKind: configuration.precomputedKind,
+            sourceDeviceName: configuration.sourceDeviceName)
+        return makeOutcome(
+            stored: stored, content: content, isNew: false, configuration: configuration)
+    }
+
+    private func makeOutcome(
+        stored: ClipItem, content: ClipContent?, isNew: Bool, configuration: Configuration
+    ) -> Outcome {
         let plan = EnrichmentPlan(
             content: content,
             kind: stored.kind,
@@ -130,7 +156,7 @@ public struct ClipIngestionCoordinator: Sendable {
         return Outcome(
             item: stored,
             content: content,
-            isNew: stored.id == proposed.id,
+            isNew: isNew,
             contentLength: Self.contentLength(content, fallback: stored.preview),
             enrichment: EnrichmentDecision(
                 plan: plan,

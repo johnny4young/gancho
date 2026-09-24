@@ -95,11 +95,6 @@ public struct MCPToolRunner: Sendable {
         }
     }
 
-    // Apply the intrinsic-kind veto before LIMIT as well as at the return
-    // boundary, so masked matches cannot crowd safe results out of a search.
-    private static let unmaskedKinds = Set(
-        ClipContentKind.allCases.filter { !$0.prefersMaskedPreview })
-
     // MARK: - Tools
 
     private func searchClips(
@@ -111,7 +106,7 @@ public struct MCPToolRunner: Sendable {
                 var query = ClipSearchQuery(
                     text: args.query,
                     mode: Self.mode(args.mode),
-                    kinds: Self.unmaskedKinds,
+                    kinds: ClipContentKind.unmaskedKinds,
                     markedOnly: grant.scope == .boards,
                     excludesSensitive: true)
                 query.markedOnly = grant.scope == .boards
@@ -132,7 +127,7 @@ public struct MCPToolRunner: Sendable {
         var query = ClipSearchQuery(
             text: args.query,
             mode: Self.mode(args.mode),
-            kinds: Self.unmaskedKinds,
+            kinds: ClipContentKind.unmaskedKinds,
             dateRange: pack.timeScope.lowerBound(relativeTo: currentTime).map { $0...currentTime },
             boardID: pack.boardID,
             markedOnly: grant.scope == .boards,

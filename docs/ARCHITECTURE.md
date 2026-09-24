@@ -371,6 +371,63 @@ foreground). The adapter reports fetch/apply/save trouble content-free to the
 `DiagnosticLog` ("Recent issues"), so a sync break is diagnosed from the log,
 not by guesswork.
 
+`SyncPullDriver` applies every fetched page through that same path and returns a
+candidate checkpoint only after the whole cycle succeeds. Transient per-record
+transport errors, partial apply failures and failed transactions prevent
+advancement; successful partial writes are safe to replay through LWW. Records a
+replay can never fix — undecodable data or a permanent per-record error such as
+an unknown item — are skipped and counted so they cannot wedge the zone, and a
+page whose local apply keeps failing is accepted with its failures counted after
+four consecutive failed polls.
+Checkpoint writes are checked before replacing the in-memory cache; the persisted
+poll format remains separate from, and unchanged by, CKSyncEngine's opaque state.
+A push-delivery failure therefore remains recoverable even if the engine advances
+its own fetch state.
+
+Receive failures remain visible until an independent poll succeeds, and an older
+poll cannot clear a newer failure. Concurrent explicit pulls join one in-flight
+operation; stopping the adapter cancels polling/recovery and invalidates stale
+callbacks. Transient failures have at most three automatic recovery attempts with
+backoff respecting CloudKit's retry-after minimum. Invalid
+checkpoint encoding, permission/account/quota gates and non-advancing pages need
+an explicit retry after remediation, not a hot loop. Package fault tests validate
+these contracts without a CloudKit account; live account/device acceptance remains
+separate.
+
+### Outbound sync durability
+
+`SyncOutboundWork` is the store-backed delegate boundary for pending reads,
+record preparation, acknowledgements and conflicts. Failures remain failures:
+no empty-queue fallback, no nil-provider batch after a read error, and no
+fabricated local-wins result. Local upload intent is persisted before engine
+scheduling. Failed acknowledgements leave durable dirty rows/tombstones for
+replay on the next explicit sync/start (not an unbounded cloud-write loop against
+a failed database); successful acknowledgements compare the sent clip revision
+(within half a millisecond, since a CloudKit round trip is not bit-exact) or the
+board's editable fields within the database write, so a newer local edit stays
+pending. A record whose saved system fields no longer decode is rebuilt without
+them; one that still cannot be built is skipped and counted rather than holding
+back the rest of the batch.
+Deleting a board advances affected clips' revisions in the same transaction as
+their dirty flags and removed memberships; an in-flight pre-deletion clip ack
+cannot clear the replacement upload.
+Clip conflicts reuse the received-page LWW/membership path; boards retain their
+existing server-wins contract rather than adding a cloud timestamp field.
+
+Account/zone identity resets use an additive optional `identityResetZones` field
+in the local poll checkpoint file. The reset intent is saved before identity
+writes, and cleared only after all writes succeed. A restart, or the next poll,
+resumes an incomplete reset before polling/sending. Independent polling uses the same reset
+journal for deleted/missing owned zones, without cancelling its own receive
+cycle; it re-registers durable pending work before sending. A local reset failure
+cannot acknowledge the new database token, even without a push callback.
+Original checkpoint files decode with
+no reset pending; no cloud schema or database migration is required. A rollback
+must finish or retain any pending identity-reset journal before using an older
+binary that does not understand it. Live account switching and multi-device
+CloudKit acceptance remain separate from deterministic local fault injection.
+
+
 ## Intelligence tiers
 
 1. **Tier 0 — deterministic and universal.** `RuleClassifier`, data detectors,

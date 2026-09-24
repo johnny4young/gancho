@@ -358,10 +358,14 @@ struct CaptureView: View {
             } label: {
                 Label("Copy", systemImage: "doc.on.clipboard")
             }
-            if !item.isSensitive {
-                ShareLink(item: item.preview) {
+            if ClipSafeDelivery.isEligible(item) {
+                ShareLink(
+                    item: model.shareItem(for: item),
+                    preview: SharePreview("Gancho")
+                ) {
                     Label("Share", systemImage: "square.and.arrow.up")
                 }
+                .accessibilityIdentifier("clip-share-action")
             }
             Button {
                 Task { await model.togglePin(item) }
@@ -385,7 +389,7 @@ struct CaptureView: View {
     /// image clips, otherwise the (masked-if-sensitive) text preview.
     @ViewBuilder
     private func clipPreview(_ item: ClipItem) -> some View {
-        if item.kind == .image, !item.isSensitive,
+        if item.kind == .image, !ClipSafePresentation.requiresMasking(item),
             let thumbnail = model.thumbnails.cached(for: item.id)
         {
             thumbnail
@@ -393,7 +397,7 @@ struct CaptureView: View {
                 .scaledToFit()
                 .frame(maxWidth: 300, maxHeight: 220)
         } else {
-            Text(item.preview)
+            Text(ClipSafePresentation.displayText(for: item))
                 .font(item.kind == .code ? .body.monospaced() : .body)
                 .padding()
                 .frame(maxWidth: 300, alignment: .leading)
