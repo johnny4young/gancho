@@ -44,7 +44,7 @@ final class CaptureFlowUITests: XCTestCase {
     /// Chooses a palette token through the iPhone UI and reopens the editor to
     /// prove the value survived the durable store write and model refresh.
     @MainActor
-    func testBoardAppearancePersistsPaletteSelection() async throws {
+    func testBoardAppearancePersistsPaletteSelection() throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "-skip-welcome-on-launch", "-use-temp-durable-store", "-seed-sample-boards",
@@ -69,20 +69,32 @@ final class CaptureFlowUITests: XCTestCase {
             throw XCTSkip("board color controls are not reachable on this runner")
         }
         blue.tap()
-        XCTAssertEqual(blue.value as? String, "Selected")
+        XCTAssertTrue(waitForSelected(blue), "tapping a swatch must select it")
 
         let save = app.buttons["board-appearance-save"].firstMatch
         XCTAssertTrue(save.waitForExistence(timeout: 2))
         save.tap()
-        let dismissal = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"), object: save)
-        dismissal.expectationDescription = "a successful durable update must dismiss the editor"
-        await fulfillment(of: [dismissal], timeout: 5)
+        // Use XCTest's element wait so disappearance is checked against fresh
+        // accessibility snapshots, not an async generic predicate scheduler.
+        XCTAssertTrue(
+            save.waitForNonExistence(timeout: 5),
+            "a successful durable update must dismiss the editor")
 
         try openAppearanceEditor(for: board, in: app)
-        XCTAssertEqual(
-            app.buttons["board-color-2E70D1"].firstMatch.value as? String, "Selected",
+        let persisted = app.buttons["board-color-2E70D1"].firstMatch
+        XCTAssertTrue(persisted.waitForExistence(timeout: 4))
+        XCTAssertTrue(
+            waitForSelected(persisted),
             "reopening after model refresh must retain the persisted palette token")
+    }
+
+    /// Predicate expectations sample about once a second, so the timeout
+    /// must span several samples.
+    @MainActor
+    private func waitForSelected(_ element: XCUIElement) -> Bool {
+        let selected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Selected"), object: element)
+        return XCTWaiter.wait(for: [selected], timeout: 4) == .completed
     }
 
     @MainActor
