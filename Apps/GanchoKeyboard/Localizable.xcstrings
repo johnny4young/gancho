@@ -340,6 +340,16 @@
           }
         }
       }
+    },
+    "This clip is no longer available": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este clip ya no está disponible"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

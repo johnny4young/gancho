@@ -635,6 +635,14 @@ final class IOSAppModel {
     /// changes (so the Calendar math never lands on the scroll path).
     func rebuildSections() { history.rebuildSections() }
 
+    /// Lazy share payload; rich text is re-classified with the capture rules.
+    func shareItem(for item: ClipItem) -> ClipShareItem {
+        ClipShareItem(id: item.id, kind: item.kind, store: store) { text in
+            RuleClassifier().classify(text).prefersMaskedPreview
+                || SensitiveDataDetector().detect(text) != nil
+        }
+    }
+
     /// 1-tap copy with haptic confirmation.
     func copyToPasteboard(_ item: ClipItem) async {
         guard let content = try? await store.content(for: item.id) else {

@@ -360,7 +360,7 @@ struct CaptureView: View {
             }
             if ClipSafeDelivery.isEligible(item) {
                 ShareLink(
-                    item: ClipShareItem(id: item.id, kind: item.kind, store: model.store),
+                    item: model.shareItem(for: item),
                     preview: SharePreview("Gancho")
                 ) {
                     Label("Share", systemImage: "square.and.arrow.up")

@@ -13,6 +13,14 @@ public enum ClipSafeDelivery {
             && (item.expiresAt.map { $0 > now } ?? true)
     }
 
+    /// Same revision (`updatedAt`, which text edits bump without changing
+    /// `contentHash`) and privacy metadata. Usage bookkeeping does not count.
+    public static func isSameRevision(_ lhs: ClipItem, _ rhs: ClipItem) -> Bool {
+        lhs.id == rhs.id && lhs.kind == rhs.kind && lhs.isSensitive == rhs.isSensitive
+            && lhs.contentHash == rhs.contentHash && lhs.updatedAt == rhs.updatedAt
+            && lhs.expiresAt == rhs.expiresAt
+    }
+
     /// Read metadata before touching the payload, then reject a changed,
     /// deleted, expired or newly protected row after the asynchronous read.
     /// All failures collapse to unavailable: callers must not export a store
@@ -27,7 +35,7 @@ public enum ClipSafeDelivery {
             guard !Task.isCancelled,
                 let before = try await metadata(id), isEligible(before, now: now()),
                 let content = try await content(id),
-                let after = try await metadata(id), before == after,
+                let after = try await metadata(id), isSameRevision(before, after),
                 isEligible(after, now: now()), !Task.isCancelled
             else { return nil }
             return Payload(item: after, content: content)

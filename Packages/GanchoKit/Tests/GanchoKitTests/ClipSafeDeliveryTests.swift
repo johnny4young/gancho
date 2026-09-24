@@ -106,6 +106,20 @@ struct ClipSafeDeliveryTests {
         }
     }
 
+    @Test("A usage bump during the read (another drop representation) still delivers")
+    func usageBumpKeepsPayload() async throws {
+        let before = ClipItem(contentHash: "stable")
+        var after = before
+        after.lastUsedAt = .now
+        after.uses += 1
+        let reader = DeliveryReader([before, after])
+        let payload = try #require(
+            await ClipSafeDelivery.load(
+                id: before.id, metadata: { try await reader.metadata($0) },
+                content: { try await reader.content($0) }))
+        #expect(payload.item == after)
+    }
+
     @Test("Missing metadata, missing content and read failures return unavailable")
     func unavailableInputs() async {
         let item = ClipItem()

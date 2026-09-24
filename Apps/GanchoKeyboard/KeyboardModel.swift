@@ -90,7 +90,7 @@ final class KeyboardModel: ObservableObject {
             // ordering while excluding protected rows before LIMIT. Activity
             // ordering would split the date buckets after reusing an old clip.
             let recent = ((try? await store.search(KeyboardClips.query(), limit: 60)) ?? [])
-                .filter { !ClipSafePresentation.requiresMasking($0) }
+                .filter { ClipSafeDelivery.isEligible($0) }
             sections = ClipSections.grouped(recent, now: .now).compactMap { group in
                 let entries = WidgetClips.entries(from: group.clips, limit: group.clips.count)
                 return entries.isEmpty
@@ -111,7 +111,7 @@ final class KeyboardModel: ObservableObject {
             (try? await store.search(
                 KeyboardClips.query(text: trimmed, boardID: selectedBoardID), limit: 30)) ?? []
         entries = WidgetClips.entries(
-            from: hits.filter { !ClipSafePresentation.requiresMasking($0) }, limit: 30)
+            from: hits.filter { ClipSafeDelivery.isEligible($0) }, limit: 30)
         sections = []
     }
 
@@ -138,7 +138,10 @@ final class KeyboardModel: ObservableObject {
                 let payload = await ClipSafeDelivery.load(
                     id: entry.id, metadata: { try await store.item(id: $0) },
                     content: { try await store.content(for: $0) })
-            else { return }
+            else {
+                flashNote("This clip is no longer available")
+                return
+            }
             switch payload.content {
             case .text(let text):
                 onInsert(text)
@@ -174,7 +177,8 @@ final class KeyboardModel: ObservableObject {
         else { return }
         let decoded = await Task.detached { Self.downsample(data, maxPixel: 120) }.value
         guard let decoded, !Task.isCancelled,
-            let current = try? await store.item(id: entry.id), current == before,
+            let current = try? await store.item(id: entry.id),
+            ClipSafeDelivery.isSameRevision(current, before),
             ClipSafeDelivery.isEligible(current)
         else { return }
         thumbnails[entry.id] = Image(uiImage: decoded)
@@ -215,7 +219,10 @@ final class KeyboardModel: ObservableObject {
                 let payload = await ClipSafeDelivery.load(
                     id: entry.id, metadata: { try await store.item(id: $0) },
                     content: { try await store.content(for: $0) })
-            else { return }
+            else {
+                flashNote("This clip is no longer available")
+                return
+            }
             switch payload.content {
             case .text(let text):
                 UIPasteboard.general.string = text
