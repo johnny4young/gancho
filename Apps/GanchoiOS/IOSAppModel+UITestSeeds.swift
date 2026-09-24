@@ -1,5 +1,7 @@
+import ClipboardCore
 import Foundation
 import GanchoKit
+import UIKit
 
 extension IOSAppModel {
     /// Centralizes durable synthetic fixtures outside the production
@@ -10,7 +12,68 @@ extension IOSAppModel {
         seedSourceAppsIfRequested()
         seedReuseSuggestionIfRequested()
         seedClipEditingIfRequested()
+        seedOutboundPrivacyIfRequested()
+        seedIntentionalCaptureIfRequested()
         return seedPrivateActivityReceiptIfRequested()
+    }
+
+    private func seedIntentionalCaptureIfRequested() {
+        #if DEBUG
+            let arguments = CommandLine.arguments
+            guard arguments.contains("-use-temp-durable-store"),
+                let index = arguments.firstIndex(of: "-seed-intentional-capture"),
+                arguments.indices.contains(index + 1)
+            else { return }
+            let scenario = arguments[index + 1]
+            let text = "Synthetic intentional capture fixture"
+            switch scenario {
+            case "protected-direct":
+                // The marker deliberately belongs to a second item: inspecting
+                // only UIPasteboard.types (the first item) is insufficient.
+                UIPasteboard.general.items = [
+                    ["public.utf8-plain-text": text],
+                    [SensitivePasteboardTypes.concealed: Data()]
+                ]
+                Task { await saveClipboard() }
+            case "protected-provider":
+                UIPasteboard.general.string = text
+                let safe = NSItemProvider(object: text as NSString)
+                let protected = NSItemProvider()
+                protected.registerDataRepresentation(
+                    forTypeIdentifier: SensitivePasteboardTypes.transient, visibility: .all
+                ) { completion in
+                    completion(Data(), nil)
+                    return nil
+                }
+                ingest(providers: [safe, protected])
+            case "safe-text":
+                UIPasteboard.general.string = text
+                ingest(providers: [NSItemProvider(object: text as NSString)])
+            case "safe-image":
+                let image = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image {
+                    context in
+                    UIColor.blue.setFill()
+                    context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+                }
+                UIPasteboard.general.image = image
+                ingest(providers: [NSItemProvider(object: image)])
+            default: break
+            }
+        #endif
+    }
+
+    private func seedOutboundPrivacyIfRequested() {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-outbound-privacy"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let full
+            else { return }
+            Task {
+                let canary = "synthetic-protected-preview-canary"
+                let item = ClipItem(kind: .jwt, preview: canary, contentHash: "ui-outbound-privacy")
+                _ = try? await full.insert(item, content: .text(canary))
+                await search()
+            }
+        #endif
     }
 
     #if DEBUG

@@ -33,6 +33,21 @@ eligible curated clips in the local system index, not raw history. A scoped MCP
 grant permits eligible content to be read by the authorized local client;
 Gancho cannot retract bytes already delivered to that client.
 
+Protected outbound surfaces use the same intrinsic-kind rule as passive
+presentation: flagged clips and JWT, credit-card and secret kinds remain
+protected even when their `isSensitive` flag is false. Drag-out, the keyboard,
+and iOS sharing do not provide a reveal step, so they exclude that content.
+Lazy payload reads recheck metadata, revision, expiry and cancellation before
+delivery; the keyboard also filters before its result limit. iOS sharing loads
+the full permitted content, not a cached text preview. Private Mode hides the
+macOS fallback menu's previews as well as the panel's.
+
+JSON, CSV and archive export apply this intrinsic rule when excluding sensitive
+content. An explicit full export and the app's intentional copy/reveal paths
+remain distinct user-controlled operations. Synthetic export, CoreTransferable
+and asynchronous-delivery tests exercise these boundaries; they do not certify
+every third-party destination or replace device/VoiceOver acceptance.
+
 The inbox is the short-lived handoff from the share extension to the app. That
 extension uses the inbox rather than opening the store; it seals captures with the
 same content key (`StoreContentKey` → `SealedEnvelope`) and the app unseals it
@@ -132,3 +147,36 @@ would mean introducing a NEW field and migrating writers, never converting.
 This file contains no internal planning references and is safe to publish
 as-is (it is, deliberately, the long-form version of the website's privacy
 page).
+
+### Intentional capture authorization
+
+An iOS paste gesture authorizes a read, not an exception to reserved marker
+policy. Direct pasteboard reads inspect metadata across all items; system paste
+providers inspect the union of provider and pasteboard types before loading any
+object. A changed, newly protected or cancelled read is not persisted; in a
+multi-item paste, unsupported items are skipped and one failed load does not
+discard the readable ones.
+Intent/control and keyboard capture reuse the app ingestion coordinator, including
+configured local sensitive retention and actual durable duplicate identity. A
+failed store open or insert never produces a Saved confirmation. Device-local
+retention/intelligence settings are stored in the App Group, so the app and those
+extensions read one copy; this is not cross-device preference synchronization.
+
+### Durable share handoff
+
+Reading an App Group inbox file no longer removes it. The host commits the clip
+and a content-free local delivery receipt in one SQLite transaction, then
+acknowledges the exact file bytes only after post-commit work. A replayed receipt
+performs no second insert or recency bump; it can retry sync scheduling and
+best-effort enrichment before acknowledgment. A deleted clip stays deleted.
+Receipts are not linked by cascading deletion and never sync to CloudKit.
+
+Drains serialize across asynchronous commits; each drain sweeps the whole inbox in
+small batches, and a request that arrives mid-drain triggers another sweep.
+Unreadable files and sealed files that cannot authenticate stay queued regardless
+of age: a wrong key is not evidence of corruption. Confirmed malformed plaintext
+and authenticated malformed JSON are discarded as poison. Receipts older than
+90 days are pruned only when no delivery file remains in the inbox; an unreadable
+directory blocks pruning. An in-memory fallback cannot acknowledge durable shares.
+The receipt migration is additive; a behavior rollback must retain the registered
+migration and receipts rather than erase delivery history.

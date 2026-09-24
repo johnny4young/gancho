@@ -810,15 +810,15 @@ final class AppModel {
     }
 
     /// Publish the most recent clip's preview to the menu-bar helper's recent
-    /// row. Private mode clears it; sensitive clips send only a mask — full
-    /// content never crosses to the helper.
+    /// row. Private mode clears it; protected clips (flagged or an intrinsic
+    /// secret kind) send only a mask — full content never crosses to the helper.
     private func publishLastCopied() {
         guard !preferences.isPrivateModePaused, let top = recentItems.first else {
             GanchoMenuBarBridge.writeLastCopied(preview: nil, label: "", at: Date())
             return
         }
         GanchoMenuBarBridge.writeLastCopied(
-            preview: top.isSensitive ? "•••" : top.preview,
+            preview: ClipSafePresentation.requiresMasking(top) ? "•••" : top.preview,
             label: String(localized: "Last copied"), at: top.createdAt)
     }
 

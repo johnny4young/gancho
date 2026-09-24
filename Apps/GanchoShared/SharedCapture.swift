@@ -1,47 +1,57 @@
 import ClipboardCore
-import GanchoAI
+import Foundation
+import GanchoAppCore
 import GanchoKit
-import UIKit
 
-/// The one place "save the current pasteboard into Gancho" lives, shared by
-/// the Save Clipboard intent/control and the keyboard's reverse-capture
-/// button. Returns a content-free `Outcome` so each surface localizes its own
-/// confirmation (the helper never builds user-facing prose).
+/// Intent/control and keyboard capture share the app's authorization and durable
+/// ingestion contracts. This shell only supplies platform resources/preferences.
 enum SharedCapture {
-    enum Outcome: Sendable {
-        case savedText
-        case savedImage
-        case empty
-        case storeUnavailable
+    typealias Outcome = IntentionalCaptureCoordinator.Outcome
+
+    /// Device-local capture preferences live in the App Group so the app and its
+    /// capture extensions read one copy. Without the group, defaults apply.
+    static var preferences: UserDefaults {
+        UserDefaults(suiteName: SharedInbox.appGroupID) ?? .standard
     }
 
-    /// Reads `UIPasteboard.general`, classifies + normalizes, applies the
-    /// sensitive-data policy, and inserts. Same pipeline the app's capture
-    /// uses — no logic fork.
+    private static let adoptedLegacyPreferencesKey = "extension-preferences-adopted"
+
+    /// Moves preferences saved by builds that kept them in the app's own
+    /// defaults. Runs once; afterwards the App Group copy is authoritative.
+    static func adoptLegacyPreferences(from legacy: UserDefaults) {
+        let shared = preferences
+        guard shared !== legacy, !shared.bool(forKey: adoptedLegacyPreferencesKey) else { return }
+        IntelligencePreferences.load(from: legacy).save(to: shared)
+        RetentionPolicy.load(from: legacy).save(to: shared)
+        shared.set(true, forKey: adoptedLegacyPreferencesKey)
+    }
+
     @MainActor
     static func saveCurrentClipboard() async -> Outcome {
-        guard let store = try? IntentStore.open() else { return .storeUnavailable }
-        let pasteboard = UIPasteboard.general
+        let defaults = preferences
+        let read = await IntentionalPasteboardSource().captureNow()
+        let intelligence = IntelligencePreferences.load(from: defaults)
+        return await IntentionalCaptureCoordinator.save(
+            read,
+            configuration: .init(
+                sensitiveLifetime: RetentionPolicy.load(from: defaults).sensitiveLifetime,
+                detectSecrets: intelligence.detectSecrets,
+                tier: .free, intelligence: intelligence,
+                sourceDeviceName: DeviceProvenance.currentDeviceName()),
+            openStore: { try IntentStore.open() })
+    }
 
-        if let image = pasteboard.image, let png = image.pngData() {
-            let item = ClipItem(
-                kind: .image, preview: "Image (\(ByteSize.formatted(png.count)))",
-                contentHash: ClipItem.hash(of: png, kind: .image))
-            _ = try? await store.insert(
-                item, content: .binary(data: png, typeIdentifier: "public.png"))
-            return .savedImage
+    /// The one confirmation wording for the keyboard and the Save Clipboard intent.
+    static func message(for outcome: Outcome) -> LocalizedStringResource {
+        switch outcome {
+        case .saved(let saved) where !saved.isNew: "Already in your history."
+        case .saved(let saved) where saved.item.kind == .image: "Saved the image to Gancho."
+        case .saved: "Saved to Gancho."
+        case .refused: "This clipboard item cannot be saved for privacy reasons."
+        case .unavailable: "Couldn’t read the clipboard. Try pasting again."
+        case .saveFailed: "Couldn’t save the clipboard. Try again."
+        case .empty: "The clipboard is empty."
+        case .storeUnavailable: "Couldn't open Gancho."
         }
-        guard let text = pasteboard.string, !text.isEmpty else { return .empty }
-
-        let classifier = RuleClassifier()
-        let kind = classifier.classify(text)
-        let canonical = ContentNormalizer.canonicalText(text, kind: kind)
-        let item = SensitiveIngestionPolicy.decorate(
-            ClipItem(
-                kind: kind, preview: String(canonical.prefix(120)),
-                contentHash: ClipItem.hash(of: canonical, kind: kind)),
-            finding: SensitiveDataDetector().detect(canonical), originalText: canonical)
-        _ = try? await store.insert(item, content: .text(canonical))
-        return .savedText
     }
 }
