@@ -161,3 +161,22 @@ configured local sensitive retention and actual durable duplicate identity. A
 failed store open or insert never produces a Saved confirmation. Device-local
 retention/intelligence settings are stored in the App Group, so the app and those
 extensions read one copy; this is not cross-device preference synchronization.
+
+### Durable share handoff
+
+Reading an App Group inbox file no longer removes it. The host commits the clip
+and a content-free local delivery receipt in one SQLite transaction, then
+acknowledges the exact file bytes only after post-commit work. A replayed receipt
+performs no second insert or recency bump; it can retry sync scheduling and
+best-effort enrichment before acknowledgment. A deleted clip stays deleted.
+Receipts are not linked by cascading deletion and never sync to CloudKit.
+
+Drains serialize across asynchronous commits; each drain sweeps the whole inbox in
+small batches, and a request that arrives mid-drain triggers another sweep.
+Unreadable files and sealed files that cannot authenticate stay queued regardless
+of age: a wrong key is not evidence of corruption. Confirmed malformed plaintext
+and authenticated malformed JSON are discarded as poison. Receipts older than
+90 days are pruned only when no delivery file remains in the inbox; an unreadable
+directory blocks pruning. An in-memory fallback cannot acknowledge durable shares.
+The receipt migration is additive; a behavior rollback must retain the registered
+migration and receipts rather than erase delivery history.

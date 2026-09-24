@@ -812,6 +812,7 @@ final class IOSAppModel {
     }
 
     private let source = IntentionalPasteboardSource()
+    private let inboxDrainer = SharedInboxDrainer()
     private let curationController = ClipCurationController()
     private let deletionWorkflow = ClipDeletionWorkflow()
     private let ingestionCoordinator = ClipIngestionCoordinator()
@@ -955,34 +956,83 @@ final class IOSAppModel {
     /// Captures handed over by the share extension through the App Group.
     /// The extension already classified (tier 0); reuse its verdict.
     func drainSharedInbox() async {
-        guard
+        // No key or App Group means no reachable inbox, not a failed share.
+        guard store.isDurable, let inboxStore = store as? any InboxClipIngesting,
             let key = try? StoreContentKey.load(
                 keychainAccessGroup: KeychainPassphraseStore.iosSharedAccessGroup),
-            let inbox = SharedInbox.inAppGroup(key: key),
-            let summary = try? inbox.drainReportingHealth()
+            let inbox = SharedInbox.inAppGroup(key: key)
         else { return }
-        for prepared in summary.captures {
-            await ingest(prepared.capture, precomputedKind: prepared.kind)
-        }
-        // Counts only — never what the unreadable capture contained. Deferred
-        // and poisoned are reported separately on purpose: one says an item was
-        // kept for another try, the other says an item is gone. A deferred file
-        // is retried on every future drain, so surfacing it is what keeps an
-        // item that never becomes readable from waiting in silence.
-        if summary.poisoned > 0 {
+        do {
+            let summary = try await inboxDrainer.drain(inbox) { [weak self] delivery in
+                guard let self else { throw CancellationError() }
+                try await self.ingestInbox(delivery, store: inboxStore)
+            }
+            if summary.poisoned > 0 {
+                diagnostics.record(
+                    String(localized: "Sharing"),
+                    String(localized: "Couldn’t read a shared item, so it was discarded."))
+            }
+            if summary.deferred > 0 {
+                diagnostics.record(
+                    String(localized: "Sharing"),
+                    String(localized: "A shared item wasn’t readable yet and was kept for later."))
+            }
+            if summary.failed > 0 {
+                diagnostics.record(
+                    String(localized: "Sharing"),
+                    String(localized: "Shared items could not be saved and were kept for later."))
+            }
+            if summary.undeletable > 0 {
+                diagnostics.record(
+                    String(localized: "Sharing"),
+                    String(localized: "A shared item couldn’t be cleared and may arrive again."))
+            }
+            if !summary.isBusy, (try? inbox.hasPendingFiles()) == false {
+                _ = try? await inboxStore.pruneInboxReceipts(
+                    committedBefore: Date(timeIntervalSinceNow: -InboxReceiptRetention.lifetime))
+            }
+        } catch is CancellationError {
+            // No acknowledgement: the next foreground activation retries.
+        } catch {
             diagnostics.record(
                 String(localized: "Sharing"),
-                String(localized: "Couldn’t read a shared item, so it was discarded."))
+                String(localized: "Shared items could not be saved and were kept for later."))
         }
-        if summary.deferred > 0 {
-            diagnostics.record(
-                String(localized: "Sharing"),
-                String(localized: "A shared item wasn’t readable yet and was kept for later."))
+    }
+
+    private func ingestInbox(
+        _ delivery: SharedInbox.Delivery, store: any InboxClipIngesting
+    ) async throws {
+        let configuration = ingestionConfiguration(precomputedKind: delivery.prepared.kind)
+        let result = try await ingestionCoordinator.ingestInbox(
+            delivery, configuration: configuration, store: store,
+            syncEngine: syncController.engine)
+        switch result {
+        case .inserted(let outcome):
+            await presentIngestion(
+                outcome, capture: delivery.prepared.capture, scheduleEnrichment: false)
+            flashNote(
+                outcome.isNew
+                    ? String(localized: "Saved") : String(localized: "Already in your history"),
+                kind: .success)
+            await enrichInbox(outcome)
+        case .replayed(let outcome):
+            if let outcome { await enrichInbox(outcome) }
         }
-        if summary.undeletable > 0 {
-            diagnostics.record(
-                String(localized: "Sharing"),
-                String(localized: "A shared item couldn’t be cleared and may arrive again."))
+    }
+
+    /// Keep the inbox file until post-commit work has run. A crash before this
+    /// returns leaves the receipt and sealed file for a safe replay.
+    private func enrichInbox(_ outcome: ClipIngestionCoordinator.Outcome) async {
+        guard !outcome.enrichment.isEmpty, let full else { return }
+        let syncEngine: (any SyncEngine)? =
+            syncController.isEnabled ? syncController.engine : nil
+        await enrichmentScheduler.run(copiedAt: outcome.item.createdAt) {
+            await ingestionCoordinator.enrich(
+                outcome, store: full, syncEngine: syncEngine
+            ) {
+                await self.search()
+            }
         }
     }
 
@@ -1031,10 +1081,9 @@ final class IOSAppModel {
         }
     }
 
-    /// Stores one capture from the share inbox or a seed and confirms it.
-    private func ingest(_ capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil) async
-    {
-        guard let outcome = await persist(capture, precomputedKind: precomputedKind) else { return }
+    /// Stores one seeded capture and confirms it.
+    private func ingest(_ capture: PasteboardCapture) async {
+        guard let outcome = await persist(capture) else { return }
         flashNote(
             outcome.isNew
                 ? String(localized: "Saved") : String(localized: "Already in your history"),
@@ -1042,20 +1091,8 @@ final class IOSAppModel {
     }
 
     /// The durable write plus its side effects; nil when the store refused it.
-    /// Callers own the user-facing note.
-    private func persist(
-        _ capture: PasteboardCapture, precomputedKind: ClipContentKind? = nil
-    )
-        async -> ClipIngestionCoordinator.Outcome?
-    {
-        let configuration = ClipIngestionCoordinator.Configuration(
-            sensitiveLifetime: RetentionPolicy.load(from: SharedCapture.preferences)
-                .sensitiveLifetime,
-            detectSecrets: intelligence.detectSecrets,
-            precomputedKind: precomputedKind,
-            tier: tier,
-            intelligence: intelligence,
-            sourceDeviceName: DeviceProvenance.currentDeviceName())
+    private func persist(_ capture: PasteboardCapture) async -> ClipIngestionCoordinator.Outcome? {
+        let configuration = ingestionConfiguration(precomputedKind: nil)
         // Same boundary as macOS — the insert, not the end of `ingest`, which
         // also awaits the sync enqueue. The two platforms have to stop at the
         // same place or the shared budget compares different spans.
@@ -1068,6 +1105,28 @@ final class IOSAppModel {
                 syncEngine: syncController.engine,
                 didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
         else { return nil }
+        await presentIngestion(outcome, capture: capture)
+        return outcome
+    }
+
+    private func ingestionConfiguration(
+        precomputedKind: ClipContentKind?
+    ) -> ClipIngestionCoordinator.Configuration {
+        ClipIngestionCoordinator.Configuration(
+            sensitiveLifetime: RetentionPolicy.load(from: SharedCapture.preferences)
+                .sensitiveLifetime,
+            detectSecrets: intelligence.detectSecrets,
+            precomputedKind: precomputedKind,
+            tier: tier,
+            intelligence: intelligence,
+            sourceDeviceName: DeviceProvenance.currentDeviceName())
+    }
+
+    /// Side effects of a durable write; the caller owns the user-facing note.
+    private func presentIngestion(
+        _ outcome: ClipIngestionCoordinator.Outcome, capture: PasteboardCapture,
+        scheduleEnrichment: Bool = true
+    ) async {
         if outcome.isNew { recordActivationMilestone(.firstCapture) }
         try? await full?.recordPrivateCapture(
             sourceAppBundleID: capture.sourceAppBundleID,
@@ -1079,8 +1138,7 @@ final class IOSAppModel {
         // Surface the just-captured clip as "ready to paste" (masked if
         // sensitive) on the Dynamic Island / lock screen.
         clipActivity.show(outcome.item, sync: ClipSyncBadge(syncStatus))
-        enrich(outcome)
-        return outcome
+        if scheduleEnrichment { enrich(outcome) }
     }
 
     /// On-device enrichment of a clip captured ON this iPhone — Apple
