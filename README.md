@@ -25,6 +25,10 @@ path, stops dropping shared items and sync changes, and keeps the panel
 selection across refreshes; it is not yet a published build — see its
 [release notes](docs/releases/v0.8.4.md).
 
+![Gancho's history panel keeping the selected clip after an edit refreshes the list](site/assets/v0.8.4-release.png)
+
+*v0.8.4 candidate preview with synthetic fixtures — not evidence of a published release.*
+
 [Download v0.8.3](https://github.com/johnny4young/gancho/releases/tag/v0.8.3)
 for free OCR from images or screen regions, visual Library cards, encrypted
 local saved filters and combined text copying. The signed, notarized DMG,
