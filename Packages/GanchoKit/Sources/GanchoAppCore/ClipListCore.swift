@@ -179,6 +179,21 @@ public enum ClipListShape {
         return ClipListPage(items: ranked(all.filter(rule.matches)), reachedEnd: true)
     }
 
+    /// The leading `count` rows of a paginated list (at least one page) in a
+    /// single read, for refreshing a window the user has already scrolled.
+    public func leadingWindow(count: Int, boardID: UUID?) async -> ClipListPage {
+        let limit = max(count, Self.pageSize)
+        let items: [ClipItem]
+        if let boardID, source.isDurable {
+            items = await source.boardItems(boardID, offset: 0, limit: limit)
+        } else if source.isDurable {
+            items = await source.recentBrowse(offset: 0, limit: limit)
+        } else {
+            items = await source.items(offset: 0, limit: limit)
+        }
+        return ClipListPage(items: items, reachedEnd: items.count < limit)
+    }
+
     /// The next page for an already-loaded paginated list.
     ///
     /// The caller re-checks its own state after this returns — the view can

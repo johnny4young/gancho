@@ -120,6 +120,86 @@
           }
         }
       }
+    },
+    "This clipboard item cannot be saved for privacy reasons.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This clipboard item cannot be saved for privacy reasons."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este elemento del portapapeles no se puede guardar por privacidad."
+          }
+        }
+      }
+    },
+    "Couldn’t read the clipboard. Try pasting again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t read the clipboard. Try pasting again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer el portapapeles. Intenta pegar de nuevo."
+          }
+        }
+      }
+    },
+    "Couldn’t save the clipboard. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t save the clipboard. Try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el portapapeles. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Already in your history.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already in your history."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya está en tu historial."
+          }
+        }
+      }
+    },
+    "Already in your history": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already in your history"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya está en tu historial"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

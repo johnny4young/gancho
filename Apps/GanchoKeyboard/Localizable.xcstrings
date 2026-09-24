@@ -21,16 +21,6 @@
         }
       }
     },
-    "Couldn’t open Gancho": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo abrir Gancho"
-          }
-        }
-      }
-    },
     "Delete": {
       "localizations": {
         "es": {
@@ -91,32 +81,12 @@
         }
       }
     },
-    "Saved to Gancho": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guardado en Gancho"
-          }
-        }
-      }
-    },
     "Search clips": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Buscar clips"
-          }
-        }
-      }
-    },
-    "The clipboard is empty": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El portapapeles está vacío"
           }
         }
       }
@@ -257,6 +227,126 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostrar todos los clips"
+          }
+        }
+      }
+    },
+    "This clipboard item cannot be saved for privacy reasons.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This clipboard item cannot be saved for privacy reasons."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este elemento del portapapeles no se puede guardar por privacidad."
+          }
+        }
+      }
+    },
+    "Couldn’t read the clipboard. Try pasting again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t read the clipboard. Try pasting again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer el portapapeles. Intenta pegar de nuevo."
+          }
+        }
+      }
+    },
+    "Couldn’t save the clipboard. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t save the clipboard. Try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el portapapeles. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Already in your history.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already in your history."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya está en tu historial."
+          }
+        }
+      }
+    },
+    "The clipboard is empty.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The clipboard is empty."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El portapapeles está vacío."
+          }
+        }
+      }
+    },
+    "Saved the image to Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guardó la imagen en Gancho."
+          }
+        }
+      }
+    },
+    "Saved to Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guardó en Gancho."
+          }
+        }
+      }
+    },
+    "Couldn't open Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir Gancho."
+          }
+        }
+      }
+    },
+    "This clip is no longer available": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este clip ya no está disponible"
           }
         }
       }

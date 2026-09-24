@@ -36,7 +36,7 @@ struct SyncPolicyTests {
         let state = Data("opaque-state".utf8)
 
         #expect(stateStore.load() == nil)
-        stateStore.save(state)
+        try stateStore.save(state)
 
         #expect(stateStore.load() == state)
     }
