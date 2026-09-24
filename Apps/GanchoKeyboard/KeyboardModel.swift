@@ -272,7 +272,7 @@ final class KeyboardModel: ObservableObject {
         Task {
             let outcome = await SharedCapture.saveCurrentClipboard()
             saving = false
-            flashNote(Self.message(for: outcome))
+            flashNote(SharedCapture.message(for: outcome))
             await load()
         }
     }
@@ -286,14 +286,6 @@ final class KeyboardModel: ObservableObject {
         noteTask = Task {
             try? await Task.sleep(for: .seconds(2))
             if !Task.isCancelled { note = nil }
-        }
-    }
-
-    private static func message(for outcome: SharedCapture.Outcome) -> LocalizedStringResource {
-        switch outcome {
-        case .savedText, .savedImage: "Saved to Gancho"
-        case .empty: "The clipboard is empty"
-        case .storeUnavailable: "Couldn’t open Gancho"
         }
     }
 }

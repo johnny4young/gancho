@@ -147,3 +147,17 @@ would mean introducing a NEW field and migrating writers, never converting.
 This file contains no internal planning references and is safe to publish
 as-is (it is, deliberately, the long-form version of the website's privacy
 page).
+
+### Intentional capture authorization
+
+An iOS paste gesture authorizes a read, not an exception to reserved marker
+policy. Direct pasteboard reads inspect metadata across all items; system paste
+providers inspect the union of provider and pasteboard types before loading any
+object. A changed, newly protected or cancelled read is not persisted; in a
+multi-item paste, unsupported items are skipped and one failed load does not
+discard the readable ones.
+Intent/control and keyboard capture reuse the app ingestion coordinator, including
+configured local sensitive retention and actual durable duplicate identity. A
+failed store open or insert never produces a Saved confirmation. Device-local
+retention/intelligence settings are stored in the App Group, so the app and those
+extensions read one copy; this is not cross-device preference synchronization.

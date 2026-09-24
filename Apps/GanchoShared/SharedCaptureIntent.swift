@@ -26,11 +26,7 @@ struct SaveClipboardIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        switch await SharedCapture.saveCurrentClipboard() {
-        case .savedImage: return .result(dialog: "Saved the image to Gancho.")
-        case .savedText: return .result(dialog: "Saved to Gancho.")
-        case .empty: return .result(dialog: "The clipboard is empty.")
-        case .storeUnavailable: return .result(dialog: "Couldn't open Gancho.")
-        }
+        let outcome = await SharedCapture.saveCurrentClipboard()
+        return .result(dialog: IntentDialog(SharedCapture.message(for: outcome)))
     }
 }
