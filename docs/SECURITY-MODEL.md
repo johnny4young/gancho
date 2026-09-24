@@ -166,15 +166,17 @@ extensions read one copy; this is not cross-device preference synchronization.
 
 Reading an App Group inbox file no longer removes it. The host commits the clip
 and a content-free local delivery receipt in one SQLite transaction, then
-acknowledges the exact file bytes. A replayed receipt performs no second insert,
-recency bump or enrichment, including after the user deletes the original clip.
+acknowledges the exact file bytes only after post-commit work. A replayed receipt
+performs no second insert or recency bump; it can retry sync scheduling and
+best-effort enrichment before acknowledgment. A deleted clip stays deleted.
 Receipts are not linked by cascading deletion and never sync to CloudKit.
 
 Drains serialize across asynchronous commits; each drain sweeps the whole inbox in
 small batches, and a request that arrives mid-drain triggers another sweep.
-Unreadable files and sealed files that cannot authenticate stay queued for 30 days,
-since a wrong key is not by itself evidence of corruption; after that they are
-discarded as poison, as are confirmed malformed plaintext and authenticated
-malformed JSON. Receipts older than 90 days are pruned. An in-memory fallback cannot acknowledge durable shares.
+Unreadable files and sealed files that cannot authenticate stay queued regardless
+of age: a wrong key is not evidence of corruption. Confirmed malformed plaintext
+and authenticated malformed JSON are discarded as poison. Receipts older than
+90 days are pruned only when no delivery file remains in the inbox; an unreadable
+directory blocks pruning. An in-memory fallback cannot acknowledge durable shares.
 The receipt migration is additive; a behavior rollback must retain the registered
 migration and receipts rather than erase delivery history.

@@ -67,6 +67,34 @@ struct InboxReceiptTests {
         #expect(try await first.items(offset: 0, limit: 10).isEmpty)
     }
 
+    @Test("Inbox receipt and outbound work commit together for a synced duplicate")
+    func deduplicatedDeliveryMarksUploadAtomically() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "inbox-outbound-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try GRDBClipboardStore(directory: root)
+        let original = ClipItem(contentHash: "same-content")
+        try await store.insert(original, content: .text("synthetic"))
+        try await store.writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET syncSystemFields = ?, needsUpload = 0 WHERE id = ?",
+                arguments: [Data([1]), original.id.uuidString])
+        }
+        #expect(try await store.pendingUploadIDs().isEmpty)
+
+        let proposed = ClipItem(contentHash: original.contentHash)
+        guard
+            case .inserted(let stored) = try await store.insertInboxDelivery(
+                id: "durable-delivery", item: proposed, content: .text("synthetic"))
+        else {
+            Issue.record("receipt must commit")
+            return
+        }
+        #expect(stored.id == original.id)
+        #expect(try await store.pendingUploadIDs() == [original.id])
+        #expect(try await store.itemForInboxDelivery(id: "durable-delivery")?.id == original.id)
+    }
+
     @Test("Two database owners commit a delivery exactly once")
     func concurrentOwners() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(

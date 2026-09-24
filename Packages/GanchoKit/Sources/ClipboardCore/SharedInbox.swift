@@ -120,17 +120,12 @@ public struct SharedInbox: Sendable {
         public let nextCursor: Cursor?
     }
 
-    /// How long an unreadable or unauthenticated file is retried before it is
-    /// treated as poison; no key rotation or lock lasts this long.
-    public static let deferredLifetime: TimeInterval = 30 * 24 * 60 * 60
-
     /// Reads at most `limit` candidates without removing good deliveries.
     /// Authentication failures are deferred: wrong keys and damaged sealed
-    /// bytes cannot be distinguished safely. Only confirmed invalid plaintext,
-    /// successfully authenticated malformed JSON, or a deferred file older than
-    /// `deferredLifetime` may be discarded.
+    /// bytes cannot be distinguished safely, regardless of age. Only confirmed
+    /// invalid plaintext or successfully authenticated malformed JSON is poison.
     public func readPending(
-        after cursor: Cursor? = nil, limit: Int = 64, now: Date = .now
+        after cursor: Cursor? = nil, limit: Int = 64
     ) throws -> ReadSummary {
         let candidates = try orderedCandidates(after: cursor)
         let batch = Array(candidates.prefix(max(1, min(limit, 256))))
@@ -144,15 +139,11 @@ public struct SharedInbox: Sendable {
                 poisoned += 1
             } catch { undeletable += 1 }
         }
-        for (file, position) in batch {
+        for (file, _) in batch {
             switch read(file) {
             case .delivery(let delivery): deliveries.append(delivery)
             case .malformed: discard(file)
-            case .unreadable(let removable):
-                let isStale =
-                    position.date != .distantPast
-                    && now.timeIntervalSince(position.date) > Self.deferredLifetime
-                if isStale, removable { discard(file) } else { deferred += 1 }
+            case .unreadable: deferred += 1
             }
         }
         return ReadSummary(
@@ -161,24 +152,34 @@ public struct SharedInbox: Sendable {
             nextCursor: candidates.count > batch.count ? batch.last?.1 : nil)
     }
 
+    /// Pruning receipts is safe only once every delivery file is gone. A failed
+    /// directory read must throw rather than silently authorize pruning.
+    public func hasPendingFiles() throws -> Bool {
+        do {
+            return try FileManager.default.contentsOfDirectory(atPath: directory.path)
+                .contains { URL(fileURLWithPath: $0).pathExtension == "json" }
+        } catch CocoaError.fileReadNoSuchFile {
+            return false
+        }
+    }
+
     private enum FileRead {
         case delivery(Delivery)
         /// Readable bytes that are not a capture: safe to discard now.
         case malformed
-        /// Not read or not authenticated; `removable` excludes directories.
-        case unreadable(removable: Bool)
+        /// Not read or not authenticated, even if the file is old.
+        case unreadable
     }
 
     private func read(_ file: URL) -> FileRead {
         let values = try? file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
-        let removable = values?.isRegularFile == true || values?.isSymbolicLink == true
         guard values?.isRegularFile == true, values?.isSymbolicLink != true,
             let raw = try? Data(contentsOf: file)
-        else { return .unreadable(removable: removable) }
+        else { return .unreadable }
         let data: Data
         if SealedEnvelope.isSealed(raw) {
             guard let key, let opened = try? SealedEnvelope.open(raw, key: key) else {
-                return .unreadable(removable: removable)
+                return .unreadable
             }
             data = opened
         } else {

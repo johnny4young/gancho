@@ -13,6 +13,10 @@ public protocol InboxClipIngesting: Sendable {
         id: String, item: ClipItem, content: ClipContent?
     ) async throws -> InboxInsertResult
 
+    /// The original row, if it still exists, without recency or dedupe writes.
+    /// A deleted clip stays deleted on replay.
+    func itemForInboxDelivery(id: String) async throws -> ClipItem?
+
     /// Drops receipts committed before `date`; returns how many were removed.
     @discardableResult
     func pruneInboxReceipts(committedBefore date: Date) async throws -> Int

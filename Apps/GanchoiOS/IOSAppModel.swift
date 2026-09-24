@@ -987,7 +987,7 @@ final class IOSAppModel {
                     String(localized: "Sharing"),
                     String(localized: "A shared item couldn’t be cleared and may arrive again."))
             }
-            if !summary.isBusy {
+            if !summary.isBusy, (try? inbox.hasPendingFiles()) == false {
                 _ = try? await inboxStore.pruneInboxReceipts(
                     committedBefore: Date(timeIntervalSinceNow: -InboxReceiptRetention.lifetime))
             }
@@ -1004,16 +1004,36 @@ final class IOSAppModel {
         _ delivery: SharedInbox.Delivery, store: any InboxClipIngesting
     ) async throws {
         let configuration = ingestionConfiguration(precomputedKind: delivery.prepared.kind)
-        guard
-            let outcome = try await ingestionCoordinator.ingestInbox(
-                delivery, configuration: configuration, store: store,
-                syncEngine: syncController.engine)
-        else { return }
-        await presentIngestion(outcome, capture: delivery.prepared.capture)
-        flashNote(
-            outcome.isNew
-                ? String(localized: "Saved") : String(localized: "Already in your history"),
-            kind: .success)
+        let result = try await ingestionCoordinator.ingestInbox(
+            delivery, configuration: configuration, store: store,
+            syncEngine: syncController.engine)
+        switch result {
+        case .inserted(let outcome):
+            await presentIngestion(
+                outcome, capture: delivery.prepared.capture, scheduleEnrichment: false)
+            flashNote(
+                outcome.isNew
+                    ? String(localized: "Saved") : String(localized: "Already in your history"),
+                kind: .success)
+            await enrichInbox(outcome)
+        case .replayed(let outcome):
+            if let outcome { await enrichInbox(outcome) }
+        }
+    }
+
+    /// Keep the inbox file until post-commit work has run. A crash before this
+    /// returns leaves the receipt and sealed file for a safe replay.
+    private func enrichInbox(_ outcome: ClipIngestionCoordinator.Outcome) async {
+        guard !outcome.enrichment.isEmpty, let full else { return }
+        let syncEngine: (any SyncEngine)? =
+            syncController.isEnabled ? syncController.engine : nil
+        await enrichmentScheduler.run(copiedAt: outcome.item.createdAt) {
+            await ingestionCoordinator.enrich(
+                outcome, store: full, syncEngine: syncEngine
+            ) {
+                await self.search()
+            }
+        }
     }
 
     /// UIPasteControl handoff: the system mediates the tap, so this path
@@ -1104,7 +1124,8 @@ final class IOSAppModel {
 
     /// Side effects of a durable write; the caller owns the user-facing note.
     private func presentIngestion(
-        _ outcome: ClipIngestionCoordinator.Outcome, capture: PasteboardCapture
+        _ outcome: ClipIngestionCoordinator.Outcome, capture: PasteboardCapture,
+        scheduleEnrichment: Bool = true
     ) async {
         if outcome.isNew { recordActivationMilestone(.firstCapture) }
         try? await full?.recordPrivateCapture(
@@ -1117,7 +1138,7 @@ final class IOSAppModel {
         // Surface the just-captured clip as "ready to paste" (masked if
         // sensitive) on the Dynamic Island / lock screen.
         clipActivity.show(outcome.item, sync: ClipSyncBadge(syncStatus))
-        enrich(outcome)
+        if scheduleEnrichment { enrich(outcome) }
     }
 
     /// On-device enrichment of a clip captured ON this iPhone — Apple
