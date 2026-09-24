@@ -69,7 +69,7 @@ final class CaptureFlowUITests: XCTestCase {
             throw XCTSkip("board color controls are not reachable on this runner")
         }
         blue.tap()
-        XCTAssertEqual(blue.value as? String, "Selected")
+        XCTAssertTrue(waitForSelected(blue), "tapping a swatch must select it")
 
         let save = app.buttons["board-appearance-save"].firstMatch
         XCTAssertTrue(save.waitForExistence(timeout: 2))
@@ -81,9 +81,20 @@ final class CaptureFlowUITests: XCTestCase {
             "a successful durable update must dismiss the editor")
 
         try openAppearanceEditor(for: board, in: app)
-        XCTAssertEqual(
-            app.buttons["board-color-2E70D1"].firstMatch.value as? String, "Selected",
+        let persisted = app.buttons["board-color-2E70D1"].firstMatch
+        XCTAssertTrue(persisted.waitForExistence(timeout: 4))
+        XCTAssertTrue(
+            waitForSelected(persisted),
             "reopening after model refresh must retain the persisted palette token")
+    }
+
+    /// Predicate expectations sample about once a second, so the timeout
+    /// must span several samples.
+    @MainActor
+    private func waitForSelected(_ element: XCUIElement) -> Bool {
+        let selected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Selected"), object: element)
+        return XCTWaiter.wait(for: [selected], timeout: 4) == .completed
     }
 
     @MainActor
