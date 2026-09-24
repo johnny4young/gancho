@@ -21,16 +21,6 @@
         }
       }
     },
-    "Couldn’t open Gancho": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo abrir Gancho"
-          }
-        }
-      }
-    },
     "Delete": {
       "localizations": {
         "es": {
@@ -91,32 +81,12 @@
         }
       }
     },
-    "Saved to Gancho": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guardado en Gancho"
-          }
-        }
-      }
-    },
     "Search clips": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Buscar clips"
-          }
-        }
-      }
-    },
-    "The clipboard is empty": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El portapapeles está vacío"
           }
         }
       }
@@ -325,22 +295,6 @@
         }
       }
     },
-    "Already in your history": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Already in your history"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ya está en tu historial"
-          }
-        }
-      }
-    },
     "The clipboard is empty.": {
       "localizations": {
         "en": {
@@ -353,6 +307,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "El portapapeles está vacío."
+          }
+        }
+      }
+    },
+    "Saved the image to Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guardó la imagen en Gancho."
+          }
+        }
+      }
+    },
+    "Saved to Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guardó en Gancho."
+          }
+        }
+      }
+    },
+    "Couldn't open Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir Gancho."
+          }
+        }
+      }
+    },
+    "This clip is no longer available": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este clip ya no está disponible"
           }
         }
       }

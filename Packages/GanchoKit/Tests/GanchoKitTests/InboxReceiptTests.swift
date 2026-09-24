@@ -83,6 +83,32 @@ struct InboxReceiptTests {
         #expect(try await first.items(offset: 0, limit: 10).count == 1)
     }
 
+    @Test("Pruning drops only receipts older than the cutoff")
+    func pruneOldReceipts() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "inbox-receipt-prune-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try GRDBClipboardStore(directory: root)
+        for id in ["old", "new"] {
+            _ = try await store.insertInboxDelivery(
+                id: id, item: ClipItem(contentHash: id), content: .text("synthetic \(id)"))
+        }
+        try await store.writer.write { db in
+            try db.execute(
+                sql: "UPDATE inbox_receipt SET committedAt = ? WHERE id = 'old'",
+                arguments: [Date(timeIntervalSinceNow: -InboxReceiptRetention.lifetime - 60)])
+        }
+
+        let removed = try await store.pruneInboxReceipts(
+            committedBefore: Date(timeIntervalSinceNow: -InboxReceiptRetention.lifetime))
+
+        #expect(removed == 1)
+        #expect(
+            try await store.insertInboxDelivery(
+                id: "new", item: ClipItem(contentHash: "new"), content: .text("synthetic new"))
+                == .alreadyCommitted)
+    }
+
     @Test("Cancellation before insertion creates neither receipt nor row")
     func cancellation() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(

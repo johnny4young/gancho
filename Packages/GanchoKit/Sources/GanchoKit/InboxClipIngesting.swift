@@ -12,4 +12,14 @@ public protocol InboxClipIngesting: Sendable {
     func insertInboxDelivery(
         id: String, item: ClipItem, content: ClipContent?
     ) async throws -> InboxInsertResult
+
+    /// Drops receipts committed before `date`; returns how many were removed.
+    @discardableResult
+    func pruneInboxReceipts(committedBefore date: Date) async throws -> Int
+}
+
+public enum InboxReceiptRetention {
+    /// Well past the inbox's own retry window, so only receipts whose file
+    /// has long been acknowledged or discarded are removed.
+    public static let lifetime: TimeInterval = 90 * 24 * 60 * 60
 }

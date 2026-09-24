@@ -133,7 +133,7 @@ struct ClipDetailView: View {
                 dismiss()
             }
             ShareLink(
-                item: ClipShareItem(id: item.id, kind: item.kind, store: model.store),
+                item: model.shareItem(for: item),
                 preview: SharePreview("Gancho")
             ) {
                 peekActionLabel("Share", systemImage: "square.and.arrow.up")

@@ -25,11 +25,13 @@ struct LoadedFileDragPayload: Equatable {
 extension AppModel {
     func dragProvider(for item: ClipItem) -> NSItemProvider {
         let provider = NSItemProvider()
-        // A protected clip gets an inert provider even when a caller skips
-        // the view gate. Do not advertise cached user titles as suggestedName:
-        // metadata registration cannot reauthorize a stale snapshot.
+        // A protected clip gets an inert provider (no title either) even when
+        // a caller skips the view gate.
         let representations = ClipDragPayload.representations(for: item)
         guard !representations.isEmpty else { return provider }
+        if !item.title.isEmpty {
+            provider.suggestedName = item.title
+        }
         // A drop target may load several of the advertised representations;
         // the clip's frecency bump must land once per drag, not once per load.
         let usage = OneShot()
@@ -140,16 +142,27 @@ extension AppModel {
             currentItems.append(payload.item)
             contents.append(.fileReferences(paths))
         }
-        // A later manifest read can suspend while an earlier clip changes.
-        // Recheck the whole batch before handing it to the drag session.
-        for item in currentItems {
-            guard !Task.isCancelled, let current = try? await store.item(id: item.id),
-                current == item, ClipSafeDelivery.isEligible(current)
-            else { return nil }
-        }
         let urls = ClipDragPayload.uniqueFileURLs(for: contents)
         guard urls.count > 1 else { return nil }
         return LoadedFileDragPayload(items: currentItems, urls: urls)
+    }
+
+    /// Drag-time authorization for a preflighted payload: metadata reads only.
+    /// An unchanged revision means the preflighted URLs are still current.
+    func revalidateMultiFileDrag(
+        _ payload: LoadedFileDragPayload
+    ) async
+        -> LoadedFileDragPayload?
+    {
+        var currentItems: [ClipItem] = []
+        for item in payload.items {
+            guard !Task.isCancelled, let current = try? await store.item(id: item.id),
+                ClipSafeDelivery.isSameRevision(current, item),
+                ClipSafeDelivery.isEligible(current)
+            else { return nil }
+            currentItems.append(current)
+        }
+        return LoadedFileDragPayload(items: currentItems, urls: payload.urls)
     }
 }
 
@@ -206,16 +219,19 @@ struct ClipDragSource: ViewModifier {
                         MultiFileDragEventBridge(
                             isActive: multiFilePayload != nil && select != nil,
                             select: select,
-                            doubleClick: doubleClick
-                        ) { sourceView, event in
-                            guard let prepared = multiFilePayload,
-                                let fresh = await model.preflightMultiFileDrag(for: prepared.items),
-                                !Task.isCancelled
-                            else { return false }
-                            return model.panel.beginMultiFileDrag(
-                                fresh, event: event,
-                                sourceView: sourceView, model: model)
-                        }
+                            doubleClick: doubleClick,
+                            prepare: {
+                                guard let prepared = multiFilePayload else { return nil }
+                                let fresh = await model.revalidateMultiFileDrag(prepared)
+                                // Hand later gestures back to the SwiftUI provider.
+                                if fresh == nil { multiFilePayload = nil }
+                                return fresh
+                            },
+                            beginDrag: { payload, sourceView, event in
+                                model.panel.beginMultiFileDrag(
+                                    payload, event: event, sourceView: sourceView, model: model)
+                            }
+                        )
                         .frame(width: geometry.size.width, height: geometry.size.height)
                     }
                 }
@@ -231,7 +247,8 @@ private struct MultiFileDragEventBridge: NSViewRepresentable {
     let isActive: Bool
     let select: ((Bool) -> Void)?
     let doubleClick: (() -> Void)?
-    let beginDrag: (NSView, NSEvent) async -> Bool
+    let prepare: () async -> LoadedFileDragPayload?
+    let beginDrag: (LoadedFileDragPayload, NSView, NSEvent) -> Bool
 
     func makeNSView(context: Context) -> CaptureView {
         CaptureView()
@@ -241,6 +258,7 @@ private struct MultiFileDragEventBridge: NSViewRepresentable {
         nsView.isActive = isActive
         nsView.select = select
         nsView.doubleClick = doubleClick
+        nsView.prepare = prepare
         nsView.beginDrag = beginDrag
     }
 
@@ -252,8 +270,11 @@ private struct MultiFileDragEventBridge: NSViewRepresentable {
         var isActive = false
         var select: ((Bool) -> Void)?
         var doubleClick: (() -> Void)?
-        var beginDrag: ((NSView, NSEvent) async -> Bool)?
+        var prepare: (() async -> LoadedFileDragPayload?)?
+        var beginDrag: ((LoadedFileDragPayload, NSView, NSEvent) -> Bool)?
         private var dragStarted = false
+        private var preparationFailed = false
+        private var latestDragEvent: NSEvent?
         private var preparation: Task<Void, Never>?
 
         func cancelPreparation() {
@@ -277,16 +298,26 @@ private struct MultiFileDragEventBridge: NSViewRepresentable {
         override func mouseDown(with event: NSEvent) {
             cancelPreparation()
             dragStarted = false
+            preparationFailed = false
+            latestDragEvent = nil
         }
 
         override func mouseDragged(with event: NSEvent) {
-            guard !dragStarted, preparation == nil else { return }
+            // The session starts from the newest drag event, not the one that
+            // began the async check; a failed check is not retried mid-gesture.
+            latestDragEvent = event
+            guard !dragStarted, !preparationFailed, preparation == nil else { return }
             preparation = Task { @MainActor [weak self] in
-                guard let self else { return }
-                let started = await beginDrag?(self, event) == true
-                guard !Task.isCancelled else { return }
-                dragStarted = started
+                let payload = await self?.prepare?()
+                guard let self, !Task.isCancelled else { return }
                 preparation = nil
+                guard let payload, let event = latestDragEvent,
+                    beginDrag?(payload, self, event) == true
+                else {
+                    preparationFailed = true
+                    return
+                }
+                dragStarted = true
             }
         }
 

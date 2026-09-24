@@ -90,7 +90,7 @@ final class KeyboardModel: ObservableObject {
             // ordering while excluding protected rows before LIMIT. Activity
             // ordering would split the date buckets after reusing an old clip.
             let recent = ((try? await store.search(KeyboardClips.query(), limit: 60)) ?? [])
-                .filter { !ClipSafePresentation.requiresMasking($0) }
+                .filter { ClipSafeDelivery.isEligible($0) }
             sections = ClipSections.grouped(recent, now: .now).compactMap { group in
                 let entries = WidgetClips.entries(from: group.clips, limit: group.clips.count)
                 return entries.isEmpty
@@ -111,7 +111,7 @@ final class KeyboardModel: ObservableObject {
             (try? await store.search(
                 KeyboardClips.query(text: trimmed, boardID: selectedBoardID), limit: 30)) ?? []
         entries = WidgetClips.entries(
-            from: hits.filter { !ClipSafePresentation.requiresMasking($0) }, limit: 30)
+            from: hits.filter { ClipSafeDelivery.isEligible($0) }, limit: 30)
         sections = []
     }
 
@@ -138,7 +138,10 @@ final class KeyboardModel: ObservableObject {
                 let payload = await ClipSafeDelivery.load(
                     id: entry.id, metadata: { try await store.item(id: $0) },
                     content: { try await store.content(for: $0) })
-            else { return }
+            else {
+                flashNote("This clip is no longer available")
+                return
+            }
             switch payload.content {
             case .text(let text):
                 onInsert(text)
@@ -174,7 +177,8 @@ final class KeyboardModel: ObservableObject {
         else { return }
         let decoded = await Task.detached { Self.downsample(data, maxPixel: 120) }.value
         guard let decoded, !Task.isCancelled,
-            let current = try? await store.item(id: entry.id), current == before,
+            let current = try? await store.item(id: entry.id),
+            ClipSafeDelivery.isSameRevision(current, before),
             ClipSafeDelivery.isEligible(current)
         else { return }
         thumbnails[entry.id] = Image(uiImage: decoded)
@@ -215,7 +219,10 @@ final class KeyboardModel: ObservableObject {
                 let payload = await ClipSafeDelivery.load(
                     id: entry.id, metadata: { try await store.item(id: $0) },
                     content: { try await store.content(for: $0) })
-            else { return }
+            else {
+                flashNote("This clip is no longer available")
+                return
+            }
             switch payload.content {
             case .text(let text):
                 UIPasteboard.general.string = text
@@ -265,7 +272,7 @@ final class KeyboardModel: ObservableObject {
         Task {
             let outcome = await SharedCapture.saveCurrentClipboard()
             saving = false
-            flashNote(Self.message(for: outcome))
+            flashNote(SharedCapture.message(for: outcome))
             await load()
         }
     }
@@ -279,17 +286,6 @@ final class KeyboardModel: ObservableObject {
         noteTask = Task {
             try? await Task.sleep(for: .seconds(2))
             if !Task.isCancelled { note = nil }
-        }
-    }
-
-    private static func message(for outcome: SharedCapture.Outcome) -> LocalizedStringResource {
-        switch outcome {
-        case .saved(let outcome): outcome.isNew ? "Saved to Gancho" : "Already in your history"
-        case .refused: "This clipboard item cannot be saved for privacy reasons."
-        case .unavailable: "Couldn’t read the clipboard. Try pasting again."
-        case .saveFailed: "Couldn’t save the clipboard. Try again."
-        case .empty: "The clipboard is empty"
-        case .storeUnavailable: "Couldn’t open Gancho"
         }
     }
 }

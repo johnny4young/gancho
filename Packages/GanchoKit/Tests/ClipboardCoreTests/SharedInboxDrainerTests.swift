@@ -67,18 +67,41 @@ struct SharedInboxDrainerTests {
         #expect(try await drainer.drain(inbox) { _ in }.acknowledged == 1)
     }
 
-    @Test("Bounded drains rotate past retained files to later deliveries")
-    func boundedRetry() async throws {
+    @Test("One drain sweeps every batch and keeps a failed file for the next drain")
+    func sweepsPastBatchSize() async throws {
         let (inbox, directory) = try fixture()
         defer { try? FileManager.default.removeItem(at: directory) }
-        try inbox.deposit(PasteboardCapture(text: "synthetic next"))
-        let drainer = SharedInboxDrainer(batchSize: 1)
-        #expect(
-            try await drainer.drain(inbox) { _ in throw CocoaError(.fileWriteOutOfSpace) }.failed
-                == 1)
+        for index in 0..<4 { try inbox.deposit(PasteboardCapture(text: "synthetic \(index)")) }
+        let failing = try #require(inbox.readPending().deliveries.first).id
+        let drainer = SharedInboxDrainer(batchSize: 2)
+        let report = try await drainer.drain(inbox) { delivery in
+            if delivery.id == failing { throw CocoaError(.fileWriteOutOfSpace) }
+        }
+        #expect(report.failed == 1)
+        #expect(report.acknowledged == 4)
+        #expect(try inbox.readPending().deliveries.map(\.id) == [failing])
         #expect(try await drainer.drain(inbox) { _ in }.acknowledged == 1)
-        #expect(try inbox.readPending().deliveries.count == 1)
-        #expect(try await drainer.drain(inbox) { _ in }.acknowledged == 1)
+    }
+
+    @Test("A drain requested mid-drain sweeps again instead of waiting for later")
+    func busyRequestReruns() async throws {
+        let (inbox, directory) = try fixture()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let drainer = SharedInboxDrainer()
+        let gate = SuspendedInboxCommit()
+        let active = Task {
+            try await drainer.drain(inbox) { delivery in
+                if delivery.prepared.capture.textRepresentation == "synthetic queued" {
+                    await gate.commit()
+                }
+            }
+        }
+        await gate.waitUntilEntered()
+        try inbox.deposit(PasteboardCapture(text: "synthetic late"))
+        #expect(try await drainer.drain(inbox) { _ in }.isBusy)
+        await gate.release()
+        #expect(try await active.value.acknowledged == 2)
+        #expect(try inbox.readPending().deliveries.isEmpty)
     }
 
     @Test("Acknowledgement cannot remove replaced content")

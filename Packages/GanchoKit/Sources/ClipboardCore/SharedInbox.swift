@@ -115,66 +115,88 @@ public struct SharedInbox: Sendable {
         public let poisoned: Int
         public let deferred: Int
         public let undeletable: Int
-        /// Continue after this metadata key on the next bounded drain. Nil
-        /// resets the scan so earlier deferred/new arrivals are retried too.
+        /// Continue after this metadata key with the next batch. Nil means
+        /// the scan reached the end of the inbox.
         public let nextCursor: Cursor?
     }
 
+    /// How long an unreadable or unauthenticated file is retried before it is
+    /// treated as poison; no key rotation or lock lasts this long.
+    public static let deferredLifetime: TimeInterval = 30 * 24 * 60 * 60
+
     /// Reads at most `limit` candidates without removing good deliveries.
     /// Authentication failures are deferred: wrong keys and damaged sealed
-    /// bytes cannot be distinguished safely. Only confirmed invalid plaintext
-    /// or successfully authenticated malformed JSON may be discarded.
-    public func readPending(after cursor: Cursor? = nil, limit: Int = 64) throws -> ReadSummary {
+    /// bytes cannot be distinguished safely. Only confirmed invalid plaintext,
+    /// successfully authenticated malformed JSON, or a deferred file older than
+    /// `deferredLifetime` may be discarded.
+    public func readPending(
+        after cursor: Cursor? = nil, limit: Int = 64, now: Date = .now
+    ) throws -> ReadSummary {
         let candidates = try orderedCandidates(after: cursor)
         let batch = Array(candidates.prefix(max(1, min(limit, 256))))
         var deliveries: [Delivery] = []
         var poisoned = 0
         var deferred = 0
         var undeletable = 0
-        for (file, _) in batch {
-            let values = try? file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
-            guard values?.isRegularFile == true, values?.isSymbolicLink != true,
-                let raw = try? Data(contentsOf: file)
-            else {
-                deferred += 1
-                continue
-            }
-            let data: Data
-            if SealedEnvelope.isSealed(raw) {
-                guard let key, let opened = try? SealedEnvelope.open(raw, key: key) else {
-                    deferred += 1
-                    continue
-                }
-                data = opened
-            } else {
-                data = raw
-            }
-            let prepared =
-                (try? JSONDecoder().decode(PreparedCapture.self, from: data))
-                ?? (try? JSONDecoder().decode(PasteboardCapture.self, from: data)).map {
-                    PreparedCapture(capture: $0)
-                }
-            if let prepared {
-                let digest = Data(SHA256.hash(data: raw))
-                var identity = Data(file.lastPathComponent.utf8)
-                identity.append(0)
-                identity.append(digest)
-                let id = SHA256.hash(data: identity).map { String(format: "%02x", $0) }.joined()
-                deliveries.append(
-                    Delivery(
-                        id: id, prepared: prepared, fileName: file.lastPathComponent, digest: digest
-                    ))
-            } else {
-                do {
-                    try FileManager.default.removeItem(at: file)
-                    poisoned += 1
-                } catch { undeletable += 1 }
+        func discard(_ file: URL) {
+            do {
+                try FileManager.default.removeItem(at: file)
+                poisoned += 1
+            } catch { undeletable += 1 }
+        }
+        for (file, position) in batch {
+            switch read(file) {
+            case .delivery(let delivery): deliveries.append(delivery)
+            case .malformed: discard(file)
+            case .unreadable(let removable):
+                let isStale =
+                    position.date != .distantPast
+                    && now.timeIntervalSince(position.date) > Self.deferredLifetime
+                if isStale, removable { discard(file) } else { deferred += 1 }
             }
         }
         return ReadSummary(
             deliveries: deliveries, poisoned: poisoned, deferred: deferred,
             undeletable: undeletable,
             nextCursor: candidates.count > batch.count ? batch.last?.1 : nil)
+    }
+
+    private enum FileRead {
+        case delivery(Delivery)
+        /// Readable bytes that are not a capture: safe to discard now.
+        case malformed
+        /// Not read or not authenticated; `removable` excludes directories.
+        case unreadable(removable: Bool)
+    }
+
+    private func read(_ file: URL) -> FileRead {
+        let values = try? file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        let removable = values?.isRegularFile == true || values?.isSymbolicLink == true
+        guard values?.isRegularFile == true, values?.isSymbolicLink != true,
+            let raw = try? Data(contentsOf: file)
+        else { return .unreadable(removable: removable) }
+        let data: Data
+        if SealedEnvelope.isSealed(raw) {
+            guard let key, let opened = try? SealedEnvelope.open(raw, key: key) else {
+                return .unreadable(removable: removable)
+            }
+            data = opened
+        } else {
+            data = raw
+        }
+        let prepared =
+            (try? JSONDecoder().decode(PreparedCapture.self, from: data))
+            ?? (try? JSONDecoder().decode(PasteboardCapture.self, from: data)).map {
+                PreparedCapture(capture: $0)
+            }
+        guard let prepared else { return .malformed }
+        let digest = Data(SHA256.hash(data: raw))
+        var identity = Data(file.lastPathComponent.utf8)
+        identity.append(0)
+        identity.append(digest)
+        let id = SHA256.hash(data: identity).map { String(format: "%02x", $0) }.joined()
+        return .delivery(
+            Delivery(id: id, prepared: prepared, fileName: file.lastPathComponent, digest: digest))
     }
 
     /// Call only after an atomic durable insert/receipt or a confirmed receipt

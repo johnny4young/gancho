@@ -190,6 +190,22 @@ struct SharedInboxTests {
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty)
     }
 
+    @Test("A file deferred past the retry window is discarded as poison")
+    func staleDeferredIsDiscarded() throws {
+        let (writer, dir) = makeInbox(key: key)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try writer.deposit(PasteboardCapture(text: "secret"))
+        let reader = SharedInbox(directory: dir, key: Data(repeating: 0x11, count: 32))
+        let later = Date.now.addingTimeInterval(SharedInbox.deferredLifetime + 60)
+
+        #expect(try reader.readPending().deferred == 1)
+        let summary = try reader.readPending(now: later)
+
+        #expect(summary.poisoned == 1)
+        #expect(summary.deferred == 0)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty)
+    }
+
     @Test("A sealed file survives a key-less reader")
     func sealedFileWithoutKeyRetained() throws {
         let (keyed, dir) = makeInbox(key: key)

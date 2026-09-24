@@ -14,7 +14,7 @@ import GRDB
 ///   NEVER edit a registered migration; append a new one.
 /// - The store never imports CloudKit: sync goes through the `SyncEngine`
 ///   boundary, fed by the same records.
-public final class GRDBClipboardStore: ClipboardStore, ClipImporting, InboxClipIngesting {
+public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// Internal (not private) so same-module engines (retention, sync feed)
     /// and the test harness can run statements without widening the API.
     let writer: any DatabaseWriter
@@ -389,35 +389,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting, InboxClipI
         return try await writer.write { db in try Self.insert(row, in: db).item }
     }
 
-    public func insertInboxDelivery(
-        id: String, item: ClipItem, content: ClipContent?
-    ) async throws -> InboxInsertResult {
-        try Task.checkCancellation()
-        // Avoid touching payload blobs on the usual receipt replay path.
-        if try await writer.read({ db in try Self.hasInboxReceipt(id, in: db) }) {
-            return .alreadyCommitted
-        }
-        let row = try insertionRow(item, content: content)
-        return try await writer.write { db in
-            try Task.checkCancellation()
-            // The second check is authoritative across concurrent processes.
-            if try Self.hasInboxReceipt(id, in: db) { return .alreadyCommitted }
-            let stored = try Self.insert(row, in: db)
-            try db.execute(
-                sql: "INSERT INTO inbox_receipt (id, committedAt) VALUES (?, ?)",
-                arguments: [id, Date()])
-            try Task.checkCancellation()
-            return .inserted(stored.item)
-        }
-    }
-
-    private static func hasInboxReceipt(_ id: String, in db: Database) throws -> Bool {
-        try Bool.fetchOne(
-            db, sql: "SELECT EXISTS(SELECT 1 FROM inbox_receipt WHERE id = ?)", arguments: [id])
-            == true
-    }
-
-    private func insertionRow(_ item: ClipItem, content: ClipContent?) throws -> ClipRow {
+    func insertionRow(_ item: ClipItem, content: ClipContent?) throws -> ClipRow {
         var row = ClipRow(item: item)
         switch content {
         case .text(let text): row.contentText = text
@@ -432,7 +404,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting, InboxClipI
         return row
     }
 
-    private static func insert(_ row: ClipRow, in db: Database) throws -> ClipRow {
+    static func insert(_ row: ClipRow, in db: Database) throws -> ClipRow {
         // Keep the original contentHash + sourceDeviceName dedupe contract,
         // including strict NULL equality and unarchiving on a genuine recopy.
         if var existing =

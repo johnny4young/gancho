@@ -153,12 +153,14 @@ page).
 An iOS paste gesture authorizes a read, not an exception to reserved marker
 policy. Direct pasteboard reads inspect metadata across all items; system paste
 providers inspect the union of provider and pasteboard types before loading any
-object. A changed, newly protected, cancelled or failed read is not persisted.
+object. A changed, newly protected or cancelled read is not persisted; in a
+multi-item paste, unsupported items are skipped and one failed load does not
+discard the readable ones.
 Intent/control and keyboard capture reuse the app ingestion coordinator, including
 configured local sensitive retention and actual durable duplicate identity. A
 failed store open or insert never produces a Saved confirmation. Device-local
-retention/intelligence settings are mirrored to the App Group for those extensions;
-this is not cross-device preference synchronization.
+retention/intelligence settings are stored in the App Group, so the app and those
+extensions read one copy; this is not cross-device preference synchronization.
 
 ### Durable share handoff
 
@@ -168,10 +170,11 @@ acknowledges the exact file bytes. A replayed receipt performs no second insert,
 recency bump or enrichment, including after the user deletes the original clip.
 Receipts are not linked by cascading deletion and never sync to CloudKit.
 
-Drains serialize across asynchronous commits and process bounded batches, rotating
-past retained files on later activations. Unreadable files and sealed files that
-cannot authenticate remain queued; a wrong key is not evidence of corruption.
-Only confirmed malformed plaintext or authenticated malformed JSON is eligible
-for poison-file removal. An in-memory fallback cannot acknowledge durable shares.
+Drains serialize across asynchronous commits; each drain sweeps the whole inbox in
+small batches, and a request that arrives mid-drain triggers another sweep.
+Unreadable files and sealed files that cannot authenticate stay queued for 30 days,
+since a wrong key is not by itself evidence of corruption; after that they are
+discarded as poison, as are confirmed malformed plaintext and authenticated
+malformed JSON. Receipts older than 90 days are pruned. An in-memory fallback cannot acknowledge durable shares.
 The receipt migration is additive; a behavior rollback must retain the registered
 migration and receipts rather than erase delivery history.
