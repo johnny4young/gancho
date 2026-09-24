@@ -100,11 +100,16 @@ final class PanelReproUITests: XCTestCase {
         // Same-context refresh preserves identity, including the nearest cursor
         // after delete/Undo. Anchor this range test explicitly instead of
         // assuming every refresh resets the cursor to index zero.
-        let first = rows.firstMatch
-        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        // Accessibility order is not visual order (the pinned section renders
+        // separately), so anchor on the topmost row rather than `firstMatch`.
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        let first = try XCTUnwrap(
+            rows.allElementsBoundByIndex.min { $0.frame.minY < $1.frame.minY })
         XCTAssertTrue(first.isHittable)
         first.click()
-        XCTAssertTrue(first.isSelected)
+        let selected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isSelected == true"), object: first)
+        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 3), .completed)
         search.click()
         guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
             throw XCTSkip("the panel never took keyboard focus — skipping synthesized input")

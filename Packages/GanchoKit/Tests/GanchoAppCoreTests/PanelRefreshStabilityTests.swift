@@ -15,7 +15,10 @@ import Testing
     private var firstPage: CheckedContinuation<Void, Never>?
     private var firstWaiter: CheckedContinuation<Void, Never>?
 
+    private(set) var browseCalls = 0
+
     func recentBrowse(offset: Int, limit: Int) async -> [ClipItem] {
+        browseCalls += 1
         let page = Array(recent.dropFirst(offset).prefix(limit))
         if offset > 0, suspendPages {
             await withCheckedContinuation { continuation in
@@ -221,6 +224,36 @@ struct PanelRefreshStabilityTests {
         await model.refresh()
         #expect(model.selectedItem?.id == laterPage)
         #expect(model.results.count >= 200)
+    }
+
+    @Test func pageRequestedDuringRefreshLoadsOnceItCommits() async {
+        let source = SuspendedPanelSource()
+        source.suspendPages = false
+        source.recent = (0..<250).map { ClipItem(preview: "synthetic-\($0)") }
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+        source.suspendFirstPage = true
+        let refresh = Task { await model.refresh() }
+        await source.waitForFirstPage()
+        await model.loadMore()
+        source.releaseFirstPage()
+        await refresh.value
+        #expect(model.results.count == 200)
+        #expect(!model.isLoadingMore)
+    }
+
+    @Test func refreshingADeepWindowReadsItOnce() async {
+        let source = SuspendedPanelSource()
+        source.suspendPages = false
+        source.recent = (0..<450).map { ClipItem(preview: "synthetic-\($0)") }
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+        for _ in 0..<3 { await model.loadMore() }
+        #expect(model.results.count == 400)
+        let before = source.browseCalls
+        await model.refresh()
+        #expect(source.browseCalls - before == 1)
+        #expect(model.results.count == 400)
     }
 
     @Test func changingQueryImmediatelyInvalidatesTheOldSnippetAction() async {

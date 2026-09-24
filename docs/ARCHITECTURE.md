@@ -196,9 +196,10 @@ while a request was suspended. A new query/filter context resets selection.
 `PanelSearchModel` invalidates refresh/page ownership on context changes; stale
 or cancelled pages cannot append or clear a newer loading indicator. Rows and
 snippet matches commit together, and changing context clears the old snippet
-action immediately. Browse refreshes retain the loaded window, with at most one
-extra page for a selection displaced across its boundary, not an unbounded scan
-for a deleted item.
+action immediately. Browse refreshes retain the loaded window in one read, plus
+one page only for a selection displaced across its boundary, never an unbounded
+scan for a deleted item. A page requested while a refresh runs is deferred and
+loaded once the refresh commits.
 
 ## Platform contracts
 

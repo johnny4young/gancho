@@ -47,6 +47,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     private var refreshID = UUID()
     private var pageID: UUID?
     private var isRefreshing = false
+    private var loadMoreDeferred = false
     private var displayedContext: Context?
 
     private struct Context: Equatable {
@@ -69,6 +70,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
         pageID = nil
         isLoadingMore = false
         isRefreshing = false
+        loadMoreDeferred = false
         snippetMatch = nil
     }
     /// The rows returned by the current query/board/recent load, pre-filter.
@@ -288,32 +290,35 @@ public struct PanelDateGroup: Identifiable, Sendable {
         displayedContext = requestedContext
         if resetSelection { selectedIndex = 0 }
         rebuildGroups()
+        // A page requested while this refresh ran was deferred, not dropped.
+        isRefreshing = false
+        if loadMoreDeferred {
+            loadMoreDeferred = false
+            await loadMore()
+        }
     }
 
     /// Refresh the already-loaded window, rather than dropping a cursor on a
-    /// later page back into the first hundred rows. At most one extra page is
-    /// read for a boundary selection shifted by incoming rows, never a full
-    /// history scan looking for a deleted selection.
+    /// later page back into the first hundred rows: one read for the window,
+    /// plus one page only when incoming rows pushed the selection past it.
     private func browsePage(request: UUID, requestedContext: Context) async -> ClipListPage {
-        let previousIDs = Set(results.map(\.id))
-        let previousCount = results.count
-        var page = await core.firstPage(
-            query: requestedContext.query, boardID: requestedContext.boardID,
-            sourceAppBundleID: requestedContext.sourceApp)
-        guard displayedContext == requestedContext, isPaginatedView else { return page }
-        let ceiling = previousCount + ClipListCore.pageSize
-        while !page.reachedEnd, page.items.count < ceiling {
-            guard refreshID == request, !Task.isCancelled else { return page }
-            let loadedIDs = Set(page.items.map(\.id))
-            let shiftedSelection =
-                !loadedIDs.isDisjoint(with: previousIDs)
-                && !selection.selectedIDs.isSubset(of: loadedIDs)
-            guard page.items.count < previousCount || shiftedSelection else { break }
-            let next = await core.nextPage(
-                after: page.items.count, boardID: requestedContext.boardID)
-            page.items.append(contentsOf: next.items)
-            page.reachedEnd = next.reachedEnd || next.items.isEmpty
+        guard displayedContext == requestedContext, isPaginatedView else {
+            return await core.firstPage(
+                query: requestedContext.query, boardID: requestedContext.boardID,
+                sourceAppBundleID: requestedContext.sourceApp)
         }
+        let previousIDs = Set(results.map(\.id))
+        var page = await core.leadingWindow(
+            count: results.count, boardID: requestedContext.boardID)
+        guard refreshID == request, !Task.isCancelled, !page.reachedEnd else { return page }
+        let loadedIDs = Set(page.items.map(\.id))
+        let shiftedSelection =
+            !loadedIDs.isDisjoint(with: previousIDs)
+            && !selection.selectedIDs.isSubset(of: loadedIDs)
+        guard shiftedSelection else { return page }
+        let next = await core.nextPage(after: page.items.count, boardID: requestedContext.boardID)
+        page.items.append(contentsOf: next.items)
+        page.reachedEnd = next.reachedEnd || next.items.isEmpty
         return page
     }
 
@@ -334,8 +339,11 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     public func loadMore() async {
-        guard isPaginatedView, !isRefreshing, displayedContext == context,
-            !isLoadingMore, !reachedEnd
+        if isRefreshing, isPaginatedView {
+            loadMoreDeferred = true
+            return
+        }
+        guard isPaginatedView, displayedContext == context, !isLoadingMore, !reachedEnd
         else { return }
         let board = selectedBoardID
         let generation = refreshID
