@@ -80,16 +80,17 @@ final class KeyboardModel: ObservableObject {
             // tight memory ceiling, and the store orders pinned-first so the
             // page keeps the pins on top.
             let page =
-                (try? await store.items(inBoard: selectedBoardID, offset: 0, limit: 60)) ?? []
+                (try? await store.search(KeyboardClips.query(boardID: selectedBoardID), limit: 60))
+                ?? []
             entries = KeyboardClips.ordered(
                 pinned: page.filter(\.isPinned), recent: page.filter { !$0.isPinned })
             sections = []
         } else {
-            // recentForBrowse is pinned-first then capture-time desc — the order
-            // ClipSections needs for contiguous, non-fragmented date buckets
-            // (plain items() orders by activity and would split a day in two).
-            let recent = ((try? await store.recentForBrowse(offset: 0, limit: 60)) ?? [])
-                .filter { !$0.isSensitive }
+            // Empty-text filtered search preserves pinned-first capture-time
+            // ordering while excluding protected rows before LIMIT. Activity
+            // ordering would split the date buckets after reusing an old clip.
+            let recent = ((try? await store.search(KeyboardClips.query(), limit: 60)) ?? [])
+                .filter { ClipSafeDelivery.isEligible($0) }
             sections = ClipSections.grouped(recent, now: .now).compactMap { group in
                 let entries = WidgetClips.entries(from: group.clips, limit: group.clips.count)
                 return entries.isEmpty
@@ -108,8 +109,9 @@ final class KeyboardModel: ObservableObject {
         }
         let hits =
             (try? await store.search(
-                ClipSearchQuery(text: trimmed, boardID: selectedBoardID), limit: 30)) ?? []
-        entries = WidgetClips.entries(from: hits.filter { !$0.isSensitive }, limit: 30)
+                KeyboardClips.query(text: trimmed, boardID: selectedBoardID), limit: 30)) ?? []
+        entries = WidgetClips.entries(
+            from: hits.filter { ClipSafeDelivery.isEligible($0) }, limit: 30)
         sections = []
     }
 
@@ -132,7 +134,15 @@ final class KeyboardModel: ObservableObject {
     func insert(_ entry: WidgetClipEntry) {
         guard let store else { return }
         Task {
-            switch try? await store.content(for: entry.id) {
+            guard
+                let payload = await ClipSafeDelivery.load(
+                    id: entry.id, metadata: { try await store.item(id: $0) },
+                    content: { try await store.content(for: $0) })
+            else {
+                flashNote("This clip is no longer available")
+                return
+            }
+            switch payload.content {
             case .text(let text):
                 onInsert(text)
             case .fileReferences(let paths):
@@ -143,8 +153,6 @@ final class KeyboardModel: ObservableObject {
                 // tell the user how to drop it in (long-press the field → Paste).
                 UIPasteboard.general.setData(data, forPasteboardType: type)
                 flashNote("Image copied — long-press the field to paste")
-            case nil:
-                break
             }
         }
     }
@@ -163,9 +171,16 @@ final class KeyboardModel: ObservableObject {
         else { return }
         thumbnailsInFlight.insert(entry.id)
         defer { thumbnailsInFlight.remove(entry.id) }
-        guard let data = try? await store.thumbnailData(for: entry.id) else { return }
+        guard let before = try? await store.item(id: entry.id),
+            before.kind == .image, ClipSafeDelivery.isEligible(before),
+            let data = try? await store.thumbnailData(for: entry.id)
+        else { return }
         let decoded = await Task.detached { Self.downsample(data, maxPixel: 120) }.value
-        guard let decoded else { return }
+        guard let decoded, !Task.isCancelled,
+            let current = try? await store.item(id: entry.id),
+            ClipSafeDelivery.isSameRevision(current, before),
+            ClipSafeDelivery.isEligible(current)
+        else { return }
         thumbnails[entry.id] = Image(uiImage: decoded)
         thumbnailOrder.append(entry.id)
         if thumbnailOrder.count > maxThumbnails {
@@ -200,15 +215,21 @@ final class KeyboardModel: ObservableObject {
     func copy(_ entry: WidgetClipEntry) {
         guard let store else { return }
         Task {
-            switch try? await store.content(for: entry.id) {
+            guard
+                let payload = await ClipSafeDelivery.load(
+                    id: entry.id, metadata: { try await store.item(id: $0) },
+                    content: { try await store.content(for: $0) })
+            else {
+                flashNote("This clip is no longer available")
+                return
+            }
+            switch payload.content {
             case .text(let text):
                 UIPasteboard.general.string = text
             case .fileReferences(let paths):
                 UIPasteboard.general.string = paths.joined(separator: "\n")
             case .binary(let data, let type):
                 UIPasteboard.general.setData(data, forPasteboardType: type)
-            case nil:
-                return
             }
             flashNote("Copied")
         }

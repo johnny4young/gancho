@@ -14,7 +14,7 @@ extension GRDBClipboardStore {
         try await exportJSON(excludeSensitive: false)
     }
 
-    /// As ``exportJSON()``, optionally dropping detector-flagged sensitive
+    /// As ``exportJSON()``, optionally dropping flagged and intrinsically sensitive
     /// clips — an export must not turn a short-expiry secret into permanent
     /// plaintext unless the caller explicitly opts in. (The zero-argument
     /// form keeps the `ClipboardStore` protocol contract unchanged.)
@@ -34,7 +34,7 @@ extension GRDBClipboardStore {
             rows.reserveCapacity(try ClipRow.fetchCount(db))
             let cursor = try ClipRow.order(Column("createdAt").asc).fetchCursor(db)
             while let row = try cursor.next() {
-                if excludeSensitive && row.isSensitive { continue }
+                if excludeSensitive && row.requiresProtectedExport { continue }
                 rows.append(row)
             }
             return rows
@@ -47,7 +47,7 @@ extension GRDBClipboardStore {
         try await exportCSV(excludeSensitive: false)
     }
 
-    /// As ``exportCSV()``, optionally dropping detector-flagged sensitive
+    /// As ``exportCSV()``, optionally dropping flagged and intrinsically sensitive
     /// clips (see ``exportJSON(excludeSensitive:)``).
     ///
     /// Streams rows through a cursor instead of `fetchAll` so a 100k-row
@@ -60,7 +60,7 @@ extension GRDBClipboardStore {
             var csv = ClipExporter.csvHeader
             let cursor = try ClipRow.order(Column("createdAt").asc).fetchCursor(db)
             while let row = try cursor.next() {
-                if excludeSensitive && row.isSensitive { continue }
+                if excludeSensitive && row.requiresProtectedExport { continue }
                 csv += ClipExporter.csvLine(for: row)
             }
             return Data(csv.utf8)

@@ -9,11 +9,19 @@ public enum ClipSafePresentation {
     /// secret kinds stay masked even if malformed legacy/sync data lost its
     /// sensitivity flag.
     public static func requiresMasking(_ item: ClipItem) -> Bool {
-        item.isSensitive || item.kind.prefersMaskedPreview
+        requiresMasking(kind: item.kind, isSensitive: item.isSensitive)
+    }
+
+    public static func requiresMasking(kind: ClipContentKind, isSensitive: Bool) -> Bool {
+        isSensitive || kind.prefersMaskedPreview
     }
 
     public static func displayText(for item: ClipItem) -> String {
-        guard !requiresMasking(item) else { return masked }
+        displayText(for: item, privateMode: false)
+    }
+
+    public static func displayText(for item: ClipItem, privateMode: Bool) -> String {
+        guard !privateMode, !requiresMasking(item) else { return masked }
         let body = item.preview.isEmpty ? item.title : item.preview
         return ByteSize.humanizedPreview(body)
     }

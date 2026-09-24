@@ -6,6 +6,13 @@ import GRDB
 struct ClipRow: Codable, FetchableRecord, PersistableRecord {
     static let databaseTableName = "clip"
 
+    /// Check only privacy metadata; exporting must not decode tags or create a
+    /// second domain snapshot for every streamed row. Unknown kinds fail closed.
+    var requiresProtectedExport: Bool {
+        guard let kind = ClipContentKind(rawValue: kind) else { return true }
+        return ClipSafePresentation.requiresMasking(kind: kind, isSensitive: isSensitive)
+    }
+
     /// Shared coders for the `tags` JSON column (default options, so the
     /// stored bytes are unchanged). Hoisted because bulk import/read paths
     /// map thousands of rows — one coder each, not one per row; encode and

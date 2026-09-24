@@ -33,6 +33,21 @@ eligible curated clips in the local system index, not raw history. A scoped MCP
 grant permits eligible content to be read by the authorized local client;
 Gancho cannot retract bytes already delivered to that client.
 
+Protected outbound surfaces use the same intrinsic-kind rule as passive
+presentation: flagged clips and JWT, credit-card and secret kinds remain
+protected even when their `isSensitive` flag is false. Drag-out, the keyboard,
+and iOS sharing do not provide a reveal step, so they exclude that content.
+Lazy payload reads recheck metadata, revision, expiry and cancellation before
+delivery; the keyboard also filters before its result limit. iOS sharing loads
+the full permitted content, not a cached text preview. Private Mode hides the
+macOS fallback menu's previews as well as the panel's.
+
+JSON, CSV and archive export apply this intrinsic rule when excluding sensitive
+content. An explicit full export and the app's intentional copy/reveal paths
+remain distinct user-controlled operations. Synthetic export, CoreTransferable
+and asynchronous-delivery tests exercise these boundaries; they do not certify
+every third-party destination or replace device/VoiceOver acceptance.
+
 The inbox is the short-lived handoff from the share extension to the app. That
 extension uses the inbox rather than opening the store; it seals captures with the
 same content key (`StoreContentKey` → `SealedEnvelope`) and the app unseals it

@@ -122,13 +122,6 @@ struct ClipDetailView: View {
         model.boards.filter { boardIDs.contains($0.id) }
     }
 
-    /// Text handed to the iOS share sheet — the full text once loaded, else the
-    /// stored preview (sensitive clips share only their masked preview).
-    private var shareText: String {
-        requiresMasking
-            ? ClipSafePresentation.masked : (fullText.isEmpty ? item.preview : fullText)
-    }
-
     /// The medium-detent quick actions (the peek's action row). Copy is primary
     /// — iOS can't paste into another app, so copy-then-the-user-pastes is the
     /// realizable path. Smart Paste and board membership live in the sections
@@ -139,10 +132,14 @@ struct ClipDetailView: View {
                 Task { await model.copyToPasteboard(item) }
                 dismiss()
             }
-            ShareLink(item: shareText) {
+            ShareLink(
+                item: model.shareItem(for: item),
+                preview: SharePreview("Gancho")
+            ) {
                 peekActionLabel("Share", systemImage: "square.and.arrow.up")
             }
             .buttonStyle(.plain)
+            .disabled(!ClipSafeDelivery.isEligible(item))
             peekAction(
                 item.isPinned ? "Pinned" : "Pin",
                 systemImage: item.isPinned ? "pin.fill" : "pin"
