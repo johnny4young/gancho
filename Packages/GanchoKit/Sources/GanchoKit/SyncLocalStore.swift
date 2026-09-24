@@ -67,9 +67,10 @@ public protocol SyncLocalStore: Sendable {
     /// Record IDs of deletions waiting to propagate (tombstones).
     func pendingDeletionRecordIDs() async throws -> [String]
 
-    /// After a successful upload: store the CKRecord system fields and clear
-    /// the dirty flag.
-    func markUploaded(id: UUID, systemFields: Data) async throws
+    /// Store the successful upload's system fields. Clear the dirty flag only
+    /// when the current revision matches the sent revision; nil is an explicit
+    /// unconditional acknowledgement for local setup/legacy callers.
+    func markUploaded(id: UUID, systemFields: Data, uploadedAt: Date?) async throws
     /// Archived CKRecord system fields for a clip (nil = never synced).
     func systemFields(for id: UUID) async throws -> Data?
     /// Flags a locally-edited clip for re-upload.
@@ -124,7 +125,7 @@ public protocol SyncLocalStore: Sendable {
     // so a board's name/glyph propagate. Membership rides the clip record.
     func pendingBoardUploads() async throws -> [Pinboard]
     func markBoardNeedsUpload(id: UUID) async throws
-    func markBoardUploaded(id: UUID, systemFields: Data) async throws
+    func markBoardUploaded(id: UUID, systemFields: Data, uploaded: Pinboard?) async throws
     func boardSystemFields(for id: UUID) async throws -> Data?
     func applyRemoteBoardUpsert(_ board: Pinboard, systemFields: Data) async throws
     func forgetAllBoardSyncFields() async throws
@@ -255,12 +256,25 @@ extension GRDBClipboardStore: SyncLocalStore {
         }
     }
 
-    public func markUploaded(id: UUID, systemFields: Data) async throws {
+    public func markUploaded(id: UUID, systemFields: Data, uploadedAt: Date? = nil) async throws {
         try await writer.write { db in
+            var unchanged = true
+            if let uploadedAt,
+                let current = try Date.fetchOne(
+                    db, sql: "SELECT updatedAt FROM clip WHERE id = ?", arguments: [id.uuidString])
+            {
+                unchanged = Self.isSameRevision(current, uploadedAt)
+            }
             try db.execute(
-                sql: "UPDATE clip SET syncSystemFields = ?, needsUpload = 0 WHERE id = ?",
-                arguments: [systemFields, id.uuidString])
+                sql: "UPDATE clip SET syncSystemFields = ?, needsUpload = ? WHERE id = ?",
+                arguments: [systemFields, unchanged ? 0 : 1, id.uuidString])
         }
+    }
+
+    /// Stored dates keep millisecond text and CloudKit returns a float, so a
+    /// round trip can differ below a millisecond; distinct revisions do not.
+    static func isSameRevision(_ lhs: Date, _ rhs: Date) -> Bool {
+        abs(lhs.timeIntervalSince(rhs)) < 0.0005
     }
 
     public func systemFields(for id: UUID) async throws -> Data? {
@@ -583,11 +597,23 @@ extension GRDBClipboardStore: SyncLocalStore {
         }
     }
 
-    public func markBoardUploaded(id: UUID, systemFields: Data) async throws {
+    public func markBoardUploaded(
+        id: UUID, systemFields: Data, uploaded: Pinboard? = nil
+    ) async throws {
         try await writer.write { db in
+            let current = try PinboardRow.fetchOne(db, key: id.uuidString)?.board
+            // Only fields a local edit can change decide; createdAt is fixed.
+            let unchanged =
+                uploaded.map { uploaded in
+                    current.map {
+                        $0.name == uploaded.name && $0.sfSymbol == uploaded.sfSymbol
+                            && $0.sortIndex == uploaded.sortIndex
+                            && $0.colorHex == uploaded.colorHex && $0.emoji == uploaded.emoji
+                    } ?? true
+                } ?? true
             try db.execute(
-                sql: "UPDATE pinboard SET syncSystemFields = ?, needsUpload = 0 WHERE id = ?",
-                arguments: [systemFields, id.uuidString])
+                sql: "UPDATE pinboard SET syncSystemFields = ?, needsUpload = ? WHERE id = ?",
+                arguments: [systemFields, unchanged ? 0 : 1, id.uuidString])
         }
     }
 

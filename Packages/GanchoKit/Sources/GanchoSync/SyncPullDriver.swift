@@ -22,6 +22,7 @@ struct SyncPullDriver: Sendable {
     let databasePage: @Sendable (Data?) async throws -> DatabasePage
     let zonePage: @Sendable (String, Data?) async throws -> ZonePage
     let apply: @Sendable ([CKRecord], [CKRecord.ID]) async throws -> Void
+    let resetZones: @Sendable (Set<String>) async throws -> Void
     /// Count of records a page could never deliver, reported content-free.
     var skipped: @Sendable (Int) async -> Void = { _ in }
 
@@ -33,6 +34,9 @@ struct SyncPullDriver: Sendable {
             try Task.checkCancellation()
             do {
                 let page = try await databasePage(candidate.database)
+                try Task.checkCancellation()
+                let deleted = page.deletedZones.intersection(zones)
+                if !deleted.isEmpty { try await resetZones(deleted) }
                 changed.formUnion(page.changedZones)
                 for zone in page.deletedZones { candidate.zones[zone] = nil }
                 if page.moreComing, page.token == candidate.database {
@@ -53,6 +57,8 @@ struct SyncPullDriver: Sendable {
                 candidate.zones[zone] = try await pullZone(zone, since: candidate.zones[zone])
             } catch {
                 guard CloudKitSyncPolicy.isMissingZone(error) else { throw error }
+                try Task.checkCancellation()
+                try await resetZones([zone])
                 candidate.zones[zone] = nil
             }
         }

@@ -14,6 +14,8 @@ struct SyncPollTokens: Codable, Equatable, Sendable {
     /// `CKRecordZone.ID` — the id is not `Codable`, and the name is what
     /// survives a zone being recreated under the same name.
     var zones: [String: Data]
+    /// Additive local journal; nil in the original token-file format.
+    var identityResetZones: Set<String>?
 
     init(database: Data? = nil, zones: [String: Data] = [:]) {
         self.database = database

@@ -35,6 +35,30 @@ public actor CKSyncEngineAdapter: SyncEngine {
     private var receiveRetryID: UUID?
     private var statePersistenceFailed = false
     private var receiveGeneration = 0
+    private var outboundFailures: Set<OutboundOperation> = []
+    private var clipIntents: Set<UUID> = []
+    private var boardIntents: Set<UUID> = []
+
+    private enum OutboundOperation: Hashable {
+        case pending, preparation, reset
+        case acknowledgement(CKRecord.ID)
+        case conflict(CKRecord.ID)
+        case intent(CKRecord.ID)
+    }
+
+    private var outbound: SyncOutboundWork {
+        SyncOutboundWork(
+            store: store, clipZone: zoneID, boardZone: boardZoneID,
+            maxAssetBytes: maxAssetBytes)
+    }
+
+    private func failOutbound(_ operation: OutboundOperation) {
+        outboundFailures.insert(operation)
+        diagnostics?.record(
+            "Sync", "Local sync work could not be completed; retry remains pending.")
+        emit(.failed(.unknown))
+    }
+
     /// Consecutive polls that failed on a local apply. Past the limit a page is
     /// accepted with its failures counted, so one bad record cannot wedge a zone.
     private var applyFailureStreak = 0
@@ -87,13 +111,22 @@ public actor CKSyncEngineAdapter: SyncEngine {
         // a failed send left behind — age-gated, so files a not-yet-sent batch
         // still needs are untouched.
         ClipRecordMapper.sweepStagedAssets()
+        try await completeIdentityReset()
+        try await retryUploadIntents()
+        guard generation == receiveGeneration else { throw CancellationError() }
         let engine = ensureEngine()
         engine.state.add(pendingDatabaseChanges: [
             .saveZone(CKRecordZone(zoneID: zoneID)),
             .saveZone(CKRecordZone(zoneID: boardZoneID))
         ])
-        await reenqueuePendingWork(into: engine)
-        await reconcilePendingChanges(in: engine)
+        do {
+            try await reenqueuePendingWork(into: engine)
+            try await reconcilePendingChanges(in: engine)
+            outboundFailures.remove(.pending)
+        } catch {
+            failOutbound(.pending)
+            throw error
+        }
         guard generation == receiveGeneration else { throw CancellationError() }
         emit(.syncing)
         do {
@@ -114,6 +147,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
                 receiveError = error
             }
             guard generation == receiveGeneration else { throw CancellationError() }
+            // Polling may have discovered a deleted zone without any push.
+            // Its durable reset must also become engine work in this cycle.
+            try await reenqueuePendingWork(into: engine)
             try await engine.fetchChanges()
             guard generation == receiveGeneration else { throw CancellationError() }
             try await engine.sendChanges()
@@ -171,6 +207,8 @@ public actor CKSyncEngineAdapter: SyncEngine {
     private func performPoll() async throws {
         let generation = receiveGeneration
         let healthRevision = receiveHealth.revision
+        // Finish an interrupted reset first rather than failing every poll.
+        if loadPollTokens().identityResetZones != nil { try await completeIdentityReset() }
         let database = CKContainer(identifier: containerIdentifier).privateCloudDatabase
         let driver = SyncPullDriver(
             databasePage: { token in
@@ -198,6 +236,10 @@ public actor CKSyncEngineAdapter: SyncEngine {
                 guard let self else { throw CancellationError() }
                 try await self.applyPolled(
                     records: records, deletions: deletions, generation: generation)
+            },
+            resetZones: { [weak self] zones in
+                guard let self else { throw CancellationError() }
+                try await self.resetPolledZones(zones, generation: generation)
             },
             skipped: { [weak self] count in await self?.recordSkippedRecords(count) })
         do {
@@ -238,7 +280,12 @@ public actor CKSyncEngineAdapter: SyncEngine {
         guard receiveRetryID == id else { return }
         receiveRetryTask = nil
         receiveRetryID = nil
-        if recovered { await emitCurrentStatus() }
+        if recovered {
+            if let engine {
+                do { try await reenqueuePendingWork(into: engine) } catch { failOutbound(.pending) }
+            }
+            await emitCurrentStatus()
+        }
     }
 
     private static func archiveCheckpoint(_ token: CKServerChangeToken) throws -> Data {
@@ -276,42 +323,112 @@ public actor CKSyncEngineAdapter: SyncEngine {
     }
 
     public func enqueue(_ items: [ClipItem]) async {
-        guard !isPaused else { return }
+        let generation = receiveGeneration
+        clipIntents.formUnion(items.map(\.id))
+        do { try await retryUploadIntents() } catch { return }
+        guard generation == receiveGeneration, loadPollTokens().identityResetZones == nil else {
+            return
+        }
+        guard !isPaused, !outboundFailures.contains(.reset) else { return }
         let engine = ensureEngine()
         engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
-        for item in items {
-            // Guarantee the row appears in pendingUploads() even for an edit of
-            // an already-synced clip — the batch provider builds records from there.
-            try? await store.markNeedsUpload(id: item.id)
+        engine.state.add(pendingRecordZoneChanges: items.map { .saveRecord(recordID(for: $0.id)) })
+    }
+
+    func retryUploadIntents() async throws {
+        for id in clipIntents {
+            let operation = OutboundOperation.intent(recordID(for: id))
+            do { try await store.markNeedsUpload(id: id) } catch {
+                failOutbound(operation)
+                throw error
+            }
+            clipIntents.remove(id)
+            outboundFailures.remove(operation)
         }
-        engine.state.add(
-            pendingRecordZoneChanges: items.map { .saveRecord(recordID(for: $0.id)) })
+        for id in boardIntents {
+            let operation = OutboundOperation.intent(boardRecordID(for: id))
+            do { try await store.markBoardNeedsUpload(id: id) } catch {
+                failOutbound(operation)
+                throw error
+            }
+            boardIntents.remove(id)
+            outboundFailures.remove(operation)
+        }
     }
 
     public func enqueueDeletion(ids: [UUID]) async {
-        guard !isPaused else { return }
+        guard !isPaused, !outboundFailures.contains(.reset) else { return }
         let engine = ensureEngine()
         engine.state.add(
             pendingRecordZoneChanges: ids.map { .deleteRecord(recordID(for: $0)) })
     }
 
     public func enqueue(boards: [Pinboard]) async {
-        guard !isPaused else { return }
-        let engine = ensureEngine()
-        engine.state.add(
-            pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: boardZoneID))])
-        for board in boards {
-            try? await store.markBoardNeedsUpload(id: board.id)
+        let generation = receiveGeneration
+        boardIntents.formUnion(boards.map(\.id))
+        do { try await retryUploadIntents() } catch { return }
+        guard generation == receiveGeneration, loadPollTokens().identityResetZones == nil else {
+            return
         }
+        guard !isPaused, !outboundFailures.contains(.reset) else { return }
+        let engine = ensureEngine()
+        engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: boardZoneID))])
         engine.state.add(
             pendingRecordZoneChanges: boards.map { .saveRecord(boardRecordID(for: $0.id)) })
     }
 
     public func enqueueBoardDeletion(ids: [UUID]) async {
-        guard !isPaused else { return }
+        guard !isPaused, !outboundFailures.contains(.reset) else { return }
         let engine = ensureEngine()
         engine.state.add(
             pendingRecordZoneChanges: ids.map { .deleteRecord(boardRecordID(for: $0)) })
+    }
+
+    private func resetPolledZones(_ zones: Set<String>, generation: Int) async throws {
+        guard generation == receiveGeneration else { throw CancellationError() }
+        try await beginIdentityReset(zones: zones, interruptReceive: false)
+        guard generation == receiveGeneration else { throw CancellationError() }
+        engine?.state.add(
+            pendingDatabaseChanges: zones.map {
+                .saveZone(
+                    CKRecordZone(zoneID: .init(zoneName: $0, ownerName: CKCurrentUserDefaultName)))
+            })
+    }
+
+    func beginIdentityReset(zones: Set<String>, interruptReceive: Bool = true) async throws {
+        if interruptReceive {
+            receiveGeneration += 1
+            pollTask?.cancel()
+            pollTask = nil
+            pollID = nil
+            receiveRetryTask?.cancel()
+            receiveRetryTask = nil
+            receiveRetryID = nil
+        }
+        var tokens = loadPollTokens()
+        tokens.database = nil
+        for zone in zones { tokens.zones[zone] = nil }
+        tokens.identityResetZones = (tokens.identityResetZones ?? []).union(zones)
+        pollTokens = tokens
+        try await completeIdentityReset()
+    }
+
+    func completeIdentityReset() async throws {
+        let generation = receiveGeneration
+        var tokens = loadPollTokens()
+        guard let zones = tokens.identityResetZones, !zones.isEmpty else { return }
+        do {
+            try tokens.save(to: pollStateStore)  // Durable intent before local identity writes.
+            if zones.contains(zoneID.zoneName) { try await store.forgetAllSyncFields() }
+            if zones.contains(boardZoneID.zoneName) { try await store.forgetAllBoardSyncFields() }
+            guard generation == receiveGeneration else { throw CancellationError() }
+            tokens.identityResetZones = nil
+            try savePollTokens(tokens)
+            outboundFailures.remove(.reset)
+        } catch {
+            failOutbound(.reset)
+            throw error
+        }
     }
 
     // MARK: - Engine lifecycle
@@ -341,21 +458,28 @@ public actor CKSyncEngineAdapter: SyncEngine {
         CKRecord.ID(recordName: id.uuidString, zoneID: boardZoneID)
     }
 
-    // MARK: - Status
+}
 
+// MARK: - Durable work and status
+
+extension CKSyncEngineAdapter {
     private func emit(_ status: SyncStatus) {
         onStatus?(status)
     }
 
     /// Recompute and emit the resting status after a cycle: paused if CloudKit
     /// reported the account is full, otherwise pending(N) or up-to-date.
-    private func emitCurrentStatus() async {
+    func emitCurrentStatus() async {
         if isPaused {
             emit(.paused(.iCloudFull))
             return
         }
         if let receiveFailure = receiveHealth.failure {
             emit(.failed(receiveFailure))
+            return
+        }
+        if loadPollTokens().identityResetZones != nil {
+            emit(outboundFailures.contains(.reset) ? .failed(.unknown) : .syncing)
             return
         }
         if statePersistenceFailed {
@@ -366,21 +490,49 @@ public actor CKSyncEngineAdapter: SyncEngine {
             emit(.syncing)
             return
         }
-        let uploads = (try? await store.pendingUploadCount()) ?? 0
-        let deletions = (try? await store.pendingDeletionRecordIDs().count) ?? 0
-        let boardUploads = (try? await store.pendingBoardUploads().count) ?? 0
-        let boardDeletions = (try? await store.pendingBoardDeletionRecordIDs().count) ?? 0
-        let pending = uploads + deletions + boardUploads + boardDeletions
-        emit(pending > 0 ? .pending(pending) : .upToDate(at: Date()))
+        do {
+            let pending = try await outbound.pendingCount()
+            outboundFailures.remove(.pending)
+            if pending == 0 {
+                outboundFailures = outboundFailures.filter {
+                    switch $0 {
+                    case .preparation, .acknowledgement, .conflict: return false
+                    default: return true
+                    }
+                }
+            }
+            guard outboundFailures.isEmpty else {
+                emit(.failed(.unknown))
+                return
+            }
+            emit(pending > 0 ? .pending(pending) : .upToDate(at: Date()))
+        } catch { failOutbound(.pending) }
     }
 
     /// Re-registers everything the local store still considers unsynced — used
     /// on a fresh start, after sign-in, and after a server zone reset.
-    private func reenqueuePendingWork(into engine: CKSyncEngine) async {
-        let work = await pendingWork()
+    private func reenqueuePendingWork(into engine: CKSyncEngine) async throws {
+        let work = try await outbound.pending()
+        guard self.engine === engine else { throw CancellationError() }
         engine.state.add(
-            pendingRecordZoneChanges: work.changes(
-                clipZoneID: zoneID, boardZoneID: boardZoneID))
+            pendingRecordZoneChanges: work.changes(clipZoneID: zoneID, boardZoneID: boardZoneID))
+    }
+
+    /// Re-adds acknowledged saves whose rows a newer local edit left dirty,
+    /// reading only the save queues those records can be in.
+    private func requeueStillDirty(
+        _ acknowledged: Set<CKRecord.ID>, into engine: CKSyncEngine
+    ) async throws {
+        let clips = Set(try await store.pendingUploadIDs())
+        let boards =
+            acknowledged.contains { $0.zoneID == boardZoneID }
+            ? Set(try await store.pendingBoardUploads().map(\.id)) : []
+        guard self.engine === engine else { throw CancellationError() }
+        let dirty = acknowledged.filter { recordID in
+            guard let id = UUID(uuidString: recordID.recordName) else { return false }
+            return recordID.zoneID == boardZoneID ? boards.contains(id) : clips.contains(id)
+        }
+        engine.state.add(pendingRecordZoneChanges: dirty.map { .saveRecord($0) })
     }
 
     /// Drop pending `.saveRecord` changes the store no longer wants uploaded. A
@@ -388,8 +540,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
     /// a state the engine then lost track of) that no provider can build — the
     /// send queue would jam on empty batches forever. Deletions are left alone:
     /// their record names are tombstones tracked separately from the clip rows.
-    private func reconcilePendingChanges(in engine: CKSyncEngine) async {
-        let work = await pendingWork()
+    private func reconcilePendingChanges(in engine: CKSyncEngine) async throws {
+        let work = try await outbound.pending()
+        guard self.engine === engine else { throw CancellationError() }
         let stale = work.staleSaveChanges(
             in: engine.state.pendingRecordZoneChanges,
             clipZoneID: zoneID,
@@ -398,24 +551,17 @@ public actor CKSyncEngineAdapter: SyncEngine {
         engine.state.remove(pendingRecordZoneChanges: stale)
     }
 
-    private func pendingWork() async -> SyncPendingWork {
-        SyncPendingWork(
-            clipUploadIDs: (try? await store.pendingUploadIDs()) ?? [],
-            clipDeletionRecordNames: (try? await store.pendingDeletionRecordIDs()) ?? [],
-            boardUploadIDs: ((try? await store.pendingBoardUploads()) ?? []).map(\.id),
-            boardDeletionRecordNames: (try? await store.pendingBoardDeletionRecordIDs()) ?? [])
-    }
 }
 
 // MARK: - CKSyncEngineDelegate
 
 extension CKSyncEngineAdapter: CKSyncEngineDelegate {
-    // CloudKit's batch builder is branchy by API shape: it chooses record
-    // source, tombstone cleanup, and per-zone send behavior together.
-    // swiftlint:disable:next cyclomatic_complexity
     public func nextRecordZoneChangeBatch(
         _ context: CKSyncEngine.SendChangesContext, syncEngine: CKSyncEngine
     ) async -> CKSyncEngine.RecordZoneChangeBatch? {
+        guard engine === syncEngine, !outboundFailures.contains(.reset),
+            loadPollTokens().identityResetZones == nil
+        else { return nil }
         let pendingChanges = syncEngine.state.pendingRecordZoneChanges
         guard !pendingChanges.isEmpty else { return nil }
 
@@ -430,41 +576,20 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             guard case .saveRecord(let id) = change else { return nil }
             return id
         }
-        var boardsByID: [UUID: Pinboard] = [:]
-        if saveIDs.contains(where: { $0.zoneID.zoneName == boardZoneID.zoneName }),
-            let pendingBoards = try? await store.pendingBoardUploads()
-        {
-            for board in pendingBoards { boardsByID[board.id] = board }
-        }
-        var built: [CKRecord.ID: CKRecord] = [:]
-        for changeID in saveIDs {
-            guard let id = UUID(uuidString: changeID.recordName) else { continue }
-            if changeID.zoneID.zoneName == boardZoneID.zoneName {
-                guard let board = boardsByID[id] else { continue }
-                let systemFields = (try? await store.boardSystemFields(for: id))
-                if let record = BoardRecordMapper.record(
-                    for: board, systemFields: systemFields, zoneID: boardZoneID)
-                {
-                    built[changeID] = record
-                }
-            } else if changeID.zoneID.zoneName == zoneID.zoneName {
-                guard let entry = (try? await store.pendingUpload(id: id)) else {
-                    continue
-                }
-                let systemFields = (try? await store.systemFields(for: id))
-                let boardIDs = (try? await store.boardIDs(forClip: id)) ?? []
-                if let record = ClipRecordMapper.record(
-                    for: entry.item, content: entry.content, systemFields: systemFields,
-                    zoneID: zoneID, maxAssetBytes: maxAssetBytes, boardIDs: Array(boardIDs))
-                {
-                    built[changeID] = record
-                }
+        let built: [CKRecord.ID: CKRecord]
+        do {
+            built = try await outbound.prepare(saveIDs)
+            guard engine === syncEngine else {
+                for record in built.values { ClipRecordMapper.removeStagedAsset(for: record) }
+                return nil
             }
+            outboundFailures.remove(.preparation)
+        } catch {
+            failOutbound(.preparation)
+            return nil  // Returning a batch with nil providers would drop real work.
         }
-        // A pending save with no buildable record is DROPPED by CKSyncEngine
-        // when the provider returns nil — count it so the loss is visible
-        // ("Recent issues"), not silent. `reenqueuePendingWork` re-adds any row
-        // the store still flags on the next cycle.
+        // CKSyncEngine drops a save whose provider returns nil; the durable dirty
+        // row re-enqueues it next cycle, so only the count is surfaced here.
         let missing = saveIDs.count(where: { built[$0] == nil })
         if missing > 0 {
             diagnostics?.record(
@@ -520,12 +645,25 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                 .saveZone(CKRecordZone(zoneID: zoneID)),
                 .saveZone(CKRecordZone(zoneID: boardZoneID))
             ])
-            await reenqueuePendingWork(into: syncEngine)
+            do {
+                try await completeIdentityReset()
+                try await reenqueuePendingWork(into: syncEngine)
+            } catch { failOutbound(.pending) }
         case .signOut, .switchAccounts:
+            // Old-account callbacks must not restore identities after reset.
+            await stop()
             // Forget the old account's record identities; keep local history.
-            try? await store.forgetAllSyncFields()
-            try? await store.forgetAllBoardSyncFields()
-            emit(.idle)
+            do {
+                try await beginIdentityReset(zones: [zoneID.zoneName, boardZoneID.zoneName])
+                emit(.idle)
+            } catch {
+                failOutbound(.reset)
+                return
+            }
+            // A new account can sync now; a signed-out one waits for sign-in.
+            if case .switchAccounts = event.changeType {
+                Task { try? await self.start() }
+            }
         @unknown default:
             break
         }
@@ -539,13 +677,20 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         guard clipZoneReset || boardZoneReset else { return }
         // A zone was reset/deleted server-side: drop the stale identities for
         // that zone and re-upload into a freshly recreated one.
-        if clipZoneReset { try? await store.forgetAllSyncFields() }
-        if boardZoneReset { try? await store.forgetAllBoardSyncFields() }
+        let zones = Set(
+            [
+                clipZoneReset ? zoneID.zoneName : nil,
+                boardZoneReset ? boardZoneID.zoneName : nil
+            ].compactMap { $0 })
+        do { try await beginIdentityReset(zones: zones) } catch {
+            failOutbound(.reset)
+            return
+        }
         syncEngine.state.add(pendingDatabaseChanges: [
             .saveZone(CKRecordZone(zoneID: zoneID)),
             .saveZone(CKRecordZone(zoneID: boardZoneID))
         ])
-        await reenqueuePendingWork(into: syncEngine)
+        do { try await reenqueuePendingWork(into: syncEngine) } catch { failOutbound(.pending) }
     }
 
     private func handleFetchedRecordZoneChanges(
@@ -637,26 +782,33 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
     private func handleSentRecordZoneChanges(
         _ event: CKSyncEngine.Event.SentRecordZoneChanges, syncEngine: CKSyncEngine
     ) async {
+        var acknowledged: Set<CKRecord.ID> = []
         for record in event.savedRecords {
-            guard let id = UUID(uuidString: record.recordID.recordName) else { continue }
-            if record.recordType == BoardRecordMapper.recordType {
-                try? await store.markBoardUploaded(
-                    id: id, systemFields: BoardRecordMapper.encodeSystemFields(record))
-            } else {
-                // The upload is done — CloudKit no longer reads the staged
-                // asset file, so its plaintext copy must go now. Failed saves
-                // are NOT cleaned here: a retry rebuilds the batch (and stages
-                // a fresh file), and the start() sweep reaps the leftovers.
-                ClipRecordMapper.removeStagedAsset(for: record)
-                try? await store.markUploaded(
-                    id: id, systemFields: ClipRecordMapper.encodeSystemFields(record))
+            let operation = OutboundOperation.acknowledgement(record.recordID)
+            do {
+                try await outbound.acknowledge(record)
+                acknowledged.insert(record.recordID)
+                outboundFailures.remove(operation)
+            } catch {
+                failOutbound(operation)
+                // Durable dirty row retries on the next explicit start. Do not
+                // hot-loop successful cloud uploads against a failing local DB.
             }
         }
         for recordID in event.deletedRecordIDs {
-            if recordID.zoneID.zoneName == boardZoneID.zoneName {
-                try? await store.clearBoardTombstone(recordID: recordID.recordName)
-            } else {
-                try? await store.clearTombstone(recordID: recordID.recordName)
+            let operation = OutboundOperation.acknowledgement(recordID)
+            do {
+                try await outbound.acknowledgeDeletion(recordID)
+                outboundFailures.remove(operation)
+            } catch {
+                failOutbound(operation)
+                // Tombstone survives for the next explicit start.
+            }
+        }
+        // A late successful acknowledgement can leave a newer local edit dirty.
+        if !acknowledged.isEmpty {
+            do { try await requeueStillDirty(acknowledged, into: syncEngine) } catch {
+                failOutbound(.pending)
             }
         }
         for failure in event.failedRecordSaves {
@@ -671,37 +823,21 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         let recordID = failure.record.recordID
         switch CloudKitSyncPolicy.failedSaveRecovery(for: failure.error.code) {
         case .resolveConflict:
-            // Conflict — last-writer-wins: take the server copy. The upserts
-            // keep whichever updatedAt is newer and record the server's tag.
-            guard let serverRecord = failure.error.serverRecord else { break }
-            if serverRecord.recordType == BoardRecordMapper.recordType {
-                if let board = BoardRecordMapper.decode(serverRecord) {
-                    try? await store.applyRemoteBoardUpsert(
-                        board, systemFields: BoardRecordMapper.encodeSystemFields(serverRecord))
+            let operation = OutboundOperation.conflict(recordID)
+            do {
+                guard let record = failure.error.serverRecord else {
+                    throw SyncOutboundFailure.invalidRecord
                 }
-            } else if let decoded = ClipRecordMapper.decode(serverRecord) {
-                // Same LWW gate as the fetch path: only take the server's
-                // board membership when the server copy actually won.
-                let applied =
-                    (try? await store.applyRemoteUpsert(
-                        decoded.item, content: decoded.content,
-                        systemFields: ClipRecordMapper.encodeSystemFields(serverRecord))) ?? false
-                if applied {
-                    try? await store.setBoardMembership(
-                        clipID: decoded.item.id,
-                        boardIDs: Set(ClipRecordMapper.boardIDs(from: serverRecord)))
-                } else {
-                    // The LOCAL copy won the conflict (e.g. an enrichment title
-                    // written moments after the first upload, racing that
-                    // upload's system-fields save). CKSyncEngine drops a failed
-                    // pending change — the delegate must RE-QUEUE it after
-                    // resolving, or the local edit only retries at the next
-                    // start()'s reenqueue (a silent, laggy hole for the second
-                    // save of a fresh record). The apply above stored the
-                    // server's system fields, so the retry builds a record with
-                    // a current change tag and succeeds.
+                let localWon = try await outbound.resolveConflict(record)
+                outboundFailures.remove(operation)
+                outboundFailures.remove(.acknowledgement(recordID))
+                if localWon {
                     syncEngine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
                 }
+            } catch {
+                failOutbound(operation)
+                // The durable row retries on the next explicit start, not an
+                // unbounded cloud-write loop or a fabricated local-wins result.
             }
         case .recreateZone:
             // Recreate the failed record's own zone, then retry it.
