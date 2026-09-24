@@ -7,11 +7,51 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-09-24
+
+### Security
+
+- JWTs, credit-card numbers and secrets stay protected whenever a clip leaves
+  Gancho, even if a clip lost its sensitivity flag: dragging clips out on Mac,
+  the menu bar's "Last copied" line and fallback menu, the iPhone and iPad
+  keyboard, iOS sharing, and JSON, CSV and archive exports that exclude
+  sensitive clips all apply the same rule. Drag-out, the keyboard and sharing
+  re-check a clip right before handing it over, so one that was deleted,
+  expired or became protected in the meantime is never delivered. Private
+  Mode now also hides the fallback menu's previews.
+- On iPhone and iPad, a paste gesture no longer overrides the markers that
+  password managers and one-time-code sources put on the clipboard. The paste
+  button, Save Clipboard action, Control Center control and keyboard refuse
+  such content — including when the marker sits on another item of the same
+  paste — and say why.
+
 ### Fixed
 
+- Sharing a clip from iOS sends its full content instead of a truncated
+  preview, and images as PNG; rich text shares its plain text unless that text
+  classifies as protected.
+- The keyboard and the Save Clipboard action save through the app's own
+  classification, duplicate handling and sensitive-clip lifetime, and only
+  confirm "Saved" once the clip is actually stored. The keyboard lists only
+  clips it can still deliver and says when one is no longer available.
+- Items shared into Gancho from other iPhone and iPad apps leave the shared
+  queue only after they are durably saved. A share that fails to save waits for
+  the next pickup, a replayed share never re-creates a clip you deleted, and a
+  large queue is imported in one pass.
+- iCloud sync no longer skips changes after an incomplete download: the
+  checkpoint only advances once a page is applied, one record that cannot be
+  read no longer blocks later changes, and a receive problem no longer holds
+  back this device's uploads.
+- An upload confirmation that arrives after a newer edit — including a board
+  deletion — no longer marks that edit as synced, an interrupted identity reset
+  after an account change or a deleted iCloud zone resumes after a restart, and
+  one clip that cannot be packaged no longer blocks the rest of the upload.
+- The history panel keeps the selected clip, and a multi-selection, when the
+  list refreshes after a new copy, an edit or a deletion, instead of jumping
+  back to the first row. A scrolled list keeps its loaded rows, and a page
+  requested during a refresh loads once it finishes.
 - Align post-release documentation, the bilingual website and Homebrew cask
-  metadata with the published v0.8.3 DMG. Physical-device acceptance remains
-  pending; the published app, tag and checksum are unchanged.
+  metadata with the published v0.8.3 DMG.
 
 ## [0.8.3] - 2026-09-20
 

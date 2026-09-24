@@ -10,7 +10,8 @@ final class PanelSelectionStabilityUITests: XCTestCase {
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-source-apps", "-start-capture-paused",
-            "-ui-test-paste-sink", "pasted", "-AppleLanguages", "(en)"
+            "-ui-test-paste-sink", "pasted", "-opaque-panel-for-ui-test",
+            "-AppleLanguages", "(en)"
         ]
         app.launch()
         defer { app.terminate() }
@@ -47,6 +48,15 @@ final class PanelSelectionStabilityUITests: XCTestCase {
         XCTAssertTrue(updated.waitForExistence(timeout: 5))
         XCTAssertTrue(updated.isSelected, "the refreshed non-first identity remains selected")
         XCTAssertEqual(rows.allElementsBoundByIndex.filter(\.isSelected).count, 1)
+        // Release evidence: the panel element only, never the whole screen.
+        if let panel = app.children(matching: .any).allElementsBoundByIndex.first(where: {
+            $0.exists && $0.frame.width > 200 && $0.frame.height > 200
+        }) {
+            let evidence = XCTAttachment(screenshot: panel.screenshot())
+            evidence.name = "panel-selection-after-refresh"
+            evidence.lifetime = .keepAlways
+            add(evidence)
+        }
 
         let search = app.textFields["search-field"].firstMatch
         search.click()
