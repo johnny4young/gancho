@@ -988,7 +988,7 @@ final class IOSAppModel {
                     String(localized: "A shared item couldn’t be cleared and may arrive again."))
             }
             if !summary.isBusy {
-                try? await inboxStore.pruneInboxReceipts(
+                _ = try? await inboxStore.pruneInboxReceipts(
                     committedBefore: Date(timeIntervalSinceNow: -InboxReceiptRetention.lifetime))
             }
         } catch is CancellationError {
