@@ -92,10 +92,10 @@ public protocol SyncLocalStore: Sendable {
     ///
     /// Each change still gets its own savepoint inside that transaction, so a
     /// record that throws rolls back alone and the rest of the page still
-    /// commits. That is deliberate rather than incidental: `applyFetched` does
-    /// not throw and the change token advances regardless, so a page that
-    /// failed as a unit would lose every change in it with no retry. One bad
-    /// record must not take the page down with it.
+    /// commits. That is deliberate rather than incidental: a page that failed as
+    /// a unit would hold every change in it behind one record until the poll's
+    /// bounded retries give up on that page. One bad record must not take the
+    /// page down with it.
     func applyRemoteChanges(
         clips: [RemoteClipChange], boards: [RemoteBoardChange],
         clipDeletions: [String], boardDeletions: [String]

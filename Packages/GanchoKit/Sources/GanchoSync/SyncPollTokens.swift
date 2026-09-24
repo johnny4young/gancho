@@ -33,11 +33,11 @@ struct SyncPollTokens: Codable, Equatable, Sendable {
         return decoded
     }
 
-    /// Best-effort persistence. A failed write leaves the previous on-disk
-    /// tokens in place; the adapter retains its current in-memory tokens.
-    func save(to store: SyncStateStore?) {
-        guard let store, let data = try? PropertyListEncoder().encode(self) else { return }
-        store.save(data)
+    /// Persist before advancing the actor's cache. A write failure retains the
+    /// previous checkpoint both on disk and in memory for idempotent replay.
+    func save(to store: SyncStateStore?) throws {
+        guard let store else { return }
+        try store.save(PropertyListEncoder().encode(self))
     }
 
     /// Archives an opaque CloudKit token using secure coding.

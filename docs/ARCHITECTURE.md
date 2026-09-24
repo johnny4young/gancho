@@ -358,6 +358,29 @@ foreground). The adapter reports fetch/apply/save trouble content-free to the
 `DiagnosticLog` ("Recent issues"), so a sync break is diagnosed from the log,
 not by guesswork.
 
+`SyncPullDriver` applies every fetched page through that same path and returns a
+candidate checkpoint only after the whole cycle succeeds. Transient per-record
+transport errors, partial apply failures and failed transactions prevent
+advancement; successful partial writes are safe to replay through LWW. Records a
+replay can never fix — undecodable data or a permanent per-record error such as
+an unknown item — are skipped and counted so they cannot wedge the zone, and a
+page whose local apply keeps failing is accepted with its failures counted after
+four consecutive failed polls.
+Checkpoint writes are checked before replacing the in-memory cache; the persisted
+poll format remains separate from, and unchanged by, CKSyncEngine's opaque state.
+A push-delivery failure therefore remains recoverable even if the engine advances
+its own fetch state.
+
+Receive failures remain visible until an independent poll succeeds, and an older
+poll cannot clear a newer failure. Concurrent explicit pulls join one in-flight
+operation; stopping the adapter cancels polling/recovery and invalidates stale
+callbacks. Transient failures have at most three automatic recovery attempts with
+backoff respecting CloudKit's retry-after minimum. Invalid
+checkpoint encoding, permission/account/quota gates and non-advancing pages need
+an explicit retry after remediation, not a hot loop. Package fault tests validate
+these contracts without a CloudKit account; live account/device acceptance remains
+separate.
+
 ## Intelligence tiers
 
 1. **Tier 0 — deterministic and universal.** `RuleClassifier`, data detectors,
