@@ -35,6 +35,10 @@ public actor CKSyncEngineAdapter: SyncEngine {
     private var receiveRetryID: UUID?
     private var statePersistenceFailed = false
     private var receiveGeneration = 0
+    /// Consecutive polls that failed on a local apply. Past the limit a page is
+    /// accepted with its failures counted, so one bad record cannot wedge a zone.
+    private var applyFailureStreak = 0
+    private static let applyRetryLimit = 4
 
     /// Status sink for the UI (set by the factory). Receives `SyncStatus`
     /// values only — state and counts, never clip content.
@@ -103,15 +107,18 @@ public actor CKSyncEngineAdapter: SyncEngine {
             // never arrive. `pollRemoteChanges()` asks the server directly
             // (one tiny database-changes call when idle) and applies through
             // the same code path as the engine's fetch events.
+            // A receive failure must not also hold back this device's uploads.
+            var receiveError: (any Error)?
             do { try await pollRemoteChanges() } catch {
                 scheduleReceiveRecovery(after: error)
-                throw error
+                receiveError = error
             }
             guard generation == receiveGeneration else { throw CancellationError() }
             try await engine.fetchChanges()
             guard generation == receiveGeneration else { throw CancellationError() }
             try await engine.sendChanges()
             guard generation == receiveGeneration else { throw CancellationError() }
+            if let receiveError { throw receiveError }
         } catch {
             guard generation == receiveGeneration, !(error is CancellationError) else {
                 throw CancellationError()
@@ -191,16 +198,19 @@ public actor CKSyncEngineAdapter: SyncEngine {
                 guard let self else { throw CancellationError() }
                 try await self.applyPolled(
                     records: records, deletions: deletions, generation: generation)
-            })
+            },
+            skipped: { [weak self] count in await self?.recordSkippedRecords(count) })
         do {
             let candidate = try await driver.pull(
                 from: loadPollTokens(), zones: [zoneID.zoneName, boardZoneID.zoneName])
             guard generation == receiveGeneration else { throw CancellationError() }
             try savePollTokens(candidate)
+            applyFailureStreak = 0
             guard receiveHealth.recover(since: healthRevision) else {
                 throw SyncReceiveFailure.interruptedByNewFailure
             }
         } catch {
+            if case SyncReceiveFailure.apply = error { applyFailureStreak += 1 }
             if generation == receiveGeneration, !(error is CancellationError) {
                 receiveHealth.fail(error)
                 emit(.failed(receiveHealth.failure ?? .unknown))
@@ -238,11 +248,17 @@ public actor CKSyncEngineAdapter: SyncEngine {
         return data
     }
 
+    private func recordSkippedRecords(_ count: Int) {
+        diagnostics?.record("Sync", "\(count) fetched changes could not be read and were skipped.")
+    }
+
     private func applyPolled(
         records: [CKRecord], deletions: [CKRecord.ID], generation: Int
     ) async throws {
         guard generation == receiveGeneration else { throw CancellationError() }
-        try await applyFetched(records: records, deletions: deletions)
+        try await applyFetched(
+            records: records, deletions: deletions,
+            retainingApplyFailures: applyFailureStreak < Self.applyRetryLimit)
     }
 
     public func stop() async {
@@ -469,9 +485,11 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                 try stateStore.save(stateEncoder.encode(event.stateSerialization))
                 statePersistenceFailed = false
             } catch {
+                if !statePersistenceFailed {
+                    diagnostics?.record(
+                        "Sync", "Sync state could not be persisted; recovery remains pending.")
+                }
                 statePersistenceFailed = true
-                diagnostics?.record(
-                    "Sync", "Sync state could not be persisted; recovery remains pending.")
                 emit(.failed(.unknown))
             }
         case .accountChange(let event):
@@ -550,10 +568,12 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
 
     /// Applies a batch of fetched changes to the local store — shared by the
     /// engine's event handler (push-fed fetches) and `pollRemoteChanges()` (the
-    /// explicit pull for hosts that receive no push). Incomplete batches throw,
-    /// retaining the poll checkpoint for replay; diagnostics contain counts
-    /// only, never the failed records or underlying database error text.
-    func applyFetched(records: [CKRecord], deletions: [CKRecord.ID]) async throws {
+    /// explicit pull for hosts that receive no push). Local apply failures throw
+    /// while `retainingApplyFailures`, keeping the poll checkpoint for replay;
+    /// undecodable records are skipped. Diagnostics carry counts only.
+    func applyFetched(
+        records: [CKRecord], deletions: [CKRecord.ID], retainingApplyFailures: Bool = true
+    ) async throws {
         var decodeFailures = 0
         var clips: [RemoteClipChange] = []
         var boards: [RemoteBoardChange] = []
@@ -583,41 +603,34 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                     systemFields: ClipRecordMapper.encodeSystemFields(record),
                     boardIDs: Set(ClipRecordMapper.boardIDs(from: record))))
         }
-        if decodeFailures > 0 {
-            diagnostics?.record(
-                "Sync",
-                "Fetched \(records.count + deletions.count) changes; \(decodeFailures) failed to decode, 0 failed to apply."
-            )
-            throw SyncReceiveFailure.undecodable(decodeFailures)
-        }
         let boardZone = boardZoneID.zoneName
         let deletionIDs = Dictionary(
             grouping: deletions, by: { $0.zoneID.zoneName == boardZone }
         )
         .mapValues { $0.map(\.recordName) }
 
-        // One transaction for the page instead of two per record. Decode
-        // failures are counted here because a record that cannot be decoded
-        // never reaches the store at all.
-        let summary: RemoteApplySummary
+        // One transaction for the page instead of two per record. Undecodable
+        // records never reach the store and a replay cannot decode them either,
+        // so they are counted and skipped rather than retained.
+        var applyFailures = 0
         do {
-            summary = try await store.applyRemoteChanges(
+            let summary = try await store.applyRemoteChanges(
                 clips: clips, boards: boards,
                 clipDeletions: deletionIDs[false] ?? [], boardDeletions: deletionIDs[true] ?? [])
+            applyFailures = summary.failed
         } catch is CancellationError {
             throw CancellationError()
         } catch {
-            let count = clips.count + boards.count + deletions.count
-            diagnostics?.record(
-                "Sync", "Fetched \(count) changes; 0 failed to decode, \(count) failed to apply.")
-            throw SyncReceiveFailure.apply(count)
+            applyFailures = clips.count + boards.count + deletions.count
         }
-        if summary.failed > 0 {
+        if decodeFailures + applyFailures > 0 {
             diagnostics?.record(
                 "Sync",
-                "Fetched \(records.count + deletions.count) changes; 0 failed to decode, \(summary.failed) failed to apply."
-            )
-            throw SyncReceiveFailure.apply(summary.failed)
+                "Fetched \(records.count + deletions.count) changes; "
+                    + "\(decodeFailures) failed to decode, \(applyFailures) failed to apply.")
+        }
+        if applyFailures > 0, retainingApplyFailures {
+            throw SyncReceiveFailure.apply(applyFailures)
         }
     }
 

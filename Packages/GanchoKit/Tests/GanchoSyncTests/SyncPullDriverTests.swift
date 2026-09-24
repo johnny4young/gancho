@@ -62,6 +62,11 @@ private actor SuspendedZoneFetch {
     }
 }
 
+private actor SkipCounter {
+    private(set) var total = 0
+    func add(_ count: Int) { total += count }
+}
+
 @Suite("Sync pull — complete-page checkpoint contract")
 struct SyncPullDriverTests {
     private let initial = SyncPollTokens(database: Data([1]), zones: ["clips": Data([2])])
@@ -88,7 +93,28 @@ struct SyncPullDriverTests {
         #expect(await script.applied == 2)
     }
 
-    @Test("A per-record failure rejects its page before any apply")
+    @Test("A permanent per-record failure is skipped so the zone checkpoint advances")
+    func permanentRecordFailureSkipped() async throws {
+        let script = PullScript(
+            database: [.success(database)],
+            zones: [
+                .success(
+                    .init(
+                        records: [
+                            .success(CKRecord(recordType: "SyntheticClip")),
+                            .failure(CKError(.unknownItem))
+                        ], token: Data([5])))
+            ])
+        let skipped = SkipCounter()
+        var driver = script.driver
+        driver.skipped = { await skipped.add($0) }
+        let result = try await driver.pull(from: initial, zones: ["clips"])
+        #expect(result.zones["clips"] == Data([5]))
+        #expect(await script.applied == 1)
+        #expect(await skipped.total == 1)
+    }
+
+    @Test("A transient per-record failure rejects its page before any apply")
     func partialRecordFailure() async {
         let script = PullScript(
             database: [.success(database)],
