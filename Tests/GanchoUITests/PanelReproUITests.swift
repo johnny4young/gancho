@@ -33,13 +33,10 @@ final class PanelReproUITests: XCTestCase {
     ///
     /// The captures are deliberate — each lands as a live refresh while the
     /// grouped list is visible, which IS the scenario under test, so they must
-    /// not be disabled, only waited out. `PanelSearchModel.refresh()` ends with
-    /// `selectedIndex = 0`, and a plain assignment there collapses any batch
-    /// back to one row, so keys sent mid-burst are racing the collapses behind
-    /// them. The old `rows.count >= 4` precondition was satisfied by the FIRST
-    /// of the four, i.e. the middle of the burst — which is why the ⇧↓ test
-    /// passed alone (idle machine, seed already done) and failed inside the
-    /// full suite.
+    /// not be disabled, only waited out. Selection now follows identifiers,
+    /// but this test still needs all seven rows before asserting a fixed range
+    /// and its shortcut badges. A row count is the seed-completion signal;
+    /// neither a quiet interval nor the first incoming row establishes it.
     ///
     /// The timeout is ~12x the seed's own ~1.7s, so reaching it means the seed
     /// genuinely never finished rather than that the runner was slow.
@@ -100,6 +97,20 @@ final class PanelReproUITests: XCTestCase {
         _ app: XCUIApplication, search: XCUIElement, rows: XCUIElementQuery
     ) throws {
         try SynthesizedInput.requireForeground(app)
+        // Same-context refresh preserves identity, including the nearest cursor
+        // after delete/Undo. Anchor this range test explicitly instead of
+        // assuming every refresh resets the cursor to index zero.
+        // Accessibility order is not visual order (the pinned section renders
+        // separately), so anchor on the topmost row rather than `firstMatch`.
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        let first = try XCTUnwrap(
+            rows.allElementsBoundByIndex.min { $0.frame.minY < $1.frame.minY })
+        XCTAssertTrue(first.isHittable)
+        first.click()
+        let selected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isSelected == true"), object: first)
+        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 3), .completed)
+        search.click()
         guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
             throw XCTSkip("the panel never took keyboard focus — skipping synthesized input")
         }

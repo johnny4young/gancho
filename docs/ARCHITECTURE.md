@@ -187,6 +187,20 @@ and sync work is enqueued only after its local mutation or tombstone commits.
 The shells receive content-free outcomes and retain selection, refresh,
 diagnostic, paywall, and toast behavior.
 
+### Panel refresh ownership
+
+`PanelSelectionModel` retains cursor identity privately while the existing pure
+reducer owns the visible selection set and nearest-row fallback. Same-context
+refreshes reconcile the current selection at commit time, including changes made
+while a request was suspended. A new query/filter context resets selection.
+`PanelSearchModel` invalidates refresh/page ownership on context changes; stale
+or cancelled pages cannot append or clear a newer loading indicator. Rows and
+snippet matches commit together, and changing context clears the old snippet
+action immediately. Browse refreshes retain the loaded window in one read, plus
+one page only for a selection displaced across its boundary, never an unbounded
+scan for a deleted item. A page requested while a refresh runs is deferred and
+loaded once the refresh commits.
+
 ## Platform contracts
 
 | Platform family | What is allowed | What is forbidden |

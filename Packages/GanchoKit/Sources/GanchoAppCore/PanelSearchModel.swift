@@ -37,10 +37,42 @@ public struct PanelDateGroup: Identifiable, Sendable {
 /// rails, sheets, ask).
 @MainActor @Observable public final class PanelSearchModel {
     /// The live search field text. Empty shows the paginated recent list.
-    public var query = ""
-    public var mode: ClipSearchQuery.Mode = .fuzzy
-    public var pinnedOnly = false
+    public var query = "" { didSet { if oldValue != query { invalidateRequests() } } }
+    public var mode: ClipSearchQuery.Mode = .fuzzy {
+        didSet { if oldValue != mode { invalidateRequests() } }
+    }
+    public var pinnedOnly = false {
+        didSet { if oldValue != pinnedOnly { invalidateRequests() } }
+    }
     private var refreshID = UUID()
+    private var pageID: UUID?
+    private var isRefreshing = false
+    private var loadMoreDeferred = false
+    private var displayedContext: Context?
+
+    private struct Context: Equatable {
+        let query: String
+        let mode: ClipSearchQuery.Mode
+        let kind: ClipKindFilter
+        let pinnedOnly: Bool
+        let boardID: UUID?
+        let sourceApp: String?
+    }
+
+    private var context: Context {
+        Context(
+            query: query, mode: mode, kind: kindFilter, pinnedOnly: pinnedOnly,
+            boardID: selectedBoardID, sourceApp: selectedSourceAppBundleID)
+    }
+
+    private func invalidateRequests() {
+        refreshID = UUID()
+        pageID = nil
+        isLoadingMore = false
+        isRefreshing = false
+        loadMoreDeferred = false
+        snippetMatch = nil
+    }
     /// The rows returned by the current query/board/recent load, pre-filter.
     public var results: [ClipItem] = [] {
         didSet { rebuildVisible() }
@@ -54,13 +86,20 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public var reachedEnd = false
     /// The active type-filter pill.
     public var kindFilter: ClipKindFilter = .all {
-        didSet { rebuildVisible() }
+        didSet {
+            if oldValue != kindFilter { invalidateRequests() }
+            rebuildVisible()
+        }
     }
     /// nil = "All clips"; otherwise the selected board's id.
-    public var selectedBoardID: UUID?
+    public var selectedBoardID: UUID? {
+        didSet { if oldValue != selectedBoardID { invalidateRequests() } }
+    }
     /// nil = all apps; otherwise the source bundle identifier to intersect with
     /// the current text, type, and board filters.
-    public var selectedSourceAppBundleID: String?
+    public var selectedSourceAppBundleID: String? {
+        didSet { if oldValue != selectedSourceAppBundleID { invalidateRequests() } }
+    }
     /// Recent source apps and aggregate counts for the filter menu.
     public var sourceApps: [ClipSourceApp] = []
     /// The snippet whose keyword the query matches exactly — surfaces a
@@ -111,6 +150,9 @@ public struct PanelDateGroup: Identifiable, Sendable {
         filtered = base.filter {
             seen.insert($0.id).inserted && !source.isDeletionPending($0.id)
         }
+        // Reconcile at replacement, not after a later snippet lookup. The
+        // cursor follows its ID while surviving batch selections stay intact.
+        selectionModel.reconcile(in: filtered)
     }
 
     /// Re-reads the pending-deletion set and rebuilds EVERY visible surface
@@ -214,6 +256,11 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public func refresh() async {
         let request = UUID()
         refreshID = request
+        pageID = nil
+        isLoadingMore = false
+        isRefreshing = true
+        let requestedContext = context
+        defer { if refreshID == request { isRefreshing = false } }
         let page: ClipListPage
         if kindFilter != .all || pinnedOnly || mode != .fuzzy {
             let rule = savedRule(named: "")
@@ -227,20 +274,52 @@ public struct PanelDateGroup: Identifiable, Sendable {
                 page = await core.fallbackPage(matching: rule)
             }
         } else {
-            page = await core.firstPage(
-                query: query, boardID: selectedBoardID,
-                sourceAppBundleID: selectedSourceAppBundleID)
+            page = await browsePage(request: request, requestedContext: requestedContext)
         }
-        guard refreshID == request else { return }
-        results = page.items
-        reachedEnd = page.reachedEnd
+        guard refreshID == request, context == requestedContext, !Task.isCancelled else { return }
         // A query that exactly matches a snippet's keyword offers a one-keystroke
         // insert (filling {fields} first if it's a template).
-        let snippet = query.isEmpty ? nil : await source.snippet(matchingKeyword: query)
-        guard refreshID == request else { return }
+        let snippet =
+            requestedContext.query.isEmpty
+            ? nil : await source.snippet(matchingKeyword: requestedContext.query)
+        guard refreshID == request, context == requestedContext, !Task.isCancelled else { return }
+        let resetSelection = displayedContext != requestedContext
+        results = page.items
+        reachedEnd = page.reachedEnd
         snippetMatch = snippet
-        selectedIndex = 0
+        displayedContext = requestedContext
+        if resetSelection { selectedIndex = 0 }
         rebuildGroups()
+        // A page requested while this refresh ran was deferred, not dropped.
+        isRefreshing = false
+        if loadMoreDeferred {
+            loadMoreDeferred = false
+            await loadMore()
+        }
+    }
+
+    /// Refresh the already-loaded window, rather than dropping a cursor on a
+    /// later page back into the first hundred rows: one read for the window,
+    /// plus one page only when incoming rows pushed the selection past it.
+    private func browsePage(request: UUID, requestedContext: Context) async -> ClipListPage {
+        guard displayedContext == requestedContext, isPaginatedView else {
+            return await core.firstPage(
+                query: requestedContext.query, boardID: requestedContext.boardID,
+                sourceAppBundleID: requestedContext.sourceApp)
+        }
+        let previousIDs = Set(results.map(\.id))
+        var page = await core.leadingWindow(
+            count: results.count, boardID: requestedContext.boardID)
+        guard refreshID == request, !Task.isCancelled, !page.reachedEnd else { return page }
+        let loadedIDs = Set(page.items.map(\.id))
+        let shiftedSelection =
+            !loadedIDs.isDisjoint(with: previousIDs)
+            && !selection.selectedIDs.isSubset(of: loadedIDs)
+        guard shiftedSelection else { return page }
+        let next = await core.nextPage(after: page.items.count, boardID: requestedContext.boardID)
+        page.items.append(contentsOf: next.items)
+        page.reachedEnd = next.reachedEnd || next.items.isEmpty
+        return page
     }
 
     public func savedRule(named name: String) -> SmartCollectionRule {
@@ -260,17 +339,32 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     public func loadMore() async {
-        guard isPaginatedView, !isLoadingMore, !reachedEnd else { return }
+        if isRefreshing, isPaginatedView {
+            loadMoreDeferred = true
+            return
+        }
+        guard isPaginatedView, displayedContext == context, !isLoadingMore, !reachedEnd
+        else { return }
         let board = selectedBoardID
+        let generation = refreshID
+        let request = UUID()
         let offset = results.count
+        pageID = request
         isLoadingMore = true
-        defer { isLoadingMore = false }
+        defer {
+            if pageID == request {
+                pageID = nil
+                isLoadingMore = false
+            }
+        }
         let page = await core.nextPage(after: offset, boardID: board)
         // The view may have changed during the await (query typed, board picked
         // or switched, a fresh refresh); only append if still extending the
         // same list. The guard stays here rather than in the core because it
         // reads state only this model has.
-        guard isPaginatedView, selectedBoardID == board, results.count == offset else { return }
+        guard refreshID == generation, pageID == request, !Task.isCancelled,
+            isPaginatedView, selectedBoardID == board, results.count == offset
+        else { return }
         results.append(contentsOf: page.items)
         if page.reachedEnd { reachedEnd = true }
         rebuildGroups()
