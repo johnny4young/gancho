@@ -186,7 +186,7 @@ final class PeekDockUITests: XCTestCase {
         let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
-            "-seed-visual-library", "-seed-sample-boards", "-force-free-tier",
+            "-seed-visual-library", "-seed-peek-link", "-seed-sample-boards", "-force-free-tier",
             "-start-capture-paused",
             "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
             "-ui-test-paste-sink", "pasted",
