@@ -425,6 +425,7 @@ public struct SearchField: View {
                 .autocorrectionDisabled()
                 #if os(macOS)
                     .textContentType(nil)
+                    .textInputSuggestions { EmptyView() }
                 #endif
                 // Take the row and left-align: a bare `.plain` TextField on macOS
                 // lets the field's intrinsic width shrink to the value, which with
