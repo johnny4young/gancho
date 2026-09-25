@@ -8,13 +8,17 @@ import GanchoKit
 import SwiftUI
 
 /// ClipPeek — a Quick-Look-style rich preview (the design's component): a
-/// type-aware body, an insight strip (source app · time · expiry), the kind's
-/// offline transforms, and Paste / Paste plain / Pin. Sensitive clips stay
+/// kind-aware hero, an insight strip (source app · time · expiry · boards),
+/// the kind's offline transforms, and an action dock (Paste / Paste plain /
+/// Pin / Board) with the Dev Actions as chips above it. Sensitive clips stay
 /// masked here; revealing them takes an explicit transform.
 struct ClipPeek: View {
     let item: ClipItem
     let text: String
     let isTextEditable: Bool
+    /// ⌘B: the board picker belongs to the panel, which files the whole
+    /// selection; the dock's Board action just asks for it.
+    let addToBoard: () -> Void
     /// Shared with the list: the peek owns the keyboard when this equals `.peek`
     /// (entered with → from the list, left with ←).
     var focus: FocusState<PanelFocus?>.Binding
@@ -52,12 +56,13 @@ struct ClipPeek: View {
 
     init(
         item: ClipItem, text: String, isTextEditable: Bool,
-        focus: FocusState<PanelFocus?>.Binding
+        focus: FocusState<PanelFocus?>.Binding, addToBoard: @escaping () -> Void
     ) {
         self.item = item
         self.text = text
         self.isTextEditable = isTextEditable
         self.focus = focus
+        self.addToBoard = addToBoard
         _presentedTitle = State(initialValue: item.title)
         _titleDraft = State(initialValue: item.title)
         _presentedText = State(initialValue: text)
@@ -86,7 +91,7 @@ struct ClipPeek: View {
             if let suggestedBoard {
                 suggestionChip(suggestedBoard)
             }
-            peekBody
+            hero
             if ocrShowsHere {
                 PeekImageTextSection(
                     item: item, hoveredLine: $ocrHoveredLine, copiedLine: $ocrCopiedLine,
@@ -111,12 +116,16 @@ struct ClipPeek: View {
             } else if let actionResult, !actionResult.isEmpty {
                 resultBox(actionResult)
             }
-            actionsList
+            if navActions.count > dockActionCount {
+                secondaryActions
+            }
+            Spacer(minLength: 0)
+            dock
         }
         .padding(GanchoTokens.Spacing.md)
-        // Sized to its content and pinned to the top — the peek is a shorter
-        // detail card, not the full height of the list.
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        // The peek fills the column so the dock sits at the bottom edge; the
+        // hero and result boxes are the parts that give way when space is short.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         // The peek owns the keyboard while focus == .peek: ↑↓ move among the
         // actions, Enter runs the focused one, ← hands focus back to the list.
         .focusable()
@@ -207,7 +216,7 @@ struct ClipPeek: View {
     /// its selection gestures, so the drag lives on the title row instead).
     private var header: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            TypeBadge(kind: item.kind)
+            TypeBadge(kind: item.kind, style: .pill)
             if isEditingTitle {
                 TextField("Title", text: $titleDraft)
                     .textFieldStyle(.roundedBorder)
@@ -238,110 +247,11 @@ struct ClipPeek: View {
                 .accessibilityIdentifier("preview-edit-title")
             }
             Spacer(minLength: 0)
-            boardMenu
-            Button {
-                model.togglePin(item)
-            } label: {
-                Image(systemName: item.isPinned ? "pin.fill" : "pin")
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(Text(item.isPinned ? "Unpin" : "Pin"))
-            .accessibilityIdentifier("preview-pin")
         }
         .clipDragSource(item)
     }
 
-    /// Toggle this clip in/out of any board, with a checkmark on the boards it
-    /// already belongs to (a clip can be in several). Favorites is just another
-    /// board here — the protected one.
-    private var boardMenu: some View {
-        Menu {
-            ForEach(model.boards) { board in
-                Button {
-                    Task {
-                        await model.setBoardMembership(
-                            item, board: board, member: !boardIDs.contains(board.id))
-                        boardIDs = await model.boardMembership(for: item)
-                    }
-                } label: {
-                    Label {
-                        board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
-                    } icon: {
-                        Image(
-                            systemName: boardIDs.contains(board.id) ? "checkmark" : board.sfSymbol)
-                    }
-                }
-            }
-        } label: {
-            Image(systemName: boardIDs.isEmpty ? "tray" : "tray.full")
-        }
-        .menuIndicator(.hidden)
-        .buttonStyle(.borderless)
-        .accessibilityLabel(Text("Add to board"))
-        .accessibilityIdentifier("preview-board")
-    }
-
-    /// Type-aware body: colour clips show a big swatch beside the value;
-    /// everything else shows its (syntax-tinted for code) text.
-    @ViewBuilder private var peekBody: some View {
-        if item.kind == .image, !item.isSensitive,
-            let thumbnail = model.thumbnails.cached(for: item.id)
-        {
-            thumbnail
-                .resizable()
-                .scaledToFit()
-                // Live Text, Gancho style: recognized lines become regions on the
-                // thumbnail. The overlay sits BEFORE the frame so it takes the
-                // image's fitted size, which is what the normalized boxes map to.
-                .overlay {
-                    PeekImageTextRegions(
-                        item: item, hoveredLine: $ocrHoveredLine, copiedLine: $ocrCopiedLine,
-                        revealSecret: $ocrRevealSecret)
-                }
-                .frame(maxWidth: .infinity, maxHeight: 220, alignment: .topLeading)
-                .clipShape(
-                    RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                )
-                // Dragging the preview itself hands the full-resolution image
-                // (not the thumbnail) to the drop target.
-                .clipDragSource(item)
-        } else if isTextEditable {
-            ClipTextEditor(
-                text: $presentedText, kind: item.kind,
-                onEditingChanged: { editing in
-                    isEditingText = editing
-                    focus.wrappedValue = editing ? nil : .peek
-                },
-                onSave: { edited in
-                    await model.updateClipText(item, text: edited)
-                }
-            )
-            .id(item.id)
-        } else if item.kind == .color, !item.isSensitive,
-            let color = Color(hexString: presentedText)
-        {
-            HStack(spacing: GanchoTokens.Spacing.sm) {
-                RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                    .fill(color)
-                    .frame(width: 56, height: 56)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                            .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-                Text(presentedText).font(.body.monospaced()).textSelection(.enabled)
-                Spacer(minLength: 0)
-            }
-        } else {
-            ScrollView {
-                Text(highlighted)
-                    .font(item.kind == .code ? .body.monospaced() : .body)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-            }
-            .frame(maxHeight: 200)
-        }
-    }
-
-    /// Source app · relative time · expiry — the design's insight chips.
+    /// Source app · relative time · expiry, then the boards this clip is in.
     private var insightStrip: some View {
         HStack(spacing: GanchoTokens.Spacing.md) {
             if let bundleID = item.sourceAppBundleID {
@@ -372,6 +282,21 @@ struct ClipPeek: View {
                         ? AnyShapeStyle(GanchoTokens.Palette.warning) : AnyShapeStyle(.secondary))
             }
             Spacer(minLength: 0)
+            ForEach(model.boards.filter { boardIDs.contains($0.id) }.prefix(3)) { board in
+                HStack(spacing: 3) {
+                    BoardIdentityMark(board: board, size: 10)
+                    if board.isSystem {
+                        Text("Favorites")
+                    } else {
+                        Text(verbatim: board.name)
+                    }
+                }
+                .font(.caption2.weight(.medium))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.quaternary, in: Capsule())
+                .accessibilityElement(children: .combine)
+            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -385,17 +310,28 @@ struct ClipPeek: View {
         let id: String
         let title: LocalizedStringKey
         let symbol: String
+        /// A shorter label for the dock's narrow buttons; nil uses `title`.
+        var shortTitle: LocalizedStringKey?
+        /// The key hint under a dock button. Dock actions have one; the Dev
+        /// Action chips don't.
+        var shortcut: String?
         let run: () -> Void
     }
 
-    /// Paste variants first (the common case), then the per-kind Dev Actions.
-    /// Smart Paste keeps its own menu (it is async and has a language submenu).
+    /// Paste variants first (the common case), then OCR, Pin and Board — the
+    /// dock — and after those the per-kind Dev Actions as chips. Smart Paste
+    /// keeps its own menu (it is async and has a language submenu).
     private var navActions: [PeekAction] {
         var actions: [PeekAction] = [
-            PeekAction(id: "preview-paste", title: "Paste", symbol: "doc.on.clipboard") {
+            PeekAction(
+                id: "preview-paste", title: "Paste", symbol: "doc.on.clipboard", shortcut: "⏎"
+            ) {
                 model.paste(item)
             },
-            PeekAction(id: "preview-paste-plain", title: "Paste plain", symbol: "doc.plaintext") {
+            PeekAction(
+                id: "preview-paste-plain", title: "Paste plain", symbol: "doc.plaintext",
+                shortTitle: "Plain", shortcut: "⌥⏎"
+            ) {
                 model.paste(item, asPlainText: true)
             }
         ]
@@ -406,9 +342,20 @@ struct ClipPeek: View {
         if model.canCopyImageText(item) {
             actions.append(
                 PeekAction(
-                    id: "image-copy-text", title: "Copy text from image", symbol: "text.viewfinder"
+                    id: "image-copy-text", title: "Copy text from image", symbol: "text.viewfinder",
+                    shortTitle: "Copy text", shortcut: "⇧⌘C"
                 ) { model.copyImageText(item, surface: .peek) })
         }
+        actions.append(
+            PeekAction(
+                id: "preview-pin", title: item.isPinned ? "Unpin" : "Pin",
+                symbol: item.isPinned ? "pin.slash" : "pin", shortcut: "⌘P"
+            ) { model.togglePin(item) })
+        actions.append(
+            PeekAction(
+                id: "preview-board", title: "Add to board", symbol: "tray", shortTitle: "Board",
+                shortcut: "⌘B"
+            ) { addToBoard() })
         if !ClipSafePresentation.requiresMasking(item) {
             for action in DevActions.actions(for: item.kind) {
                 actions.append(
@@ -426,45 +373,213 @@ struct ClipPeek: View {
         return actions
     }
 
-    /// The keyboard-navigable action list (Quick-Look-style). The focused row is
-    /// highlighted only while the peek owns the keyboard (focus == .peek), so the
-    /// list and the peek never look "both selected".
-    private var actionsList: some View {
-        // Bounded + scrollable: for code clips the per-kind Dev Actions make this
-        // list long enough to push the whole peek past the fixed panel height and
-        // clip the bottom (and crowd out the text preview). Cap it and let it
-        // scroll internally — the preview above always stays visible; the keyboard
-        // focus scrolls into view.
+}
+
+// MARK: - Hero
+
+extension ClipPeek {
+    /// The kind-aware hero card: the image with its Live-Text regions, a link's
+    /// host and path set large (parsed locally, never fetched), a colour band,
+    /// or the (syntax-tinted) text. The card takes a wash of the kind's tint.
+    private var hero: some View {
+        let tint = GanchoTokens.Palette.kindTint(for: item.kind)
+        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+        return VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+            if let parts = linkParts {
+                linkHero(parts)
+            }
+            heroBody
+        }
+        .padding(GanchoTokens.Spacing.sm)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background {
+            shape.fill(.quaternary.opacity(0.35))
+            shape.fill(
+                RadialGradient(
+                    colors: [tint.opacity(0.2), .clear], center: .topLeading,
+                    startRadius: 0, endRadius: 360))
+        }
+        .overlay(
+            shape.strokeBorder(.separator.opacity(0.6), lineWidth: GanchoTokens.Stroke.hairline)
+        )
+        .accessibilityIdentifier("peek-hero")
+    }
+
+    /// Non-nil only when a link clip's text really parses as a URL with a
+    /// host; a `url`-kind clip whose text doesn't (synthetic or edited) keeps
+    /// the plain body.
+    private var linkParts: ClipLinkParts? {
+        guard item.kind == .url, !ClipSafePresentation.requiresMasking(item) else { return nil }
+        return ClipLinkParts(text: presentedText)
+    }
+
+    @ViewBuilder private var heroBody: some View {
+        if item.kind == .image, !item.isSensitive,
+            let thumbnail = model.thumbnails.cached(for: item.id)
+        {
+            thumbnail
+                .resizable()
+                .scaledToFit()
+                // Live Text, Gancho style: recognized lines become regions on the
+                // thumbnail. The overlay sits BEFORE the frame so it takes the
+                // image's fitted size, which is what the normalized boxes map to.
+                .overlay {
+                    PeekImageTextRegions(
+                        item: item, hoveredLine: $ocrHoveredLine, copiedLine: $ocrCopiedLine,
+                        revealSecret: $ocrRevealSecret)
+                }
+                .frame(maxWidth: .infinity, maxHeight: 240)
+                .clipShape(
+                    RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                )
+                // Dragging the preview itself hands the full-resolution image
+                // (not the thumbnail) to the drop target.
+                .clipDragSource(item)
+        } else if isTextEditable {
+            ClipTextEditor(
+                text: $presentedText, kind: item.kind,
+                // The link hero already shows the URL; the editor keeps only
+                // its Edit affordance until editing starts.
+                readViewHidden: linkParts != nil,
+                onEditingChanged: { editing in
+                    isEditingText = editing
+                    focus.wrappedValue = editing ? nil : .peek
+                },
+                onSave: { edited in
+                    await model.updateClipText(item, text: edited)
+                }
+            )
+            .id(item.id)
+        } else if item.kind == .color, !item.isSensitive,
+            let color = Color(hexString: presentedText)
+        {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                    .fill(color)
+                    .frame(height: 72)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                            .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
+                Text(presentedText).font(.body.monospaced()).textSelection(.enabled)
+            }
+        } else {
+            ScrollView {
+                Text(highlighted)
+                    .font(item.kind == .code ? .body.monospaced() : .body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(maxHeight: 200)
+        }
+    }
+
+    /// Host set large, path underneath. No favicon and no metadata fetch: the
+    /// copied URL never leaves the Mac to be rendered.
+    private func linkHero(_ parts: ClipLinkParts) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(verbatim: parts.host)
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            if !parts.path.isEmpty {
+                Text(verbatim: parts.path)
+                    .font(.callout.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
+        .textSelection(.enabled)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("peek-link-hero")
+    }
+}
+
+// MARK: - Action dock and chips
+
+extension ClipPeek {
+    /// Dock actions come first in `navActions` and all carry a key hint.
+    private var dockActionCount: Int { navActions.filter { $0.shortcut != nil }.count }
+
+    /// The action dock: Paste is always the prominent button (Return runs it);
+    /// the keyboard-focused one — only while the peek owns the keyboard —
+    /// takes a ring, so the list and the peek never look "both selected".
+    private var dock: some View {
+        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+        return HStack(spacing: GanchoTokens.Spacing.xxs) {
+            ForEach(Array(navActions.prefix(dockActionCount).enumerated()), id: \.element.id) {
+                index, action in
+                dockButton(action, index: index)
+            }
+        }
+        .padding(GanchoTokens.Spacing.xxs)
+        .background(.quaternary.opacity(0.5), in: shape)
+        .overlay(
+            shape.strokeBorder(.separator.opacity(0.6), lineWidth: GanchoTokens.Stroke.hairline)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("peek-dock")
+    }
+
+    private func dockButton(_ action: PeekAction, index: Int) -> some View {
+        let isPrimary = index == 0
+        let isFocused = focus.wrappedValue == .peek && index == actionIndex
+        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+        return VStack(spacing: 3) {
+            Image(systemName: action.symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .frame(height: 18)
+            Text(action.shortTitle ?? action.title)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(verbatim: action.shortcut ?? "")
+                .font(.caption2.monospaced())
+                .opacity(0.7)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 7)
+        .background(
+            isPrimary
+                ? AnyShapeStyle(GanchoTokens.Palette.accent)
+                : isFocused
+                    ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.18))
+                    : AnyShapeStyle(.clear),
+            in: shape
+        )
+        .foregroundStyle(isPrimary ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+        .overlay(
+            shape.strokeBorder(
+                isFocused ? AnyShapeStyle(.primary) : AnyShapeStyle(.clear),
+                lineWidth: GanchoTokens.Stroke.focus)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            actionIndex = index
+            action.run()
+        }
+        .help(action.title)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(action.title))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier(action.id)
+    }
+
+    /// The Dev Actions as chips that wrap, bounded so a code clip's dozen
+    /// transforms can't push the dock out of the panel; the keyboard focus
+    /// scrolls into view.
+    private var secondaryActions: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(spacing: 2) {
-                    ForEach(Array(navActions.enumerated()), id: \.element.id) { index, action in
-                        let isFocused = focus.wrappedValue == .peek && index == actionIndex
-                        HStack(spacing: GanchoTokens.Spacing.xs) {
-                            Image(systemName: action.symbol).frame(width: 16)
-                            Text(action.title).lineLimit(1)
-                            Spacer(minLength: 0)
-                        }
-                        .font(.body)
-                        .padding(.horizontal, GanchoTokens.Spacing.sm)
-                        .padding(.vertical, 6)
-                        .background(
-                            isFocused
-                                ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.18))
-                                : AnyShapeStyle(.clear),
-                            in: RoundedRectangle(
-                                cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-                        )
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            actionIndex = index
-                            action.run()
-                        }
-                        .accessibilityIdentifier(action.id)
+                FlowLayout(spacing: GanchoTokens.Spacing.xxs) {
+                    ForEach(
+                        Array(navActions.enumerated().dropFirst(dockActionCount)),
+                        id: \.element.id
+                    ) { index, action in
+                        actionChip(action, index: index)
                     }
                 }
             }
-            .frame(maxHeight: 180)
+            .frame(maxHeight: 96)
             .onChange(of: actionIndex) { _, new in
                 guard navActions.indices.contains(new) else { return }
                 withAnimation(.easeOut(duration: 0.1)) {
@@ -474,6 +589,35 @@ struct ClipPeek: View {
         }
     }
 
+    private func actionChip(_ action: PeekAction, index: Int) -> some View {
+        let isFocused = focus.wrappedValue == .peek && index == actionIndex
+        return HStack(spacing: 4) {
+            Image(systemName: action.symbol).font(.caption2)
+            Text(action.title).font(.caption.weight(.medium)).lineLimit(1)
+        }
+        .padding(.horizontal, GanchoTokens.Spacing.xs)
+        .padding(.vertical, 4)
+        .background(
+            isFocused
+                ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.18))
+                : AnyShapeStyle(.quaternary),
+            in: Capsule()
+        )
+        .overlay(
+            Capsule().strokeBorder(
+                isFocused ? AnyShapeStyle(.primary) : AnyShapeStyle(.clear),
+                lineWidth: GanchoTokens.Stroke.focus)
+        )
+        .contentShape(Capsule())
+        .onTapGesture {
+            actionIndex = index
+            action.run()
+        }
+        .id(action.id)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier(action.id)
+    }
 }
 
 // MARK: - Smart Paste & deterministic transforms

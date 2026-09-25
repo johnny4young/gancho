@@ -22,6 +22,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   minute-granular capture time sit in a trailing column; iPhone and iPad history
   rows share the same layout. The selection highlight glides between rows and
   section counts roll instead of flicking; both respect Reduce Motion.
+- The panel's peek opens with a hero card per kind — the image with its
+  Live-Text regions, a link's host and path set large (parsed on the Mac,
+  never fetched), a colour band, or the text — and closes with an action
+  dock: Paste, Paste plain, Copy text from image, Pin and Board, each with
+  its key. Developer actions wrap as chips above the dock. The insight line
+  now also names the boards a clip is in. Return still pastes and ↑↓ still
+  walk the actions in the same order.
 
 ### Fixed
 

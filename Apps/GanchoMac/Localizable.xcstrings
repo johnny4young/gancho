@@ -3567,6 +3567,16 @@
         }
       }
     },
+    "Plain": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plano"
+          }
+        }
+      }
+    },
     "Added to board": {
       "localizations": {
         "es": {

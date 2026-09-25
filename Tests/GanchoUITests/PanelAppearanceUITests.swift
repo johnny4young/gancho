@@ -77,6 +77,32 @@ final class PanelAppearanceUITests: XCTestCase {
         XCTAssertTrue(app.buttons["board-new"].firstMatch.exists)
 
         let panel = app.dialogs["history-panel"].firstMatch
+        verifySourceFilter(in: app, panel: panel)
+
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        XCTAssertTrue(
+            rows.element(boundBy: 2).waitForExistence(timeout: 10),
+            "the seeded history must show at least three rows")
+        XCTAssertEqual(rows.allElementsBoundByIndex.filter(\.isSelected).count, 1)
+
+        let secondRow = rows.element(boundBy: 1)
+        secondRow.click()
+        let selected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isSelected == true"), object: secondRow)
+        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 3), .completed)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["preview-title"].firstMatch.waitForExistence(
+                timeout: 5),
+            "selecting a row must open the peek beside the list")
+        verifyDock(in: app)
+
+        XCTAssertTrue(panel.exists)
+        attachPanel(panel)
+        try verifyBoardKeyboardScroll(in: app)
+    }
+
+    @MainActor
+    private func verifySourceFilter(in app: XCUIApplication, panel: XCUIElement) {
         let source = app.descendants(matching: .any)["source-app-filter"].firstMatch
         XCTAssertTrue(source.waitForExistence(timeout: 5))
         source.click()
@@ -97,26 +123,17 @@ final class PanelAppearanceUITests: XCTestCase {
         let allApps = app.menuItems["source-app-all"].firstMatch
         XCTAssertTrue(allApps.waitForExistence(timeout: 5))
         allApps.click()
+    }
 
-        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(
-            rows.element(boundBy: 2).waitForExistence(timeout: 10),
-            "the seeded history must show at least three rows")
-        XCTAssertEqual(rows.allElementsBoundByIndex.filter(\.isSelected).count, 1)
-
-        let secondRow = rows.element(boundBy: 1)
-        secondRow.click()
-        let selected = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "isSelected == true"), object: secondRow)
-        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 3), .completed)
-        XCTAssertTrue(
-            app.descendants(matching: .any)["preview-title"].firstMatch.waitForExistence(
-                timeout: 5),
-            "selecting a row must open the peek beside the list")
-
-        XCTAssertTrue(panel.exists)
-        attachPanel(panel)
-        try verifyBoardKeyboardScroll(in: app)
+    @MainActor
+    private func verifyDock(in app: XCUIApplication) {
+        let dock = app.descendants(matching: .any)["peek-dock"].firstMatch
+        XCTAssertTrue(dock.waitForExistence(timeout: 5), "the peek must show its action dock")
+        for identifier in ["preview-paste", "preview-paste-plain", "preview-pin", "preview-board"] {
+            XCTAssertTrue(
+                dock.descendants(matching: .any)[identifier].firstMatch.exists,
+                "\(identifier) must be a dock action")
+        }
     }
 
     @MainActor

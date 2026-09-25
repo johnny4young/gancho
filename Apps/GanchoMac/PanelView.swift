@@ -159,7 +159,8 @@ struct PanelView: View {
                         item: selected,
                         text: presentation.text,
                         isTextEditable: presentation.isTextEditable,
-                        focus: $focus
+                        focus: $focus,
+                        addToBoard: { showBoardPicker = true }
                     )
                     // Drafts, async save callbacks, and action state belong to
                     // one clip only. A new selection gets a fresh preview identity.
