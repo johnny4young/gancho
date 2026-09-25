@@ -22,7 +22,7 @@ struct PanelResultsView<RowContent: View>: View {
     /// Builds one row. `PanelView` owns row effects (selection, drag, context
     /// menu, pagination), so the row arrives already wired instead of this
     /// slice reaching for the state those effects need.
-    let row: (Int, ClipItem) -> RowContent
+    let row: (ClipItem) -> RowContent
 
     var body: some View {
         if items.isEmpty {
@@ -71,7 +71,7 @@ struct PanelResultsView<RowContent: View>: View {
         ForEach(groups) { group in
             Section {
                 ForEach(group.rows, id: \.item.id) { entry in
-                    row(entry.index, entry.item)
+                    row(entry.item)
                 }
             } header: {
                 sectionHeader(group.section, count: group.rows.count)
@@ -80,8 +80,8 @@ struct PanelResultsView<RowContent: View>: View {
     }
 
     private var flatRows: some View {
-        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-            row(index, item)
+        ForEach(items) { item in
+            row(item)
         }
     }
 

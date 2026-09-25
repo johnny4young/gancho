@@ -549,9 +549,7 @@ struct PanelView: View {
                         search.selectedBoardID = nil
                         search.selectedSourceAppBundleID = nil
                     },
-                    row: { index, item in
-                        clipRow(index: index, item: item)
-                    })
+                    row: { item in clipRow(item: item) })
             }
             .padding(.top, GanchoTokens.Spacing.xxs)
         }
@@ -981,22 +979,25 @@ struct PanelView: View {
 
     /// One clip row with its shared interactions — used by both the flat
     /// (search/board) and date-grouped (recent) layouts.
-    private func clipRow(index: Int, item: ClipItem) -> some View {
-        row(for: item, index: index)
+    private func clipRow(item: ClipItem) -> some View {
+        row(for: item)
             .id(item.id)
             // Every row is a drag source into other apps.
             // Sensitive clips are excluded inside the modifier.
             .clipDragSource(
                 item,
                 selectedItems: search.selectedItems,
-                select: { toggling in select(index, toggling: toggling) },
+                select: { toggling in select(item, toggling: toggling) },
                 doubleClick: { model.paste(item) }
             )
             // Load this image's thumbnail once it scrolls into view (LazyVStack
             // builds only visible rows — the view-level virtual scrolling).
             .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
             // Pull the next page when this row is near the end (infinite scroll).
-            .onAppear { Task { await search.loadMoreIfNeeded(index) } }
+            .onAppear {
+                guard let index = search.visibleIndex(of: item.id) else { return }
+                Task { await search.loadMoreIfNeeded(index) }
+            }
             // Single click SELECTS, double-click PASTES; hover no longer moves
             // the selection (arrows + click only). The select tap is a
             // `simultaneousGesture` so it fires on the FIRST click without waiting
@@ -1006,7 +1007,7 @@ struct PanelView: View {
             .onTapGesture(count: 2) { model.paste(item) }
             .simultaneousGesture(
                 TapGesture().onEnded {
-                    select(index, toggling: NSEvent.modifierFlags.contains(.command))
+                    select(item, toggling: NSEvent.modifierFlags.contains(.command))
                 }
             )
             .contextMenu { contextMenu(for: item) }
@@ -1065,14 +1066,15 @@ struct PanelView: View {
         }
     }
 
-    private func row(for item: ClipItem, index: Int) -> some View {
+    private func row(for item: ClipItem) -> some View {
+        let index = search.visibleIndex(of: item.id)
         // ClipCard is the design's ClipRow: kind glyph (or colour swatch),
         // title/preview, pin / Universal-Clipboard markers, and the ⌘N
         // quick-paste badge for the first nine rows.
-        ClipCard(
+        return ClipCard(
             item: item, isSelected: search.isSelected(item.id),
             previewsHidden: model.preferences.isPrivateModePaused,
-            shortcutNumber: index < 9 ? index + 1 : nil,
+            shortcutNumber: index.flatMap { $0 < 9 ? $0 + 1 : nil },
             thumbnail: model.thumbnails.cached(for: item.id),
             // Only the anchor shares the geometry: two rows claiming the same
             // matched id (a ⇧ range) would log and draw nothing.
@@ -1136,6 +1138,11 @@ struct PanelView: View {
     /// Select a row without acting on it (the click + arrow path). Re-grabs
     /// search focus so type-to-search and Enter-to-paste keep working after a
     /// click lands focus on the row.
+    private func select(_ item: ClipItem, toggling: Bool) {
+        guard let index = search.visibleIndex(of: item.id) else { return }
+        select(index, toggling: toggling)
+    }
+
     private func select(_ index: Int, toggling: Bool = false) {
         withAnimation(selectionAnimation) {
             search.select(index, toggling: toggling)

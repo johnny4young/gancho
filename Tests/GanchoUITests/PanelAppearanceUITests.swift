@@ -20,6 +20,37 @@ final class PanelAppearanceUITests: XCTestCase {
     }
 
     @MainActor
+    func testImageFilteringKeepsRowIdentityAndShortcutBadges() throws {
+        continueAfterFailure = false
+        let app = GanchoUITestApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+            "-seed-visual-library", "-force-free-tier", "-start-capture-paused",
+            "-opaque-panel-for-ui-test", "-place-panel-for-ui-test", "-AppleLanguages", "(en)",
+            "-ui-test-defaults-suite",
+            "com.johnny4young.gancho.uitests.indices.\(UUID().uuidString)"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        let images = app.buttons["filter-images"].firstMatch
+        XCTAssertTrue(images.waitForExistence(timeout: 15))
+        images.click()
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+            .matching(NSPredicate(format: "label BEGINSWITH 'image,'"))
+        XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 5))
+        for (index, row) in rows.allElementsBoundByIndex.enumerated() {
+            XCTAssertEqual(row.value as? String, "⌘\(index + 1)")
+        }
+        let landscape = rows.matching(NSPredicate(format: "NOT (label CONTAINS %@)", "•••"))
+            .firstMatch
+        landscape.click()
+        let title = app.staticTexts["preview-title"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            title.label == "Synthetic landscape" || title.value as? String == "Synthetic landscape")
+    }
+
+    @MainActor
     private func verifyToolbar(language: String, extraArguments: [String]) throws {
         continueAfterFailure = false
         let app = GanchoUITestApplication()

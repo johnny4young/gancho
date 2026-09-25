@@ -13,7 +13,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   on the left, type filters as glyph chips that expand to their name when
   active, the source-app filter and Save filter on the right. Compact layouts
   wrap the toolbar without clipping controls, and keyboard navigation scrolls
-  boards into view. The search field
+  boards into view. Filtering and reordering keep row selection and quick-paste
+  badges aligned with the current clips. The search field
   sits directly on the panel glass at a larger size, with autocorrection and
   text suggestions disabled for literal queries. Rows carry their identity
   in the tile (a link's host initial, the real colour swatch, the image

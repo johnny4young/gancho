@@ -57,6 +57,29 @@ struct PanelSearchModelTests {
         (0..<n).map { ClipItem(kind: kind, preview: "item \($0)") }
     }
 
+    @Test func visibleIndicesFollowFilteringReorderingAndDeletionWithoutRepeatedScans() {
+        let source = FakeSource()
+        let model = PanelSearchModel(source: source)
+        let text = ClipItem(kind: .text, preview: "text")
+        let first = ClipItem(kind: .image, preview: "first")
+        let second = ClipItem(kind: .image, preview: "second")
+        model.results = [text, first, second, first]
+        #expect(model.visibleIndex(of: second.id) == 2)
+        model.kindFilter = .images
+        #expect(model.visibleIndex(of: text.id) == nil)
+        #expect(model.visibleIndex(of: first.id) == 0)
+        #expect(model.visibleIndex(of: second.id) == 1)
+        model.results = [second, first]
+        #expect(model.visibleIndex(of: first.id) == 1)
+        source.pending.insert(second.id)
+        model.reconcileVisible()
+        #expect(model.visibleIndex(of: second.id) == nil)
+        #expect(model.visibleIndex(of: first.id) == 0)
+        source.resetDeletionPendingCalls()
+        for _ in 0..<1_000 { #expect(model.visibleIndex(of: first.id) == 0) }
+        #expect(source.deletionPendingCalls == 0)
+    }
+
     // MARK: - Recent load + pagination
 
     @Test func emptyQueryLoadsTheFirstRecentPageAndFlagsAShortList() async {

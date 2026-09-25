@@ -134,6 +134,10 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// ``reconcileVisible()`` when the pending-deletion set moves underneath it
     /// — that last one is why this is not simply derived state.
     public private(set) var filtered: [ClipItem] = []
+    private var visibleIndices: [UUID: Int] = [:]
+
+    /// Resolve reused rows against the current list, never a captured pre-filter offset.
+    public func visibleIndex(of id: UUID) -> Int? { visibleIndices[id] }
 
     /// Recomputes ``filtered``.
     ///
@@ -150,6 +154,8 @@ public struct PanelDateGroup: Identifiable, Sendable {
         filtered = base.filter {
             seen.insert($0.id).inserted && !source.isDeletionPending($0.id)
         }
+        visibleIndices = Dictionary(
+            uniqueKeysWithValues: filtered.enumerated().map { ($0.element.id, $0.offset) })
         // Reconcile at replacement, not after a later snippet lookup. The
         // cursor follows its ID while surviving batch selections stay intact.
         selectionModel.reconcile(in: filtered)
