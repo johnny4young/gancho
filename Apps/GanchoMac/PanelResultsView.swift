@@ -9,6 +9,8 @@ import SwiftUI
 /// This slice receives immutable presentation values and a row builder so it
 /// cannot become a second navigation owner or reach into `AppModel`.
 struct PanelResultsView<RowContent: View>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let query: String
     let hasActiveFilter: Bool
     let firstRunHint: LocalizedStringKey
@@ -106,7 +108,7 @@ struct PanelResultsView<RowContent: View>: View {
     private func clipCount(_ count: Int) -> some View {
         Text("\(count) clips")
             .contentTransition(.numericText(value: Double(count)))
-            .animation(.snappy(duration: 0.2), value: count)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: count)
     }
 
     private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {

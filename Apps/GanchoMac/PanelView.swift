@@ -558,14 +558,27 @@ struct PanelView: View {
     }
 
     /// Boards on the left (their own scroll rail), type filters and the source
-    /// app on the right, Save filter at the edge. One visual row; the keyboard
-    /// model is unchanged (↑ enters the filters, ↑ again the boards, ←→ move
-    /// within one).
+    /// app on the right, Save filter at the edge. Compact widths wrap the
+    /// controls below the boards rather than clipping them. Keyboard order
+    /// stays the same in either layout.
     private var panelToolbar: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                boardRail.frame(minWidth: 100)
+                Rectangle().fill(.separator).frame(width: 1, height: 14)
+                toolbarFilters
+            }
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                boardRail
+                toolbarFilters
+            }
+        }
+        .padding(.horizontal, GanchoTokens.Spacing.sm)
+        .padding(.vertical, 6)
+    }
+
+    private var toolbarFilters: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            boardRail
-                .frame(minWidth: 72)
-            Rectangle().fill(.separator).frame(width: 1, height: 14)
             filterRail
             if !search.sourceApps.isEmpty {
                 sourceAppMenu
@@ -585,8 +598,7 @@ struct PanelView: View {
             .accessibilityLabel(Text("Save filter"))
             .accessibilityIdentifier("filter-save")
         }
-        .padding(.horizontal, GanchoTokens.Spacing.sm)
-        .padding(.vertical, 6)
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     /// Sync state, capture state and the shortcut hints, under BOTH panes.
@@ -642,6 +654,7 @@ struct PanelView: View {
             } label: {
                 Label("All apps", systemImage: "square.grid.2x2")
             }
+            .accessibilityIdentifier("source-app-all")
             Divider()
             ForEach(search.sourceApps) { app in
                 Button {
@@ -663,7 +676,7 @@ struct PanelView: View {
                 selectedBundleID.map { Text(verbatim: SourceApp.displayName(forBundleID: $0)) }
                     ?? Text("All apps"),
                 isActive: selectedBundleID != nil, isFocused: false,
-                showsTitle: selectedBundleID != nil
+                showsTitle: false
             ) {
                 if let bundleID = selectedBundleID, let icon = SourceApp.icon(forBundleID: bundleID)
                 {
@@ -676,8 +689,15 @@ struct PanelView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("Filter by app")
+        .help(
+            selectedBundleID.map { Text(verbatim: SourceApp.displayName(forBundleID: $0)) }
+                ?? Text("Filter by app")
+        )
         .accessibilityLabel(Text("Filter by app"))
+        .accessibilityValue(
+            selectedBundleID.map { Text(verbatim: SourceApp.displayName(forBundleID: $0)) }
+                ?? Text("All apps")
+        )
         .accessibilityIdentifier("source-app-filter")
     }
 
@@ -756,38 +776,45 @@ struct PanelView: View {
     /// boards are glyph-only until active; user boards always show their name
     /// (a bare colour dot would not identify them).
     private var boardRail: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                railChip(
-                    Text("All clips"), isActive: search.selectedBoardID == nil,
-                    isFocused: railFocus == .boards(0), identifier: "board-all"
-                ) {
-                    Image(systemName: "tray.full")
-                } action: {
-                    search.selectedBoardID = nil
-                }
-                ForEach(Array(model.boards.enumerated()), id: \.element.id) { index, board in
-                    boardChip(board, index: index)
-                }
-                Button {
-                    boardNameField = ""
-                    boardSheet = .new
-                } label: {
-                    railChipLabel(
-                        Text("New board…"), isActive: false, isFocused: false, showsTitle: false
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: GanchoTokens.Spacing.xxs) {
+                    railChip(
+                        Text("All clips"), isActive: search.selectedBoardID == nil,
+                        isFocused: railFocus == .boards(0), identifier: "board-all"
                     ) {
-                        Image(systemName: "plus")
+                        Image(systemName: "tray.full")
+                    } action: {
+                        search.selectedBoardID = nil
                     }
+                    .id(0)
+                    ForEach(Array(model.boards.enumerated()), id: \.element.id) { index, board in
+                        boardChip(board, index: index)
+                            .id(index + 1)
+                    }
+                    Button {
+                        boardNameField = ""
+                        boardSheet = .new
+                    } label: {
+                        railChipLabel(
+                            Text("New board…"), isActive: false, isFocused: false, showsTitle: false
+                        ) {
+                            Image(systemName: "plus")
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("New board…")
+                    .accessibilityLabel(Text("New board…"))
+                    .accessibilityIdentifier("board-new")
                 }
-                .buttonStyle(.plain)
-                .help("New board…")
-                .accessibilityLabel(Text("New board…"))
-                .accessibilityIdentifier("board-new")
+                .padding(.vertical, 1)
+                .contentShape(Rectangle())
             }
-            .padding(.vertical, 1)
-            .contentShape(Rectangle())
+            .accessibilityIdentifier("board-rail")
+            .onChange(of: railFocus) { _, focused in
+                if case .boards(let index) = focused { proxy.scrollTo(index) }
+            }
         }
-        .accessibilityIdentifier("board-rail")
     }
 
     private func boardChip(_ board: Pinboard, index: Int) -> some View {

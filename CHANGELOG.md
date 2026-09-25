@@ -11,8 +11,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The Mac history panel has one toolbar instead of three stacked rows: boards
   on the left, type filters as glyph chips that expand to their name when
-  active, the source-app filter and Save filter on the right. The search field
-  sits directly on the panel glass at a larger size. Rows carry their identity
+  active, the source-app filter and Save filter on the right. Compact layouts
+  wrap the toolbar without clipping controls, and keyboard navigation scrolls
+  boards into view. The search field
+  sits directly on the panel glass at a larger size and accepts literal queries
+  without AutoFill or autocorrection. Rows carry their identity
   in the tile (a link's host initial, the real colour swatch, the image
   thumbnail), code previews are syntax-tinted, and the source app and time sit
   in a trailing column. The selection highlight glides between rows and

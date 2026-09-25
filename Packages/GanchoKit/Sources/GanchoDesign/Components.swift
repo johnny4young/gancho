@@ -422,6 +422,10 @@ public struct SearchField: View {
                 .accessibilityHidden(true)
             TextField(promptKey, text: $text)
                 .textFieldStyle(.plain)
+                .autocorrectionDisabled()
+                #if os(macOS)
+                    .textContentType(nil)
+                #endif
                 // Take the row and left-align: a bare `.plain` TextField on macOS
                 // lets the field's intrinsic width shrink to the value, which with
                 // the tight spacing clipped the first characters of the prompt
