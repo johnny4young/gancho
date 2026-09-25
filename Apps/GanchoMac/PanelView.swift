@@ -101,13 +101,6 @@ struct PanelView: View {
     @AppStorage private var panelTextSizeRaw: String
     /// One selection highlight shared by every row (see `ClipCard`).
     @Namespace private var selectionNamespace
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// Selection moves are animated so the highlight glides between rows;
-    /// nil under Reduce Motion so the change is instant.
-    private var selectionAnimation: Animation? {
-        reduceMotion ? nil : .snappy(duration: 0.18, extraBounce: 0)
-    }
 
     init(model: AppModel, displayDefaults: UserDefaults = .standard) {
         _search = State(wrappedValue: PanelSearchModel(source: model))
@@ -407,9 +400,6 @@ struct PanelView: View {
         @Bindable var search = search
         return VStack(spacing: 0) {
             SearchField("Search your clipboard", text: $search.query, style: .bare)
-                // Queries are literal input; system completions must not cover
-                // the selection controls or consume their keyboard navigation.
-                .autocorrectionDisabled()
                 .focused($focus, equals: .search)
                 .onKeyPress(.downArrow, phases: [.down, .repeat]) { press in
                     if railFocus == nil, press.modifiers.contains(.shift),
@@ -674,7 +664,7 @@ struct PanelView: View {
                 selectedBundleID.map { Text(verbatim: SourceApp.displayName(forBundleID: $0)) }
                     ?? Text("All apps"),
                 isActive: selectedBundleID != nil, isFocused: false,
-                showsTitle: false
+                showsTitle: selectedBundleID != nil
             ) {
                 if let bundleID = selectedBundleID, let icon = SourceApp.icon(forBundleID: bundleID)
                 {
@@ -785,10 +775,9 @@ struct PanelView: View {
                     } action: {
                         search.selectedBoardID = nil
                     }
-                    .id(0)
+                    .id(Self.allClipsRailID)
                     ForEach(Array(model.boards.enumerated()), id: \.element.id) { index, board in
                         boardChip(board, index: index)
-                            .id(index + 1)
                     }
                     Button {
                         boardNameField = ""
@@ -810,10 +799,17 @@ struct PanelView: View {
             }
             .accessibilityIdentifier("board-rail")
             .onChange(of: railFocus) { _, focused in
-                if case .boards(let index) = focused { proxy.scrollTo(index) }
+                guard case .boards(let index) = focused else { return }
+                if index == 0 {
+                    proxy.scrollTo(Self.allClipsRailID)
+                } else if model.boards.indices.contains(index - 1) {
+                    proxy.scrollTo(model.boards[index - 1].id)
+                }
             }
         }
     }
+
+    private static let allClipsRailID = "board-all"
 
     private func boardChip(_ board: Pinboard, index: Int) -> some View {
         let isActive = search.selectedBoardID == board.id
@@ -1076,9 +1072,10 @@ struct PanelView: View {
             previewsHidden: model.preferences.isPrivateModePaused,
             shortcutNumber: index.flatMap { $0 < 9 ? $0 + 1 : nil },
             thumbnail: model.thumbnails.cached(for: item.id),
-            // Only the anchor shares the geometry: two rows claiming the same
+            // Only the anchor claims the gliding highlight: two rows sharing one
             // matched id (a ⇧ range) would log and draw nothing.
-            selectionNamespace: search.selectedItem?.id == item.id ? selectionNamespace : nil)
+            selectionNamespace: selectionNamespace,
+            isSelectionAnchor: search.selectedItem?.id == item.id)
     }
 
     /// Pin/board assignment — the context-menu path; drag & drop arrives
@@ -1144,17 +1141,13 @@ struct PanelView: View {
     }
 
     private func select(_ index: Int, toggling: Bool = false) {
-        withAnimation(selectionAnimation) {
-            search.select(index, toggling: toggling)
-        }
+        search.select(index, toggling: toggling)
         railFocus = nil
         focus = .search
     }
 
     private func extendSelection(by delta: Int) -> KeyPress.Result {
-        withAnimation(selectionAnimation) {
-            search.moveSelection(by: delta, extending: true)
-        }
+        search.moveSelection(by: delta, extending: true)
         if delta > 0 { Task { await search.loadMoreIfNeeded(search.selectedIndex) } }
         focus = .search
         return .handled
@@ -1220,9 +1213,7 @@ struct PanelView: View {
         // invalidations (and a no-op `onChange`) on a plain arrow keypress.
         if railFocus != result.state.railFocus { railFocus = result.state.railFocus }
         if search.selectedIndex != result.state.selectedIndex {
-            withAnimation(selectionAnimation) {
-                search.selectedIndex = result.state.selectedIndex
-            }
+            search.selectedIndex = result.state.selectedIndex
         }
         if search.kindFilter != result.state.kindFilter {
             search.kindFilter = result.state.kindFilter

@@ -70,8 +70,8 @@ struct PanelResultsView<RowContent: View>: View {
     private var groupedRows: some View {
         ForEach(groups) { group in
             Section {
-                ForEach(group.rows, id: \.item.id) { entry in
-                    row(entry.item)
+                ForEach(group.rows) { item in
+                    row(item)
                 }
             } header: {
                 sectionHeader(group.section, count: group.rows.count)

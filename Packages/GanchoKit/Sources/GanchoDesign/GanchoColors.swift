@@ -138,6 +138,19 @@ extension GanchoTokens {
             return syntaxDynamicColor(light: t.light, dark: t.dark)
         }
 
+        /// `source` with every `GanchoSyntax` token tinted. Callers own any size cap.
+        public static func highlighted(_ source: String) -> AttributedString {
+            var attributed = AttributedString(source)
+            for token in GanchoSyntax.tokens(in: source) {
+                let lower = source.distance(from: source.startIndex, to: token.range.lowerBound)
+                let upper = source.distance(from: source.startIndex, to: token.range.upperBound)
+                let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
+                let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
+                attributed[lo..<hi].foregroundColor = color(for: token.kind)
+            }
+            return attributed
+        }
+
         #if canImport(AppKit)
             /// Appearance-dynamic `NSColor` for a token kind (used by the AppKit
             /// Library editor so the tint updates live on a theme switch).

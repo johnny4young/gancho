@@ -166,9 +166,9 @@ struct PanelSearchModelTests {
         // actually looks at. Asserting `filtered` alone let a reconcile that
         // left the sections stale pass as a fix.
         #expect(model.isGroupedView)
-        #expect(!model.groups.flatMap(\.rows).contains { $0.item.id == doomed.id })
-        // Row indices address `filtered`; a stale section would point past it.
-        #expect(model.groups.flatMap { $0.rows.map(\.index) } == [0])
+        #expect(!model.groups.flatMap(\.rows).contains { $0.id == doomed.id })
+        // The sections cover exactly `filtered`; a stale section would not.
+        #expect(model.groups.flatMap(\.rows).map(\.id) == model.filtered.map(\.id))
     }
 
     @Test func anUndoneDeleteBringsTheRowBack() async {
@@ -179,14 +179,14 @@ struct PanelSearchModelTests {
         let model = PanelSearchModel(source: source)
         await model.refresh()
         #expect(model.filtered.count == 1)
-        #expect(!model.groups.flatMap(\.rows).contains { $0.item.id == restored.id })
+        #expect(!model.groups.flatMap(\.rows).contains { $0.id == restored.id })
 
         source.pending = []
         model.reconcileVisible()
 
         #expect(model.filtered.map(\.id).contains(restored.id))
-        #expect(model.groups.flatMap(\.rows).contains { $0.item.id == restored.id })
-        #expect(model.groups.flatMap { $0.rows.map(\.index) } == [0, 1])
+        #expect(model.groups.flatMap(\.rows).contains { $0.id == restored.id })
+        #expect(model.groups.flatMap(\.rows).map(\.id) == model.filtered.map(\.id))
     }
 
     @Test func theVisibleListIsBuiltOncePerChangeNotOncePerRead() async {
@@ -409,8 +409,9 @@ struct PanelSearchModelTests {
         #expect(model.isGroupedView)
         #expect(model.groups.first?.section == .pinned)
         #expect(model.groups.first?.rows.count == 1)
-        // The row indices are global across sections, so the cursor math lines up.
-        #expect(model.groups.flatMap { $0.rows.map(\.index) } == [0, 1, 2])
+        // Sections concatenate to `filtered`, so the cursor math lines up.
+        #expect(model.groups.flatMap(\.rows).map(\.id) == model.filtered.map(\.id))
+        #expect(model.filtered.map { model.visibleIndex(of: $0.id) } == [0, 1, 2])
     }
 
     // MARK: - In-memory fallback

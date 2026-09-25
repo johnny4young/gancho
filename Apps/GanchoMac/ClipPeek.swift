@@ -485,19 +485,13 @@ extension ClipPeek {
     /// via `GanchoSyntax` (strings, comments, numbers, keywords, `{placeholder}`
     /// fields). Non-code clips render as plain text.
     private var highlighted: AttributedString {
-        var attributed = AttributedString(bodyText)
         // The peek re-renders on every selection change; tokenizing a very
         // large clip there would lag navigation, so highlight only when the
         // clip is a reasonable size.
-        guard item.kind == .code, bodyText.count <= 20_000 else { return attributed }
-        for token in GanchoSyntax.tokens(in: bodyText) {
-            let lower = bodyText.distance(from: bodyText.startIndex, to: token.range.lowerBound)
-            let upper = bodyText.distance(from: bodyText.startIndex, to: token.range.upperBound)
-            let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
-            let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
-            attributed[lo..<hi].foregroundColor = GanchoTokens.Syntax.color(for: token.kind)
+        guard item.kind == .code, bodyText.count <= 20_000 else {
+            return AttributedString(bodyText)
         }
-        return attributed
+        return GanchoTokens.Syntax.highlighted(bodyText)
     }
 
     private var isInlineEditing: Bool {

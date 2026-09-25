@@ -20,7 +20,9 @@ import Observation
 /// `ClipSection` grouping (Pinned first, then date buckets) the iOS list uses.
 public struct PanelDateGroup: Identifiable, Sendable {
     public let section: ClipSection
-    public let rows: [(index: Int, item: ClipItem)]
+    /// Rows resolve their cursor offset through
+    /// ``PanelSearchModel/visibleIndex(of:)``, never a copy captured here.
+    public let rows: [ClipItem]
     /// Identity is the SECTION, which is stable and unique per run (each section
     /// appears once, contiguously). Keying on the first clip's id instead made
     /// the group's identity change every time a new clip landed at the top —
@@ -391,8 +393,8 @@ public struct PanelDateGroup: Identifiable, Sendable {
         let now = Date()
         var built: [PanelDateGroup] = []
         var section: ClipSection?
-        var rows: [(index: Int, item: ClipItem)] = []
-        for (index, item) in filtered.enumerated() {
+        var rows: [ClipItem] = []
+        for item in filtered {
             let itemSection: ClipSection =
                 item.isPinned ? .pinned : .date(DateBucket.of(item.createdAt, now: now))
             if itemSection != section {
@@ -400,7 +402,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
                 section = itemSection
                 rows = []
             }
-            rows.append((index: index, item: item))
+            rows.append(item)
         }
         if let section { built.append(PanelDateGroup(section: section, rows: rows)) }
         groups = built

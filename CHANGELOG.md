@@ -18,8 +18,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   sits directly on the panel glass at a larger size, with autocorrection and
   text suggestions disabled for literal queries. Rows carry their identity
   in the tile (a link's host initial, the real colour swatch, the image
-  thumbnail), code previews are syntax-tinted, and the source app and time sit
-  in a trailing column. The selection highlight glides between rows and
+  thumbnail), code previews are syntax-tinted, and the source app and a
+  minute-granular capture time sit in a trailing column; iPhone and iPad history
+  rows share the same layout. The selection highlight glides between rows and
   section counts roll instead of flicking; both respect Reduce Motion.
 
 ### Fixed

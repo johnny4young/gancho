@@ -84,16 +84,18 @@ public struct ClipCard: View {
     let shortcutNumber: Int?
     /// A pre-loaded thumbnail for image clips; nil falls back to the kind tile.
     let thumbnail: Image?
-    /// When set, the selection highlight is one shared view that glides to the
-    /// newly selected row instead of appearing on it. Only ONE visible row may
-    /// pass a namespace at a time (the anchor of a multi-selection).
+    /// When set, the selection highlight glides to the newly selected row
+    /// instead of appearing on it. Every row of one list passes the same
+    /// namespace; only the anchor row claims the gliding highlight.
     let selectionNamespace: Namespace.ID?
+    let isSelectionAnchor: Bool
     @ScaledMetric(relativeTo: .body) private var tileSize: CGFloat = 36
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(
         item: ClipItem, isSelected: Bool = false, previewsHidden: Bool = false,
         shortcutNumber: Int? = nil, thumbnail: Image? = nil,
-        selectionNamespace: Namespace.ID? = nil
+        selectionNamespace: Namespace.ID? = nil, isSelectionAnchor: Bool = true
     ) {
         self.item = item
         self.isSelected = isSelected
@@ -101,6 +103,7 @@ public struct ClipCard: View {
         self.shortcutNumber = shortcutNumber
         self.thumbnail = thumbnail
         self.selectionNamespace = selectionNamespace
+        self.isSelectionAnchor = isSelectionAnchor
     }
 
     /// Whether a clip is close enough to expiry to earn the row countdown:
@@ -119,14 +122,15 @@ public struct ClipCard: View {
     /// favicon and no network, so the URL never leaves the device.
     nonisolated public static func linkMonogram(for preview: String) -> String? {
         let trimmed = preview.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let host = URL(string: trimmed)?.host(), !host.isEmpty else { return nil }
+        guard let host = URL(string: trimmed)?.host()?.removingPercentEncoding, !host.isEmpty else {
+            return nil
+        }
         let bare = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
         guard let first = bare.first, first.isLetter || first.isNumber else { return nil }
         return String(first).uppercased()
     }
 
-    /// Row previews are short, so tinting them per keystroke-free render is
-    /// cheap; the cap guards a malformed oversized preview.
+    /// Row previews are short; the cap guards a malformed oversized one.
     private static let syntaxPreviewLimit = 240
 
     public var body: some View {
@@ -148,7 +152,13 @@ public struct ClipCard: View {
         }
         .padding(.vertical, 7)
         .padding(.horizontal, GanchoTokens.Spacing.xs + 2)
-        .background { selectionBackground }
+        .background {
+            // Scoped to the highlight: an animated selection transaction would
+            // also cross-fade the peek and animate the list's scroll-to.
+            selectionBackground
+                .animation(selectionAnimation, value: isSelected)
+                .animation(selectionAnimation, value: isSelectionAnchor)
+        }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
@@ -175,16 +185,7 @@ public struct ClipCard: View {
     /// The same local tokenizer the peek and the Library editor use, so a code
     /// row already reads as code in the list.
     private var highlightedPreview: AttributedString {
-        let source = String(item.preview.prefix(Self.syntaxPreviewLimit))
-        var attributed = AttributedString(source)
-        for token in GanchoSyntax.tokens(in: source) {
-            let lower = source.distance(from: source.startIndex, to: token.range.lowerBound)
-            let upper = source.distance(from: source.startIndex, to: token.range.upperBound)
-            let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
-            let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
-            attributed[lo..<hi].foregroundColor = GanchoTokens.Syntax.color(for: token.kind)
-        }
-        return attributed
+        GanchoTokens.Syntax.highlighted(String(item.preview.prefix(Self.syntaxPreviewLimit)))
     }
 
     /// Source · time on top, then the state markers and the ⌘N badge.
@@ -244,6 +245,10 @@ public struct ClipCard: View {
         }
     }
 
+    private var selectionAnimation: Animation? {
+        selectionNamespace == nil || reduceMotion ? nil : .snappy(duration: 0.18, extraBounce: 0)
+    }
+
     /// Accent wash plus the design's accent bar on the leading edge. With a
     /// namespace the pair is ONE view shared by every row, so a selection change
     /// moves it rather than swapping it.
@@ -257,7 +262,9 @@ public struct ClipCard: View {
                     .frame(width: 3)
                     .padding(.vertical, GanchoTokens.Spacing.xs)
             }
-            .modifier(SharedSelectionGeometry(namespace: selectionNamespace))
+            .modifier(
+                SharedSelectionGeometry(
+                    namespace: selectionNamespace, rowID: isSelectionAnchor ? nil : item.id))
         }
     }
 
@@ -303,8 +310,8 @@ public struct ClipCard: View {
         .frame(width: tileSize, height: tileSize)
     }
 
-    /// "Safari · 12 min" — source app (cheap, NSWorkspace-free fallback name)
-    /// and the relative capture time. Hidden in private mode.
+    /// "Safari · 12 minutes ago", hidden in private mode. Minute-granular: it sits
+    /// beside the preview, and a per-second timer would resize it every tick.
     @ViewBuilder private var sourceTimeLine: some View {
         if !previewsHidden {
             HStack(spacing: 3) {
@@ -312,7 +319,7 @@ public struct ClipCard: View {
                     Text(SourceApp.fallbackName(forBundleID: bundleID))
                     Text(verbatim: "·")
                 }
-                Text(item.createdAt, style: .relative)
+                Text(.currentDate, format: .reference(to: item.createdAt, maxFieldCount: 1))
             }
             .font(.caption2)
             .foregroundStyle(.tertiary)
@@ -335,14 +342,18 @@ public struct ClipCard: View {
     }
 }
 
-/// `matchedGeometryEffect` needs a namespace at compile time; this lets a row
-/// opt in only when its host shares one.
+/// Lets a row opt into the shared highlight only when its host has a namespace.
+/// Non-anchor rows keep the modifier under their own id, so moving the anchor
+/// never swaps a still-selected row's background for a new view.
 private struct SharedSelectionGeometry: ViewModifier {
     let namespace: Namespace.ID?
+    /// nil for the anchor, which claims the shared id.
+    let rowID: UUID?
 
     func body(content: Content) -> some View {
         if let namespace {
-            content.matchedGeometryEffect(id: "clip-selection", in: namespace)
+            content.matchedGeometryEffect(
+                id: rowID.map(AnyHashable.init) ?? AnyHashable("clip-selection"), in: namespace)
         } else {
             content
         }
