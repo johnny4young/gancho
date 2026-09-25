@@ -70,8 +70,9 @@ extension GanchoTokens.Palette {
     }
 }
 
-/// One clip row/card: badge, preview (masked kinds render their stored
-/// masked preview — the secret never reaches this view), optional thumbnail.
+/// One clip row/card: kind tile, title/preview (masked kinds render their
+/// stored masked preview — the secret never reaches this view), and a trailing
+/// meta column (source · time, markers, ⌘N).
 public struct ClipCard: View {
     let item: ClipItem
     let isSelected: Bool
@@ -83,16 +84,23 @@ public struct ClipCard: View {
     let shortcutNumber: Int?
     /// A pre-loaded thumbnail for image clips; nil falls back to the kind tile.
     let thumbnail: Image?
+    /// When set, the selection highlight is one shared view that glides to the
+    /// newly selected row instead of appearing on it. Only ONE visible row may
+    /// pass a namespace at a time (the anchor of a multi-selection).
+    let selectionNamespace: Namespace.ID?
+    @ScaledMetric(relativeTo: .body) private var tileSize: CGFloat = 36
 
     public init(
         item: ClipItem, isSelected: Bool = false, previewsHidden: Bool = false,
-        shortcutNumber: Int? = nil, thumbnail: Image? = nil
+        shortcutNumber: Int? = nil, thumbnail: Image? = nil,
+        selectionNamespace: Namespace.ID? = nil
     ) {
         self.item = item
         self.isSelected = isSelected
         self.previewsHidden = previewsHidden || ClipSafePresentation.requiresMasking(item)
         self.shortcutNumber = shortcutNumber
         self.thumbnail = thumbnail
+        self.selectionNamespace = selectionNamespace
     }
 
     /// Whether a clip is close enough to expiry to earn the row countdown:
@@ -106,88 +114,41 @@ public struct ClipCard: View {
         return remaining > 0 && remaining < 3600
     }
 
+    /// The letter a link row's tile shows: the first character of the host,
+    /// without a leading `www.`. Parsed locally from the stored preview — no
+    /// favicon and no network, so the URL never leaves the device.
+    nonisolated public static func linkMonogram(for preview: String) -> String? {
+        let trimmed = preview.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let host = URL(string: trimmed)?.host(), !host.isEmpty else { return nil }
+        let bare = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        guard let first = bare.first, first.isLetter || first.isNumber else { return nil }
+        return String(first).uppercased()
+    }
+
+    /// Row previews are short, so tinting them per keystroke-free render is
+    /// cheap; the cap guards a malformed oversized preview.
+    private static let syntaxPreviewLimit = 240
+
     public var body: some View {
-        HStack(spacing: GanchoTokens.Spacing.xs) {
+        HStack(spacing: GanchoTokens.Spacing.sm) {
             leadingTile
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 if !item.title.isEmpty, !previewsHidden {
                     Text(item.title)
-                        .font(.body.weight(.medium))
+                        .font(.body.weight(.semibold))
                         .lineLimit(1)
                 }
-                Text(previewsHidden ? "•••" : ByteSize.humanizedPreview(item.preview))
-                    .font(item.kind == .code ? .body.monospaced() : .body)
+                previewText
                     .lineLimit(item.title.isEmpty ? 2 : 1)
                     .foregroundStyle(item.title.isEmpty ? .primary : .secondary)
-                sourceTimeLine
             }
-            Spacer(minLength: 0)
-            if item.expiresAt != nil {
-                // A live "expires in mm:ss" on rows about to age out — sensitive
-                // clips especially get a short lifetime, and the peek only warns
-                // once you open it. The TimelineView re-evaluates the SHOW/HIDE
-                // decision on a coarse tick (the inner Text self-updates every
-                // second on its own), so the badge appears when a clip crosses
-                // into the window and disappears once it expires — without
-                // waiting for an unrelated view update. Rows without an expiry
-                // never mount the timeline.
-                TimelineView(.periodic(from: .now, by: 15)) { context in
-                    if let expiresAt = item.expiresAt,
-                        Self.showsExpiryCountdown(expiresAt: expiresAt, now: context.date)
-                    {
-                        HStack(spacing: 2) {
-                            Image(systemName: "timer")
-                            Text(expiresAt, style: .timer)
-                        }
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(GanchoTokens.Palette.warning)
-                        .accessibilityLabel(Text("Expires soon"))
-                    }
-                }
-            }
-            if item.tags.contains("universal-clipboard") {
-                Image(systemName: "icloud.and.arrow.down")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel(Text("From another device"))
-            }
-            if item.isPinned {
-                Image(systemName: "pin.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel(Text("Pinned"))
-            }
-            if let shortcutNumber, (1...9).contains(shortcutNumber) {
-                Text(verbatim: "⌘\(shortcutNumber)")
-                    .font(.caption2.weight(.medium).monospaced())
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, GanchoTokens.Spacing.xxs)
-                    .padding(.vertical, 1)
-                    .background(
-                        .quaternary,
-                        in: RoundedRectangle(
-                            cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-                    )
-                    .accessibilityHidden(true)
-            }
+            Spacer(minLength: GanchoTokens.Spacing.xs)
+            trailingMeta
         }
-        .padding(GanchoTokens.Spacing.xs)
-        .background(
-            isSelected
-                ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.14))
-                : AnyShapeStyle(.clear),
-            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-        )
-        .overlay(alignment: .leading) {
-            // The design marks the selected row with a green accent bar.
-            if isSelected {
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(GanchoTokens.Palette.accent)
-                    .frame(width: 3)
-                    .padding(.vertical, GanchoTokens.Spacing.xxs)
-            }
-        }
+        .padding(.vertical, 7)
+        .padding(.horizontal, GanchoTokens.Spacing.xs + 2)
+        .background { selectionBackground }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
@@ -200,37 +161,146 @@ public struct ClipCard: View {
         .accessibilityIdentifier("clip-row")
     }
 
-    /// Kind-tinted rounded tile (the design's row icon): a real colour swatch
-    /// for colour clips, otherwise the kind glyph on a tint-washed background.
-    @ViewBuilder private var leadingTile: some View {
-        let tint = GanchoTokens.Palette.kindTint(for: item.kind)
-        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-        if item.kind == .image, !previewsHidden, let thumbnail {
-            thumbnail
-                .resizable()
-                .scaledToFill()
-                .frame(width: 30, height: 30)
-                .clipShape(shape)
-                .overlay(shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
+    @ViewBuilder private var previewText: some View {
+        if previewsHidden {
+            Text(verbatim: "•••").font(.callout)
+        } else if item.kind == .code {
+            Text(highlightedPreview).font(.callout.monospaced())
         } else {
-            shape
-                .fill(tileFill(tint))
-                .frame(width: 30, height: 30)
-                .overlay {
-                    if !(item.kind == .color && !previewsHidden) {
-                        Image(systemName: item.kind.symbolName)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(tint)
-                    }
-                }
+            Text(ByteSize.humanizedPreview(item.preview))
+                .font(item.title.isEmpty ? .body : .callout)
         }
     }
 
-    private func tileFill(_ tint: Color) -> AnyShapeStyle {
-        if item.kind == .color, !previewsHidden, let color = Color(hexString: item.preview) {
-            return AnyShapeStyle(color)
+    /// The same local tokenizer the peek and the Library editor use, so a code
+    /// row already reads as code in the list.
+    private var highlightedPreview: AttributedString {
+        let source = String(item.preview.prefix(Self.syntaxPreviewLimit))
+        var attributed = AttributedString(source)
+        for token in GanchoSyntax.tokens(in: source) {
+            let lower = source.distance(from: source.startIndex, to: token.range.lowerBound)
+            let upper = source.distance(from: source.startIndex, to: token.range.upperBound)
+            let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
+            let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
+            attributed[lo..<hi].foregroundColor = GanchoTokens.Syntax.color(for: token.kind)
         }
-        return AnyShapeStyle(tint.opacity(0.18))
+        return attributed
+    }
+
+    /// Source · time on top, then the state markers and the ⌘N badge.
+    private var trailingMeta: some View {
+        VStack(alignment: .trailing, spacing: 3) {
+            sourceTimeLine
+            HStack(spacing: GanchoTokens.Spacing.xxs) {
+                if item.expiresAt != nil {
+                    // A live "expires in mm:ss" on rows about to age out — sensitive
+                    // clips especially get a short lifetime, and the peek only warns
+                    // once you open it. The TimelineView re-evaluates the SHOW/HIDE
+                    // decision on a coarse tick (the inner Text self-updates every
+                    // second on its own), so the badge appears when a clip crosses
+                    // into the window and disappears once it expires — without
+                    // waiting for an unrelated view update. Rows without an expiry
+                    // never mount the timeline.
+                    TimelineView(.periodic(from: .now, by: 15)) { context in
+                        if let expiresAt = item.expiresAt,
+                            Self.showsExpiryCountdown(expiresAt: expiresAt, now: context.date)
+                        {
+                            HStack(spacing: 2) {
+                                Image(systemName: "timer")
+                                Text(expiresAt, style: .timer)
+                            }
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(GanchoTokens.Palette.warning)
+                            .accessibilityLabel(Text("Expires soon"))
+                        }
+                    }
+                }
+                if item.tags.contains("universal-clipboard") {
+                    Image(systemName: "icloud.and.arrow.down")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel(Text("From another device"))
+                }
+                if item.isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel(Text("Pinned"))
+                }
+                if let shortcutNumber, (1...9).contains(shortcutNumber) {
+                    Text(verbatim: "⌘\(shortcutNumber)")
+                        .font(.caption2.weight(.medium).monospaced())
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, GanchoTokens.Spacing.xxs)
+                        .padding(.vertical, 1)
+                        .background(
+                            .quaternary,
+                            in: RoundedRectangle(
+                                cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+                        )
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+    }
+
+    /// Accent wash plus the design's accent bar on the leading edge. With a
+    /// namespace the pair is ONE view shared by every row, so a selection change
+    /// moves it rather than swapping it.
+    @ViewBuilder private var selectionBackground: some View {
+        if isSelected {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                    .fill(GanchoTokens.Palette.accent.opacity(0.12))
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(GanchoTokens.Palette.accent)
+                    .frame(width: 3)
+                    .padding(.vertical, GanchoTokens.Spacing.xs)
+            }
+            .modifier(SharedSelectionGeometry(namespace: selectionNamespace))
+        }
+    }
+
+    /// Kind-tinted rounded tile (the design's row icon). Links, colours and
+    /// images carry their identity in full colour (a host monogram, the real
+    /// swatch, the thumbnail); everything else keeps the glyph on a tint wash.
+    @ViewBuilder private var leadingTile: some View {
+        let tint = GanchoTokens.Palette.kindTint(for: item.kind)
+        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.card, style: .continuous)
+        Group {
+            if item.kind == .image, !previewsHidden, let thumbnail {
+                thumbnail
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: tileSize, height: tileSize)
+                    .clipShape(shape)
+                    .overlay(
+                        shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
+            } else if item.kind == .color, !previewsHidden,
+                let color = Color(hexString: item.preview)
+            {
+                shape.fill(color)
+                    .overlay(
+                        shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
+            } else if item.kind == .url, !previewsHidden,
+                let monogram = Self.linkMonogram(for: item.preview)
+            {
+                shape.fill(tint.gradient)
+                    .overlay {
+                        Text(verbatim: monogram)
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
+            } else {
+                shape.fill(tint.opacity(0.16))
+                    .overlay {
+                        Image(systemName: item.kind.symbolName)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(tint)
+                    }
+            }
+        }
+        .frame(width: tileSize, height: tileSize)
     }
 
     /// "Safari · 12 min" — source app (cheap, NSWorkspace-free fallback name)
@@ -262,6 +332,20 @@ public struct ClipCard: View {
         // minute count would read stale).
         guard Self.showsExpiryCountdown(expiresAt: item.expiresAt) else { return base }
         return Text("\(base), \(Text("Expires soon"))")
+    }
+}
+
+/// `matchedGeometryEffect` needs a namespace at compile time; this lets a row
+/// opt in only when its host shares one.
+private struct SharedSelectionGeometry: ViewModifier {
+    let namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        if let namespace {
+            content.matchedGeometryEffect(id: "clip-selection", in: namespace)
+        } else {
+            content
+        }
     }
 }
 
@@ -299,15 +383,38 @@ public struct ActionButton: View {
 /// Search field with the panel's type-to-search contract: focused state is
 /// owned by the caller; every keystroke updates the binding immediately.
 public struct SearchField: View {
+    /// `.card` sits on its own glass surface (a standalone control); `.bare`
+    /// is the panel header — larger type, no surface of its own, because a
+    /// glass control inside a glass panel reads as nested material.
+    public enum Style: Sendable {
+        case card, bare
+    }
+
     let promptKey: LocalizedStringKey
+    let style: Style
     @Binding var text: String
 
-    public init(_ promptKey: LocalizedStringKey, text: Binding<String>) {
+    public init(_ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card) {
         self.promptKey = promptKey
         self._text = text
+        self.style = style
     }
 
     public var body: some View {
+        switch style {
+        case .card:
+            field
+                .padding(GanchoTokens.Spacing.xs)
+                .ganchoSurface(radius: GanchoTokens.Radius.md)
+        case .bare:
+            field
+                .font(.title3)
+                .padding(.horizontal, GanchoTokens.Spacing.md)
+                .padding(.vertical, GanchoTokens.Spacing.sm)
+        }
+    }
+
+    private var field: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
@@ -333,7 +440,5 @@ public struct SearchField: View {
                 .accessibilityIdentifier("search-clear")
             }
         }
-        .padding(GanchoTokens.Spacing.xs)
-        .ganchoSurface(radius: GanchoTokens.Radius.md)
     }
 }

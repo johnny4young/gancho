@@ -57,7 +57,7 @@ struct PanelResultsView<RowContent: View>: View {
         HStack {
             Text("Recent")
             Spacer()
-            Text("\(items.count) clips")
+            clipCount(items.count)
         }
         .font(.caption2.weight(.semibold))
         .foregroundStyle(.tertiary)
@@ -92,7 +92,7 @@ struct PanelResultsView<RowContent: View>: View {
             }
             Text(sectionTitle(section))
             Spacer()
-            Text("\(count) clips")
+            clipCount(count)
         }
         .font(.caption2.weight(.semibold))
         .foregroundStyle(.tertiary)
@@ -100,6 +100,13 @@ struct PanelResultsView<RowContent: View>: View {
         .padding(.horizontal, GanchoTokens.Spacing.xs)
         .padding(.vertical, GanchoTokens.Spacing.xxs)
         .background(.ultraThinMaterial)
+    }
+
+    /// Rolling digits when a section grows or shrinks (a capture, a delete).
+    private func clipCount(_ count: Int) -> some View {
+        Text("\(count) clips")
+            .contentTransition(.numericText(value: Double(count)))
+            .animation(.snappy(duration: 0.2), value: count)
     }
 
     private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
