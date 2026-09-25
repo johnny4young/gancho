@@ -1,3 +1,4 @@
+import SwiftUI
 import Testing
 
 @testable import GanchoDesign
@@ -14,6 +15,17 @@ struct SyntaxTests {
 
     private func kinds(_ source: String) -> [GanchoSyntax.TokenKind] {
         GanchoSyntax.tokens(in: source).map(\.kind)
+    }
+
+    @Test("Highlighting tints exactly the token characters, even after grapheme clusters")
+    func highlightedBridgesByCharacter() {
+        let source = "👨‍👩‍👧 e\u{301} let x = 1"
+        let highlighted = GanchoTokens.Syntax.highlighted(source)
+        let tinted = highlighted.runs.compactMap { run in
+            run.foregroundColor == nil ? nil : String(highlighted[run.range].characters)
+        }
+        #expect(tinted == ["let", "1"])
+        #expect(String(highlighted.characters) == source)
     }
 
     // MARK: Keywords

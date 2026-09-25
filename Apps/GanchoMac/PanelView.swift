@@ -737,7 +737,9 @@ struct PanelView: View {
                 .font(.caption.weight(.semibold))
                 .frame(width: 12, height: 12)
             if showsTitle {
+                // Truncate rather than widen the fixed-size toolbar; `.help` has the full name.
                 title.font(.caption.weight(isActive ? .semibold : .medium)).lineLimit(1)
+                    .frame(maxWidth: 120)
             }
         }
         .padding(.horizontal, showsTitle ? GanchoTokens.Spacing.xs : 6)
@@ -1132,14 +1134,16 @@ struct PanelView: View {
         model.paste(item, asPlainText: plain)
     }
 
-    /// Select a row without acting on it (the click + arrow path). Re-grabs
-    /// search focus so type-to-search and Enter-to-paste keep working after a
-    /// click lands focus on the row.
+    /// Resolves a clicked row against the current list; a row that already
+    /// left it (mid-refresh) is ignored.
     private func select(_ item: ClipItem, toggling: Bool) {
         guard let index = search.visibleIndex(of: item.id) else { return }
         select(index, toggling: toggling)
     }
 
+    /// Select a row without acting on it (the click + arrow path). Re-grabs
+    /// search focus so type-to-search and Enter-to-paste keep working after a
+    /// click lands focus on the row.
     private func select(_ index: Int, toggling: Bool = false) {
         search.select(index, toggling: toggling)
         railFocus = nil
