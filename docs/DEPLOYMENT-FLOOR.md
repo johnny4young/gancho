@@ -1,7 +1,7 @@
 # Deployment floor — minimum OS
 
 Gancho's source floor is `macOS 15.4 / iOS 26` (`Packages/GanchoKit/Package.swift`
-and `project.yml`). The published v0.8.3 DMG and signed Sparkle feed declare
+and `project.yml`). The published v0.8.4 DMG and signed Sparkle feed declare
 macOS 15.4 as the minimum. This artifact requirement is not runtime certification:
 real Sequoia acceptance remains pending in the post-release matrix.
 
