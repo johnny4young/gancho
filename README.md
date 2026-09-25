@@ -88,6 +88,19 @@ stay in reusable modules.
 
 ## Current capabilities
 
+<table>
+  <tr>
+    <td width="50%"><img src="site/assets/screen-ocr-peek.png" alt="Text recognized from an image beside the panel preview"><br><sub>Free manual OCR: the recognized text sits beside the image, ready to copy, open or translate.</sub></td>
+    <td width="50%"><img src="site/assets/screen-library.png" alt="Library cards for code, color, image and a protected clip"><br><sub>Visual Library cards; a protected clip stays masked.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="site/assets/screen-privacy-settings.png" alt="Gancho privacy settings on Mac"><br><sub>Privacy explained where you decide it; diagnostics are off by default.</sub></td>
+    <td width="50%" align="center"><img src="site/assets/screen-ios-masked.png" width="260" alt="Masked token preview on iPhone"><br><sub>On iPhone a token stays masked on long-press and is not offered for sharing.</sub></td>
+  </tr>
+</table>
+
+<sub>Screens captured from the app's UI tests with synthetic data (v0.8.4).</sub>
+
 **Capture & privacy**
 
 - macOS pasteboard monitor: adaptive low-power polling, screen-lock and
