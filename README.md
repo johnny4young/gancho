@@ -16,21 +16,19 @@
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20·%20iOS%20·%20iPadOS-blue)
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
-**Status: public v0.8.3; in active development toward 1.0.**
-**Source version: v0.8.4 (unreleased).** The published v0.8.3 direct download
-requires macOS 15.4+ (build 15). Local history and manual OCR are Free; Pro
-activation through Lemon Squeezy is included. The on-device model tier requires
-macOS 26. The v0.8.4 source keeps protected clips private on every outbound
-path, stops dropping shared items and sync changes, and keeps the panel
-selection across refreshes; it is not yet a published build — see its
-[release notes](docs/releases/v0.8.4.md).
+**Status: public v0.8.4; in active development toward 1.0.**
+**Source version: v0.8.4.** The published direct download requires macOS 15.4+
+(build 16). Local history and manual OCR are Free; Pro activation through
+Lemon Squeezy is included. The on-device model tier requires macOS 26.
 
 ![Gancho's history panel keeping the selected clip after an edit refreshes the list](site/assets/v0.8.4-release.png)
 
-*v0.8.4 candidate preview with synthetic fixtures — not evidence of a published release.*
+*v0.8.4 with synthetic fixtures: the panel keeps the selected clip after an edit refreshes the list.*
 
-[Download v0.8.3](https://github.com/johnny4young/gancho/releases/tag/v0.8.3)
-for free OCR from images or screen regions, visual Library cards, encrypted
+[Download v0.8.4](https://github.com/johnny4young/gancho/releases/tag/v0.8.4)
+to keep protected clips private on every outbound path, stop dropping shared
+items and sync changes, and keep the panel selection across refreshes — on top
+of free OCR from images or screen regions, visual Library cards, encrypted
 local saved filters and combined text copying. The signed, notarized DMG,
 checksum and signed Sparkle feed are published; Homebrew distributes the same
 artifact and bundled CLI. iOS/iPadOS targets require iOS 26, but App Store and
@@ -39,7 +37,7 @@ TestFlight distribution remain in preparation.
 **Validation boundary:** the signed two-Mac matrix, real Sequoia, VoiceOver and
 screen-capture permission/display acceptance remain pending after publication.
 Use disposable data and backups for those checks; green CI and artifact QA do
-not certify them. See the [release notes](docs/releases/v0.8.3.md),
+not certify them. See the [release notes](docs/releases/v0.8.4.md),
 [changelog](CHANGELOG.md), and [release requirements](docs/RELEASING.md).
 
 ## Contents
@@ -177,7 +175,7 @@ stay in reusable modules.
 
 - `CKSyncEngine` over the user's private iCloud database behind the `SyncEngine`
   boundary (clips, board membership, deletions) with a visible sync status. Earlier
-  development builds passed real-device smoke; the signed v0.8.3 matrix remains
+  development builds passed real-device smoke; the signed v0.8.4 matrix remains
   pending and must use the released bytes.
 - `gancho` CLI and a local, opt-in MCP server with expiring, revocable
   per-client grants, explicit board/time context, independent read/write
