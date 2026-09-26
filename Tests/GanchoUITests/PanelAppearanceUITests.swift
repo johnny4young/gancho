@@ -123,6 +123,7 @@ final class PanelAppearanceUITests: XCTestCase {
         let allApps = app.menuItems["source-app-all"].firstMatch
         XCTAssertTrue(allApps.waitForExistence(timeout: 5))
         allApps.click()
+
     }
 
     @MainActor
@@ -134,6 +135,7 @@ final class PanelAppearanceUITests: XCTestCase {
                 dock.descendants(matching: .any)[identifier].firstMatch.exists,
                 "\(identifier) must be a dock action")
         }
+
     }
 
     @MainActor

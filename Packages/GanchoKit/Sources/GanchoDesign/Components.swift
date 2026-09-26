@@ -71,21 +71,22 @@ public struct TypeBadge: View {
 }
 
 /// The parts of a link a row tile or the peek hero shows: the host without
-/// a leading `www.`, then path and query. Parsed locally from the stored
+/// a leading `www.`, and the complete original URL. Parsed locally from the stored
 /// text — no favicon and no metadata fetch, so the URL never leaves the device.
 public struct ClipLinkParts: Equatable, Sendable {
     public let host: String
-    public let path: String
+    public let text: String
 
     public init?(text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmed), let rawHost = url.host()?.removingPercentEncoding,
+        // Oversized links use the ordinary bounded text preview instead of URL parsing.
+        guard trimmed.utf8.count <= 4_000,
+            let url = URL(string: trimmed), let rawHost = url.host()?.removingPercentEncoding,
             !rawHost.isEmpty
         else { return nil }
-        host = rawHost.hasPrefix("www.") ? String(rawHost.dropFirst(4)) : rawHost
-        var tail = url.path()
-        if let query = url.query(), !query.isEmpty { tail += "?" + query }
-        path = tail == "/" ? "" : tail
+        host = rawHost.lowercased().hasPrefix("www.") ? String(rawHost.dropFirst(4)) : rawHost
+        guard !host.isEmpty else { return nil }
+        self.text = trimmed
     }
 }
 

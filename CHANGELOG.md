@@ -23,15 +23,21 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   rows share the same layout. The selection highlight glides between rows and
   section counts roll instead of flicking; both respect Reduce Motion.
 - The panel's peek opens with a hero card per kind — the image with its
-  Live-Text regions, a link's host and path set large (parsed on the Mac,
+  Live-Text regions, a link's host and complete URL (parsed on the Mac,
   never fetched), a colour band, or the text — and closes with an action
   dock: Paste, Paste plain, Copy text from image, Pin and Board, each with
   its key. Developer actions wrap as chips above the dock. The insight line
-  now also names the boards a clip is in. Return still pastes and ↑↓ still
+  now also names the boards a clip is in and refreshes after membership changes.
+  The dock stays visible in compact panels while its content scrolls, and its
+  shortcuts work while the peek owns focus. Return still pastes and ↑↓ still
   walk the actions in the same order.
 
 ### Fixed
 
+- The Mac peek masks sensitive titles and hides its hero and derived content in
+  Private Mode. The board picker takes keyboard focus when opened from the peek
+  or search, without requiring an extra click. Returning from a completion
+  window no longer redirects inline editing into the search field.
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.8.4 DMG.
   Physical-device acceptance remains pending; the published app, tag and

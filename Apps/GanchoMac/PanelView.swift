@@ -160,7 +160,7 @@ struct PanelView: View {
                         text: presentation.text,
                         isTextEditable: presentation.isTextEditable,
                         focus: $focus,
-                        addToBoard: { showBoardPicker = true }
+                        addToBoard: presentBoardPicker
                     )
                     // Drafts, async save callbacks, and action state belong to
                     // one clip only. A new selection gets a fresh preview identity.
@@ -309,8 +309,11 @@ struct PanelView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
             notification in
             guard let window = notification.object as? NSWindow,
-                model.panel.isPanelWindow(window)
+                model.panel.isPanelWindow(window), !showBoardPicker, focus != nil
             else { return }
+            // Inline title/content editors own their own FocusState while this
+            // binding is nil. A completion window returning key status must not
+            // redirect the remainder of an edit into the search field.
             focus = .search
         }
     }
@@ -503,7 +506,7 @@ struct PanelView: View {
                     if press.modifiers.contains(.shift) {
                         model.assignToLastBoard(search.selectedItems)
                     } else {
-                        showBoardPicker = true
+                        presentBoardPicker()
                     }
                     return .handled
                 }
@@ -625,7 +628,7 @@ struct PanelView: View {
                     combinedSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
                 },
                 addToStack: { model.pushToStack(search.selectedItems) },
-                addToBoard: { showBoardPicker = true },
+                addToBoard: presentBoardPicker,
                 delete: { model.delete(search.selectedItems) },
                 clear: { search.clearSelection() }
             )
@@ -1016,10 +1019,18 @@ struct PanelView: View {
 
     /// A dimmed scrim + a card listing every panel shortcut. Toggled by ⌘/ or
     /// the footer "?"; esc and a scrim tap dismiss it.
+    private func presentBoardPicker() {
+        focus = nil
+        showBoardPicker = true
+    }
+
     @ViewBuilder private var boardPickerOverlay: some View {
         if showBoardPicker, !search.selectedItems.isEmpty {
-            PanelBoardPicker(items: search.selectedItems) { showBoardPicker = false }
-                .transition(.opacity)
+            PanelBoardPicker(items: search.selectedItems) {
+                showBoardPicker = false
+                focus = .search
+            }
+            .transition(.opacity)
         }
     }
 

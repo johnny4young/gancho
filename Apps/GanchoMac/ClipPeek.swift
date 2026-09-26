@@ -23,6 +23,7 @@ struct ClipPeek: View {
     /// (entered with → from the list, left with ←).
     var focus: FocusState<PanelFocus?>.Binding
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var actionResult: String?
     @State private var boardIDs: Set<UUID> = []
     /// Smart Paste can run the on-device model — show a spinner while it thinks.
@@ -68,6 +69,10 @@ struct ClipPeek: View {
         _presentedText = State(initialValue: text)
     }
 
+    private var hidesPreview: Bool {
+        model.preferences.isPrivateModePaused || ClipSafePresentation.requiresMasking(item)
+    }
+
     /// Masked clips show the canonical mask even if malformed legacy/sync
     /// metadata carries a raw preview. The peek is a preview, so cap very long
     /// clips: laying out a huge Text here on every selection change is what froze
@@ -88,43 +93,61 @@ struct ClipPeek: View {
                     .font(.caption)
                     .foregroundStyle(GanchoTokens.Palette.danger)
             }
-            if let suggestedBoard {
-                suggestionChip(suggestedBoard)
-            }
-            hero
-            if ocrShowsHere {
-                PeekImageTextSection(
-                    item: item, hoveredLine: $ocrHoveredLine, copiedLine: $ocrCopiedLine,
-                    revealSecret: $ocrRevealSecret, isEditing: $isEditingOCR)
-            }
-            insightStrip
-            if canTransform || canSmartPaste {
-                HStack(spacing: GanchoTokens.Spacing.xxs) {
-                    if canTransform {
-                        transformsMenu
+            if hidesPreview {
+                Text(verbatim: ClipSafePresentation.masked)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .accessibilityIdentifier("peek-masked")
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
+                            if let suggestedBoard {
+                                suggestionChip(suggestedBoard)
+                            }
+                            hero
+                            if ocrShowsHere {
+                                PeekImageTextSection(
+                                    item: item, hoveredLine: $ocrHoveredLine,
+                                    copiedLine: $ocrCopiedLine,
+                                    revealSecret: $ocrRevealSecret, isEditing: $isEditingOCR)
+                            }
+                            insightStrip
+                            if canTransform || canSmartPaste {
+                                HStack(spacing: GanchoTokens.Spacing.xxs) {
+                                    if canTransform {
+                                        transformsMenu
+                                    }
+                                    if canSmartPaste {
+                                        smartPasteMenu
+                                    }
+                                }
+                            }
+                            if isThinking {
+                                Label("Thinking…", systemImage: "sparkles")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .symbolEffect(.pulse, options: .repeating)
+                            } else if let actionResult, !actionResult.isEmpty {
+                                resultBox(actionResult)
+                            }
+                            if navActions.count > dockActionCount {
+                                secondaryActions
+                            }
+                        }
                     }
-                    if canSmartPaste {
-                        smartPasteMenu
+                    .onChange(of: actionIndex) { _, index in
+                        guard navActions.indices.contains(index), index >= dockActionCount else {
+                            return
+                        }
+                        proxy.scrollTo(navActions[index].id, anchor: .center)
                     }
                 }
             }
-            if isThinking {
-                Label("Thinking…", systemImage: "sparkles")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .symbolEffect(.pulse, options: .repeating)
-            } else if let actionResult, !actionResult.isEmpty {
-                resultBox(actionResult)
-            }
-            if navActions.count > dockActionCount {
-                secondaryActions
-            }
-            Spacer(minLength: 0)
             dock
         }
         .padding(GanchoTokens.Spacing.md)
-        // The peek fills the column so the dock sits at the bottom edge; the
-        // hero and result boxes are the parts that give way when space is short.
+        // Scroll the content independently so editing, OCR and board chips cannot
+        // push the dock outside a compact panel.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         // The peek owns the keyboard while focus == .peek: ↑↓ move among the
         // actions, Enter runs the focused one, ← hands focus back to the list.
@@ -144,9 +167,22 @@ struct ClipPeek: View {
             focus.wrappedValue = .search
             return .handled
         }
-        .onKeyPress(.return) {
+        .onKeyPress(.return, phases: .down) { press in
             guard !isInlineEditing else { return .ignored }
-            runFocusedAction()
+            if press.modifiers == .option {
+                model.paste(item, asPlainText: true)
+            } else {
+                runFocusedAction()
+            }
+            return .handled
+        }
+        .onKeyPress(characters: CharacterSet(charactersIn: "pPbB"), phases: .down) { press in
+            guard !isInlineEditing, press.modifiers == .command else { return .ignored }
+            if press.characters.lowercased() == "p" {
+                model.togglePin(item)
+            } else {
+                addToBoard()
+            }
             return .handled
         }
         .onKeyPress(.escape) {
@@ -177,8 +213,21 @@ struct ClipPeek: View {
         .onChange(of: text) { _, newText in
             presentedText = newText
         }
+        .onChange(of: hidesPreview) { _, hidden in
+            if hidden {
+                isEditingTitle = false
+                isEditingText = false
+                isEditingOCR = false
+                actionResult = nil
+                actionIndex = 0
+            }
+        }
         .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
-        .task(id: item.id) { boardIDs = await model.boardMembership(for: item) }
+        .task(id: item) {
+            let membership = await model.boardMembership(for: item)
+            guard !Task.isCancelled else { return }
+            boardIDs = membership
+        }
         .task(id: item.id) { suggestedBoard = await model.suggestedBoard(for: item) }
     }
 
@@ -191,7 +240,6 @@ struct ClipPeek: View {
             Spacer(minLength: 0)
             Button("Add") {
                 model.assignWithUndo(item, toBoard: board)
-                boardIDs.insert(board.id)
                 suggestedBoard = nil
             }
             .buttonStyle(.borderless)
@@ -217,7 +265,10 @@ struct ClipPeek: View {
     private var header: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             TypeBadge(kind: item.kind, style: .pill)
-            if isEditingTitle {
+            if hidesPreview {
+                Text(verbatim: ClipSafePresentation.masked)
+                    .accessibilityIdentifier("preview-title")
+            } else if isEditingTitle {
                 TextField("Title", text: $titleDraft)
                     .textFieldStyle(.roundedBorder)
                     .focused($isTitleFieldFocused)
@@ -252,7 +303,7 @@ struct ClipPeek: View {
     }
 
     /// Source app · relative time · expiry, then the boards this clip is in.
-    private var insightStrip: some View {
+    @ViewBuilder private var insightStrip: some View {
         HStack(spacing: GanchoTokens.Spacing.md) {
             if let bundleID = item.sourceAppBundleID {
                 Label {
@@ -281,7 +332,12 @@ struct ClipPeek: View {
                     expiresAt.timeIntervalSinceNow < 600
                         ? AnyShapeStyle(GanchoTokens.Palette.warning) : AnyShapeStyle(.secondary))
             }
-            Spacer(minLength: 0)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .labelStyle(.titleAndIcon)
+        .lineLimit(1)
+        FlowLayout(spacing: GanchoTokens.Spacing.xxs) {
             ForEach(model.boards.filter { boardIDs.contains($0.id) }.prefix(3)) { board in
                 HStack(spacing: 3) {
                     BoardIdentityMark(board: board, size: 10)
@@ -292,6 +348,9 @@ struct ClipPeek: View {
                     }
                 }
                 .font(.caption2.weight(.medium))
+                .lineLimit(1)
+                .help(board.isSystem ? Text("Favorites") : Text(verbatim: board.name))
+                .accessibilityIdentifier("peek-board-\(board.id.uuidString)")
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(.quaternary, in: Capsule())
@@ -302,20 +361,6 @@ struct ClipPeek: View {
         .foregroundStyle(.secondary)
         .labelStyle(.titleAndIcon)
         .lineLimit(1)
-    }
-
-    /// One navigable action in the peek. The action list is the keyboard
-    /// surface: ↑↓ move among these, Enter runs the focused one, click runs it.
-    private struct PeekAction: Identifiable {
-        let id: String
-        let title: LocalizedStringKey
-        let symbol: String
-        /// A shorter label for the dock's narrow buttons; nil uses `title`.
-        var shortTitle: LocalizedStringKey?
-        /// The key hint under a dock button. Dock actions have one; the Dev
-        /// Action chips don't.
-        var shortcut: String?
-        let run: () -> Void
     }
 
     /// Paste variants first (the common case), then OCR, Pin and Board — the
@@ -356,7 +401,7 @@ struct ClipPeek: View {
                 id: "preview-board", title: "Add to board", symbol: "tray", shortTitle: "Board",
                 shortcut: "⌘B"
             ) { addToBoard() })
-        if !ClipSafePresentation.requiresMasking(item) {
+        if !hidesPreview {
             for action in DevActions.actions(for: item.kind) {
                 actions.append(
                     PeekAction(
@@ -379,13 +424,13 @@ struct ClipPeek: View {
 
 extension ClipPeek {
     /// The kind-aware hero card: the image with its Live-Text regions, a link's
-    /// host and path set large (parsed locally, never fetched), a colour band,
+    /// host and original URL (parsed locally, never fetched), a colour band,
     /// or the (syntax-tinted) text. The card takes a wash of the kind's tint.
     private var hero: some View {
         let tint = GanchoTokens.Palette.kindTint(for: item.kind)
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
         return VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            if let parts = linkParts {
+            if let parts = linkParts, !isEditingText {
                 linkHero(parts)
             }
             heroBody
@@ -402,6 +447,7 @@ extension ClipPeek {
         .overlay(
             shape.strokeBorder(.separator.opacity(0.6), lineWidth: GanchoTokens.Stroke.hairline)
         )
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("peek-hero")
     }
 
@@ -473,7 +519,7 @@ extension ClipPeek {
         }
     }
 
-    /// Host set large, path underneath. No favicon and no metadata fetch: the
+    /// Host set large, original URL underneath (including scheme, port and fragment). No remote fetch: the
     /// copied URL never leaves the Mac to be rendered.
     private func linkHero(_ parts: ClipLinkParts) -> some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -481,15 +527,14 @@ extension ClipPeek {
                 .font(.system(size: 24, weight: .bold, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            if !parts.path.isEmpty {
-                Text(verbatim: parts.path)
-                    .font(.callout.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
+            Text(verbatim: parts.text)
+                .font(.callout.monospaced())
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("peek-link-url")
         }
         .textSelection(.enabled)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("peek-link-hero")
     }
 }
@@ -508,7 +553,7 @@ extension ClipPeek {
         return HStack(spacing: GanchoTokens.Spacing.xxs) {
             ForEach(Array(navActions.prefix(dockActionCount).enumerated()), id: \.element.id) {
                 index, action in
-                dockButton(action, index: index)
+                actionButton(action, index: index, style: .dock(isPrimary: index == 0))
             }
         }
         .padding(GanchoTokens.Spacing.xxs)
@@ -518,50 +563,6 @@ extension ClipPeek {
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("peek-dock")
-    }
-
-    private func dockButton(_ action: PeekAction, index: Int) -> some View {
-        let isPrimary = index == 0
-        let isFocused = focus.wrappedValue == .peek && index == actionIndex
-        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-        return VStack(spacing: 3) {
-            Image(systemName: action.symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .frame(height: 18)
-            Text(action.shortTitle ?? action.title)
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text(verbatim: action.shortcut ?? "")
-                .font(.caption2.monospaced())
-                .opacity(0.7)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 7)
-        .background(
-            isPrimary
-                ? AnyShapeStyle(GanchoTokens.Palette.accent)
-                : isFocused
-                    ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.18))
-                    : AnyShapeStyle(.clear),
-            in: shape
-        )
-        .foregroundStyle(isPrimary ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
-        .overlay(
-            shape.strokeBorder(
-                isFocused ? AnyShapeStyle(.primary) : AnyShapeStyle(.clear),
-                lineWidth: GanchoTokens.Stroke.focus)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture {
-            actionIndex = index
-            action.run()
-        }
-        .help(action.title)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(action.title))
-        .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier(action.id)
     }
 
     /// The Dev Actions as chips that wrap, bounded so a code clip's dozen
@@ -575,55 +576,36 @@ extension ClipPeek {
                         Array(navActions.enumerated().dropFirst(dockActionCount)),
                         id: \.element.id
                     ) { index, action in
-                        actionChip(action, index: index)
+                        actionButton(action, index: index, style: .chip)
                     }
                 }
             }
             .frame(maxHeight: 96)
             .onChange(of: actionIndex) { _, new in
                 guard navActions.indices.contains(new) else { return }
-                withAnimation(.easeOut(duration: 0.1)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                     proxy.scrollTo(navActions[new].id, anchor: .center)
                 }
             }
         }
     }
 
-    private func actionChip(_ action: PeekAction, index: Int) -> some View {
-        let isFocused = focus.wrappedValue == .peek && index == actionIndex
-        return HStack(spacing: 4) {
-            Image(systemName: action.symbol).font(.caption2)
-            Text(action.title).font(.caption.weight(.medium)).lineLimit(1)
-        }
-        .padding(.horizontal, GanchoTokens.Spacing.xs)
-        .padding(.vertical, 4)
-        .background(
-            isFocused
-                ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.18))
-                : AnyShapeStyle(.quaternary),
-            in: Capsule()
-        )
-        .overlay(
-            Capsule().strokeBorder(
-                isFocused ? AnyShapeStyle(.primary) : AnyShapeStyle(.clear),
-                lineWidth: GanchoTokens.Stroke.focus)
-        )
-        .contentShape(Capsule())
-        .onTapGesture {
+    private func actionButton(
+        _ action: PeekAction, index: Int, style: PeekActionButton.Style
+    ) -> some View {
+        PeekActionButton(
+            action: action, style: style,
+            isFocused: focus.wrappedValue == .peek && index == actionIndex
+        ) {
             actionIndex = index
             action.run()
         }
-        .id(action.id)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier(action.id)
     }
+
 }
 
 // MARK: - Smart Paste & deterministic transforms
-//
-// Lives in an extension so the view struct body stays inside the lint budget;
-// same-file access keeps every member private.
+
 extension ClipPeek {
     /// Fully local syntax tint for code clips, shared with the Library editor
     /// via `GanchoSyntax` (strings, comments, numbers, keywords, `{placeholder}`
@@ -695,7 +677,7 @@ extension ClipPeek {
     /// rewrites need Apple Intelligence, but deterministic PII redaction remains
     /// available whenever the user kept the Smart Paste toggle on.
     private var canSmartPaste: Bool {
-        model.smartPasteAvailable && !ClipSafePresentation.requiresMasking(item)
+        model.smartPasteAvailable && !hidesPreview
             && item.kind != .image && item.kind != .fileReference && item.kind != .color
     }
 
@@ -703,7 +685,7 @@ extension ClipPeek {
     /// never a masked secret. Deliberately NO availability gate — they work on
     /// every Mac, with Apple Intelligence off.
     private var canTransform: Bool {
-        !ClipSafePresentation.requiresMasking(item)
+        !hidesPreview
             && item.kind != .image && item.kind != .fileReference
     }
 

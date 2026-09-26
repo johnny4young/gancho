@@ -205,6 +205,11 @@ extension AppModel {
                     kind: .code, title: "Example", preview: "let greeting = \"Hello\"",
                     contentHash: "library-code")
                 _ = try? await fullStore.insert(code, content: .text(code.preview))
+                let url = "https://www.example.com:8443/a%2Fb?q=a%26b#section-2"
+                let link = ClipItem(
+                    kind: .url, title: "Synthetic link", preview: url,
+                    contentHash: "library-link")
+                _ = try? await fullStore.insert(link, content: .text(url))
                 await refreshRecents()
             }
         #else

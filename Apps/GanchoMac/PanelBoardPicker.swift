@@ -106,7 +106,11 @@ struct PanelBoardPicker: View {
         .padding(GanchoTokens.Spacing.md)
         .frame(width: 320)
         .ganchoSurface(radius: GanchoTokens.Radius.lg)
-        .onAppear { fieldFocused = true }
+        .task {
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            fieldFocused = true
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("board-picker")
     }
