@@ -27,6 +27,12 @@ struct PeekActionButton: View {
     let style: Style
     let isFocused: Bool
     let run: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovered = false
+
+    private var motion: Animation? {
+        GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion)
+    }
 
     var body: some View {
         Button(action: run) {
@@ -36,6 +42,12 @@ struct PeekActionButton: View {
             }
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        // Focus ring, hover wash and the pin ↔ unpin glyph all settle rather
+        // than snap; the glyph swap also bounces once so the toggle registers.
+        .animation(motion, value: isFocused)
+        .animation(motion, value: isHovered)
+        .animation(motion, value: action.symbol)
         .focusable(false)
         .help(action.title)
         .accessibilityLabel(Text(action.title))
@@ -49,6 +61,8 @@ struct PeekActionButton: View {
             Image(systemName: action.symbol)
                 .font(.system(size: 15, weight: .semibold))
                 .frame(height: 18)
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.bounce, value: action.symbol)
             Text(action.shortTitle ?? action.title)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
@@ -64,7 +78,9 @@ struct PeekActionButton: View {
                 ? AnyShapeStyle(GanchoTokens.Palette.accent)
                 : isFocused
                     ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.18))
-                    : AnyShapeStyle(.clear), in: shape
+                    : isHovered
+                        ? AnyShapeStyle(.quaternary.opacity(0.7))
+                        : AnyShapeStyle(.clear), in: shape
         )
         .foregroundStyle(isPrimary ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
         .overlay(
@@ -85,7 +101,9 @@ struct PeekActionButton: View {
         .background(
             isFocused
                 ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.18))
-                : AnyShapeStyle(.quaternary), in: Capsule()
+                : isHovered
+                    ? AnyShapeStyle(.tertiary.opacity(0.5))
+                    : AnyShapeStyle(.quaternary), in: Capsule()
         )
         .overlay(
             Capsule().strokeBorder(

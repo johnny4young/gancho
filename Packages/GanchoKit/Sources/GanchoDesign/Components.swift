@@ -131,6 +131,7 @@ public struct ClipCard: View {
     let isSelectionAnchor: Bool
     @ScaledMetric(relativeTo: .body) private var tileSize: CGFloat = 36
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovered = false
 
     public init(
         item: ClipItem, isSelected: Bool = false, previewsHidden: Bool = false,
@@ -196,6 +197,20 @@ public struct ClipCard: View {
                 .animation(selectionAnimation, value: isSelected)
                 .animation(selectionAnimation, value: isSelectionAnchor)
         }
+        .background {
+            if isHovered, !isSelected {
+                RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                    .fill(.quaternary.opacity(0.45))
+            }
+        }
+        .animation(
+            GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion), value: isHovered
+        )
+        .animation(
+            GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion),
+            value: item.isPinned
+        )
+        .onHover { isHovered = $0 }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
@@ -264,6 +279,7 @@ public struct ClipCard: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .accessibilityLabel(Text("Pinned"))
+                        .transition(.scale.combined(with: .opacity))
                 }
                 if let shortcutNumber, (1...9).contains(shortcutNumber) {
                     Text(verbatim: "⌘\(shortcutNumber)")
@@ -283,7 +299,8 @@ public struct ClipCard: View {
     }
 
     private var selectionAnimation: Animation? {
-        selectionNamespace == nil || reduceMotion ? nil : .snappy(duration: 0.18, extraBounce: 0)
+        selectionNamespace == nil
+            ? nil : GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion)
     }
 
     /// Accent wash plus the design's accent bar on the leading edge. With a

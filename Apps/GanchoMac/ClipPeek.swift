@@ -111,6 +111,7 @@ struct ClipPeek: View {
                         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
                             if let suggestedBoard {
                                 suggestionChip(suggestedBoard)
+                                    .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
                             }
                             hero
                             if ocrShowsHere {
@@ -135,13 +136,21 @@ struct ClipPeek: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .symbolEffect(.pulse, options: .repeating)
+                                    .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
                             } else if let actionResult, !actionResult.isEmpty {
                                 resultBox(actionResult)
+                                    .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
                             }
                             if !chipActions.isEmpty {
                                 secondaryActions
                             }
                         }
+                        // Scoped to the three things that come and go inside
+                        // the peek; a global transaction would also move the
+                        // editor and the scroll position.
+                        .animation(peekContentAnimation, value: suggestedBoard?.id)
+                        .animation(peekContentAnimation, value: isThinking)
+                        .animation(peekContentAnimation, value: actionResult)
                     }
                     .onChange(of: actionIndex) { _, index in
                         let dockCount = dockActions.count
@@ -628,6 +637,10 @@ extension ClipPeek {
 
     private var isInlineEditing: Bool {
         isEditingTitle || isEditingText || isEditingOCR
+    }
+
+    private var peekContentAnimation: Animation? {
+        GanchoMotion.animation(GanchoMotion.smooth, reduceMotion: reduceMotion)
     }
 
     /// The OCR session belongs to THIS clip and has something to show.
