@@ -73,6 +73,22 @@ final class PeekDockUITests: XCTestCase {
     }
 
     @MainActor
+    func testPeekShortcutsIgnoreCapsLock() throws {
+        let app = launchPanel()
+        defer { app.terminate() }
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        search.click()
+        search.typeText("Synthetic link")
+        XCTAssertTrue(app.staticTexts["peek-link-url"].firstMatch.waitForExistence(timeout: 5))
+        try SynthesizedInput.requireForeground(app)
+        app.typeKey(.rightArrow, modifierFlags: [])
+        app.typeKey("p", modifierFlags: [.command, .capsLock])
+        let unpin = app.buttons["preview-pin"].firstMatch
+        XCTAssertTrue(unpin.wait(for: \.label, toEqual: "Unpin", timeout: 5))
+    }
+
+    @MainActor
     func testReturnPastesFromPeekWithoutWritingTheClipboard() throws {
         let app = launchPanel()
         defer { app.terminate() }

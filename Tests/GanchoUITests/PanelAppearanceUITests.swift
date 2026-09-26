@@ -38,6 +38,10 @@ final class PanelAppearanceUITests: XCTestCase {
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(NSPredicate(format: "label BEGINSWITH 'image,'"))
         XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 5))
+        // Image rows already exist in the unfiltered list; wait for the filtered render.
+        let firstBadge = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "⌘1"), object: rows.element(boundBy: 0))
+        XCTAssertEqual(XCTWaiter.wait(for: [firstBadge], timeout: 5), .completed)
         for (index, row) in rows.allElementsBoundByIndex.enumerated() {
             XCTAssertEqual(row.value as? String, "⌘\(index + 1)")
         }

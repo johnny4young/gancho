@@ -19,6 +19,11 @@ struct ClipPeek: View {
     /// ⌘B: the board picker belongs to the panel, which files the whole
     /// selection; the dock's Board action just asks for it.
     let addToBoard: () -> Void
+    /// ⇧⌘B: file the selection into the last board, as from the list.
+    let addToLastBoard: () -> Void
+    /// Tells the panel an inline editor owns the keyboard, so a window regaining
+    /// key status does not pull focus back to the search field.
+    @Binding var isEditingInline: Bool
     /// Shared with the list: the peek owns the keyboard when this equals `.peek`
     /// (entered with → from the list, left with ←).
     var focus: FocusState<PanelFocus?>.Binding
@@ -57,13 +62,16 @@ struct ClipPeek: View {
 
     init(
         item: ClipItem, text: String, isTextEditable: Bool,
-        focus: FocusState<PanelFocus?>.Binding, addToBoard: @escaping () -> Void
+        focus: FocusState<PanelFocus?>.Binding, isEditingInline: Binding<Bool>,
+        addToBoard: @escaping () -> Void, addToLastBoard: @escaping () -> Void
     ) {
         self.item = item
         self.text = text
         self.isTextEditable = isTextEditable
         self.focus = focus
+        _isEditingInline = isEditingInline
         self.addToBoard = addToBoard
+        self.addToLastBoard = addToLastBoard
         _presentedTitle = State(initialValue: item.title)
         _titleDraft = State(initialValue: item.title)
         _presentedText = State(initialValue: text)
@@ -130,16 +138,18 @@ struct ClipPeek: View {
                             } else if let actionResult, !actionResult.isEmpty {
                                 resultBox(actionResult)
                             }
-                            if navActions.count > dockActionCount {
+                            if !chipActions.isEmpty {
                                 secondaryActions
                             }
                         }
                     }
                     .onChange(of: actionIndex) { _, index in
-                        guard navActions.indices.contains(index), index >= dockActionCount else {
-                            return
+                        let dockCount = dockActions.count
+                        guard index >= dockCount, chipActions.indices.contains(index - dockCount)
+                        else { return }
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
+                            proxy.scrollTo(chipActions[index - dockCount].id, anchor: .center)
                         }
-                        proxy.scrollTo(navActions[index].id, anchor: .center)
                     }
                 }
             }
@@ -169,7 +179,7 @@ struct ClipPeek: View {
         }
         .onKeyPress(.return, phases: .down) { press in
             guard !isInlineEditing else { return .ignored }
-            if press.modifiers == .option {
+            if press.modifiers.contains(.option), !press.modifiers.contains(.command) {
                 model.paste(item, asPlainText: true)
             } else {
                 runFocusedAction()
@@ -177,9 +187,12 @@ struct ClipPeek: View {
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "pPbB"), phases: .down) { press in
-            guard !isInlineEditing, press.modifiers == .command else { return .ignored }
+            // Same modifier semantics as the list's handlers, including ⇧⌘B.
+            guard !isInlineEditing, press.modifiers.contains(.command) else { return .ignored }
             if press.characters.lowercased() == "p" {
                 model.togglePin(item)
+            } else if press.modifiers.contains(.shift) {
+                addToLastBoard()
             } else {
                 addToBoard()
             }
@@ -220,8 +233,14 @@ struct ClipPeek: View {
                 isEditingOCR = false
                 actionResult = nil
                 actionIndex = 0
+                // The torn-down editor never hands focus back itself.
+                if focus.wrappedValue == nil { focus.wrappedValue = .peek }
             }
         }
+        .onChange(of: isInlineEditing, initial: true) { _, editing in
+            isEditingInline = editing
+        }
+        .onDisappear { isEditingInline = false }
         .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
         .task(id: item) {
             let membership = await model.boardMembership(for: item)
@@ -363,10 +382,12 @@ struct ClipPeek: View {
         .lineLimit(1)
     }
 
-    /// Paste variants first (the common case), then OCR, Pin and Board — the
-    /// dock — and after those the per-kind Dev Actions as chips. Smart Paste
+    /// The keyboard order: the dock, then the Dev Action chips. Smart Paste
     /// keeps its own menu (it is async and has a language submenu).
-    private var navActions: [PeekAction] {
+    private var navActions: [PeekAction] { dockActions + chipActions }
+
+    /// Paste variants first (the common case), then OCR, Pin and Board.
+    private var dockActions: [PeekAction] {
         var actions: [PeekAction] = [
             PeekAction(
                 id: "preview-paste", title: "Paste", symbol: "doc.on.clipboard", shortcut: "⏎"
@@ -401,21 +422,23 @@ struct ClipPeek: View {
                 id: "preview-board", title: "Add to board", symbol: "tray", shortTitle: "Board",
                 shortcut: "⌘B"
             ) { addToBoard() })
-        if !hidesPreview {
-            for action in DevActions.actions(for: item.kind) {
-                actions.append(
-                    PeekAction(
-                        id: "dev-action-\(action.id.rawValue)",
-                        title: LocalizedStringKey(action.title), symbol: "wand.and.sparkles"
-                    ) {
-                        actionResult = (try? action.transform(presentedText)) ?? ""
-                        UserDefaults.standard.set(
-                            UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
-                            forKey: "dev-actions-run")
-                    })
+        return actions
+    }
+
+    /// The per-kind Dev Actions, never for a masked or hidden preview.
+    private var chipActions: [PeekAction] {
+        guard !hidesPreview else { return [] }
+        return DevActions.actions(for: item.kind).map { action in
+            PeekAction(
+                id: "dev-action-\(action.id.rawValue)",
+                title: LocalizedStringKey(action.title), symbol: "wand.and.sparkles"
+            ) {
+                actionResult = (try? action.transform(presentedText)) ?? ""
+                UserDefaults.standard.set(
+                    UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
+                    forKey: "dev-actions-run")
             }
         }
-        return actions
     }
 
 }
@@ -542,16 +565,13 @@ extension ClipPeek {
 // MARK: - Action dock and chips
 
 extension ClipPeek {
-    /// Dock actions come first in `navActions` and all carry a key hint.
-    private var dockActionCount: Int { navActions.filter { $0.shortcut != nil }.count }
-
     /// The action dock: Paste is always the prominent button (Return runs it);
     /// the keyboard-focused one — only while the peek owns the keyboard —
     /// takes a ring, so the list and the peek never look "both selected".
     private var dock: some View {
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
         return HStack(spacing: GanchoTokens.Spacing.xxs) {
-            ForEach(Array(navActions.prefix(dockActionCount).enumerated()), id: \.element.id) {
+            ForEach(Array(dockActions.enumerated()), id: \.element.id) {
                 index, action in
                 actionButton(action, index: index, style: .dock(isPrimary: index == 0))
             }
@@ -565,27 +585,13 @@ extension ClipPeek {
         .accessibilityIdentifier("peek-dock")
     }
 
-    /// The Dev Actions as chips that wrap, bounded so a code clip's dozen
-    /// transforms can't push the dock out of the panel; the keyboard focus
-    /// scrolls into view.
+    /// The Dev Actions as wrapping chips inside the peek's scrolling content,
+    /// so a code clip's dozen transforms never push the dock out of the panel.
     private var secondaryActions: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                FlowLayout(spacing: GanchoTokens.Spacing.xxs) {
-                    ForEach(
-                        Array(navActions.enumerated().dropFirst(dockActionCount)),
-                        id: \.element.id
-                    ) { index, action in
-                        actionButton(action, index: index, style: .chip)
-                    }
-                }
-            }
-            .frame(maxHeight: 96)
-            .onChange(of: actionIndex) { _, new in
-                guard navActions.indices.contains(new) else { return }
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
-                    proxy.scrollTo(navActions[new].id, anchor: .center)
-                }
+        let dockCount = dockActions.count
+        return FlowLayout(spacing: GanchoTokens.Spacing.xxs) {
+            ForEach(Array(chipActions.enumerated()), id: \.element.id) { offset, action in
+                actionButton(action, index: dockCount + offset, style: .chip)
             }
         }
     }
