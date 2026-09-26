@@ -7,6 +7,22 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The Mac history panel has one toolbar instead of three stacked rows: boards
+  on the left, type filters as glyph chips that expand to their name when
+  active, the source-app filter and Save filter on the right. Compact layouts
+  wrap the toolbar without clipping controls, and keyboard navigation scrolls
+  boards into view. Filtering and reordering keep row selection and quick-paste
+  badges aligned with the current clips. The search field
+  sits directly on the panel glass at a larger size, with autocorrection and
+  text suggestions disabled for literal queries. Rows carry their identity
+  in the tile (a link's host initial, the real colour swatch, the image
+  thumbnail), code previews are syntax-tinted, and the source app and a
+  minute-granular capture time sit in a trailing column; iPhone and iPad history
+  rows share the same layout. The selection highlight glides between rows and
+  section counts roll instead of flicking; both respect Reduce Motion.
+
 ### Fixed
 
 - Align post-release documentation, the bilingual website, the Sparkle feed

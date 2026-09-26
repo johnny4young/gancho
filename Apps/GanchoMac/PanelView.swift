@@ -25,6 +25,11 @@ extension ClipKindFilter {
         case .secrets: "Secrets"
         }
     }
+
+    /// The chip glyph: the kind's own symbol, or a grid for "All".
+    var symbolName: String {
+        tintKind?.symbolName ?? "square.grid.2x2"
+    }
 }
 
 /// Drives the new-board / rename-board name prompt. `newForClip` is the
@@ -94,6 +99,8 @@ struct PanelView: View {
     @State private var uiTestPreparedFileCount = 0
     @State private var uiTestStartedFileCount = 0
     @AppStorage private var panelTextSizeRaw: String
+    /// One selection highlight shared by every row (see `ClipCard`).
+    @Namespace private var selectionNamespace
 
     init(model: AppModel, displayDefaults: UserDefaults = .standard) {
         _search = State(wrappedValue: PanelSearchModel(source: model))
@@ -386,15 +393,13 @@ struct PanelView: View {
         }
     }
 
-    /// The history list: search, rows, and the sync footer. The peek lives in a
+    /// The history list: search, one toolbar (boards · types · apps · save
+    /// filter), the situational banners, and the rows. The peek lives in a
     /// sibling column (see `body`).
     private var listColumn: some View {
         @Bindable var search = search
-        return VStack(spacing: GanchoTokens.Spacing.xs) {
-            SearchField("Search your clipboard", text: $search.query)
-                // Queries are literal input; system completions must not cover
-                // the selection controls or consume their keyboard navigation.
-                .autocorrectionDisabled()
+        return VStack(spacing: 0) {
+            SearchField("Search your clipboard", text: $search.query, style: .bare)
                 .focused($focus, equals: .search)
                 .onKeyPress(.downArrow, phases: [.down, .repeat]) { press in
                     if railFocus == nil, press.modifiers.contains(.shift),
@@ -502,50 +507,86 @@ struct PanelView: View {
                     return .handled
                 }
 
-            boardRail
+            Divider()
+            panelToolbar
+            Divider()
 
-            filterRail
-            HStack {
-                Spacer()
-                Button("Save filter", systemImage: "line.3.horizontal.decrease.circle") {
-                    filterDraft = search.savedRule(named: "")
+            VStack(spacing: GanchoTokens.Spacing.xs) {
+                selectionContextBar
+
+                if let notice = capturePresentation.notice {
+                    PanelCaptureNoticeView(notice: notice, perform: handleCaptureAction)
                 }
-                .disabled(model.fullStore == nil)
-                .accessibilityIdentifier("filter-save")
+
+                if let snippetMatch = search.snippetMatch {
+                    snippetBanner(snippetMatch)
+                }
+
+                if model.askAvailable, !search.query.isEmpty {
+                    askRow
+                }
+
+                PanelResultsView(
+                    query: search.query,
+                    hasActiveFilter: search.hasActiveFilter,
+                    firstRunHint: firstRunCaptureHint,
+                    isGroupedView: search.isGroupedView,
+                    groups: search.groups,
+                    items: search.filtered,
+                    selectedID: search.selectedItem?.id,
+                    clearFilters: {
+                        search.kindFilter = .all
+                        search.selectedBoardID = nil
+                        search.selectedSourceAppBundleID = nil
+                    },
+                    row: { item in clipRow(item: item) })
             }
-            .padding(.horizontal, 12)
-
-            selectionContextBar
-
-            if let notice = capturePresentation.notice {
-                PanelCaptureNoticeView(notice: notice, perform: handleCaptureAction)
-            }
-
-            if let snippetMatch = search.snippetMatch {
-                snippetBanner(snippetMatch)
-            }
-
-            if model.askAvailable, !search.query.isEmpty {
-                askRow
-            }
-
-            PanelResultsView(
-                query: search.query,
-                hasActiveFilter: search.hasActiveFilter,
-                firstRunHint: firstRunCaptureHint,
-                isGroupedView: search.isGroupedView,
-                groups: search.groups,
-                items: search.filtered,
-                selectedID: search.selectedItem?.id,
-                clearFilters: {
-                    search.kindFilter = .all
-                    search.selectedBoardID = nil
-                    search.selectedSourceAppBundleID = nil
-                },
-                row: { index, item in
-                    clipRow(index: index, item: item)
-                })
+            .padding(.top, GanchoTokens.Spacing.xxs)
         }
+    }
+
+    /// Boards on the left (their own scroll rail), type filters and the source
+    /// app on the right, Save filter at the edge. Compact widths wrap the
+    /// controls below the boards rather than clipping them. Keyboard order
+    /// stays the same in either layout.
+    private var panelToolbar: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                boardRail.frame(minWidth: 100)
+                Rectangle().fill(.separator).frame(width: 1, height: 14)
+                toolbarFilters
+            }
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                boardRail
+                toolbarFilters
+            }
+        }
+        .padding(.horizontal, GanchoTokens.Spacing.sm)
+        .padding(.vertical, 6)
+    }
+
+    private var toolbarFilters: some View {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            filterRail
+            if !search.sourceApps.isEmpty {
+                sourceAppMenu
+            }
+            Button {
+                filterDraft = search.savedRule(named: "")
+            } label: {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 24, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Save filter")
+            .disabled(model.fullStore == nil)
+            .accessibilityLabel(Text("Save filter"))
+            .accessibilityIdentifier("filter-save")
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     /// Sync state, capture state and the shortcut hints, under BOTH panes.
@@ -556,20 +597,20 @@ struct PanelView: View {
             showKeyboardShortcuts: { showShortcuts.toggle() })
     }
 
-    /// The design's type-filter rail: All / Links / Code / Colors / Images /
-    /// Secrets, "All" active by default.
+    /// The type filters: All / Links / Code / Colors / Images / Secrets as
+    /// glyph chips; the active one expands to its name.
     private var filterRail: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                ForEach(ClipKindFilter.allCases) { filter in
-                    filterPill(filter)
-                }
-                if !search.sourceApps.isEmpty {
-                    sourceAppMenu
-                }
+        HStack(spacing: GanchoTokens.Spacing.xxs) {
+            ForEach(ClipKindFilter.allCases) { filter in
+                filterChip(filter)
             }
-            .padding(.horizontal, GanchoTokens.Spacing.xxs)
         }
+        // The board rail beside it is a greedy ScrollView; without a fixed
+        // size the HStack squeezes the active chip's name down to nothing.
+        .fixedSize()
+        // A plain stack is not an accessibility container: without this the
+        // rail's id would replace every chip's own `filter-*` id.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("filter-rail")
     }
 
@@ -594,12 +635,14 @@ struct PanelView: View {
     /// Source-app filter: recent apps and content-free counts in one compact
     /// menu, intersected with the board, type, and text query owned by search.
     private var sourceAppMenu: some View {
-        Menu {
+        let selectedBundleID = search.selectedSourceAppBundleID
+        return Menu {
             Button {
                 search.selectedSourceAppBundleID = nil
             } label: {
                 Label("All apps", systemImage: "square.grid.2x2")
             }
+            .accessibilityIdentifier("source-app-all")
             Divider()
             ForEach(search.sourceApps) { app in
                 Button {
@@ -609,7 +652,7 @@ struct PanelView: View {
                         Text(verbatim: SourceApp.displayName(forBundleID: app.bundleID))
                         Spacer()
                         Text(verbatim: "\(app.clipCount)")
-                        if search.selectedSourceAppBundleID == app.bundleID {
+                        if selectedBundleID == app.bundleID {
                             Image(systemName: "checkmark")
                         }
                     }
@@ -617,74 +660,97 @@ struct PanelView: View {
                 .accessibilityIdentifier("source-app-\(app.bundleID)")
             }
         } label: {
-            HStack(spacing: 4) {
-                if let bundleID = search.selectedSourceAppBundleID,
-                    let icon = SourceApp.icon(forBundleID: bundleID)
+            railChipLabel(
+                selectedBundleID.map { Text(verbatim: SourceApp.displayName(forBundleID: $0)) }
+                    ?? Text("All apps"),
+                isActive: selectedBundleID != nil, isFocused: false,
+                showsTitle: selectedBundleID != nil
+            ) {
+                if let bundleID = selectedBundleID, let icon = SourceApp.icon(forBundleID: bundleID)
                 {
                     Image(nsImage: icon).resizable().frame(width: 12, height: 12)
                 } else {
-                    Image(systemName: "app.dashed").font(.caption2)
-                }
-                if let bundleID = search.selectedSourceAppBundleID {
-                    Text(verbatim: SourceApp.displayName(forBundleID: bundleID))
-                } else {
-                    Text("All apps")
+                    Image(systemName: "app.dashed")
                 }
             }
-            .font(.caption.weight(search.selectedSourceAppBundleID == nil ? .medium : .semibold))
-            .padding(.horizontal, GanchoTokens.Spacing.xs)
-            .padding(.vertical, 3)
-            .background(
-                search.selectedSourceAppBundleID == nil
-                    ? AnyShapeStyle(.quaternary) : AnyShapeStyle(GanchoTokens.Palette.accent),
-                in: Capsule()
-            )
-            .foregroundStyle(
-                search.selectedSourceAppBundleID == nil
-                    ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.white)
-            )
         }
         .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
         .fixedSize()
+        .help(
+            selectedBundleID.map { Text(verbatim: SourceApp.displayName(forBundleID: $0)) }
+                ?? Text("Filter by app")
+        )
         .accessibilityLabel(Text("Filter by app"))
+        .accessibilityValue(
+            selectedBundleID.map { Text(verbatim: SourceApp.displayName(forBundleID: $0)) }
+                ?? Text("All apps")
+        )
         .accessibilityIdentifier("source-app-filter")
     }
 
-    private func filterPill(_ filter: ClipKindFilter) -> some View {
+    private func filterChip(_ filter: ClipKindFilter) -> some View {
         let isActive = filter == search.kindFilter
-        let isFocused = railFocus == .filters(ClipKindFilter.allCases.firstIndex(of: filter) ?? -1)
-        return Button {
+        let index = ClipKindFilter.allCases.firstIndex(of: filter) ?? -1
+        let tint = filter.tintKind.map(GanchoTokens.Palette.kindTint(for:))
+        return railChip(
+            Text(filter.title), isActive: isActive, isFocused: railFocus == .filters(index),
+            identifier: "filter-\(filter.rawValue)"
+        ) {
+            Image(systemName: filter.symbolName)
+                .foregroundStyle(tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.secondary))
+        } action: {
             search.kindFilter = filter
             search.selectedIndex = 0
-        } label: {
-            HStack(spacing: 4) {
-                // A checkmark marks the active pill so the selection reads
-                // without relying on the accent colour alone (WCAG 1.4.1).
+        }
+    }
+
+    /// A toolbar chip: glyph only at rest, checkmark + name when active, so the
+    /// active one reads without relying on the accent colour alone (WCAG 1.4.1).
+    private func railChip<Icon: View>(
+        _ title: Text, isActive: Bool, isFocused: Bool, identifier: String,
+        @ViewBuilder icon: () -> Icon, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            railChipLabel(title, isActive: isActive, isFocused: isFocused, showsTitle: isActive) {
                 if isActive {
-                    Image(systemName: "checkmark").font(.caption2.weight(.bold))
-                        .accessibilityHidden(true)
-                } else if let kind = filter.tintKind {
-                    Circle()
-                        .fill(GanchoTokens.Palette.kindTint(for: kind))
-                        .frame(width: 6, height: 6)
-                        .accessibilityHidden(true)
+                    Image(systemName: "checkmark")
+                } else {
+                    icon()
                 }
-                Text(filter.title).font(.caption.weight(isActive ? .semibold : .medium))
             }
-            .padding(.horizontal, GanchoTokens.Spacing.xs)
-            .padding(.vertical, 3)
-            .background(
-                isActive ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
-                in: Capsule()
-            )
-            .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
-            .overlay(railRing(isFocused))
-            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("filter-\(filter.rawValue)")
+        .help(title)
+        .accessibilityLabel(title)
+        .accessibilityIdentifier(identifier)
         .accessibilityValue(isActive ? Text("Selected") : Text("Not selected"))
         .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+
+    private func railChipLabel<Icon: View>(
+        _ title: Text, isActive: Bool, isFocused: Bool, showsTitle: Bool,
+        @ViewBuilder icon: () -> Icon
+    ) -> some View {
+        HStack(spacing: 5) {
+            icon()
+                .font(.caption.weight(.semibold))
+                .frame(width: 12, height: 12)
+            if showsTitle {
+                // Truncate rather than widen the fixed-size toolbar; `.help` has the full name.
+                title.font(.caption.weight(isActive ? .semibold : .medium)).lineLimit(1)
+                    .frame(maxWidth: 120)
+            }
+        }
+        .padding(.horizontal, showsTitle ? GanchoTokens.Spacing.xs : 6)
+        .padding(.vertical, 4)
+        .background(
+            isActive ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
+            in: Capsule()
+        )
+        .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+        .overlay(railRing(isFocused))
+        .contentShape(Capsule())
     }
 
     /// The keyboard-focus ring for a rail chip (filters + boards). A 1.5pt
@@ -696,105 +762,98 @@ struct PanelView: View {
                 focused ? AnyShapeStyle(.primary) : AnyShapeStyle(.clear), lineWidth: 1.5)
     }
 
-    /// The board rail above the type filters: All clips · Favorites · user
-    /// boards · + New board. The active board takes the system accent; the
-    /// built-in Favorites board can't be renamed or deleted.
+    /// The boards: All clips · Favorites · user boards · New board. System
+    /// boards are glyph-only until active; user boards always show their name
+    /// (a bare colour dot would not identify them).
     private var boardRail: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: GanchoTokens.Spacing.xxs) {
-                boardChip(
-                    label: Text("All clips"), systemImage: "tray.full",
-                    isActive: search.selectedBoardID == nil, isFocused: railFocus == .boards(0),
-                    identifier: "board-all"
-                ) {
-                    search.selectedBoardID = nil
-                }
-                ForEach(Array(model.boards.enumerated()), id: \.element.id) { index, board in
-                    boardChip(
-                        label: board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
-                        systemImage: board.sfSymbol,
-                        isActive: search.selectedBoardID == board.id,
-                        isFocused: railFocus == .boards(index + 1),
-                        identifier: "board-\(board.id.uuidString)",
-                        board: board
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: GanchoTokens.Spacing.xxs) {
+                    railChip(
+                        Text("All clips"), isActive: search.selectedBoardID == nil,
+                        isFocused: railFocus == .boards(0), identifier: "board-all"
                     ) {
-                        search.selectedBoardID = board.id
+                        Image(systemName: "tray.full")
+                    } action: {
+                        search.selectedBoardID = nil
                     }
-                    .contextMenu {
-                        if !board.isSystem {
-                            Button("Customize board…") {
-                                // Context-menu views can outlive an async model
-                                // refresh. Resolve the latest value by id so a
-                                // second edit starts from the durable metadata,
-                                // not the snapshot captured by the old menu.
-                                let current = model.boards.first { $0.id == board.id } ?? board
-                                presentedSheet = .boardAppearance(current)
-                            }
-                            Button("Rename board…") {
-                                boardNameField = board.name
-                                boardSheet = .rename(board)
-                            }
-                            Button("Delete board", role: .destructive) {
-                                boardPendingDeletion = board
-                            }
+                    .id(Self.allClipsRailID)
+                    ForEach(Array(model.boards.enumerated()), id: \.element.id) { index, board in
+                        boardChip(board, index: index)
+                    }
+                    Button {
+                        boardNameField = ""
+                        boardSheet = .new
+                    } label: {
+                        railChipLabel(
+                            Text("New board…"), isActive: false, isFocused: false, showsTitle: false
+                        ) {
+                            Image(systemName: "plus")
                         }
                     }
+                    .buttonStyle(.plain)
+                    .help("New board…")
+                    .accessibilityLabel(Text("New board…"))
+                    .accessibilityIdentifier("board-new")
                 }
-                Button {
-                    boardNameField = ""
-                    boardSheet = .new
-                } label: {
-                    Label("New board…", systemImage: "plus")
-                        .font(.caption.weight(.medium))
-                        .padding(.horizontal, GanchoTokens.Spacing.xs)
-                        .padding(.vertical, 3)
-                        .background(.quaternary, in: Capsule())
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("board-new")
+                .padding(.vertical, 1)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, GanchoTokens.Spacing.xxs)
-            .frame(minHeight: 28)
-            .contentShape(Rectangle())
+            .accessibilityIdentifier("board-rail")
+            .onChange(of: railFocus) { _, focused in
+                guard case .boards(let index) = focused else { return }
+                if index == 0 {
+                    proxy.scrollTo(Self.allClipsRailID)
+                } else if model.boards.indices.contains(index - 1) {
+                    proxy.scrollTo(model.boards[index - 1].id)
+                }
+            }
         }
-        .accessibilityIdentifier("board-rail")
     }
 
-    private func boardChip(
-        label: Text, systemImage: String, isActive: Bool, isFocused: Bool, identifier: String,
-        board: Pinboard? = nil,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                // Active board swaps its glyph for a checkmark, so the selection
-                // shows without leaning on the accent colour alone (WCAG 1.4.1).
+    private static let allClipsRailID = "board-all"
+
+    private func boardChip(_ board: Pinboard, index: Int) -> some View {
+        let isActive = search.selectedBoardID == board.id
+        let title = board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
+        return Button {
+            search.selectedBoardID = board.id
+        } label: {
+            railChipLabel(
+                title, isActive: isActive, isFocused: railFocus == .boards(index + 1),
+                showsTitle: isActive || !board.isSystem
+            ) {
                 if isActive {
-                    Image(systemName: "checkmark").font(.caption2)
-                        .accessibilityHidden(true)
-                } else if let board {
-                    BoardIdentityMark(board: board, size: 11)
+                    Image(systemName: "checkmark")
                 } else {
-                    Image(systemName: systemImage).font(.caption2)
-                        .accessibilityHidden(true)
+                    BoardIdentityMark(board: board, size: 11)
                 }
-                label.font(.caption.weight(isActive ? .semibold : .medium))
             }
-            .padding(.horizontal, GanchoTokens.Spacing.xs)
-            .padding(.vertical, 3)
-            .background(
-                isActive ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
-                in: Capsule()
-            )
-            .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
-            .overlay(railRing(isFocused))
-            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(identifier)
+        .help(title)
+        .accessibilityLabel(title)
+        .accessibilityIdentifier("board-\(board.id.uuidString)")
         .accessibilityValue(isActive ? Text("Selected") : Text("Not selected"))
         .accessibilityAddTraits(isActive ? .isSelected : [])
+        .contextMenu {
+            if !board.isSystem {
+                Button("Customize board…") {
+                    // Context-menu views can outlive an async model refresh.
+                    // Resolve the latest value by id so a second edit starts
+                    // from the durable metadata, not the old menu's snapshot.
+                    let current = model.boards.first { $0.id == board.id } ?? board
+                    presentedSheet = .boardAppearance(current)
+                }
+                Button("Rename board…") {
+                    boardNameField = board.name
+                    boardSheet = .rename(board)
+                }
+                Button("Delete board", role: .destructive) {
+                    boardPendingDeletion = board
+                }
+            }
+        }
     }
 
     private var boardSheetPresented: Binding<Bool> {
@@ -918,22 +977,25 @@ struct PanelView: View {
 
     /// One clip row with its shared interactions — used by both the flat
     /// (search/board) and date-grouped (recent) layouts.
-    private func clipRow(index: Int, item: ClipItem) -> some View {
-        row(for: item, index: index)
+    private func clipRow(item: ClipItem) -> some View {
+        row(for: item)
             .id(item.id)
             // Every row is a drag source into other apps.
             // Sensitive clips are excluded inside the modifier.
             .clipDragSource(
                 item,
                 selectedItems: search.selectedItems,
-                select: { toggling in select(index, toggling: toggling) },
+                select: { toggling in select(item, toggling: toggling) },
                 doubleClick: { model.paste(item) }
             )
             // Load this image's thumbnail once it scrolls into view (LazyVStack
             // builds only visible rows — the view-level virtual scrolling).
             .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
             // Pull the next page when this row is near the end (infinite scroll).
-            .onAppear { Task { await search.loadMoreIfNeeded(index) } }
+            .onAppear {
+                guard let index = search.visibleIndex(of: item.id) else { return }
+                Task { await search.loadMoreIfNeeded(index) }
+            }
             // Single click SELECTS, double-click PASTES; hover no longer moves
             // the selection (arrows + click only). The select tap is a
             // `simultaneousGesture` so it fires on the FIRST click without waiting
@@ -943,7 +1005,7 @@ struct PanelView: View {
             .onTapGesture(count: 2) { model.paste(item) }
             .simultaneousGesture(
                 TapGesture().onEnded {
-                    select(index, toggling: NSEvent.modifierFlags.contains(.command))
+                    select(item, toggling: NSEvent.modifierFlags.contains(.command))
                 }
             )
             .contextMenu { contextMenu(for: item) }
@@ -1002,15 +1064,20 @@ struct PanelView: View {
         }
     }
 
-    private func row(for item: ClipItem, index: Int) -> some View {
+    private func row(for item: ClipItem) -> some View {
+        let index = search.visibleIndex(of: item.id)
         // ClipCard is the design's ClipRow: kind glyph (or colour swatch),
         // title/preview, pin / Universal-Clipboard markers, and the ⌘N
         // quick-paste badge for the first nine rows.
-        ClipCard(
+        return ClipCard(
             item: item, isSelected: search.isSelected(item.id),
             previewsHidden: model.preferences.isPrivateModePaused,
-            shortcutNumber: index < 9 ? index + 1 : nil,
-            thumbnail: model.thumbnails.cached(for: item.id))
+            shortcutNumber: index.flatMap { $0 < 9 ? $0 + 1 : nil },
+            thumbnail: model.thumbnails.cached(for: item.id),
+            // Only the anchor claims the gliding highlight: two rows sharing one
+            // matched id (a ⇧ range) would log and draw nothing.
+            selectionNamespace: selectionNamespace,
+            isSelectionAnchor: search.selectedItem?.id == item.id)
     }
 
     /// Pin/board assignment — the context-menu path; drag & drop arrives
@@ -1065,6 +1132,13 @@ struct PanelView: View {
     private func pasteSelected(plain: Bool) {
         guard let item = search.selectedItem else { return }
         model.paste(item, asPlainText: plain)
+    }
+
+    /// Resolves a clicked row against the current list; a row that already
+    /// left it (mid-refresh) is ignored.
+    private func select(_ item: ClipItem, toggling: Bool) {
+        guard let index = search.visibleIndex(of: item.id) else { return }
+        select(index, toggling: toggling)
     }
 
     /// Select a row without acting on it (the click + arrow path). Re-grabs

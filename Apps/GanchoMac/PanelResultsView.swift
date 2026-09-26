@@ -9,6 +9,8 @@ import SwiftUI
 /// This slice receives immutable presentation values and a row builder so it
 /// cannot become a second navigation owner or reach into `AppModel`.
 struct PanelResultsView<RowContent: View>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let query: String
     let hasActiveFilter: Bool
     let firstRunHint: LocalizedStringKey
@@ -20,7 +22,7 @@ struct PanelResultsView<RowContent: View>: View {
     /// Builds one row. `PanelView` owns row effects (selection, drag, context
     /// menu, pagination), so the row arrives already wired instead of this
     /// slice reaching for the state those effects need.
-    let row: (Int, ClipItem) -> RowContent
+    let row: (ClipItem) -> RowContent
 
     var body: some View {
         if items.isEmpty {
@@ -57,7 +59,7 @@ struct PanelResultsView<RowContent: View>: View {
         HStack {
             Text("Recent")
             Spacer()
-            Text("\(items.count) clips")
+            clipCount(items.count)
         }
         .font(.caption2.weight(.semibold))
         .foregroundStyle(.tertiary)
@@ -68,8 +70,8 @@ struct PanelResultsView<RowContent: View>: View {
     private var groupedRows: some View {
         ForEach(groups) { group in
             Section {
-                ForEach(group.rows, id: \.item.id) { entry in
-                    row(entry.index, entry.item)
+                ForEach(group.rows) { item in
+                    row(item)
                 }
             } header: {
                 sectionHeader(group.section, count: group.rows.count)
@@ -78,8 +80,8 @@ struct PanelResultsView<RowContent: View>: View {
     }
 
     private var flatRows: some View {
-        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-            row(index, item)
+        ForEach(items) { item in
+            row(item)
         }
     }
 
@@ -92,7 +94,7 @@ struct PanelResultsView<RowContent: View>: View {
             }
             Text(sectionTitle(section))
             Spacer()
-            Text("\(count) clips")
+            clipCount(count)
         }
         .font(.caption2.weight(.semibold))
         .foregroundStyle(.tertiary)
@@ -100,6 +102,13 @@ struct PanelResultsView<RowContent: View>: View {
         .padding(.horizontal, GanchoTokens.Spacing.xs)
         .padding(.vertical, GanchoTokens.Spacing.xxs)
         .background(.ultraThinMaterial)
+    }
+
+    /// Rolling digits when a section grows or shrinks (a capture, a delete).
+    private func clipCount(_ count: Int) -> some View {
+        Text("\(count) clips")
+            .contentTransition(.numericText(value: Double(count)))
+            .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: count)
     }
 
     private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {

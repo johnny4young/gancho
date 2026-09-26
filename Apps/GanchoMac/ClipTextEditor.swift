@@ -112,18 +112,10 @@ struct ClipTextEditor: View {
     }
 
     private var highlighted: AttributedString {
-        var attributed = AttributedString(displayText)
-        guard kind == .code, displayText.count <= 20_000 else { return attributed }
-        for token in GanchoSyntax.tokens(in: displayText) {
-            let lower = displayText.distance(
-                from: displayText.startIndex, to: token.range.lowerBound)
-            let upper = displayText.distance(
-                from: displayText.startIndex, to: token.range.upperBound)
-            let lo = attributed.index(attributed.startIndex, offsetByCharacters: lower)
-            let hi = attributed.index(attributed.startIndex, offsetByCharacters: upper)
-            attributed[lo..<hi].foregroundColor = GanchoTokens.Syntax.color(for: token.kind)
+        guard kind == .code, displayText.count <= 20_000 else {
+            return AttributedString(displayText)
         }
-        return attributed
+        return GanchoTokens.Syntax.highlighted(displayText)
     }
 
     private func beginEditing() {

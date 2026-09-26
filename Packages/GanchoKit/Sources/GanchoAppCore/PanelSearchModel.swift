@@ -20,7 +20,9 @@ import Observation
 /// `ClipSection` grouping (Pinned first, then date buckets) the iOS list uses.
 public struct PanelDateGroup: Identifiable, Sendable {
     public let section: ClipSection
-    public let rows: [(index: Int, item: ClipItem)]
+    /// Rows resolve their cursor offset through
+    /// ``PanelSearchModel/visibleIndex(of:)``, never a copy captured here.
+    public let rows: [ClipItem]
     /// Identity is the SECTION, which is stable and unique per run (each section
     /// appears once, contiguously). Keying on the first clip's id instead made
     /// the group's identity change every time a new clip landed at the top —
@@ -134,6 +136,10 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// ``reconcileVisible()`` when the pending-deletion set moves underneath it
     /// — that last one is why this is not simply derived state.
     public private(set) var filtered: [ClipItem] = []
+    private var visibleIndices: [UUID: Int] = [:]
+
+    /// Resolve reused rows against the current list, never a captured pre-filter offset.
+    public func visibleIndex(of id: UUID) -> Int? { visibleIndices[id] }
 
     /// Recomputes ``filtered``.
     ///
@@ -150,6 +156,8 @@ public struct PanelDateGroup: Identifiable, Sendable {
         filtered = base.filter {
             seen.insert($0.id).inserted && !source.isDeletionPending($0.id)
         }
+        visibleIndices = Dictionary(
+            uniqueKeysWithValues: filtered.enumerated().map { ($0.element.id, $0.offset) })
         // Reconcile at replacement, not after a later snippet lookup. The
         // cursor follows its ID while surviving batch selections stay intact.
         selectionModel.reconcile(in: filtered)
@@ -385,8 +393,8 @@ public struct PanelDateGroup: Identifiable, Sendable {
         let now = Date()
         var built: [PanelDateGroup] = []
         var section: ClipSection?
-        var rows: [(index: Int, item: ClipItem)] = []
-        for (index, item) in filtered.enumerated() {
+        var rows: [ClipItem] = []
+        for item in filtered {
             let itemSection: ClipSection =
                 item.isPinned ? .pinned : .date(DateBucket.of(item.createdAt, now: now))
             if itemSection != section {
@@ -394,7 +402,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
                 section = itemSection
                 rows = []
             }
-            rows.append((index: index, item: item))
+            rows.append(item)
         }
         if let section { built.append(PanelDateGroup(section: section, rows: rows)) }
         groups = built
