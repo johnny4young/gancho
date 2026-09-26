@@ -105,6 +105,13 @@ struct PanelView: View {
     @AppStorage private var panelTextSizeRaw: String
     /// One selection highlight shared by every row (see `ClipCard`).
     @Namespace private var selectionNamespace
+    /// One accent capsule per rail that glides to the chip you activate.
+    @Namespace private var boardRailNamespace
+    @Namespace private var filterRailNamespace
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// False for one frame on every open, so the panel settles in from a hair
+    /// smaller instead of snapping on.
+    @State private var entered = true
 
     init(model: AppModel, displayDefaults: UserDefaults = .standard) {
         _search = State(wrappedValue: PanelSearchModel(source: model))
@@ -159,20 +166,28 @@ struct PanelView: View {
                 if let selected = search.selectedItem {
                     let presentation = preview.presentation(for: selected)
                     Divider()
-                    ClipPeek(
-                        item: selected,
-                        text: presentation.text,
-                        isTextEditable: presentation.isTextEditable,
-                        focus: $focus,
-                        isEditingInline: $peekIsEditingInline,
-                        addToBoard: presentBoardPicker,
-                        addToLastBoard: { model.assignToLastBoard(search.selectedItems) }
-                    )
-                    // Drafts, async save callbacks, and action state belong to
-                    // one clip only. A new selection gets a fresh preview identity.
-                    .id(selected.id)
+                    // The ZStack keeps the outgoing and incoming peek on top of
+                    // each other while they swap; laid out side by side they
+                    // would widen the pane for a frame.
+                    ZStack {
+                        ClipPeek(
+                            item: selected,
+                            text: presentation.text,
+                            isTextEditable: presentation.isTextEditable,
+                            focus: $focus,
+                            isEditingInline: $peekIsEditingInline,
+                            addToBoard: presentBoardPicker,
+                            addToLastBoard: { model.assignToLastBoard(search.selectedItems) }
+                        )
+                        // Drafts, async save callbacks, and action state belong to
+                        // one clip only. A new selection gets a fresh preview identity.
+                        .id(selected.id)
+                        .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
+                    }
                     .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
-                    .transition(.opacity)
+                    .animation(
+                        GanchoMotion.animation(GanchoMotion.smooth, reduceMotion: reduceMotion),
+                        value: selected.id)
                 }
             }
             statusFooter
@@ -187,6 +202,8 @@ struct PanelView: View {
         .overlay(alignment: .top) { uiTestMultiFileDropTarget }
         .clipShape(RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
         .ganchoSurface(radius: GanchoTokens.Radius.lg)
+        .scaleEffect(entered ? 1 : 0.985)
+        .opacity(entered ? 1 : 0)
         // The glass IS the panel: it fills the window edge to edge, title-bar
         // band included, so there is no transparent ring for AppKit's window
         // outline to show through.
@@ -306,6 +323,7 @@ struct PanelView: View {
             // First visible frame: close the panel-open latency interval the
             // controller began in show().
             model.panel.notePanelDidAppear()
+            playEntrance()
             // Defer one runloop: on the FIRST open the field editor isn't
             // ready when onAppear fires, so an immediate focus is dropped
             // (arrow keys beep). The notification below re-grabs it on every
@@ -320,7 +338,18 @@ struct PanelView: View {
             // A completion window returning key status must not redirect the
             // remainder of an inline edit into the search field.
             focus = .search
+            playEntrance()
         }
+    }
+
+    /// The open "pop": reset without animating, then settle in. Only the
+    /// `entered` flag is inside the transaction, so nothing else animates.
+    private func playEntrance() {
+        guard !reduceMotion, entered else { return }
+        var reset = Transaction()
+        reset.disablesAnimations = true
+        withTransaction(reset) { entered = false }
+        withAnimation(GanchoMotion.smooth) { entered = true }
     }
 
     /// A DEBUG-only, launch-argument-gated real drop destination. It exercises
@@ -621,6 +650,9 @@ struct PanelView: View {
         // rail's id would replace every chip's own `filter-*` id.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("filter-rail")
+        .animation(
+            GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion),
+            value: search.kindFilter)
     }
 
     /// Appears only for a batch, keeping single-selection navigation visually
@@ -704,7 +736,7 @@ struct PanelView: View {
         let tint = filter.tintKind.map(GanchoTokens.Palette.kindTint(for:))
         return railChip(
             Text(filter.title), isActive: isActive, isFocused: railFocus == .filters(index),
-            identifier: "filter-\(filter.rawValue)"
+            identifier: "filter-\(filter.rawValue)", namespace: filterRailNamespace
         ) {
             Image(systemName: filter.symbolName)
                 .foregroundStyle(tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.secondary))
@@ -718,10 +750,14 @@ struct PanelView: View {
     /// active one reads without relying on the accent colour alone (WCAG 1.4.1).
     private func railChip<Icon: View>(
         _ title: Text, isActive: Bool, isFocused: Bool, identifier: String,
+        namespace: Namespace.ID? = nil,
         @ViewBuilder icon: () -> Icon, action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            railChipLabel(title, isActive: isActive, isFocused: isFocused, showsTitle: isActive) {
+            railChipLabel(
+                title, isActive: isActive, isFocused: isFocused, showsTitle: isActive,
+                namespace: namespace
+            ) {
                 if isActive {
                     Image(systemName: "checkmark")
                 } else {
@@ -737,8 +773,11 @@ struct PanelView: View {
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
+    /// With a namespace the accent fill is ONE capsule per rail that glides
+    /// to the active chip; without one (New board, the app menu) it is static.
     private func railChipLabel<Icon: View>(
         _ title: Text, isActive: Bool, isFocused: Bool, showsTitle: Bool,
+        namespace: Namespace.ID? = nil,
         @ViewBuilder icon: () -> Icon
     ) -> some View {
         HStack(spacing: 5) {
@@ -753,10 +792,13 @@ struct PanelView: View {
         }
         .padding(.horizontal, showsTitle ? GanchoTokens.Spacing.xs : 6)
         .padding(.vertical, 4)
-        .background(
-            isActive ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
-            in: Capsule()
-        )
+        .background {
+            Capsule().fill(.quaternary)
+            if isActive {
+                Capsule().fill(GanchoTokens.Palette.accent)
+                    .modifier(RailGlide(namespace: namespace))
+            }
+        }
         .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
         .overlay(railRing(isFocused))
         .contentShape(Capsule())
@@ -780,7 +822,8 @@ struct PanelView: View {
                 HStack(spacing: GanchoTokens.Spacing.xxs) {
                     railChip(
                         Text("All clips"), isActive: search.selectedBoardID == nil,
-                        isFocused: railFocus == .boards(0), identifier: "board-all"
+                        isFocused: railFocus == .boards(0), identifier: "board-all",
+                        namespace: boardRailNamespace
                     ) {
                         Image(systemName: "tray.full")
                     } action: {
@@ -809,6 +852,10 @@ struct PanelView: View {
                 .contentShape(Rectangle())
             }
             .accessibilityIdentifier("board-rail")
+            .animation(
+                GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion),
+                value: search.selectedBoardID
+            )
             .onChange(of: railFocus) { _, focused in
                 guard case .boards(let index) = focused else { return }
                 if index == 0 {
@@ -830,7 +877,7 @@ struct PanelView: View {
         } label: {
             railChipLabel(
                 title, isActive: isActive, isFocused: railFocus == .boards(index + 1),
-                showsTitle: isActive || !board.isSystem
+                showsTitle: isActive || !board.isSystem, namespace: boardRailNamespace
             ) {
                 if isActive {
                     Image(systemName: "checkmark")
@@ -1291,6 +1338,20 @@ struct PanelView: View {
                 presentedSheet = .snippet(
                     SnippetFillRequest(snippet: snippet, body: body, fields: fields))
             }
+        }
+    }
+}
+
+/// `matchedGeometryEffect` needs a namespace at compile time; a rail chip
+/// without one keeps a static fill.
+private struct RailGlide: ViewModifier {
+    let namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        if let namespace {
+            content.matchedGeometryEffect(id: "active-chip", in: namespace)
+        } else {
+            content
         }
     }
 }
