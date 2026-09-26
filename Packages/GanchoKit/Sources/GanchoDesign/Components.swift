@@ -35,18 +35,58 @@ extension View {
 /// Kind badge: distinctive icon + name, colored per family. VoiceOver reads
 /// the localized kind name, never "button".
 public struct TypeBadge: View {
-    let kind: ClipContentKind
+    /// `.plain` is secondary text; `.pill` sits on a wash of the kind's tint.
+    public enum Style: Sendable {
+        case plain, pill
+    }
 
-    public init(kind: ClipContentKind) {
+    let kind: ClipContentKind
+    let style: Style
+
+    public init(kind: ClipContentKind, style: Style = .plain) {
         self.kind = kind
+        self.style = style
     }
 
     public var body: some View {
-        Label(LocalizedStringKey(kind.rawValue), systemImage: kind.symbolName)
-            .font(.caption2.weight(.medium))
+        let label = Label(LocalizedStringKey(kind.rawValue), systemImage: kind.symbolName)
             .labelStyle(.titleAndIcon)
-            .foregroundStyle(.secondary)
-            .accessibilityIdentifier("type-badge")
+        switch style {
+        case .plain:
+            label
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("type-badge")
+        case .pill:
+            let tint = GanchoTokens.Palette.kindTint(for: kind)
+            label
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(tint)
+                .padding(.horizontal, GanchoTokens.Spacing.xs)
+                .padding(.vertical, 3)
+                .background(tint.opacity(0.14), in: Capsule())
+                .accessibilityIdentifier("type-badge")
+        }
+    }
+}
+
+/// The parts of a link a row tile or the peek hero shows: the host without
+/// a leading `www.`, and the complete original URL. Parsed locally from the stored
+/// text — no favicon and no metadata fetch, so the URL never leaves the device.
+public struct ClipLinkParts: Equatable, Sendable {
+    public let host: String
+    public let text: String
+
+    public init?(text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Oversized links use the ordinary bounded text preview instead of URL parsing.
+        guard trimmed.utf8.count <= 4_000,
+            let url = URL(string: trimmed), let rawHost = url.host()?.removingPercentEncoding,
+            !rawHost.isEmpty
+        else { return nil }
+        host = rawHost.lowercased().hasPrefix("www.") ? String(rawHost.dropFirst(4)) : rawHost
+        guard !host.isEmpty else { return nil }
+        self.text = trimmed
     }
 }
 
@@ -121,12 +161,9 @@ public struct ClipCard: View {
     /// without a leading `www.`. Parsed locally from the stored preview — no
     /// favicon and no network, so the URL never leaves the device.
     nonisolated public static func linkMonogram(for preview: String) -> String? {
-        let trimmed = preview.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let host = URL(string: trimmed)?.host()?.removingPercentEncoding, !host.isEmpty else {
-            return nil
-        }
-        let bare = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
-        guard let first = bare.first, first.isLetter || first.isNumber else { return nil }
+        guard let first = ClipLinkParts(text: preview)?.host.first,
+            first.isLetter || first.isNumber
+        else { return nil }
         return String(first).uppercased()
     }
 

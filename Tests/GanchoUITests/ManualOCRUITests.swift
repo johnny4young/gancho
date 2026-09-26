@@ -74,8 +74,8 @@ final class ManualOCRUITests: XCTestCase {
 
     /// Position 0 of the peek action list is what Return runs (`actionIndex`
     /// resets to 0 on focus), so offering OCR must not displace Paste as the
-    /// default keyboard action on an image clip. Asserted by geometry, because
-    /// the rows render top-down in list order.
+    /// default keyboard action on an image clip. Asserted by geometry: the
+    /// dock lays its actions out left to right in list order.
     @MainActor
     func testPasteStaysTheFirstPeekActionForImageClips() throws {
         let app = launchOCR(language: "en", appearance: "dark")
@@ -85,8 +85,9 @@ final class ManualOCRUITests: XCTestCase {
         let ocr = element("image-copy-text", in: app)
         XCTAssertTrue(paste.waitForExistence(timeout: 10), "the peek must offer Paste")
         XCTAssertTrue(ocr.waitForExistence(timeout: 10), "the peek must offer OCR on an image")
+        XCTAssertEqual(paste.frame.minY, ocr.frame.minY, accuracy: 1, "both live in the dock")
         XCTAssertLessThan(
-            paste.frame.minY, ocr.frame.minY,
+            paste.frame.minX, ocr.frame.minX,
             "Paste must stay the first peek action: position 0 is what Return runs")
     }
 

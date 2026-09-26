@@ -89,6 +89,10 @@ struct PanelView: View {
     @State private var showShortcuts = false
     /// The ⌘B board picker overlay for the selected clip.
     @State private var showBoardPicker = false
+    /// Where focus returns when the board picker closes (the list or the peek).
+    @State private var boardPickerReturnFocus: PanelFocus = .search
+    /// An inline editor in the peek owns the keyboard.
+    @State private var peekIsEditingInline = false
     /// ⌘↑/⌘↓ search recall: the loaded recall list (newest first), the
     /// cursor into it, and the entry we last applied — so `onChange` can tell
     /// "user typed" (ends the session) from "we recalled" (keeps it).
@@ -159,7 +163,10 @@ struct PanelView: View {
                         item: selected,
                         text: presentation.text,
                         isTextEditable: presentation.isTextEditable,
-                        focus: $focus
+                        focus: $focus,
+                        isEditingInline: $peekIsEditingInline,
+                        addToBoard: presentBoardPicker,
+                        addToLastBoard: { model.assignToLastBoard(search.selectedItems) }
                     )
                     // Drafts, async save callbacks, and action state belong to
                     // one clip only. A new selection gets a fresh preview identity.
@@ -308,8 +315,10 @@ struct PanelView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
             notification in
             guard let window = notification.object as? NSWindow,
-                model.panel.isPanelWindow(window)
+                model.panel.isPanelWindow(window), !showBoardPicker, !peekIsEditingInline
             else { return }
+            // A completion window returning key status must not redirect the
+            // remainder of an inline edit into the search field.
             focus = .search
         }
     }
@@ -502,7 +511,7 @@ struct PanelView: View {
                     if press.modifiers.contains(.shift) {
                         model.assignToLastBoard(search.selectedItems)
                     } else {
-                        showBoardPicker = true
+                        presentBoardPicker()
                     }
                     return .handled
                 }
@@ -624,7 +633,7 @@ struct PanelView: View {
                     combinedSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
                 },
                 addToStack: { model.pushToStack(search.selectedItems) },
-                addToBoard: { showBoardPicker = true },
+                addToBoard: presentBoardPicker,
                 delete: { model.delete(search.selectedItems) },
                 clear: { search.clearSelection() }
             )
@@ -1011,14 +1020,23 @@ struct PanelView: View {
             .contextMenu { contextMenu(for: item) }
     }
 
-    // MARK: - Keyboard cheat-sheet
+    // MARK: - Board picker
 
-    /// A dimmed scrim + a card listing every panel shortcut. Toggled by ⌘/ or
-    /// the footer "?"; esc and a scrim tap dismiss it.
+    /// The picker's field takes the keyboard; closing it returns focus to
+    /// whichever pane opened it.
+    private func presentBoardPicker() {
+        boardPickerReturnFocus = focus ?? .search
+        focus = nil
+        showBoardPicker = true
+    }
+
     @ViewBuilder private var boardPickerOverlay: some View {
         if showBoardPicker, !search.selectedItems.isEmpty {
-            PanelBoardPicker(items: search.selectedItems) { showBoardPicker = false }
-                .transition(.opacity)
+            PanelBoardPicker(items: search.selectedItems) {
+                showBoardPicker = false
+                focus = boardPickerReturnFocus
+            }
+            .transition(.opacity)
         }
     }
 

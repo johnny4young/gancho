@@ -104,7 +104,8 @@ final class PanelReproUITests: XCTestCase {
         // separately), so anchor on the topmost row rather than `firstMatch`.
         XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
         let first = try XCTUnwrap(
-            rows.allElementsBoundByIndex.min { $0.frame.minY < $1.frame.minY })
+            rows.allElementsBoundByIndex.filter { $0.isHittable && !$0.frame.isEmpty }
+                .min { $0.frame.minY < $1.frame.minY })
         XCTAssertTrue(first.isHittable)
         first.click()
         let selected = XCTNSPredicateExpectation(
@@ -139,16 +140,25 @@ final class PanelReproUITests: XCTestCase {
         let boardRow = app.descendants(matching: .any)["board-picker-board-row"].firstMatch
         XCTAssertTrue(boardRow.waitForExistence(timeout: 3))
         boardRow.click()
-        let allAssigned = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value == %@", "Selected"), object: boardRow)
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [allAssigned], timeout: 5), .completed,
+        // Re-resolve the row after the durable refresh replaces its accessibility snapshot.
+        let assignedBoard = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == 'board-picker-board-row' AND value == 'Selected'")
+        ).firstMatch
+        XCTAssertTrue(
+            assignedBoard.waitForExistence(timeout: 5),
             "one board action must assign every selected clip")
         let boardFilter = app.textFields["board-picker-filter"].firstMatch
         XCTAssertTrue(boardFilter.waitForExistence(timeout: 3))
         boardFilter.click()
         boardFilter.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(search.exists, "closing the board picker must keep the panel open")
+        XCTAssertTrue(boardFilter.waitForNonExistence(timeout: 3))
+        addToBoard.click()
+        XCTAssertTrue(
+            assignedBoard.waitForExistence(timeout: 5),
+            "reopening must read the shared membership of all selected clips from storage")
+        boardFilter.click()
+        boardFilter.typeKey(.escape, modifierFlags: [])
     }
 
     /// Uses an in-panel probe coordinate so the runner can start a real AppKit
@@ -352,9 +362,11 @@ final class PanelReproUITests: XCTestCase {
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-panel-repro", "-force-free-tier",
-            "-start-capture-paused", "-place-panel-for-ui-test"
+            "-start-capture-paused", "-place-panel-for-ui-test", "-opaque-panel-for-ui-test"
         ]
         app.launch()
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         defer { app.terminate() }
 
         let search = app.textFields["search-field"].firstMatch
@@ -377,7 +389,8 @@ final class PanelReproUITests: XCTestCase {
             stack.label.contains("3"),
             "batch enqueue must add all three selected clips in one action")
 
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        let attachment = XCTAttachment(
+            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
         attachment.name = "panel-batch-context-actions"
         attachment.lifetime = .keepAlways
         add(attachment)

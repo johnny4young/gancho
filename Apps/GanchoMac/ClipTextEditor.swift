@@ -8,6 +8,9 @@ import SwiftUI
 struct ClipTextEditor: View {
     @Binding var text: String
     let kind: ClipContentKind
+    /// The host already shows the content (a link hero): keep only the Edit
+    /// affordance until editing starts.
+    let readViewHidden: Bool
     let onEditingChanged: @MainActor (Bool) -> Void
     let onSave: @MainActor (String) async -> Bool
 
@@ -19,12 +22,13 @@ struct ClipTextEditor: View {
     @FocusState private var isEditorFocused: Bool
 
     init(
-        text: Binding<String>, kind: ClipContentKind,
+        text: Binding<String>, kind: ClipContentKind, readViewHidden: Bool = false,
         onEditingChanged: @escaping @MainActor (Bool) -> Void,
         onSave: @escaping @MainActor (String) async -> Bool
     ) {
         _text = text
         self.kind = kind
+        self.readViewHidden = readViewHidden
         self.onEditingChanged = onEditingChanged
         self.onSave = onSave
         _draft = State(initialValue: text.wrappedValue)
@@ -47,7 +51,7 @@ struct ClipTextEditor: View {
 
             if isEditing {
                 editor
-            } else {
+            } else if !readViewHidden {
                 ScrollView {
                     Text(highlighted)
                         .font(kind == .code ? .body.monospaced() : .body)

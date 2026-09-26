@@ -7,9 +7,14 @@ final class ClipTextEditingUITests: XCTestCase {
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
             "-use-temp-durable-store", "-seed-clip-editing",
-            "-force-free-tier", "-start-capture-paused", "-AppleLanguages", "(en)"
+            "-force-free-tier", "-start-capture-paused", "-AppleLanguages", "(en)",
+            "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
+            "-ui-test-defaults-suite",
+            "com.johnny4young.gancho.uitests.editing.\(UUID().uuidString)"
         ]
         app.launch()
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         defer { app.terminate() }
 
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
@@ -54,7 +59,8 @@ final class ClipTextEditingUITests: XCTestCase {
                 format: "identifier == 'clip-row' AND label CONTAINS %@", finalText)
         ).firstMatch
         XCTAssertTrue(saved.waitForExistence(timeout: 5))
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(
+            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
         attachment.name = "macOS explicit clip text editing"
         attachment.lifetime = .keepAlways
         add(attachment)

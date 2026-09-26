@@ -36,6 +36,7 @@ extension AppModel {
             seedReuseSuggestionIfRequested(),
             seedClipEditingIfRequested(),
             seedVisualLibraryIfRequested(),
+            seedPeekLinkIfRequested(),
             seedManualOCRIfRequested(),
             seedMultiFileDragIfRequested(),
             seedPrivateActivityReceiptIfRequested()
@@ -205,6 +206,23 @@ extension AppModel {
                     kind: .code, title: "Example", preview: "let greeting = \"Hello\"",
                     contentHash: "library-code")
                 _ = try? await fullStore.insert(code, content: .text(code.preview))
+                await refreshRecents()
+            }
+        #else
+            return nil
+        #endif
+    }
+
+    private func seedPeekLinkIfRequested() -> Task<Void, Never>? {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-peek-link"),
+                CommandLine.arguments.contains("-use-temp-durable-store"), let fullStore
+            else { return nil }
+            return Task {
+                let url = "https://www.example.com:8443/a%2Fb?q=a%26b#section-2"
+                let item = ClipItem(
+                    kind: .url, title: "Synthetic link", preview: url, contentHash: "peek-link")
+                _ = try? await fullStore.insert(item, content: .text(url))
                 await refreshRecents()
             }
         #else
