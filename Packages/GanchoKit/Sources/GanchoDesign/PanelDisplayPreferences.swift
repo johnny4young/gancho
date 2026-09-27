@@ -1,4 +1,5 @@
 import CoreGraphics
+import GanchoKit
 import SwiftUI
 
 /// Semantic text scaling for Gancho's history panel.
@@ -64,5 +65,15 @@ public enum PanelAmbientTint {
     /// before it reads as a tint.
     nonisolated public static func opacity(dark: Bool) -> Double {
         dark ? 0.22 : 0.14
+    }
+
+    /// Whether the wash may take an image's own colour. Only while that image
+    /// is actually shown: a sensitive image or Private Mode masks the preview,
+    /// and a content-derived colour would hint at what the mask hides. The
+    /// kind's tint is the fallback either way.
+    nonisolated public static func usesAccent(
+        kind: ClipContentKind, isSensitive: Bool, previewsHidden: Bool
+    ) -> Bool {
+        kind == .image && !isSensitive && !previewsHidden
     }
 }

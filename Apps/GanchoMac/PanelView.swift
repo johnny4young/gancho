@@ -371,7 +371,9 @@ struct PanelView: View {
                 increasedContrast: contrast == .increased),
             let selected = search.selectedItem
         else { return nil }
-        if selected.kind == .image, !selected.isSensitive,
+        if PanelAmbientTint.usesAccent(
+            kind: selected.kind, isSensitive: selected.isSensitive,
+            previewsHidden: model.preferences.isPrivateModePaused),
             let accent = model.thumbnails.cachedAccent(for: selected.id)
         {
             return accent.color
