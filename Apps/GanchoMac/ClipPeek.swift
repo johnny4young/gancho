@@ -640,7 +640,7 @@ extension ClipPeek {
     }
 
     private var peekContentAnimation: Animation? {
-        GanchoMotion.animation(GanchoMotion.smooth, reduceMotion: reduceMotion)
+        GanchoMotion.smooth(reduceMotion: reduceMotion)
     }
 
     /// The OCR session belongs to THIS clip and has something to show.

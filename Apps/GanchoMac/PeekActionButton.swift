@@ -31,7 +31,7 @@ struct PeekActionButton: View {
     @State private var isHovered = false
 
     private var motion: Animation? {
-        GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion)
+        GanchoMotion.quick(reduceMotion: reduceMotion)
     }
 
     var body: some View {
@@ -61,8 +61,9 @@ struct PeekActionButton: View {
             Image(systemName: action.symbol)
                 .font(.system(size: 15, weight: .semibold))
                 .frame(height: 18)
-                .contentTransition(.symbolEffect(.replace))
-                .symbolEffect(.bounce, value: action.symbol)
+                .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
+                // A constant value never triggers the discrete bounce.
+                .symbolEffect(.bounce, value: reduceMotion ? "" : action.symbol)
             Text(action.shortTitle ?? action.title)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)

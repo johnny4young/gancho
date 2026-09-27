@@ -186,7 +186,7 @@ struct PanelView: View {
                     }
                     .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
                     .animation(
-                        GanchoMotion.animation(GanchoMotion.smooth, reduceMotion: reduceMotion),
+                        GanchoMotion.smooth(reduceMotion: reduceMotion),
                         value: selected.id)
                 }
             }
@@ -338,6 +338,14 @@ struct PanelView: View {
             // A completion window returning key status must not redirect the
             // remainder of an inline edit into the search field.
             focus = .search
+        }
+        // Posted by the controller only on a hidden → shown transition, so a
+        // panel that merely regains key (a sheet closing, a pinned panel
+        // refocused) never replays the entrance.
+        .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidShow)) {
+            notification in
+            guard let window = notification.object as? NSWindow, model.panel.isPanelWindow(window)
+            else { return }
             playEntrance()
         }
     }
@@ -651,7 +659,7 @@ struct PanelView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("filter-rail")
         .animation(
-            GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion),
+            GanchoMotion.quick(reduceMotion: reduceMotion),
             value: search.kindFilter)
     }
 
@@ -853,7 +861,7 @@ struct PanelView: View {
             }
             .accessibilityIdentifier("board-rail")
             .animation(
-                GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion),
+                GanchoMotion.quick(reduceMotion: reduceMotion),
                 value: search.selectedBoardID
             )
             .onChange(of: railFocus) { _, focused in

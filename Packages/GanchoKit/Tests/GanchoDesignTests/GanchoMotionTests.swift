@@ -7,15 +7,15 @@ import Testing
 struct GanchoMotionTests {
     @Test("Both curves are returned as-is when motion is allowed")
     func allowed() {
-        #expect(
-            GanchoMotion.animation(GanchoMotion.quick, reduceMotion: false) == GanchoMotion.quick)
-        #expect(
-            GanchoMotion.animation(GanchoMotion.smooth, reduceMotion: false) == GanchoMotion.smooth)
+        #expect(GanchoMotion.quick(reduceMotion: false) == GanchoMotion.quick)
+        #expect(GanchoMotion.smooth(reduceMotion: false) == GanchoMotion.smooth)
+        #expect(GanchoMotion.usesBlurReplace(reduceMotion: false))
     }
 
-    @Test("Reduce Motion yields no animation at all")
+    @Test("Reduce Motion yields no animation and no blur")
     func reduced() {
-        #expect(GanchoMotion.animation(GanchoMotion.quick, reduceMotion: true) == nil)
-        #expect(GanchoMotion.animation(GanchoMotion.smooth, reduceMotion: true) == nil)
+        #expect(GanchoMotion.quick(reduceMotion: true) == nil)
+        #expect(GanchoMotion.smooth(reduceMotion: true) == nil)
+        #expect(!GanchoMotion.usesBlurReplace(reduceMotion: true))
     }
 }

@@ -13,8 +13,24 @@ public enum GanchoMotion {
         reduceMotion ? nil : base
     }
 
+    nonisolated public static func quick(reduceMotion: Bool) -> Animation? {
+        animation(quick, reduceMotion: reduceMotion)
+    }
+
+    nonisolated public static func smooth(reduceMotion: Bool) -> Animation? {
+        animation(smooth, reduceMotion: reduceMotion)
+    }
+
+    /// Whether a content swap may blur; the pure half of `replace` so the
+    /// policy is testable without building a transition.
+    nonisolated public static func usesBlurReplace(reduceMotion: Bool) -> Bool {
+        !reduceMotion
+    }
+
     /// A content swap: blur-replace normally, a plain swap under Reduce Motion.
-    nonisolated public static func replace(reduceMotion: Bool) -> AnyTransition {
-        reduceMotion ? .identity : AnyTransition(BlurReplaceTransition(configuration: .downUp))
+    /// Main-actor because SwiftUI's transition initializers are.
+    @MainActor public static func replace(reduceMotion: Bool) -> AnyTransition {
+        usesBlurReplace(reduceMotion: reduceMotion)
+            ? AnyTransition(BlurReplaceTransition(configuration: .downUp)) : .identity
     }
 }

@@ -198,18 +198,11 @@ public struct ClipCard: View {
                 .animation(selectionAnimation, value: isSelectionAnchor)
         }
         .background {
-            if isHovered, !isSelected {
-                RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                    .fill(.quaternary.opacity(0.45))
-            }
+            // Scoped like the highlight above: only the wash animates, never
+            // the row's own layout.
+            hoverBackground
+                .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: isHovered)
         }
-        .animation(
-            GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion), value: isHovered
-        )
-        .animation(
-            GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion),
-            value: item.isPinned
-        )
         .onHover { isHovered = $0 }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
@@ -240,7 +233,16 @@ public struct ClipCard: View {
         GanchoTokens.Syntax.highlighted(String(item.preview.prefix(Self.syntaxPreviewLimit)))
     }
 
-    /// Source · time on top, then the state markers and the ⌘N badge.
+    @ViewBuilder private var hoverBackground: some View {
+        if isHovered, !isSelected {
+            RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                .fill(.quaternary.opacity(0.45))
+        }
+    }
+
+    /// Source · time on top, then the state markers and the ⌘N badge. The pin
+    /// marker's scale-in is scoped here so a pin toggle never animates the
+    /// row's reflow into the Pinned section.
     private var trailingMeta: some View {
         VStack(alignment: .trailing, spacing: 3) {
             sourceTimeLine
@@ -296,11 +298,12 @@ public struct ClipCard: View {
                 }
             }
         }
+        .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: item.isPinned)
     }
 
     private var selectionAnimation: Animation? {
         selectionNamespace == nil
-            ? nil : GanchoMotion.animation(GanchoMotion.quick, reduceMotion: reduceMotion)
+            ? nil : GanchoMotion.quick(reduceMotion: reduceMotion)
     }
 
     /// Accent wash plus the design's accent bar on the leading edge. With a
