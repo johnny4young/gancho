@@ -87,6 +87,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
+    /// The ambient wash toggle; the view reads the same key through `@AppStorage`.
+    var ambientTint: Bool {
+        get { defaults.bool(forKey: PanelAmbientTint.storageKey) }
+        set { defaults.set(newValue, forKey: PanelAmbientTint.storageKey) }
+    }
+
     var preferredContentSize: CGSize {
         let width = defaults.double(forKey: PreferenceKey.contentWidth)
         let height = defaults.double(forKey: PreferenceKey.contentHeight)

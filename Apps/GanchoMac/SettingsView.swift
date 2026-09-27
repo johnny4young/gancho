@@ -157,6 +157,9 @@ private struct GeneralSettingsTab: View {
     @Environment(AppModel.self) private var model
     let showMigrationImporter: () -> Void
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    /// Local state, like Launch at login: the controller's flag isn't
+    /// observable, so a Binding straight into it would leave the switch stale.
+    @State private var ambientTint = false
     @State private var shortcutWarning: String?
     @State private var transferNote: String?
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
@@ -220,6 +223,15 @@ private struct GeneralSettingsTab: View {
                     }
                 }
                 Text("Manual resizing is remembered automatically.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Toggle("Ambient color", isOn: $ambientTint)
+                    .onAppear { ambientTint = model.panel.ambientTint }
+                    .onChange(of: ambientTint) { _, enabled in
+                        model.panel.ambientTint = enabled
+                    }
+                    .accessibilityIdentifier("panel-ambient-tint")
+                Text("A faint wash of the selected clip’s color behind the list and the peek.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

@@ -112,6 +112,10 @@ struct PanelView: View {
     /// False for one frame on every open, so the panel settles in from a hair
     /// smaller instead of snapping on.
     @State private var entered = true
+    @AppStorage private var ambientTintEnabled: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.colorScheme) private var colorScheme
 
     init(model: AppModel, displayDefaults: UserDefaults = .standard) {
         _search = State(wrappedValue: PanelSearchModel(source: model))
@@ -120,6 +124,8 @@ struct PanelView: View {
             wrappedValue: PanelTextSize.standard.rawValue,
             PanelTextSize.storageKey,
             store: displayDefaults)
+        _ambientTintEnabled = AppStorage(
+            wrappedValue: false, PanelAmbientTint.storageKey, store: displayDefaults)
     }
 
     /// Zero-size buttons that claim command-level shortcuts. The search
@@ -200,6 +206,12 @@ struct PanelView: View {
         .overlay { boardPickerOverlay }
         .overlay { telemetryConsentPrompt }
         .overlay(alignment: .top) { uiTestMultiFileDropTarget }
+        // Between the content and the glass, so the wash reads through the
+        // rows without tinting the glass itself.
+        .background {
+            ambientWash
+                .animation(GanchoMotion.smooth(reduceMotion: reduceMotion), value: ambientTint)
+        }
         .clipShape(RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
         .ganchoSurface(radius: GanchoTokens.Radius.lg)
         .scaleEffect(entered ? 1 : 0.985)
@@ -347,6 +359,47 @@ struct PanelView: View {
             guard let window = notification.object as? NSWindow, model.panel.isPanelWindow(window)
             else { return }
             playEntrance()
+        }
+    }
+
+    /// The colour the ambient wash takes: an image's average, otherwise the
+    /// kind's tint; nil when the wash is off or legibility settings veto it.
+    private var ambientTint: Color? {
+        guard
+            PanelAmbientTint.isShown(
+                enabled: ambientTintEnabled, reduceTransparency: reduceTransparency,
+                increasedContrast: contrast == .increased),
+            let selected = search.selectedItem
+        else { return nil }
+        if selected.kind == .image, !selected.isSensitive,
+            let accent = model.thumbnails.cachedAccent(for: selected.id)
+        {
+            return accent.color
+        }
+        return GanchoTokens.Palette.kindTint(for: selected.kind)
+    }
+
+    /// A soft field of the tint, heavier at the corners the eye lands on
+    /// last, so the rows stay on neutral glass.
+    @ViewBuilder private var ambientWash: some View {
+        if let tint = ambientTint {
+            MeshGradient(
+                width: 3, height: 3,
+                points: [
+                    [0, 0], [0.5, 0], [1, 0],
+                    [0, 0.5], [0.5, 0.5], [1, 0.5],
+                    [0, 1], [0.5, 1], [1, 1]
+                ],
+                colors: [
+                    tint, tint.opacity(0.35), .clear,
+                    tint.opacity(0.3), .clear, tint.opacity(0.2),
+                    .clear, tint.opacity(0.25), tint.opacity(0.7)
+                ]
+            )
+            .opacity(PanelAmbientTint.opacity(dark: colorScheme == .dark))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .transition(.opacity)
         }
     }
 

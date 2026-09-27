@@ -45,3 +45,24 @@ public enum PanelSizePreset: String, CaseIterable, Identifiable, Sendable {
         }
     }
 }
+
+/// The optional ambient wash behind the panel: a faint field of the selected
+/// clip's colour under the list and the peek. Off by default; Settings owns
+/// the toggle.
+public enum PanelAmbientTint {
+    public static let storageKey = "panel-ambient-tint"
+
+    /// Legibility first: no wash when the user reduced transparency or asked
+    /// for more contrast, whatever the toggle says.
+    nonisolated public static func isShown(
+        enabled: Bool, reduceTransparency: Bool, increasedContrast: Bool
+    ) -> Bool {
+        enabled && !reduceTransparency && !increasedContrast
+    }
+
+    /// Wash strength per appearance: dark glass carries a little more colour
+    /// before it reads as a tint.
+    nonisolated public static func opacity(dark: Bool) -> Double {
+        dark ? 0.22 : 0.14
+    }
+}
