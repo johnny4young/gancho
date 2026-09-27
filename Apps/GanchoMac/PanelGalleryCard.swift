@@ -29,34 +29,18 @@ struct PanelGalleryCard: View {
                     lineWidth: 2)
             )
             .overlay(alignment: .topTrailing) {
-                if let shortcutNumber, (1...9).contains(shortcutNumber) {
-                    Text(verbatim: "⌘\(shortcutNumber)")
-                        .font(.caption2.weight(.medium).monospaced())
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, GanchoTokens.Spacing.xxs)
-                        .padding(.vertical, 1)
-                        .background(
-                            .quaternary,
-                            in: RoundedRectangle(
-                                cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-                        )
+                if let shortcutNumber {
+                    ClipShortcutBadge(number: shortcutNumber)
                         .padding(GanchoTokens.Spacing.xs)
-                        .accessibilityHidden(true)
                 }
             }
             .contentShape(shape)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(accessibilityDescription)
+            .accessibilityLabel(Text.clipRowDescription(for: item, masked: masked))
             .accessibilityValue(
                 shortcutNumber.map { Text(verbatim: "⌘\($0)") } ?? Text(verbatim: "")
             )
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityIdentifier("clip-row")
-    }
-
-    /// Kind + preview, masked when the row is; the same phrase the list uses.
-    private var accessibilityDescription: Text {
-        let preview = masked ? "•••" : ByteSize.humanizedPreview(item.preview)
-        return Text("\(Text(LocalizedStringKey(item.kind.rawValue))), \(preview)")
     }
 }

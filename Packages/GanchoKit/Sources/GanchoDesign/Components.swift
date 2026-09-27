@@ -283,18 +283,8 @@ public struct ClipCard: View {
                         .accessibilityLabel(Text("Pinned"))
                         .transition(.scale.combined(with: .opacity))
                 }
-                if let shortcutNumber, (1...9).contains(shortcutNumber) {
-                    Text(verbatim: "⌘\(shortcutNumber)")
-                        .font(.caption2.weight(.medium).monospaced())
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, GanchoTokens.Spacing.xxs)
-                        .padding(.vertical, 1)
-                        .background(
-                            .quaternary,
-                            in: RoundedRectangle(
-                                cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-                        )
-                        .accessibilityHidden(true)
+                if let shortcutNumber {
+                    ClipShortcutBadge(number: shortcutNumber)
                 }
             }
         }
@@ -387,8 +377,7 @@ public struct ClipCard: View {
     /// VoiceOver: kind + preview (masked previews stay masked here too).
     /// Single interpolated `Text` — concatenating with `+` is deprecated in 26.
     private var accessibilityDescription: Text {
-        let preview = previewsHidden ? "•••" : ByteSize.humanizedPreview(item.preview)
-        let base = Text("\(Text(LocalizedStringKey(item.kind.rawValue))), \(preview)")
+        let base = Text.clipRowDescription(for: item, masked: previewsHidden)
         // The row is ONE combined accessibility element with an explicit label,
         // which supersedes the children's labels — so the countdown badge's own
         // label is never announced. Surface expiry here instead (state, not the
@@ -396,6 +385,40 @@ public struct ClipCard: View {
         // minute count would read stale).
         guard Self.showsExpiryCountdown(expiresAt: item.expiresAt) else { return base }
         return Text("\(base), \(Text("Expires soon"))")
+    }
+}
+
+/// The ⌘N quick-paste badge, shared by the list row and the gallery card. Hidden
+/// from VoiceOver: the row exposes the number as its accessibility value.
+public struct ClipShortcutBadge: View {
+    let number: Int
+
+    public init(number: Int) {
+        self.number = number
+    }
+
+    public var body: some View {
+        if (1...9).contains(number) {
+            Text(verbatim: "⌘\(number)")
+                .font(.caption2.weight(.medium).monospaced())
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, GanchoTokens.Spacing.xxs)
+                .padding(.vertical, 1)
+                .background(
+                    .quaternary,
+                    in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+                )
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+extension Text {
+    /// The row's VoiceOver phrase — kind, then the preview or the mask — so the
+    /// list row and the gallery card read identically.
+    public static func clipRowDescription(for item: ClipItem, masked: Bool) -> Text {
+        let preview = masked ? "•••" : ByteSize.humanizedPreview(item.preview)
+        return Text("\(Text(LocalizedStringKey(item.kind.rawValue))), \(preview)")
     }
 }
 

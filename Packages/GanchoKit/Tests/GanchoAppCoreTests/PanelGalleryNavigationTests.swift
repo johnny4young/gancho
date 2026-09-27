@@ -28,9 +28,19 @@ struct PanelGalleryNavigationTests {
         #expect(result.loadMoreAt == 4)
     }
 
-    @Test func downFromAPartialLastRowStopsOnTheLastCardThenWraps() {
-        #expect(reduce(.down, from: 6).state.selectedIndex == 7)
-        #expect(reduce(.down, from: 7).state.selectedIndex == 0)
+    @Test func downOntoAShorterLastRowLandsOnItsLastCard() {
+        // 8 cards, 3 columns: the last row holds cards 6 and 7.
+        #expect(reduce(.down, from: 4).state.selectedIndex == 7)
+        #expect(reduce(.down, from: 5).state.selectedIndex == 7)
+    }
+
+    @Test func downFromTheLastRowWrapsToTheTopOfTheSameColumn() {
+        #expect(reduce(.down, from: 6).state.selectedIndex == 0)
+        #expect(reduce(.down, from: 7).state.selectedIndex == 1)
+        // A full last row (6 cards, 3 columns) wraps the same way, never sideways.
+        #expect(reduce(.down, from: 3, rowCount: 6).state.selectedIndex == 0)
+        #expect(reduce(.down, from: 4, rowCount: 6).state.selectedIndex == 1)
+        #expect(reduce(.down, from: 5, rowCount: 6).state.selectedIndex == 2)
     }
 
     @Test func upMovesOneRowThenTheFirstCardThenTheRails() {

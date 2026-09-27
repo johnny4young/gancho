@@ -47,6 +47,19 @@ final class PanelGalleryUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 3), .completed)
         XCTAssertEqual(rows.allElementsBoundByIndex.filter(\.isSelected).count, 1)
 
+        // ⇧↓ grows the range by a whole row of cards (two columns at this
+        // width), so cards 1, 2 and 3 are selected.
+        app.typeKey(.downArrow, modifierFlags: .shift)
+        let rowExtended = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isSelected == true"), object: rows.element(boundBy: 3))
+        XCTAssertEqual(XCTWaiter.wait(for: [rowExtended], timeout: 3), .completed)
+        XCTAssertEqual(rows.allElementsBoundByIndex.filter(\.isSelected).count, 3)
+        app.typeKey(.upArrow, modifierFlags: .shift)
+        let rowShrunk = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isSelected == false"), object: rows.element(boundBy: 3))
+        XCTAssertEqual(XCTWaiter.wait(for: [rowShrunk], timeout: 3), .completed)
+        XCTAssertEqual(rows.allElementsBoundByIndex.filter(\.isSelected).count, 1)
+
         let panel = app.dialogs["history-panel"].firstMatch
         let evidence = XCTAttachment(screenshot: panel.screenshot())
         evidence.name = "History panel — gallery"

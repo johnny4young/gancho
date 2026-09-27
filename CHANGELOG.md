@@ -16,9 +16,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   or Increase Contrast is on.
 - A gallery layout for the Mac panel (⌘G, remembered): the history as a grid
   of visual cards — thumbnails, colour swatches, code and text previews —
-  with the same date sections, ⌘1–9 badges and peek beside it. ↑↓ move by a
-  row of cards, ←→ step within one, and → at the end of a row still opens
-  the peek.
+  with the same date sections, ⌘1–9 badges and peek beside it. ↑↓ (and ⇧↑↓
+  for a range) move by a row of cards, ←→ step within one, → at the end of a
+  row still opens the peek, and ↓ from the last row wraps to the top of its
+  column.
 
 ### Changed
 

@@ -1302,7 +1302,9 @@ struct PanelView: View {
     }
 
     private func extendSelection(by delta: Int) -> KeyPress.Result {
-        search.moveSelection(by: delta, extending: true)
+        // ⇧↑↓ grow the range by a row of cards in the gallery, like plain ↑↓.
+        let step = layout == .gallery ? galleryColumns : 1
+        search.moveSelection(by: delta * step, extending: true)
         if delta > 0 { Task { await search.loadMoreIfNeeded(search.selectedIndex) } }
         focus = .search
         return .handled

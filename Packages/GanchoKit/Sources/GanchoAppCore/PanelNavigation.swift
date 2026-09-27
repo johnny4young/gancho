@@ -123,17 +123,20 @@ public enum PanelNavigation {
             }
         case .down:
             // ↓: boards → filters → back into the list. In the gallery ↓ moves a
-            // row of cards, stops on the last card, then wraps like the list.
+            // row of cards: onto a shorter last row it lands on its last card,
+            // and from the last row it wraps to the top of the same column.
             switch state.railFocus {
             case nil:
                 let target = state.selectedIndex + context.columns
+                let lastRow = max(0, context.rowCount - 1) / context.columns
                 if context.columns == 1 || target < context.rowCount {
                     move(context.columns)
-                } else if state.selectedIndex < context.rowCount - 1 {
+                } else if state.selectedIndex / context.columns < lastRow {
                     state.selectedIndex = context.rowCount - 1
                     loadMoreAt = state.selectedIndex
                 } else {
-                    state.selectedIndex = 0
+                    state.selectedIndex = min(
+                        state.selectedIndex % context.columns, max(0, context.rowCount - 1))
                 }
             case .filters:
                 state.railFocus = nil
