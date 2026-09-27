@@ -40,8 +40,28 @@ Use disposable data and backups for those checks; green CI and artifact QA do
 not certify them. See the [release notes](docs/releases/v0.8.4.md),
 [changelog](CHANGELOG.md), and [release requirements](docs/RELEASING.md).
 
+## Next: the redesigned panel
+
+On `main` since v0.8.4 and not yet in a published download. The Mac panel gets
+one toolbar, rows that show what each clip is at a glance, a peek with a hero
+card and an action dock, motion that respects Reduce Motion, an optional
+ambient colour, and a gallery layout behind ⌘G.
+
+<table>
+  <tr>
+    <td colspan="2"><img src="site/assets/screen-panel-peek.png" alt="Redesigned Gancho panel: one toolbar, kind-coloured rows and a link peek with an action dock"><br><sub>A link's host and path set large — parsed on the Mac, never fetched — with Paste, Plain, Pin and Board in the dock.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="site/assets/screen-panel-gallery.png" alt="Gancho panel gallery layout in dark mode with a colour clip selected"><br><sub>⌘G shows the history as cards; the arrows move by row and by column.</sub></td>
+    <td width="50%"><img src="site/assets/screen-panel-ambient.png" alt="Gancho panel with the optional ambient colour behind an image clip"><br><sub>Optional ambient colour: a faint wash of the selected image's own colour, off by default.</sub></td>
+  </tr>
+</table>
+
+<sub>Captured by `ProductScreensUITests` from `main` with synthetic data; capture stays stopped, so no real clipboard content can appear.</sub>
+
 ## Contents
 
+- [Next: the redesigned panel](#next-the-redesigned-panel)
 - [Product goal](#product-goal)
 - [Platform plan](#platform-plan)
 - [Current capabilities](#current-capabilities)
