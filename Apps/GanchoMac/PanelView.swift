@@ -113,6 +113,9 @@ struct PanelView: View {
     /// smaller instead of snapping on.
     @State private var entered = true
     @AppStorage private var ambientTintEnabled: Bool
+    @AppStorage private var panelLayoutRaw: String
+    /// What the gallery currently fits; 1 while the list is showing.
+    @State private var galleryColumns = 2
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var colorScheme
@@ -126,6 +129,8 @@ struct PanelView: View {
             store: displayDefaults)
         _ambientTintEnabled = AppStorage(
             wrappedValue: false, PanelAmbientTint.storageKey, store: displayDefaults)
+        _panelLayoutRaw = AppStorage(
+            wrappedValue: PanelLayout.list.rawValue, PanelLayout.storageKey, store: displayDefaults)
     }
 
     /// Zero-size buttons that claim command-level shortcuts. The search
@@ -147,6 +152,10 @@ struct PanelView: View {
                 }
             }
             .keyboardShortcut("y", modifiers: .command)
+            // ⌘G flips list ↔ gallery. As a command it beats the field editor,
+            // which would otherwise take ⌘G as "find next".
+            Button("") { panelLayoutRaw = layout.toggled.rawValue }
+                .keyboardShortcut("g", modifiers: .command)
             // ⇧⌘C reads the selected image's text into the peek. Return keeps
             // pasting; the OCR action never takes position 0 of the peek list.
             Button("") {
@@ -633,6 +642,9 @@ struct PanelView: View {
                     groups: search.groups,
                     items: search.filtered,
                     selectedID: search.selectedItem?.id,
+                    layout: layout,
+                    columns: galleryColumns,
+                    onColumnsChange: { galleryColumns = $0 },
                     clearFilters: {
                         search.kindFilter = .all
                         search.selectedBoardID = nil
@@ -1190,20 +1202,31 @@ struct PanelView: View {
         }
     }
 
-    private func row(for item: ClipItem) -> some View {
+    private var layout: PanelLayout { PanelLayout.resolved(panelLayoutRaw) }
+
+    @ViewBuilder private func row(for item: ClipItem) -> some View {
         let index = search.visibleIndex(of: item.id)
-        // ClipCard is the design's ClipRow: kind glyph (or colour swatch),
-        // title/preview, pin / Universal-Clipboard markers, and the ⌘N
-        // quick-paste badge for the first nine rows.
-        return ClipCard(
-            item: item, isSelected: search.isSelected(item.id),
-            previewsHidden: model.preferences.isPrivateModePaused,
-            shortcutNumber: index.flatMap { $0 < 9 ? $0 + 1 : nil },
-            thumbnail: model.thumbnails.cached(for: item.id),
-            // Only the anchor claims the gliding highlight: two rows sharing one
-            // matched id (a ⇧ range) would log and draw nothing.
-            selectionNamespace: selectionNamespace,
-            isSelectionAnchor: search.selectedItem?.id == item.id)
+        let shortcutNumber = index.flatMap { $0 < 9 ? $0 + 1 : nil }
+        switch layout {
+        case .list:
+            // ClipCard is the design's ClipRow: kind glyph (or colour swatch),
+            // title/preview, pin / Universal-Clipboard markers, and the ⌘N
+            // quick-paste badge for the first nine rows.
+            ClipCard(
+                item: item, isSelected: search.isSelected(item.id),
+                previewsHidden: model.preferences.isPrivateModePaused,
+                shortcutNumber: shortcutNumber,
+                thumbnail: model.thumbnails.cached(for: item.id),
+                // Only the anchor claims the gliding highlight: two rows sharing one
+                // matched id (a ⇧ range) would log and draw nothing.
+                selectionNamespace: selectionNamespace,
+                isSelectionAnchor: search.selectedItem?.id == item.id)
+        case .gallery:
+            PanelGalleryCard(
+                item: item, isSelected: search.isSelected(item.id),
+                previewsHidden: model.preferences.isPrivateModePaused,
+                shortcutNumber: shortcutNumber, thumbnails: model.thumbnails)
+        }
     }
 
     /// Pin/board assignment — the context-menu path; drag & drop arrives
@@ -1332,7 +1355,8 @@ struct PanelView: View {
         let context = PanelNavigationContext(
             rowCount: search.filtered.count,
             boardIDs: model.boards.map(\.id),
-            hasSelection: search.selectedItem != nil)
+            hasSelection: search.selectedItem != nil,
+            columns: layout == .gallery ? galleryColumns : 1)
         let state = PanelNavigationState(
             railFocus: railFocus,
             selectedIndex: search.selectedIndex,
