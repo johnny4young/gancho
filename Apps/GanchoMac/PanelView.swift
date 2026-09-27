@@ -624,7 +624,7 @@ struct PanelView: View {
             VStack(spacing: GanchoTokens.Spacing.xs) {
                 selectionContextBar
 
-                if let notice = capturePresentation.notice, !hidesPausedNoticeForUITest(notice) {
+                if let notice = capturePresentation.notice {
                     PanelCaptureNoticeView(notice: notice, perform: handleCaptureAction)
                 }
 
@@ -1168,31 +1168,23 @@ struct PanelView: View {
     /// by both the capture banner and footer indicator.
     private var capturePresentation: PanelCapturePresentation {
         #if DEBUG
-            // Privacy-safe marketing evidence uses a deliberately in-memory,
-            // synthetic store. Suppress only that expected warning for the
-            // dedicated screenshot flow; production builds ignore the flag.
+            // Screenshot fixtures run on a synthetic in-memory store with
+            // capture stopped (the real clipboard is never read); each flag
+            // hides only that expected notice. Production builds ignore them.
             let suppressExpectedEphemeralNotice =
                 CommandLine.arguments.contains("-suppress-storage-notice-for-ui-test")
+            let suppressExpectedPausedNotice =
+                CommandLine.arguments.contains("-suppress-paused-notice-for-ui-test")
         #else
             let suppressExpectedEphemeralNotice = false
+            let suppressExpectedPausedNotice = false
         #endif
         return PanelCapturePresentation.resolve(
             storageIsEphemeral: model.storageIsEphemeral,
             suppressExpectedEphemeralNotice: suppressExpectedEphemeralNotice,
+            suppressExpectedPausedNotice: suppressExpectedPausedNotice,
             privateModeEnabled: model.preferences.isPrivateModePaused,
             runtimeStatus: model.monitorStatus.panelCaptureRuntimeStatus)
-    }
-
-    /// Screenshot runs keep capture stopped so the real clipboard is never
-    /// read; this hides only the resulting "paused" banner. Production builds
-    /// ignore the flag.
-    private func hidesPausedNoticeForUITest(_ notice: PanelCaptureNotice) -> Bool {
-        #if DEBUG
-            notice == .paused
-                && CommandLine.arguments.contains("-suppress-paused-notice-for-ui-test")
-        #else
-            false
-        #endif
     }
 
     private func handleCaptureAction(_ action: PanelCaptureAction) {

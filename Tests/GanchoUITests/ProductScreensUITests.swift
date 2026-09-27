@@ -22,7 +22,9 @@ final class ProductScreensUITests: XCTestCase {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.element(boundBy: 4).waitForExistence(timeout: 15))
+        XCTAssertTrue(
+            rows.element(boundBy: 4).waitForExistence(timeout: 15),
+            "the visual-library (4) and peek-link (1) seeds must list five rows")
         XCTAssertFalse(
             app.descendants(matching: .any)["capture-notice"].firstMatch.exists,
             "marketing screens must not show the expected paused banner")
