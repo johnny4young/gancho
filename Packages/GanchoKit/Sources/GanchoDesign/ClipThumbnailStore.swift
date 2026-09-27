@@ -136,26 +136,39 @@ public final class ClipThumbnailStore {
         return (png, averageColor(of: cgImage))
     }
 
-    /// Draws the thumbnail into one pixel: CoreGraphics' resampling is the
-    /// average, with no per-pixel loop and no full bitmap kept around.
+    /// Draws the thumbnail into a small grid and averages it, alpha-weighted.
+    /// A single resampled pixel is a filtered sample of a limited footprint,
+    /// not a mean; a grid of them is close enough to one at negligible cost.
     nonisolated static func averageColor(of image: CGImage) -> ThumbnailAccent? {
-        var pixel = [UInt8](repeating: 0, count: 4)
-        guard
+        let side = Self.averageGridSide
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
             let context = CGContext(
-                data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                data: &pixels, width: side, height: side, bitsPerComponent: 8,
+                bytesPerRow: side * 4, space: space,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         else { return nil }
         context.interpolationQuality = .high
-        context.draw(image, in: CGRect(x: 0, y: 0, width: 1, height: 1))
-        let alpha = Double(pixel[3]) / 255
+        context.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
+        // Premultiplied channels summed over alpha summed is the un-premultiplied
+        // mean, so a transparent region neither darkens nor counts.
+        var red = 0.0
+        var green = 0.0
+        var blue = 0.0
+        var alpha = 0.0
+        for offset in stride(from: 0, to: pixels.count, by: 4) {
+            red += Double(pixels[offset]) / 255
+            green += Double(pixels[offset + 1]) / 255
+            blue += Double(pixels[offset + 2]) / 255
+            alpha += Double(pixels[offset + 3]) / 255
+        }
         guard alpha > 0 else { return nil }
-        // Un-premultiply so a transparent image doesn't read as black.
         return ThumbnailAccent(
-            red: min(1, Double(pixel[0]) / 255 / alpha),
-            green: min(1, Double(pixel[1]) / 255 / alpha),
-            blue: min(1, Double(pixel[2]) / 255 / alpha))
+            red: min(1, red / alpha), green: min(1, green / alpha), blue: min(1, blue / alpha))
     }
+
+    /// Pixels per side of the averaging grid.
+    nonisolated static let averageGridSide = 8
 
     /// A downscaled PNG thumbnail via ImageIO: reads only enough of the source
     /// to build a thumbnail at `maxPixel`, honouring EXIF orientation.

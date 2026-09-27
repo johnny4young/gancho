@@ -33,6 +33,35 @@ struct ClipThumbnailAccentTests {
         #expect(abs(accent.blue - 0.5) < 0.02)
     }
 
+    @Test("Two halves average to their mix, not to either half")
+    func halves() throws {
+        let context = CGContext(
+            data: nil, width: 16, height: 16, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 8, height: 16))
+        context.setFillColor(CGColor(srgbRed: 0, green: 0, blue: 1, alpha: 1))
+        context.fill(CGRect(x: 8, y: 0, width: 8, height: 16))
+        let accent = try #require(ClipThumbnailStore.averageColor(of: context.makeImage()!))
+        #expect(abs(accent.red - 0.5) < 0.1)
+        #expect(accent.green < 0.05)
+        #expect(abs(accent.blue - 0.5) < 0.1)
+    }
+
+    @Test("A transparent region is left out of the mean rather than darkening it")
+    func partiallyTransparent() throws {
+        let context = CGContext(
+            data: nil, width: 16, height: 16, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(CGColor(srgbRed: 0, green: 1, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 8, height: 16))
+        let accent = try #require(ClipThumbnailStore.averageColor(of: context.makeImage()!))
+        #expect(accent.green > 0.9)
+        #expect(accent.red < 0.05)
+    }
+
     @Test("A transparent image has no accent")
     func transparent() {
         #expect(
