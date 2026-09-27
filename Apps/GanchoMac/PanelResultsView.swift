@@ -18,6 +18,11 @@ struct PanelResultsView<RowContent: View>: View {
     let groups: [PanelDateGroup]
     let items: [ClipItem]
     let selectedID: UUID?
+    /// List rows, or a grid of cards `columns` wide; the grid reports the
+    /// column count it fits so keyboard moves match what is on screen.
+    let layout: PanelLayout
+    let columns: Int
+    let onColumnsChange: (Int) -> Void
     let clearFilters: () -> Void
     /// Builds one row. `PanelView` owns row effects (selection, drag, context
     /// menu, pagination), so the row arrives already wired instead of this
@@ -35,17 +40,42 @@ struct PanelResultsView<RowContent: View>: View {
             if !isGroupedView { recentHeader }
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(
-                        spacing: GanchoTokens.Spacing.xxs,
-                        pinnedViews: isGroupedView ? [.sectionHeaders] : []
-                    ) {
-                        if isGroupedView {
-                            groupedRows
-                        } else {
-                            flatRows
+                    switch layout {
+                    case .list:
+                        LazyVStack(
+                            spacing: GanchoTokens.Spacing.xxs,
+                            pinnedViews: isGroupedView ? [.sectionHeaders] : []
+                        ) {
+                            if isGroupedView {
+                                groupedRows
+                            } else {
+                                flatRows
+                            }
                         }
+                        .padding(.horizontal, GanchoTokens.Spacing.xxs)
+                    case .gallery:
+                        LazyVGrid(
+                            columns: Array(
+                                repeating: GridItem(.flexible(), spacing: GanchoTokens.Spacing.xs),
+                                count: columns),
+                            alignment: .leading, spacing: GanchoTokens.Spacing.xs,
+                            pinnedViews: isGroupedView ? [.sectionHeaders] : []
+                        ) {
+                            if isGroupedView {
+                                groupedRows
+                            } else {
+                                flatRows
+                            }
+                        }
+                        .padding(.horizontal, GanchoTokens.Spacing.xs)
+                        .onGeometryChange(for: CGFloat.self) {
+                            $0.size.width
+                        } action: { width in
+                            onColumnsChange(PanelLayout.galleryColumns(forWidth: width))
+                        }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("panel-gallery")
                     }
-                    .padding(.horizontal, GanchoTokens.Spacing.xxs)
                 }
                 .onChange(of: selectedID) { _, id in
                     guard let id else { return }

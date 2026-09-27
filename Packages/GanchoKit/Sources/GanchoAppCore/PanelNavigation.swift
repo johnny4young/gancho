@@ -38,11 +38,15 @@ public struct PanelNavigationContext: Sendable {
     public let rowCount: Int
     public let boardIDs: [UUID]
     public let hasSelection: Bool
+    /// 1 for the list; the gallery's column count, so ↑↓ move by a row of
+    /// cards and ←→ step within one.
+    public let columns: Int
 
-    public init(rowCount: Int, boardIDs: [UUID], hasSelection: Bool) {
+    public init(rowCount: Int, boardIDs: [UUID], hasSelection: Bool, columns: Int = 1) {
         self.rowCount = rowCount
         self.boardIDs = boardIDs
         self.hasSelection = hasSelection
+        self.columns = max(1, columns)
     }
 }
 
@@ -101,10 +105,14 @@ public enum PanelNavigation {
         switch key {
         case .up:
             // ↑: out of the list at row 0 into the filters, then up to the boards.
+            // In the gallery a row is `columns` cards; the first row goes to the
+            // first card before leaving for the rails.
             switch state.railFocus {
             case nil:
-                if state.selectedIndex != 0 {
-                    move(-1)
+                if state.selectedIndex >= context.columns {
+                    move(-context.columns)
+                } else if state.selectedIndex != 0 {
+                    state.selectedIndex = 0
                 } else {
                     state.railFocus = .filters(currentFilterIndex)
                 }
@@ -114,10 +122,22 @@ public enum PanelNavigation {
                 break  // top of the stack
             }
         case .down:
-            // ↓: boards → filters → back into the list.
+            // ↓: boards → filters → back into the list. In the gallery ↓ moves a
+            // row of cards: onto a shorter last row it lands on its last card,
+            // and from the last row it wraps to the top of the same column.
             switch state.railFocus {
             case nil:
-                move(1)
+                let target = state.selectedIndex + context.columns
+                let lastRow = max(0, context.rowCount - 1) / context.columns
+                if context.columns == 1 || target < context.rowCount {
+                    move(context.columns)
+                } else if state.selectedIndex / context.columns < lastRow {
+                    state.selectedIndex = context.rowCount - 1
+                    loadMoreAt = state.selectedIndex
+                } else {
+                    state.selectedIndex = min(
+                        state.selectedIndex % context.columns, max(0, context.rowCount - 1))
+                }
             case .filters:
                 state.railFocus = nil
                 state.selectedIndex = 0
@@ -125,21 +145,37 @@ public enum PanelNavigation {
                 state.railFocus = .filters(currentFilterIndex)
             }
         case .left:
-            // ← moves within the focused rail; in the list it is the search cursor.
+            // ← moves within the focused rail; in the list it is the search
+            // cursor; in the gallery it steps to the card on the left.
             switch state.railFocus {
             case .filters(let i): state.railFocus = .filters(max(0, i - 1))
             case .boards(let i): state.railFocus = .boards(max(0, i - 1))
-            case nil: handled = false
+            case nil:
+                if context.columns > 1, state.selectedIndex % context.columns > 0 {
+                    state.selectedIndex -= 1
+                } else {
+                    handled = false
+                }
             }
         case .right:
-            // → moves within the focused rail; in the list it hands off to the peek.
+            // → moves within the focused rail; in the list it hands off to the
+            // peek; in the gallery it steps right until the row ends, then the peek.
             switch state.railFocus {
             case .filters(let i):
                 state.railFocus = .filters(min(ClipKindFilter.allCases.count - 1, i + 1))
             case .boards(let i):
                 state.railFocus = .boards(min(context.boardIDs.count, i + 1))
             case nil:
-                if context.hasSelection { focusPeek = true } else { handled = false }
+                let next = state.selectedIndex + 1
+                if context.columns > 1, !next.isMultiple(of: context.columns),
+                    next < context.rowCount
+                {
+                    move(1)
+                } else if context.hasSelection {
+                    focusPeek = true
+                } else {
+                    handled = false
+                }
             }
         case .toggle:
             // Space / Enter on a focused chip: select it, or deselect (back to

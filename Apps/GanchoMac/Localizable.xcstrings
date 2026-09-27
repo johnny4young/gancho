@@ -7576,6 +7576,16 @@
         }
       }
     },
+    "List or gallery": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lista o galería"
+          }
+        }
+      }
+    },
     "Manual resizing is remembered automatically.": {
       "localizations": {
         "es": {

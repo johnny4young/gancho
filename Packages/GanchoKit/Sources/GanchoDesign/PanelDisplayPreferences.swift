@@ -77,3 +77,23 @@ public enum PanelAmbientTint {
         kind == .image && !isSensitive && !previewsHidden
     }
 }
+
+/// How the history renders: the keyboard list, or a gallery of cards for
+/// visual browsing. ⌘G toggles; the choice is remembered.
+public enum PanelLayout: String, CaseIterable, Sendable {
+    public static let storageKey = "panel-layout"
+
+    case list
+    case gallery
+
+    public var toggled: PanelLayout { self == .list ? .gallery : .list }
+
+    public static func resolved(_ rawValue: String?) -> PanelLayout {
+        rawValue.flatMap(Self.init(rawValue:)) ?? .list
+    }
+
+    /// Cards want about 168 pt each; never fewer than two across.
+    nonisolated public static func galleryColumns(forWidth width: CGFloat) -> Int {
+        max(2, Int(width / 168))
+    }
+}
