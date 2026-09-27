@@ -131,6 +131,7 @@ public struct ClipCard: View {
     let isSelectionAnchor: Bool
     @ScaledMetric(relativeTo: .body) private var tileSize: CGFloat = 36
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovered = false
 
     public init(
         item: ClipItem, isSelected: Bool = false, previewsHidden: Bool = false,
@@ -196,6 +197,13 @@ public struct ClipCard: View {
                 .animation(selectionAnimation, value: isSelected)
                 .animation(selectionAnimation, value: isSelectionAnchor)
         }
+        .background {
+            // Scoped like the highlight above: only the wash animates, never
+            // the row's own layout.
+            hoverBackground
+                .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: isHovered)
+        }
+        .onHover { isHovered = $0 }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
@@ -225,7 +233,16 @@ public struct ClipCard: View {
         GanchoTokens.Syntax.highlighted(String(item.preview.prefix(Self.syntaxPreviewLimit)))
     }
 
-    /// Source · time on top, then the state markers and the ⌘N badge.
+    @ViewBuilder private var hoverBackground: some View {
+        if isHovered, !isSelected {
+            RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                .fill(.quaternary.opacity(0.45))
+        }
+    }
+
+    /// Source · time on top, then the state markers and the ⌘N badge. The pin
+    /// marker's scale-in is scoped here so a pin toggle never animates the
+    /// row's reflow into the Pinned section.
     private var trailingMeta: some View {
         VStack(alignment: .trailing, spacing: 3) {
             sourceTimeLine
@@ -264,6 +281,7 @@ public struct ClipCard: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .accessibilityLabel(Text("Pinned"))
+                        .transition(.scale.combined(with: .opacity))
                 }
                 if let shortcutNumber, (1...9).contains(shortcutNumber) {
                     Text(verbatim: "⌘\(shortcutNumber)")
@@ -280,10 +298,12 @@ public struct ClipCard: View {
                 }
             }
         }
+        .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: item.isPinned)
     }
 
     private var selectionAnimation: Animation? {
-        selectionNamespace == nil || reduceMotion ? nil : .snappy(duration: 0.18, extraBounce: 0)
+        selectionNamespace == nil
+            ? nil : GanchoMotion.quick(reduceMotion: reduceMotion)
     }
 
     /// Accent wash plus the design's accent bar on the leading edge. With a

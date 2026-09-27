@@ -31,6 +31,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   The dock stays visible in compact panels while its content scrolls, and its
   shortcuts work while the peek owns focus. Return still pastes and ↑↓ still
   walk the actions in the same order.
+- The panel now moves the way it reads: it settles in on open, the peek
+  swaps with a soft blur when you change clips, the active board and type
+  chip glides to your choice, rows and actions light up under the pointer,
+  and the pin glyph bounces once when you toggle it. Everything above is
+  instant when Reduce Motion is on.
 
 ### Fixed
 

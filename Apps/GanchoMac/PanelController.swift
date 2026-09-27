@@ -135,7 +135,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         model.syncNow()
         // An already-visible panel re-order fires no onAppear; close the
         // interval now so it never dangles as an eternal open.
-        if wasVisible { notePanelDidAppear() }
+        if wasVisible {
+            notePanelDidAppear()
+        } else {
+            NotificationCenter.default.post(name: .ganchoPanelDidShow, object: panel)
+        }
     }
 
     /// Called from `PanelView.onAppear` when the panel's content first renders.
@@ -486,4 +490,9 @@ final class KeyPanel: NSPanel {
     override func performClose(_ sender: Any?) {
         orderOut(sender)
     }
+}
+
+extension Notification.Name {
+    /// The panel went from hidden to shown (never a re-order of a visible one).
+    static let ganchoPanelDidShow = Notification.Name("com.johnny4young.gancho.panel-did-show")
 }
