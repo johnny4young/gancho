@@ -822,6 +822,16 @@
         }
       }
     },
+    "Ambient color": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color ambiental"
+          }
+        }
+      }
+    },
     "Appearance": {
       "extractionState": "stale",
       "localizations": {
@@ -3000,6 +3010,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nunca capturar de estas apps"
+          }
+        }
+      }
+    },
+    "A faint wash of the selected clip’s color behind the list and the peek.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un lavado tenue del color del clip seleccionado detrás de la lista y del peek."
           }
         }
       }

@@ -7,6 +7,14 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- An optional ambient colour for the Mac panel (Settings › Panel › Ambient
+  color, off by default): a faint field of the selected clip's colour under
+  the list and the peek — an image's own average colour, otherwise its kind's
+  tint — that crossfades as you move. It never shows when Reduce Transparency
+  or Increase Contrast is on.
+
 ### Changed
 
 - The Mac history panel has one toolbar instead of three stacked rows: boards

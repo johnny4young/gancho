@@ -26,10 +26,21 @@ import UniformTypeIdentifiers
 /// Platform policy stays at the edge: each app's `ClipThumbnailStore.swift`
 /// wrapper picks the cap, decode priority, and sensitive-clip handling, so the
 /// unification is behavior-identical per platform.
+/// The average colour of a thumbnail, as sRGB components so it crosses the
+/// decode task as a plain value.
+public struct ThumbnailAccent: Sendable, Equatable {
+    public let red: Double
+    public let green: Double
+    public let blue: Double
+
+    public var color: Color { Color(.sRGB, red: red, green: green, blue: blue) }
+}
+
 @Observable
 @MainActor
 public final class ClipThumbnailStore {
     private var cache: [UUID: Image] = [:]
+    private var accents: [UUID: ThumbnailAccent] = [:]
     @ObservationIgnored private var cacheOrder: [UUID] = []
     @ObservationIgnored private var loading: Set<UUID> = []
     @ObservationIgnored private let maxCached: Int
@@ -71,6 +82,9 @@ public final class ClipThumbnailStore {
     /// so it's safe to call from a view body.
     public func cached(for id: UUID) -> Image? { cache[id] }
 
+    /// The thumbnail's average colour, once it is loaded. Pure like `cached`.
+    public func cachedAccent(for id: UUID) -> ThumbnailAccent? { accents[id] }
+
     /// Decode + cache an image clip's thumbnail if not already done. Idempotent
     /// and in-flight-deduplicated; drive it from a row's `.task` so only
     /// visible image rows load.
@@ -86,10 +100,10 @@ public final class ClipThumbnailStore {
         // `Data` (not a platform image) so this compiles under strict
         // concurrency on both platforms.
         let maxPixel = self.maxPixel
-        let thumbnail = await Task.detached(priority: decodePriority) {
-            ClipThumbnailStore.thumbnailPNGData(from: data, maxPixel: maxPixel)
+        let decodedThumbnail = await Task.detached(priority: decodePriority) {
+            ClipThumbnailStore.decodeThumbnail(from: data, maxPixel: maxPixel)
         }.value
-        guard let thumbnail else { return }
+        guard let (thumbnail, accent) = decodedThumbnail else { return }
         #if canImport(AppKit)
             guard let decoded = NSImage(data: thumbnail) else { return }
             let image = Image(nsImage: decoded)
@@ -98,19 +112,72 @@ public final class ClipThumbnailStore {
             let image = Image(uiImage: decoded)
         #endif
         cache[item.id] = image
+        accents[item.id] = accent
         // FIFO cap (mirrors the keyboard extension's pattern): evict the
         // oldest entry so a long-lived session stays bounded.
         cacheOrder.append(item.id)
         if cacheOrder.count > maxCached {
             let evicted = cacheOrder.removeFirst()
-            if evicted != item.id { cache[evicted] = nil }
+            if evicted != item.id {
+                cache[evicted] = nil
+                accents[evicted] = nil
+            }
         }
     }
+
+    /// The thumbnail PNG plus its average colour, both Sendable, from one
+    /// ImageIO decode.
+    nonisolated static func decodeThumbnail(
+        from data: Data, maxPixel: CGFloat
+    ) -> (Data, ThumbnailAccent?)? {
+        guard let cgImage = thumbnailImage(from: data, maxPixel: maxPixel),
+            let png = pngData(from: cgImage)
+        else { return nil }
+        return (png, averageColor(of: cgImage))
+    }
+
+    /// Draws the thumbnail into a small grid and averages it, alpha-weighted.
+    /// A single resampled pixel is a filtered sample of a limited footprint,
+    /// not a mean; a grid of them is close enough to one at negligible cost.
+    nonisolated static func averageColor(of image: CGImage) -> ThumbnailAccent? {
+        let side = Self.averageGridSide
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+            let context = CGContext(
+                data: &pixels, width: side, height: side, bitsPerComponent: 8,
+                bytesPerRow: side * 4, space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
+        // Premultiplied channels summed over alpha summed is the un-premultiplied
+        // mean, so a transparent region neither darkens nor counts.
+        var red = 0.0
+        var green = 0.0
+        var blue = 0.0
+        var alpha = 0.0
+        for offset in stride(from: 0, to: pixels.count, by: 4) {
+            red += Double(pixels[offset]) / 255
+            green += Double(pixels[offset + 1]) / 255
+            blue += Double(pixels[offset + 2]) / 255
+            alpha += Double(pixels[offset + 3]) / 255
+        }
+        guard alpha > 0 else { return nil }
+        return ThumbnailAccent(
+            red: min(1, red / alpha), green: min(1, green / alpha), blue: min(1, blue / alpha))
+    }
+
+    /// Pixels per side of the averaging grid.
+    nonisolated static let averageGridSide = 8
 
     /// A downscaled PNG thumbnail via ImageIO: reads only enough of the source
     /// to build a thumbnail at `maxPixel`, honouring EXIF orientation.
     /// `nonisolated` so it runs off the main actor; returns Sendable `Data`.
     nonisolated static func thumbnailPNGData(from data: Data, maxPixel: CGFloat) -> Data? {
+        thumbnailImage(from: data, maxPixel: maxPixel).flatMap(pngData(from:))
+    }
+
+    nonisolated private static func thumbnailImage(from data: Data, maxPixel: CGFloat) -> CGImage? {
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
             return nil
@@ -121,9 +188,10 @@ public final class ClipThumbnailStore {
                 kCGImageSourceCreateThumbnailWithTransform: true,
                 kCGImageSourceThumbnailMaxPixelSize: maxPixel
             ] as CFDictionary
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else {
-            return nil
-        }
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options)
+    }
+
+    nonisolated private static func pngData(from cgImage: CGImage) -> Data? {
         // PNG-encode via ImageIO (platform-free) so the result is Sendable
         // `Data` on both platforms; the main actor re-wraps it as an Image.
         let encoded = NSMutableData()

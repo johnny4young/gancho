@@ -1,4 +1,5 @@
 import CoreGraphics
+import GanchoKit
 import SwiftUI
 
 /// Semantic text scaling for Gancho's history panel.
@@ -43,5 +44,36 @@ public enum PanelSizePreset: String, CaseIterable, Identifiable, Sendable {
         case .standard: CGSize(width: 864, height: 540)
         case .large: CGSize(width: 1_080, height: 680)
         }
+    }
+}
+
+/// The optional ambient wash behind the panel: a faint field of the selected
+/// clip's colour under the list and the peek. Off by default; Settings owns
+/// the toggle.
+public enum PanelAmbientTint {
+    public static let storageKey = "panel-ambient-tint"
+
+    /// Legibility first: no wash when the user reduced transparency or asked
+    /// for more contrast, whatever the toggle says.
+    nonisolated public static func isShown(
+        enabled: Bool, reduceTransparency: Bool, increasedContrast: Bool
+    ) -> Bool {
+        enabled && !reduceTransparency && !increasedContrast
+    }
+
+    /// Wash strength per appearance: dark glass carries a little more colour
+    /// before it reads as a tint.
+    nonisolated public static func opacity(dark: Bool) -> Double {
+        dark ? 0.22 : 0.14
+    }
+
+    /// Whether the wash may take an image's own colour. Only while that image
+    /// is actually shown: a sensitive image or Private Mode masks the preview,
+    /// and a content-derived colour would hint at what the mask hides. The
+    /// kind's tint is the fallback either way.
+    nonisolated public static func usesAccent(
+        kind: ClipContentKind, isSensitive: Bool, previewsHidden: Bool
+    ) -> Bool {
+        kind == .image && !isSensitive && !previewsHidden
     }
 }
