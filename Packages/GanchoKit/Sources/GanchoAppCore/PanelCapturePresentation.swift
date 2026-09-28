@@ -47,9 +47,13 @@ public struct PanelCapturePresentation: Sendable, Equatable {
     public let notice: PanelCaptureNotice?
     public let isCapturing: Bool
 
+    /// The two `suppressExpected…` flags exist for screenshot fixtures, whose
+    /// synthetic store and stopped capture are the point, not a problem. They
+    /// hide only that one notice each; the footer indicator stays truthful.
     public static func resolve(
         storageIsEphemeral: Bool,
         suppressExpectedEphemeralNotice: Bool = false,
+        suppressExpectedPausedNotice: Bool = false,
         privateModeEnabled: Bool,
         runtimeStatus: PanelCaptureRuntimeStatus
     ) -> Self {
@@ -62,7 +66,7 @@ public struct PanelCapturePresentation: Sendable, Equatable {
                 .privateMode
             } else if runtimeStatus == .pausedByScreenShare {
                 .screenShare
-            } else if runtimeStatus == .stopped {
+            } else if runtimeStatus == .stopped, !suppressExpectedPausedNotice {
                 .paused
             } else {
                 nil

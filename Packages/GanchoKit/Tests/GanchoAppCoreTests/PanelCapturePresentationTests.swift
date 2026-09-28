@@ -26,6 +26,31 @@ struct PanelCapturePresentationTests {
         #expect(presentation.notice == .denied)
     }
 
+    @Test("The screenshot fixture can suppress only its expected paused banner")
+    func screenshotFixturePausedSuppression() {
+        let paused = PanelCapturePresentation.resolve(
+            storageIsEphemeral: false,
+            suppressExpectedPausedNotice: true,
+            privateModeEnabled: false,
+            runtimeStatus: .stopped)
+        #expect(paused.notice == nil)
+        #expect(!paused.isCapturing, "hiding the banner must not fake an active capture")
+
+        let screenShare = PanelCapturePresentation.resolve(
+            storageIsEphemeral: false,
+            suppressExpectedPausedNotice: true,
+            privateModeEnabled: false,
+            runtimeStatus: .pausedByScreenShare)
+        #expect(screenShare.notice == .screenShare)
+
+        let privateMode = PanelCapturePresentation.resolve(
+            storageIsEphemeral: false,
+            suppressExpectedPausedNotice: true,
+            privateModeEnabled: true,
+            runtimeStatus: .stopped)
+        #expect(privateMode.notice == .privateMode)
+    }
+
     @Test("Ephemeral storage does not imply that capture itself is paused")
     func ephemeralStorageKeepsActiveIndicator() {
         let presentation = PanelCapturePresentation.resolve(
