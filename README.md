@@ -17,13 +17,18 @@
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
 **Status: public v0.8.4; in active development toward 1.0.**
-**Source version: v0.8.4.** The published direct download requires macOS 15.4+
-(build 16). Local history and manual OCR are Free; Pro activation through
-Lemon Squeezy is included. The on-device model tier requires macOS 26.
+**Source version: v0.9.0 (unreleased).** The published v0.8.4 direct download
+requires macOS 15.4+ (build 16). Local history and manual OCR are Free; Pro
+activation through Lemon Squeezy is included. The on-device model tier requires
+macOS 26. The v0.9.0 source redesigns the Mac panel: one toolbar, rows that
+show what each clip is, a peek with a hero card and an action dock, motion
+behind Reduce Motion, an optional ambient colour and a gallery behind ⌘G, plus
+snippet drafts that survive Library refreshes; it is not yet a published build.
+See its [release notes](docs/releases/v0.9.0.md).
 
-![Gancho's history panel keeping the selected clip after an edit refreshes the list](site/assets/v0.8.4-release.png)
+![The redesigned Gancho panel: one toolbar, kind-coloured rows and a link peek with an action dock](site/assets/v0.9.0-release.png)
 
-*v0.8.4 with synthetic fixtures: the panel keeps the selected clip after an edit refreshes the list.*
+*v0.9.0 candidate with synthetic fixtures; not evidence of a published release.*
 
 [Download v0.8.4](https://github.com/johnny4young/gancho/releases/tag/v0.8.4)
 to keep protected clips private on every outbound path, stop dropping shared
@@ -42,10 +47,10 @@ not certify them. See the [release notes](docs/releases/v0.8.4.md),
 
 ## Next: the redesigned panel
 
-On `main` since v0.8.4 and not yet in a published download. The Mac panel gets
-one toolbar, rows that show what each clip is at a glance, a peek with a hero
-card and an action dock, motion that respects Reduce Motion, an optional
-ambient colour, and a gallery layout behind ⌘G.
+Shipping in v0.9.0, not yet in a published download. The Mac panel gets one
+toolbar, rows that show what each clip is at a glance, a peek with a hero card
+and an action dock, motion that respects Reduce Motion, an optional ambient
+colour, and a gallery layout behind ⌘G.
 
 <table>
   <tr>
@@ -57,7 +62,7 @@ ambient colour, and a gallery layout behind ⌘G.
   </tr>
 </table>
 
-<sub>Captured by `ProductScreensUITests` from `main` with synthetic data; capture stays stopped, so no real clipboard content can appear.</sub>
+<sub>Captured by `ProductScreensUITests` from the v0.9.0 candidate with synthetic data; capture stays stopped, so no real clipboard content can appear.</sub>
 
 ## Contents
 
