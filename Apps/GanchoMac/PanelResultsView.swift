@@ -10,6 +10,7 @@ import SwiftUI
 /// cannot become a second navigation owner or reach into `AppModel`.
 struct PanelResultsView<RowContent: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var listIsScrolling = false
 
     let query: String
     let hasActiveFilter: Bool
@@ -81,6 +82,8 @@ struct PanelResultsView<RowContent: View>: View {
                     guard let id else { return }
                     proxy.scrollTo(id)
                 }
+                .onScrollPhaseChange { _, phase in listIsScrolling = phase != .idle }
+                .environment(\.listIsScrolling, listIsScrolling)
             }
         }
     }

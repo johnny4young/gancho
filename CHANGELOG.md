@@ -57,6 +57,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   itself (a finished sync, a new or renamed board) and saves it when you move
   to another snippet or board, the way the title and keyword already saved on
   leaving their field. ⌘S saves without leaving.
+- A row's hover highlight no longer stays on a row that scrolled out from
+  under a still pointer: it clears while the list moves and returns with the
+  next pointer move.
 - The Mac peek masks sensitive titles and hides its hero and derived content in
   Private Mode. The board picker takes keyboard focus when opened from the peek
   or search, without requiring an extra click. Returning from a completion
