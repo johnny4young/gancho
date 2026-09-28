@@ -37,6 +37,7 @@ extension AppModel {
             seedClipEditingIfRequested(),
             seedVisualLibraryIfRequested(),
             seedPeekLinkIfRequested(),
+            seedSnippetsIfRequested(),
             seedManualOCRIfRequested(),
             seedMultiFileDragIfRequested(),
             seedPrivateActivityReceiptIfRequested()
@@ -120,6 +121,29 @@ extension AppModel {
                     name: "Seed board \(i)", sfSymbol: "square.stack")
             }
             await refreshBoards()
+        }
+    }
+
+    /// UI-test hook: two synthetic snippets in a throwaway durable store so the
+    /// Library editor can be exercised without promoting real history.
+    private func seedSnippetsIfRequested() -> Task<Void, Never>? {
+        guard CommandLine.arguments.contains("-seed-snippets"),
+            CommandLine.arguments.contains("-use-temp-durable-store"),
+            let fullStore
+        else { return nil }
+        return Task {
+            for (title, keyword, body) in [
+                ("Seed greeting", "hi", "Hello {name}, thanks for writing."),
+                ("Seed sign-off", "bye", "Best regards,\nGancho")
+            ] {
+                let item = ClipItem(
+                    title: title, preview: body, contentHash: ClipItem.hash(of: body, kind: .text))
+                guard (try? await fullStore.insert(item, content: .text(body))) != nil else {
+                    continue
+                }
+                try? await fullStore.promoteToSnippet(id: item.id, title: title)
+                try? await fullStore.setKeyword(id: item.id, keyword: keyword)
+            }
         }
     }
 

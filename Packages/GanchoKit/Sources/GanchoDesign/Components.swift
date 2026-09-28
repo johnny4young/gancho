@@ -131,6 +131,7 @@ public struct ClipCard: View {
     let isSelectionAnchor: Bool
     @ScaledMetric(relativeTo: .body) private var tileSize: CGFloat = 36
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.listIsScrolling) private var listIsScrolling
     @State private var isHovered = false
 
     public init(
@@ -168,6 +169,13 @@ public struct ClipCard: View {
         return String(first).uppercased()
     }
 
+    /// Whether a row shows its hover wash. While the list scrolls no row does,
+    /// and a row that was under the pointer reads its cleared state once the
+    /// list settles, so only the next pointer move lights it again.
+    nonisolated public static func hoverState(pointerInside: Bool, listIsScrolling: Bool) -> Bool {
+        pointerInside && !listIsScrolling
+    }
+
     /// Row previews are short; the cap guards a malformed oversized one.
     private static let syntaxPreviewLimit = 240
 
@@ -203,7 +211,12 @@ public struct ClipCard: View {
             hoverBackground
                 .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: isHovered)
         }
-        .onHover { isHovered = $0 }
+        .onHover {
+            isHovered = Self.hoverState(pointerInside: $0, listIsScrolling: listIsScrolling)
+        }
+        .onChange(of: listIsScrolling) { _, scrolling in
+            isHovered = Self.hoverState(pointerInside: isHovered, listIsScrolling: scrolling)
+        }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)

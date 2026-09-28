@@ -35,9 +35,7 @@ struct LibraryView: View {
 
     // Snippet editor state (the right pane when a snippet is selected).
     @State private var editingSnippet: ClipItem?
-    @State var title = ""
-    @State var snippetBody = ""
-    @State var keyword = ""
+    @State var draft = SnippetDraft()
     @FocusState var focusedField: EditorField?
 
     // Board name prompt (create / rename).
@@ -66,7 +64,19 @@ struct LibraryView: View {
                 return saved
             }
         }
-        .onChange(of: selection) { _, _ in Task { await loadScope() } }
+        .onChange(of: selection) { previous, _ in
+            // Leaving a snippet commits its typed body, as the title and
+            // keyword already commit on focus loss; navigating drops nothing.
+            // The save lands before the next scope loads, so coming straight
+            // back reads the saved text.
+            let leaving = draft
+            Task {
+                if case .snippet(let id) = previous, leaving.snippetID == id, leaving.isDirty {
+                    await write(id: id, fields: leaving.edited)
+                }
+                await loadScope()
+            }
+        }
         .onChange(of: model.recentItems) { previous, current in
             // A saved filter is live: a local capture, delete, edit, or pin that
             // moves the recents must show here without switching scopes.
@@ -494,6 +504,7 @@ struct LibraryView: View {
         case .savedFilter(let id):
             // A saved filter is one ranked, bounded result set — it never pages.
             editingSnippet = nil
+            draft = SnippetDraft()
             reachedEnd = true
             guard let rule = model.savedFilters.rules.first(where: { $0.id == id }) else {
                 clips = []
@@ -514,12 +525,23 @@ struct LibraryView: View {
                 filterNeedsEditing = true
             }
         case .snippet(let id):
-            editingSnippet = snippets.first { $0.id == id }
-            title = editingSnippet?.title ?? ""
-            keyword = editingSnippet?.keyword ?? ""
-            await loadBody()
+            guard let snippet = snippets.first(where: { $0.id == id }) else {
+                editingSnippet = nil
+                draft = SnippetDraft()
+                return
+            }
+            // The editor switches only once the body is here, so what it
+            // shows and what a save would write always belong to one snippet.
+            let body = await loadBody(for: snippet.id)
+            guard generation == loadGeneration else { return }
+            draft.reload(
+                snippetID: snippet.id,
+                stored: SnippetDraft.Fields(
+                    title: snippet.title, keyword: snippet.keyword ?? "", body: body))
+            editingSnippet = snippet
         default:
             editingSnippet = nil
+            draft = SnippetDraft()
             clips = []
             await loadMore()
         }
@@ -612,43 +634,39 @@ struct LibraryView: View {
         }
     }
 
-    private func loadBody() async {
-        guard let editingSnippet,
-            case .text(let text)? = try? await model.store.content(for: editingSnippet.id)
-        else {
-            snippetBody = ""
-            return
-        }
-        snippetBody = text
+    private func loadBody(for id: UUID) async -> String {
+        guard case .text(let text)? = try? await model.store.content(for: id) else { return "" }
+        return text
     }
 
     func save() {
-        guard let editingSnippet else { return }
         // Capture target + values NOW (synchronously). The async write must not
         // read @State later — by then a different snippet may be selected, and
         // we'd save this snippet's text onto that one.
-        persist(id: editingSnippet.id, title: title, body: snippetBody, keyword: keyword)
+        guard let id = draft.snippetID else { return }
+        let fields = draft.edited
+        Task { await write(id: id, fields: fields) }
     }
 
-    private func persist(id: UUID, title: String, body: String, keyword: String) {
-        Task {
-            // The list below reconciles from the store either way, so the UI
-            // stays honest — but an edit that did not save must SAY so, the
-            // way createSnippet already does. Silently reverting text the user
-            // typed reads as a bug in the editor.
-            do {
-                try await model.fullStore?.updateSnippet(id: id, title: title, text: body)
-                try await model.fullStore?.setKeyword(id: id, keyword: keyword)
-            } catch {
-                model.diagnostics.record(
-                    String(localized: "Snippets"),
-                    String(localized: "Couldn’t save that snippet."))
-            }
-            snippets = (try? await model.fullStore?.snippets()) ?? []
-            // An edited snippet must replace its Spotlight donation at once —
-            // text the user just rewrote out of it must not stay searchable.
-            model.refreshSpotlight()
+    private func write(id: UUID, fields: SnippetDraft.Fields) async {
+        // The list below reconciles from the store either way, so the UI
+        // stays honest — but an edit that did not save must SAY so, the
+        // way createSnippet already does. Silently reverting text the user
+        // typed reads as a bug in the editor.
+        do {
+            try await model.fullStore?.updateSnippet(
+                id: id, title: fields.title, text: fields.body)
+            try await model.fullStore?.setKeyword(id: id, keyword: fields.keyword)
+            draft.markSaved(snippetID: id, fields)
+        } catch {
+            model.diagnostics.record(
+                String(localized: "Snippets"),
+                String(localized: "Couldn’t save that snippet."))
         }
+        snippets = (try? await model.fullStore?.snippets()) ?? []
+        // An edited snippet must replace its Spotlight donation at once —
+        // text the user just rewrote out of it must not stay searchable.
+        model.refreshSpotlight()
     }
 
     func demote() {
