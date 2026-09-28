@@ -13,7 +13,7 @@ extension LibraryView {
 
     func snippetEditor(_ snippet: ClipItem) -> some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-            TextField("Snippet title", text: $title)
+            TextField("Snippet title", text: $draft.edited.title)
                 .textFieldStyle(.plain)
                 .font(.title2.weight(.semibold))
                 .focused($focusedField, equals: .title)
@@ -26,7 +26,7 @@ extension LibraryView {
                 Spacer(minLength: 0)
             }
 
-            SyntaxTextView(text: $snippetBody)
+            SyntaxTextView(text: $draft.edited.body)
                 .frame(minHeight: 220)
                 .clipShape(roundedCard)
                 .overlay(
@@ -39,7 +39,7 @@ extension LibraryView {
             .font(.caption2)
             .foregroundStyle(.tertiary)
 
-            let fields = SnippetTemplate.fields(in: snippetBody)
+            let fields = SnippetTemplate.fields(in: draft.edited.body)
             if !fields.isEmpty {
                 fieldStrip(fields)
             }
@@ -48,6 +48,14 @@ extension LibraryView {
         }
         .padding(GanchoTokens.Spacing.md)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background {
+            // ⌘S saves without leaving the editor; as a command it beats the
+            // text view's own key handling.
+            Button("") { save() }
+                .keyboardShortcut("s", modifiers: .command)
+                .opacity(0)
+                .accessibilityHidden(true)
+        }
         .onChange(of: focusedField) { previous, _ in
             // Commit a rename or keyword edit the moment focus leaves the field —
             // no need to hunt for Save for those quick edits.
@@ -70,7 +78,7 @@ extension LibraryView {
             Image(systemName: "bolt.fill")
                 .font(.caption2)
                 .foregroundStyle(GanchoTokens.Palette.accent)
-            TextField("Keyword", text: $keyword)
+            TextField("Keyword", text: $draft.edited.keyword)
                 .textFieldStyle(.plain)
                 .font(.callout.monospaced())
                 .frame(maxWidth: 160)
@@ -108,7 +116,7 @@ extension LibraryView {
                     "Created \(snippet.createdAt.formatted(date: .abbreviated, time: .omitted))",
                     systemImage: "clock"
                 )
-                Label("\(snippetBody.count) characters", systemImage: "text.alignleft")
+                Label("\(draft.edited.body.count) characters", systemImage: "text.alignleft")
                 if snippet.uses > 0 {
                     Label("\(snippet.uses) uses", systemImage: "arrow.up.right")
                 }
@@ -128,7 +136,7 @@ extension LibraryView {
                 .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 ActionButton("Copy", systemImage: "doc.on.doc", identifier: "snippet-copy") {
-                    SystemPasteboardWriter().write(.text(snippetBody), asPlainText: true)
+                    SystemPasteboardWriter().write(.text(draft.edited.body), asPlainText: true)
                     model.toasts.show(GanchoToast(message: "Copied"))
                 }
                 ActionButton("Save", systemImage: "checkmark", identifier: "snippet-save") {
