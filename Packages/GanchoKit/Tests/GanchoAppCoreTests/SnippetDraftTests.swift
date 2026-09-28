@@ -34,6 +34,21 @@ struct SnippetDraftTests {
         #expect(draft.stored == renamed)
     }
 
+    @Test("A field edited back to its stored text follows the store like an untouched one")
+    func restoredFieldFollowsStore() {
+        var draft = SnippetDraft(snippetID: first, stored: stored)
+        draft.edited.keyword = "hello"
+        draft.edited.body = "Hello there"
+        draft.edited.body = stored.body
+        let incoming = SnippetDraft.Fields(title: "Greeting 2", keyword: "hi2", body: "Hello 2")
+
+        draft.reload(snippetID: first, stored: incoming)
+
+        #expect(draft.edited.keyword == "hello")
+        #expect(draft.edited.body == "Hello 2")
+        #expect(draft.edited.title == "Greeting 2")
+    }
+
     @Test("Another snippet replaces the draft, edits and all")
     func otherSnippetReplaces() {
         var draft = SnippetDraft(snippetID: first, stored: stored)

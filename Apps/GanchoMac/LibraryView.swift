@@ -525,18 +525,20 @@ struct LibraryView: View {
                 filterNeedsEditing = true
             }
         case .snippet(let id):
-            editingSnippet = snippets.first { $0.id == id }
-            guard let editingSnippet else {
+            guard let snippet = snippets.first(where: { $0.id == id }) else {
+                editingSnippet = nil
                 draft = SnippetDraft()
                 return
             }
-            let body = await loadBody(for: editingSnippet.id)
+            // The editor switches only once the body is here, so what it
+            // shows and what a save would write always belong to one snippet.
+            let body = await loadBody(for: snippet.id)
             guard generation == loadGeneration else { return }
             draft.reload(
-                snippetID: editingSnippet.id,
+                snippetID: snippet.id,
                 stored: SnippetDraft.Fields(
-                    title: editingSnippet.title, keyword: editingSnippet.keyword ?? "",
-                    body: body))
+                    title: snippet.title, keyword: snippet.keyword ?? "", body: body))
+            editingSnippet = snippet
         default:
             editingSnippet = nil
             draft = SnippetDraft()
@@ -638,14 +640,11 @@ struct LibraryView: View {
     }
 
     func save() {
-        guard let editingSnippet else { return }
         // Capture target + values NOW (synchronously). The async write must not
         // read @State later — by then a different snippet may be selected, and
         // we'd save this snippet's text onto that one.
-        persist(id: editingSnippet.id, fields: draft.edited)
-    }
-
-    private func persist(id: UUID, fields: SnippetDraft.Fields) {
+        guard let id = draft.snippetID else { return }
+        let fields = draft.edited
         Task { await write(id: id, fields: fields) }
     }
 

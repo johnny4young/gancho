@@ -2,30 +2,14 @@ import XCTest
 
 /// Text typed into a snippet's body survives the Library's own refreshes and
 /// is saved when the selection moves on, so neither a background reload nor
-/// navigating drops what the user typed.
+/// navigating drops what the user typed; ⌘S saves in place.
 final class LibrarySnippetDraftUITests: XCTestCase {
     @MainActor
     func testTypedBodySurvivesRefreshAndSavesOnSelectionChange() throws {
         continueAfterFailure = false
         let app = GanchoUITestApplication()
-        let nonce = UUID().uuidString
-        app.launchArguments = [
-            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
-            "-seed-snippets", "-force-free-tier", "-start-capture-paused",
-            "-AppleLanguages", "(en)",
-            "-ui-test-defaults-suite",
-            "com.johnny4young.gancho.uitests.snippets.\(UUID().uuidString)",
-            "-command-nonce", nonce
-        ]
-        app.launch()
-        app.activate()
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         defer { app.terminate() }
-        XCTAssertTrue(app.textFields["search-field"].waitForExistence(timeout: 15))
-        try SynthesizedInput.requireForeground(app)
-        GanchoUITestCommands.post("library", token: nonce)
-        let library = app.windows["Library"].firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        let library = try openLibrary(app)
 
         let greeting = library.staticTexts["Seed greeting"].firstMatch
         XCTAssertTrue(greeting.waitForExistence(timeout: 10), "the seeded snippets must be listed")
@@ -43,32 +27,80 @@ final class LibrarySnippetDraftUITests: XCTestCase {
 
         // A board created from the sidebar reloads the whole Library, the same
         // path a finished sync takes.
+        createBoard(named: "Draft board", in: library, app: app)
+        XCTAssertTrue(
+            waitForValue(of: editor, containing: typed),
+            "a Library refresh must not drop typed text")
+
+        saveTitleWithShortcut(suffix: " saved", in: library)
+
+        // Leaving the snippet saves it; coming back shows the saved text.
+        library.staticTexts["Seed sign-off"].firstMatch.click()
+        XCTAssertTrue(waitForValue(of: editor, containing: "Best regards"))
+        library.staticTexts["Seed greeting saved"].firstMatch.click()
+        XCTAssertTrue(
+            waitForValue(of: editor, containing: typed),
+            "moving to another snippet must save the typed body")
+    }
+
+    @MainActor
+    private func openLibrary(_ app: XCUIApplication) throws -> XCUIElement {
+        let nonce = UUID().uuidString
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+            "-seed-snippets", "-force-free-tier", "-start-capture-paused",
+            "-AppleLanguages", "(en)",
+            "-ui-test-defaults-suite",
+            "com.johnny4young.gancho.uitests.snippets.\(UUID().uuidString)",
+            "-command-nonce", nonce
+        ]
+        app.launch()
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
+        XCTAssertTrue(app.textFields["search-field"].waitForExistence(timeout: 15))
+        try SynthesizedInput.requireForeground(app)
+        GanchoUITestCommands.post("library", token: nonce)
+        let library = app.windows["Library"].firstMatch
+        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        return library
+    }
+
+    @MainActor
+    private func createBoard(named boardName: String, in library: XCUIElement, app: XCUIApplication)
+    {
         library.buttons["board-new"].firstMatch.click()
         let name = app.textFields["Board name"].firstMatch
         XCTAssertTrue(name.waitForExistence(timeout: 5), "the new-board prompt must open")
         name.click()
         XCTAssertTrue(waitForKeyboardFocus(name), "the board name field must take focus")
-        name.typeText("Draft board")
+        name.typeText(boardName)
         // Return is the prompt's default action; a click on its button can land
         // elsewhere on a small display.
         name.typeKey(.return, modifierFlags: [])
-        let board = library.staticTexts["Draft board"].firstMatch
+        let board = library.staticTexts[boardName].firstMatch
         if !board.waitForExistence(timeout: 3) {
             app.buttons["Create"].firstMatch.click()
         }
         XCTAssertTrue(
             board.waitForExistence(timeout: 5), "creating a board must refresh the sidebar")
-        XCTAssertTrue(
-            waitForValue(of: editor, containing: typed),
-            "a Library refresh must not drop typed text")
+    }
 
-        // Leaving the snippet saves it; coming back shows the saved text.
-        library.staticTexts["Seed sign-off"].firstMatch.click()
-        XCTAssertTrue(waitForValue(of: editor, containing: "Best regards"))
-        greeting.click()
+    /// ⌘S writes the title without the field losing focus: the sidebar row
+    /// takes the new title while the caret stays in place.
+    @MainActor
+    private func saveTitleWithShortcut(suffix: String, in library: XCUIElement) {
+        let title = library.textFields["snippet-title"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        let before = title.value as? String ?? ""
+        title.click()
+        XCTAssertTrue(waitForKeyboardFocus(title), "the title field must take focus")
+        title.typeKey(.rightArrow, modifierFlags: .command)
+        title.typeText(suffix)
+        title.typeKey("s", modifierFlags: .command)
         XCTAssertTrue(
-            waitForValue(of: editor, containing: typed),
-            "moving to another snippet must save the typed body")
+            library.staticTexts[before + suffix].firstMatch.waitForExistence(timeout: 5),
+            "⌘S must write the title without leaving the field")
+        XCTAssertTrue(waitForKeyboardFocus(title), "⌘S must not move focus")
     }
 
     @MainActor
