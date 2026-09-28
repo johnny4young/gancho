@@ -16,25 +16,21 @@
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20·%20iOS%20·%20iPadOS-blue)
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
-**Status: public v0.8.4; in active development toward 1.0.**
-**Source version: v0.9.0 (unreleased).** The published v0.8.4 direct download
-requires macOS 15.4+ (build 16). Local history and manual OCR are Free; Pro
-activation through Lemon Squeezy is included. The on-device model tier requires
-macOS 26. The v0.9.0 source redesigns the Mac panel: one toolbar, rows that
-show what each clip is, a peek with a hero card and an action dock, motion
-behind Reduce Motion, an optional ambient colour and a gallery behind ⌘G, plus
-snippet drafts that survive Library refreshes; it is not yet a published build.
-See its [release notes](docs/releases/v0.9.0.md).
+**Status: public v0.9.0; in active development toward 1.0.**
+**Source version: v0.9.0.** The published direct download requires macOS 15.4+
+(build 17). Local history and manual OCR are Free; Pro activation through
+Lemon Squeezy is included. The on-device model tier requires macOS 26.
 
 ![The redesigned Gancho panel: one toolbar, kind-coloured rows and a link peek with an action dock](site/assets/v0.9.0-release.png)
 
-*v0.9.0 candidate with synthetic fixtures; not evidence of a published release.*
+*v0.9.0 with synthetic fixtures: one toolbar, rows that show what each clip is, and a link peek with its action dock.*
 
-[Download v0.8.4](https://github.com/johnny4young/gancho/releases/tag/v0.8.4)
-to keep protected clips private on every outbound path, stop dropping shared
-items and sync changes, and keep the panel selection across refreshes — on top
-of free OCR from images or screen regions, visual Library cards, encrypted
-local saved filters and combined text copying. The signed, notarized DMG,
+[Download v0.9.0](https://github.com/johnny4young/gancho/releases/tag/v0.9.0)
+for the redesigned Mac panel — one toolbar, a peek with a hero card and an
+action dock, motion behind Reduce Motion, an optional ambient colour and a
+gallery behind ⌘G — with snippet drafts that survive Library refreshes, on top
+of protected outbound paths, free OCR from images or screen regions, visual
+Library cards, encrypted local saved filters and combined text copying. The signed, notarized DMG,
 checksum and signed Sparkle feed are published; Homebrew distributes the same
 artifact and bundled CLI. iOS/iPadOS targets require iOS 26, but App Store and
 TestFlight distribution remain in preparation.
@@ -42,12 +38,12 @@ TestFlight distribution remain in preparation.
 **Validation boundary:** the signed two-Mac matrix, real Sequoia, VoiceOver and
 screen-capture permission/display acceptance remain pending after publication.
 Use disposable data and backups for those checks; green CI and artifact QA do
-not certify them. See the [release notes](docs/releases/v0.8.4.md),
+not certify them. See the [release notes](docs/releases/v0.9.0.md),
 [changelog](CHANGELOG.md), and [release requirements](docs/RELEASING.md).
 
-## Next: the redesigned panel
+## The redesigned panel
 
-Shipping in v0.9.0, not yet in a published download. The Mac panel gets one
+Shipped in v0.9.0. The Mac panel gets one
 toolbar, rows that show what each clip is at a glance, a peek with a hero card
 and an action dock, motion that respects Reduce Motion, an optional ambient
 colour, and a gallery layout behind ⌘G.
@@ -62,11 +58,11 @@ colour, and a gallery layout behind ⌘G.
   </tr>
 </table>
 
-<sub>Captured by `ProductScreensUITests` from the v0.9.0 candidate with synthetic data; capture stays stopped, so no real clipboard content can appear.</sub>
+<sub>Captured by `ProductScreensUITests` from v0.9.0 with synthetic data; capture stays stopped, so no real clipboard content can appear.</sub>
 
 ## Contents
 
-- [Next: the redesigned panel](#next-the-redesigned-panel)
+- [The redesigned panel](#the-redesigned-panel)
 - [Product goal](#product-goal)
 - [Platform plan](#platform-plan)
 - [Current capabilities](#current-capabilities)
@@ -213,7 +209,7 @@ stay in reusable modules.
 
 - `CKSyncEngine` over the user's private iCloud database behind the `SyncEngine`
   boundary (clips, board membership, deletions) with a visible sync status. Earlier
-  development builds passed real-device smoke; the signed v0.8.4 matrix remains
+  development builds passed real-device smoke; the signed v0.9.0 matrix remains
   pending and must use the released bytes.
 - `gancho` CLI and a local, opt-in MCP server with expiring, revocable
   per-client grants, explicit board/time context, independent read/write
