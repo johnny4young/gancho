@@ -2,6 +2,11 @@ import CloudKit
 import Foundation
 import GanchoKit
 
+// The adapter is the one actor that owns the engine's event stream, its poll
+// tokens and its recovery state; splitting it would spread private state
+// across files, so keep this file-length exception local.
+// swiftlint:disable file_length
+
 /// Drives CloudKit's `CKSyncEngine` over the private database — the live
 /// implementation of the `SyncEngine` boundary, and (with `ClipRecordMapper`)
 /// the only place the app talks to CloudKit. End-to-end encrypted: all
@@ -445,9 +450,18 @@ public actor CKSyncEngineAdapter: SyncEngine {
         return engine
     }
 
-    private func loadSerialization() -> CKSyncEngine.State.Serialization? {
+    /// The engine's persisted state, or nil to start from scratch. State that
+    /// no longer decodes is not fatal (the engine re-fetches everything), but
+    /// a full re-fetch must not happen without a trace.
+    func loadSerialization() -> CKSyncEngine.State.Serialization? {
         guard let data = stateStore.load() else { return nil }
-        return try? stateDecoder.decode(CKSyncEngine.State.Serialization.self, from: data)
+        do {
+            return try stateDecoder.decode(CKSyncEngine.State.Serialization.self, from: data)
+        } catch {
+            diagnostics?.record(
+                "Sync", "Saved sync state could not be read; starting with a fresh fetch.")
+            return nil
+        }
     }
 
     private func recordID(for id: UUID) -> CKRecord.ID {
@@ -635,6 +649,21 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         }
     }
 
+    /// `start()` already emits the status for its own failures; this restart
+    /// has no caller to report to, so the failure is at least recorded. Being
+    /// superseded by a newer reset is not a failure.
+    func restartAfterAccountSwitch() async {
+        do {
+            try await start()
+        } catch is CancellationError {
+        } catch {
+            diagnostics?.record(
+                "Sync",
+                "Sync could not restart after the iCloud account changed; it retries on the next launch or poll."
+            )
+        }
+    }
+
     private func handleAccountChange(
         _ event: CKSyncEngine.Event.AccountChange, syncEngine: CKSyncEngine
     ) async {
@@ -662,7 +691,7 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             }
             // A new account can sync now; a signed-out one waits for sign-in.
             if case .switchAccounts = event.changeType {
-                Task { try? await self.start() }
+                Task { await self.restartAfterAccountSwitch() }
             }
         @unknown default:
             break

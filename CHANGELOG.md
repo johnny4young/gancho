@@ -9,6 +9,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Two sync failures no longer pass in silence: saved sync state that can no
+  longer be read now leaves a content-free entry in the Privacy Center's
+  Recent issues before the engine starts a fresh fetch, and a restart that
+  fails after the iCloud account changed is recorded instead of dropped.
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.9.0 DMG.
   Physical-device acceptance remains pending; the published app, tag and
