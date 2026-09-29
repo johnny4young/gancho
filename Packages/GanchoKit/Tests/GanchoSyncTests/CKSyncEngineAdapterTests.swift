@@ -20,13 +20,58 @@ struct CKSyncEngineAdapterTests {
         zoneName: BoardRecordMapper.zoneName, ownerName: CKCurrentUserDefaultName)
 
     private func makeAdapter(
-        store: RecordingStore, diagnostics: DiagnosticLog? = nil
+        store: RecordingStore, diagnostics: DiagnosticLog? = nil,
+        stateStore: SyncStateStore = SyncStateStore(load: { nil }, save: { _ in }),
+        onStatus: (@Sendable (SyncStatus) -> Void)? = nil
     ) -> CKSyncEngineAdapter {
         CKSyncEngineAdapter(
             store: store,
             containerIdentifier: "iCloud.test.gancho",
-            stateStore: SyncStateStore(load: { nil }, save: { _ in }),
+            stateStore: stateStore,
+            onStatus: onStatus,
             diagnostics: diagnostics)
+    }
+
+    @Test("Undecodable saved engine state starts fresh and leaves a content-free trace")
+    func undecodableStateIsRecorded() async throws {
+        let log = DiagnosticLog()
+        let adapter = makeAdapter(
+            store: RecordingStore(), diagnostics: log,
+            stateStore: SyncStateStore(load: { Data("not a plist".utf8) }, save: { _ in }))
+
+        #expect(await adapter.loadSerialization() == nil)
+
+        let entry = try #require(log.entries.first)
+        #expect(entry.category == "Sync")
+        #expect(entry.message.contains("fresh fetch"))
+        #expect(!entry.message.contains("plist"), "diagnostics must stay content-free")
+    }
+
+    @Test("Missing saved engine state is the normal first run, not sync trouble")
+    func missingStateIsSilent() async {
+        let log = DiagnosticLog()
+        let adapter = makeAdapter(store: RecordingStore(), diagnostics: log)
+
+        #expect(await adapter.loadSerialization() == nil)
+        #expect(log.entries.isEmpty)
+    }
+
+    @Test("A restart after an account switch records its failure instead of swallowing it")
+    func failedRestartAfterAccountSwitchIsRecorded() async throws {
+        let store = RecordingStore()
+        await store.setNeedsUploadError(RecordingStore.Failure.boom)
+        let log = DiagnosticLog()
+        let adapter = makeAdapter(store: store, diagnostics: log)
+        // A pending upload intent makes start() fail on the local store,
+        // before it would touch CloudKit.
+        await adapter.enqueue([ClipItem(preview: "synthetic", contentHash: "h")])
+
+        await adapter.restartAfterAccountSwitch()
+
+        #expect(
+            log.entries.contains { $0.message.contains("could not restart") },
+            "the restart's own failure must be visible in Recent issues")
+        #expect(!log.entries.contains { $0.message.contains("synthetic") })
     }
 
     @Test("A titled clip record applies — the enrichment fruit reaches the store")
@@ -181,9 +226,11 @@ private actor RecordingStore: SyncLocalStore {
     private(set) var boardDeletions: [String] = []
     private var applyResult = true
     private var applyError: Error?
+    private var needsUploadError: Error?
 
     func setApplyResult(_ value: Bool) { applyResult = value }
     func setApplyError(_ error: Error?) { applyError = error }
+    func setNeedsUploadError(_ error: Error?) { needsUploadError = error }
 
     func applyRemoteUpsert(
         _ item: ClipItem, content: ClipContent?, systemFields: Data
@@ -208,7 +255,9 @@ private actor RecordingStore: SyncLocalStore {
     func pendingDeletionRecordIDs() async throws -> [String] { [] }
     func markUploaded(id: UUID, systemFields: Data, uploadedAt: Date?) async throws {}
     func systemFields(for id: UUID) async throws -> Data? { nil }
-    func markNeedsUpload(id: UUID) async throws {}
+    func markNeedsUpload(id: UUID) async throws {
+        if let needsUploadError { throw needsUploadError }
+    }
     func clearTombstone(recordID: String) async throws {}
     func forgetAllSyncFields() async throws {}
     func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> { [] }
