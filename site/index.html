@@ -10,13 +10,13 @@
 <meta property="og:title" content="gancho — your clipboard, everywhere" />
 <meta property="og:description" content="A private-by-design clipboard history and snippet library for Mac, iPhone, and iPad. Local-first, encrypted, on-device AI." />
 <meta property="og:url" content="https://gancho.app/" />
-<meta property="og:image" content="https://gancho.app/assets/v0.9.0-release.png" />
+<meta property="og:image" content="https://gancho.app/assets/v0.9.1-release.png" />
 <meta property="og:image:width" content="1080" />
 <meta property="og:image:height" content="675" />
-<meta property="og:image:alt" content="Gancho v0.9.0 on macOS" />
+<meta property="og:image:alt" content="Gancho v0.9.1 development preview on macOS" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="https://gancho.app/assets/v0.9.0-release.png" />
-<meta name="twitter:image:alt" content="Gancho v0.9.0 on macOS" />
+<meta name="twitter:image" content="https://gancho.app/assets/v0.9.1-release.png" />
+<meta name="twitter:image:alt" content="Gancho v0.9.1 development preview on macOS" />
 <link rel="icon" href="assets/gancho-mark.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="styles.css" />
 <style>
@@ -526,21 +526,19 @@
 <section class="band band-tint" id="latest-release">
   <div class="wrap release-grid">
     <div class="release-copy">
-      <span class="kicker" data-i18n="rel.kicker">Disponible · v0.9.0</span>
-      <h2 class="h2" data-i18n="rel.title">Un panel nuevo, con la misma privacidad.</h2>
-      <p class="lede" data-i18n="rel.lede">La descarga v0.9.0 rediseña el panel de Mac: una sola barra de herramientas, filas que muestran qué es cada clip, un peek con tarjeta y dock de acciones, movimiento que respeta Reducir movimiento, un color ambiental opcional y una galería con ⌘G. La matriz entre dispositivos, Sequoia y accesibilidad real sigue pendiente.</p>
+      <span class="kicker" data-i18n="rel.kicker">En preparación · v0.9.1</span>
+      <h2 class="h2" data-i18n="rel.title">Próxima versión: el tamaño de texto del panel, de verdad.</h2>
+      <p class="lede" data-i18n="rel.lede">v0.9.1 hace que Ajustes › Panel › Tamaño del texto cambie el panel: en v0.9.0 Pequeño, Estándar y Grande se veían igual. La descarga actual sigue siendo v0.9.0.</p>
       <ul class="release-list">
-        <li data-i18n="rel.1"><b>Una barra, no tres:</b> tableros, filtros por tipo, app de origen y filtro guardado en una sola fila; la búsqueda va directo sobre el vidrio del panel.</li>
-        <li data-i18n="rel.2"><b>Cada clip se reconoce:</b> la inicial del dominio, la muestra de color real o la miniatura van en la fila, y el código se ve como código.</li>
-        <li data-i18n="rel.3"><b>Un peek que actúa:</b> tarjeta por tipo, con el enlace leído en tu Mac sin descargar nada, y un dock con Pegar, Plano, Copiar texto, Fijar y Tablero, cada uno con su tecla.</li>
-        <li data-i18n="rel.4"><b>Movimiento con criterio:</b> el panel entra suave y el peek cambia con un desenfoque; todo es instantáneo con Reducir movimiento. Color ambiental y galería ⌘G son opcionales y se recuerdan.</li>
-        <li data-i18n="rel.5"><b>Lo que escribes no se pierde:</b> el cuerpo de un snippet en la Biblioteca sobrevive a los refrescos y se guarda al cambiar de selección; ⌘S guarda en el sitio.</li>
+        <li data-i18n="rel.1"><b>Tamaño de texto que se nota:</b> filas, peek, dock y pie del panel crecen o se achican con la preferencia, partiendo del tamaño del sistema.</li>
+        <li data-i18n="rel.2"><b>iPhone y iPad siguen al sistema:</b> las filas del historial respetan el tamaño de texto de iOS.</li>
+        <li data-i18n="rel.3"><b>Sync sin fallos silenciosos:</b> un estado de sync ilegible o un reinicio fallido tras cambiar de cuenta de iCloud quedan en Problemas recientes, sin contenido.</li>
       </ul>
-      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/releases/tag/v0.9.0" data-i18n="rel.cta">Ver notas y descargar v0.9.0</a>
+      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/blob/main/CHANGELOG.md" data-i18n="rel.cta">Ver todo lo que incluye 0.9.1</a>
     </div>
     <figure class="release-shot">
-      <img src="assets/v0.9.0-release.png" width="1080" height="675" loading="lazy" decoding="async" alt="Panel rediseñado de Gancho con el peek de un enlace y su dock de acciones / Redesigned Gancho panel with a link peek and its action dock" />
-      <figcaption data-i18n="rel.caption">v0.9.0 en macOS con datos sintéticos; no sustituye las pruebas del DMG publicado.</figcaption>
+      <img src="assets/v0.9.1-release.png" width="1080" height="675" loading="lazy" decoding="async" alt="Panel de Gancho con el tamaño de texto Grande / Gancho panel at the Large text size" />
+      <figcaption data-i18n="rel.caption">Vista previa del candidato macOS v0.9.1 con tamaño de texto Grande y fixtures sintéticos; no es evidencia de una release publicada.</figcaption>
     </figure>
   </div>
 </section>
@@ -551,20 +549,20 @@
     <div class="sec-head">
       <span class="kicker" data-i18n="evo.kicker">Evolución reciente</span>
       <h2 class="h2" data-i18n="evo.title">Cada versión amplía lo que Gancho puede recordar por ti.</h2>
-      <p class="lede" data-i18n="evo.lede">Las salidas protegidas de 0.8.4 y las herramientas de 0.8.3 son la base sobre la que 0.9.0 rediseña el panel.</p>
+      <p class="lede" data-i18n="evo.lede">El panel rediseñado de 0.9.0 y las salidas protegidas de 0.8.4 son la base que 0.9.1 hace legible a tu tamaño.</p>
     </div>
     <div class="evolution-grid">
+      <article class="milestone-card">
+        <div class="milestone-meta"><span class="milestone-version">0.9.0</span><span class="milestone-date">28 Sep 2026</span></div>
+        <h3 data-i18n="evo.v090.t">Un panel nuevo, con la misma privacidad.</h3>
+        <p data-i18n="evo.v090.p">Una sola barra, filas que muestran qué es cada clip, peek con tarjeta y dock de acciones, movimiento con Reducir movimiento, color ambiental opcional y galería con ⌘G.</p>
+        <a class="milestone-link" href="#release-0-9-0" data-i18n="evo.v090.cta">Ver notas de 0.9.0 →</a>
+      </article>
       <article class="milestone-card">
         <div class="milestone-meta"><span class="milestone-version">0.8.4</span><span class="milestone-date">24 Sep 2026</span></div>
         <h3 data-i18n="evo.v084.t">Lo que sale de Gancho sigue privado.</h3>
         <p data-i18n="evo.v084.p">Salidas protegidas en Mac e iOS, pegar que respeta al gestor de contraseñas, nada se pierde al compartir o sincronizar y el panel conserva tu lugar.</p>
         <a class="milestone-link" href="#release-0-8-4" data-i18n="evo.v084.cta">Ver notas de 0.8.4 →</a>
-      </article>
-      <article class="milestone-card">
-        <div class="milestone-meta"><span class="milestone-version">0.8.3</span><span class="milestone-date">20 Sep 2026</span></div>
-        <h3 data-i18n="evo.v083.t">Copia desde imágenes y reutiliza más.</h3>
-        <p data-i18n="evo.v083.p">OCR manual gratuito, captura de texto en pantalla, biblioteca visual, filtros guardados, texto combinado y activación Pro.</p>
-        <a class="milestone-link" href="#release-0-8-3" data-i18n="evo.v083.cta">Ver notas de 0.8.3 →</a>
       </article>
     </div>
   </div>
@@ -1017,6 +1015,10 @@
       <p class="lede" data-i18n="log.lede">Explora cada versión, de la más reciente a la primera. Abre solo el hito que quieras conocer; sus metadatos y artefactos se verifican juntos en CI.</p>
     </div>
     <div class="log">
+      <details class="release-detail" id="release-0-9-0">
+        <summary><span class="log-meta"><span class="ver">0.9.0</span><span class="dt">28 Sep 2026</span></span><span class="release-summary-title" data-i18n="evo.v090.t">Un panel nuevo, con la misma privacidad.</span><svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+        <div class="log-body"><ul><li data-i18n="evo.v090.p">Una sola barra, filas que muestran qué es cada clip, peek con tarjeta y dock de acciones, movimiento con Reducir movimiento, color ambiental opcional y galería con ⌘G.</li><li><a href="https://github.com/johnny4young/gancho/releases/tag/v0.9.0" data-i18n="evo.v090.cta">Ver notas de 0.9.0 →</a></li></ul></div>
+      </details>
       <details class="release-detail" id="release-0-8-4">
         <summary><span class="log-meta"><span class="ver">0.8.4</span><span class="dt">24 Sep 2026</span></span><span class="release-summary-title" data-i18n="evo.v084.t">Lo que sale de Gancho sigue privado.</span><svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
         <div class="log-body"><ul><li data-i18n="evo.v084.p">Salidas protegidas en Mac e iOS, pegar que respeta al gestor de contraseñas, nada se pierde al compartir o sincronizar y el panel conserva tu lugar.</li><li><a href="https://github.com/johnny4young/gancho/releases/tag/v0.8.4" data-i18n="evo.v084.cta">Ver notas de 0.8.4 →</a></li></ul></div>
@@ -1226,15 +1228,13 @@
       "panel.search": "Search your clipboard…", "panel.foot": "Local · encrypted on this Mac",
       "clip.code.t": "useEffect cleanup", "clip.secret.t": "OpenAI API key", "clip.url.t": "Privacy policy", "clip.color.t": "Brand green", "clip.image.t": "Launch mark", "clip.image.p": "PNG · 248 KB · 1640×1024 · encrypted",
       "trust.1": "Local-first", "trust.2": "Encrypted on device", "trust.3": "No middle servers", "trust.4": "No content telemetry",
-      "rel.kicker": "Available now · v0.9.0", "rel.title": "A new panel, with the same privacy.",
-      "rel.lede": "The v0.9.0 download redesigns the Mac panel: one toolbar, rows that show what each clip is, a peek with a hero card and an action dock, motion that respects Reduce Motion, an optional ambient colour and a gallery behind ⌘G. Cross-device, Sequoia and real accessibility acceptance remain pending.",
-      "rel.1": "<b>One toolbar, not three:</b> boards, type filters, source app and saved filter in a single row; the search field sits directly on the panel glass.",
-      "rel.2": "<b>Every clip is recognisable:</b> the host initial, the real colour swatch or the thumbnail sits in the row, and code reads as code.",
-      "rel.3": "<b>A peek that acts:</b> a card per kind, with links parsed on your Mac without fetching anything, and a dock with Paste, Plain, Copy text, Pin and Board, each with its key.",
-      "rel.4": "<b>Motion with restraint:</b> the panel settles in and the peek swaps with a soft blur; everything is instant with Reduce Motion. Ambient colour and the ⌘G gallery are optional and remembered.",
-      "rel.5": "<b>What you type stays:</b> a snippet's body in the Library survives refreshes and is saved when you change selection; ⌘S saves in place.",
-      "rel.cta": "Read notes and download v0.9.0",
-      "rel.caption": "v0.9.0 on macOS with synthetic data; not a substitute for testing the published DMG.",
+      "rel.kicker": "In preparation · v0.9.1", "rel.title": "Next release: the panel's text size, for real.",
+      "rel.lede": "v0.9.1 makes Settings › Panel › Text size change the panel: in v0.9.0 Small, Standard and Large looked the same. The current download remains v0.9.0.",
+      "rel.1": "<b>A text size you can see:</b> the panel's rows, peek, dock and footer grow or shrink with the preference, starting from the system size.",
+      "rel.2": "<b>iPhone and iPad follow the system:</b> history rows respect the iOS text size.",
+      "rel.3": "<b>Sync without silent failures:</b> unreadable sync state or a failed restart after an iCloud account change lands in Recent issues, content-free.",
+      "rel.cta": "See everything in 0.9.1",
+      "rel.caption": "Preview of the macOS v0.9.1 candidate at the Large text size with synthetic fixtures; not evidence of a published release.",
       "shots.kicker": "What it looks like", "shots.title": "Real v0.8.4 screens, with synthetic data.",
       "shots.lede": "Captured from the app's UI tests: only Gancho's own window, and only sample content.",
       "shots.1": "Free manual OCR: the image's text appears beside it, ready to copy, open or translate.",
@@ -1246,6 +1246,9 @@
       "shots.n1": "A link's host and path set large, parsed on your Mac without fetching anything; Paste, Plain, Pin and Board in the dock.",
       "shots.n2": "⌘G shows the history as cards; the arrows move by row and by column.",
       "shots.n3": "Optional ambient colour: a faint wash of the selected image's own colour, off by default.",
+      "evo.v090.t": "A new panel, with the same privacy.",
+      "evo.v090.p": "One toolbar, rows that show what each clip is, a peek with a hero card and an action dock, motion behind Reduce Motion, optional ambient colour and a ⌘G gallery.",
+      "evo.v090.cta": "Read 0.9.0 release notes →",
       "evo.v084.t": "What leaves Gancho stays private.",
       "evo.v084.p": "Protected outputs on Mac and iOS, paste that respects your password manager, nothing lost on share or sync, and a panel that keeps your place.",
       "evo.v084.cta": "Read 0.8.4 release notes →",
@@ -1259,7 +1262,7 @@
       "evo.v081.p": "A Pro purchase survives transient StoreKit gaps, with more predictable CloudKit recovery.",
       "evo.v081.cta": "Read 0.8.1 release notes →",
       "evo.kicker": "Recent evolution", "evo.title": "Every release expands what Gancho can remember for you.",
-      "evo.lede": "The protected outputs of 0.8.4 and the tools of 0.8.3 are the base on which 0.9.0 redesigns the panel.",
+      "evo.lede": "The redesigned panel of 0.9.0 and the protected outputs of 0.8.4 are the base that 0.9.1 makes readable at your size.",
       "evo.v050.d": "Jul 2026 · daily flow", "evo.v050.t": "Paste in sequence and keep more, without losing control.",
       "evo.v050.1": "Queue, reorder, and paste several clips from a visible stack in the panel.",
       "evo.v050.2": "See when a clip expires and keep up to one year or 10,000 items for free.",
