@@ -94,7 +94,7 @@ struct PanelResultsView<RowContent: View>: View {
             Spacer()
             clipCount(items.count)
         }
-        .font(.caption2.weight(.semibold))
+        .panelFont(.caption2, .semibold)
         .foregroundStyle(.tertiary)
         .textCase(.uppercase)
         .padding(.horizontal, GanchoTokens.Spacing.xs)
@@ -123,13 +123,13 @@ struct PanelResultsView<RowContent: View>: View {
     private func sectionHeader(_ section: ClipSection, count: Int) -> some View {
         HStack(spacing: 4) {
             if section == .pinned {
-                Image(systemName: "pin.fill").font(.system(size: 8))
+                Image(systemName: "pin.fill").panelFont(size: 8)
             }
             Text(sectionTitle(section))
             Spacer()
             clipCount(count)
         }
-        .font(.caption2.weight(.semibold))
+        .panelFont(.caption2, .semibold)
         .foregroundStyle(.tertiary)
         .textCase(.uppercase)
         .padding(.horizontal, GanchoTokens.Spacing.xs)
@@ -198,7 +198,7 @@ private struct PanelResultsEmptyState: View {
     private var firstRunContent: some View {
         Group {
             Image(systemName: "doc.on.clipboard.fill")
-                .font(.system(size: 28, weight: .medium))
+                .panelFont(size: 28, .medium)
                 .foregroundStyle(.white)
                 .frame(width: 64, height: 64)
                 .background(
@@ -208,15 +208,15 @@ private struct PanelResultsEmptyState: View {
                 )
                 .padding(.bottom, GanchoTokens.Spacing.xs)
             Text("Your history starts here")
-                .font(.headline)
+                .panelFont(.headline)
             Text(
                 "Copy anything — text, a link, an image — and it appears here, ready to paste again."
             )
-            .font(.callout)
+            .panelFont(.callout)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
             Text(firstRunHint)
-                .font(.caption)
+                .panelFont(.caption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .padding(.top, GanchoTokens.Spacing.xxs)
@@ -226,7 +226,7 @@ private struct PanelResultsEmptyState: View {
     private var noResultsContent: some View {
         Group {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 26, weight: .regular))
+                .panelFont(size: 26, .regular)
                 .foregroundStyle(.secondary)
                 .frame(width: 64, height: 64)
                 .background(
@@ -236,9 +236,9 @@ private struct PanelResultsEmptyState: View {
                 )
                 .padding(.bottom, GanchoTokens.Spacing.xs)
             Text("No matches")
-                .font(.headline)
+                .panelFont(.headline)
             Text(detail)
-                .font(.callout)
+                .panelFont(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             if hasActiveFilter {
@@ -251,7 +251,7 @@ private struct PanelResultsEmptyState: View {
                     .accessibilityIdentifier("clear-filters")
             } else {
                 Text("Try another word.")
-                    .font(.caption)
+                    .panelFont(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.top, GanchoTokens.Spacing.xxs)
             }

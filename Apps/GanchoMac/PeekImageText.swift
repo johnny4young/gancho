@@ -165,7 +165,7 @@ struct PeekImageTextSection: View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 Text("Text in image")
-                    .font(.caption.weight(.semibold))
+                    .panelFont(.caption, .semibold)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 Spacer(minLength: 0)
@@ -217,12 +217,12 @@ struct PeekImageTextSection: View {
                     .buttonStyle(.borderless)
                     .accessibilityIdentifier("peek-ocr-cancel")
             }
-            .font(.caption)
+            .panelFont(.caption)
             .foregroundStyle(.secondary)
         case .copied,
             .ready where copiedAll:
             Label("Copied to clipboard", systemImage: "checkmark.circle.fill")
-                .font(.caption)
+                .panelFont(.caption)
                 .foregroundStyle(GanchoTokens.Palette.success)
                 // ONE element whose label is the text: an id on the Label alone
                 // propagates to the icon child, and a test's firstMatch lands there.
@@ -231,7 +231,7 @@ struct PeekImageTextSection: View {
                 .accessibilityIdentifier("peek-ocr-status")
         case .ready where session.isSensitive:
             Label("Contains a secret", systemImage: "lock.fill")
-                .font(.caption)
+                .panelFont(.caption)
                 .foregroundStyle(GanchoTokens.Palette.danger)
                 // ONE element whose label is the text: an id on the Label alone
                 // propagates to the icon child, and a test's firstMatch lands there.
@@ -240,7 +240,7 @@ struct PeekImageTextSection: View {
                 .accessibilityIdentifier("peek-ocr-status")
         case .ready:
             Label("Clipboard unchanged", systemImage: "doc.on.clipboard")
-                .font(.caption)
+                .panelFont(.caption)
                 .foregroundStyle(.secondary)
                 // ONE element whose label is the text: an id on the Label alone
                 // propagates to the icon child, and a test's firstMatch lands there.
@@ -272,11 +272,11 @@ struct PeekImageTextSection: View {
                 let shown = masked ? SensitiveMasking.maskedPreview(for: line.text) : line.text
                 HStack(spacing: GanchoTokens.Spacing.xs) {
                     Text(verbatim: shown)
-                        .font(isCode ? .body.monospaced() : .body)
+                        .panelFont(.body, design: isCode ? .monospaced : .default)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if copiedLine == index {
                         Label("Line copied", systemImage: "checkmark")
-                            .font(.caption)
+                            .panelFont(.caption)
                             .foregroundStyle(GanchoTokens.Palette.success)
                             .transition(.opacity)
                     }
@@ -344,7 +344,7 @@ struct PeekImageTextSection: View {
     private var editor: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             TextEditor(text: $draft)
-                .font(isCode ? .body.monospaced() : .body)
+                .panelFont(.body, design: isCode ? .monospaced : .default)
                 .scrollContentBackground(.hidden)
                 .padding(GanchoTokens.Spacing.xxs)
                 // Short on purpose: the editor shares the peek with the image and the
@@ -447,7 +447,7 @@ extension PeekImageTextSection {
             }
             if case .failed = translation {
                 Text("Couldn’t run that — try again.")
-                    .font(.caption)
+                    .panelFont(.caption)
                     .foregroundStyle(GanchoTokens.Palette.danger)
                     .accessibilityIdentifier("peek-ocr-translation-error")
             }
@@ -462,16 +462,16 @@ extension PeekImageTextSection {
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
                 HStack(spacing: GanchoTokens.Spacing.xs) {
                     Text("Translation")
-                        .font(.caption.weight(.semibold))
+                        .panelFont(.caption, .semibold)
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
                     Text(verbatim: LanguageName.localized(target))
-                        .font(.caption)
+                        .panelFont(.caption)
                         .foregroundStyle(.tertiary)
                     Spacer(minLength: 0)
                     if translationCopied {
                         Label("Copied to clipboard", systemImage: "checkmark.circle.fill")
-                            .font(.caption)
+                            .panelFont(.caption)
                             .foregroundStyle(GanchoTokens.Palette.success)
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel(Text("Copied to clipboard"))
@@ -483,7 +483,7 @@ extension PeekImageTextSection {
                 // the action list off the panel.
                 ScrollView {
                     Text(verbatim: text)
-                        .font(.body)
+                        .panelFont(.body)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityIdentifier("peek-ocr-translation")
@@ -524,7 +524,7 @@ extension PeekImageTextSection {
             } icon: {
                 Image(systemName: systemImage)
             }
-            .font(.subheadline.weight(.medium))
+            .panelFont(.subheadline, .medium)
             // No line limit: a long host wraps inside the chip, so the full
             // destination stays readable and nothing is ever cut to a
             // trusted-looking prefix.

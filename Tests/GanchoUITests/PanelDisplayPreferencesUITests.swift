@@ -5,6 +5,44 @@ import XCTest
 /// preferences. Kept separate from the keyboard/navigation smoke suite so each
 /// UI test class stays small and owns one stable workflow.
 final class PanelDisplayPreferencesUITests: XCTestCase {
+    /// The preference must change what is drawn, not only what is stored:
+    /// a row is measurably taller at Large than at Small.
+    @MainActor
+    func testTextSizeChangesRowHeight() throws {
+        let small = try firstRowHeight(textSize: "small")
+        let standard = try firstRowHeight(textSize: "standard")
+        let large = try firstRowHeight(textSize: "large")
+        XCTAssertGreaterThan(standard, small + 1, "Standard rows must be taller than Small")
+        XCTAssertGreaterThan(large, standard + 1, "Large rows must be taller than Standard")
+    }
+
+    @MainActor
+    private func firstRowHeight(textSize: String) throws -> CGFloat {
+        let app = GanchoUITestApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+            "-seed-visual-library", "-force-free-tier", "-start-capture-paused",
+            "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
+            "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
+            "-panel-text-size", textSize,
+            "-ui-test-defaults-suite",
+            "com.johnny4young.gancho.uitests.text-scale.\(UUID().uuidString)"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 15))
+        let panel = app.dialogs["history-panel"].firstMatch
+        if panel.exists {
+            let evidence = XCTAttachment(screenshot: panel.screenshot())
+            evidence.name = "panel-text-size-\(textSize)"
+            evidence.lifetime = .keepAlways
+            add(evidence)
+        }
+        // The first two rows carry a title and a preview line each.
+        return rows.element(boundBy: 0).frame.height
+    }
+
     @MainActor
     func testPanelSizeAndTextSizePersistAcrossRelaunch() throws {
         let suite = "com.johnny4young.gancho.uitests.panel-display-\(UUID().uuidString)"

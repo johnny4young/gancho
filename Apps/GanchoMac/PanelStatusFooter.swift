@@ -11,6 +11,7 @@ struct PanelStatusFooter: View {
     let syncStatus: SyncStatus
     let capture: PanelCapturePresentation
     let showKeyboardShortcuts: () -> Void
+    @Environment(\.panelTypeScale) private var typeScale
 
     var body: some View {
         HStack(spacing: GanchoTokens.Spacing.md) {
@@ -23,8 +24,8 @@ struct PanelStatusFooter: View {
             keyboardHint("paste", keys: ["return"])
             Button(action: showKeyboardShortcuts) {
                 Image(systemName: "questionmark.circle")
-                    .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 20, height: 20)
+                    .panelFont(size: 11, .semibold)
+                    .frame(width: 20 * typeScale, height: 20 * typeScale)
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)
@@ -32,7 +33,7 @@ struct PanelStatusFooter: View {
             .accessibilityLabel("Keyboard shortcuts")
             .accessibilityIdentifier("panel-shortcuts-button")
         }
-        .font(.caption2)
+        .panelFont(.caption2)
         .foregroundStyle(.tertiary)
         .padding(.top, GanchoTokens.Spacing.xxs)
         .padding(.horizontal, GanchoTokens.Spacing.xxs)
@@ -56,8 +57,8 @@ struct PanelStatusFooter: View {
         HStack(spacing: GanchoTokens.Spacing.xxs) {
             ForEach(keys, id: \.self) { key in
                 Image(systemName: key)
-                    .font(.system(size: 9, weight: .semibold))
-                    .frame(width: 17, height: 16)
+                    .panelFont(size: 9, .semibold)
+                    .frame(width: 17 * typeScale, height: 16 * typeScale)
                     .background(
                         .quaternary,
                         in: RoundedRectangle(cornerRadius: 4, style: .continuous))
@@ -77,14 +78,14 @@ struct PanelCaptureNoticeView: View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: symbol).foregroundStyle(tint)
             VStack(alignment: .leading, spacing: 0) {
-                Text(title).font(.caption.weight(.semibold))
-                Text(detail).font(.caption2).foregroundStyle(.secondary)
+                Text(title).panelFont(.caption, .semibold)
+                Text(detail).panelFont(.caption2).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
             if let action = notice.action {
                 Button(actionTitle(action)) { perform(action) }
                     .buttonStyle(.borderless)
-                    .font(.caption.weight(.medium))
+                    .panelFont(.caption, .medium)
             }
         }
         .padding(.horizontal, GanchoTokens.Spacing.sm)

@@ -9,6 +9,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The panel's Text size preference (Settings › Panel) now changes the text,
+  tiles and dock glyphs it promised: it had been wired to a mechanism macOS
+  does not honour, so Small, Standard and Large rendered identically.
 - Two sync failures no longer pass in silence: saved sync state that can no
   longer be read now leaves a content-free entry in the Privacy Center's
   Recent issues before the engine starts a fresh fetch, and a restart that

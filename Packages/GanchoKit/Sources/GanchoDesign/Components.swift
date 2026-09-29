@@ -54,13 +54,13 @@ public struct TypeBadge: View {
         switch style {
         case .plain:
             label
-                .font(.caption2.weight(.medium))
+                .panelFont(.caption2, .medium)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("type-badge")
         case .pill:
             let tint = GanchoTokens.Palette.kindTint(for: kind)
             label
-                .font(.caption.weight(.semibold))
+                .panelFont(.caption, .semibold)
                 .foregroundStyle(tint)
                 .padding(.horizontal, GanchoTokens.Spacing.xs)
                 .padding(.vertical, 3)
@@ -129,7 +129,8 @@ public struct ClipCard: View {
     /// namespace; only the anchor row claims the gliding highlight.
     let selectionNamespace: Namespace.ID?
     let isSelectionAnchor: Bool
-    @ScaledMetric(relativeTo: .body) private var tileSize: CGFloat = 36
+    @Environment(\.panelTypeScale) private var typeScale
+    private var tileSize: CGFloat { 36 * typeScale }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.listIsScrolling) private var listIsScrolling
     @State private var isHovered = false
@@ -186,7 +187,7 @@ public struct ClipCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 if !item.title.isEmpty, !previewsHidden {
                     Text(item.title)
-                        .font(.body.weight(.semibold))
+                        .panelFont(.body, .semibold)
                         .lineLimit(1)
                 }
                 previewText
@@ -231,12 +232,12 @@ public struct ClipCard: View {
 
     @ViewBuilder private var previewText: some View {
         if previewsHidden {
-            Text(verbatim: "•••").font(.callout)
+            Text(verbatim: "•••").panelFont(.callout)
         } else if item.kind == .code {
-            Text(highlightedPreview).font(.callout.monospaced())
+            Text(highlightedPreview).panelFont(.callout, design: .monospaced)
         } else {
             Text(ByteSize.humanizedPreview(item.preview))
-                .font(item.title.isEmpty ? .body : .callout)
+                .panelFont(item.title.isEmpty ? .body : .callout)
         }
     }
 
@@ -277,7 +278,7 @@ public struct ClipCard: View {
                                 Image(systemName: "timer")
                                 Text(expiresAt, style: .timer)
                             }
-                            .font(.caption2.monospacedDigit())
+                            .panelFont(.caption2, digits: true)
                             .foregroundStyle(GanchoTokens.Palette.warning)
                             .accessibilityLabel(Text("Expires soon"))
                         }
@@ -285,13 +286,13 @@ public struct ClipCard: View {
                 }
                 if item.tags.contains("universal-clipboard") {
                     Image(systemName: "icloud.and.arrow.down")
-                        .font(.caption2)
+                        .panelFont(.caption2)
                         .foregroundStyle(.secondary)
                         .accessibilityLabel(Text("From another device"))
                 }
                 if item.isPinned {
                     Image(systemName: "pin.fill")
-                        .font(.caption2)
+                        .panelFont(.caption2)
                         .foregroundStyle(.secondary)
                         .accessibilityLabel(Text("Pinned"))
                         .transition(.scale.combined(with: .opacity))
@@ -355,14 +356,14 @@ public struct ClipCard: View {
                 shape.fill(tint.gradient)
                     .overlay {
                         Text(verbatim: monogram)
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .panelFont(size: 16, .bold, design: .rounded)
                             .foregroundStyle(.white)
                     }
             } else {
                 shape.fill(tint.opacity(0.16))
                     .overlay {
                         Image(systemName: item.kind.symbolName)
-                            .font(.system(size: 14, weight: .semibold))
+                            .panelFont(size: 14, .semibold)
                             .foregroundStyle(tint)
                     }
             }
@@ -381,7 +382,7 @@ public struct ClipCard: View {
                 }
                 Text(.currentDate, format: .reference(to: item.createdAt, maxFieldCount: 1))
             }
-            .font(.caption2)
+            .panelFont(.caption2)
             .foregroundStyle(.tertiary)
             .lineLimit(1)
         }
@@ -413,7 +414,7 @@ public struct ClipShortcutBadge: View {
     public var body: some View {
         if (1...9).contains(number) {
             Text(verbatim: "⌘\(number)")
-                .font(.caption2.weight(.medium).monospaced())
+                .panelFont(.caption2, .medium, design: .monospaced)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, GanchoTokens.Spacing.xxs)
                 .padding(.vertical, 1)
@@ -473,7 +474,7 @@ public struct ActionButton: View {
     public var body: some View {
         Button(action: action) {
             Label(titleKey, systemImage: systemImage)
-                .font(.body.weight(.medium))
+                .panelFont(.body, .medium)
                 .lineLimit(1)
                 .padding(.horizontal, GanchoTokens.Spacing.sm)
                 .padding(.vertical, GanchoTokens.Spacing.xxs)
@@ -512,7 +513,7 @@ public struct SearchField: View {
                 .ganchoSurface(radius: GanchoTokens.Radius.md)
         case .bare:
             field
-                .font(.title3)
+                .panelFont(.title3)
                 .padding(.horizontal, GanchoTokens.Spacing.md)
                 .padding(.vertical, GanchoTokens.Spacing.sm)
         }
