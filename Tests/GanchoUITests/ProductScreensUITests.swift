@@ -65,6 +65,18 @@ final class ProductScreensUITests: XCTestCase {
         keep(app, "screen-panel-peek")
     }
 
+    /// The Text size preference at Large: the release screen for 0.9.1.
+    @MainActor
+    func testLinkPeekLargeText() {
+        let app = launch(["-appearance", "light", "-panel-text-size", "large"])
+        defer { app.terminate() }
+        select(NSPredicate(format: "label CONTAINS %@", "example.com"), in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["peek-link-hero"].firstMatch.waitForExistence(
+                timeout: 5))
+        keep(app, "screen-panel-large-text")
+    }
+
     @MainActor
     func testGalleryDark() {
         let app = launch(["-appearance", "dark", "-panel-layout", "gallery"])
