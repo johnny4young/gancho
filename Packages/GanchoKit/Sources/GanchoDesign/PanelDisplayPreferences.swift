@@ -2,11 +2,9 @@ import CoreGraphics
 import GanchoKit
 import SwiftUI
 
-/// Semantic text scaling for Gancho's history panel.
-///
-/// The setting intentionally maps to Dynamic Type rather than fixed point
-/// sizes, so every existing semantic style (`body`, `caption`, `headline`, …)
-/// keeps its hierarchy and accessibility behavior.
+/// Text scaling for Gancho's history panel: a multiplier over the panel's own
+/// text styles (`PanelTextStyle`), because macOS SwiftUI does not scale text
+/// through Dynamic Type.
 public enum PanelTextSize: String, CaseIterable, Identifiable, Sendable {
     public static let storageKey = "panel-text-size"
 
@@ -15,14 +13,6 @@ public enum PanelTextSize: String, CaseIterable, Identifiable, Sendable {
     case large
 
     public var id: String { rawValue }
-
-    public var dynamicTypeSize: DynamicTypeSize {
-        switch self {
-        case .small: .medium
-        case .standard: .large
-        case .large: .xLarge
-        }
-    }
 
     public static func resolved(_ rawValue: String?) -> Self {
         rawValue.flatMap(Self.init(rawValue:)) ?? .standard

@@ -41,6 +41,39 @@ final class CaptureFlowUITests: XCTestCase {
             "a seeded clip must appear in the history via the capture path")
     }
 
+    /// History rows share the Mac panel's row view; on iOS they must still
+    /// grow with Dynamic Type rather than take the Mac's fixed sizes.
+    @MainActor
+    func testHistoryRowsFollowDynamicType() throws {
+        let standard = try firstRowHeight(contentSize: "UICTContentSizeCategoryL")
+        let larger = try firstRowHeight(contentSize: "UICTContentSizeCategoryXXXL")
+        XCTAssertGreaterThan(
+            larger, standard + 4, "a history row must grow with the system text size")
+    }
+
+    @MainActor
+    private func firstRowHeight(contentSize: String) throws -> CGFloat {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-skip-welcome-on-launch", "-force-ephemeral-store", "-seed-sample-clips",
+            "-UIPreferredContentSizeCategoryName", contentSize
+        ]
+        app.launch()
+        defer { app.terminate() }
+        let capture = app.descendants(matching: .any)["capture-screen"].firstMatch
+        guard capture.waitForExistence(timeout: 10) else {
+            throw XCTSkip("capture screen not exposed to the UI runner in this environment")
+        }
+        // Let the seed land before scrolling: rows arrive at the top of a lazy
+        // list, and larger text can push them below the status area.
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        if !row.waitForExistence(timeout: 15) {
+            for _ in 0..<4 where !row.exists { capture.swipeUp() }
+        }
+        XCTAssertTrue(row.waitForExistence(timeout: 3), "a seeded clip must be listed")
+        return row.frame.height
+    }
+
     /// Chooses a palette token through the iPhone UI and reopens the editor to
     /// prove the value survived the durable store write and model refresh.
     @MainActor

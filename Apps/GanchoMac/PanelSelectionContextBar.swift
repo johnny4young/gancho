@@ -16,7 +16,7 @@ struct PanelSelectionContextBar: View {
     var body: some View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             Label("\(selectionCount) clips", systemImage: "checkmark.circle.fill")
-                .font(.caption.weight(.semibold))
+                .panelFont(.caption, .semibold)
                 .monospacedDigit()
                 .foregroundStyle(GanchoTokens.Palette.accent)
             Spacer(minLength: 0)

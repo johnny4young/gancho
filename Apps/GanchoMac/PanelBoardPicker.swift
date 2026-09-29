@@ -50,7 +50,7 @@ struct PanelBoardPicker: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            Text("Add to board").font(.headline)
+            Text("Add to board").panelFont(.headline)
             TextField("Filter or new board name", text: $filter)
                 .accessibilityIdentifier("board-picker-filter")
                 .textFieldStyle(.roundedBorder)
@@ -90,7 +90,7 @@ struct PanelBoardPicker: View {
                     }
                     if rowCount == 0 {
                         Text("No boards yet — type a name to create one.")
-                            .font(.caption)
+                            .panelFont(.caption)
                             .foregroundStyle(.tertiary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 4)
@@ -100,7 +100,7 @@ struct PanelBoardPicker: View {
             .frame(maxHeight: 240)
 
             Text("↑↓ move · ↩ toggle · ⌘↩ new board · esc close")
-                .font(.caption2)
+                .panelFont(.caption2)
                 .foregroundStyle(.tertiary)
         }
         .padding(GanchoTokens.Spacing.md)

@@ -38,7 +38,7 @@ struct ClipTextEditor: View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             HStack {
                 Text("Content")
-                    .font(.caption.weight(.semibold))
+                    .panelFont(.caption, .semibold)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 if !isEditing {
@@ -54,7 +54,7 @@ struct ClipTextEditor: View {
             } else if !readViewHidden {
                 ScrollView {
                     Text(highlighted)
-                        .font(kind == .code ? .body.monospaced() : .body)
+                        .panelFont(.body, design: kind == .code ? .monospaced : .default)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
                         .accessibilityIdentifier("preview-content")
@@ -76,7 +76,7 @@ struct ClipTextEditor: View {
     private var editor: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             TextEditor(text: $draft)
-                .font(kind == .code ? .body.monospaced() : .body)
+                .panelFont(.body, design: kind == .code ? .monospaced : .default)
                 .focused($isEditorFocused)
                 .frame(minHeight: 160, maxHeight: 220)
                 .padding(GanchoTokens.Spacing.xxs)
@@ -87,11 +87,11 @@ struct ClipTextEditor: View {
                 .accessibilityIdentifier("preview-content-field")
             if isBlank {
                 Text("Content can’t be empty.")
-                    .font(.caption)
+                    .panelFont(.caption)
                     .foregroundStyle(GanchoTokens.Palette.danger)
             } else if saveFailed {
                 Text("Couldn’t save the content.")
-                    .font(.caption)
+                    .panelFont(.caption)
                     .foregroundStyle(GanchoTokens.Palette.danger)
             }
             HStack {

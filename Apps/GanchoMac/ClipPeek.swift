@@ -98,7 +98,7 @@ struct ClipPeek: View {
             header
             if titleSaveFailed {
                 Text("Couldn’t save the title.")
-                    .font(.caption)
+                    .panelFont(.caption)
                     .foregroundStyle(GanchoTokens.Palette.danger)
             }
             if hidesPreview {
@@ -133,7 +133,7 @@ struct ClipPeek: View {
                             }
                             if isThinking {
                                 Label("Thinking…", systemImage: "sparkles")
-                                    .font(.caption)
+                                    .panelFont(.caption)
                                     .foregroundStyle(.secondary)
                                     .symbolEffect(.pulse, options: .repeating)
                                     .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
@@ -264,7 +264,7 @@ struct ClipPeek: View {
     private func suggestionChip(_ board: Pinboard) -> some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.accent)
-            Text("Add to \(board.name)?").font(.caption.weight(.medium)).lineLimit(1)
+            Text("Add to \(board.name)?").panelFont(.caption, .medium).lineLimit(1)
             Spacer(minLength: 0)
             Button("Add") {
                 model.assignWithUndo(item, toBoard: board)
@@ -312,7 +312,7 @@ struct ClipPeek: View {
                     .accessibilityIdentifier("preview-cancel-title")
             } else {
                 Text(presentedTitle.isEmpty ? String(localized: "Untitled") : presentedTitle)
-                    .font(.headline)
+                    .panelFont(.headline)
                     .foregroundStyle(presentedTitle.isEmpty ? .secondary : .primary)
                     .lineLimit(1)
                     .accessibilityIdentifier("preview-title")
@@ -361,7 +361,7 @@ struct ClipPeek: View {
                         ? AnyShapeStyle(GanchoTokens.Palette.warning) : AnyShapeStyle(.secondary))
             }
         }
-        .font(.caption)
+        .panelFont(.caption)
         .foregroundStyle(.secondary)
         .labelStyle(.titleAndIcon)
         .lineLimit(1)
@@ -375,7 +375,7 @@ struct ClipPeek: View {
                         Text(verbatim: board.name)
                     }
                 }
-                .font(.caption2.weight(.medium))
+                .panelFont(.caption2, .medium)
                 .lineLimit(1)
                 .help(board.isSystem ? Text("Favorites") : Text(verbatim: board.name))
                 .accessibilityIdentifier("peek-board-\(board.id.uuidString)")
@@ -385,7 +385,7 @@ struct ClipPeek: View {
                 .accessibilityElement(children: .combine)
             }
         }
-        .font(.caption)
+        .panelFont(.caption)
         .foregroundStyle(.secondary)
         .labelStyle(.titleAndIcon)
         .lineLimit(1)
@@ -538,12 +538,12 @@ extension ClipPeek {
                     .overlay(
                         RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                             .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-                Text(presentedText).font(.body.monospaced()).textSelection(.enabled)
+                Text(presentedText).panelFont(.body, design: .monospaced).textSelection(.enabled)
             }
         } else {
             ScrollView {
                 Text(highlighted)
-                    .font(item.kind == .code ? .body.monospaced() : .body)
+                    .panelFont(.body, design: item.kind == .code ? .monospaced : .default)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             }
@@ -556,11 +556,11 @@ extension ClipPeek {
     private func linkHero(_ parts: ClipLinkParts) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(verbatim: parts.host)
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .panelFont(size: 24, .bold, design: .rounded)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(verbatim: parts.text)
-                .font(.callout.monospaced())
+                .panelFont(.callout, design: .monospaced)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("peek-link-url")
@@ -720,7 +720,7 @@ extension ClipPeek {
             }
         } label: {
             Label("Transform", systemImage: "textformat")
-                .font(.body.weight(.medium))
+                .panelFont(.body, .medium)
                 .padding(.horizontal, GanchoTokens.Spacing.sm)
                 .padding(.vertical, GanchoTokens.Spacing.xxs)
         }
@@ -760,7 +760,7 @@ extension ClipPeek {
             Label("Runs on your Mac — nothing leaves the device.", systemImage: "lock.shield")
         } label: {
             Label("Smart paste", systemImage: "sparkles")
-                .font(.body.weight(.medium))
+                .panelFont(.body, .medium)
                 .padding(.horizontal, GanchoTokens.Spacing.sm)
                 .padding(.vertical, GanchoTokens.Spacing.xxs)
         }
@@ -814,7 +814,7 @@ extension ClipPeek {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
             ScrollView {
                 Text(result)
-                    .font(.body.monospaced())
+                    .panelFont(.body, design: .monospaced)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             }

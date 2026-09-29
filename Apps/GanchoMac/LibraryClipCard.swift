@@ -25,9 +25,9 @@ struct LibraryClipCard: View {
                     Text(verbatim: clip.title).lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                if clip.isPinned { Image(systemName: "pin.fill").font(.caption2) }
+                if clip.isPinned { Image(systemName: "pin.fill").panelFont(.caption2) }
             }
-            .font(.callout.weight(.semibold))
+            .panelFont(.callout, .semibold)
             preview
                 .frame(maxWidth: .infinity, minHeight: 112, maxHeight: 112, alignment: .topLeading)
         }
@@ -59,7 +59,7 @@ struct LibraryClipCard: View {
                     .accessibilityLabel("Image preview")
             } else if finishedLoading {
                 Label("Preview unavailable", systemImage: "photo")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .panelFont(.caption).foregroundStyle(.secondary)
             } else {
                 ProgressView().controlSize(.small).accessibilityLabel("Loading preview")
             }
@@ -68,11 +68,11 @@ struct LibraryClipCard: View {
                 RoundedRectangle(cornerRadius: 5).fill(color)
                     .overlay(
                         RoundedRectangle(cornerRadius: 5).strokeBorder(.separator, lineWidth: 1))
-                Text(verbatim: clip.preview).font(.caption.monospaced())
+                Text(verbatim: clip.preview).panelFont(.caption, design: .monospaced)
             }
         } else {
             Text(verbatim: ByteSize.humanizedPreview(clip.preview))
-                .font(clip.kind == .code ? .system(.caption, design: .monospaced) : .caption)
+                .panelFont(.caption, design: clip.kind == .code ? .monospaced : .default)
                 .foregroundStyle(.secondary).lineLimit(5)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

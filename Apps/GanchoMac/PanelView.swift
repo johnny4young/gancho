@@ -230,7 +230,7 @@ struct PanelView: View {
         // outline to show through.
         .ignoresSafeArea()
         .frame(minWidth: 720, minHeight: 460)
-        .dynamicTypeSize(panelTextSize.dynamicTypeSize)
+        .environment(\.panelTypeScale, panelTextSize.scale)
         .background {
             #if DEBUG
                 if CommandLine.arguments.contains("-opaque-panel-for-ui-test") {
@@ -432,13 +432,13 @@ struct PanelView: View {
             if CommandLine.arguments.contains("-show-multi-file-drop-target") {
                 VStack(spacing: GanchoTokens.Spacing.xxs) {
                     Image(systemName: "tray.and.arrow.down.fill")
-                        .font(.title2)
+                        .panelFont(.title2)
                     Text(
                         verbatim: uiTestStartedFileCount == 0
                             ? "Drag files here"
                             : "\(uiTestStartedFileCount) file items"
                     )
-                    .font(.caption.weight(.semibold))
+                    .panelFont(.caption, .semibold)
                 }
                 .foregroundStyle(GanchoTokens.Palette.accent)
                 .frame(width: 180, height: 76)
@@ -476,12 +476,12 @@ struct PanelView: View {
         if model.isTelemetryConsentPromptPresented {
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
                 Label("Help improve Gancho?", systemImage: "chart.bar.xaxis")
-                    .font(.headline)
+                    .panelFont(.headline)
                 Text(
                     // swiftlint:disable:next line_length
                     "Gancho can share anonymous feature counts and broad performance buckets. It never sends clipboard content, titles, searches, or source-app names."
                 )
-                .font(.callout)
+                .panelFont(.callout)
                 .foregroundStyle(.secondary)
                 HStack {
                     Button("Keep disabled") {
@@ -688,7 +688,7 @@ struct PanelView: View {
                 filterDraft = search.savedRule(named: "")
             } label: {
                 Image(systemName: "line.3.horizontal.decrease.circle")
-                    .font(.system(size: 13, weight: .medium))
+                    .panelFont(size: 13, .medium)
                     .frame(width: 24, height: 22)
                     .contentShape(Rectangle())
             }
@@ -857,11 +857,11 @@ struct PanelView: View {
     ) -> some View {
         HStack(spacing: 5) {
             icon()
-                .font(.caption.weight(.semibold))
+                .panelFont(.caption, .semibold)
                 .frame(width: 12, height: 12)
             if showsTitle {
                 // Truncate rather than widen the fixed-size toolbar; `.help` has the full name.
-                title.font(.caption.weight(isActive ? .semibold : .medium)).lineLimit(1)
+                title.panelFont(.caption, isActive ? .semibold : .medium).lineLimit(1)
                     .frame(maxWidth: 120)
             }
         }
@@ -1021,7 +1021,7 @@ struct PanelView: View {
     @ViewBuilder private var askRow: some View {
         if isAsking {
             Label("Thinking…", systemImage: "sparkles")
-                .font(.caption).foregroundStyle(.secondary)
+                .panelFont(.caption).foregroundStyle(.secondary)
                 .symbolEffect(.pulse, options: .repeating)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, GanchoTokens.Spacing.xs)
@@ -1032,7 +1032,7 @@ struct PanelView: View {
                 runAsk()
             } label: {
                 Label("Ask gancho", systemImage: "sparkles")
-                    .font(.caption.weight(.medium))
+                    .panelFont(.caption, .medium)
                     .padding(.horizontal, GanchoTokens.Spacing.sm)
                     .padding(.vertical, 5)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1050,7 +1050,7 @@ struct PanelView: View {
     private func answerCard(_ answer: AppModel.ClipboardAnswer) -> some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
             HStack {
-                Label("Answer", systemImage: "sparkles").font(.caption.weight(.semibold))
+                Label("Answer", systemImage: "sparkles").panelFont(.caption, .semibold)
                 Spacer()
                 Button {
                     self.answer = nil
@@ -1062,22 +1062,22 @@ struct PanelView: View {
             }
             ScrollView {
                 Text(answer.answer)
-                    .font(.callout)
+                    .panelFont(.callout)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             }
             .frame(maxHeight: 120)
             if !answer.sources.isEmpty {
-                Text("Sources").font(.caption2).foregroundStyle(.secondary)
+                Text("Sources").panelFont(.caption2).foregroundStyle(.secondary)
                 ForEach(answer.sources.prefix(4)) { clip in
                     Button {
                         model.paste(clip)
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: clip.kind.symbolName)
-                                .font(.caption2)
+                                .panelFont(.caption2)
                                 .foregroundStyle(GanchoTokens.Palette.kindTint(for: clip.kind))
-                            Text(clip.preview).font(.caption).lineLimit(1)
+                            Text(clip.preview).panelFont(.caption).lineLimit(1)
                         }
                     }
                     .buttonStyle(.plain).foregroundStyle(.secondary)
@@ -1396,14 +1396,14 @@ struct PanelView: View {
             invokeSnippet(snippet)
         } label: {
             HStack(spacing: GanchoTokens.Spacing.xs) {
-                Image(systemName: "bolt.fill").font(.caption)
+                Image(systemName: "bolt.fill").panelFont(.caption)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Insert snippet").font(.caption2).foregroundStyle(.secondary)
+                    Text("Insert snippet").panelFont(.caption2).foregroundStyle(.secondary)
                     Text(snippet.title.isEmpty ? snippet.preview : snippet.title)
-                        .font(.callout.weight(.semibold)).lineLimit(1)
+                        .panelFont(.callout, .semibold).lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "return").font(.caption2).foregroundStyle(.secondary)
+                Image(systemName: "return").panelFont(.caption2).foregroundStyle(.secondary)
             }
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .padding(.vertical, GanchoTokens.Spacing.xs)

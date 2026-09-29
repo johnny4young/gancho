@@ -28,6 +28,7 @@ struct PeekActionButton: View {
     let isFocused: Bool
     let run: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.panelTypeScale) private var typeScale
     @State private var isHovered = false
 
     private var motion: Animation? {
@@ -59,17 +60,17 @@ struct PeekActionButton: View {
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         return VStack(spacing: 3) {
             Image(systemName: action.symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .frame(height: 18)
+                .panelFont(size: 15, .semibold)
+                .frame(height: 18 * typeScale)
                 .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
                 // A constant value never triggers the discrete bounce.
                 .symbolEffect(.bounce, value: reduceMotion ? "" : action.symbol)
             Text(action.shortTitle ?? action.title)
-                .font(.caption.weight(.semibold))
+                .panelFont(.caption, .semibold)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(verbatim: action.shortcut ?? "")
-                .font(.caption2.monospaced())
+                .panelFont(.caption2, design: .monospaced)
                 .opacity(0.7)
         }
         .frame(maxWidth: .infinity)
@@ -94,8 +95,8 @@ struct PeekActionButton: View {
 
     private var chipLabel: some View {
         HStack(spacing: 4) {
-            Image(systemName: action.symbol).font(.caption2)
-            Text(action.title).font(.caption.weight(.medium)).lineLimit(1)
+            Image(systemName: action.symbol).panelFont(.caption2)
+            Text(action.title).panelFont(.caption, .medium).lineLimit(1)
         }
         .padding(.horizontal, GanchoTokens.Spacing.xs)
         .padding(.vertical, 4)

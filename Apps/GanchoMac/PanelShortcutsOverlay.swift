@@ -22,7 +22,7 @@ struct PanelShortcutsOverlay: View {
     private var shortcutsCard: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             HStack {
-                Text("Keyboard shortcuts").font(.headline)
+                Text("Keyboard shortcuts").panelFont(.headline)
                 Spacer()
                 Button {
                     isPresented = false
@@ -70,14 +70,14 @@ struct PanelShortcutsOverlay: View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             HStack(spacing: 3) { ForEach(caps, id: \.self) { keycap($0) } }
                 .frame(width: 86, alignment: .leading)
-            Text(label).font(.callout)
+            Text(label).panelFont(.callout)
             Spacer(minLength: 0)
         }
     }
 
     private func keycap(_ text: String) -> some View {
         Text(verbatim: text)
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .panelFont(size: 11, .semibold, design: .rounded)
             .frame(minWidth: 18, minHeight: 18)
             .padding(.horizontal, 4)
             .background(.quaternary, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
