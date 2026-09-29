@@ -129,8 +129,10 @@ public struct ClipCard: View {
     /// namespace; only the anchor row claims the gliding highlight.
     let selectionNamespace: Namespace.ID?
     let isSelectionAnchor: Bool
+    // Dynamic Type grows the tile on iOS; the panel's own scale on the Mac.
+    @ScaledMetric(relativeTo: .body) private var baseTileSize: CGFloat = 36
     @Environment(\.panelTypeScale) private var typeScale
-    private var tileSize: CGFloat { 36 * typeScale }
+    private var tileSize: CGFloat { baseTileSize * typeScale }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.listIsScrolling) private var listIsScrolling
     @State private var isHovered = false

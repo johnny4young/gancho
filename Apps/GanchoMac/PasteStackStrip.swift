@@ -24,16 +24,16 @@ struct PasteStackStrip: View {
                 HStack(spacing: 6) {
                     Image(systemName: "square.stack.3d.up.fill")
                     Text("\(model.pasteStackEntries.count)")
-                        .font(.caption2.weight(.semibold))
+                        .panelFont(.caption2, .semibold)
                         .monospacedDigit()
                     ForEach(model.pasteStackEntries.prefix(3)) { entry in
                         Image(systemName: entry.clip.kind.symbolName)
-                            .font(.system(size: 9))
+                            .panelFont(size: 9)
                             .foregroundStyle(.secondary)
                     }
                     if model.pasteStackEntries.count > 3 {
                         Text("+\(model.pasteStackEntries.count - 3)")
-                            .font(.caption2)
+                            .panelFont(.caption2)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -55,16 +55,16 @@ struct PasteStackStrip: View {
     private var queuePopover: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Paste stack").font(.headline)
+                Text("Paste stack").panelFont(.headline)
                 Spacer()
                 if let shortcut = KeyboardShortcuts.getShortcut(for: .pasteFromStack) {
                     Text(verbatim: "\(shortcut)")
-                        .font(.caption.monospaced())
+                        .panelFont(.caption, design: .monospaced)
                         .foregroundStyle(.secondary)
                 }
             }
             Text("Pastes front to back — one per keypress.")
-                .font(.caption)
+                .panelFont(.caption)
                 .foregroundStyle(.secondary)
 
             List {
@@ -72,7 +72,7 @@ struct PasteStackStrip: View {
                     index, entry in
                     HStack(spacing: 8) {
                         Text("\(index + 1)")
-                            .font(.caption2.monospacedDigit())
+                            .panelFont(.caption2, digits: true)
                             .foregroundStyle(.secondary)
                             .frame(width: 16, alignment: .trailing)
                         Image(systemName: entry.clip.kind.symbolName)

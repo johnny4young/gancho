@@ -1,24 +1,54 @@
 import SwiftUI
 
-/// The panel's text styles as point sizes. macOS SwiftUI does not scale text
-/// with `dynamicTypeSize`, so the panel scales its own styles from these bases
-/// through `panelTypeScale`; the sizes mirror the macOS system text styles.
+#if canImport(AppKit)
+    import AppKit
+    private typealias PlatformFont = NSFont
+#else
+    import UIKit
+    private typealias PlatformFont = UIFont
+#endif
+
+/// The panel's text styles. macOS SwiftUI does not scale text through
+/// `dynamicTypeSize`, so on the Mac each style is sized from the system's own
+/// point size times `panelTypeScale`; iOS keeps its Dynamic Type styles.
 public enum PanelTextStyle: Sendable, CaseIterable {
     case title2, title3, headline, body, callout, subheadline, footnote, caption, caption2
 
+    /// The system's current point size for this style.
     public var baseSize: CGFloat {
-        switch self {
-        case .title2: 17
-        case .title3: 15
-        case .headline, .body: 13
-        case .callout: 12
-        case .subheadline: 11
-        case .footnote, .caption, .caption2: 10
-        }
+        PlatformFont.preferredFont(forTextStyle: platformStyle).pointSize
     }
 
     public var defaultWeight: Font.Weight {
         self == .headline ? .semibold : .regular
+    }
+
+    var textStyle: Font.TextStyle {
+        switch self {
+        case .title2: .title2
+        case .title3: .title3
+        case .headline: .headline
+        case .body: .body
+        case .callout: .callout
+        case .subheadline: .subheadline
+        case .footnote: .footnote
+        case .caption: .caption
+        case .caption2: .caption2
+        }
+    }
+
+    private var platformStyle: PlatformFont.TextStyle {
+        switch self {
+        case .title2: .title2
+        case .title3: .title3
+        case .headline: .headline
+        case .body: .body
+        case .callout: .callout
+        case .subheadline: .subheadline
+        case .footnote: .footnote
+        case .caption: .caption1
+        case .caption2: .caption2
+        }
     }
 }
 
@@ -40,14 +70,21 @@ extension PanelTextSize {
 
 private struct PanelFontModifier: ViewModifier {
     @Environment(\.panelTypeScale) private var scale
+    let style: PanelTextStyle?
     let size: CGFloat
     let weight: Font.Weight
     let design: Font.Design
     let digits: Bool
 
     func body(content: Content) -> some View {
-        let font = Font.system(size: size * scale, weight: weight, design: design)
         content.font(digits ? font.monospacedDigit() : font)
+    }
+
+    private var font: Font {
+        #if os(iOS)
+            if let style { return Font.system(style.textStyle, design: design, weight: weight) }
+        #endif
+        return Font.system(size: (style?.baseSize ?? size) * scale, weight: weight, design: design)
     }
 }
 
@@ -59,7 +96,7 @@ extension View {
     ) -> some View {
         modifier(
             PanelFontModifier(
-                size: style.baseSize, weight: weight ?? style.defaultWeight, design: design,
+                style: style, size: 0, weight: weight ?? style.defaultWeight, design: design,
                 digits: digits))
     }
 
@@ -68,6 +105,8 @@ extension View {
     public func panelFont(
         size: CGFloat, _ weight: Font.Weight = .regular, design: Font.Design = .default
     ) -> some View {
-        modifier(PanelFontModifier(size: size, weight: weight, design: design, digits: false))
+        modifier(
+            PanelFontModifier(style: nil, size: size, weight: weight, design: design, digits: false)
+        )
     }
 }

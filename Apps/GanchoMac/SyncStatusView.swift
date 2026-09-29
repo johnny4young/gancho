@@ -21,10 +21,10 @@ struct SyncStatusView: View {
                 } icon: {
                     Image(systemName: symbol).foregroundStyle(tint)
                 }
-                .font(.footnote)
+                .panelFont(.footnote)
                 if showsSuggestion, let suggestion {
                     Text(suggestion)
-                        .font(.caption)
+                        .panelFont(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, GanchoTokens.Spacing.lg)
                 }

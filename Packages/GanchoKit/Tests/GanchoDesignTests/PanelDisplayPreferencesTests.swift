@@ -4,6 +4,10 @@ import Testing
 
 @testable import GanchoDesign
 
+#if canImport(AppKit)
+    import AppKit
+#endif
+
 @Suite("Panel display preferences")
 struct PanelDisplayPreferencesTests {
     @Test("Text size resolves unknown or missing values to Standard")
@@ -21,10 +25,22 @@ struct PanelDisplayPreferencesTests {
         #expect(PanelTextSize.large.scale > 1)
     }
 
-    @Test("Panel text styles mirror the macOS system sizes and keep their hierarchy")
-    func textStyleBases() {
-        #expect(PanelTextStyle.body.baseSize == 13)
-        #expect(PanelTextStyle.headline.baseSize == PanelTextStyle.body.baseSize)
+    #if canImport(AppKit)
+        @Test(
+            "Panel text styles start from the system's own sizes",
+            arguments: [
+                (PanelTextStyle.title2, NSFont.TextStyle.title2), (.title3, .title3),
+                (.headline, .headline), (.body, .body), (.callout, .callout),
+                (.subheadline, .subheadline), (.footnote, .footnote), (.caption, .caption1),
+                (.caption2, .caption2)
+            ])
+        func textStyleBases(style: PanelTextStyle, system: NSFont.TextStyle) {
+            #expect(style.baseSize == NSFont.preferredFont(forTextStyle: system).pointSize)
+        }
+    #endif
+
+    @Test("Panel text styles keep their hierarchy and weights")
+    func textStyleHierarchy() {
         #expect(PanelTextStyle.headline.defaultWeight == .semibold)
         #expect(PanelTextStyle.body.defaultWeight == .regular)
         #expect(PanelTextStyle.caption.baseSize < PanelTextStyle.callout.baseSize)

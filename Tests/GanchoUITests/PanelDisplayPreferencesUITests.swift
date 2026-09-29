@@ -30,8 +30,10 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         ]
         app.launch()
         defer { app.terminate() }
-        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.element(boundBy: 1).waitForExistence(timeout: 15))
+        // The same clip at every level: row order follows capture timing.
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row")
+            .matching(NSPredicate(format: "label CONTAINS %@", "let greeting")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15))
         let panel = app.dialogs["history-panel"].firstMatch
         if panel.exists {
             let evidence = XCTAttachment(screenshot: panel.screenshot())
@@ -39,8 +41,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
             evidence.lifetime = .keepAlways
             add(evidence)
         }
-        // The first two rows carry a title and a preview line each.
-        return rows.element(boundBy: 0).frame.height
+        return row.frame.height
     }
 
     @MainActor
