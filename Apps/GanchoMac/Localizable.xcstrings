@@ -3643,18 +3643,18 @@
         }
       }
     },
-    "Granting enables MCP for only these selected IDs, read-only, for one hour.": {
+    "One-hour, read-only access to these IDs. Enabling MCP reactivates other valid grants.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Granting enables MCP for only these selected IDs, read-only, for one hour."
+            "value": "One-hour, read-only access to these IDs. Enabling MCP reactivates other valid grants."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La autorización activa MCP solo para estos identificadores, con acceso de solo lectura durante una hora."
+            "value": "Acceso de solo lectura a estos identificadores durante una hora. Activar MCP reactiva otros permisos vigentes."
           }
         }
       }
