@@ -24,11 +24,48 @@ final class TextRecipeUITests: XCTestCase {
         attachment.name = "Recipe review — synthetic — \(language) — \(appearance)"
         attachment.lifetime = .keepAlways
         add(attachment)
+        try verifyEightSteps(app, label: "\(language) — \(appearance)")
         app.buttons["text-recipe-cancel"].firstMatch.click()
         XCTAssertTrue(run.waitForNonExistence(timeout: 5))
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch.exists)
     }
+    @MainActor
+    private func verifyEightSteps(_ app: GanchoUITestApplication, label: String) throws {
+        let scroll = app.scrollViews["text-recipe-content-scroll"].firstMatch
+        let addStep = app.buttons["text-recipe-add-step"].firstMatch
+        for _ in 2..<8 {
+            try SynthesizedInput.requireForeground(app)
+            XCTAssertTrue(addStep.revealByScrolling(in: scroll))
+            addStep.click()
+        }
+        XCTAssertEqual(app.buttons.matching(identifier: "text-recipe-remove-step-button").count, 8)
+        XCTAssertFalse(addStep.isEnabled)
+        app.buttons["text-recipe-run"].firstMatch.click()
+        let copy = app.buttons["text-recipe-copy"].firstMatch
+        expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: copy)
+        waitForExpectations(timeout: 5)
+        assertPinnedControls(app)
+        let attachment = XCTAttachment(screenshot: app.sheets.firstMatch.screenshot())
+        attachment.name = "Eight-step recipe with pinned controls — synthetic — \(label)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
+    private func assertPinnedControls(_ app: GanchoUITestApplication) {
+        let sheet = app.sheets.firstMatch.frame
+        let title = app.staticTexts["text-recipe-title"].firstMatch
+        XCTAssertTrue(title.exists)
+        XCTAssertTrue(
+            sheet.contains(title.frame), "The complete heading must stay inside the sheet")
+        for id in ["text-recipe-cancel", "text-recipe-run", "text-recipe-copy"] {
+            let button = app.buttons[id].firstMatch
+            XCTAssertTrue(button.isHittable)
+            XCTAssertTrue(sheet.contains(button.frame), "Delivery controls must not be clipped")
+        }
+    }
+
     @MainActor private func launch(
         _ language: String, _ appearance: String
     ) -> GanchoUITestApplication {
@@ -87,6 +124,7 @@ final class TextRecipeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[original].firstMatch.exists)
         let copy = app.buttons["text-recipe-copy"].firstMatch
         XCTAssertTrue(copy.isEnabled)
+        assertPinnedControls(app)
         let attachment = XCTAttachment(screenshot: app.sheets.firstMatch.screenshot())
         attachment.name = "Recipe transformation before explicit copy — synthetic"
         attachment.lifetime = .keepAlways

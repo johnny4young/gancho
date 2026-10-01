@@ -31,7 +31,7 @@ jobs:
     runs-on: macos-26
     # Ten rounds exceed the full suite's wall-clock allocation. Interaction
     # timeouts and performance budgets stay unchanged.
-    timeout-minutes: ${{ inputs.scope == 'interaction-stress' && 90 || 45 }}
+    timeout-minutes: ${{ (inputs.scope == 'interaction-stress' || inputs.scope == 'feature-stress') && 90 || 45 }}
     steps:
       - uses: actions/checkout@v7
 

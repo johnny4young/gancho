@@ -8,7 +8,9 @@ struct UIWorkflowScopeTests {
         let source = try workflow()
         #expect(
             source.contains(
-                "timeout-minutes: ${{ inputs.scope == 'interaction-stress' && 90 || 45 }}"))
+                "timeout-minutes: ${{ (inputs.scope == 'interaction-stress' "
+                    + "|| inputs.scope == 'feature-stress') && 90 || 45 }}"
+            ))
         #expect(source.contains("if: ${{ inputs.scope != 'ios-interaction-stress' }}"))
         #expect(
             source.contains(
