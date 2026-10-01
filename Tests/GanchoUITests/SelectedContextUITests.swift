@@ -2,7 +2,12 @@ import XCTest
 
 final class SelectedContextUITests: XCTestCase {
     @MainActor
-    func testReviewReorderCancelAndCopyKeepClipsIntact() throws {
+    func testReviewReorderCancelAndCopyKeepClipsIntact() throws { try verify("en", "light") }
+    @MainActor func testEnglishDark() throws { try verify("en", "dark") }
+    @MainActor func testSpanishLight() throws { try verify("es", "light") }
+    @MainActor func testSpanishDark() throws { try verify("es", "dark") }
+
+    @MainActor private func verify(_ language: String, _ appearance: String) throws {
         continueAfterFailure = false
         let app = GanchoUITestApplication()
         app.launchArguments = [
@@ -10,7 +15,9 @@ final class SelectedContextUITests: XCTestCase {
             "-seed-source-apps", "-force-free-tier", "-start-capture-paused",
             "-place-panel-for-ui-test", "-opaque-panel-for-ui-test",
             "-suppress-storage-notice-for-ui-test",
-            "-ui-test-paste-sink", "copy-only", "-AppleLanguages", "(en)",
+            "-ui-test-paste-sink", "copy-only", "-AppleLanguages", "(\(language))",
+            "-appearance", appearance, "-panel-text-size", "large",
+            "-panel-content-width", "720", "-panel-content-height", "460",
             "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.selected-context.\(UUID())"
         ]
         app.launch()
@@ -35,8 +42,8 @@ final class SelectedContextUITests: XCTestCase {
         XCTAssertTrue(move.isEnabled)
         move.click()
         let attachment = XCTAttachment(
-            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
-        attachment.name = "Selected context review — synthetic clips"
+            screenshot: app.sheets.firstMatch.screenshot())
+        attachment.name = "Selected context review — synthetic clips — \(language) — \(appearance)"
         attachment.lifetime = .keepAlways
         add(attachment)
         app.buttons["ai-context-cancel-button"].firstMatch.click()

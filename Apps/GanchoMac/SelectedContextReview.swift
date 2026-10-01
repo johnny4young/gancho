@@ -1,6 +1,8 @@
 import AppKit
 import ClipboardCore
+import Combine
 import GanchoAppCore
+import GanchoDesign
 import GanchoKit
 import SwiftUI
 
@@ -15,19 +17,21 @@ struct SelectedContextReview: View {
     @State private var clientName = ""
     @State private var grant: MCPClientGrant?
     @State private var operation: Task<Void, Never>?
+    @State private var generation = UUID()
 
     var body: some View {
         let prepared = try? SelectedContextFormatter.format(parts)
         return VStack(alignment: .leading, spacing: 12) {
-            Text("Prepare context for AI…").font(.headline)
+            Text("Prepare context for AI…").panelFont(.headline)
             Text(
                 "Up to 100 text clips and 64 KiB including headers. Nothing is saved or sent automatically."
             )
-            .font(.caption)
+            .panelFont(.caption)
             if loading { ProgressView() }
             TextSelectionReviewList(parts: $parts, disabled: operation != nil || grant != nil)
             ScrollView {
                 Text(verbatim: prepared?.markdown ?? "")
+                    .panelFont(.body)
                     .textSelection(.disabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -49,7 +53,7 @@ struct SelectedContextReview: View {
                     .orange)
             }
             if let grant {
-                Text("Read-only access expires in one hour. Revoke it in MCP Access.").font(
+                Text("Read-only access expires in one hour. Revoke it in MCP Access.").panelFont(
                     .caption)
                 Text(verbatim: "gancho mcp --grant \(grant.id.uuidString)")
                     .font(.caption.monospaced()).textSelection(.enabled)
@@ -59,7 +63,7 @@ struct SelectedContextReview: View {
                     .disabled(operation != nil)
                     .accessibilityIdentifier("ai-context-client-field")
                 Text("Granting enables MCP for only these selected IDs, read-only, for one hour.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .panelFont(.caption).foregroundStyle(.secondary)
                 Button("Grant selected context access") { deliver(asGrant: true) }
                     .disabled(
                         loading || prepared == nil
@@ -84,13 +88,16 @@ struct SelectedContextReview: View {
         .onChange(of: model.preferences.isPrivateModePaused) { _, paused in
             if paused { cancel() }
         }
-        .onDisappear {
-            operation?.cancel()
-            parts = []
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSWindow.didChangeOcclusionStateNotification)
+        ) { _ in
+            if !model.panel.isVisible { cancel() }
         }
+        .onDisappear { invalidate() }
     }
 
     private func load() async {
+        let request = generation
         defer { loading = false }
         guard !model.preferences.isPrivateModePaused, let store = model.fullStore else {
             failed = true
@@ -98,9 +105,10 @@ struct SelectedContextReview: View {
         }
         do {
             let loaded = try await CombinedTextService().load(ids: ids, from: store)
-            guard !Task.isCancelled, !model.preferences.isPrivateModePaused else { return }
+            guard !Task.isCancelled, generation == request, !model.preferences.isPrivateModePaused
+            else { return }
             parts = loaded
-        } catch { if !Task.isCancelled { failed = true } }
+        } catch { if !Task.isCancelled, generation == request { failed = true } }
     }
 
     private func deliver(asGrant: Bool) {
@@ -110,13 +118,14 @@ struct SelectedContextReview: View {
         let expected = parts
         let name = clientName
         let revision = NSPasteboard.general.changeCount
+        let request = generation
         operation = Task {
-            defer { operation = nil }
+            defer { if generation == request { operation = nil } }
             do {
                 let outcome = try await SelectedContextDelivery.perform(
                     expected: expected, from: store,
                     isAllowed: {
-                        !model.preferences.isPrivateModePaused
+                        generation == request && !model.preferences.isPrivateModePaused
                             && model.pendingDeletionIDs.isDisjoint(with: expected.map(\.id))
                     },
                     destinationUnchanged: {
@@ -137,6 +146,7 @@ struct SelectedContextReview: View {
                             #endif
                         }
                     })
+                guard !Task.isCancelled, generation == request else { return }
                 switch outcome {
                 case .delivered: if !asGrant { dismiss() }
                 case .changed(let current):
@@ -144,12 +154,23 @@ struct SelectedContextReview: View {
                     changed = true
                 case .blocked: failed = true
                 }
-            } catch is CancellationError { return } catch { failed = true }
+            } catch is CancellationError { return } catch {
+                if !Task.isCancelled, generation == request { failed = true }
+            }
         }
     }
 
-    private func cancel() {
+    private func invalidate() {
+        generation = UUID()
         operation?.cancel()
+        operation = nil
+        parts = []
+        grant = nil
+        clientName = ""
+    }
+
+    private func cancel() {
+        invalidate()
         dismiss()
     }
 }
