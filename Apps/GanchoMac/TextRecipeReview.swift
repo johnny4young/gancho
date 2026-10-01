@@ -31,7 +31,7 @@ struct TextRecipeReview: View {
     @State private var clipboardChanged = false
     @State private var confirmDiscard = false
 
-    private var storage: (any TextRecipeStoring)? { model.fullStore }
+    private var storage: (any TextRecipeStoring)? { model.textRecipeStore }
     private var dirty: Bool { draft != savedDraft }
     private var input: String? {
         guard case .text(let text) = part?.content else { return nil }
@@ -100,7 +100,7 @@ struct TextRecipeReview: View {
                     .disabled(result == nil || operation != nil)
                     .accessibilityIdentifier("text-recipe-copy")
             }
-        }.padding(20).frame(minWidth: 600, idealWidth: 680, minHeight: 560)
+        }.padding(20).frame(minWidth: 680, idealWidth: 680, minHeight: 560)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("text-recipe-review")
             .task { await load() }
@@ -241,7 +241,7 @@ struct TextRecipeReview: View {
         let request = generation
         defer { loading = false }
         do {
-            guard let storage, let reader = model.fullStore else {
+            guard let storage, let reader = model.textReuseReader else {
                 failed = true
                 return
             }
@@ -319,7 +319,7 @@ struct TextRecipeReview: View {
         }
     }
     private func copy() {
-        guard let result, let part, let reader = model.fullStore else { return }
+        guard let result, let part, let reader = model.textReuseReader else { return }
         failed = false
         let request = generation
         operation = Task {
