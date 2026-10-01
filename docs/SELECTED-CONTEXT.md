@@ -43,3 +43,8 @@ current grant and clip state on every request.
 Both Markdown copying and grant creation check the captured clipboard revision
 immediately before delivery. A replacement during loading produces a reviewable
 changed-state result instead of creating access or overwriting the new clipboard.
+
+Selection-list excerpts are capped at 80 Unicode scalars (at most 320 UTF-8
+bytes), not 80 potentially unbounded grapheme clusters. This is only a display
+preview: validation, ordering, Markdown and permission checks use the complete
+original text.

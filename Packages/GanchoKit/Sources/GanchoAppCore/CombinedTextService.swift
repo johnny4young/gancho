@@ -6,6 +6,13 @@ public struct CombinedTextPart: Identifiable, Sendable, Equatable {
         case text(String)
         case unavailable, incompatible, protected, tooLarge
     }
+    /// Bounded display-only excerpt; one grapheme can contain arbitrarily many marks.
+    /// The complete text remains unchanged for validation and delivery.
+    public var preview: String? {
+        guard case .text(let text) = content else { return nil }
+        return String(text.unicodeScalars.prefix(80))
+    }
+
     public let id: UUID
     public let content: Content
     public init(id: UUID, content: Content) {
