@@ -15,8 +15,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make macOS UI fixtures await ephemeral capture ingestion before showing the
   panel, and keep opt-in Library evidence on the primary display without
   changing normal window placement. Timer views import Combine explicitly.
-- Scope native UI attachments to Gancho components and add a supplemental
-  ten-iteration hosted interaction stress run; full macOS/iOS validation remains
+- Scope native UI attachments to Gancho components and add supplemental
+  ten-iteration hosted macOS and iOS interaction stress runs; full platform validation remains
   separate. Translucent component captures require an isolated synthetic desktop.
 
 - Align post-release documentation, the bilingual website, the Sparkle feed
