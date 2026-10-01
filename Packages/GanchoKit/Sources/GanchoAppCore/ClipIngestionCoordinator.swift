@@ -19,7 +19,7 @@ public struct ClipIngestionCoordinator: Sendable {
         public var intelligence: IntelligencePreferences
         public var allowsFreeTitle: Bool
         /// Provenance stamped on every capture — the local device's name
-        /// (`DeviceProvenance.currentDeviceName()`), so a clip that later
+        /// supplied by the platform shell, so a clip that later
         /// arrives on another device says where it was copied. Also scopes the
         /// store's dedupe key `(contentHash, sourceDeviceName)`. Nil leaves the
         /// column NULL, the pre-stamp behavior.
