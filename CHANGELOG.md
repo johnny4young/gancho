@@ -9,6 +9,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Show installed native translation destinations independently of Apple Intelligence, with an unavailable-engine message instead of an empty result.
+
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.9.1 DMG.
   Physical-device acceptance remains pending; the published app, tag and
