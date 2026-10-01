@@ -4,6 +4,105 @@ import XCTest
 /// is saved when the selection moves on, so neither a background reload nor
 /// navigating drops what the user typed; ⌘S saves in place.
 final class LibrarySnippetDraftUITests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
+    @MainActor
+    private func keepCapture(_ window: XCUIElement, name: String) {
+        let attachment = XCTAttachment(screenshot: window.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
+    func testRemovedSnippetKeepsDraftUntilExplicitRecovery() throws {
+        continueAfterFailure = false
+        let app = GanchoUITestApplication()
+        defer { app.terminate() }
+        let library = try openLibrary(app, extraArguments: ["-ui-test-snippet-deletion"])
+        library.staticTexts["Seed greeting"].firstMatch.click()
+        let editor = library.textViews["snippet-editor"].firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.click()
+        XCTAssertTrue(waitForKeyboardFocus(editor))
+        editor.typeKey(.downArrow, modifierFlags: .command)
+        editor.typeText(" synthetic recovered draft")
+        XCTAssertTrue(waitForValue(of: editor, containing: "synthetic recovered draft"))
+        library.buttons["snippet-delete-source-button"].firstMatch.click()
+        XCTAssertTrue(
+            library.buttons["snippet-recover-button"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitForValue(of: editor, containing: "synthetic recovered draft"))
+        XCTAssertFalse(library.buttons["snippet-save"].firstMatch.isEnabled)
+        keepCapture(library, name: "Snippet recovery — synthetic draft")
+
+        library.staticTexts["Seed sign-off"].firstMatch.click()
+        let cancel = app.buttons["Cancel"].firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(waitForValue(of: editor, containing: "synthetic recovered draft"))
+
+        library.buttons["snippet-recover-button"].firstMatch.click()
+        XCTAssertTrue(library.staticTexts["Seed greeting"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            waitForValue(
+                of: library.textViews["snippet-editor"].firstMatch,
+                containing: "synthetic recovered draft"))
+        XCTAssertFalse(library.buttons["snippet-recover-button"].firstMatch.exists)
+        library.staticTexts["Seed sign-off"].firstMatch.click()
+        XCTAssertTrue(
+            waitForValue(
+                of: library.textViews["snippet-editor"].firstMatch,
+                containing: "Best regards"))
+        library.staticTexts["Seed greeting"].firstMatch.click()
+        XCTAssertTrue(
+            waitForValue(
+                of: library.textViews["snippet-editor"].firstMatch,
+                containing: "synthetic recovered draft"))
+    }
+
+    @MainActor
+    func testDiscardRemovedDraftDoesNotRestoreOriginal() throws {
+        let app = GanchoUITestApplication()
+        defer { app.terminate() }
+        let library = try openLibrary(app, extraArguments: ["-ui-test-snippet-deletion"])
+        library.staticTexts["Seed greeting"].firstMatch.click()
+        let editor = library.textViews["snippet-editor"].firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.click()
+        XCTAssertTrue(waitForKeyboardFocus(editor))
+        editor.typeText("modified ")
+        library.buttons["snippet-delete-source-button"].firstMatch.click()
+        let discard = library.buttons["snippet-discard-button"].firstMatch
+        XCTAssertTrue(discard.waitForExistence(timeout: 5))
+        discard.click()
+        XCTAssertFalse(library.staticTexts["Seed greeting"].firstMatch.exists)
+        library.staticTexts["Seed sign-off"].firstMatch.click()
+        XCTAssertTrue(
+            waitForValue(
+                of: library.textViews["snippet-editor"].firstMatch, containing: "Best regards"))
+    }
+
+    @MainActor
+    func testFailedNavigationSaveKeepsEditedSnippet() throws {
+        let app = GanchoUITestApplication()
+        defer { app.terminate() }
+        let library = try openLibrary(app, extraArguments: ["-ui-test-snippet-save-failure"])
+        library.staticTexts["Seed greeting"].firstMatch.click()
+        let editor = library.textViews["snippet-editor"].firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.click()
+        XCTAssertTrue(waitForKeyboardFocus(editor))
+        editor.typeText("unsaved ")
+        library.staticTexts["Seed sign-off"].firstMatch.click()
+        XCTAssertTrue(
+            waitForValue(of: library.textViews["snippet-editor"].firstMatch, containing: "unsaved"))
+        XCTAssertEqual(
+            library.textFields["snippet-title"].firstMatch.value as? String, "Seed greeting")
+    }
+
     @MainActor
     func testTypedBodySurvivesRefreshAndSavesOnSelectionChange() throws {
         continueAfterFailure = false
@@ -44,7 +143,9 @@ final class LibrarySnippetDraftUITests: XCTestCase {
     }
 
     @MainActor
-    private func openLibrary(_ app: XCUIApplication) throws -> XCUIElement {
+    private func openLibrary(
+        _ app: XCUIApplication, extraArguments: [String] = []
+    ) throws -> XCUIElement {
         let nonce = UUID().uuidString
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
@@ -54,6 +155,7 @@ final class LibrarySnippetDraftUITests: XCTestCase {
             "com.johnny4young.gancho.uitests.snippets.\(UUID().uuidString)",
             "-command-nonce", nonce
         ]
+        app.launchArguments += extraArguments
         app.launch()
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))

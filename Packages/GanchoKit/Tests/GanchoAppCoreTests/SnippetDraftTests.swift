@@ -80,4 +80,29 @@ struct SnippetDraftTests {
         #expect(!SnippetDraft().isDirty)
         #expect(SnippetDraft().snippetID == nil)
     }
+
+    @Test("Removal keeps edits through late saves and stale reloads")
+    func missingDraftStaysUnsettled() {
+        var draft = SnippetDraft(snippetID: first, stored: stored)
+        draft.edited = .init(title: "Edited", keyword: "new", body: "New body")
+        let edited = draft.edited
+        draft.markMissing(snippetID: second)
+        #expect(!draft.isMissing)
+        draft.markMissing(snippetID: first)
+        draft.markSaved(snippetID: first, edited)
+        draft.reload(snippetID: first, stored: stored)
+        #expect(draft.edited == edited)
+        #expect(draft.requiresRecovery)
+        #expect(draft.stored == stored)
+    }
+
+    @Test("A clean missing draft needs no recovery; a new identity resets absence")
+    func cleanMissingAndNewIdentity() {
+        var draft = SnippetDraft(snippetID: first, stored: stored)
+        draft.markMissing(snippetID: first)
+        #expect(!draft.requiresRecovery)
+        draft.reload(snippetID: second, stored: stored)
+        #expect(!draft.isMissing)
+        #expect(draft.snippetID == second)
+    }
 }

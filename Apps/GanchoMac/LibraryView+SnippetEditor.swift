@@ -13,6 +13,22 @@ extension LibraryView {
 
     func snippetEditor(_ snippet: ClipItem) -> some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
+            if draft.requiresRecovery {
+                VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                    Label(
+                        "The original snippet was removed. Your draft is still here.",
+                        systemImage: "exclamationmark.triangle")
+                    HStack {
+                        Button("Save as new snippet") { recoverDraft() }
+                            .accessibilityIdentifier("snippet-recover-button")
+                        Button("Discard draft", role: .destructive) { discardDraft() }
+                            .accessibilityIdentifier("snippet-discard-button")
+                    }
+                }
+                .padding(GanchoTokens.Spacing.sm)
+                .background(.quaternary, in: roundedCard)
+                .accessibilityElement(children: .contain)
+            }
             TextField("Snippet title", text: $draft.edited.title)
                 .textFieldStyle(.plain)
                 .font(.title2.weight(.semibold))
@@ -56,6 +72,7 @@ extension LibraryView {
                 .opacity(0)
                 .accessibilityHidden(true)
         }
+        .disabled(draft.requiresRecovery && isSavingDraft)
         .onChange(of: focusedField) { previous, _ in
             // Commit a rename or keyword edit the moment focus leaves the field —
             // no need to hunt for Save for those quick edits.
@@ -133,6 +150,7 @@ extension LibraryView {
                 ) {
                     demote()
                 }
+                .disabled(draft.isMissing)
                 .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 ActionButton("Copy", systemImage: "doc.on.doc", identifier: "snippet-copy") {
@@ -142,6 +160,16 @@ extension LibraryView {
                 ActionButton("Save", systemImage: "checkmark", identifier: "snippet-save") {
                     save()
                 }
+                .disabled(draft.isMissing)
+                #if DEBUG
+                    if CommandLine.arguments.contains("-ui-test-snippet-deletion"),
+                        CommandLine.arguments.contains("-use-temp-durable-store"),
+                        AppModel.uiTestDefaultsSuiteName() != nil
+                    {
+                        Button("Remove test source") { simulateSnippetDeletion(id: snippet.id) }
+                            .accessibilityIdentifier("snippet-delete-source-button")
+                    }
+                #endif
             }
         }
     }

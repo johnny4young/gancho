@@ -20,22 +20,26 @@ struct LibraryView: View {
     @Environment(AppModel.self) var model
 
     /// What the sidebar has selected; `nil` is treated as "All clips".
-    @State private var selection: LibrarySelection? = .allClips
+    @State var selection: LibrarySelection? = .allClips
     @State private var boards: [Pinboard] = []
     @State private var boardCounts: [UUID: Int] = [:]
     @State private var allCount = 0
     @State private var pinnedCount = 0
     @State private var clips: [ClipItem] = []
-    @State private var snippets: [ClipItem] = []
+    @State var snippets: [ClipItem] = []
     @State private var filterDraft: SmartCollectionRule?
     @State private var filterNeedsEditing = false
     @State private var loadingPage = false
     @State private var reachedEnd = false
-    @State private var loadGeneration = UUID()
+    @State var loadGeneration = UUID()
 
     // Snippet editor state (the right pane when a snippet is selected).
-    @State private var editingSnippet: ClipItem?
+    @State var editingSnippet: ClipItem?
     @State var draft = SnippetDraft()
+    @State var isSavingDraft = false
+    @State var pendingDraftSelection: LibrarySelection?
+    @State var showsDraftResolution = false
+    @State var selectionTask: Task<Void, Never>?
     @FocusState var focusedField: EditorField?
 
     // Board name prompt (create / rename).
@@ -64,18 +68,17 @@ struct LibraryView: View {
                 return saved
             }
         }
-        .onChange(of: selection) { previous, _ in
-            // Leaving a snippet commits its typed body, as the title and
-            // keyword already commit on focus loss; navigating drops nothing.
-            // The save lands before the next scope loads, so coming straight
-            // back reads the saved text.
-            let leaving = draft
-            Task {
-                if case .snippet(let id) = previous, leaving.snippetID == id, leaving.isDirty {
-                    await write(id: id, fields: leaving.edited)
-                }
-                await loadScope()
-            }
+        .onChange(of: selection) { _, _ in
+            Task { await loadScope() }
+        }
+        .confirmationDialog("Keep your unsaved snippet?", isPresented: $showsDraftResolution) {
+            Button("Save as new snippet") { recoverDraft() }
+            Button("Discard draft", role: .destructive) { discardDraft() }
+            Button("Cancel", role: .cancel) { pendingDraftSelection = nil }
+        } message: {
+            Text(
+                "The original snippet was removed. Save your changes as a new snippet or discard them before leaving."
+            )
         }
         .onChange(of: model.recentItems) { previous, current in
             // A saved filter is live: a local capture, delete, edit, or pin that
@@ -128,7 +131,7 @@ struct LibraryView: View {
 
     private var sidebar: some View {
         VStack(spacing: 0) {
-            List(selection: $selection) {
+            List(selection: Binding(get: { selection }, set: requestSelection)) {
                 Section {
                     navRow(.allClips, Text("All clips"), systemImage: "tray.full", count: allCount)
                     navRow(.pinned, Text("Pinned"), systemImage: "pin", count: pinnedCount)
@@ -475,9 +478,16 @@ struct LibraryView: View {
 
     // MARK: - Data
 
-    private func refreshAll() async {
-        boards = (try? await model.fullStore?.pinboards()) ?? []
-        snippets = (try? await model.fullStore?.snippets()) ?? []
+    func refreshAll() async {
+        guard let store = model.fullStore else { return }
+        do {
+            boards = try await store.pinboards()
+            snippets = try await store.snippets()
+        } catch {
+            model.diagnostics.record(
+                "Snippets", "Couldn’t load snippets; your draft is still here.")
+            return
+        }
         await refreshCounts()
         await loadScope()
     }
@@ -494,7 +504,7 @@ struct LibraryView: View {
 
     /// Loads whatever the current selection points at: a board's clips, or a
     /// snippet's editable title/keyword/body.
-    private func loadScope() async {
+    func loadScope() async {
         let generation = UUID()
         loadGeneration = generation
         reachedEnd = false
@@ -525,20 +535,7 @@ struct LibraryView: View {
                 filterNeedsEditing = true
             }
         case .snippet(let id):
-            guard let snippet = snippets.first(where: { $0.id == id }) else {
-                editingSnippet = nil
-                draft = SnippetDraft()
-                return
-            }
-            // The editor switches only once the body is here, so what it
-            // shows and what a save would write always belong to one snippet.
-            let body = await loadBody(for: snippet.id)
-            guard generation == loadGeneration else { return }
-            draft.reload(
-                snippetID: snippet.id,
-                stored: SnippetDraft.Fields(
-                    title: snippet.title, keyword: snippet.keyword ?? "", body: body))
-            editingSnippet = snippet
+            await loadSnippet(id: id, generation: generation)
         default:
             editingSnippet = nil
             draft = SnippetDraft()
@@ -631,80 +628,6 @@ struct LibraryView: View {
                 SystemPasteboardWriter().write(content, asPlainText: false)
             #endif
             model.toasts.show(GanchoToast(message: "Copied"))
-        }
-    }
-
-    private func loadBody(for id: UUID) async -> String {
-        guard case .text(let text)? = try? await model.store.content(for: id) else { return "" }
-        return text
-    }
-
-    func save() {
-        // Capture target + values NOW (synchronously). The async write must not
-        // read @State later — by then a different snippet may be selected, and
-        // we'd save this snippet's text onto that one.
-        guard let id = draft.snippetID else { return }
-        let fields = draft.edited
-        Task { await write(id: id, fields: fields) }
-    }
-
-    private func write(id: UUID, fields: SnippetDraft.Fields) async {
-        // The list below reconciles from the store either way, so the UI
-        // stays honest — but an edit that did not save must SAY so, the
-        // way createSnippet already does. Silently reverting text the user
-        // typed reads as a bug in the editor.
-        do {
-            try await model.fullStore?.updateSnippet(
-                id: id, title: fields.title, text: fields.body)
-            try await model.fullStore?.setKeyword(id: id, keyword: fields.keyword)
-            draft.markSaved(snippetID: id, fields)
-        } catch {
-            model.diagnostics.record(
-                String(localized: "Snippets"),
-                String(localized: "Couldn’t save that snippet."))
-        }
-        snippets = (try? await model.fullStore?.snippets()) ?? []
-        // An edited snippet must replace its Spotlight donation at once —
-        // text the user just rewrote out of it must not stay searchable.
-        model.refreshSpotlight()
-    }
-
-    func demote() {
-        guard let editingSnippet else { return }
-        Task {
-            try? await model.fullStore?.demoteFromSnippet(id: editingSnippet.id)
-            selection = .allClips
-            await refreshAll()
-            // Un-curating removes the donation immediately, matching the
-            // Settings copy's promise.
-            model.refreshSpotlight()
-        }
-    }
-
-    private func createSnippet() {
-        guard let store = model.fullStore else { return }
-        Task {
-            let count = (try? await store.snippetCount()) ?? 0
-            guard SnippetLimits.canPromote(currentSnippetCount: count, isPro: model.tier == .pro)
-            else {
-                model.paywallWindow.show(trigger: .freeLimitReached, model: model)
-                return
-            }
-            let text = String(localized: "New snippet")
-            let item = ClipItem(
-                title: text, preview: text,
-                contentHash: ClipItem.hash(of: UUID().uuidString, kind: .text))
-            do {
-                _ = try await store.insert(item, content: .text(text))
-                try await store.promoteToSnippet(id: item.id, title: text)
-                model.recordActivationMilestone(.firstSnippetCreated)
-            } catch {
-                model.diagnostics.record("Snippets", "Couldn’t save the snippet.")
-                return
-            }
-            snippets = (try? await store.snippets()) ?? []
-            selection = .snippet(item.id)
-            model.refreshSpotlight()
         }
     }
 
