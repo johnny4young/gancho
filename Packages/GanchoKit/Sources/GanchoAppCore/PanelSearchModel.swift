@@ -42,7 +42,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public var meaningEnabled = false {
         didSet { if oldValue != meaningEnabled { invalidateRequests() } }
     }
-    public func cancelMeaningSearch() { meaning.cancelPending() }
+    public func cancelMeaningSearch() { invalidateMeaningIntent() }
 
     /// The live search field text. Empty shows the paginated recent list.
     public var query = "" { didSet { if oldValue != query { invalidateRequests() } } }
@@ -52,6 +52,12 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public var pinnedOnly = false {
         didSet { if oldValue != pinnedOnly { invalidateRequests() } }
     }
+    private var meaningIntent = UUID()
+    private func invalidateMeaningIntent() {
+        meaningIntent = UUID()
+        meaning.cancelPending()
+    }
+
     private var refreshID = UUID()
     private var pageID: UUID?
     private var isRefreshing = false
@@ -194,7 +200,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public var selectedIndex: Int {
         get { selectionModel.selectedIndex }
         set {
-            meaning.cancelPending()
+            invalidateMeaningIntent()
             selectionModel.select(newValue, toggling: false, in: filtered)
         }
     }
@@ -252,13 +258,13 @@ public struct PanelDateGroup: Identifiable, Sendable {
 
     /// Select a row by index. Plain click replaces; Command-click toggles.
     public func select(_ index: Int, toggling: Bool = false) {
-        meaning.cancelPending()
+        invalidateMeaningIntent()
         selectionModel.select(index, toggling: toggling, in: filtered)
     }
 
     /// Shift-Up/Down grows or contracts a contiguous selection from its anchor.
     public func moveSelection(by delta: Int, extending: Bool) {
-        meaning.cancelPending()
+        invalidateMeaningIntent()
         selectionModel.move(by: delta, extending: extending, in: filtered)
     }
 
@@ -270,14 +276,17 @@ public struct PanelDateGroup: Identifiable, Sendable {
 
     /// Leaves the cursor row selected and clears every additional row.
     public func clearSelection() {
-        meaning.cancelPending()
+        invalidateMeaningIntent()
         selectionModel.clear(in: filtered)
     }
 
     /// Type-to-search: first keystroke already narrows; empty query shows
     /// recents (pins first, store order). The recent list paginates on demand.
     public func refresh() async {
-        meaning.invalidate()
+        let intent = meaningIntent
+        let priorSelection = displayedContext == context ? selectedItem?.id : nil
+        let relatedSelection = priorSelection.flatMap { meaning.relatedIDs.contains($0) ? $0 : nil }
+        meaning.cancelPending()
         let request = UUID()
         refreshID = request
         pageID = nil
@@ -308,35 +317,52 @@ public struct PanelDateGroup: Identifiable, Sendable {
             ? nil : await source.snippet(matchingKeyword: requestedContext.query)
         guard refreshID == request, context == requestedContext, !Task.isCancelled else { return }
         let resetSelection = displayedContext != requestedContext
+        meaning.invalidate()
         selectionModel.resumeAutomaticSelection()
+        if relatedSelection != nil, meaningIntent == intent {
+            selectionModel.preserveEmptySelection()
+        }
         results = page.items
         reachedEnd = page.reachedEnd
         snippetMatch = snippet
         displayedContext = requestedContext
-        if resetSelection { selectedIndex = 0 }
+        if resetSelection { selectionModel.select(0, toggling: false, in: filtered) }
         rebuildGroups()
-        if meaningEnabled {
-            meaning.start(
-                query: savedRule(named: "").query, source: source as? any MeaningSearchSource
-            ) { [weak self] related in
-                guard let self, refreshID == request, context == requestedContext, meaningEnabled
-                else { return [] }
-                let additions = HybridSearchResult(
-                    conventional: results, related: related, semanticState: .ready
-                ).related
-                    .filter { !source.isDeletionPending($0.id) }
-                let hadSelection = selectedItem != nil
-                results.append(contentsOf: additions)
-                if !hadSelection { selectionModel.preserveEmptySelection() }
-                rebuildGroups()
-                return additions
-            }
-        }
+        startMeaning(
+            request: request, requestedContext: requestedContext, intent: intent,
+            restoring: relatedSelection)
         // A page requested while this refresh ran was deferred, not dropped.
         isRefreshing = false
         if loadMoreDeferred {
             loadMoreDeferred = false
             await loadMore()
+        }
+    }
+
+    private func startMeaning(
+        request: UUID, requestedContext: Context, intent: UUID, restoring selectedID: UUID?
+    ) {
+        guard meaningEnabled, meaningIntent == intent else { return }
+        meaning.start(
+            query: savedRule(named: "").query, source: source as? any MeaningSearchSource
+        ) { [weak self] related in
+            guard let self, refreshID == request, context == requestedContext, meaningEnabled,
+                meaningIntent == intent
+            else { return [] }
+            let additions = HybridSearchResult(
+                conventional: results, related: related, semanticState: .ready
+            ).related
+                .filter { !source.isDeletionPending($0.id) }
+            let hadSelection = selectedItem != nil
+            results.append(contentsOf: additions)
+            if !hadSelection { selectionModel.preserveEmptySelection() }
+            rebuildGroups()
+            if let selectedID,
+                let index = filtered.firstIndex(where: { $0.id == selectedID })
+            {
+                selectionModel.select(index, toggling: false, in: filtered)
+            }
+            return additions
         }
     }
 
