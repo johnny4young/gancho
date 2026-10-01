@@ -14,7 +14,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   edits no longer outrank newer remote title/body changes.
 
 - Preserve modified snippet drafts when their original is removed; recover them
-  explicitly as a new classified snippet or discard them without restoring it.
+  explicitly as a new classified snippet or discard them without restoring it. Library
+  loading and safe copying remain available with the in-memory fallback store,
+  which does not support snippet persistence.
 
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.9.1 DMG.
