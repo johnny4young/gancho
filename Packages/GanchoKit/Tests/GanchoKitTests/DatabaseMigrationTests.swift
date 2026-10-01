@@ -39,9 +39,9 @@ struct DatabaseMigrationTests {
                 "v21-discovery-indexes",
                 "v22-saved-filters",
                 "v23-inbox-receipts",
-                "v24-inbox-receipt-clip"
+                "v24-inbox-receipt-clip", "v25-text-recipes"
             ])
-        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 24)
+        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 25)
     }
 
     @Test(

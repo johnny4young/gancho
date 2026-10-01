@@ -29,6 +29,7 @@ struct ClipPeek: View {
     var focus: FocusState<PanelFocus?>.Binding
     @Environment(AppModel.self) var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var recipeRequest: TextRecipeReviewRequest?
     @State var actionResult: String?
     @State private var boardIDs: Set<UUID> = []
     /// Smart Paste can run the on-device model — show a spinner while it thinks.
@@ -735,6 +736,11 @@ extension ClipPeek {
     /// it's the identity here, and "Paste plain" already covers it.
     private var transformsMenu: some View {
         Menu {
+            if isTextEditable, !hidesPreview, model.fullStore != nil {
+                Button("Text recipes…") { recipeRequest = TextRecipeReviewRequest(clipID: item.id) }
+                    .accessibilityIdentifier("text-recipes-action")
+                Divider()
+            }
             ForEach(PasteTransform.allCases.filter { $0 != .plainText }, id: \.self) { transform in
                 Button(LocalizedStringKey(transform.title)) {
                     actionResult = transform.apply(to: presentedText)
@@ -747,6 +753,9 @@ extension ClipPeek {
                 .padding(.vertical, GanchoTokens.Spacing.xxs)
         }
         .menuStyle(.borderlessButton)
+        .sheet(item: $recipeRequest) { request in
+            TextRecipeReview(clipID: request.clipID).environment(model)
+        }
         .fixedSize()
         .ganchoSurface(radius: GanchoTokens.Radius.md)
         .accessibilityIdentifier("transform-menu")

@@ -654,6 +654,22 @@
         }
       }
     },
+    "Action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acción"
+          }
+        }
+      }
+    },
     "Actions": {
       "localizations": {
         "es": {
@@ -755,6 +771,22 @@
         }
       }
     },
+    "Add step": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add step"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir paso"
+          }
+        }
+      }
+    },
     "Add to %@?": {
       "localizations": {
         "es": {
@@ -803,6 +835,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Añadido a la pila de pegado"
+          }
+        }
+      }
+    },
+    "After": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Después"
           }
         }
       }
@@ -1195,6 +1243,22 @@
         }
       }
     },
+    "Before": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antes"
+          }
+        }
+      }
+    },
     "Blank line": {
       "localizations": {
         "en": {
@@ -1359,6 +1423,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Por identificador de bundle…"
+          }
+        }
+      }
+    },
+    "By meaning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By meaning"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por significado"
           }
         }
       }
@@ -1566,6 +1646,22 @@
         }
       }
     },
+    "Choose a recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige una receta"
+          }
+        }
+      }
+    },
     "Choose a source": {
       "localizations": {
         "es": {
@@ -1602,6 +1698,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elegir…"
+          }
+        }
+      }
+    },
+    "Clean OCR": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clean OCR"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limpiar OCR"
+          }
+        }
+      }
+    },
+    "Clean list": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clean list"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limpiar lista"
           }
         }
       }
@@ -2038,6 +2166,22 @@
         }
       }
     },
+    "Copy Markdown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Markdown"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar Markdown"
+          }
+        }
+      }
+    },
     "Copy all": {
       "localizations": {
         "es": {
@@ -2229,6 +2373,22 @@
         }
       }
     },
+    "Could not complete this operation. Check the definition, sizes and clip availability, then retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not complete this operation. Check the definition, sizes and clip availability, then retry."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo completar esta operación. Revisa la definición, los tamaños y la disponibilidad del clip e inténtalo otra vez."
+          }
+        }
+      }
+    },
     "Couldn’t add every clip to the board.": {
       "localizations": {
         "es": {
@@ -2331,6 +2491,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo abrir ese enlace."
+          }
+        }
+      }
+    },
+    "Couldn’t prepare or share this context. Try again; existing access is unchanged.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t prepare or share this context. Try again; existing access is unchanged."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo preparar o compartir este contexto. Inténtalo de nuevo; los accesos existentes no han cambiado."
           }
         }
       }
@@ -2651,6 +2827,22 @@
         }
       }
     },
+    "Damaged recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Damaged recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receta dañada"
+          }
+        }
+      }
+    },
     "Dark": {
       "localizations": {
         "es": {
@@ -2821,6 +3013,22 @@
         }
       }
     },
+    "Discard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
+          }
+        }
+      }
+    },
     "Discard draft": {
       "localizations": {
         "en": {
@@ -2833,6 +3041,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Descartar borrador"
+          }
+        }
+      }
+    },
+    "Discard unsaved recipe changes?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard unsaved recipe changes?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Descartar los cambios de la receta sin guardar?"
           }
         }
       }
@@ -2996,6 +3220,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Activar"
+          }
+        }
+      }
+    },
+    "Enter a search; regex uses conventional results only.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a search; regex uses conventional results only."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe una búsqueda; regex usa solo resultados convencionales."
           }
         }
       }
@@ -3178,6 +3418,22 @@
         }
       }
     },
+    "Finding related clips…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding related clips…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscando clips relacionados…"
+          }
+        }
+      }
+    },
     "Fix": {
       "localizations": {
         "es": {
@@ -3236,6 +3492,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "¿Olvidaste el atajo? Gancho también vive en tu barra de menú — haz clic en su ícono cuando quieras."
+          }
+        }
+      }
+    },
+    "Format as context": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format as context"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formatear como contexto"
           }
         }
       }
@@ -3623,6 +3895,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tokens de GitHub"
+          }
+        }
+      }
+    },
+    "Grant selected context access": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grant selected context access"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorizar acceso al contexto seleccionado"
+          }
+        }
+      }
+    },
+    "Granting enables MCP for only these selected IDs, read-only, for one hour.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Granting enables MCP for only these selected IDs, read-only, for one hour."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La autorización activa MCP solo para estos identificadores, con acceso de solo lectura durante una hora."
           }
         }
       }
@@ -4333,6 +4637,22 @@
         }
       }
     },
+    "Local recipes. Originals stay unchanged; copying is explicit.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local recipes. Originals stay unchanged; copying is explicit."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recetas locales. Los originales no cambian; copiar es una acción explícita."
+          }
+        }
+      }
+    },
     "Loved the smart AI titles? Pro keeps them on every clip": {
       "localizations": {
         "es": {
@@ -4419,6 +4739,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enmascara + expira"
+          }
+        }
+      }
+    },
+    "Meaning search accepts up to 1,000 characters and 4 KiB.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meaning search accepts up to 1,000 characters and 4 KiB."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La búsqueda por significado admite hasta 1.000 caracteres y 4 KiB."
+          }
+        }
+      }
+    },
+    "Meaning search unavailable; conventional search still works.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meaning search unavailable; conventional search still works."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Búsqueda por significado no disponible; la búsqueda convencional sigue funcionando."
           }
         }
       }
@@ -4678,6 +5030,22 @@
         }
       }
     },
+    "New recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nueva receta"
+          }
+        }
+      }
+    },
     "New snippet": {
       "extractionState": "stale",
       "localizations": {
@@ -4826,6 +5194,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ninguno"
+          }
+        }
+      }
+    },
+    "Normalize line endings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normalize line endings"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normalizar saltos de línea"
           }
         }
       }
@@ -5745,6 +6129,38 @@
         }
       }
     },
+    "Prepare context for AI…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepare context for AI…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparar contexto para IA…"
+          }
+        }
+      }
+    },
+    "Prepare redacted context": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepare redacted context"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparar contexto redactado"
+          }
+        }
+      }
+    },
     "Press esc to clear the search": {
       "localizations": {
         "es": {
@@ -5802,6 +6218,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vista previa no disponible"
+          }
+        }
+      }
+    },
+    "Previews show up to 8,000 characters. Copy includes the complete result.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previews show up to 8,000 characters. Copy includes the complete result."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las vistas previas muestran hasta 8.000 caracteres. Se copia el resultado completo."
           }
         }
       }
@@ -6107,6 +6539,22 @@
         }
       }
     },
+    "Read-only access expires in one hour. Revoke it in MCP Access.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read-only access expires in one hour. Revoke it in MCP Access."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El acceso de solo lectura caduca en una hora. Revócalo en Acceso MCP."
+          }
+        }
+      }
+    },
     "Reads content": {
       "localizations": {
         "es": {
@@ -6177,6 +6625,38 @@
         }
       }
     },
+    "Recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receta"
+          }
+        }
+      }
+    },
+    "Recipe name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recipe name"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre de la receta"
+          }
+        }
+      }
+    },
     "Recognizing text…": {
       "localizations": {
         "es": {
@@ -6240,6 +6720,38 @@
         }
       }
     },
+    "Related by meaning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Related by meaning"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relacionados por significado"
+          }
+        }
+      }
+    },
+    "Related suggestions may include weak matches.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Related suggestions may include weak matches."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las sugerencias relacionadas pueden incluir coincidencias débiles."
+          }
+        }
+      }
+    },
     "Remember searches": {
       "localizations": {
         "es": {
@@ -6288,6 +6800,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quitar de la pila"
+          }
+        }
+      }
+    },
+    "Remove incompatible clips or reduce the context below 64 KiB.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove incompatible clips or reduce the context below 64 KiB."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retira los clips incompatibles o reduce el contexto a menos de 64 KiB."
           }
         }
       }
@@ -6568,6 +7096,22 @@
         }
       }
     },
+    "Run recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ejecutar receta"
+          }
+        }
+      }
+    },
     "Running app": {
       "localizations": {
         "es": {
@@ -6668,6 +7212,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guardar filtro"
+          }
+        }
+      }
+    },
+    "Save recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar receta"
           }
         }
       }
@@ -7260,6 +7820,22 @@
         }
       }
     },
+    "Some clips are not indexed; conventional search remains complete.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some clips are not indexed; conventional search remains complete."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algunos clips no están indexados; la búsqueda convencional sigue completa."
+          }
+        }
+      }
+    },
     "Sort lines": {
       "localizations": {
         "es": {
@@ -7592,6 +8168,38 @@
         }
       }
     },
+    "Text recipes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text recipes"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recetas de texto"
+          }
+        }
+      }
+    },
+    "Text recipes…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text recipes…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recetas de texto…"
+          }
+        }
+      }
+    },
     "Text size": {
       "localizations": {
         "es": {
@@ -7708,6 +8316,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo cargar el contenido del clip."
+          }
+        }
+      }
+    },
+    "The clipboard changed. Review the result and choose Copy result again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The clipboard changed. Review the result and choose Copy result again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El portapapeles cambió. Revisa el resultado y vuelve a elegir Copiar resultado."
           }
         }
       }
@@ -7846,6 +8470,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo completar esta acción. Comprueba el origen e inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "This clip is unavailable, protected or not text-backed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This clip is unavailable, protected or not text-backed."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este clip no está disponible, está protegido o no contiene texto."
+          }
+        }
+      }
+    },
+    "This definition is damaged. Other recipes are unaffected; you can delete it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This definition is damaged. Other recipes are unaffected; you can delete it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta definición está dañada. Las otras recetas no se afectan; puedes eliminarla."
           }
         }
       }
@@ -8146,6 +8802,38 @@
         }
       }
     },
+    "Trim each line": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trim each line"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recortar cada línea"
+          }
+        }
+      }
+    },
+    "Trim trailing line spaces": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trim trailing line spaces"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recortar espacios finales de línea"
+          }
+        }
+      }
+    },
     "Trimmed": {
       "extractionState": "stale",
       "localizations": {
@@ -8342,6 +9030,22 @@
         }
       }
     },
+    "Unsupported action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsupported action"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acción no compatible"
+          }
+        }
+      }
+    },
     "Unsupported representations were left in the source.": {
       "localizations": {
         "es": {
@@ -8378,6 +9082,38 @@
         }
       }
     },
+    "Up to 100 text clips and 64 KiB including headers. Nothing is saved or sent automatically.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to 100 text clips and 64 KiB including headers. Nothing is saved or sent automatically."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hasta 100 clips de texto y 64 KiB incluidos los encabezados. No se guarda ni envía nada automáticamente."
+          }
+        }
+      }
+    },
+    "Up to eight steps and 1 MiB per input and result; context formatting allows 64 KiB.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to eight steps and 1 MiB per input and result; context formatting allows 64 KiB."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hasta ocho pasos y 1 MiB por entrada y resultado; el formato de contexto admite 64 KiB."
+          }
+        }
+      }
+    },
     "Upgrade to Pro": {
       "extractionState": "stale",
       "localizations": {
@@ -8396,6 +9132,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mejorar — %@"
+          }
+        }
+      }
+    },
+    "Use a name of up to 80 characters and one to eight supported steps. Unknown versions cannot run.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use a name of up to 80 characters and one to eight supported steps. Unknown versions cannot run."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa un nombre de hasta 80 caracteres y de uno a ocho pasos compatibles. Las versiones desconocidas no se pueden ejecutar."
           }
         }
       }
@@ -9062,134 +9814,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "⌘C en cualquier app para empezar"
-          }
-        }
-      }
-    },
-    "By meaning": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "By meaning"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Por significado"
-          }
-        }
-      }
-    },
-    "Related by meaning": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Related by meaning"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relacionados por significado"
-          }
-        }
-      }
-    },
-    "Enter a search; regex uses conventional results only.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter a search; regex uses conventional results only."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Escribe una búsqueda; regex usa solo resultados convencionales."
-          }
-        }
-      }
-    },
-    "Finding related clips…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finding related clips…"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Buscando clips relacionados…"
-          }
-        }
-      }
-    },
-    "Related suggestions may include weak matches.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Related suggestions may include weak matches."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Las sugerencias relacionadas pueden incluir coincidencias débiles."
-          }
-        }
-      }
-    },
-    "Some clips are not indexed; conventional search remains complete.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Some clips are not indexed; conventional search remains complete."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Algunos clips no están indexados; la búsqueda convencional sigue completa."
-          }
-        }
-      }
-    },
-    "Meaning search unavailable; conventional search still works.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Meaning search unavailable; conventional search still works."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Búsqueda por significado no disponible; la búsqueda convencional sigue funcionando."
-          }
-        }
-      }
-    },
-    "Meaning search accepts up to 1,000 characters and 4 KiB.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Meaning search accepts up to 1,000 characters and 4 KiB."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La búsqueda por significado admite hasta 1.000 caracteres y 4 KiB."
           }
         }
       }

@@ -63,6 +63,7 @@ struct PanelView: View {
     // swiftlint:enable type_body_length
     @Environment(AppModel.self) private var model
     @State private var combinedSelection: CombinedTextSelection?
+    @State private var aiContextSelection: CombinedTextSelection?
     @State private var filterDraft: SmartCollectionRule?
     @FocusState private var focus: PanelFocus?
     /// The search + list state (query, results, filters, selection, paging,
@@ -247,7 +248,10 @@ struct PanelView: View {
         .task { await model.refreshBoards() }
         .sheet(item: $combinedSelection) { selection in
             CombinedTextReview(ids: selection.ids).environment(model)
+        }.sheet(item: $aiContextSelection) { selection in
+            SelectedContextReview(ids: selection.ids).environment(model)
         }
+
         .sheet(item: $filterDraft) { rule in
             SavedFilterEditor(rule: rule, boards: model.boards) {
                 await model.savedFilters.save($0)
@@ -757,6 +761,9 @@ struct PanelView: View {
                 selectionCount: search.selectionCount,
                 copyCombined: {
                     combinedSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
+                },
+                prepareAIContext: {
+                    aiContextSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
                 },
                 addToStack: { model.pushToStack(search.selectedItems) },
                 addToBoard: presentBoardPicker,

@@ -1430,6 +1430,20 @@ final class AppModel {
         return grant
     }
 
+    func createSelectedContextGrant(
+        _ context: PreparedSelectedContext, clientName: String
+    ) throws -> MCPClientGrant {
+        guard !preferences.isPrivateModePaused,
+            pendingDeletionIDs.isDisjoint(with: context.manifest.orderedIDs)
+        else { throw SelectedContextError.incompatibleSelection }
+        let grant = try SelectedContextDelivery.grant(for: context, clientName: clientName)
+        mcpConfig = try MCPServerConfig.update(in: mcpConfigDirectory) { config in
+            config.isEnabled = true
+            config.grants.append(grant)
+        }
+        return grant
+    }
+
     func revokeMCPGrant(id: UUID) {
         updateMCPConfig { config in
             guard let index = config.grants.firstIndex(where: { $0.id == id }) else { return }
@@ -1438,11 +1452,8 @@ final class AppModel {
     }
 
     private func updateMCPConfig(_ mutate: (inout MCPServerConfig) -> Void) {
-        var config = mcpConfig
-        mutate(&config)
         do {
-            try config.save(toStoreDirectory: mcpConfigDirectory)
-            mcpConfig = config
+            mcpConfig = try MCPServerConfig.update(in: mcpConfigDirectory, mutate)
         } catch {
             // A failed save leaves the in-memory config untouched, so the row
             // simply does not change state. Without a toast that is
