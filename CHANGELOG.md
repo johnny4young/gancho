@@ -9,6 +9,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Locally encrypted, reviewed text recipes with an editor, three conservative presets, bounded background execution and explicit clipboard-safe copying. Definitions are not synced and originals remain intact.
+
 - Versioned, bounded deterministic text action and recipe contracts, reusing existing transforms and the selected-context formatter. Editor and local persistence follow separately.
 
 - Prepare explicitly selected text as reviewed, bounded Markdown, with optional selected-ID, read-only MCP access expiring after one hour.

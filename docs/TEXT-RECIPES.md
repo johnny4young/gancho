@@ -25,3 +25,29 @@ The executor has no UI, store or clipboard dependency. Results remain in memory;
 this contract never edits clips, grants permissions, copies or pastes automatically.
 Unit tests cover every existing transform, Unicode, CRLF, ordering, preservation,
 invalid versions and parameters, admission cancellation and byte-limit boundaries.
+
+## Local editor and reviewed delivery (unreleased)
+
+In the macOS text peek, choose **Transform > Text recipes…**. Create, rename, edit,
+reorder or delete a definition, then review **Before** and **After** and explicitly
+choose **Copy result**. Unsaved changes require an explicit discard before choosing
+another recipe. The first release supplies Clean OCR, Clean list and Prepare
+redacted context. Sorting is never an implicit part of list cleaning.
+
+Definitions live in the existing encrypted local database's append-only version-25
+migration, not preferences, CloudKit records or sync snapshots. Presets are seeded
+once; reopening never resurrects a deleted preset. Damaged rows are isolated and
+can be explicitly deleted. Unknown action/version definitions remain readable but
+cannot run or overwrite their stored definition until corrected to supported steps.
+Serialized definitions are capped at 64 KiB before decoding or saving.
+
+Preview display is capped at 8,000 characters and labeled accordingly; copying
+always delivers the entire bounded result. Inputs/intermediates retain the 1 MiB
+limit, with the stricter context-format limit when applicable. No result is saved
+automatically. Cancellation clears temporary content. Copy revalidates the original
+clip and privacy/deletion state immediately before writing an own-marked clipboard
+item. A clipboard changed since processing is preserved; explicitly copying again
+after reviewing acknowledges the newly observed clipboard revision.
+
+PII redaction uses the existing pattern set and is best-effort, not a guarantee
+that every personal identifier was removed. Review the result before sharing.
