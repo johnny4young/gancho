@@ -6,8 +6,16 @@ import Testing
 
 @MainActor private final class SuspendedMeaningSource: MeaningSearchSource {
     var requests: [String: CheckedContinuation<MeaningSearchResponse, any Error>] = [:]
+    private var admissions: [String: CheckedContinuation<Void, Never>] = [:]
     func relatedItems(for query: ClipSearchQuery) async throws -> MeaningSearchResponse {
-        try await withCheckedThrowingContinuation { requests[query.text] = $0 }
+        try await withCheckedThrowingContinuation {
+            requests[query.text] = $0
+            admissions.removeValue(forKey: query.text)?.resume()
+        }
+    }
+    func admitted(_ query: String) async {
+        guard requests[query] == nil else { return }
+        await withCheckedContinuation { admissions[query] = $0 }
     }
     func finish(_ query: String, items: [ClipItem] = [], incomplete: Bool = false) {
         requests.removeValue(forKey: query)?.resume(
@@ -19,13 +27,6 @@ import Testing
 
 @Suite("Meaning search request ownership") @MainActor
 struct MeaningSearchStateTests {
-    private func waitUntil(_ predicate: () -> Bool) async throws {
-        for _ in 0..<10_000 {
-            if predicate() { return }
-            await Task.yield()
-        }
-        throw MeaningSearchError.unavailable
-    }
     @Test func emptyAndRegexNeverRequestEmbeddings() {
         let state = MeaningSearchState()
         let source = SuspendedMeaningSource()
@@ -43,17 +44,20 @@ struct MeaningSearchStateTests {
             applied += $0.map(\.id)
             return $0
         }
-        try await waitUntil { source.requests["old"] != nil }
+        let oldTask = try #require(state.task)
+        await source.admitted("old")
         let item = ClipItem(preview: "Synthetic")
         state.start(query: ClipSearchQuery(text: "new"), source: source) {
             applied += $0.map(\.id)
             return $0
         }
-        try await waitUntil { source.requests["new"] != nil }
+        let newTask = try #require(state.task)
+        await source.admitted("new")
         source.finish("new", items: [item], incomplete: true)
-        try await waitUntil { state.status == .incomplete }
+        await newTask.value
+        #expect(state.status == .incomplete)
         source.finish("old", items: [ClipItem(preview: "Stale")])
-        for _ in 0..<20 { await Task.yield() }
+        await oldTask.value
         #expect(applied == [item.id])
         #expect(state.relatedIDs == [item.id])
     }
@@ -66,10 +70,11 @@ struct MeaningSearchStateTests {
             applied = true
             return $0
         }
-        try await waitUntil { source.requests["query"] != nil }
+        let task = try #require(state.task)
+        await source.admitted("query")
         if invalidate { state.invalidate() } else { state.cancelPending() }
         source.finish("query", items: [ClipItem(preview: "Late")])
-        for _ in 0..<20 { await Task.yield() }
+        await task.value
         #expect(!applied)
         #expect(state.relatedIDs.isEmpty)
         #expect(state.status == .idle)

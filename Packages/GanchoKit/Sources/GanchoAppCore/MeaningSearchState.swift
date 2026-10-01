@@ -60,7 +60,7 @@ public struct MeaningRetrieval: Sendable {
     }
     public private(set) var status: Status = .idle
     public private(set) var relatedIDs: Set<UUID> = []
-    @ObservationIgnored private var task: Task<Void, Never>?
+    @ObservationIgnored private(set) var task: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     public init() {}
 
