@@ -29,6 +29,7 @@ enum GanchoDatabaseMigrator {
         case savedFilters = "v22-saved-filters"
         case inboxReceipts = "v23-inbox-receipts"
         case inboxReceiptClip = "v24-inbox-receipt-clip"
+        case textRecipes = "v25-text-recipes"
     }
 
     static var identifiers: [String] {
@@ -60,6 +61,17 @@ enum GanchoDatabaseMigrator {
         migrator.registerMigration(Identifier.inboxReceiptClip.rawValue) { db in
             try db.alter(table: "inbox_receipt") { table in
                 table.add(column: "clipID", .text)
+            }
+        }
+        migrator.registerMigration(Identifier.textRecipes.rawValue) { db in
+            try db.create(table: "text_recipe") { table in
+                table.primaryKey("id", .text)
+                table.column("definition", .blob).notNull()
+            }
+            for recipe in TextRecipePresets.all {
+                try db.execute(
+                    sql: "INSERT INTO text_recipe (id, definition) VALUES (?, ?)",
+                    arguments: [recipe.id.uuidString, try JSONEncoder().encode(recipe)])
             }
         }
         return migrator
