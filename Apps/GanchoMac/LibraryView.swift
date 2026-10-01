@@ -75,6 +75,7 @@ struct LibraryView: View {
             Button("Save as new snippet") { recoverDraft() }
             Button("Discard draft", role: .destructive) { discardDraft() }
             Button("Cancel", role: .cancel) { pendingDraftSelection = nil }
+                .accessibilityIdentifier("snippet-resolution-cancel-button")
         } message: {
             Text(
                 "The original snippet was removed. Save your changes as a new snippet or discard them before leaving."
