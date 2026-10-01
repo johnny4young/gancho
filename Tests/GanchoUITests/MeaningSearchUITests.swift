@@ -28,8 +28,7 @@ final class MeaningSearchUITests: XCTestCase {
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         let query = app.textFields["search-field"].firstMatch
         XCTAssertTrue(query.exists)
-        query.click()
-        query.typeText("syntheticnomatch")
+        try typeTextReliably("syntheticnomatch", into: query, in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)["panel-empty-noresults"].firstMatch.waitForExistence(
                 timeout: 5))

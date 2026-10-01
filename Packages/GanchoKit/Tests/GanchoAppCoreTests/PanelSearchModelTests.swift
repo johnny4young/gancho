@@ -24,6 +24,7 @@ import Testing
     var pending: Set<UUID> = []
     var sourceApps: [ClipSourceApp] = []
     var lastSearchQuery: ClipSearchQuery?
+    var onSearch: (() -> Void)?
     /// Runs inside `boardItems` — lets a test mutate the model "during" the
     /// await, to exercise the stale-page guard.
     var onBoardItems: (() -> Void)?
@@ -40,6 +41,7 @@ import Testing
     }
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
         lastSearchQuery = query
+        onSearch?()
         return Array(searchResults.prefix(limit))
     }
     func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
@@ -524,4 +526,57 @@ struct PanelSearchModelTests {
         await model.refresh()
         #expect(model.results.map(\.preview) == ["alpha beta"])
     }
+}
+
+extension PanelSearchModelTests {
+    @Test(arguments: [false, true])
+    func cancelledMeaningIntentDuringConventionalReadDoesNotStartLater(navigate: Bool) async {
+        let source = FakeSource()
+        let literal = ClipItem(preview: "Synthetic literal")
+        source.searchResults = [literal]
+        source.related = [ClipItem(preview: "Synthetic related")]
+        let model = PanelSearchModel(source: source)
+        model.query = "synthetic"
+        model.results = [literal]
+        model.meaningEnabled = true
+        source.onSearch = {
+            if navigate { model.select(0) } else { model.cancelMeaningSearch() }
+        }
+        await model.refresh()
+        #expect(model.results.map(\.id) == [literal.id])
+        #expect(model.meaning.status == .idle)
+        await Task.yield()
+        #expect(source.lastRelatedQuery == nil)
+    }
+
+    @Test func sameQueryRefreshRestoresSelectedRelatedUUIDAfterRankingChanges() async {
+        let source = FakeSource()
+        let first = ClipItem(preview: "First synthetic related")
+        let second = ClipItem(preview: "Second synthetic related")
+        source.related = [first, second]
+        let model = PanelSearchModel(source: source)
+        model.query = "unmatched"
+        model.meaningEnabled = true
+        await model.refresh()
+        for _ in 0..<10_000 {
+            if model.meaning.status == .ready { break }
+            await Task.yield()
+        }
+        #expect(model.meaning.status == .ready)
+        model.select(0)
+        #expect(model.selectedItem?.id == first.id)
+        source.related = [second, first]
+        source.onSearch = {
+            #expect(model.meaning.relatedIDs == [first.id, second.id])
+        }
+        await model.refresh()
+        for _ in 0..<10_000 {
+            if model.meaning.status == .ready { break }
+            await Task.yield()
+        }
+        #expect(model.meaning.status == .ready)
+        #expect(model.selectedItem?.id == first.id)
+        #expect(model.selectedIndex == 1)
+    }
+
 }
