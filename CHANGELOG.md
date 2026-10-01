@@ -7,6 +7,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add scoped, bounded hybrid retrieval with pre-limit privacy and metadata filters, deterministic related ranking and real bilingual relevance evaluation.
+
 ### Fixed
 
 - Align post-release documentation, the bilingual website, the Sparkle feed
