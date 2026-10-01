@@ -59,7 +59,7 @@ final class TranslationCapabilityUITests: XCTestCase {
         XCTAssertTrue(app.menuItems["smart-paste-redactpii-action"].firstMatch.exists)
         XCTAssertFalse(app.menuItems["smart-paste-summarize-action"].firstMatch.exists)
         app.descendants(matching: .any).matching(identifier: "translation-destinations-menu")
-            .firstMatch.click()
+            .firstMatch.hover()
         let spanish = app.menuItems["translation-target-es"].firstMatch
         XCTAssertTrue(spanish.waitForExistence(timeout: 5))
         XCTAssertTrue(spanish.isEnabled)

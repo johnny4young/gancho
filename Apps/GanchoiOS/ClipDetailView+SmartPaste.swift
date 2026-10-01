@@ -11,12 +11,14 @@ extension ClipDetailView {
     }
 
     func refreshTranslationTargets() async {
-        translationTargets = []
-        guard canSmartPaste else { return }
-        guard let targets = try? await model.translationDestinations(fullText),
-            !Task.isCancelled
-        else { return }
-        translationTargets = targets
+        guard canSmartPaste else {
+            translationTargets = []
+            return
+        }
+        let requestedText = fullText
+        let targets = try? await model.translationDestinations(requestedText)
+        guard !Task.isCancelled, canSmartPaste, fullText == requestedText else { return }
+        translationTargets = targets ?? []
     }
 
     var translationUnavailableMessage: some View {

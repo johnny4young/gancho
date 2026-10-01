@@ -225,6 +225,7 @@ struct ClipDetailView: View {
         }
         .onDisappear { translationTask?.cancel() }
         .onChange(of: fullText) { _, _ in
+            translationTargets = []
             translationTask?.cancel()
             translationRequestID = UUID()
             isThinking = false

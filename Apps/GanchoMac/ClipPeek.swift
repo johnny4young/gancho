@@ -261,6 +261,7 @@ struct ClipPeek: View {
         }
         .onDisappear { translationTask?.cancel() }
         .onChange(of: presentedText) { _, _ in
+            translationTargets = []
             translationTask?.cancel()
             translationRequestID = UUID()
             isThinking = false

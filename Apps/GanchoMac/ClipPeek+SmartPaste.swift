@@ -11,12 +11,14 @@ extension ClipPeek {
     }
 
     func refreshTranslationTargets() async {
-        translationTargets = []
-        guard canSmartPaste else { return }
-        guard let targets = try? await model.translationDestinations(presentedText),
-            !Task.isCancelled
-        else { return }
-        translationTargets = targets
+        guard canSmartPaste else {
+            translationTargets = []
+            return
+        }
+        let requestedText = presentedText
+        let targets = try? await model.translationDestinations(requestedText)
+        guard !Task.isCancelled, canSmartPaste, presentedText == requestedText else { return }
+        translationTargets = targets ?? []
     }
 
     var translationUnavailableMessage: some View {
