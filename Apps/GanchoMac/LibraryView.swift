@@ -131,7 +131,7 @@ struct LibraryView: View {
 
     private var sidebar: some View {
         VStack(spacing: 0) {
-            List(selection: Binding(get: { selection }, set: requestSelection)) {
+            List(selection: Binding(get: { selection }, set: { next in requestSelection(next) })) {
                 Section {
                     navRow(.allClips, Text("All clips"), systemImage: "tray.full", count: allCount)
                     navRow(.pinned, Text("Pinned"), systemImage: "pin", count: pinnedCount)
