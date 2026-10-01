@@ -37,3 +37,23 @@ unanswered queries; top-K is retrieval, not an abstention or confidence guarante
 Missing real evidence, failed relevance or other required gates keeps this engine
 and its dependent panel PR draft. Raw output and toolchain belong in PR evidence,
 not claims that a synthetic corpus proves all real-world relevance.
+
+## Explicit panel suggestions (unreleased)
+
+The macOS panel's **By meaning** action starts disabled. It adds a separate
+**Related by meaning** section after existing conventional results. Arrival never
+changes the selected UUID. Empty queries and regex do not request embeddings.
+Changes to query, filters, selection, privacy, indexing availability or panel
+visibility invalidate pending responses. Conventional search remains usable when
+assets are unavailable or the scoped index is incomplete.
+
+Query embedding uses the existing local contextual model, off the UI actor, with
+no downloads or indexing writes. Queries over 1,000 characters or 4 KiB are refused
+for semantic retrieval without truncating or changing conventional search. The
+structural coverage count respects the same scope and current embedding version;
+it is not a quality or freshness guarantee. Weak related matches are labeled as
+suggestions rather than asserted answers. Indexing remains Pro; this action does
+not create a new retrieval paywall or change CLI/MCP search modes.
+
+The disposable-store UI adapter validates presentation and routing only. Real
+bilingual relevance evidence is the opt-in evaluation above, not that adapter.

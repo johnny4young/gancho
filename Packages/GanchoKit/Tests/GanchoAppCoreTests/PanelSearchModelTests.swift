@@ -8,7 +8,14 @@ import Testing
 /// run without a real store. It slices `recent` into pages exactly like the
 /// GRDB `recentForBrowse`, so pagination boundaries (reachedEnd, mid-scroll
 /// guard) are exercised honestly.
-@MainActor private final class FakeSource: PanelSearchSource {
+@MainActor private final class FakeSource: PanelSearchSource, MeaningSearchSource {
+    var related: [ClipItem] = []
+    var lastRelatedQuery: ClipSearchQuery?
+    func relatedItems(for query: ClipSearchQuery) async throws -> MeaningSearchResponse {
+        lastRelatedQuery = query
+        return MeaningSearchResponse(
+            items: related, coverage: SemanticIndexCoverage(eligible: 3, indexed: 3))
+    }
     var isDurable = true
     var recent: [ClipItem] = []
     var searchResults: [ClipItem] = []
@@ -78,6 +85,49 @@ struct PanelSearchModelTests {
         source.resetDeletionPendingCalls()
         for _ in 0..<1_000 { #expect(model.visibleIndex(of: first.id) == 0) }
         #expect(source.deletionPendingCalls == 0)
+    }
+
+    @Test func relatedArrivalPreservesConventionalOrderAndSelectedUUID() async {
+        let source = FakeSource()
+        source.searchResults = items(2)
+        let related = ClipItem(preview: "Related synthetic clip")
+        source.related = [source.searchResults[0], related]
+        let model = PanelSearchModel(source: source)
+        model.query = "synthetic"
+        model.meaningEnabled = true
+        await model.refresh()
+        let literalIDs = model.results.map(\.id)
+        let selectedID = model.selectedItem?.id
+        for _ in 0..<10_000 {
+            if model.meaning.status == .ready { break }
+            await Task.yield()
+        }
+        #expect(model.meaning.status == .ready)
+        #expect(Array(model.results.prefix(literalIDs.count)).map(\.id) == literalIDs)
+        #expect(model.meaning.relatedIDs == [related.id])
+        #expect(model.selectedItem?.id == selectedID)
+        #expect(model.results.count == literalIDs.count + 1)
+    }
+
+    @Test func relatedArrivalDoesNotInventASelectionWhenLiteralResultsAreEmpty() async {
+        let source = FakeSource()
+        let item = ClipItem(preview: "Synthetic related result")
+        source.related = [item]
+        let model = PanelSearchModel(source: source)
+        model.query = "unmatched"
+        model.meaningEnabled = true
+        await model.refresh()
+        #expect(model.selectedItem == nil)
+        for _ in 0..<10_000 {
+            if model.meaning.status == .ready { break }
+            await Task.yield()
+        }
+        #expect(model.meaning.status == .ready)
+        #expect(model.selectedItem == nil)
+        #expect(model.selectionCount == 0)
+        model.moveSelection(by: 1, extending: false)
+        #expect(model.selectedItem?.id == item.id)
+        #expect(model.selectionCount == 1)
     }
 
     // MARK: - Recent load + pagination

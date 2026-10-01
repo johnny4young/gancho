@@ -253,6 +253,16 @@ struct PanelView: View {
                 await model.savedFilters.save($0)
             }
         }
+        .onDisappear { search.cancelMeaningSearch() }
+        .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
+        .onChange(of: model.preferences.isPrivateModePaused) { _, _ in
+            search.cancelMeaningSearch()
+            Task { await search.refresh() }
+        }
+        .onChange(of: model.intelligence.semanticSearch) { _, _ in
+            search.cancelMeaningSearch()
+            Task { await search.refresh() }
+        }
         .onChange(of: search.query) { _, newValue in
             // A new query invalidates a previous answer and drops rail focus
             // (you're typing in the search field again).
@@ -368,6 +378,12 @@ struct PanelView: View {
             guard let window = notification.object as? NSWindow, model.panel.isPanelWindow(window)
             else { return }
             playEntrance()
+            Task { await search.refresh() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidHide)) { notification in
+            guard let window = notification.object as? NSWindow, model.panel.isPanelWindow(window)
+            else { return }
+            search.cancelMeaningSearch()
         }
     }
 
@@ -636,6 +652,8 @@ struct PanelView: View {
                     askRow
                 }
 
+                MeaningSearchControls(search: search)
+
                 PanelResultsView(
                     query: search.query,
                     hasActiveFilter: search.hasActiveFilter,
@@ -643,6 +661,7 @@ struct PanelView: View {
                     isGroupedView: search.isGroupedView,
                     groups: search.groups,
                     items: search.filtered,
+                    relatedIDs: search.meaning.relatedIDs,
                     selectedID: search.selectedItem?.id,
                     layout: layout,
                     columns: galleryColumns,
