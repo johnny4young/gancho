@@ -9033,6 +9033,22 @@
           }
         }
       }
+    },
+    "The selection or clipboard changed. Review and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selection or clipboard changed. Review and try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La selección o el portapapeles cambiaron. Revisa e inténtalo de nuevo."
+          }
+        }
+      }
     }
   },
   "version": "1.1"
