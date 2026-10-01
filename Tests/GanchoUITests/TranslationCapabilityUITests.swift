@@ -42,7 +42,6 @@ final class TranslationCapabilityUITests: XCTestCase {
             "-ui-test-installed-translation", "-ui-test-paste-sink", "copy-only"
         ]
         let trace = try installDiagnosticTrace(on: app)
-        defer { attachDiagnosticTrace(trace) }
         app.launchArguments += extraArguments
         app.launch()
         defer { app.terminate() }
@@ -81,6 +80,7 @@ final class TranslationCapabilityUITests: XCTestCase {
             failure.lifetime = .keepAlways
             add(failure)
         }
+        attachDiagnosticTrace(trace)
         XCTAssertTrue(found)
         XCTAssertTrue(
             result.label.contains("Traducción sintética")
