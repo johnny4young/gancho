@@ -259,8 +259,12 @@ struct ClipPeek: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { translationRefresh += 1 }
         }
-        .onDisappear { translationTask?.cancel() }
+        .onDisappear {
+            translationDiagnosticPhase("view-disappeared")
+            translationTask?.cancel()
+        }
         .onChange(of: presentedText) { _, _ in
+            translationDiagnosticPhase("text-changed")
             translationTargets = []
             translationTask?.cancel()
             translationRequestID = UUID()

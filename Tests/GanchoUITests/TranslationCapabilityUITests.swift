@@ -41,6 +41,8 @@ final class TranslationCapabilityUITests: XCTestCase {
             "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.translation.\(UUID())",
             "-ui-test-installed-translation", "-ui-test-paste-sink", "copy-only"
         ]
+        let trace = try installDiagnosticTrace(on: app)
+        defer { attachDiagnosticTrace(trace) }
         app.launchArguments += extraArguments
         app.launch()
         defer { app.terminate() }
@@ -90,4 +92,24 @@ final class TranslationCapabilityUITests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
     }
+    @MainActor
+    private func installDiagnosticTrace(on app: XCUIApplication) throws -> URL {
+        let nonce = UUID()
+        let file = URL(fileURLWithPath: "/tmp/gancho-translation-\(nonce.uuidString).trace")
+        try Data().write(to: file, options: .atomic)
+        app.launchArguments += ["-translation-diagnostic-nonce", nonce.uuidString]
+        return file
+    }
+
+    @MainActor
+    private func attachDiagnosticTrace(_ file: URL) {
+        defer { try? FileManager.default.removeItem(at: file) }
+        guard let phases = try? String(contentsOf: file, encoding: .utf8) else { return }
+        print("Translation lifecycle diagnostic:\n\(phases)")
+        let attachment = XCTAttachment(string: phases)
+        attachment.name = "Translation lifecycle phases — no content"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
 }

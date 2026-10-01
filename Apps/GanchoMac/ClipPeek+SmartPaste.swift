@@ -89,6 +89,7 @@ extension ClipPeek {
     }
 
     private func runTranslate(to target: Locale.Language) {
+        translationDiagnosticPhase("action-entered")
         translationTask?.cancel()
         let request = UUID()
         translationRequestID = request
@@ -96,12 +97,38 @@ extension ClipPeek {
         translationFailed = false
         isThinking = true
         translationTask = Task {
+            translationDiagnosticPhase("task-entered")
             let result = await model.smartTranslate(presentedText, to: target)
-            guard !Task.isCancelled, translationRequestID == request else { return }
+            translationDiagnosticPhase("engine-returned")
+            guard !Task.isCancelled, translationRequestID == request else {
+                translationDiagnosticPhase("result-invalidated")
+                return
+            }
             isThinking = false
             translationFailed = result == nil
             actionResult = result
+            translationDiagnosticPhase("result-applied")
         }
+    }
+
+    func translationDiagnosticPhase(_ phase: String) {
+        #if DEBUG
+            let arguments = CommandLine.arguments
+            guard arguments.contains("-use-temp-durable-store"),
+                arguments.contains("-ui-test-installed-translation"),
+                let index = arguments.firstIndex(of: "-translation-diagnostic-nonce"),
+                arguments.indices.contains(index + 1),
+                let nonce = UUID(uuidString: arguments[index + 1])
+            else { return }
+            let file = URL(fileURLWithPath: "/tmp/gancho-translation-\(nonce.uuidString).trace")
+            guard let handle = try? FileHandle(forWritingTo: file) else { return }
+            defer { try? handle.close() }
+            do {
+                try handle.seekToEnd()
+                let line = "\(ProcessInfo.processInfo.systemUptime) \(phase)\n"
+                try handle.write(contentsOf: Data(line.utf8))
+            } catch { return }
+        #endif
     }
 
 }
