@@ -218,7 +218,8 @@ final class PanelReproUITests: XCTestCase {
             "one drag must publish both file URLs as separate pasteboard items")
         XCTAssertTrue(search.exists, "the panel must remain open after the drop")
 
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        let attachment = XCTAttachment(
+            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
         attachment.name = "panel-multi-file-drag-pasteboard"
         attachment.lifetime = .keepAlways
         add(attachment)
@@ -258,7 +259,8 @@ final class PanelReproUITests: XCTestCase {
         XCTAssertTrue(
             delete.waitForExistence(timeout: 3),
             "Control-click must reach the row context menu instead of the drag bridge")
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        let attachment = XCTAttachment(
+            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
         attachment.name = "panel-multi-file-control-click-menu"
         attachment.lifetime = .keepAlways
         add(attachment)

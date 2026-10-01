@@ -683,7 +683,8 @@ final class AppModel {
 
     // MARK: - Capture pipeline
 
-    func ingest(_ capture: PasteboardCapture) {
+    @discardableResult
+    func ingest(_ capture: PasteboardCapture) -> Task<Void, Never>? {
         // Universal Clipboard delivers a copy made on another device. If that
         // device runs gancho it captures and syncs the original — already
         // enriched (title/OCR) — so re-capturing the remote copy here only
@@ -691,8 +692,8 @@ final class AppModel {
         // isn't gancho, the user never chose to save it. Either way, skip it;
         // this also keeps cross-device capture consistent with iOS's consensual
         // model (the origin device decides, the rest receive via sync).
-        guard !capture.isFromUniversalClipboard else { return }
-        Task {
+        guard !capture.isFromUniversalClipboard else { return nil }
+        return Task {
             let configuration = ClipIngestionCoordinator.Configuration(
                 sensitiveLifetime: retentionPolicy.sensitiveLifetime,
                 detectSecrets: intelligence.detectSecrets,

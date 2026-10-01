@@ -11,6 +11,7 @@ final class ClipLargePreviewUITests: XCTestCase {
         ]
         app.launch()
         defer { app.terminate() }
+        app.activate()
 
         let search = app.textFields["search-field"].firstMatch
         guard search.waitForExistence(timeout: 10) else {
@@ -24,6 +25,7 @@ final class ClipLargePreviewUITests: XCTestCase {
         // ⌘Y is a GLOBAL shortcut: if the menu-bar-agent panel isn't frontmost
         // on this runner it would fire in whatever app is (⌘Y opens History in
         // browsers). Skip rather than drive another app.
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         try SynthesizedInput.requireForeground(app)
         app.typeKey("y", modifierFlags: .command)
 
@@ -35,7 +37,7 @@ final class ClipLargePreviewUITests: XCTestCase {
             content.value as? String,
             "Yesterday: fixed search\nToday: improve editing\nBlockers: none")
 
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(screenshot: preview.screenshot())
         attachment.name = "macOS Command-Y large preview"
         attachment.lifetime = .keepAlways
         add(attachment)
