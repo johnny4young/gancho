@@ -19,6 +19,7 @@ final class ReuseSuggestionUITests: XCTestCase {
         defer { app.terminate() }
         app.activate()
 
+        try SynthesizedInput.requireForeground(app)
         let row = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(NSPredicate(format: "label CONTAINS %@", "Reusable standup update"))
             .firstMatch
@@ -32,7 +33,9 @@ final class ReuseSuggestionUITests: XCTestCase {
         XCTAssertTrue(toast.waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["Used 3 times — save as a snippet?"].exists)
 
-        let attachment = XCTAttachment(screenshot: toast.screenshot())
+        let toastPanel = app.descendants(matching: .any)["gancho-toast-panel"].firstMatch
+        XCTAssertTrue(toastPanel.exists)
+        let attachment = XCTAttachment(screenshot: toastPanel.screenshot())
         attachment.name = "macOS exact-third-use snippet suggestion"
         attachment.lifetime = .keepAlways
         add(attachment)

@@ -114,7 +114,8 @@ final class PanelBoardUITests: XCTestCase {
         }
         XCTAssertEqual(rows.count, 1, "the board view must show exactly the filed clip")
 
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(
+            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
         attachment.name = "macOS board filter (paged query)"
         attachment.lifetime = .keepAlways
         add(attachment)

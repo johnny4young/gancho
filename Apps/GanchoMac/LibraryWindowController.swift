@@ -1,4 +1,5 @@
 import AppKit
+import GanchoAppCore
 import GanchoDesign
 import SwiftUI
 
@@ -19,6 +20,17 @@ final class LibraryWindowController {
             created.setContentSize(NSSize(width: 900, height: 640))
             created.contentMinSize = NSSize(width: 800, height: 560)
             created.center()
+            #if DEBUG
+                // XCTest window screenshots can fail on negative-coordinate displays.
+                // Only opt-in, disposable fixtures use the primary screen.
+                if CommandLine.arguments.contains("-place-library-for-ui-test"),
+                    StoreBootstrap.request() != .production,
+                    let frame = NSScreen.screens.first?.visibleFrame
+                {
+                    created.setFrameTopLeftPoint(
+                        NSPoint(x: frame.minX + 40, y: frame.maxY - 40))
+                }
+            #endif
             window = created
         }
         window?.makeKeyAndOrderFront(nil)

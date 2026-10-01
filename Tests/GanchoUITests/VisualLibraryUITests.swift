@@ -9,6 +9,7 @@ final class VisualLibraryUITests: XCTestCase {
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
             "-seed-visual-library", "-force-free-tier", "-start-capture-paused",
+            "-place-library-for-ui-test", "-place-panel-for-ui-test",
             "-ui-test-paste-sink", "copiedOnly", "-AppleLanguages", "(en)",
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.library.\(UUID().uuidString)",
@@ -60,6 +61,7 @@ final class VisualLibraryUITests: XCTestCase {
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-force-ephemeral-store",
             "-seed-sample-clips", "-force-free-tier", "-start-capture-paused",
+            "-place-library-for-ui-test", "-place-panel-for-ui-test",
             "-ui-test-paste-sink", "copiedOnly", "-AppleLanguages", "(en)",
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.library-ephemeral.\(UUID().uuidString)",
