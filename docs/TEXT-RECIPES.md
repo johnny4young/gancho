@@ -1,7 +1,7 @@
 # Deterministic text recipes
 
-This unreleased core contract does not yet add an editor or persist definitions.
-Existing Transform and Smart Paste entry points remain unchanged.
+The core contract and macOS editor described here are unreleased. Existing
+Transform and Smart Paste entry points remain unchanged.
 
 `TextActionCatalog` assigns stable version-1 descriptors to existing transforms,
 PII redaction, literal selected-context formatting and three whitespace operations.
