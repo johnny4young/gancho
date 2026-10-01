@@ -8,7 +8,7 @@ Each review owns an ordered manifest. MCP authorization uses a separate set of e
 
 ## Optional, explicit MCP grant
 
-Enter a client name and choose **Grant selected context access**. This enables local MCP and creates a read-only, selected-ID grant expiring in one hour. Existing grants are not replaced. Deleting or protecting an excerpt does not expand the authorized set. Revoke the grant in **MCP Access**; expiry and revocation are checked by the existing server authorization path.
+Enter a client name and choose **Grant selected context access**. This enables local MCP and creates a read-only, selected-ID grant expiring in one hour. Existing grants are not replaced. Enabling MCP also reactivates any other still-valid existing grants; the review discloses this before authorization. Deleting or protecting an excerpt does not expand the authorized set. Revoke the grant in **MCP Access**; expiry and revocation are checked by the existing server authorization path.
 
 The command shown after authorization starts Gancho's local stdio server. These examples are manual instructions, not configuration Gancho changes for you. Use your installed `gancho` executable and replace `GRANT_UUID` with the grant shown in the review. An expired grant must be replaced explicitly.
 

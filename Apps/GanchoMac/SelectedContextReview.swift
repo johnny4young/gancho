@@ -62,8 +62,10 @@ struct SelectedContextReview: View {
                 TextField("Client name", text: $clientName)
                     .disabled(operation != nil)
                     .accessibilityIdentifier("ai-context-client-field")
-                Text("Granting enables MCP for only these selected IDs, read-only, for one hour.")
-                    .panelFont(.caption).foregroundStyle(.secondary)
+                Text(
+                    "One-hour, read-only access to these IDs. Enabling MCP reactivates other valid grants."
+                )
+                .panelFont(.caption).foregroundStyle(.secondary)
                 Button("Grant selected context access") { deliver(asGrant: true) }
                     .disabled(
                         loading || prepared == nil
