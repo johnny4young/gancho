@@ -492,6 +492,8 @@ struct ClipDetailView: View {
                             }
                         } label: {
                             Label("Translate to", systemImage: "globe")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
                         .disabled(isThinking)
                         .accessibilityIdentifier("smart-paste-menu")
