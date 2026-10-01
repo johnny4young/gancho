@@ -146,6 +146,7 @@ final class ToastPresenter {
             contentRect: .zero,
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered, defer: true)
+        panel.setAccessibilityIdentifier("gancho-toast-panel")
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
