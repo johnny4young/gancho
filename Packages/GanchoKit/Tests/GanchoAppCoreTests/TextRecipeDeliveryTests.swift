@@ -78,4 +78,16 @@ struct TextRecipeDeliveryTests {
             isAllowed: { probe.allowed },
             write: { probe.writes.append($0) })
     }
+    @Test("Preview bounds combining marks without changing the delivered text")
+    func scalarBoundedPreview() {
+        let original = "e" + String(repeating: "\u{0301}", count: 100_000)
+        let preview = TextRecipePreview.make(original)
+        #expect(original.count == 1)
+        #expect(preview.unicodeScalars.count == TextRecipePreview.maximumScalars)
+        #expect(preview.utf8.count <= TextRecipePreview.maximumScalars * 4)
+        #expect(original.unicodeScalars.count == 100_001)
+        #expect(TextRecipePreview.make("OCR\n  paragraph") == "OCR\n  paragraph")
+        #expect(TextRecipePreview.make("").isEmpty)
+    }
+
 }

@@ -51,3 +51,8 @@ after reviewing acknowledges the newly observed clipboard revision.
 
 PII redaction uses the existing pattern set and is best-effort, not a guarantee
 that every personal identifier was removed. Review the result before sharing.
+
+Preview shaping is bounded to 8,000 Unicode scalars (at most 32 KiB of text),
+not only grapheme count: a single grapheme can contain arbitrarily many combining
+marks. This display-only bound does not alter the input, intermediate results or
+explicitly copied output.
