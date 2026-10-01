@@ -1,126 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "%lld captures": {
-      "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld capture"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld captures"
-                }
-              }
-            }
-          }
-        },
-        "es": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld captura"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld capturas"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld reuses": {
-      "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld reuse"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld reuses"
-                }
-              }
-            }
-          }
-        },
-        "es": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld reutilización"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld reutilizaciones"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "<5 ms · always on": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "<5 ms · siempre activo"
-          }
-        }
-      }
-    },
-    "A backup couldn’t be restored.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo restaurar una copia de seguridad."
-          }
-        }
-      }
-    },
-    "A clip’s content couldn’t be loaded.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo cargar el contenido de un clip."
-          }
-        }
-      }
-    },
-    "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, Smart Actions, and masking.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un clasificador determinista etiqueta cada clip en menos de 5 ms — JWT, JSON, color, tarjeta, URL… — sin red. Alimenta los previews, las Smart Actions y el enmascarado."
-          }
-        }
-      }
-    },
     "A shared item couldn’t be cleared and may arrive again.": {
       "localizations": {
         "es": {
@@ -141,228 +21,12 @@
         }
       }
     },
-    "AWS keys": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Llaves AWS"
-          }
-        }
-      }
-    },
-    "Action": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acción"
-          }
-        }
-      }
-    },
-    "Actions": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acciones"
-          }
-        }
-      }
-    },
-    "Activity by app": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actividad por app"
-          }
-        }
-      }
-    },
-    "Add": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agregar"
-          }
-        }
-      }
-    },
-    "Add to %@?": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Agregar a %@?"
-          }
-        }
-      }
-    },
-    "Add to board": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Añadir a tablero"
-          }
-        }
-      }
-    },
     "All apps": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Todas las apps"
-          }
-        }
-      }
-    },
-    "All clips": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todos los clips"
-          }
-        }
-      }
-    },
-    "All types": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todos los tipos"
-          }
-        }
-      }
-    },
-    "Allow anonymous diagnostics": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permitir diagnósticos anónimos"
-          }
-        }
-      }
-    },
-    "Already in your history": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ya estaba en tu historial"
-          }
-        }
-      }
-    },
-    "Already in your history.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Already in your history."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ya está en tu historial."
-          }
-        }
-      }
-    },
-    "Already pinned.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ya está fijado."
-          }
-        }
-      }
-    },
-    "Already unpinned.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ya está desfijado."
-          }
-        }
-      }
-    },
-    "Always on": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Siempre activa"
-          }
-        }
-      }
-    },
-    "Anonymous feature counts and broad performance buckets are off until you allow them. Clipboard content, titles, searches, and source-app names are never sent.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los conteos anónimos de funciones y los rangos generales de rendimiento están desactivados hasta que los autorices. Nunca se envían contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen."
-          }
-        }
-      }
-    },
-    "Answer": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Respuesta"
-          }
-        }
-      }
-    },
-    "Answers a question grounded only in your clip history, on-device.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Responde una pregunta basándose solo en tu historial de clips, en el dispositivo."
-          }
-        }
-      }
-    },
-    "Any": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cualquiera"
-          }
-        }
-      }
-    },
-    "Appearance": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apariencia"
-          }
-        }
-      }
-    },
-    "Apple Intelligence writes a short, specific title on-device, falling back to heuristics on any failure — and never puts a secret in a title.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple Intelligence escribe un título corto y específico en el dispositivo, con respaldo en heurísticas ante cualquier fallo — y nunca pone un secreto en un título."
           }
         }
       }
@@ -377,603 +41,12 @@
         }
       }
     },
-    "Art": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Arte"
-          }
-        }
-      }
-    },
-    "Ask Clipboard": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preguntar al portapapeles"
-          }
-        }
-      }
-    },
-    "Ask Your Clipboard": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pregúntale a tu portapapeles"
-          }
-        }
-      }
-    },
-    "Ask a question about your clips first.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Primero hazle una pregunta a tus clips."
-          }
-        }
-      }
-    },
-    "Ask gancho": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pregúntale a gancho"
-          }
-        }
-      }
-    },
-    "Ask needs Apple Intelligence on this device.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preguntar necesita Apple Intelligence en este dispositivo."
-          }
-        }
-      }
-    },
-    "Automatic": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Automático"
-          }
-        }
-      }
-    },
-    "Automatic stays stable for this board. Custom colors sync across your devices.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Automático se mantiene estable para este tablero. Los colores personalizados se sincronizan entre tus dispositivos."
-          }
-        }
-      }
-    },
-    "Back up history…": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Respaldar el historial…"
-          }
-        }
-      }
-    },
-    "Backup": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copia de seguridad"
-          }
-        }
-      }
-    },
-    "Backups are .ganchoarchive files on your device — never uploaded.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los respaldos son archivos .ganchoarchive en tu dispositivo — nunca se suben."
-          }
-        }
-      }
-    },
-    "Base64 decode": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Decodificar Base64"
-          }
-        }
-      }
-    },
-    "Base64 encode": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Codificar Base64"
-          }
-        }
-      }
-    },
-    "Blue": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Azul"
-          }
-        }
-      }
-    },
-    "Board": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tablero"
-          }
-        }
-      }
-    },
-    "Board appearance": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apariencia del tablero"
-          }
-        }
-      }
-    },
-    "Board name": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nombre del tablero"
-          }
-        }
-      }
-    },
-    "Boards": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tableros"
-          }
-        }
-      }
-    },
-    "Books": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Libros"
-          }
-        }
-      }
-    },
-    "Briefcase": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Maletín"
-          }
-        }
-      }
-    },
-    "Brown": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Marrón"
-          }
-        }
-      }
-    },
-    "Builds a local 512-dim index for Ask your clipboard and board suggestions. Main history search stays exact, fuzzy, and regex.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Crea un índice local de 512 dimensiones para Ask your clipboard y sugerencias de boards. La búsqueda principal mantiene los modos exacto, fuzzy y regex."
-          }
-        }
-      }
-    },
-    "Cancel": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cancelar"
-          }
-        }
-      }
-    },
-    "Capture": {
-      "extractionState": "stale",
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Captura"
-          }
-        }
-      }
-    },
-    "Capture on iPhone": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Captura en iPhone"
-          }
-        }
-      }
-    },
-    "Captured": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Capturado"
-          }
-        }
-      }
-    },
-    "Captures skipped": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Capturas omitidas"
-          }
-        }
-      }
-    },
-    "Clear Sensitive Clips": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Borrar clips sensibles"
-          }
-        }
-      }
-    },
-    "Clear activity receipt": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Borrar recibo de actividad"
-          }
-        }
-      }
-    },
-    "Clear activity receipt?": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Borrar el recibo de actividad?"
-          }
-        }
-      }
-    },
-    "Clear filters": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Limpiar filtros"
-          }
-        }
-      }
-    },
-    "Clear receipt": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Borrar recibo"
-          }
-        }
-      }
-    },
-    "Clip": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clip"
-          }
-        }
-      }
-    },
-    "Clip enters": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Entra el clip"
-          }
-        }
-      }
-    },
-    "Clip is no longer available.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El clip ya no está disponible."
-          }
-        }
-      }
-    },
-    "Clip type": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tipo de clip"
-          }
-        }
-      }
-    },
-    "Clipboard-content analytics requests": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Solicitudes analíticas con contenido del portapapeles"
-          }
-        }
-      }
-    },
-    "Clips captured": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clips capturados"
-          }
-        }
-      }
-    },
-    "Code": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Código"
-          }
-        }
-      }
-    },
-    "Collapse spaces": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Colapsar espacios"
-          }
-        }
-      }
-    },
-    "Color": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Color"
-          }
-        }
-      }
-    },
-    "Content": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Contenido"
-          }
-        }
-      }
-    },
-    "Content can’t be empty.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El contenido no puede estar vacío."
-          }
-        }
-      }
-    },
-    "Convert color": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Convertir color"
-          }
-        }
-      }
-    },
-    "Copied.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copiado."
-          }
-        }
-      }
-    },
-    "Copies captured": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copias capturadas"
-          }
-        }
-      }
-    },
-    "Copy": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copiar"
-          }
-        }
-      }
-    },
-    "Copy Last URL": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copiar la última URL"
-          }
-        }
-      }
-    },
-    "Copy for support": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copiar para soporte"
-          }
-        }
-      }
-    },
-    "Copy or share something to Gancho to see it here.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copia o comparte algo a Gancho para verlo aquí."
-          }
-        }
-      }
-    },
-    "Copy result": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copiar resultado"
-          }
-        }
-      }
-    },
-    "Couldn't open Gancho.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo abrir Gancho."
-          }
-        }
-      }
-    },
-    "Couldn’t add the clip to the board.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo añadir el clip al tablero."
-          }
-        }
-      }
-    },
-    "Couldn’t answer that — try again.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo responder — intenta de nuevo."
-          }
-        }
-      }
-    },
-    "Couldn’t create the board.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo crear el tablero."
-          }
-        }
-      }
-    },
-    "Couldn’t delete the board.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo eliminar el tablero."
-          }
-        }
-      }
-    },
     "Couldn’t delete this clip.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo borrar este clip."
-          }
-        }
-      }
-    },
-    "Couldn’t load this clip — try again.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo cargar este clip — inténtalo de nuevo."
-          }
-        }
-      }
-    },
-    "Couldn’t open secure storage — running in memory.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo abrir el almacenamiento seguro: funcionando en memoria."
-          }
-        }
-      }
-    },
-    "Couldn’t prepare the backup.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo preparar el respaldo."
           }
         }
       }
@@ -988,358 +61,6 @@
         }
       }
     },
-    "Couldn’t read the clipboard. Try pasting again.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couldn’t read the clipboard. Try pasting again."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo leer el portapapeles. Intenta pegar de nuevo."
-          }
-        }
-      }
-    },
-    "Couldn’t remove the clip from the board.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo quitar el clip del tablero."
-          }
-        }
-      }
-    },
-    "Couldn’t rename the board.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo renombrar el tablero."
-          }
-        }
-      }
-    },
-    "Couldn’t run that — try again.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo ejecutar — intenta de nuevo."
-          }
-        }
-      }
-    },
-    "Couldn’t save changes": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudieron guardar los cambios"
-          }
-        }
-      }
-    },
-    "Couldn’t save the backup.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo guardar el respaldo."
-          }
-        }
-      }
-    },
-    "Couldn’t save the clipboard. Try again.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couldn’t save the clipboard. Try again."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo guardar el portapapeles. Inténtalo de nuevo."
-          }
-        }
-      }
-    },
-    "Couldn’t save the content.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo guardar el contenido."
-          }
-        }
-      }
-    },
-    "Couldn’t save the title.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo guardar el título."
-          }
-        }
-      }
-    },
-    "Couldn’t update the board appearance.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo actualizar la apariencia del tablero."
-          }
-        }
-      }
-    },
-    "Create": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Crear"
-          }
-        }
-      }
-    },
-    "Credit cards": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tarjetas de crédito"
-          }
-        }
-      }
-    },
-    "Customize board": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Personalizar tablero"
-          }
-        }
-      }
-    },
-    "Customize board…": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Personalizar tablero…"
-          }
-        }
-      }
-    },
-    "Decode JWT": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Decodificar JWT"
-          }
-        }
-      }
-    },
-    "Dedupe lines": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quitar líneas duplicadas"
-          }
-        }
-      }
-    },
-    "Delete": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eliminar"
-          }
-        }
-      }
-    },
-    "Delete board": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eliminar tablero"
-          }
-        }
-      }
-    },
-    "Deletes every clip Gancho marked as sensitive (keys, cards, passwords).": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Borra todos los clips que Gancho marcó como sensibles (llaves, tarjetas, contraseñas)."
-          }
-        }
-      }
-    },
-    "Detect & mask secrets": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detectar y enmascarar secretos"
-          }
-        }
-      }
-    },
-    "Dismiss": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Descartar"
-          }
-        }
-      }
-    },
-    "Done": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Listo"
-          }
-        }
-      }
-    },
-    "Edit": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Editar"
-          }
-        }
-      }
-    },
-    "Edit content": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Editar contenido"
-          }
-        }
-      }
-    },
-    "Edit title": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Editar título"
-          }
-        }
-      }
-    },
-    "Emoji": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Emoji"
-          }
-        }
-      }
-    },
-    "Emoji adds a second visual cue and never replaces the board name.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El emoji agrega una segunda señal visual y nunca reemplaza el nombre del tablero."
-          }
-        }
-      }
-    },
-    "Error": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Error"
-          }
-        }
-      }
-    },
-    "Everything here runs on this iPhone. No clip text is ever sent to a server — gancho has none.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todo aquí corre en este iPhone. Ningún texto de clip se envía a un servidor — gancho no tiene."
-          }
-        }
-      }
-    },
-    "Everything you copy, saved and searchable": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todo lo que copias, guardado y buscable"
-          }
-        }
-      }
-    },
-    "Example Shortcuts gallery": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Galería de Atajos de ejemplo"
-          }
-        }
-      }
-    },
-    "FTS + embeddings": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "FTS + embeddings"
-          }
-        }
-      }
-    },
-    "Favorites": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Favoritos"
-          }
-        }
-      }
-    },
-    "Filter by type": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Filtrar por tipo"
-          }
-        }
-      }
-    },
     "Filters": {
       "localizations": {
         "es": {
@@ -1350,868 +71,22 @@
         }
       }
     },
-    "Finds clips in your Gancho history.": {
+    "Sharing": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Busca clips en tu historial de Gancho."
+            "value": "Compartir"
           }
         }
       }
     },
-    "Fix grammar": {
+    "Transform": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Corregir gramática"
-          }
-        }
-      }
-    },
-    "Free plan pin limit reached.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alcanzaste el límite de fijados del plan gratis."
-          }
-        }
-      }
-    },
-    "From another device": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "De otro dispositivo"
-          }
-        }
-      }
-    },
-    "Gancho": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gancho"
-          }
-        }
-      }
-    },
-    "Gancho Pro": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gancho Pro"
-          }
-        }
-      }
-    },
-    "Gancho Pro is a one-time purchase, available at gancho.app. Free stays free, forever.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gancho Pro es una compra única, disponible en gancho.app. Lo gratis sigue gratis, para siempre."
-          }
-        }
-      }
-    },
-    "Gancho can share anonymous feature counts and broad performance buckets. It never sends clipboard content, titles, searches, or source-app names.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gancho puede compartir conteos anónimos de funciones y rangos generales de rendimiento. Nunca envía contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen."
-          }
-        }
-      }
-    },
-    "Gancho couldn't open its secure storage. Captures will vanish when you quit the app.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gancho no pudo abrir su almacenamiento seguro. Las capturas se perderán al cerrar la app."
-          }
-        }
-      }
-    },
-    "Gancho keeps a private history of what you copy — all on this device.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gancho guarda un historial privado de lo que copias — todo en este dispositivo."
-          }
-        }
-      }
-    },
-    "Gancho never reads your clipboard on its own. It only sees the type until you tap Paste.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gancho nunca lee tu portapapeles por su cuenta. Solo ve el tipo hasta que tocas Pegar."
-          }
-        }
-      }
-    },
-    "Gancho never reads your pasteboard in the background.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gancho nunca lee tu portapapeles en segundo plano."
-          }
-        }
-      }
-    },
-    "Gancho never reads your pasteboard in the background. Capture happens only when you act: the save button, the share sheet, or a Shortcut.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gancho nunca lee tu portapapeles en segundo plano. La captura ocurre solo cuando tú actúas: el botón de guardar, el share sheet o un Atajo."
-          }
-        }
-      }
-    },
-    "Get started": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Empezar"
-          }
-        }
-      }
-    },
-    "GitHub tokens": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tokens de GitHub"
-          }
-        }
-      }
-    },
-    "Has %@ — not read yet": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hay %@ — sin leer todavía"
-          }
-        }
-      }
-    },
-    "Heart": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Corazón"
-          }
-        }
-      }
-    },
-    "Help improve Gancho?": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Ayudas a mejorar Gancho?"
-          }
-        }
-      }
-    },
-    "Hide": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ocultar"
-          }
-        }
-      }
-    },
-    "High-entropy passwords": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Contraseñas de alta entropía"
-          }
-        }
-      }
-    },
-    "History": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Historial"
-          }
-        }
-      }
-    },
-    "History isn't being saved": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El historial no se está guardando"
-          }
-        }
-      }
-    },
-    "Home": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hogar"
-          }
-        }
-      }
-    },
-    "How Gancho senses your clipboard": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cómo Gancho detecta tu portapapeles"
-          }
-        }
-      }
-    },
-    "Idea": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Idea"
-          }
-        }
-      }
-    },
-    "If you copy a key by accident, gancho masks the preview (●●●● + last 4) and auto-expires it after 10 minutes. Deterministic, on-device.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Si copias una llave por accidente, gancho enmascara el preview (●●●● + últimos 4) y la expira sola a los 10 minutos. Determinista, en el dispositivo."
-          }
-        }
-      }
-    },
-    "Image": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imagen"
-          }
-        }
-      }
-    },
-    "Indexed": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Indexado"
-          }
-        }
-      }
-    },
-    "Install a supported language pair or use an available on-device model.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Install a supported language pair or use an available on-device model."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Instala un par de idiomas compatible o usa un modelo local disponible."
-          }
-        }
-      }
-    },
-    "Intelligence": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inteligencia"
-          }
-        }
-      }
-    },
-    "Intelligence features": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Funciones de inteligencia"
-          }
-        }
-      }
-    },
-    "Items reused": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Elementos reutilizados"
-          }
-        }
-      }
-    },
-    "Items self-expired": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ítems autoexpirados"
-          }
-        }
-      }
-    },
-    "Items synchronized": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ítems sincronizados"
-          }
-        }
-      }
-    },
-    "Keep disabled": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mantener desactivados"
-          }
-        }
-      }
-    },
-    "Key points": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puntos clave"
-          }
-        }
-      }
-    },
-    "Language": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Idioma"
-          }
-        }
-      }
-    },
-    "Last month": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mes pasado"
-          }
-        }
-      }
-    },
-    "Last year": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Año pasado"
-          }
-        }
-      }
-    },
-    "Limit reached": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Límite alcanzado"
-          }
-        }
-      }
-    },
-    "Link": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enlace"
-          }
-        }
-      }
-    },
-    "Link on your clipboard": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enlace en tu portapapeles"
-          }
-        }
-      }
-    },
-    "Make formal": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hacer formal"
-          }
-        }
-      }
-    },
-    "Make friendly": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hacer amigable"
-          }
-        }
-      }
-    },
-    "Mask + expire": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enmascara + expira"
-          }
-        }
-      }
-    },
-    "Masked": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enmascarado"
-          }
-        }
-      }
-    },
-    "Maximum results": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Máximo de resultados"
-          }
-        }
-      }
-    },
-    "Minify JSON": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Minificar JSON"
-          }
-        }
-      }
-    },
-    "New board": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nuevo tablero"
-          }
-        }
-      }
-    },
-    "New board…": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nuevo tablero…"
-          }
-        }
-      }
-    },
-    "No URLs in your history yet.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aún no hay URLs en tu historial."
-          }
-        }
-      }
-    },
-    "No clips here": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No hay clips aquí"
-          }
-        }
-      }
-    },
-    "No clips in this filter.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No hay clips en este filtro."
-          }
-        }
-      }
-    },
-    "No clips match “%@”.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ningún clip coincide con “%@”."
-          }
-        }
-      }
-    },
-    "No internet connection": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sin conexión a internet"
-          }
-        }
-      }
-    },
-    "No issues recorded.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No hay problemas registrados."
-          }
-        }
-      }
-    },
-    "No per-app activity recorded.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No hay actividad por app registrada."
-          }
-        }
-      }
-    },
-    "No purchase to restore on this Apple ID. Pro is sold at gancho.app.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No hay compras que restaurar en este Apple ID. Pro se vende en gancho.app."
-          }
-        }
-      }
-    },
-    "None": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ninguno"
-          }
-        }
-      }
-    },
-    "Not selected": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No seleccionado"
-          }
-        }
-      }
-    },
-    "Not signed in to iCloud": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sin sesión de iCloud iniciada"
-          }
-        }
-      }
-    },
-    "Nothing captured yet.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aún no hay capturas."
-          }
-        }
-      }
-    },
-    "Nothing in your clipboard matches that.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nada en tu portapapeles coincide con eso."
-          }
-        }
-      }
-    },
-    "Nothing leaves this device unless you turn on iCloud sync.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nada sale de este dispositivo a menos que actives la sincronización con iCloud."
-          }
-        }
-      }
-    },
-    "Number on your clipboard": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Número en tu portapapeles"
-          }
-        }
-      }
-    },
-    "Older": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Anteriores"
-          }
-        }
-      }
-    },
-    "On this iPhone now": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ahora en este iPhone"
-          }
-        }
-      }
-    },
-    "On-device AI titles and search": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Títulos y búsqueda con IA en el dispositivo"
-          }
-        }
-      }
-    },
-    "On-device OCR reads text out of image clips and adds it to the full-text index, so a screenshot is findable by the words inside it.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El OCR en el dispositivo lee el texto de los clips de imagen y lo agrega al índice de texto completo, así una captura se encuentra por las palabras que tiene dentro."
-          }
-        }
-      }
-    },
-    "Only snippets and pinned clips reach the system index — never your raw history, secrets, or expiring clips. Turning this off removes them from Spotlight immediately.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Solo los snippets y los clips fijados llegan al índice del sistema — nunca tu historial completo, secretos ni clips que expiran. Al desactivarlo, se eliminan de Spotlight de inmediato."
-          }
-        }
-      }
-    },
-    "Open full screen to zoom": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abrir a pantalla completa para hacer zoom"
-          }
-        }
-      }
-    },
-    "Optional diagnostics": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diagnósticos opcionales"
-          }
-        }
-      }
-    },
-    "Optional diagnostics contain anonymous counts and broad buckets only.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los diagnósticos opcionales solo contienen conteos anónimos y rangos generales."
-          }
-        }
-      }
-    },
-    "Orange": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Naranja"
-          }
-        }
-      }
-    },
-    "Outgoing content requests": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Peticiones de contenido salientes"
-          }
-        }
-      }
-    },
-    "PEM private keys": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Llaves privadas PEM"
-          }
-        }
-      }
-    },
-    "Parse URL": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Analizar URL"
-          }
-        }
-      }
-    },
-    "Paste into Gancho": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pegar en Gancho"
-          }
-        }
-      }
-    },
-    "Pasteboard is empty": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El portapapeles está vacío"
-          }
-        }
-      }
-    },
-    "Pin": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fijar"
-          }
-        }
-      }
-    },
-    "Pin Clip": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fijar clip"
-          }
-        }
-      }
-    },
-    "Pin action": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acción de fijado"
-          }
-        }
-      }
-    },
-    "Pink": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rosa"
-          }
-        }
-      }
-    },
-    "Pinned": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fijado"
-          }
-        }
-      }
-    },
-    "Pinned.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fijado."
-          }
-        }
-      }
-    },
-    "Pins or unpins a clip.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fija o desfija un clip."
+            "value": "Transformar"
           }
         }
       }
@@ -2226,92 +101,112 @@
         }
       }
     },
-    "Pretty-print JSON": {
+    "lowercase": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Formatear JSON"
+            "value": "minúsculas"
           }
         }
       }
     },
-    "Preview": {
+    "UPPERCASE": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vista previa"
+            "value": "MAYÚSCULAS"
           }
         }
       }
     },
-    "Privacy Center": {
+    "Title Case": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Centro de Privacidad"
+            "value": "Tipo Título"
           }
         }
       }
     },
-    "Private activity receipt": {
+    "Trimmed": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recibo privado de actividad"
+            "value": "Sin espacios extremos"
           }
         }
       }
     },
-    "Pro restored — enjoy.": {
+    "Single line": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pro restaurado. ¡Disfrútalo!"
+            "value": "Una sola línea"
           }
         }
       }
     },
-    "Protected copies skipped": {
+    "Collapse spaces": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copias protegidas omitidas"
+            "value": "Colapsar espacios"
           }
         }
       }
     },
-    "Purple": {
+    "Sort lines": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Morado"
+            "value": "Ordenar líneas"
           }
         }
       }
     },
-    "Puts the most recent URL from your history back on the clipboard.": {
+    "Dedupe lines": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Devuelve la URL más reciente de tu historial al portapapeles."
+            "value": "Quitar líneas duplicadas"
           }
         }
       }
     },
-    "Question": {
+    "URL-encode": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pregunta"
+            "value": "Codificar URL"
+          }
+        }
+      }
+    },
+    "URL-decode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decodificar URL"
+          }
+        }
+      }
+    },
+    "SHA-256": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SHA-256"
           }
         }
       }
@@ -2326,6 +221,26 @@
         }
       }
     },
+    "No issues recorded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay problemas registrados."
+          }
+        }
+      }
+    },
+    "Copy for support": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar para soporte"
+          }
+        }
+      }
+    },
     "Recent technical issues only — content-free, nothing about your clips.": {
       "localizations": {
         "es": {
@@ -2336,12 +251,302 @@
         }
       }
     },
-    "Redact PII": {
+    "Storage": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ocultar datos personales"
+            "value": "Almacenamiento"
+          }
+        }
+      }
+    },
+    "Couldn’t open secure storage — running in memory.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir el almacenamiento seguro: funcionando en memoria."
+          }
+        }
+      }
+    },
+    "This build’s team prefix doesn’t match the signed one; using the signed one.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El prefijo de equipo de esta compilación no coincide con el firmado; se usa el firmado."
+          }
+        }
+      }
+    },
+    "A clip’s content couldn’t be loaded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar el contenido de un clip."
+          }
+        }
+      }
+    },
+    "Backup": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia de seguridad"
+          }
+        }
+      }
+    },
+    "A backup couldn’t be restored.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo restaurar una copia de seguridad."
+          }
+        }
+      }
+    },
+    "All clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos los clips"
+          }
+        }
+      }
+    },
+    "Board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tablero"
+          }
+        }
+      }
+    },
+    "Boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tableros"
+          }
+        }
+      }
+    },
+    "Couldn’t add the clip to the board.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo añadir el clip al tablero."
+          }
+        }
+      }
+    },
+    "Couldn’t remove the clip from the board.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo quitar el clip del tablero."
+          }
+        }
+      }
+    },
+    "Couldn’t create the board.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo crear el tablero."
+          }
+        }
+      }
+    },
+    "The board was created, but the clip couldn’t be added.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El tablero se creó, pero no se pudo añadir el clip."
+          }
+        }
+      }
+    },
+    "Couldn’t rename the board.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo renombrar el tablero."
+          }
+        }
+      }
+    },
+    "Couldn’t update the board appearance.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar la apariencia del tablero."
+          }
+        }
+      }
+    },
+    "Couldn’t delete the board.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo eliminar el tablero."
+          }
+        }
+      }
+    },
+    "Gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho"
+          }
+        }
+      }
+    },
+    "Board name": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre del tablero"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelar"
+          }
+        }
+      }
+    },
+    "Create": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear"
+          }
+        }
+      }
+    },
+    "Delete board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar tablero"
+          }
+        }
+      }
+    },
+    "New board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo tablero"
+          }
+        }
+      }
+    },
+    "Rename": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renombrar"
+          }
+        }
+      }
+    },
+    "Rename board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renombrar tablero"
+          }
+        }
+      }
+    },
+    "Rename board…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renombrar tablero…"
+          }
+        }
+      }
+    },
+    "New board…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo tablero…"
+          }
+        }
+      }
+    },
+    "Upgrade to Pro for more boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mejora a Pro para más tableros"
+          }
+        }
+      }
+    },
+    "Favorites": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favoritos"
+          }
+        }
+      }
+    },
+    "Types": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipos"
+          }
+        }
+      }
+    },
+    "Deletes every clip Gancho marked as sensitive (keys, cards, passwords).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borra todos los clips que Gancho marcó como sensibles (llaves, tarjetas, contraseñas)."
           }
         }
       }
@@ -2386,212 +591,172 @@
         }
       }
     },
-    "Rename": {
+    "Puts the most recent URL from your history back on the clipboard.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Renombrar"
+            "value": "Devuelve la URL más reciente de tu historial al portapapeles."
           }
         }
       }
     },
-    "Rename board": {
+    "Clear Sensitive Clips": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Renombrar tablero"
+            "value": "Borrar clips sensibles"
           }
         }
       }
     },
-    "Rename board…": {
+    "Copy Last URL": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Renombrar tablero…"
+            "value": "Copiar la última URL"
           }
         }
       }
     },
-    "Restore from backup…": {
+    "Finds clips in your Gancho history.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restaurar desde un respaldo…"
+            "value": "Busca clips en tu historial de Gancho."
           }
         }
       }
     },
-    "Restore purchase": {
+    "Action": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restaurar compra"
+            "value": "Acción"
           }
         }
       }
     },
-    "Restored %lld clips (%lld already here).": {
+    "Already pinned.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restauré %lld clips (%lld ya estaban)."
+            "value": "Ya está fijado."
           }
         }
       }
     },
-    "Retry": {
+    "Already unpinned.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reintentar"
+            "value": "Ya está desfijado."
           }
         }
       }
     },
-    "Reveal": {
+    "Clip is no longer available.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Revelar"
+            "value": "El clip ya no está disponible."
           }
         }
       }
     },
-    "Rewrite a clip before pasting — summarize, fix grammar, change tone, pull key points, or redact PII. Model-backed rewrites use Apple Intelligence on-device; deterministic redaction needs no model.": {
+    "Clip": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reescribe un clip antes de pegarlo — resume, corrige gramática, cambia el tono, saca puntos clave o redacta PII. Las reescrituras con modelo usan Apple Intelligence en el dispositivo; la redacción determinista no necesita modelo."
+            "value": "Clip"
           }
         }
       }
     },
-    "Rocket": {
+    "Free plan pin limit reached.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cohete"
+            "value": "Alcanzaste el límite de fijados del plan gratis."
           }
         }
       }
     },
-    "SHA-256": {
+    "No URLs in your history yet.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "SHA-256"
+            "value": "Aún no hay URLs en tu historial."
           }
         }
       }
     },
-    "Save": {
+    "Copied.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guardar"
+            "value": "Copiado."
           }
         }
       }
     },
-    "Save Clipboard": {
+    "Pin Clip": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guardar portapapeles"
+            "value": "Fijar clip"
           }
         }
       }
     },
-    "Save as snippet": {
+    "Pins or unpins a clip.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guardar como snippet"
+            "value": "Fija o desfija un clip."
           }
         }
       }
     },
-    "Save it": {
+    "Pin action": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guárdalo"
+            "value": "Acción de fijado"
           }
         }
       }
     },
-    "Save your clipboard with a Shortcut — even from the Action Button.": {
+    "Pinned.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guarda tu portapapeles con un Atajo — incluso desde el Botón de Acción."
+            "value": "Fijado."
           }
         }
       }
     },
-    "Saved": {
+    "Unpinned.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guardado"
-          }
-        }
-      }
-    },
-    "Saved as snippet": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guardado como snippet"
-          }
-        }
-      }
-    },
-    "Saved the image to Gancho.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se guardó la imagen en Gancho."
-          }
-        }
-      }
-    },
-    "Saved to Gancho.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se guardó en Gancho."
-          }
-        }
-      }
-    },
-    "Saves the current clipboard into Gancho. iOS shows its standard paste confirmation.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guarda el portapapeles actual en Gancho. iOS muestra su confirmación de pegado estándar."
+            "value": "Desfijado."
           }
         }
       }
@@ -2606,42 +771,52 @@
         }
       }
     },
-    "Search text on your clipboard": {
+    "Privacy Center": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Texto de búsqueda en tu portapapeles"
+            "value": "Centro de Privacidad"
           }
         }
       }
     },
-    "Search your clipboard": {
+    "Outgoing content requests": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Busca en tu portapapeles"
+            "value": "Peticiones de contenido salientes"
           }
         }
       }
     },
-    "Searchable screenshots": {
+    "Your clipboard never leaves this iPhone.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Capturas buscables"
+            "value": "Tu portapapeles nunca sale de este iPhone."
           }
         }
       }
     },
-    "Secret": {
+    "This week": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Secreto"
+            "value": "Esta semana"
+          }
+        }
+      }
+    },
+    "Clips captured": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clips capturados"
           }
         }
       }
@@ -2656,362 +831,42 @@
         }
       }
     },
-    "See Gancho Pro": {
+    "Items self-expired": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ver Gancho Pro"
+            "value": "Ítems autoexpirados"
           }
         }
       }
     },
-    "Select a clip": {
+    "Items synchronized": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Selecciona un clip"
+            "value": "Ítems sincronizados"
           }
         }
       }
     },
-    "Selected": {
+    "No internet connection": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seleccionado"
+            "value": "Sin conexión a internet"
           }
         }
       }
     },
-    "Semantic retrieval": {
+    "Not signed in to iCloud": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recuperación semántica"
-          }
-        }
-      }
-    },
-    "Send text, a link, or an image to Gancho from the share sheet.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Envía texto, un enlace o una imagen a Gancho desde la hoja de compartir."
-          }
-        }
-      }
-    },
-    "Sensed, not read": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detectado, sin leer"
-          }
-        }
-      }
-    },
-    "Sensitive check": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chequeo de sensibles"
-          }
-        }
-      }
-    },
-    "Sensitive data": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Datos sensibles"
-          }
-        }
-      }
-    },
-    "Sensitive items self-expired": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Elementos sensibles autoexpirados"
-          }
-        }
-      }
-    },
-    "Session counts reset when Gancho quits. Turning diagnostics off also deletes the local activation receipt and terminates the analytics transport.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los conteos de la sesión se restablecen cuando Gancho se cierra. Desactivar los diagnósticos también elimina el recibo local de activación y finaliza el transporte de analíticas."
-          }
-        }
-      }
-    },
-    "Settings": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Configuración"
-          }
-        }
-      }
-    },
-    "Share": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compartir"
-          }
-        }
-      }
-    },
-    "Share anonymous usage diagnostics": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compartir diagnósticos de uso anónimos"
-          }
-        }
-      }
-    },
-    "Share from any app": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comparte desde cualquier app"
-          }
-        }
-      }
-    },
-    "Shared items could not be saved and were kept for later.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudieron guardar los elementos compartidos y se conservaron para después."
-          }
-        }
-      }
-    },
-    "Sharing": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compartir"
-          }
-        }
-      }
-    },
-    "Shopping": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compras"
-          }
-        }
-      }
-    },
-    "Shortcuts": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Atajos"
-          }
-        }
-      }
-    },
-    "Shortcuts & Action Button": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Atajos y Botón de Acción"
-          }
-        }
-      }
-    },
-    "Show snippets and pins in Spotlight": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mostrar snippets y pins en Spotlight"
-          }
-        }
-      }
-    },
-    "Single line": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Una sola línea"
-          }
-        }
-      }
-    },
-    "Slack tokens": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tokens de Slack"
-          }
-        }
-      }
-    },
-    "Smart Actions": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acciones inteligentes"
-          }
-        }
-      }
-    },
-    "Smart classification": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clasificación inteligente"
-          }
-        }
-      }
-    },
-    "Smart paste": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pegado inteligente"
-          }
-        }
-      }
-    },
-    "Smarter titles": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Títulos más inteligentes"
-          }
-        }
-      }
-    },
-    "Something on your clipboard": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Algo en tu portapapeles"
-          }
-        }
-      }
-    },
-    "Sort lines": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ordenar líneas"
-          }
-        }
-      }
-    },
-    "Sources": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fuentes"
-          }
-        }
-      }
-    },
-    "Star": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estrella"
-          }
-        }
-      }
-    },
-    "Storage": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Almacenamiento"
-          }
-        }
-      }
-    },
-    "Stored only on this iPhone for a rolling 13 months. Protected copies are included in skipped captures. Per-app totals never sync, export, or enter diagnostics.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Almacenado solo en este iPhone durante un periodo móvil de 13 meses. Las copias protegidas están incluidas en las capturas omitidas. Los totales por app nunca se sincronizan, exportan ni incluyen en los diagnósticos."
-          }
-        }
-      }
-    },
-    "Stripe keys": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Llaves Stripe"
-          }
-        }
-      }
-    },
-    "Successful reuses this session": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reutilizaciones exitosas en esta sesión"
-          }
-        }
-      }
-    },
-    "Suggest boards": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sugerir tableros"
-          }
-        }
-      }
-    },
-    "Summarize": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resumir"
+            "value": "Sin sesión de iCloud iniciada"
           }
         }
       }
@@ -3046,62 +901,182 @@
         }
       }
     },
-    "Tap to save": {
+    "Waiting to sync": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toca para guardar"
+            "value": "Esperando sincronizar"
           }
         }
       }
     },
-    "Teal": {
+    "iCloud storage is full": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verde azulado"
+            "value": "El almacenamiento de iCloud está lleno"
           }
         }
       }
     },
-    "Text": {
+    "Actions": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Texto"
+            "value": "Acciones"
           }
         }
       }
     },
-    "That backup couldn’t be restored.": {
+    "All types": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ese respaldo no se pudo restaurar."
+            "value": "Todos los tipos"
           }
         }
       }
     },
-    "The board was created, but the clip couldn’t be added.": {
+    "Already in your history": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El tablero se creó, pero no se pudo añadir el clip."
+            "value": "Ya estaba en tu historial"
           }
         }
       }
     },
-    "The clipboard is empty.": {
+    "Base64 decode": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El portapapeles está vacío."
+            "value": "Decodificar Base64"
+          }
+        }
+      }
+    },
+    "Base64 encode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codificar Base64"
+          }
+        }
+      }
+    },
+    "Capture on iPhone": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Captura en iPhone"
+          }
+        }
+      }
+    },
+    "Captured": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturado"
+          }
+        }
+      }
+    },
+    "Convert color": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Convertir color"
+          }
+        }
+      }
+    },
+    "Copy result": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar resultado"
+          }
+        }
+      }
+    },
+    "Couldn’t run that — try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo ejecutar — intenta de nuevo."
+          }
+        }
+      }
+    },
+    "Fix grammar": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corregir gramática"
+          }
+        }
+      }
+    },
+    "Key points": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puntos clave"
+          }
+        }
+      }
+    },
+    "Make formal": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hacer formal"
+          }
+        }
+      }
+    },
+    "Make friendly": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hacer amigable"
+          }
+        }
+      }
+    },
+    "Smart paste": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegado inteligente"
+          }
+        }
+      }
+    },
+    "Summarize": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resumir"
           }
         }
       }
@@ -3116,152 +1091,6 @@
         }
       }
     },
-    "This build’s team prefix doesn’t match the signed one; using the signed one.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El prefijo de equipo de esta compilación no coincide con el firmado; se usa el firmado."
-          }
-        }
-      }
-    },
-    "This clipboard item cannot be saved for privacy reasons.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This clipboard item cannot be saved for privacy reasons."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este elemento del portapapeles no se puede guardar por privacidad."
-          }
-        }
-      }
-    },
-    "This erases local activity totals. Your clips and settings stay unchanged.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Esto borra los totales de actividad local. Tus clips y ajustes no cambian."
-          }
-        }
-      }
-    },
-    "This month": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este mes"
-          }
-        }
-      }
-    },
-    "This week": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Esta semana"
-          }
-        }
-      }
-    },
-    "This year": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este año"
-          }
-        }
-      }
-    },
-    "Three ways to save": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tres formas de guardar"
-          }
-        }
-      }
-    },
-    "Tier 0 · Rules": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nivel 0 · Reglas"
-          }
-        }
-      }
-    },
-    "Tier 1 · Apple Intelligence": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nivel 1 · Apple Intelligence"
-          }
-        }
-      }
-    },
-    "Title": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Título"
-          }
-        }
-      }
-    },
-    "Title Case": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tipo Título"
-          }
-        }
-      }
-    },
-    "Titles · fallback-safe": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Títulos · con respaldo"
-          }
-        }
-      }
-    },
-    "Today": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hoy"
-          }
-        }
-      }
-    },
-    "Transform": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Transformar"
-          }
-        }
-      }
-    },
     "Translate to": {
       "localizations": {
         "es": {
@@ -3272,88 +1101,312 @@
         }
       }
     },
-    "Translation unavailable. Install the language pair in Translate settings or enable Apple Intelligence.": {
+    "Copy": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Translation unavailable. Install the language pair in Translate settings or enable Apple Intelligence."
-          }
-        },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Traducción no disponible. Instala el par de idiomas en los ajustes de Traducción o activa Apple Intelligence."
+            "value": "Copiar"
           }
         }
       }
     },
-    "Travel": {
+    "Decode JWT": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Viajes"
+            "value": "Decodificar JWT"
           }
         }
       }
     },
-    "Trimmed": {
+    "Delete": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sin espacios extremos"
+            "value": "Eliminar"
           }
         }
       }
     },
-    "Type": {
+    "Done": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tipo"
+            "value": "Listo"
           }
         }
       }
     },
-    "Types": {
+    "Example Shortcuts gallery": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tipos"
+            "value": "Galería de Atajos de ejemplo"
           }
         }
       }
     },
-    "UPPERCASE": {
+    "Filter by type": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "MAYÚSCULAS"
+            "value": "Filtrar por tipo"
           }
         }
       }
     },
-    "URL-decode": {
+    "From another device": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Decodificar URL"
+            "value": "De otro dispositivo"
           }
         }
       }
     },
-    "URL-encode": {
+    "Gancho never reads your pasteboard in the background.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Codificar URL"
+            "value": "Gancho nunca lee tu portapapeles en segundo plano."
+          }
+        }
+      }
+    },
+    "Gancho never reads your pasteboard in the background. Capture happens only when you act: the save button, the share sheet, or a Shortcut.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho nunca lee tu portapapeles en segundo plano. La captura ocurre solo cuando tú actúas: el botón de guardar, el share sheet o un Atajo."
+          }
+        }
+      }
+    },
+    "Has %@ — not read yet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay %@ — sin leer todavía"
+          }
+        }
+      }
+    },
+    "History": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historial"
+          }
+        }
+      }
+    },
+    "Minify JSON": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minificar JSON"
+          }
+        }
+      }
+    },
+    "Nothing captured yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay capturas."
+          }
+        }
+      }
+    },
+    "Parse URL": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analizar URL"
+          }
+        }
+      }
+    },
+    "Pasteboard is empty": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El portapapeles está vacío"
+          }
+        }
+      }
+    },
+    "Pin": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fijar"
+          }
+        }
+      }
+    },
+    "Pinned": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fijado"
+          }
+        }
+      }
+    },
+    "Pretty-print JSON": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formatear JSON"
+          }
+        }
+      }
+    },
+    "Save Clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar portapapeles"
+          }
+        }
+      }
+    },
+    "Saves the current clipboard into Gancho. iOS shows its standard paste confirmation.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda el portapapeles actual en Gancho. iOS muestra su confirmación de pegado estándar."
+          }
+        }
+      }
+    },
+    "Saved the image to Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guardó la imagen en Gancho."
+          }
+        }
+      }
+    },
+    "Saved to Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guardó en Gancho."
+          }
+        }
+      }
+    },
+    "The clipboard is empty.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El portapapeles está vacío."
+          }
+        }
+      }
+    },
+    "Couldn't open Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir Gancho."
+          }
+        }
+      }
+    },
+    "Save it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guárdalo"
+          }
+        }
+      }
+    },
+    "Saved": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardado"
+          }
+        }
+      }
+    },
+    "Search your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Busca en tu portapapeles"
+          }
+        }
+      }
+    },
+    "Select a clip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selecciona un clip"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configuración"
+          }
+        }
+      }
+    },
+    "Share": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir"
+          }
+        }
+      }
+    },
+    "Shortcuts": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajos"
           }
         }
       }
@@ -3368,182 +1421,12 @@
         }
       }
     },
-    "Unknown app": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "App desconocida"
-          }
-        }
-      }
-    },
-    "Unlimited history, pins, and boards": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Historial, pines y tableros ilimitados"
-          }
-        }
-      }
-    },
     "Unpin": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Desfijar"
-          }
-        }
-      }
-    },
-    "Unpinned.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Desfijado."
-          }
-        }
-      }
-    },
-    "Untitled": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sin título"
-          }
-        }
-      }
-    },
-    "Upgrade to Pro for more boards": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mejora a Pro para más tableros"
-          }
-        }
-      }
-    },
-    "Upgrade to Pro for more snippets": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pasa a Pro para más snippets"
-          }
-        }
-      }
-    },
-    "Used 3 times — save as a snippet?": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lo usaste 3 veces. ¿Guardarlo como snippet?"
-          }
-        }
-      }
-    },
-    "Waiting to sync": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Esperando sincronizar"
-          }
-        }
-      }
-    },
-    "Welcome to Gancho": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Te damos la bienvenida a Gancho"
-          }
-        }
-      }
-    },
-    "What Pro unlocks": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Qué desbloquea Pro"
-          }
-        }
-      }
-    },
-    "When a clip looks like ones you've filed before, gancho suggests the board it probably belongs to — one tap to file it. On-device, never automatic.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cuando un clip se parece a otros que ya archivaste, gancho sugiere el tablero al que probablemente pertenece — un toque para archivarlo. En el dispositivo, nunca automático."
-          }
-        }
-      }
-    },
-    "Yesterday": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ayer"
-          }
-        }
-      }
-    },
-    "Your board is unchanged. Try again.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu tablero no cambió. Inténtalo de nuevo."
-          }
-        }
-      }
-    },
-    "Your clipboard never leaves this iPhone.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu portapapeles nunca sale de este iPhone."
-          }
-        }
-      }
-    },
-    "Your history": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu historial"
-          }
-        }
-      }
-    },
-    "You’re on Gancho Pro": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tienes Gancho Pro"
-          }
-        }
-      }
-    },
-    "You’re on the free plan": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estás en el plan gratis"
           }
         }
       }
@@ -3628,46 +1511,6 @@
         }
       }
     },
-    "iCloud storage is full": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El almacenamiento de iCloud está lleno"
-          }
-        }
-      }
-    },
-    "iCloud sync (coming soon)": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sincronización con iCloud (próximamente)"
-          }
-        }
-      }
-    },
-    "iOS apps can't watch the clipboard in the background — no app can. Capture with the Paste button, the share sheet from any app, or a Shortcut on your Action Button.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Las apps de iOS no pueden vigilar el portapapeles en segundo plano — ninguna puede. Captura con el botón Pegar, el share sheet desde cualquier app o un Atajo en tu Action Button."
-          }
-        }
-      }
-    },
-    "iOS can't watch the clipboard in the background — no app can. Use the Paste button to save what you copied.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iOS no puede vigilar el portapapeles en segundo plano — ninguna app puede. Usa el botón Pegar para guardar lo que copiaste."
-          }
-        }
-      }
-    },
     "image": {
       "localizations": {
         "es": {
@@ -3708,42 +1551,12 @@
         }
       }
     },
-    "lowercase": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "minúsculas"
-          }
-        }
-      }
-    },
-    "not read yet": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "sin leer todavía"
-          }
-        }
-      }
-    },
     "number": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "un número"
-          }
-        }
-      }
-    },
-    "on-device": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "en el dispositivo"
           }
         }
       }
@@ -3824,6 +1637,2193 @@
           "stringUnit": {
             "state": "translated",
             "value": "UUID"
+          }
+        }
+      }
+    },
+    "Intelligence features": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Funciones de inteligencia"
+          }
+        }
+      }
+    },
+    "Sensitive data": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos sensibles"
+          }
+        }
+      }
+    },
+    "Always on": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siempre activa"
+          }
+        }
+      }
+    },
+    "Smart classification": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clasificación inteligente"
+          }
+        }
+      }
+    },
+    "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, Smart Actions, and masking.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un clasificador determinista etiqueta cada clip en menos de 5 ms — JWT, JSON, color, tarjeta, URL… — sin red. Alimenta los previews, las Smart Actions y el enmascarado."
+          }
+        }
+      }
+    },
+    "Smarter titles": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Títulos más inteligentes"
+          }
+        }
+      }
+    },
+    "Apple Intelligence writes a short, specific title on-device, falling back to heuristics on any failure — and never puts a secret in a title.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence escribe un título corto y específico en el dispositivo, con respaldo en heurísticas ante cualquier fallo — y nunca pone un secreto en un título."
+          }
+        }
+      }
+    },
+    "Semantic retrieval": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recuperación semántica"
+          }
+        }
+      }
+    },
+    "Builds a local 512-dim index for Ask your clipboard and board suggestions. Main history search stays exact, fuzzy, and regex.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crea un índice local de 512 dimensiones para Ask your clipboard y sugerencias de boards. La búsqueda principal mantiene los modos exacto, fuzzy y regex."
+          }
+        }
+      }
+    },
+    "Searchable screenshots": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturas buscables"
+          }
+        }
+      }
+    },
+    "On-device OCR reads text out of image clips and adds it to the full-text index, so a screenshot is findable by the words inside it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El OCR en el dispositivo lee el texto de los clips de imagen y lo agrega al índice de texto completo, así una captura se encuentra por las palabras que tiene dentro."
+          }
+        }
+      }
+    },
+    "Rewrite a clip before pasting — summarize, fix grammar, change tone, pull key points, or redact PII. Model-backed rewrites use Apple Intelligence on-device; deterministic redaction needs no model.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reescribe un clip antes de pegarlo — resume, corrige gramática, cambia el tono, saca puntos clave o redacta PII. Las reescrituras con modelo usan Apple Intelligence en el dispositivo; la redacción determinista no necesita modelo."
+          }
+        }
+      }
+    },
+    "Detect & mask secrets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detectar y enmascarar secretos"
+          }
+        }
+      }
+    },
+    "If you copy a key by accident, gancho masks the preview (●●●● + last 4) and auto-expires it after 10 minutes. Deterministic, on-device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si copias una llave por accidente, gancho enmascara el preview (●●●● + últimos 4) y la expira sola a los 10 minutos. Determinista, en el dispositivo."
+          }
+        }
+      }
+    },
+    "Capture": {
+      "extractionState": "stale",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Captura"
+          }
+        }
+      }
+    },
+    "Clip enters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entra el clip"
+          }
+        }
+      }
+    },
+    "Tier 0 · Rules": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nivel 0 · Reglas"
+          }
+        }
+      }
+    },
+    "<5 ms · always on": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "<5 ms · siempre activo"
+          }
+        }
+      }
+    },
+    "Tier 1 · Apple Intelligence": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nivel 1 · Apple Intelligence"
+          }
+        }
+      }
+    },
+    "Titles · fallback-safe": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Títulos · con respaldo"
+          }
+        }
+      }
+    },
+    "Sensitive check": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chequeo de sensibles"
+          }
+        }
+      }
+    },
+    "Mask + expire": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enmascara + expira"
+          }
+        }
+      }
+    },
+    "Indexed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indexado"
+          }
+        }
+      }
+    },
+    "FTS + embeddings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FTS + embeddings"
+          }
+        }
+      }
+    },
+    "AWS keys": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llaves AWS"
+          }
+        }
+      }
+    },
+    "Stripe keys": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llaves Stripe"
+          }
+        }
+      }
+    },
+    "GitHub tokens": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tokens de GitHub"
+          }
+        }
+      }
+    },
+    "Slack tokens": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tokens de Slack"
+          }
+        }
+      }
+    },
+    "PEM private keys": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llaves privadas PEM"
+          }
+        }
+      }
+    },
+    "Credit cards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarjetas de crédito"
+          }
+        }
+      }
+    },
+    "High-entropy passwords": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contraseñas de alta entropía"
+          }
+        }
+      }
+    },
+    "Intelligence": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inteligencia"
+          }
+        }
+      }
+    },
+    "Everything here runs on this iPhone. No clip text is ever sent to a server — gancho has none.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo aquí corre en este iPhone. Ningún texto de clip se envía a un servidor — gancho no tiene."
+          }
+        }
+      }
+    },
+    "Ask gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pregúntale a gancho"
+          }
+        }
+      }
+    },
+    "Answer": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respuesta"
+          }
+        }
+      }
+    },
+    "Sources": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuentes"
+          }
+        }
+      }
+    },
+    "Dismiss": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
+          }
+        }
+      }
+    },
+    "Nothing in your clipboard matches that.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada en tu portapapeles coincide con eso."
+          }
+        }
+      }
+    },
+    "Couldn’t answer that — try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo responder — intenta de nuevo."
+          }
+        }
+      }
+    },
+    "Suggest boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugerir tableros"
+          }
+        }
+      }
+    },
+    "When a clip looks like ones you've filed before, gancho suggests the board it probably belongs to — one tap to file it. On-device, never automatic.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando un clip se parece a otros que ya archivaste, gancho sugiere el tablero al que probablemente pertenece — un toque para archivarlo. En el dispositivo, nunca automático."
+          }
+        }
+      }
+    },
+    "Add to %@?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Agregar a %@?"
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar"
+          }
+        }
+      }
+    },
+    "Redact PII": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar datos personales"
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoy"
+          }
+        }
+      }
+    },
+    "Yesterday": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayer"
+          }
+        }
+      }
+    },
+    "This month": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este mes"
+          }
+        }
+      }
+    },
+    "Last month": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mes pasado"
+          }
+        }
+      }
+    },
+    "This year": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este año"
+          }
+        }
+      }
+    },
+    "Last year": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Año pasado"
+          }
+        }
+      }
+    },
+    "Older": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anteriores"
+          }
+        }
+      }
+    },
+    "Add to board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir a tablero"
+          }
+        }
+      }
+    },
+    "Masked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enmascarado"
+          }
+        }
+      }
+    },
+    "Reveal": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revelar"
+          }
+        }
+      }
+    },
+    "Hide": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar"
+          }
+        }
+      }
+    },
+    "Save as snippet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como snippet"
+          }
+        }
+      }
+    },
+    "Used 3 times — save as a snippet?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo usaste 3 veces. ¿Guardarlo como snippet?"
+          }
+        }
+      }
+    },
+    "Saved as snippet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardado como snippet"
+          }
+        }
+      }
+    },
+    "Upgrade to Pro for more snippets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pasa a Pro para más snippets"
+          }
+        }
+      }
+    },
+    "Smart Actions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acciones inteligentes"
+          }
+        }
+      }
+    },
+    "on-device": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en el dispositivo"
+          }
+        }
+      }
+    },
+    "not read yet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sin leer todavía"
+          }
+        }
+      }
+    },
+    "Clear filters": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limpiar filtros"
+          }
+        }
+      }
+    },
+    "No clips in this filter.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay clips en este filtro."
+          }
+        }
+      }
+    },
+    "Everything you copy, saved and searchable": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo lo que copias, guardado y buscable"
+          }
+        }
+      }
+    },
+    "Gancho keeps a private history of what you copy — all on this device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho guarda un historial privado de lo que copias — todo en este dispositivo."
+          }
+        }
+      }
+    },
+    "Three ways to save": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tres formas de guardar"
+          }
+        }
+      }
+    },
+    "Tap to save": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca para guardar"
+          }
+        }
+      }
+    },
+    "iOS can't watch the clipboard in the background — no app can. Use the Paste button to save what you copied.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS no puede vigilar el portapapeles en segundo plano — ninguna app puede. Usa el botón Pegar para guardar lo que copiaste."
+          }
+        }
+      }
+    },
+    "Share from any app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparte desde cualquier app"
+          }
+        }
+      }
+    },
+    "Send text, a link, or an image to Gancho from the share sheet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envía texto, un enlace o una imagen a Gancho desde la hoja de compartir."
+          }
+        }
+      }
+    },
+    "Shortcuts & Action Button": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atajos y Botón de Acción"
+          }
+        }
+      }
+    },
+    "Save your clipboard with a Shortcut — even from the Action Button.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda tu portapapeles con un Atajo — incluso desde el Botón de Acción."
+          }
+        }
+      }
+    },
+    "Nothing leaves this device unless you turn on iCloud sync.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada sale de este dispositivo a menos que actives la sincronización con iCloud."
+          }
+        }
+      }
+    },
+    "Welcome to Gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te damos la bienvenida a Gancho"
+          }
+        }
+      }
+    },
+    "Get started": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empezar"
+          }
+        }
+      }
+    },
+    "Open full screen to zoom": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir a pantalla completa para hacer zoom"
+          }
+        }
+      }
+    },
+    "No clips match “%@”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ningún clip coincide con “%@”."
+          }
+        }
+      }
+    },
+    "Clip type": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipo de clip"
+          }
+        }
+      }
+    },
+    "Any": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cualquiera"
+          }
+        }
+      }
+    },
+    "Type": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipo"
+          }
+        }
+      }
+    },
+    "Maximum results": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máximo de resultados"
+          }
+        }
+      }
+    },
+    "Text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto"
+          }
+        }
+      }
+    },
+    "Link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enlace"
+          }
+        }
+      }
+    },
+    "Code": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código"
+          }
+        }
+      }
+    },
+    "Color": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color"
+          }
+        }
+      }
+    },
+    "Image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagen"
+          }
+        }
+      }
+    },
+    "Secret": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secreto"
+          }
+        }
+      }
+    },
+    "Ask Your Clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pregúntale a tu portapapeles"
+          }
+        }
+      }
+    },
+    "Answers a question grounded only in your clip history, on-device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Responde una pregunta basándose solo en tu historial de clips, en el dispositivo."
+          }
+        }
+      }
+    },
+    "Ask needs Apple Intelligence on this device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preguntar necesita Apple Intelligence en este dispositivo."
+          }
+        }
+      }
+    },
+    "Question": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pregunta"
+          }
+        }
+      }
+    },
+    "Ask Clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preguntar al portapapeles"
+          }
+        }
+      }
+    },
+    "History isn't being saved": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El historial no se está guardando"
+          }
+        }
+      }
+    },
+    "Gancho couldn't open its secure storage. Captures will vanish when you quit the app.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho no pudo abrir su almacenamiento seguro. Las capturas se perderán al cerrar la app."
+          }
+        }
+      }
+    },
+    "Couldn’t load this clip — try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar este clip — inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Retry": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reintentar"
+          }
+        }
+      }
+    },
+    "No clips here": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay clips aquí"
+          }
+        }
+      }
+    },
+    "Copy or share something to Gancho to see it here.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia o comparte algo a Gancho para verlo aquí."
+          }
+        }
+      }
+    },
+    "Ask a question about your clips first.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primero hazle una pregunta a tus clips."
+          }
+        }
+      }
+    },
+    "Your history": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu historial"
+          }
+        }
+      }
+    },
+    "Back up history…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respaldar el historial…"
+          }
+        }
+      }
+    },
+    "Restore from backup…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar desde un respaldo…"
+          }
+        }
+      }
+    },
+    "Backups are .ganchoarchive files on your device — never uploaded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los respaldos son archivos .ganchoarchive en tu dispositivo — nunca se suben."
+          }
+        }
+      }
+    },
+    "Couldn’t save the backup.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el respaldo."
+          }
+        }
+      }
+    },
+    "That backup couldn’t be restored.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese respaldo no se pudo restaurar."
+          }
+        }
+      }
+    },
+    "Couldn’t prepare the backup.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo preparar el respaldo."
+          }
+        }
+      }
+    },
+    "Restored %lld clips (%lld already here).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restauré %lld clips (%lld ya estaban)."
+          }
+        }
+      }
+    },
+    "Gancho Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho Pro"
+          }
+        }
+      }
+    },
+    "You’re on Gancho Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tienes Gancho Pro"
+          }
+        }
+      }
+    },
+    "You’re on the free plan": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estás en el plan gratis"
+          }
+        }
+      }
+    },
+    "What Pro unlocks": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qué desbloquea Pro"
+          }
+        }
+      }
+    },
+    "See Gancho Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver Gancho Pro"
+          }
+        }
+      }
+    },
+    "Restore purchase": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar compra"
+          }
+        }
+      }
+    },
+    "Gancho Pro is a one-time purchase, available at gancho.app. Free stays free, forever.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho Pro es una compra única, disponible en gancho.app. Lo gratis sigue gratis, para siempre."
+          }
+        }
+      }
+    },
+    "No purchase to restore on this Apple ID. Pro is sold at gancho.app.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay compras que restaurar en este Apple ID. Pro se vende en gancho.app."
+          }
+        }
+      }
+    },
+    "Unlimited history, pins, and boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historial, pines y tableros ilimitados"
+          }
+        }
+      }
+    },
+    "On-device AI titles and search": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Títulos y búsqueda con IA en el dispositivo"
+          }
+        }
+      }
+    },
+    "iCloud sync (coming soon)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronización con iCloud (próximamente)"
+          }
+        }
+      }
+    },
+    "Pro restored — enjoy.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro restaurado. ¡Disfrútalo!"
+          }
+        }
+      }
+    },
+    "Language": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idioma"
+          }
+        }
+      }
+    },
+    "Help improve Gancho?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Ayudas a mejorar Gancho?"
+          }
+        }
+      }
+    },
+    "Allow anonymous diagnostics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permitir diagnósticos anónimos"
+          }
+        }
+      }
+    },
+    "Keep disabled": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantener desactivados"
+          }
+        }
+      }
+    },
+    "Gancho can share anonymous feature counts and broad performance buckets. It never sends clipboard content, titles, searches, or source-app names.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho puede compartir conteos anónimos de funciones y rangos generales de rendimiento. Nunca envía contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen."
+          }
+        }
+      }
+    },
+    "Share anonymous usage diagnostics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir diagnósticos de uso anónimos"
+          }
+        }
+      }
+    },
+    "Optional diagnostics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnósticos opcionales"
+          }
+        }
+      }
+    },
+    "Anonymous feature counts and broad performance buckets are off until you allow them. Clipboard content, titles, searches, and source-app names are never sent.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los conteos anónimos de funciones y los rangos generales de rendimiento están desactivados hasta que los autorices. Nunca se envían contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen."
+          }
+        }
+      }
+    },
+    "Optional diagnostics contain anonymous counts and broad buckets only.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los diagnósticos opcionales solo contienen conteos anónimos y rangos generales."
+          }
+        }
+      }
+    },
+    "Clipboard-content analytics requests": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solicitudes analíticas con contenido del portapapeles"
+          }
+        }
+      }
+    },
+    "Blue": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Azul"
+          }
+        }
+      }
+    },
+    "Orange": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naranja"
+          }
+        }
+      }
+    },
+    "Teal": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verde azulado"
+          }
+        }
+      }
+    },
+    "Pink": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rosa"
+          }
+        }
+      }
+    },
+    "Purple": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Morado"
+          }
+        }
+      }
+    },
+    "Brown": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marrón"
+          }
+        }
+      }
+    },
+    "Briefcase": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maletín"
+          }
+        }
+      }
+    },
+    "Books": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libros"
+          }
+        }
+      }
+    },
+    "Art": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arte"
+          }
+        }
+      }
+    },
+    "Travel": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Viajes"
+          }
+        }
+      }
+    },
+    "Home": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hogar"
+          }
+        }
+      }
+    },
+    "Idea": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idea"
+          }
+        }
+      }
+    },
+    "Heart": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corazón"
+          }
+        }
+      }
+    },
+    "Star": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estrella"
+          }
+        }
+      }
+    },
+    "Rocket": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cohete"
+          }
+        }
+      }
+    },
+    "Shopping": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compras"
+          }
+        }
+      }
+    },
+    "Board appearance": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apariencia del tablero"
+          }
+        }
+      }
+    },
+    "Couldn’t save changes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron guardar los cambios"
+          }
+        }
+      }
+    },
+    "Your board is unchanged. Try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu tablero no cambió. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Preview": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista previa"
+          }
+        }
+      }
+    },
+    "Automatic": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automático"
+          }
+        }
+      }
+    },
+    "Automatic stays stable for this board. Custom colors sync across your devices.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automático se mantiene estable para este tablero. Los colores personalizados se sincronizan entre tus dispositivos."
+          }
+        }
+      }
+    },
+    "Emoji": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emoji"
+          }
+        }
+      }
+    },
+    "Emoji adds a second visual cue and never replaces the board name.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El emoji agrega una segunda señal visual y nunca reemplaza el nombre del tablero."
+          }
+        }
+      }
+    },
+    "None": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ninguno"
+          }
+        }
+      }
+    },
+    "Selected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seleccionado"
+          }
+        }
+      }
+    },
+    "Not selected": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No seleccionado"
+          }
+        }
+      }
+    },
+    "Customize board…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personalizar tablero…"
+          }
+        }
+      }
+    },
+    "Customize board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personalizar tablero"
+          }
+        }
+      }
+    },
+    "Appearance": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apariencia"
+          }
+        }
+      }
+    },
+    "Title": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Título"
+          }
+        }
+      }
+    },
+    "Untitled": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin título"
+          }
+        }
+      }
+    },
+    "Edit": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar"
+          }
+        }
+      }
+    },
+    "Edit title": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar título"
+          }
+        }
+      }
+    },
+    "Couldn’t save the title.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el título."
+          }
+        }
+      }
+    },
+    "Content": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contenido"
+          }
+        }
+      }
+    },
+    "Edit content": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar contenido"
+          }
+        }
+      }
+    },
+    "Content can’t be empty.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El contenido no puede estar vacío."
+          }
+        }
+      }
+    },
+    "Couldn’t save the content.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el contenido."
+          }
+        }
+      }
+    },
+    "Show snippets and pins in Spotlight": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar snippets y pins en Spotlight"
+          }
+        }
+      }
+    },
+    "Only snippets and pinned clips reach the system index — never your raw history, secrets, or expiring clips. Turning this off removes them from Spotlight immediately.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo los snippets y los clips fijados llegan al índice del sistema — nunca tu historial completo, secretos ni clips que expiran. Al desactivarlo, se eliminan de Spotlight de inmediato."
+          }
+        }
+      }
+    },
+    "Session counts reset when Gancho quits. Turning diagnostics off also deletes the local activation receipt and terminates the analytics transport.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los conteos de la sesión se restablecen cuando Gancho se cierra. Desactivar los diagnósticos también elimina el recibo local de activación y finaliza el transporte de analíticas."
+          }
+        }
+      }
+    },
+    "Successful reuses this session": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reutilizaciones exitosas en esta sesión"
+          }
+        }
+      }
+    },
+    "Captures skipped": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturas omitidas"
+          }
+        }
+      }
+    },
+    "Clear activity receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar recibo de actividad"
+          }
+        }
+      }
+    },
+    "Clear activity receipt?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Borrar el recibo de actividad?"
+          }
+        }
+      }
+    },
+    "Clear receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar recibo"
+          }
+        }
+      }
+    },
+    "Copies captured": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copias capturadas"
+          }
+        }
+      }
+    },
+    "Items reused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elementos reutilizados"
+          }
+        }
+      }
+    },
+    "On this iPhone now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora en este iPhone"
+          }
+        }
+      }
+    },
+    "Private activity receipt": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recibo privado de actividad"
+          }
+        }
+      }
+    },
+    "Protected copies skipped": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copias protegidas omitidas"
+          }
+        }
+      }
+    },
+    "Sensitive items self-expired": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elementos sensibles autoexpirados"
+          }
+        }
+      }
+    },
+    "Stored only on this iPhone for a rolling 13 months. Protected copies are included in skipped captures. Per-app totals never sync, export, or enter diagnostics.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Almacenado solo en este iPhone durante un periodo móvil de 13 meses. Las copias protegidas están incluidas en las capturas omitidas. Los totales por app nunca se sincronizan, exportan ni incluyen en los diagnósticos."
+          }
+        }
+      }
+    },
+    "This erases local activity totals. Your clips and settings stay unchanged.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esto borra los totales de actividad local. Tus clips y ajustes no cambian."
+          }
+        }
+      }
+    },
+    "Activity by app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actividad por app"
+          }
+        }
+      }
+    },
+    "No per-app activity recorded.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay actividad por app registrada."
+          }
+        }
+      }
+    },
+    "Unknown app": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App desconocida"
+          }
+        }
+      }
+    },
+    "%lld captures": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld capture"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld captures"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld captura"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld capturas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld reuses": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld reuse"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld reuses"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld reutilización"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld reutilizaciones"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Sensed, not read": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detectado, sin leer"
+          }
+        }
+      }
+    },
+    "Link on your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enlace en tu portapapeles"
+          }
+        }
+      }
+    },
+    "Search text on your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto de búsqueda en tu portapapeles"
+          }
+        }
+      }
+    },
+    "Number on your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Número en tu portapapeles"
+          }
+        }
+      }
+    },
+    "Something on your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algo en tu portapapeles"
+          }
+        }
+      }
+    },
+    "How Gancho senses your clipboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cómo Gancho detecta tu portapapeles"
+          }
+        }
+      }
+    },
+    "Gancho never reads your clipboard on its own. It only sees the type until you tap Paste.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho nunca lee tu portapapeles por su cuenta. Solo ve el tipo hasta que tocas Pegar."
+          }
+        }
+      }
+    },
+    "Paste into Gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar en Gancho"
+          }
+        }
+      }
+    },
+    "iOS apps can't watch the clipboard in the background — no app can. Capture with the Paste button, the share sheet from any app, or a Shortcut on your Action Button.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las apps de iOS no pueden vigilar el portapapeles en segundo plano — ninguna puede. Captura con el botón Pegar, el share sheet desde cualquier app o un Atajo en tu Action Button."
+          }
+        }
+      }
+    },
+    "Limit reached": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Límite alcanzado"
+          }
+        }
+      }
+    },
+    "Error": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error"
+          }
+        }
+      }
+    },
+    "This clipboard item cannot be saved for privacy reasons.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This clipboard item cannot be saved for privacy reasons."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este elemento del portapapeles no se puede guardar por privacidad."
+          }
+        }
+      }
+    },
+    "Couldn’t read the clipboard. Try pasting again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t read the clipboard. Try pasting again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer el portapapeles. Intenta pegar de nuevo."
+          }
+        }
+      }
+    },
+    "Couldn’t save the clipboard. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t save the clipboard. Try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el portapapeles. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Already in your history.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already in your history."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya está en tu historial."
+          }
+        }
+      }
+    },
+    "Shared items could not be saved and were kept for later.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron guardar los elementos compartidos y se conservaron para después."
+          }
+        }
+      }
+    },
+    "Install a supported language pair or use an available on-device model.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install a supported language pair or use an available on-device model."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instala un par de idiomas compatible o usa un modelo local disponible."
+          }
+        }
+      }
+    },
+    "Translation unavailable. Install the language pair in Translate settings or enable Apple Intelligence.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation unavailable. Install the language pair in Translate settings or enable Apple Intelligence."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducción no disponible. Instala el par de idiomas en los ajustes de Traducción o activa Apple Intelligence."
           }
         }
       }
