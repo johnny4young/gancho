@@ -91,6 +91,7 @@ final class AppModel {
     /// and sent readers looking for GRDB APIs that are not on it. The concrete
     /// handle is the next property, and it says so.
     let fullStore: (any FullClipStore)?
+    var textReuseReader: (any ClipReading)? { fullStore }
     /// Narrow concrete handle kept ONLY to construct in-module engines
     /// (`RetentionEngine`, `TierEnforcement`, `GanchoArchive`), to feed
     /// `SyncEngineFactory`, and to reach the MCP access log / sync-internal

@@ -9017,6 +9017,22 @@
           }
         }
       }
+    },
+    "Copy connection command": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy connection command"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar comando de conexión"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

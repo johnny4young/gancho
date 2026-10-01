@@ -7,7 +7,14 @@ final class SelectedContextUITests: XCTestCase {
     @MainActor func testSpanishLight() throws { try verify("es", "light") }
     @MainActor func testSpanishDark() throws { try verify("es", "dark") }
 
-    @MainActor private func verify(_ language: String, _ appearance: String) throws {
+    @MainActor
+    func testExplicitGrantShowsMarkedCopyCommandWithoutSavingClips() throws {
+        try verify("en", "light", asGrant: true)
+    }
+
+    @MainActor private func verify(
+        _ language: String, _ appearance: String, asGrant: Bool = false
+    ) throws {
         continueAfterFailure = false
         let app = GanchoUITestApplication()
         app.launchArguments = [
@@ -27,10 +34,12 @@ final class SelectedContextUITests: XCTestCase {
         XCTAssertTrue(rows.element(boundBy: 2).waitForExistence(timeout: 15))
         let count = rows.count
         try SynthesizedInput.requireForeground(app)
+        app.typeKey(.tab, modifierFlags: [])
         rows.element(boundBy: 0).click()
         XCUIElement.perform(withKeyModifiers: .command) { rows.element(boundBy: 2).click() }
         let action = app.buttons["selection-ai-context-button"].firstMatch
-        XCTAssertTrue(action.waitForExistence(timeout: 5))
+        XCTAssertTrue(action.waitForHittable(timeout: 5))
+        action.hover()
         action.click()
         let preview = app.descendants(matching: .any)["ai-context-preview"].firstMatch
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
@@ -46,6 +55,10 @@ final class SelectedContextUITests: XCTestCase {
         attachment.name = "Selected context review — synthetic clips — \(language) — \(appearance)"
         attachment.lifetime = .keepAlways
         add(attachment)
+        if asGrant {
+            try verifyGrant(in: app, preview: preview, originalCount: count)
+            return
+        }
         app.buttons["ai-context-cancel-button"].firstMatch.click()
         XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
         XCTAssertEqual(rows.count, count)
@@ -55,4 +68,24 @@ final class SelectedContextUITests: XCTestCase {
         XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
         XCTAssertEqual(rows.count, count)
     }
+    @MainActor
+    private func verifyGrant(
+        in app: GanchoUITestApplication, preview: XCUIElement, originalCount: Int
+    ) throws {
+        let name = app.textFields["ai-context-client-field"].firstMatch
+        try typeTextReliably("Synthetic read-only client", into: name, in: app)
+        let authorize = app.buttons["ai-context-grant-button"].firstMatch
+        XCTAssertTrue(authorize.isEnabled)
+        authorize.click()
+        let command = app.buttons["ai-context-copy-command-button"].firstMatch
+        XCTAssertTrue(command.waitForHittable(timeout: 5))
+        XCTAssertTrue(command.isEnabled)
+        command.click()
+        app.buttons["ai-context-cancel-button"].firstMatch.click()
+        XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(
+            app.descendants(matching: .any).matching(identifier: "clip-row").count,
+            originalCount)
+    }
+
 }
