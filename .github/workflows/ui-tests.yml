@@ -100,6 +100,13 @@ jobs:
             ENABLE_HARDENED_RUNTIME=NO \
             2>&1 | tee build/macos-ui.log
 
+      - name: Collect content-free translation phases
+        if: always()
+        run: |
+          /usr/bin/log show --style json --last 2h \
+            --predicate 'subsystem == "com.johnny4young.gancho.translation-diagnostic"' \
+            > build/translation-phases.json
+
       - name: Collect macOS UI evidence
         if: always()
         env:
@@ -129,6 +136,7 @@ jobs:
           path: |
             build/macos-ui.xcresult
             build/macos-ui.log
+            build/translation-phases.json
             build/macos-ui-evidence
           if-no-files-found: warn
           retention-days: 14

@@ -1,6 +1,7 @@
 import Foundation
 import GanchoAI
 import GanchoDesign
+import OSLog
 import SwiftUI
 
 extension ClipPeek {
@@ -120,14 +121,11 @@ extension ClipPeek {
                 arguments.indices.contains(index + 1),
                 let nonce = UUID(uuidString: arguments[index + 1])
             else { return }
-            let file = URL(fileURLWithPath: "/tmp/gancho-translation-\(nonce.uuidString).trace")
-            guard let handle = try? FileHandle(forWritingTo: file) else { return }
-            defer { try? handle.close() }
-            do {
-                try handle.seekToEnd()
-                let line = "\(ProcessInfo.processInfo.systemUptime) \(phase)\n"
-                try handle.write(contentsOf: Data(line.utf8))
-            } catch { return }
+            Logger(
+                subsystem: "com.johnny4young.gancho.translation-diagnostic", category: "lifecycle"
+            ).notice(
+                "request \(nonce.uuidString, privacy: .public) uptime \(ProcessInfo.processInfo.systemUptime, privacy: .public) phase \(phase, privacy: .public)"
+            )
         #endif
     }
 

@@ -41,7 +41,7 @@ final class TranslationCapabilityUITests: XCTestCase {
             "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.translation.\(UUID())",
             "-ui-test-installed-translation", "-ui-test-paste-sink", "copy-only"
         ]
-        let trace = try installDiagnosticTrace(on: app)
+        let nonce = configureDiagnostic(on: app)
         app.launchArguments += extraArguments
         app.launch()
         defer { app.terminate() }
@@ -72,7 +72,7 @@ final class TranslationCapabilityUITests: XCTestCase {
         let result = app.descendants(matching: .any).matching(
             identifier: "intelligence-result-text"
         ).firstMatch
-        let found = result.waitForExistence(timeout: 5)
+        let found = diagnosticWait(for: result, nonce: nonce)
         let panel = app.dialogs["history-panel"].firstMatch
         if !found, panel.exists {
             let failure = XCTAttachment(screenshot: panel.screenshot())
@@ -80,7 +80,6 @@ final class TranslationCapabilityUITests: XCTestCase {
             failure.lifetime = .keepAlways
             add(failure)
         }
-        attachDiagnosticTrace(trace)
         XCTAssertTrue(found)
         XCTAssertTrue(
             result.label.contains("Traducción sintética")
@@ -92,24 +91,22 @@ final class TranslationCapabilityUITests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
     }
+
     @MainActor
-    private func installDiagnosticTrace(on app: XCUIApplication) throws -> URL {
-        let nonce = UUID()
-        let file = URL(fileURLWithPath: "/tmp/gancho-translation-\(nonce.uuidString).trace")
-        try Data().write(to: file, options: .atomic)
-        app.launchArguments += ["-translation-diagnostic-nonce", nonce.uuidString]
-        return file
+    private func configureDiagnostic(on app: XCUIApplication) -> String {
+        let nonce = UUID().uuidString
+        app.launchArguments += ["-translation-diagnostic-nonce", nonce]
+        print("Translation diagnostic request: \(nonce)")
+        return nonce
     }
 
     @MainActor
-    private func attachDiagnosticTrace(_ file: URL) {
-        defer { try? FileManager.default.removeItem(at: file) }
-        guard let phases = try? String(contentsOf: file, encoding: .utf8) else { return }
-        print("Translation lifecycle diagnostic:\n\(phases)")
-        let attachment = XCTAttachment(string: phases)
-        attachment.name = "Translation lifecycle phases — no content"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+    private func diagnosticWait(for result: XCUIElement, nonce: String) -> Bool {
+        let waitStarted = ProcessInfo.processInfo.systemUptime
+        let found = result.waitForExistence(timeout: 5)
+        print(
+            "Translation diagnostic request \(nonce) wait \(waitStarted) to \(ProcessInfo.processInfo.systemUptime) found \(found)"
+        )
+        return found
     }
-
 }
