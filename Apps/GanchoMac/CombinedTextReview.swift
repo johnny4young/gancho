@@ -39,30 +39,7 @@ struct CombinedTextReview: View {
             Text("Up to 100 clips and 1 MiB. Nothing is saved or pasted automatically.").font(
                 .caption)
             if loading { ProgressView() }
-            List {
-                ForEach(Array(parts.enumerated()), id: \.element.id) { index, part in
-                    HStack {
-                        Text("Clip \(index + 1)").monospacedDigit()
-                        if case .text(let text) = part.content {
-                            Text(verbatim: String(text.prefix(80))).lineLimit(1).foregroundStyle(
-                                .secondary)
-                        } else {
-                            Text(status(part)).lineLimit(1).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button("Move up", systemImage: "arrow.up") {
-                            parts.swapAt(index, index - 1)
-                        }
-                        .labelStyle(.iconOnly).disabled(index == 0)
-                        Button("Move down", systemImage: "arrow.down") {
-                            parts.swapAt(index, index + 1)
-                        }
-                        .labelStyle(.iconOnly).disabled(index + 1 == parts.count)
-                        Button("Remove", systemImage: "minus.circle") { parts.remove(at: index) }
-                            .labelStyle(.iconOnly)
-                    }
-                }
-            }.frame(height: 140).disabled(copyTask != nil)
+            TextSelectionReviewList(parts: $parts, disabled: copyTask != nil)
             Picker("Separator", selection: $separatorChoice) {
                 Text("New line").tag(0)
                 Text("Blank line").tag(1)
@@ -125,16 +102,6 @@ struct CombinedTextReview: View {
         copyTask?.cancel()
         copyTask = nil
         dismiss()
-    }
-
-    private func status(_ part: CombinedTextPart) -> LocalizedStringKey {
-        switch part.content {
-        case .text: "Text ready"
-        case .incompatible: "Not a text clip"
-        case .protected: "Protected clip"
-        case .unavailable: "Clip unavailable"
-        case .tooLarge: "Text exceeds the size limit"
-        }
     }
 
     private func load() async {

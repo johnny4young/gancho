@@ -7,6 +7,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Prepare explicitly selected text as reviewed, bounded Markdown, with optional selected-ID, read-only MCP access expiring after one hour.
+
 ### Fixed
 
 - Align post-release documentation, the bilingual website, the Sparkle feed
