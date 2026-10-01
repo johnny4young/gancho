@@ -11,8 +11,8 @@ struct TextSelectionReviewList: View {
             ForEach(Array(parts.enumerated()), id: \.element.id) { index, part in
                 HStack {
                     Text("Clip \(index + 1)").monospacedDigit()
-                    if case .text(let text) = part.content {
-                        Text(verbatim: String(text.prefix(80))).lineLimit(1).foregroundStyle(
+                    if let preview = part.preview {
+                        Text(verbatim: preview).lineLimit(1).foregroundStyle(
                             .secondary)
                     } else {
                         Text(status(part)).lineLimit(1).foregroundStyle(.secondary)

@@ -10,6 +10,16 @@ struct SelectedContextTests {
         CombinedTextPart(id: UUID(), content: .text(text))
     }
 
+    @Test func selectionPreviewBoundsCombiningScalarsWithoutChangingDelivery() throws {
+        let text = "a" + String(repeating: "\u{0301}", count: 20_000)
+        let excerpt = part(text)
+        #expect(text.count == 1)
+        #expect(excerpt.preview?.unicodeScalars.count == 80)
+        #expect(excerpt.content == .text(text))
+        #expect(try SelectedContextFormatter.format([excerpt]).markdown.contains(text))
+        #expect(CombinedTextPart(id: UUID(), content: .protected).preview == nil)
+    }
+
     @Test func visibleOrderAndUnicode() throws {
         let first = part("Hola niño\n世界")
         let second = part("e\u{301}\r\nnext")
