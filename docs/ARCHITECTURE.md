@@ -530,7 +530,13 @@ The stored-vector search and in-memory reference index share a package-private
 bounded top-K selector. It retains at most K candidates and uses O(log K)
 replacement rather than sorting the full corpus. The reference index preserves
 input order for equal scores; scoped storage retrieval breaks ties by clip UUID
-and revalidates metadata after candidate selection. The in-memory index rejects zero, non-finite, and overflowing
-norms before mutation; a rejected insert cannot contaminate subsequent queries.
+and revalidates metadata after candidate selection. The in-memory index rejects
+zero, non-finite, and overflowing norms before mutation; a rejected insert cannot contaminate subsequent queries.
 The standalone index benchmark exercises ranking mechanics, not end-to-end
 model quality or UI latency. Storage retrieval has its own scale harness.
+
+Snippet draft edits mark changed shared title/body fields for upload in the same
+transaction as the edit. Keyword-only changes remain local and never clear an
+already-pending upload or advance the shared conflict timestamp. This prevents
+a local keyword edit from masking a newer remote title/body edit. Recovery
+creates a fresh identity rather than resurrecting a deleted row.
