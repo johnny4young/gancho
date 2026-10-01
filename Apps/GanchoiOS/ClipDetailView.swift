@@ -74,18 +74,24 @@ private struct ZoomableImageView: View {
 
 /// Per-kind detail: full content, dev actions, one-tap copy with haptics.
 struct ClipDetailView: View {
-    @Environment(IOSAppModel.self) private var model
+    @Environment(IOSAppModel.self) var model
     @Environment(\.dismiss) private var dismiss
     let item: ClipItem
-    @State private var fullText = ""
+    @State var fullText = ""
     @State private var hasLoadedFullText = false
     /// Non-nil only when the durable payload is plain text and policy permits
     /// editing. Binary/rich/file/sensitive rows remain read-only.
     @State private var editableText: String?
     @State private var actionResult: String?
     @State private var boardIDs: Set<UUID> = []
-    @State private var smartResult: String?
-    @State private var isThinking = false
+    @State var smartResult: String?
+    @Environment(\.scenePhase) private var scenePhase
+    @State var translationTargets: [TranslationDestination] = []
+    @State var translationFailed = false
+    @State var translationRefresh = 0
+    @State var translationTask: Task<Void, Never>?
+    @State var translationRequestID = UUID()
+    @State var isThinking = false
     /// Sensitive clips stay masked until the user taps Reveal (the design's
     /// secret peek); never auto-revealed.
     @State private var revealed = false
@@ -113,8 +119,8 @@ struct ClipDetailView: View {
     /// Smart Paste fits text clips only and never a masked secret. Model-backed
     /// rewrites need Apple Intelligence, but deterministic PII redaction remains
     /// available whenever the user kept the Smart Paste toggle on.
-    private var canSmartPaste: Bool {
-        model.smartPasteAvailable && !requiresMasking && isTextLike
+    var canSmartPaste: Bool {
+        model.smartPasteAvailable && hasLoadedFullText && !requiresMasking && isTextLike
     }
 
     /// The boards this clip currently belongs to — shown as chips in the peek.
@@ -212,6 +218,18 @@ struct ClipDetailView: View {
             if !open {
                 Task { boardIDs = await model.boardMembership(for: item) }
             }
+        }
+        .task(id: translationAvailabilityRequest) { await refreshTranslationTargets() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { translationRefresh += 1 }
+        }
+        .onDisappear { translationTask?.cancel() }
+        .onChange(of: fullText) { _, _ in
+            translationTargets = []
+            translationTask?.cancel()
+            translationRequestID = UUID()
+            isThinking = false
+            translationFailed = false
         }
         .task(id: revealed) {
             let store = model.store
@@ -459,14 +477,18 @@ struct ClipDetailView: View {
                                     systemImage: action.symbolName)
                             }
                             .disabled(isThinking)
+                            .accessibilityIdentifier("smart-paste-\(action.id.lowercased())-action")
                         }
                     }
-                    if model.smartPasteModelAvailable {
+                    if !translationTargets.isEmpty {
                         Menu {
-                            ForEach(Self.translateLanguageCodes, id: \.self) { code in
+                            ForEach(translationTargets) { destination in
+                                let code = destination.code
                                 Button(LanguageName.localized(code: code)) {
                                     runTranslate(to: Locale.Language(identifier: code))
                                 }
+                                .disabled(!destination.isAvailable)
+                                .accessibilityIdentifier("translation-target-\(code)")
                             }
                         } label: {
                             Label("Translate to", systemImage: "globe")
@@ -475,10 +497,16 @@ struct ClipDetailView: View {
                         .accessibilityIdentifier("smart-paste-menu")
                     }
                 }
+                if canSmartPaste, !translationTargets.contains(where: { $0.isAvailable }) {
+                    Text("Install a supported language pair or use an available on-device model.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if translationFailed { translationUnavailableMessage }
                 if isThinking {
                     Label("Thinking…", systemImage: "sparkles").foregroundStyle(.secondary)
                 } else if let smartResult, !smartResult.isEmpty {
                     Text(smartResult).font(.body).textSelection(.enabled)
+                        .accessibilityIdentifier("intelligence-result-text")
                     Button("Copy result", systemImage: "doc.on.doc") {
                         UIPasteboard.general.string = smartResult
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -495,26 +523,4 @@ struct ClipDetailView: View {
         }
     }
 
-    private static let translateLanguageCodes = [
-        "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh"
-    ]
-    private func runSmartPaste(_ action: SmartPasteAction) {
-        smartResult = nil
-        isThinking = true
-        Task {
-            let result = await model.smartPaste(fullText, action: action)
-            isThinking = false
-            smartResult = result ?? String(localized: "Couldn’t run that — try again.")
-        }
-    }
-
-    private func runTranslate(to target: Locale.Language) {
-        smartResult = nil
-        isThinking = true
-        Task {
-            let result = await model.smartTranslate(fullText, to: target)
-            isThinking = false
-            smartResult = result ?? String(localized: "Couldn’t run that — try again.")
-        }
-    }
 }

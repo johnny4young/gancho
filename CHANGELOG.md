@@ -11,6 +11,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Preserve modified snippet drafts when their original is removed; recover them
   explicitly as a new classified snippet or discard them without restoring it.
+||||||| 310fcd3
+- Show installed native translation destinations independently of Apple Intelligence, with an unavailable-engine message instead of an empty result.
 
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.9.1 DMG.

@@ -27,12 +27,18 @@ struct ClipPeek: View {
     /// Shared with the list: the peek owns the keyboard when this equals `.peek`
     /// (entered with → from the list, left with ←).
     var focus: FocusState<PanelFocus?>.Binding
-    @Environment(AppModel.self) private var model
+    @Environment(AppModel.self) var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var actionResult: String?
+    @State var actionResult: String?
     @State private var boardIDs: Set<UUID> = []
     /// Smart Paste can run the on-device model — show a spinner while it thinks.
-    @State private var isThinking = false
+    @Environment(\.scenePhase) private var scenePhase
+    @State var translationTargets: [TranslationDestination] = []
+    @State var translationFailed = false
+    @State var translationRefresh = 0
+    @State var translationTask: Task<Void, Never>?
+    @State var translationRequestID = UUID()
+    @State var isThinking = false
     /// The board auto-board thinks this clip belongs to (a suggestion, never
     /// auto-filed); nil until computed or once accepted/dismissed.
     @State private var suggestedBoard: Pinboard?
@@ -48,7 +54,7 @@ struct ClipPeek: View {
     @FocusState private var isTitleFieldFocused: Bool
     /// The current durable body. The text editor changes this only after Save;
     /// transforms and Smart Paste therefore use the just-saved value.
-    @State private var presentedText: String
+    @State var presentedText: String
     /// While the multiline editor owns the keyboard, parent navigation must
     /// not intercept Return, arrows, or Escape.
     @State private var isEditingText = false
@@ -122,15 +128,14 @@ struct ClipPeek: View {
                             }
                             insightStrip
                             if canTransform || canSmartPaste {
-                                HStack(spacing: GanchoTokens.Spacing.xxs) {
-                                    if canTransform {
-                                        transformsMenu
-                                    }
-                                    if canSmartPaste {
-                                        smartPasteMenu
+                                ViewThatFits(in: .horizontal) {
+                                    HStack(spacing: GanchoTokens.Spacing.xxs) { transformButtons }
+                                    VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
+                                        transformButtons
                                     }
                                 }
                             }
+                            if translationFailed { translationUnavailableMessage }
                             if isThinking {
                                 Label("Thinking…", systemImage: "sparkles")
                                     .panelFont(.caption)
@@ -250,6 +255,18 @@ struct ClipPeek: View {
             isEditingInline = editing
         }
         .onDisappear { isEditingInline = false }
+        .task(id: translationAvailabilityRequest) { await refreshTranslationTargets() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { translationRefresh += 1 }
+        }
+        .onDisappear { translationTask?.cancel() }
+        .onChange(of: presentedText) { _, _ in
+            translationTargets = []
+            translationTask?.cancel()
+            translationRequestID = UUID()
+            isThinking = false
+            translationFailed = false
+        }
         .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
         .task(id: item) {
             let membership = await model.boardMembership(for: item)
@@ -639,7 +656,7 @@ extension ClipPeek {
         isEditingTitle || isEditingText || isEditingOCR
     }
 
-    private var peekContentAnimation: Animation? {
+    var peekContentAnimation: Animation? {
         GanchoMotion.smooth(reduceMotion: reduceMotion)
     }
 
@@ -695,9 +712,14 @@ extension ClipPeek {
     /// Smart Paste fits text clips only and never a masked secret. Model-backed
     /// rewrites need Apple Intelligence, but deterministic PII redaction remains
     /// available whenever the user kept the Smart Paste toggle on.
-    private var canSmartPaste: Bool {
-        model.smartPasteAvailable && !hidesPreview
+    var canSmartPaste: Bool {
+        model.smartPasteAvailable && isTextEditable && !hidesPreview
             && item.kind != .image && item.kind != .fileReference && item.kind != .color
+    }
+
+    @ViewBuilder private var transformButtons: some View {
+        if canTransform { transformsMenu }
+        if canSmartPaste { smartPasteMenu }
     }
 
     /// The deterministic transforms fit any text (colour hex included) and
@@ -730,74 +752,6 @@ extension ClipPeek {
         .accessibilityIdentifier("transform-menu")
     }
 
-    /// On-device rewrite menu (the design's "Smart paste"): summarize, fix
-    /// grammar, change tone, pull key points — the result lands in the box below
-    /// for review before pasting.
-    private var smartPasteMenu: some View {
-        Menu {
-            ForEach(SmartPasteAction.allCases) { action in
-                if action == .redactPII || model.smartPasteModelAvailable {
-                    Button {
-                        runSmartPaste(action)
-                    } label: {
-                        Label(LocalizedStringKey(action.titleKey), systemImage: action.symbolName)
-                    }
-                }
-            }
-            if model.smartPasteModelAvailable {
-                Divider()
-                Menu {
-                    ForEach(Self.translateLanguageCodes, id: \.self) { code in
-                        Button(LanguageName.localized(code: code)) {
-                            runTranslate(to: Locale.Language(identifier: code))
-                        }
-                    }
-                } label: {
-                    Label("Translate to", systemImage: "globe")
-                }
-            }
-            Divider()
-            Label("Runs on your Mac — nothing leaves the device.", systemImage: "lock.shield")
-        } label: {
-            Label("Smart paste", systemImage: "sparkles")
-                .panelFont(.body, .medium)
-                .padding(.horizontal, GanchoTokens.Spacing.sm)
-                .padding(.vertical, GanchoTokens.Spacing.xxs)
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .ganchoSurface(radius: GanchoTokens.Radius.md)
-        .disabled(isThinking)
-        .accessibilityIdentifier("smart-paste-menu")
-    }
-
-    private func runSmartPaste(_ action: SmartPasteAction) {
-        actionResult = nil
-        isThinking = true
-        Task {
-            let result = await model.smartPaste(presentedText, action: action)
-            isThinking = false
-            actionResult = result ?? String(localized: "Couldn’t run that — try again.")
-        }
-    }
-
-    /// Common targets for Smart Paste translation. Names render in the user's
-    /// language (via `Locale`). The CODE is what travels: the native Translation
-    /// session needs it, and the service derives the English name the model
-    /// fallback's prompt wants.
-    private static let translateLanguageCodes = [
-        "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh"
-    ]
-    private func runTranslate(to target: Locale.Language) {
-        actionResult = nil
-        isThinking = true
-        Task {
-            let result = await model.smartTranslate(presentedText, to: target)
-            isThinking = false
-            actionResult = result ?? String(localized: "Couldn’t run that — try again.")
-        }
-    }
-
     private func moveAction(_ delta: Int) -> KeyPress.Result {
         let count = navActions.count
         guard count > 0 else { return .handled }
@@ -814,6 +768,7 @@ extension ClipPeek {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
             ScrollView {
                 Text(result)
+                    .accessibilityIdentifier("intelligence-result-text")
                     .panelFont(.body, design: .monospaced)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
