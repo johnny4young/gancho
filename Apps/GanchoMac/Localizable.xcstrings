@@ -8889,6 +8889,134 @@
           }
         }
       }
+    },
+    "By meaning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By meaning"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por significado"
+          }
+        }
+      }
+    },
+    "Related by meaning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Related by meaning"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relacionados por significado"
+          }
+        }
+      }
+    },
+    "Enter a search; regex uses conventional results only.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a search; regex uses conventional results only."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe una búsqueda; regex usa solo resultados convencionales."
+          }
+        }
+      }
+    },
+    "Finding related clips…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding related clips…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscando clips relacionados…"
+          }
+        }
+      }
+    },
+    "Related suggestions may include weak matches.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Related suggestions may include weak matches."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las sugerencias relacionadas pueden incluir coincidencias débiles."
+          }
+        }
+      }
+    },
+    "Some clips are not indexed; conventional search remains complete.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some clips are not indexed; conventional search remains complete."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algunos clips no están indexados; la búsqueda convencional sigue completa."
+          }
+        }
+      }
+    },
+    "Meaning search unavailable; conventional search still works.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meaning search unavailable; conventional search still works."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Búsqueda por significado no disponible; la búsqueda convencional sigue funcionando."
+          }
+        }
+      }
+    },
+    "Meaning search accepts up to 1,000 characters and 4 KiB.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meaning search accepts up to 1,000 characters and 4 KiB."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La búsqueda por significado admite hasta 1.000 caracteres y 4 KiB."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

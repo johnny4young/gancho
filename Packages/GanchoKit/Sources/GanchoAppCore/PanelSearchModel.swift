@@ -38,6 +38,12 @@ public struct PanelDateGroup: Identifiable, Sendable {
 /// delegated to `PanelSelectionModel`; the view keeps presentation only (focus,
 /// rails, sheets, ask).
 @MainActor @Observable public final class PanelSearchModel {
+    public let meaning = MeaningSearchState()
+    public var meaningEnabled = false {
+        didSet { if oldValue != meaningEnabled { invalidateRequests() } }
+    }
+    public func cancelMeaningSearch() { meaning.cancelPending() }
+
     /// The live search field text. Empty shows the paginated recent list.
     public var query = "" { didSet { if oldValue != query { invalidateRequests() } } }
     public var mode: ClipSearchQuery.Mode = .fuzzy {
@@ -68,6 +74,9 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     private func invalidateRequests() {
+        let relatedIDs = meaning.relatedIDs
+        meaning.invalidate()
+        if !relatedIDs.isEmpty { results.removeAll { relatedIDs.contains($0.id) } }
         refreshID = UUID()
         pageID = nil
         isLoadingMore = false
@@ -184,7 +193,10 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// the historical single-selection behavior by collapsing any batch.
     public var selectedIndex: Int {
         get { selectionModel.selectedIndex }
-        set { selectionModel.select(newValue, toggling: false, in: filtered) }
+        set {
+            meaning.cancelPending()
+            selectionModel.select(newValue, toggling: false, in: filtered)
+        }
     }
 
     /// The keyboard cursor and selected identifiers as a read-only snapshot.
@@ -240,11 +252,13 @@ public struct PanelDateGroup: Identifiable, Sendable {
 
     /// Select a row by index. Plain click replaces; Command-click toggles.
     public func select(_ index: Int, toggling: Bool = false) {
+        meaning.cancelPending()
         selectionModel.select(index, toggling: toggling, in: filtered)
     }
 
     /// Shift-Up/Down grows or contracts a contiguous selection from its anchor.
     public func moveSelection(by delta: Int, extending: Bool) {
+        meaning.cancelPending()
         selectionModel.move(by: delta, extending: extending, in: filtered)
     }
 
@@ -256,12 +270,14 @@ public struct PanelDateGroup: Identifiable, Sendable {
 
     /// Leaves the cursor row selected and clears every additional row.
     public func clearSelection() {
+        meaning.cancelPending()
         selectionModel.clear(in: filtered)
     }
 
     /// Type-to-search: first keystroke already narrows; empty query shows
     /// recents (pins first, store order). The recent list paginates on demand.
     public func refresh() async {
+        meaning.invalidate()
         let request = UUID()
         refreshID = request
         pageID = nil
@@ -292,12 +308,30 @@ public struct PanelDateGroup: Identifiable, Sendable {
             ? nil : await source.snippet(matchingKeyword: requestedContext.query)
         guard refreshID == request, context == requestedContext, !Task.isCancelled else { return }
         let resetSelection = displayedContext != requestedContext
+        selectionModel.resumeAutomaticSelection()
         results = page.items
         reachedEnd = page.reachedEnd
         snippetMatch = snippet
         displayedContext = requestedContext
         if resetSelection { selectedIndex = 0 }
         rebuildGroups()
+        if meaningEnabled {
+            meaning.start(
+                query: savedRule(named: "").query, source: source as? any MeaningSearchSource
+            ) { [weak self] related in
+                guard let self, refreshID == request, context == requestedContext, meaningEnabled
+                else { return [] }
+                let additions = HybridSearchResult(
+                    conventional: results, related: related, semanticState: .ready
+                ).related
+                    .filter { !source.isDeletionPending($0.id) }
+                let hadSelection = selectedItem != nil
+                results.append(contentsOf: additions)
+                if !hadSelection { selectionModel.preserveEmptySelection() }
+                rebuildGroups()
+                return additions
+            }
+        }
         // A page requested while this refresh ran was deferred, not dropped.
         isRefreshing = false
         if loadMoreDeferred {
