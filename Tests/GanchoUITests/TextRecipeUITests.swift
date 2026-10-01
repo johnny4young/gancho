@@ -66,6 +66,40 @@ final class TextRecipeUITests: XCTestCase {
     }
 
     @MainActor
+    func testTransformedPreviewAndExplicitCopyPreserveOriginal() throws {
+        continueAfterFailure = false
+        let app = launch("en", "light")
+        defer { app.terminate() }
+        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        XCTAssertTrue(rows.firstMatch.waitForHittable(timeout: 10))
+        let originalCount = rows.count
+        try openReview(app)
+        let original = "Yesterday: fixed search\nToday: improve editing\nBlockers: none"
+        XCTAssertTrue(app.staticTexts[original].firstMatch.exists)
+        app.descendants(matching: .any)["text-recipe-action-picker"].firstMatch.click()
+        let uppercase = app.menuItems["UPPERCASE"].firstMatch
+        XCTAssertTrue(uppercase.waitForExistence(timeout: 5))
+        uppercase.click()
+        app.buttons["text-recipe-add-step"].firstMatch.click()
+        app.buttons["text-recipe-run"].firstMatch.click()
+        XCTAssertTrue(
+            app.staticTexts[original.uppercased()].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[original].firstMatch.exists)
+        let copy = app.buttons["text-recipe-copy"].firstMatch
+        XCTAssertTrue(copy.isEnabled)
+        let attachment = XCTAttachment(screenshot: app.sheets.firstMatch.screenshot())
+        attachment.name = "Recipe transformation before explicit copy — synthetic"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        copy.click()
+        XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(rows.count, originalCount)
+        try openReview(app)
+        XCTAssertTrue(app.staticTexts[original].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["text-recipe-cancel"].firstMatch.click()
+    }
+
+    @MainActor
     func testCreateReorderRenameReopenAndDeleteKeepsOriginalClip() throws {
         continueAfterFailure = false
         let app = launch("en", "light")

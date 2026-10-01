@@ -136,8 +136,8 @@ jobs:
 
   ios-ui:
     # Stress is additional evidence, never a replacement for a full platform run.
-    if: ${{ inputs.scope != 'interaction-stress' && inputs.scope != 'feature-stress' }}
-    name: ${{ inputs.scope == 'ios-interaction-stress' && 'iOS context interaction stress (10x)' || 'iOS UI tests' }}
+    if: ${{ inputs.scope != 'interaction-stress' }}
+    name: ${{ inputs.scope == 'feature-stress' && 'iOS title editing stress (10x)' || inputs.scope == 'ios-interaction-stress' && 'iOS context interaction stress (10x)' || 'iOS UI tests' }}
     runs-on: macos-26
     timeout-minutes: 45
     steps:
@@ -190,6 +190,9 @@ jobs:
             full)
               test_arguments=(-only-testing:GanchoiOSUITests)
               ;;
+            feature-stress)
+              test_arguments=(-test-iterations 10 -only-testing:GanchoiOSUITests/ClipTitleEditingUITests)
+              ;;
             ios-interaction-stress)
               test_arguments=(-test-iterations 10 -only-testing:GanchoiOSUITests/OutboundPrivacyUITests)
               ;;
@@ -210,7 +213,7 @@ jobs:
       - name: Collect iOS UI evidence
         if: always()
         env:
-          UI_EVIDENCE_LABEL: ${{ inputs.scope == 'ios-interaction-stress' && 'iOS context interaction stress (10x)' || 'iOS UI tests' }}
+          UI_EVIDENCE_LABEL: ${{ inputs.scope == 'feature-stress' && 'iOS title editing stress (10x)' || inputs.scope == 'ios-interaction-stress' && 'iOS context interaction stress (10x)' || 'iOS UI tests' }}
         run: |
           ./scripts/collect-ui-test-evidence.sh \
             build/ios-ui.xcresult "$UI_EVIDENCE_LABEL" build/ios-ui-evidence

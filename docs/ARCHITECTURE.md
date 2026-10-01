@@ -573,3 +573,13 @@ ordinary 45-minute job. Full suites and the smaller iOS stress job retain their
 and raw evidence collection are unchanged.
 
 The `feature-stress` UI scope repeats `SelectedContextUITests` and `TextRecipeUITests` ten times. The unrelated iOS job is omitted only from this supplementary scope; full platform validation remains required on the same head. Selectors are fixed, invalid scopes fail closed, and all individual outcomes remain in the result bundle.
+
+The recipe feature stress scope also repeats iOS inline-title editing ten times.
+Native text entry is sent character by character and its full field value is
+asserted before Save, so incomplete input cannot masquerade as a persistence
+regression. The saved-title assertion and its deadline remain unchanged.
+
+Recipe UI coverage also executes a visibly changing transform, checks both previews,
+explicitly copies through the isolated test sink, and reopens the original clip to
+verify that neither its text nor the clip count changed. Pure delivery tests verify
+the writer callback and clipboard/privacy race vetoes separately.

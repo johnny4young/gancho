@@ -12,7 +12,7 @@ struct UIWorkflowScopeTests {
         #expect(source.contains("if: ${{ inputs.scope != 'ios-interaction-stress' }}"))
         #expect(
             source.contains(
-                "if: ${{ inputs.scope != 'interaction-stress' && inputs.scope != 'feature-stress' }}"
+                "if: ${{ inputs.scope != 'interaction-stress' }}"
             ))
         #expect(source.contains("case \"$GANCHO_IOS_UI_SCOPE\" in"))
         #expect(source.contains("-only-testing:GanchoiOSUITests/OutboundPrivacyUITests"))
@@ -93,6 +93,13 @@ struct UIWorkflowScopeTests {
                     "-test-iterations", "10",
                     "-only-testing:GanchoUITests/SelectedContextUITests",
                     "-only-testing:GanchoUITests/TextRecipeUITests"
+                ])
+        case ("ios", "feature-stress"):
+            #expect(exitStatus == 0)
+            #expect(
+                arguments == [
+                    "-test-iterations", "10",
+                    "-only-testing:GanchoiOSUITests/ClipTitleEditingUITests"
                 ])
         case ("ios", "ios-interaction-stress"):
             #expect(exitStatus == 0)
