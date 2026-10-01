@@ -7,6 +7,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Explicit, off-by-default meaning suggestions in a separate panel section, with cancellation and index-coverage status while conventional results remain intact.
+
+- Add scoped, bounded hybrid retrieval with pre-limit privacy and metadata filters, deterministic related ranking and real bilingual relevance evaluation.
+
 ### Fixed
 
 - Preserve modified snippet drafts when their original is removed; recover them

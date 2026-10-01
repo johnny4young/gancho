@@ -62,8 +62,19 @@ extension GRDBClipboardStore {
     public func semanticSearch(
         queryVector: [Float], topK: Int = 10, snippetsOnly: Bool = false
     ) async throws -> [ClipItem] {
+        try await semanticSearch(
+            queryVector: queryVector, query: ClipSearchQuery(text: ""),
+            topK: topK, snippetsOnly: snippetsOnly)
+    }
+
+    public func semanticSearch(
+        queryVector: [Float], query: ClipSearchQuery, topK: Int = 10,
+        snippetsOnly: Bool = false
+    ) async throws -> [ClipItem] {
+        try Task.checkCancellation()
+        guard topK > 0 else { return [] }
         let queryNorm = sqrt(vDSP.sumOfSquares(queryVector))
-        guard queryNorm > 0 else { return [] }
+        guard queryNorm > 0, queryNorm.isFinite else { return [] }
 
         // Streamed, not materialized. `fetchAll` held every stored vector in
         // memory at once — 2 KB per clip, so 200 MB of `Data` at 100k rows —
@@ -71,17 +82,20 @@ extension GRDBClipboardStore {
         // it, only to read each one once. A cursor visits them one at a time
         // and the dot product reads the BLOB's bytes where they already are,
         // so the resident cost is one row plus the scores.
-        let scored = try await writer.read { db -> [(id: String, score: Float)] in
-            var scored: [(id: String, score: Float)] = []
+        let scored = try await writer.read { db -> [SemanticCandidate] in
+            var scored: [SemanticCandidate] = []
+            let scope = Self.semanticScope(query, snippetsOnly: snippetsOnly)
             let cursor = try Row.fetchCursor(
                 db,
-                sql: """
-                    SELECT e.clipID, e.vector FROM clip_embedding e
-                    JOIN clip c ON c.id = e.clipID
-                    WHERE c.isArchived = 0 AND e.dimension = ? AND e.modelVersion = ?
-                    \(snippetsOnly ? "AND c.isSnippet = 1" : "")
-                    """, arguments: [queryVector.count, EmbeddingModelInfo.currentVersion])
+                sql: "SELECT e.clipID, e.vector, clip.updatedAt FROM clip_embedding e "
+                    + "JOIN clip ON clip.id = e.clipID " + scope.sql
+                    + " AND e.dimension = ? AND e.modelVersion = ?",
+                arguments: StatementArguments(
+                    scope.arguments + [
+                        queryVector.count, EmbeddingModelInfo.currentVersion
+                    ]))
             while let row = try cursor.next() {
+                try Task.checkCancellation()
                 let id: String = row["clipID"]
                 // Valid only for this step of the cursor, which is exactly how
                 // long the scoring below needs it.
@@ -100,45 +114,86 @@ extension GRDBClipboardStore {
                         }
                         vDSP_svesq(base, 1, &sumOfSquares, vDSP_Length(stored.count))
                         let denominator = sqrt(sumOfSquares) * queryNorm
-                        guard denominator > 0 else { return nil }
+                        guard denominator > 0, denominator.isFinite, dot.isFinite else {
+                            return nil
+                        }
                         return dot / denominator
                     }
                 }
-                if let score { scored.append((id, score)) }
+                if let score {
+                    let candidate = SemanticCandidate(
+                        id: id, score: score, updatedAt: row["updatedAt"])
+                    if scored.count < topK {
+                        scored.append(candidate)
+                        scored.sort(by: Self.candidatePrecedes)
+                    } else if Self.candidatePrecedes(candidate, scored[topK - 1]) {
+                        scored[topK - 1] = candidate
+                        scored.sort(by: Self.candidatePrecedes)
+                    }
+                }
             }
             return scored
         }
+        try Task.checkCancellation()
         guard !scored.isEmpty else { return [] }
 
-        let topIDs = Self.partialTopK(scored, count: topK).map(\.id)
-
-        return try await writer.read { db in
-            let fetched = try ClipRow.select(ClipRow.metadataColumns)
-                .filter(keys: topIDs).fetchAll(db)
-            let byID = Dictionary(uniqueKeysWithValues: fetched.map { ($0.id, $0) })
-            return topIDs.compactMap { byID[$0]?.item }
-        }
+        return try await semanticMetadata(
+            candidates: scored, query: query, snippetsOnly: snippetsOnly)
     }
 
-    /// Bounded O(n·k) selection of the `count` best scores, descending. The
-    /// perf harness measured a full sort at ~30% of the 100k end-to-end cost
-    /// (149ms) while this selection stays ~1/13th of that — and k is tiny
-    /// (top-K ≤ ~10), so the insertion re-sort is effectively constant work.
-    static func partialTopK(
-        _ scored: [(id: String, score: Float)], count: Int
-    ) -> [(id: String, score: Float)] {
-        guard count > 0 else { return [] }
-        var top: [(id: String, score: Float)] = []
-        top.reserveCapacity(count + 1)
-        for candidate in scored {
-            if top.count < count {
-                top.append(candidate)
-                top.sort { $0.score > $1.score }
-            } else if candidate.score > top[count - 1].score {
-                top[count - 1] = candidate
-                top.sort { $0.score > $1.score }
+    private func semanticMetadata(
+        candidates: [SemanticCandidate], query: ClipSearchQuery, snippetsOnly: Bool
+    ) async throws -> [ClipItem] {
+        let topIDs = candidates.map(\.id)
+        let stamps = Dictionary(uniqueKeysWithValues: candidates.map { ($0.id, $0.updatedAt) })
+        let items = try await writer.read { db in
+            var scopeQuery = query
+            scopeQuery.includedIDs = Set(topIDs.compactMap(UUID.init(uuidString:)))
+                .intersection(query.includedIDs ?? Set(topIDs.compactMap(UUID.init(uuidString:))))
+            let scope = Self.semanticScope(scopeQuery, snippetsOnly: snippetsOnly)
+            let fetched = try ClipRow.fetchAll(
+                db,
+                sql: "SELECT \(ClipRow.metadataSelectionSQL) "
+                    + "FROM clip " + scope.sql,
+                arguments: StatementArguments(scope.arguments))
+            let byID = Dictionary(uniqueKeysWithValues: fetched.map { ($0.id, $0) })
+            return topIDs.compactMap { id -> ClipItem? in
+                guard let row = byID[id], row.updatedAt == stamps[id] else { return nil }
+                return row.item
             }
         }
-        return top
+        try Task.checkCancellation()
+        return items
     }
+
+    private struct SemanticCandidate: Sendable {
+        let id: String
+        let score: Float
+        let updatedAt: Date
+    }
+
+    private static func candidatePrecedes(
+        _ left: SemanticCandidate, _ right: SemanticCandidate
+    ) -> Bool {
+        left.score == right.score ? left.id < right.id : left.score > right.score
+    }
+
+    static func semanticScope(
+        _ query: ClipSearchQuery, snippetsOnly: Bool
+    ) -> (sql: String, arguments: [any DatabaseValueConvertible]) {
+        var restricted = query
+        restricted.excludesSensitive = true
+        var sql = "WHERE clip.isArchived = 0 AND (clip.expiresAt IS NULL OR clip.expiresAt > ?)"
+        var arguments: [any DatabaseValueConvertible] = [Date.now]
+        appendFilters(for: restricted, to: &sql, arguments: &arguments)
+        let masked = ClipContentKind.allCases.filter(\.prefersMaskedPreview).map(\.rawValue)
+            .sorted()
+        sql +=
+            " AND clip.kind NOT IN ("
+            + Array(repeating: "?", count: masked.count).joined(separator: ",") + ")"
+        arguments.append(contentsOf: masked)
+        if snippetsOnly { sql += " AND clip.isSnippet = 1" }
+        return (sql, arguments)
+    }
+
 }

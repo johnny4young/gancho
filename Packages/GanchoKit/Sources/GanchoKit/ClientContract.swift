@@ -424,7 +424,8 @@ public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring 
 /// no overlapping requirements among themselves, so member access on an
 /// `any FullClipStore` is unambiguous.
 public typealias FullClipStore = ClipReading & ClipSearching & ClipMutating & ClipEnriching
-    & SourceAppProviding & ReuseSuggestionProviding & BoardStoring & SnippetStoring
+    & ScopedSemanticSearching & SourceAppProviding & ReuseSuggestionProviding & BoardStoring
+    & SnippetStoring
     & StoreStatsProviding & PrivateActivityReceiptStoring & ExportProviding & StoreMaintaining
     & SnippetDraftStoring
 
