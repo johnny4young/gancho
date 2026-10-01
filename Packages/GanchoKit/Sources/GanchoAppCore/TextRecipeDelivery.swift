@@ -21,3 +21,11 @@ import GanchoKit
         return .copied
     }
 }
+
+/// Bound preview shaping work even when one grapheme contains many combining marks.
+public enum TextRecipePreview {
+    public static let maximumScalars = 8000
+    public static func make(_ text: String) -> String {
+        String(text.unicodeScalars.prefix(maximumScalars))
+    }
+}
