@@ -15,6 +15,7 @@ final class ReuseSuggestionUITests: XCTestCase {
         app.launch()
         defer { app.terminate() }
 
+        try SynthesizedInput.requireForeground(app)
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
         guard row.waitForExistence(timeout: 10), row.isHittable else {
             throw XCTSkip("seeded panel row is not reachable on this runner")
@@ -25,7 +26,9 @@ final class ReuseSuggestionUITests: XCTestCase {
         XCTAssertTrue(toast.waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["Used 3 times — save as a snippet?"].exists)
 
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let toastPanel = app.descendants(matching: .any)["gancho-toast-panel"].firstMatch
+        XCTAssertTrue(toastPanel.exists)
+        let attachment = XCTAttachment(screenshot: toastPanel.screenshot())
         attachment.name = "macOS exact-third-use snippet suggestion"
         attachment.lifetime = .keepAlways
         add(attachment)

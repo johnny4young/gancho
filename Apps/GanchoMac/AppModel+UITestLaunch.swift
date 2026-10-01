@@ -11,7 +11,7 @@ extension AppModel {
     /// The panel opens from `didFinishLaunching` and again a beat later, because
     /// the first show can land before the app is frontmost, with a one-second
     /// fallback for a runner that never posts the notification. Every path waits
-    /// for the durable seeds first, so the panel renders a known list.
+    /// for every requested seed first, so the panel renders a known list.
     func showPanelOnLaunchForUITest(afterSeeds seeds: [Task<Void, Never>]) {
         NSApplication.shared.setActivationPolicy(.regular)
         uiTestPanelObserver = NotificationCenter.default.addObserver(
