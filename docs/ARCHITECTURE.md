@@ -523,3 +523,9 @@ thermal-dependent). `-measure-panel` prints the panel first-frame wall-clock so
 a manual/UI run collects samples; the opt-in `GANCHO_PERF=1` harness holds the
 scale budgets (FTS, semantic retrieval, board paging). Instruments/energy
 traces (30-min idle CPU, repeated-round RSS) are reference-Mac evidence.
+
+Snippet draft edits mark changed shared title/body fields for upload in the same
+transaction as the edit. Keyword-only changes remain local and never clear an
+already-pending upload or advance the shared conflict timestamp. This prevents
+a local keyword edit from masking a newer remote title/body edit. Recovery creates a fresh identity rather than resurrecting
+a deleted row.

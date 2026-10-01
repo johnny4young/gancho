@@ -9,6 +9,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Queue edited snippet titles and text for synchronization while keeping keyword-only
+  edits local and preserving uploads that were already pending. Local keyword
+  edits no longer outrank newer remote title/body changes.
+
 - Preserve modified snippet drafts when their original is removed; recover them
   explicitly as a new classified snippet or discard them without restoring it.
 

@@ -24,9 +24,10 @@ extension GRDBClipboardStore: SnippetDraftStoring {
         id: UUID, title: String, text: String, keyword: String?
     ) async throws -> Bool {
         try Task.checkCancellation()
-        let now = Date.now
         let trimmed = keyword?.trimmingCharacters(in: .whitespacesAndNewlines)
         return try await writer.write { db in
+            try Task.checkCancellation()
+            let now = Date.now
             guard let row = try ClipRow.fetchOne(db, key: id.uuidString), row.isSnippet else {
                 return false
             }
@@ -34,14 +35,18 @@ extension GRDBClipboardStore: SnippetDraftStoring {
                 row.expiresAt.map({ $0 > now }) ?? true,
                 row.contentText != nil, row.contentBlobHash == nil
             else { throw SnippetDraftSaveError.protectedContent }
+            let sharedFieldsChanged = row.title != title || row.contentText != text
             try db.execute(
                 sql: """
-                    UPDATE clip SET title = ?, contentText = ?, preview = ?, keyword = ?, updatedAt = ?
+                    UPDATE clip SET title = ?, contentText = ?, preview = ?, keyword = ?,
+                        updatedAt = CASE WHEN ? THEN ? ELSE updatedAt END,
+                        needsUpload = CASE WHEN ? THEN 1 ELSE needsUpload END
                     WHERE id = ? AND isSnippet = 1
                     """,
                 arguments: [
                     title, text, String(text.prefix(120)),
-                    trimmed?.isEmpty == false ? trimmed : nil, now, id.uuidString
+                    trimmed?.isEmpty == false ? trimmed : nil, sharedFieldsChanged, now,
+                    sharedFieldsChanged, id.uuidString
                 ])
             if row.contentText != text {
                 try db.execute(
@@ -65,6 +70,10 @@ extension GRDBClipboardStore: SnippetDraftStoring {
         row.keyword = trimmed?.isEmpty == false ? trimmed : nil
         let recovered = row
         try await writer.write { db in
+            try Task.checkCancellation()
+            guard recovered.expiresAt.map({ $0 > .now }) ?? true else {
+                throw SnippetDraftSaveError.protectedContent
+            }
             let count =
                 try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM clip WHERE isSnippet = 1") ?? 0
             guard SnippetLimits.canPromote(currentSnippetCount: count, isPro: isPro) else {

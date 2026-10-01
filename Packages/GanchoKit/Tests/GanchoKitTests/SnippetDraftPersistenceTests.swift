@@ -48,6 +48,66 @@ struct SnippetDraftPersistenceTests {
         #expect(try await store.semanticSearch(queryVector: [1, 0]).isEmpty)
     }
 
+    @Test(
+        "Editing uploaded snippet content queues its shared fields for sync",
+        arguments: [
+            ("Changed", "Original"), ("Original", "Changed body"), ("Changed", "Changed body")
+        ])
+    func editedSharedFieldsArePending(title: String, text: String) async throws {
+        let store = try makeStore()
+        let item = try await store.saveSnippet(title: "Original", text: "Original")
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))
+        #expect(try await store.pendingUploads().isEmpty)
+        #expect(
+            try await store.updateSnippetDraft(
+                id: item.id, title: title, text: text, keyword: "local"))
+        let pending = try await store.pendingUploads()
+        #expect(pending.map(\.item.id) == [item.id])
+        #expect(pending.first?.item.title == title)
+        #expect(pending.first?.content == .text(text))
+    }
+
+    @Test("Local-only keyword edits neither queue an upload nor clear an existing one")
+    func keywordKeepsSyncState() async throws {
+        let store = try makeStore()
+        let item = try await store.saveSnippet(title: "Original", text: "Original")
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))
+        #expect(
+            try await store.updateSnippetDraft(
+                id: item.id, title: "Original", text: "Original", keyword: "local"))
+        #expect(try await store.pendingUploads().isEmpty)
+        try await store.markNeedsUpload(id: item.id)
+        #expect(
+            try await store.updateSnippetDraft(
+                id: item.id, title: "Original", text: "Original", keyword: "another"))
+        #expect(try await store.pendingUploads().map(\.item.id) == [item.id])
+    }
+
+    @Test("A local keyword edit cannot outrank a newer remote shared-field edit")
+    func keywordDoesNotAdvanceSharedRevision() async throws {
+        let store = try makeStore()
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let original = ClipItem(updatedAt: base, title: "Original", preview: "Original")
+        let item = try await store.saveRecoveredSnippet(
+            item: original, text: "Original", keyword: nil, isPro: true)
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))
+        #expect(
+            try await store.updateSnippetDraft(
+                id: item.id, title: "Original", text: "Original", keyword: "local"))
+        #expect(try await store.item(id: item.id)?.updatedAt == base)
+        var remote = original
+        remote.updatedAt = base.addingTimeInterval(1)
+        remote.title = "Remote title"
+        #expect(
+            try await store.applyRemoteUpsert(
+                remote, content: .text("Remote body"), systemFields: Data([2])))
+        let current = try #require(try await store.item(id: item.id))
+        #expect(current.title == "Remote title")
+        #expect(current.keyword == "local")
+        #expect(try await store.snippets().map(\.id) == [item.id])
+        #expect(try await store.content(for: item.id) == .text("Remote body"))
+    }
+
     @Test("Recovery never deduplicates onto another clip")
     func explicitNewIdentity() async throws {
         let store = try makeStore()
@@ -93,6 +153,33 @@ struct SnippetDraftPersistenceTests {
                 item: item, text: "Unsafe", keyword: nil, isPro: true)
         }
         #expect(try await store.content(for: item.id) == .text("synthetic token"))
+    }
+
+    @Test("Expired originals and recovered drafts cannot be saved")
+    func expiredContent() async throws {
+        let store = try makeStore()
+        let item = try await store.saveSnippet(title: "Original", text: "Original")
+        try await store.writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET expiresAt = ? WHERE id = ?",
+                arguments: [Date.distantPast, item.id.uuidString])
+        }
+        await #expect(throws: SnippetDraftSaveError.protectedContent) {
+            try await store.updateSnippetDraft(
+                id: item.id, title: "Late", text: "Late", keyword: nil)
+        }
+        let expired = ClipItem(preview: "Expired", expiresAt: .distantPast)
+        await #expect(throws: SnippetDraftSaveError.protectedContent) {
+            try await store.saveRecoveredSnippet(
+                item: expired, text: "Expired", keyword: nil, isPro: true)
+        }
+        #expect(try await store.item(id: expired.id) == nil)
+        let stored = try await store.writer.read { db in
+            try String.fetchOne(
+                db, sql: "SELECT contentText FROM clip WHERE id = ?",
+                arguments: [item.id.uuidString])
+        }
+        #expect(stored == "Original")
     }
 
     @Test("A failed transaction leaves every edited field and embedding intact")
