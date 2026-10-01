@@ -39,7 +39,7 @@ final class TranslationCapabilityUITests: XCTestCase {
             "(\(language))",
             "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
             "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.translation.\(UUID())",
-            "-ui-test-installed-translation"
+            "-ui-test-installed-translation", "-ui-test-paste-sink", "copy-only"
         ]
         app.launchArguments += extraArguments
         app.launch()
@@ -47,6 +47,8 @@ final class TranslationCapabilityUITests: XCTestCase {
         app.activate()
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
+        try SynthesizedInput.requireForeground(app)
+        app.typeKey(.tab, modifierFlags: [])
         row.click()
         let menu = app.descendants(matching: .any).matching(identifier: "smart-paste-menu")
             .firstMatch
@@ -63,7 +65,9 @@ final class TranslationCapabilityUITests: XCTestCase {
         let spanish = app.menuItems["translation-target-es"].firstMatch
         XCTAssertTrue(spanish.waitForExistence(timeout: 5))
         XCTAssertTrue(spanish.isEnabled)
-        spanish.click()
+        spanish.hover()
+        try SynthesizedInput.requireForeground(app)
+        app.typeKey(.return, modifierFlags: [])
         let result = app.descendants(matching: .any).matching(
             identifier: "intelligence-result-text"
         ).firstMatch

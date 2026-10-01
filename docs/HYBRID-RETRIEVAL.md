@@ -27,9 +27,11 @@ There is no change to exact/fuzzy/regex, CLI or MCP contracts.
 
 The versioned synthetic corpus has 120 queries, 60 per language: identifiers,
 paraphrases, intersected filters and ten distinct unanswered topics. Calibration
-and reserved topics are disjoint. The real contextual sentence model and already
-installed English/Spanish assets are mandatory; this command does not download
-assets. Contract fakes are not relevance evidence. Reserved paraphrase Recall@5
+and reserved topics are disjoint. The real contextual sentence model and its
+already-installed assets are mandatory; this command does not download assets.
+The existing default-English contextual embedder is reused for both query
+languages, matching production; no separate model is introduced for Spanish.
+Contract fakes are not relevance evidence. Reserved paraphrase Recall@5
 must improve by at least ten percentage points in each language, with literal
 results unchanged. The evaluation also reports unrelated suggestions for
 unanswered queries; top-K is retrieval, not an abstention or confidence guarantee.

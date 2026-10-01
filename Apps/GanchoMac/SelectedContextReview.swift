@@ -55,9 +55,12 @@ struct SelectedContextReview: View {
             if let grant {
                 Text("Read-only access expires in one hour. Revoke it in MCP Access.").panelFont(
                     .caption)
-                Text(verbatim: "gancho mcp --grant \(grant.id.uuidString)")
-                    .font(.caption.monospaced()).textSelection(.enabled)
+                Text(verbatim: connectionCommand(for: grant.id))
+                    .font(.caption.monospaced()).textSelection(.disabled)
                     .accessibilityIdentifier("ai-context-connection-command")
+                Button("Copy connection command") { copyConnectionCommand() }
+                    .disabled(operation != nil)
+                    .accessibilityIdentifier("ai-context-copy-command-button")
             } else {
                 TextField("Client name", text: $clientName)
                     .disabled(operation != nil)
@@ -101,7 +104,7 @@ struct SelectedContextReview: View {
     private func load() async {
         let request = generation
         defer { loading = false }
-        guard !model.preferences.isPrivateModePaused, let store = model.fullStore else {
+        guard !model.preferences.isPrivateModePaused, let store = model.textReuseReader else {
             failed = true
             return
         }
@@ -114,7 +117,7 @@ struct SelectedContextReview: View {
     }
 
     private func deliver(asGrant: Bool) {
-        guard let store = model.fullStore, operation == nil else { return }
+        guard let store = model.textReuseReader, operation == nil else { return }
         failed = false
         changed = false
         let expected = parts
@@ -137,15 +140,7 @@ struct SelectedContextReview: View {
                         if asGrant {
                             grant = try model.createSelectedContextGrant(prepared, clientName: name)
                         } else {
-                            #if DEBUG
-                                if !CommandLine.arguments.contains("-ui-test-paste-sink") {
-                                    SystemPasteboardWriter().write(
-                                        .text(prepared.markdown), asPlainText: true)
-                                }
-                            #else
-                                SystemPasteboardWriter().write(
-                                    .text(prepared.markdown), asPlainText: true)
-                            #endif
+                            writePlainText(prepared.markdown)
                         }
                     })
                 guard !Task.isCancelled, generation == request else { return }
@@ -160,6 +155,25 @@ struct SelectedContextReview: View {
                 if !Task.isCancelled, generation == request { failed = true }
             }
         }
+    }
+
+    private func copyConnectionCommand() {
+        guard operation == nil, !model.preferences.isPrivateModePaused,
+            let grant,
+            model.mcpConfig.grants.first(where: { $0.id == grant.id })?.state() == .active
+        else { return }
+        writePlainText(connectionCommand(for: grant.id))
+    }
+
+    private func connectionCommand(for id: UUID) -> String {
+        "gancho mcp --grant \(id.uuidString)"
+    }
+
+    private func writePlainText(_ text: String) {
+        #if DEBUG
+            guard !CommandLine.arguments.contains("-ui-test-paste-sink") else { return }
+        #endif
+        SystemPasteboardWriter().write(.text(text), asPlainText: true)
     }
 
     private func invalidate() {

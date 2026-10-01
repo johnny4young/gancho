@@ -33,3 +33,9 @@ Local extraction and formatting do not call a cloud service. A connected externa
 This documents the source implementation after v0.9.1; it is not a claim that this workflow is already available in that published release.
 
 Grant creation and app/CLI policy updates read the latest local configuration under a nonblocking interprocess lock; contention produces an explicit retryable error instead of blocking the app. A malformed configuration is not replaced by a new grant; existing revocations remain intact. Snapshot `save` remains a low-level initialization API, not the runtime mutation route.
+
+The generated connection command has an explicit copy action using Gancho's
+self-write marker, just like Markdown delivery. Native text selection is disabled
+in the temporary review so copying the command does not recapture it into history.
+Copying a command does not renew or broaden its grant; the server rechecks the
+current grant and clip state on every request.

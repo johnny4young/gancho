@@ -11,11 +11,26 @@ final class TranslationCapabilityUITests: XCTestCase {
         ]
         app.launch()
         defer { app.terminate() }
-        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row")
+            .matching(NSPredicate(format: "label CONTAINS %@", "Yesterday: fixed search"))
+            .firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
+        let grabber = app.buttons["Sheet Grabber"].firstMatch
+        XCTAssertTrue(grabber.waitForExistence(timeout: 5))
+        grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(
+                forDuration: 0.1,
+                thenDragTo: app.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)))
+        let detail = app.collectionViews.matching(
+            NSPredicate(format: "identifier != %@", "capture-screen")
+        ).firstMatch
+        XCTAssertTrue(detail.waitForExistence(timeout: 5))
         let menu = app.buttons["smart-paste-menu"].firstMatch
+        for _ in 0..<4 where !menu.exists || !menu.isHittable { detail.swipeUp() }
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        XCTAssertTrue(menu.isHittable)
         XCTAssertFalse(app.buttons["smart-paste-summarize-action"].firstMatch.exists)
         menu.tap()
         let spanish = app.buttons["translation-target-es"].firstMatch

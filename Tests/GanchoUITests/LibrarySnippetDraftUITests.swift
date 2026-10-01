@@ -19,28 +19,42 @@ final class LibrarySnippetDraftUITests: XCTestCase {
 
     @MainActor
     func testRemovedSnippetKeepsDraftUntilExplicitRecovery() throws {
+        try verifyRecovery(language: "en", appearance: "light")
+    }
+    @MainActor func testRecoveryEnglishDark() throws {
+        try verifyRecovery(language: "en", appearance: "dark")
+    }
+    @MainActor func testRecoverySpanishLight() throws {
+        try verifyRecovery(language: "es", appearance: "light")
+    }
+    @MainActor func testRecoverySpanishDark() throws {
+        try verifyRecovery(language: "es", appearance: "dark")
+    }
+    @MainActor private func verifyRecovery(language: String, appearance: String) throws {
         continueAfterFailure = false
         let app = GanchoUITestApplication()
         defer { app.terminate() }
-        let library = try openLibrary(app, extraArguments: ["-ui-test-snippet-deletion"])
+        let library = try openLibrary(
+            app, extraArguments: ["-ui-test-snippet-deletion"], language: language,
+            appearance: appearance)
         library.staticTexts["Seed greeting"].firstMatch.click()
         let editor = library.textViews["snippet-editor"].firstMatch
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
-        editor.click()
-        XCTAssertTrue(waitForKeyboardFocus(editor))
-        editor.typeKey(.downArrow, modifierFlags: .command)
-        editor.typeText(" synthetic recovered draft")
+        let original = try XCTUnwrap(editor.value as? String)
+        try typeTextReliably(original + " synthetic recovered draft", into: editor, in: app)
         XCTAssertTrue(waitForValue(of: editor, containing: "synthetic recovered draft"))
         library.buttons["snippet-delete-source-button"].firstMatch.click()
         XCTAssertTrue(
             library.buttons["snippet-recover-button"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(waitForValue(of: editor, containing: "synthetic recovered draft"))
         XCTAssertFalse(library.buttons["snippet-save"].firstMatch.isEnabled)
-        keepCapture(library, name: "Snippet recovery — synthetic draft")
+        keepCapture(
+            library, name: "Snippet recovery — synthetic draft — \(language) — \(appearance)")
 
         library.staticTexts["Seed sign-off"].firstMatch.click()
-        let cancel = app.buttons["Cancel"].firstMatch
+        let cancel = app.buttons["snippet-resolution-cancel-button"].firstMatch
         XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        try SynthesizedInput.requireForeground(app)
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(waitForValue(of: editor, containing: "synthetic recovered draft"))
 
@@ -144,17 +158,19 @@ final class LibrarySnippetDraftUITests: XCTestCase {
 
     @MainActor
     private func openLibrary(
-        _ app: XCUIApplication, extraArguments: [String] = []
+        _ app: XCUIApplication, extraArguments: [String] = [], language: String = "en",
+        appearance: String? = nil
     ) throws -> XCUIElement {
         let nonce = UUID().uuidString
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
             "-seed-snippets", "-force-free-tier", "-start-capture-paused",
-            "-AppleLanguages", "(en)",
+            "-AppleLanguages", "(\(language))",
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.snippets.\(UUID().uuidString)",
             "-command-nonce", nonce
         ]
+        if let appearance { app.launchArguments += ["-appearance", appearance] }
         app.launchArguments += extraArguments
         app.launch()
         app.activate()
@@ -162,7 +178,7 @@ final class LibrarySnippetDraftUITests: XCTestCase {
         XCTAssertTrue(app.textFields["search-field"].waitForExistence(timeout: 15))
         try SynthesizedInput.requireForeground(app)
         GanchoUITestCommands.post("library", token: nonce)
-        let library = app.windows["Library"].firstMatch
+        let library = app.windows.firstMatch
         XCTAssertTrue(library.waitForExistence(timeout: 5))
         return library
     }
