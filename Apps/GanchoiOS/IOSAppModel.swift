@@ -1135,7 +1135,7 @@ final class IOSAppModel {
             precomputedKind: precomputedKind,
             tier: tier,
             intelligence: intelligence,
-            sourceDeviceName: DeviceProvenance.currentDeviceName())
+            sourceDeviceName: PlatformDeviceProvenance.currentDeviceName())
     }
 
     /// Side effects of a durable write; the caller owns the user-facing note.

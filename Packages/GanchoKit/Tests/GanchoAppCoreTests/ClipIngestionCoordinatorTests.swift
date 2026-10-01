@@ -188,10 +188,11 @@ struct ClipIngestionCoordinatorTests {
 
         _ = try await coordinator.ingest(
             PasteboardCapture(text: "stamped"),
-            configuration: configuration(sourceDeviceName: "Johnny's Mac"),
+            configuration: configuration(
+                sourceDeviceName: await DeviceProvenance.currentDeviceName { "  Fixture Mac \n" }),
             store: store,
             syncEngine: sync)
-        #expect(await store.insertedItem?.sourceDeviceName == "Johnny's Mac")
+        #expect(await store.insertedItem?.sourceDeviceName == "Fixture Mac")
 
         // Without a name (a pre-stamp shell, or a platform that yields none)
         // the clip keeps NULL provenance — nothing downstream invents one.

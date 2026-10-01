@@ -71,11 +71,19 @@ Persistence and sync implementations
   └─ future LAN / self-hosted / non-Apple transports behind SyncEngine
 ```
 
-The intended AppCore framework boundary above has a current exception:
-`DeviceProvenance` reads `UIDevice.current.name` through a conditional UIKit
-import. `CoreSpotlightIndexer` is also a platform adapter in this target. These
-are not permission for feature controllers to import UI frameworks; platform
-reads should be injected from the shells when those seams are refactored.
+`DeviceProvenance` accepts an explicit name reader and only normalizes its value.
+`PlatformDeviceProvenance` in the shared app shell owns macOS host-name and iOS
+UIKit access; macOS includes only that shared source, while the iOS app, widget
+and keyboard targets already include the shared capture shell. Each capture reads
+the provider once, without caching, entitlement changes or a fallback identifier.
+Package tests inject synthetic values and never discover the test machine's name.
+Callers of the package's provenance helper must now supply the reader explicitly.
+
+`CoreSpotlightIndexer` remains the one system-index adapter in AppCore, behind
+`SpotlightIndexing` and conditional CoreSpotlight availability. The Mac and iOS
+composition roots construct it; policy tests inject a fake. Its curated domain,
+privacy filtering and reconciliation are unchanged. This explicit adapter is not
+permission for feature controllers to import UI frameworks.
 
 App targets stay thin. If feature logic cannot be tested from a SwiftPM target,
 it probably lives in the wrong layer.
