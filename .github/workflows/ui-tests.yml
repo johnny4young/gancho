@@ -6,12 +6,14 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: Full platform suites or ten repetitions of native interaction regressions
+        description: Full platform suites or ten repetitions of platform interaction regressions
         type: choice
         default: full
         options:
           - full
           - interaction-stress
+          - ios-interaction-stress
+          - feature-stress
   schedule:
     - cron: "0 8 * * 3" # weekly, Wednesday 08:00 UTC
 
@@ -24,9 +26,12 @@ concurrency:
 
 jobs:
   macos-ui:
-    name: ${{ inputs.scope == 'interaction-stress' && 'macOS interaction stress (10x)' || 'macOS UI tests' }}
+    if: ${{ inputs.scope != 'ios-interaction-stress' }}
+    name: ${{ inputs.scope == 'feature-stress' && 'macOS feature stress (10x)' || inputs.scope == 'interaction-stress' && 'macOS interaction stress (10x)' || 'macOS UI tests' }}
     runs-on: macos-26
-    timeout-minutes: 45
+    # Ten rounds exceed the full suite's wall-clock allocation. Interaction
+    # timeouts and performance budgets stay unchanged.
+    timeout-minutes: ${{ inputs.scope == 'feature-stress' && 120 || inputs.scope == 'interaction-stress' && 90 || 45 }}
     steps:
       - uses: actions/checkout@v7
 
@@ -66,6 +71,16 @@ jobs:
             full)
               test_arguments=(-only-testing:GanchoUITests)
               ;;
+            feature-stress)
+              test_arguments=(-test-iterations 10 \
+                -only-testing:GanchoUITests/LibrarySnippetDraftUITests \
+                -only-testing:GanchoUITests/VisualLibraryUITests \
+                -only-testing:GanchoUITests/ReuseSuggestionUITests \
+                -only-testing:GanchoUITests/MeaningSearchUITests \
+                -only-testing:GanchoUITests/TranslationCapabilityUITests \
+                -only-testing:GanchoUITests/SelectedContextUITests \
+                -only-testing:GanchoUITests/TextRecipeUITests)
+              ;;
             interaction-stress)
               test_arguments=(-test-iterations 10)
               for suite in PasteBackUITests ReuseSuggestionUITests \
@@ -94,7 +109,7 @@ jobs:
       - name: Collect macOS UI evidence
         if: always()
         env:
-          UI_EVIDENCE_LABEL: ${{ inputs.scope == 'interaction-stress' && 'macOS interaction stress (10x)' || 'macOS UI tests' }}
+          UI_EVIDENCE_LABEL: ${{ inputs.scope == 'feature-stress' && 'macOS feature stress (10x)' || inputs.scope == 'interaction-stress' && 'macOS interaction stress (10x)' || 'macOS UI tests' }}
         run: |
           ./scripts/collect-ui-test-evidence.sh \
             build/macos-ui.xcresult "$UI_EVIDENCE_LABEL" build/macos-ui-evidence
@@ -127,7 +142,7 @@ jobs:
   ios-ui:
     # Stress is additional evidence, never a replacement for a full platform run.
     if: ${{ inputs.scope != 'interaction-stress' }}
-    name: iOS UI tests
+    name: ${{ inputs.scope == 'feature-stress' && 'iOS feature stress (10x)' || inputs.scope == 'ios-interaction-stress' && 'iOS context interaction stress (10x)' || 'iOS UI tests' }}
     runs-on: macos-26
     timeout-minutes: 45
     steps:
@@ -171,13 +186,30 @@ jobs:
           xcrun simctl bootstatus "$simulator" -b
 
       - name: Run iOS UI tests
+        env:
+          GANCHO_IOS_UI_SCOPE: ${{ inputs.scope || 'full' }}
         run: |
           mkdir -p build
           set -o pipefail
+          case "$GANCHO_IOS_UI_SCOPE" in
+            full)
+              test_arguments=(-only-testing:GanchoiOSUITests)
+              ;;
+            feature-stress)
+              test_arguments=(-test-iterations 10 -only-testing:GanchoiOSUITests/TranslationCapabilityUITests)
+              ;;
+            ios-interaction-stress)
+              test_arguments=(-test-iterations 10 -only-testing:GanchoiOSUITests/OutboundPrivacyUITests)
+              ;;
+            *)
+              echo "::error::Unsupported UI test scope"
+              exit 2
+              ;;
+          esac
           xcodebuild -disableAutomaticPackageResolution \
             test -project Gancho.xcodeproj -scheme GanchoiOS \
             -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
-            -only-testing:GanchoiOSUITests \
+            "${test_arguments[@]}" \
             -enableCodeCoverage YES \
             -resultBundlePath build/ios-ui.xcresult \
             CODE_SIGNING_ALLOWED=NO \
@@ -185,9 +217,11 @@ jobs:
 
       - name: Collect iOS UI evidence
         if: always()
+        env:
+          UI_EVIDENCE_LABEL: ${{ inputs.scope == 'feature-stress' && 'iOS feature stress (10x)' || inputs.scope == 'ios-interaction-stress' && 'iOS context interaction stress (10x)' || 'iOS UI tests' }}
         run: |
           ./scripts/collect-ui-test-evidence.sh \
-            build/ios-ui.xcresult "iOS UI tests" build/ios-ui-evidence
+            build/ios-ui.xcresult "$UI_EVIDENCE_LABEL" build/ios-ui-evidence
 
       - name: Report iOS app-target coverage
         if: always()

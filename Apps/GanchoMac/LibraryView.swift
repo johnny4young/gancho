@@ -480,14 +480,15 @@ struct LibraryView: View {
     // MARK: - Data
 
     func refreshAll() async {
-        guard let store = model.fullStore else { return }
-        do {
-            boards = try await store.pinboards()
-            snippets = try await store.snippets()
-        } catch {
-            model.diagnostics.record(
-                "Snippets", "Couldn’t load snippets; your draft is still here.")
-            return
+        if let store = model.fullStore {
+            do {
+                boards = try await store.pinboards()
+                snippets = try await store.snippets()
+            } catch {
+                model.diagnostics.record(
+                    "Snippets", "Couldn’t load snippets; your draft is still here.")
+                return
+            }
         }
         await refreshCounts()
         await loadScope()

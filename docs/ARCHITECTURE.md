@@ -585,7 +585,16 @@ successful visual check.
 
 The manual `ui-tests.yml` workflow defaults to the complete macOS/iOS suites.
 Its explicit `interaction-stress` scope runs the fixed native interaction suites
-ten times on a clean hosted Mac, with a separate concurrency group so it cannot
-cancel the full run. iOS is deliberately not repeated in that supplemental run;
-a successful full-platform run on the same SHA is still required. The stress
-scope keeps the existing job timeout, test assertions and evidence collection.
+ten times on a clean hosted Mac. The `ios-interaction-stress` scope repeats the
+safe and protected context-menu tests ten times on an iPhone simulator. Each
+scope has a separate concurrency group and skips the other platform only for
+that supplemental run; a successful full-platform run on the same SHA is still
+required. Neither stress run retries failed tests until they pass.
+
+The macOS stress job has a 90-minute execution allocation: its 19 tests took
+298 seconds in a full-suite sample, so ten rounds plus building do not fit the
+ordinary 45-minute job. Full suites and the smaller iOS stress job retain their
+45-minute allocation. Test assertions, interaction timeouts, performance budgets
+and raw evidence collection are unchanged.
+
+The integration `feature-stress` scope repeats all seven feature UI suites ten times, plus native translation on iOS. Its 290 macOS cases are allocated 120 minutes, based on the measured individual-suite durations; assertions and interaction timeouts are unchanged. Full-platform UI remains a separate gate.
