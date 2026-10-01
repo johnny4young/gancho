@@ -49,7 +49,7 @@ struct SelectedContextReview: View {
                     .foregroundStyle(.red)
             }
             if changed {
-                Text("The selection or clipboard changed. Review and copy again.").foregroundStyle(
+                Text("The selection or clipboard changed. Review and try again.").foregroundStyle(
                     .orange)
             }
             if let grant {
@@ -134,7 +134,7 @@ struct SelectedContextReview: View {
                             && model.pendingDeletionIDs.isDisjoint(with: expected.map(\.id))
                     },
                     destinationUnchanged: {
-                        asGrant || revision == NSPasteboard.general.changeCount
+                        revision == NSPasteboard.general.changeCount
                     },
                     deliver: { prepared in
                         if asGrant {

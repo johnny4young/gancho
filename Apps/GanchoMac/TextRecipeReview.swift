@@ -184,8 +184,10 @@ struct TextRecipeReview: View {
         VStack(alignment: .leading) {
             Text(title).panelFont(.subheadline)
             ScrollView {
-                Text(verbatim: String(text.prefix(8000))).panelFont(.body).textSelection(.disabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(verbatim: TextRecipePreview.make(text)).panelFont(.body).textSelection(
+                    .disabled
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
             }.accessibilityElement(children: .contain).accessibilityIdentifier(identifier)
         }.frame(maxWidth: .infinity, minHeight: 120, maxHeight: 180)
     }

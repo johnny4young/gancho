@@ -39,3 +39,7 @@ self-write marker, just like Markdown delivery. Native text selection is disable
 in the temporary review so copying the command does not recapture it into history.
 Copying a command does not renew or broaden its grant; the server rechecks the
 current grant and clip state on every request.
+
+Both Markdown copying and grant creation check the captured clipboard revision
+immediately before delivery. A replacement during loading produces a reviewable
+changed-state result instead of creating access or overwriting the new clipboard.
