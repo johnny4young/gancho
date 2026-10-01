@@ -63,7 +63,7 @@ extension GRDBClipboardStore {
         queryVector: [Float], topK: Int = 10, snippetsOnly: Bool = false
     ) async throws -> [ClipItem] {
         let queryNorm = sqrt(vDSP.sumOfSquares(queryVector))
-        guard queryNorm > 0 else { return [] }
+        guard topK > 0, queryNorm > 0, queryNorm.isFinite else { return [] }
 
         // Streamed, not materialized. `fetchAll` held every stored vector in
         // memory at once — 2 KB per clip, so 200 MB of `Data` at 100k rows —
@@ -100,7 +100,9 @@ extension GRDBClipboardStore {
                         }
                         vDSP_svesq(base, 1, &sumOfSquares, vDSP_Length(stored.count))
                         let denominator = sqrt(sumOfSquares) * queryNorm
-                        guard denominator > 0 else { return nil }
+                        guard denominator > 0, denominator.isFinite, dot.isFinite else {
+                            return nil
+                        }
                         return dot / denominator
                     }
                 }
@@ -120,25 +122,16 @@ extension GRDBClipboardStore {
         }
     }
 
-    /// Bounded O(n·k) selection of the `count` best scores, descending. The
-    /// perf harness measured a full sort at ~30% of the 100k end-to-end cost
-    /// (149ms) while this selection stays ~1/13th of that — and k is tiny
-    /// (top-K ≤ ~10), so the insertion re-sort is effectively constant work.
+    /// Preserve scan order on equal scores while retaining only the requested K.
     static func partialTopK(
         _ scored: [(id: String, score: Float)], count: Int
     ) -> [(id: String, score: Float)] {
-        guard count > 0 else { return [] }
-        var top: [(id: String, score: Float)] = []
-        top.reserveCapacity(count + 1)
-        for candidate in scored {
-            if top.count < count {
-                top.append(candidate)
-                top.sort { $0.score > $1.score }
-            } else if candidate.score > top[count - 1].score {
-                top[count - 1] = candidate
-                top.sort { $0.score > $1.score }
-            }
+        var top = BoundedTopK<(offset: Int, score: Float)>(limit: count) {
+            $0.score == $1.score ? $0.offset < $1.offset : $0.score > $1.score
         }
-        return top
+        for (offset, value) in scored.enumerated() {
+            top.insert((offset, value.score))
+        }
+        return top.sorted.map { scored[$0.offset] }
     }
 }

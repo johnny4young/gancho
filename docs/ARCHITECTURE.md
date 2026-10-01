@@ -523,3 +523,13 @@ thermal-dependent). `-measure-panel` prints the panel first-frame wall-clock so
 a manual/UI run collects samples; the opt-in `GANCHO_PERF=1` harness holds the
 scale budgets (FTS, semantic retrieval, board paging). Instruments/energy
 traces (30-min idle CPU, repeated-round RSS) are reference-Mac evidence.
+
+### Exact cosine ranking
+
+The stored-vector search and in-memory reference index share a package-private
+bounded top-K selector. It retains at most K candidates and uses O(log K)
+replacement rather than sorting the full corpus. Both preserve input order for
+equal scores. The in-memory index rejects zero, non-finite, and overflowing
+norms before mutation; a rejected insert cannot contaminate subsequent queries.
+The standalone index benchmark exercises ranking mechanics, not end-to-end
+model quality or UI latency. Storage retrieval has its own scale harness.
