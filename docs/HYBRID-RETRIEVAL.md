@@ -59,3 +59,5 @@ not create a new retrieval paywall or change CLI/MCP search modes.
 
 The disposable-store UI adapter validates presentation and routing only. Real
 bilingual relevance evidence is the opt-in evaluation above, not that adapter.
+
+Panel closure and explicit navigation invalidate meaning-search intent even while the preceding conventional read is pending; a completed read cannot start new semantic work after cancellation. A same-query refresh keeps old related rows labeled as related until replacement, then restores a previously selected related UUID only if it still appears and no newer navigation occurred. It never invents an initial related selection.
