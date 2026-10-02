@@ -189,7 +189,7 @@ struct ClipIngestionCoordinatorTests {
         _ = try await coordinator.ingest(
             PasteboardCapture(text: "stamped"),
             configuration: configuration(
-                sourceDeviceName: await DeviceProvenance.currentDeviceName { "  Fixture Mac \n" }),
+                sourceDeviceName: DeviceProvenance.currentDeviceName { "  Fixture Mac \n" }),
             store: store,
             syncEngine: sync)
         #expect(await store.insertedItem?.sourceDeviceName == "Fixture Mac")
