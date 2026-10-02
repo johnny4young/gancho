@@ -110,6 +110,12 @@ claude mcp add gancho -- /absolute/path/to/gancho mcp --grant <grant-id>
 Use `gancho status` to inspect grant state and `gancho revoke <grant-id>` to
 stop a client. Disabling MCP remains a global emergency stop.
 
+### Selected context (unreleased)
+
+Selected text clips can be reviewed and copied as bounded Markdown, with an
+optional read-only grant limited to exactly those clips that expires after one
+hour. See [docs/SELECTED-CONTEXT.md](SELECTED-CONTEXT.md).
+
 ---
 
 ## VS Code extension
