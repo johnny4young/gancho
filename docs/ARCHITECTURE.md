@@ -579,3 +579,16 @@ menu item directly, rather than combining hover with a global Return event. It
 keeps the foreground guard and the same result deadline. Disposable-store engines
 verify capability routing and presentation without system language assets; their
 results are not evidence of real-provider translation quality or latency.
+
+
+The floating history panel owns its frame and content resize limits in AppKit.
+Its `NSHostingView.sizingOptions` is empty: inferred minimum, ideal and maximum
+SwiftUI constraints would duplicate that authority and remeasure the full panel
+on result-state changes. Hosted phase traces and targeted samples identified
+these layout passes delaying main-thread translation delivery after the engine
+had already completed. The explicit sizing boundary preserves normal SwiftUI
+layout within the supplied frame, saved presets and text scaling; it changes no
+engine routing or result timeout. Native translation tests assert that the
+panel's frame stays unchanged across delivery, while display-preference tests
+cover resizing and relaunch persistence. See Apple's
+[`NSHostingView.sizingOptions` documentation](https://developer.apple.com/documentation/swiftui/nshostingview/sizingoptions).

@@ -9,6 +9,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep panel sizing under AppKit control to avoid redundant whole-view size
+  measurement delaying translation results, while preserving resize bounds and
+  display preferences.
+
 - Show installed native translation destinations independently of Apple Intelligence, with an unavailable-engine message instead of an empty result.
 
 - Use native mouse click counts for panel double-click paste while preserving
