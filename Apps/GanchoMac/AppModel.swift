@@ -1738,8 +1738,10 @@ final class AppModel {
     /// reversible, so offer the reversal in the toast instead of making the user
     /// hunt through the board menu to take it back.
     func assignWithUndo(_ item: ClipItem, toBoard board: Pinboard) {
-        Task {
-            guard await setBoardMembership(item, board: board, member: true) else { return }
+        Task { [weak self] in
+            guard let self, await setBoardMembership(item, board: board, member: true) else {
+                return
+            }
             toasts.show(
                 GanchoToast(
                     message: "Added to board",

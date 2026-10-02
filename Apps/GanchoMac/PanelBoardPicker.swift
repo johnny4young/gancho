@@ -27,11 +27,6 @@ struct PanelBoardPicker: View {
     /// Total selectable rows: the filtered boards plus the optional create row.
     private var rowCount: Int { matches.count + (canCreate ? 1 : 0) }
 
-    init(item: ClipItem, onClose: @escaping () -> Void) {
-        self.items = [item]
-        self.onClose = onClose
-    }
-
     init(items: [ClipItem], onClose: @escaping () -> Void) {
         self.items = items
         self.onClose = onClose
@@ -45,7 +40,7 @@ struct PanelBoardPicker: View {
             card
         }
         .transition(.opacity)
-        .task { memberIDs = await model.commonBoardMembership(for: items) }
+        .task(id: items.map(\.id)) { memberIDs = await model.commonBoardMembership(for: items) }
     }
 
     private var card: some View {
@@ -120,13 +115,10 @@ struct PanelBoardPicker: View {
         return HStack(spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: isMember ? "checkmark.circle.fill" : board.sfSymbol)
                 .foregroundStyle(isMember ? GanchoTokens.Palette.accent : Color.secondary)
-            if board.isSystem {
-                Text("Favorites")
-            } else {
-                Text(verbatim: board.name)
-            }
+            board.displayTitle
             Spacer(minLength: 0)
         }
+        .panelFont(.callout)
         .padding(.horizontal, GanchoTokens.Spacing.xs)
         .padding(.vertical, 5)
         .background(
@@ -149,6 +141,7 @@ struct PanelBoardPicker: View {
             Text(verbatim: "“\(trimmedFilter)”").foregroundStyle(.secondary)
             Spacer(minLength: 0)
         }
+        .panelFont(.callout)
         .padding(.horizontal, GanchoTokens.Spacing.xs)
         .padding(.vertical, 5)
         .background(

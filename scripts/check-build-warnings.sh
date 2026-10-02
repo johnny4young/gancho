@@ -32,6 +32,22 @@ is_allowed_warning() {
 				"$metadata_target" == "GanchoStoreKitTests" ]]
 			return
 			;;
+		# Xcode 27 rewords the same extractor diagnostic and also schedules it for
+		# the package library and hosted UI test bundles, none of which declare intents.
+		*"warning: Metadata extraction skipped, no AppIntents.framework dependency found")
+			[[ "$metadata_target" == "GanchoShare" ||
+				"$metadata_target" == "GanchoStoreKitHost" ||
+				"$metadata_target" == "GanchoStoreKitTests" ||
+				"$metadata_target" == "GanchoKit" ||
+				"$metadata_target" == "GanchoUITests" ||
+				"$metadata_target" == "GanchoSyncE2ETests" ]]
+			return
+			;;
+		# Xcode 27's explicit-module scan misreads the SQLCipher GRDB fork's
+		# product, although GanchoKit declares that dependency in Package.swift.
+		"warning: 'GanchoKit' is missing a dependency on 'GRDB' because dependency scan of Swift module 'GanchoKit' discovered a dependency on 'GRDB'")
+			return 0
+			;;
 		*) return 1 ;;
 	esac
 }
@@ -78,6 +94,9 @@ ExtractAppIntentsMetadata (in target 'GanchoStoreKitHost' from project 'Gancho')
 2026-07-11 appintentsmetadataprocessor[1:1] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
 ExtractAppIntentsMetadata (in target 'GanchoStoreKitTests' from project 'Gancho')
 2026-07-11 appintentsmetadataprocessor[1:1] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+ExtractAppIntentsMetadata (in target 'GanchoUITests' from project 'Gancho')
+2026-10-02 appintentsmetadataprocessor[1:1] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+warning: 'GanchoKit' is missing a dependency on 'GRDB' because dependency scan of Swift module 'GanchoKit' discovered a dependency on 'GRDB'
 EOF
 	check_log "$warning_fixture_dir/allowed.log" || {
 		printf '✗ warning classifier rejected its narrow toolchain allowlist\n' >&2
@@ -98,6 +117,14 @@ ExtractAppIntentsMetadata (in target 'GanchoiOS' from project 'Gancho')
 EOF
 	if check_log "$warning_fixture_dir/wrong-target.log" >/dev/null 2>&1; then
 		printf '✗ warning classifier allowed the App Intents diagnostic for the wrong target\n' >&2
+		return 1
+	fi
+
+	cat >"$warning_fixture_dir/other-module-scan.log" <<'EOF'
+warning: 'GanchoAppCore' is missing a dependency on 'GanchoAI' because dependency scan of Swift module 'GanchoAppCore' discovered a dependency on 'GanchoAI'
+EOF
+	if check_log "$warning_fixture_dir/other-module-scan.log" >/dev/null 2>&1; then
+		printf '✗ warning classifier allowed a first-party missing-dependency diagnostic\n' >&2
 		return 1
 	fi
 

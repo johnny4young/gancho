@@ -64,7 +64,7 @@ struct KeyboardView: View {
                 }
                 ForEach(model.boards) { board in
                     boardChip(
-                        label: board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                        label: board.displayTitle,
                         systemImage: board.sfSymbol,
                         dotColor: board.isSystem ? nil : BoardColors.color(for: board),
                         isActive: model.selectedBoardID == board.id

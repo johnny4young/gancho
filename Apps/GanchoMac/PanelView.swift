@@ -62,9 +62,6 @@ enum PanelFocus: Hashable { case search, peek }
 struct PanelView: View {
     // swiftlint:enable type_body_length
     @Environment(AppModel.self) private var model
-    @State private var combinedSelection: CombinedTextSelection?
-    @State private var aiContextSelection: CombinedTextSelection?
-    @State private var filterDraft: SmartCollectionRule?
     @FocusState private var focus: PanelFocus?
     /// The search + list state (query, results, filters, selection, paging,
     /// grouping) — lifted into `PanelSearchModel` so it is `@Observable` and
@@ -167,6 +164,8 @@ struct PanelView: View {
             }
             .keyboardShortcut("c", modifiers: [.command, .shift])
         }
+        // A field being edited owns ⌘V and friends; these would act on the list behind it.
+        .disabled(peekIsEditingInline || showBoardPicker || showShortcuts)
         .opacity(0)
         .frame(width: 0, height: 0)
         .accessibilityHidden(true)
@@ -247,22 +246,15 @@ struct PanelView: View {
             await search.refresh()
         }
         .task { await model.refreshBoards() }
-        .sheet(item: $combinedSelection) { selection in
-            CombinedTextReview(ids: selection.ids).environment(model)
-        }
-        .sheet(item: $aiContextSelection) { selection in
-            SelectedContextReview(ids: selection.ids).environment(model)
-        }
-        .sheet(item: $filterDraft) { rule in
-            SavedFilterEditor(rule: rule, boards: model.boards) {
-                await model.savedFilters.save($0)
-            }
-        }
         .onDisappear { search.cancelMeaningSearch() }
         .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
-        // A capture must not swap the peek out from under an inline edit.
+        // A capture must not swap the peek, an inline edit or the board picker's
+        // target out from under the user once they leave the search field.
         .onChange(of: peekIsEditingInline) { _, editing in
             if editing { search.endNewestFollow() }
+        }
+        .onChange(of: focus) { _, newFocus in
+            if newFocus != .search { search.endNewestFollow() }
         }
         .onChange(of: model.preferences.isPrivateModePaused) { _, _ in
             search.cancelMeaningSearch()
@@ -347,7 +339,8 @@ struct PanelView: View {
                 },
                 updateBoardIdentity: { board, colorHex, emoji in
                     await model.updateBoardIdentity(board, colorHex: colorHex, emoji: emoji)
-                })
+                },
+                reviewSheet: reviewSheet)
         )
         // Load the peek for the selected clip, keyed on its id and debounced:
         // arrowing fast cancels the in-flight load, so only the clip you land on
@@ -390,6 +383,8 @@ struct PanelView: View {
             // focused, whatever rail or row the previous session ended on.
             // The interval closes on the next turn, after this frame commits.
             DispatchQueue.main.async { model.panel.notePanelDidAppear() }
+            // An unsaved inline edit survives a trip to another app.
+            guard !peekIsEditingInline else { return }
             railFocus = nil
             focus = .search
             search.followNewestClip()
@@ -562,6 +557,7 @@ struct PanelView: View {
                     return handleNav(.toggle)
                 }
                 .onKeyPress(.return, phases: .down) { press in
+                    if showShortcuts { return .handled }
                     // In a rail, Enter toggles the focused chip. ⌥⌘Return enqueues
                     // the selection onto the paste stack. Otherwise an exact
                     // keyword match takes Enter (you typed the snippet shortcut on
@@ -604,7 +600,7 @@ struct PanelView: View {
                     return .handled
                 }
                 .onKeyPress(characters: .decimalDigits, phases: .down) { press in
-                    guard press.modifiers.contains(.command),
+                    guard !showShortcuts, press.modifiers.contains(.command),
                         let digit = Int(press.characters), (1...9).contains(digit),
                         search.filtered.indices.contains(digit - 1)
                     else { return .ignored }
@@ -612,25 +608,28 @@ struct PanelView: View {
                     return .handled
                 }
                 .onKeyPress(characters: CharacterSet(charactersIn: "p"), phases: .down) { press in
-                    guard press.modifiers.contains(.command), let item = search.selectedItem else {
-                        return .ignored
-                    }
+                    guard !showShortcuts, press.modifiers.contains(.command),
+                        let item = search.selectedItem
+                    else { return .ignored }
+                    search.endNewestFollow()
                     model.togglePin(item)
                     return .handled
                 }
                 .onKeyPress(characters: CharacterSet(charactersIn: "s"), phases: .down) { press in
-                    guard press.modifiers.contains(.command), let item = search.selectedItem else {
-                        return .ignored
-                    }
+                    guard !showShortcuts, press.modifiers.contains(.command),
+                        let item = search.selectedItem
+                    else { return .ignored }
+                    search.endNewestFollow()
                     model.promoteToSnippet(item)
                     return .handled
                 }
                 .onKeyPress(characters: CharacterSet(charactersIn: "bB"), phases: .down) { press in
                     // ⌘B opens the board picker for the selection; ⇧⌘B repeats
                     // the last board (curate many clips into one board fast).
-                    guard press.modifiers.contains(.command), !search.selectedItems.isEmpty else {
-                        return .ignored
-                    }
+                    guard !showShortcuts, press.modifiers.contains(.command),
+                        !search.selectedItems.isEmpty
+                    else { return .ignored }
+                    search.endNewestFollow()
                     if press.modifiers.contains(.shift) {
                         model.assignToLastBoard(search.selectedItems)
                     } else {
@@ -713,7 +712,7 @@ struct PanelView: View {
                 sourceAppMenu
             }
             Button {
-                filterDraft = search.savedRule(named: "")
+                presentedSheet = .savedFilter(search.savedRule(named: ""))
             } label: {
                 Image(systemName: "line.3.horizontal.decrease.circle")
                     .panelFont(size: 13, .medium)
@@ -765,10 +764,12 @@ struct PanelView: View {
             PanelSelectionContextBar(
                 selectionCount: search.selectionCount,
                 copyCombined: {
-                    combinedSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
+                    presentedSheet = .combinedText(
+                        CombinedTextSelection(ids: search.selectedItems.map(\.id)))
                 },
                 prepareAIContext: {
-                    aiContextSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
+                    presentedSheet = .aiContext(
+                        CombinedTextSelection(ids: search.selectedItems.map(\.id)))
                 },
                 addToStack: { model.pushToStack(search.selectedItems) },
                 addToBoard: presentBoardPicker,
@@ -977,7 +978,7 @@ struct PanelView: View {
 
     private func boardChip(_ board: Pinboard, index: Int) -> some View {
         let isActive = search.selectedBoardID == board.id
-        let title = board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
+        let title = board.displayTitle
         return Button {
             search.selectedBoardID = board.id
         } label: {
@@ -1046,7 +1047,6 @@ struct PanelView: View {
         boardSheet = nil
     }
 
-    /// "RECENT … N CLIPS" header above the list.
     /// "Ask your clipboard": a one-tap button to answer the typed query from
     /// history, the spinner while it runs, and the grounded answer card.
     @ViewBuilder private var askRow: some View {
@@ -1179,7 +1179,24 @@ struct PanelView: View {
 
     /// The picker's field takes the keyboard; closing it returns focus to
     /// whichever pane opened it.
+    private func reviewSheet(_ sheet: PanelSheetPresentations.Sheet) -> AnyView {
+        switch sheet {
+        case .combinedText(let selection):
+            AnyView(CombinedTextReview(ids: selection.ids).environment(model))
+        case .aiContext(let selection):
+            AnyView(SelectedContextReview(ids: selection.ids).environment(model))
+        case .savedFilter(let rule):
+            AnyView(
+                SavedFilterEditor(rule: rule, boards: model.boards) {
+                    await model.savedFilters.save($0)
+                })
+        case .snippet, .boardAppearance:
+            AnyView(EmptyView())
+        }
+    }
+
     private func presentBoardPicker() {
+        search.endNewestFollow()
         boardPickerReturnFocus = focus ?? .search
         focus = nil
         showBoardPicker = true
@@ -1303,7 +1320,11 @@ struct PanelView: View {
         }
         Menu("Add to board") {
             ForEach(model.boards) { board in
-                Button(board.name) { model.assign(item, toBoard: board) }
+                Button {
+                    model.assign(item, toBoard: board)
+                } label: {
+                    board.displayTitle
+                }
             }
             Divider()
             Button("New board…") {
@@ -1393,6 +1414,8 @@ struct PanelView: View {
     /// moving SwiftUI focus into the peek, and pulling the next page. Returns
     /// `.ignored` only when the reducer did not consume the key.
     private func handleNav(_ key: PanelNavigationKey) -> KeyPress.Result {
+        // The shortcuts sheet is modal over the list.
+        if showShortcuts { return .handled }
         let context = PanelNavigationContext(
             rowCount: search.filtered.count,
             boardIDs: model.boards.map(\.id),

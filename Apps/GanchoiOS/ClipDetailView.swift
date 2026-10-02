@@ -394,11 +394,7 @@ struct ClipDetailView: View {
                         ForEach(currentBoards) { board in
                             HStack(spacing: 5) {
                                 BoardDot(board: board, size: 9)
-                                if board.isSystem {
-                                    Text("Favorites")
-                                } else {
-                                    Text(verbatim: board.name)
-                                }
+                                board.displayTitle
                             }
                             .font(.caption)
                             .padding(.horizontal, GanchoTokens.Spacing.sm)

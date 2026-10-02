@@ -357,6 +357,7 @@ private struct GeneralSettingsTab: View {
             do {
                 try await GanchoArchive.export(
                     from: store, to: url, options: .init(excludeSensitive: true))
+                transferNote = String(localized: "Backup saved.")
             } catch {
                 // Same content-free discipline as restore: no paths, no
                 // payloads — one actionable note plus a diagnostics entry.
@@ -401,11 +402,15 @@ private struct GeneralSettingsTab: View {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url,
-            let data = try? Data(contentsOf: url),
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let data = try? Data(contentsOf: url),
             let snapshot = try? SettingsSnapshot.decode(data)
-        else { return }
+        else {
+            transferNote = String(localized: "Those settings couldn’t be imported.")
+            return
+        }
         model.apply(snapshot)
+        transferNote = String(localized: "Settings imported.")
     }
 }
 

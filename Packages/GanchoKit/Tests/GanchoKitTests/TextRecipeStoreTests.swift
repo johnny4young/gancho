@@ -27,6 +27,18 @@ struct TextRecipeStoreTests {
         #expect(try await store.textRecipes().count == 2)
         #expect(try await store.item(id: clip.id) != nil)
     }
+    @Test func restoringPresetsReaddsDeletedOnesWithoutOverwritingEdits() async throws {
+        let store = try store(try DatabaseQueue())
+        var edited = TextRecipePresets.all[1]
+        edited.name = "My list"
+        try await store.saveTextRecipe(edited)
+        try await store.deleteTextRecipe(id: TextRecipePresets.all[0].id.uuidString)
+        try await store.restoreTextRecipePresets()
+        let recipes = try await store.textRecipes().compactMap(\.recipe)
+        #expect(recipes.contains(TextRecipePresets.all[0]))
+        #expect(recipes.contains(edited))
+        #expect(recipes.count == TextRecipePresets.all.count)
+    }
     @Test func savedNamesDropSurroundingWhitespace() async throws {
         let store = try store(try DatabaseQueue())
         let recipe = TextRecipe(

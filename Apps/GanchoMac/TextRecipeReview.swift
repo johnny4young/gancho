@@ -126,6 +126,11 @@ struct TextRecipeReview: View {
                     .accessibilityIdentifier("text-recipe-new")
                 Button("Delete") { remove() }.disabled(selectedID.isEmpty || operation != nil)
                     .accessibilityIdentifier("text-recipe-delete")
+                if missingPresets {
+                    Button("Restore default recipes") { restorePresets() }
+                        .disabled(dirty || operation != nil)
+                        .accessibilityIdentifier("text-recipe-restore-defaults")
+                }
             }
             if draft != nil {
                 editor
@@ -166,7 +171,10 @@ struct TextRecipeReview: View {
                         .disabled(index + 1 == draft?.steps.count)
                     Button("Remove") { draft?.steps.remove(at: index) }
                         .accessibilityIdentifier("text-recipe-remove-step-button")
-                }.panelFont(.caption)
+                }
+                .panelFont(.caption)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(Text(verbatim: actionTitle(step)))
             }
             HStack {
                 Picker("Action", selection: $actionID) {
@@ -243,6 +251,12 @@ struct TextRecipeReview: View {
         draft = recipe
         savedDraft = recipe
     }
+    private var missingPresets: Bool {
+        !loading
+            && TextRecipePresets.all.contains { preset in
+                !records.contains { $0.id == preset.id.uuidString }
+            }
+    }
     private func isUntouchedPreset(_ recipe: TextRecipe) -> Bool {
         TextRecipePresets.all.contains { $0.id == recipe.id && $0.name == recipe.name }
     }
@@ -290,6 +304,25 @@ struct TextRecipeReview: View {
                 records = refreshed
                 selectedID = draft.id.uuidString
                 savedDraft = draft
+                operation = nil
+            } catch is CancellationError {} catch {
+                guard !Task.isCancelled, generation == request else { return }
+                failed = true
+                operation = nil
+            }
+        }
+    }
+    private func restorePresets() {
+        guard let storage else { return }
+        cancel()
+        failed = false
+        let request = generation
+        operation = Task {
+            do {
+                try await storage.restoreTextRecipePresets()
+                let refreshed = try await storage.textRecipes()
+                guard !Task.isCancelled, generation == request else { return }
+                records = refreshed
                 operation = nil
             } catch is CancellationError {} catch {
                 guard !Task.isCancelled, generation == request else { return }

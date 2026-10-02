@@ -20,3 +20,18 @@
         }
     }
 #endif
+
+#if canImport(AppKit)
+    extension NSScreen {
+        /// The display the user is looking at: under the pointer, then the key
+        /// or main window's, never blindly the menu-bar screen.
+        @MainActor public static var underPointer: NSScreen? {
+            let mouse = NSEvent.mouseLocation
+            return screens.first { $0.frame.contains(mouse) }
+                ?? NSApp.keyWindow?.screen
+                ?? NSApp.mainWindow?.screen
+                ?? main
+                ?? screens.first
+        }
+    }
+#endif

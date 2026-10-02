@@ -42,7 +42,7 @@ struct PanelResultsView<RowContent: View>: View {
                 firstRunHint: firstRunHint,
                 clearFilters: clearFilters)
         } else {
-            if !isGroupedView { recentHeader }
+            if !isGroupedView || layout == .gallery { recentHeader }
             ScrollViewReader { proxy in
                 ScrollView {
                     switch layout {
@@ -59,18 +59,16 @@ struct PanelResultsView<RowContent: View>: View {
                         }
                         .padding(.horizontal, GanchoTokens.Spacing.xxs)
                     case .gallery:
+                        // Flat, in the same order as the grouped list: section
+                        // headers would start new grid rows and break the
+                        // index-by-columns arrow math.
                         LazyVGrid(
                             columns: Array(
                                 repeating: GridItem(.flexible(), spacing: GanchoTokens.Spacing.xs),
                                 count: columns),
-                            alignment: .leading, spacing: GanchoTokens.Spacing.xs,
-                            pinnedViews: isGroupedView ? [.sectionHeaders] : []
+                            alignment: .leading, spacing: GanchoTokens.Spacing.xs
                         ) {
-                            if isGroupedView {
-                                groupedRows
-                            } else {
-                                flatRows
-                            }
+                            flatRows
                         }
                         .padding(.horizontal, GanchoTokens.Spacing.xs)
                         .onGeometryChange(for: CGFloat.self) {
@@ -97,9 +95,15 @@ struct PanelResultsView<RowContent: View>: View {
 
     private var recentHeader: some View {
         HStack {
-            Text("Recent")
+            if !query.isEmpty {
+                Text("Results")
+            } else if hasActiveFilter {
+                Text("Filtered")
+            } else {
+                Text("Recent")
+            }
             Spacer()
-            clipCount(items.count)
+            clipCount(items.count { !relatedIDs.contains($0.id) })
         }
         .panelFont(.caption2, .semibold)
         .foregroundStyle(.tertiary)

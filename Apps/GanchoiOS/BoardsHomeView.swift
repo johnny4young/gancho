@@ -43,11 +43,7 @@ struct MoveToBoardSheet: View {
                         } label: {
                             HStack(spacing: GanchoTokens.Spacing.sm) {
                                 BoardDot(board: board)
-                                if board.isSystem {
-                                    Text("Favorites")
-                                } else {
-                                    Text(verbatim: board.name)
-                                }
+                                board.displayTitle
                                 Spacer()
                                 if memberIDs.contains(board.id) {
                                     Image(systemName: "checkmark")
@@ -201,7 +197,7 @@ struct BoardsHomeView: View {
             open(board.id)
         } label: {
             boardLabel(
-                board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                board.displayTitle,
                 icon: BoardDot(board: board, size: 14), tint: .primary,
                 count: counts[board.id] ?? 0)
         }

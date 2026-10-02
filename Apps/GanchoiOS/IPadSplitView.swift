@@ -24,7 +24,7 @@ struct IPadSplitView: View {
                     }
                     ForEach(model.boards) { board in
                         boardRow(
-                            label: board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                            label: board.displayTitle,
                             symbol: board.sfSymbol, isActive: model.selectedBoardID == board.id
                         ) {
                             model.selectedBoardID = board.id

@@ -434,7 +434,7 @@ struct CaptureView: View {
                 }
                 ForEach(model.boards) { board in
                     railChip(
-                        board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                        board.displayTitle,
                         systemImage: board.sfSymbol,
                         isActive: model.selectedBoardID == board.id,
                         board: board

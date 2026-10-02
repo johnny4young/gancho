@@ -376,11 +376,7 @@ private struct NewMCPGrantView: View {
                     .accessibilityIdentifier("mcp-new-client-name-field")
                 Picker("Board context", selection: $boardID) {
                     ForEach(boards) { board in
-                        if board.isSystem {
-                            Text("Favorites").tag(Optional(board.id))
-                        } else {
-                            Text(verbatim: board.name).tag(Optional(board.id))
-                        }
+                        board.displayTitle.tag(Optional(board.id))
                     }
                 }
                 .accessibilityIdentifier("mcp-new-client-board-picker")

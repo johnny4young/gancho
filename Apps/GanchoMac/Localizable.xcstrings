@@ -9879,6 +9879,116 @@
           }
         }
       }
+    },
+    "Restore default recipes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar recetas predeterminadas"
+          }
+        }
+      }
+    },
+    "This action can’t transform this clip.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta acción no puede transformar este clip."
+          }
+        }
+      }
+    },
+    "Clear selection": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar selección"
+          }
+        }
+      }
+    },
+    "Extend selection": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ampliar la selección"
+          }
+        }
+      }
+    },
+    "Add to last board": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir al último tablero"
+          }
+        }
+      }
+    },
+    "Click to select several clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clic para seleccionar varios clips"
+          }
+        }
+      }
+    },
+    "Results": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resultados"
+          }
+        }
+      }
+    },
+    "Filtered": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtrados"
+          }
+        }
+      }
+    },
+    "Backup saved.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia de seguridad guardada."
+          }
+        }
+      }
+    },
+    "Settings imported.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes importados."
+          }
+        }
+      }
+    },
+    "Those settings couldn’t be imported.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron importar esos ajustes."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

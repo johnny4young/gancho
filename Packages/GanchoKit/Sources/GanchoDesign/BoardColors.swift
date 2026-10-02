@@ -105,3 +105,8 @@ public enum BoardColors {
         return options[Int(board.id.uuid.0) % options.count]
     }
 }
+
+extension Pinboard {
+    /// The system board's localized name, or the user's name verbatim.
+    public var displayTitle: Text { isSystem ? Text("Favorites") : Text(verbatim: name) }
+}
