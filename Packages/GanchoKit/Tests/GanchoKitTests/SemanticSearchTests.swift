@@ -62,6 +62,23 @@ struct SemanticSearchTests {
         #expect(try await store.semanticSearch(queryVector: [1, 0, 0], topK: 0).isEmpty)
     }
 
+    @Test(
+        "Invalid vectors do not consume top-K slots or produce matches",
+        arguments: [Float.infinity, -.infinity, .nan, .greatestFiniteMagnitude])
+    func invalidVectors(value: Float) async throws {
+        let store = try makeStore()
+        let valid = ClipItem(preview: "valid", contentHash: "valid")
+        let invalid = ClipItem(preview: "invalid", contentHash: "invalid")
+        for item in [valid, invalid] {
+            try await store.insert(item, content: .text(item.preview))
+        }
+        try await store.saveEmbedding(clipID: valid.id, vector: [1, 0])
+        try await store.saveEmbedding(clipID: invalid.id, vector: [value, 1])
+        let hits = try await store.semanticSearch(queryVector: [1, 0], topK: 2)
+        #expect(hits.map(\.id) == [valid.id])
+        #expect(try await store.semanticSearch(queryVector: [value, 1]).isEmpty)
+    }
+
     @Test("Dimension mismatches and archived clips are excluded")
     func exclusions() async throws {
         let store = try makeStore()

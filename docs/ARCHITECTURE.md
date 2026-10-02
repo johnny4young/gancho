@@ -628,3 +628,15 @@ engine routing or result timeout. Native translation tests assert that the
 panel's frame stays unchanged across delivery, while display-preference tests
 cover resizing and relaunch persistence. See Apple's
 [`NSHostingView.sizingOptions` documentation](https://developer.apple.com/documentation/swiftui/nshostingview/sizingoptions).
+
+### Exact cosine ranking
+
+The stored-vector search and in-memory reference index share a package-private
+bounded top-K selector. It retains at most K candidates and uses O(log K)
+replacement rather than sorting the full corpus. Equal scores fall back to
+insertion order in the index and to clip ID in storage. The in-memory index
+rejects zero, non-finite, and overflowing norms before mutation; a rejected
+insert cannot contaminate subsequent queries. The standalone index benchmark
+exercises ranking mechanics, not end-to-end model quality or UI latency.
+Storage retrieval has its own scale harness.
+
