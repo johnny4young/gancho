@@ -28,6 +28,19 @@ struct SnippetDraftRecoveryTests {
         }
     }
 
+    @Test("Edit validation accepts an empty body and rejects protected text")
+    func editValidation() throws {
+        let empty = try SnippetDraftRecovery.prepare(
+            .init(title: "Draft", body: ""), sensitiveLifetime: 600, detectSecrets: true,
+            fallbackTitle: "Draft")
+        #expect(empty.text.isEmpty)
+        #expect(throws: SnippetDraftSaveError.protectedContent) {
+            try SnippetDraftRecovery.prepare(
+                .init(title: "Card", body: "Pay with 4111 1111 1111 1111"),
+                sensitiveLifetime: 600, detectSecrets: true, fallbackTitle: "Card")
+        }
+    }
+
     @Test("A blank title takes the caller's localized fallback")
     func fallbackTitle() throws {
         let prepared = try SnippetDraftRecovery.prepare(

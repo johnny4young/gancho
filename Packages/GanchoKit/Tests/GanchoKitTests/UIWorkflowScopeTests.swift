@@ -19,6 +19,11 @@ struct UIWorkflowScopeTests {
         let scopedCoverage = source.components(
             separatedBy: #"echo "Coverage scope: $UI_EVIDENCE_LABEL""#)
         #expect(scopedCoverage.count == 3, "each coverage summary must name its scope")
+        let macOSLabel =
+            "UI_EVIDENCE_LABEL: ${{ inputs.scope == 'feature-stress' && 'macOS feature stress (10x)'"
+        #expect(
+            source.components(separatedBy: macOSLabel).count == 3,
+            "macOS evidence and coverage must share every stress label")
     }
 
     private func workflow() throws -> String {

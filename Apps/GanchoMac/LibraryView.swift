@@ -37,6 +37,7 @@ struct LibraryView: View {
     @State var editingSnippet: ClipItem?
     @State var draft = SnippetDraft()
     @State var isSavingDraft = false
+    @State var draftIsProtected = false
     @State var pendingDraftSelection: LibrarySelection?
     @State var showsDraftResolution = false
     @State var selectionTask: Task<Void, Never>?
@@ -486,7 +487,8 @@ struct LibraryView: View {
                 snippets = try await store.snippets()
             } catch {
                 model.diagnostics.record(
-                    "Snippets", "Couldn’t load snippets; your draft is still here.")
+                    String(localized: "Snippets"),
+                    String(localized: "Couldn’t load snippets; your draft is still here."))
                 return
             }
         }

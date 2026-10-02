@@ -11,24 +11,33 @@ import SwiftUI
 extension LibraryView {
     // MARK: - Snippet editor
 
+    @ViewBuilder private var draftNotices: some View {
+        if draft.requiresRecovery {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                Label(
+                    "The original snippet was removed. Your draft is still here.",
+                    systemImage: "exclamationmark.triangle")
+                HStack {
+                    Button("Save as new snippet") { recoverDraft() }
+                        .accessibilityIdentifier("snippet-recover-button")
+                    Button("Discard draft", role: .destructive) { discardDraft() }
+                        .accessibilityIdentifier("snippet-discard-button")
+                }
+            }
+            .padding(GanchoTokens.Spacing.sm)
+            .background(.quaternary, in: roundedCard)
+            .accessibilityElement(children: .contain)
+        }
+        if draftIsProtected {
+            Label("Protected content cannot be saved as a snippet.", systemImage: "lock")
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("snippet-protected-notice")
+        }
+    }
+
     func snippetEditor(_ snippet: ClipItem) -> some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
-            if draft.requiresRecovery {
-                VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-                    Label(
-                        "The original snippet was removed. Your draft is still here.",
-                        systemImage: "exclamationmark.triangle")
-                    HStack {
-                        Button("Save as new snippet") { recoverDraft() }
-                            .accessibilityIdentifier("snippet-recover-button")
-                        Button("Discard draft", role: .destructive) { discardDraft() }
-                            .accessibilityIdentifier("snippet-discard-button")
-                    }
-                }
-                .padding(GanchoTokens.Spacing.sm)
-                .background(.quaternary, in: roundedCard)
-                .accessibilityElement(children: .contain)
-            }
+            draftNotices
             TextField("Snippet title", text: $draft.edited.title)
                 .textFieldStyle(.plain)
                 .font(.title2.weight(.semibold))
@@ -73,6 +82,7 @@ extension LibraryView {
                 .accessibilityHidden(true)
         }
         .disabled(draft.requiresRecovery && isSavingDraft)
+        .onChange(of: draft.edited) { _, _ in draftIsProtected = false }
         .onChange(of: focusedField) { previous, _ in
             // Commit a rename or keyword edit the moment focus leaves the field —
             // no need to hunt for Save for those quick edits.

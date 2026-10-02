@@ -11,35 +11,41 @@ extension LibraryView {
         }
         if draft.snippetID == id, draft.requiresRecovery { return }
         do {
-            guard let before = try await model.store.item(id: id),
-                !ClipSafePresentation.requiresMasking(before),
-                before.expiresAt.map({ $0 > .now }) ?? true
-            else {
+            // A write between the reads would pair one version's metadata with another's body.
+            for _ in 0..<3 {
+                guard let before = try await model.store.item(id: id),
+                    !ClipSafePresentation.requiresMasking(before),
+                    before.expiresAt.map({ $0 > .now }) ?? true
+                else {
+                    guard generation == loadGeneration else { return }
+                    reconcileMissingSnippet(id: id)
+                    return
+                }
                 guard generation == loadGeneration else { return }
-                reconcileMissingSnippet(id: id)
+                let content = try await model.store.content(for: id)
+                guard generation == loadGeneration else { return }
+                let current = try await model.store.item(id: id)
+                guard generation == loadGeneration else { return }
+                guard case .text(let body) = content, let current,
+                    !ClipSafePresentation.requiresMasking(current),
+                    current.expiresAt.map({ $0 > .now }) ?? true
+                else {
+                    reconcileMissingSnippet(id: id)
+                    return
+                }
+                guard before.updatedAt == current.updatedAt,
+                    before.contentHash == current.contentHash
+                else { continue }
+                draft.reload(
+                    snippetID: id,
+                    stored: .init(title: current.title, keyword: current.keyword ?? "", body: body))
+                editingSnippet = snippet
                 return
             }
-            guard generation == loadGeneration else { return }
-            let content = try await model.store.content(for: id)
-            guard generation == loadGeneration else { return }
-            let current = try await model.store.item(id: id)
-            guard generation == loadGeneration else { return }
-            guard case .text(let body) = content, let current,
-                !ClipSafePresentation.requiresMasking(current),
-                current.expiresAt.map({ $0 > .now }) ?? true
-            else {
-                reconcileMissingSnippet(id: id)
-                return
-            }
-            guard before.updatedAt == current.updatedAt, before.contentHash == current.contentHash
-            else { return }
-            draft.reload(
-                snippetID: id,
-                stored: .init(title: current.title, keyword: current.keyword ?? "", body: body))
-            editingSnippet = snippet
         } catch {
             model.diagnostics.record(
-                "Snippets", String(localized: "Couldn’t load snippets; your draft is still here."))
+                String(localized: "Snippets"),
+                String(localized: "Couldn’t load snippets; your draft is still here."))
         }
     }
 
@@ -101,11 +107,16 @@ extension LibraryView {
                 CommandLine.arguments.contains("-use-temp-durable-store"),
                 AppModel.uiTestDefaultsSuiteName() != nil
             {
-                model.diagnostics.record("Snippets", "Couldn’t save that snippet.")
+                model.diagnostics.record(
+                    String(localized: "Snippets"), String(localized: "Couldn’t save that snippet."))
                 return false
             }
         #endif
         do {
+            // Edits follow the same privacy classification as creation and recovery.
+            _ = try SnippetDraftRecovery.prepare(
+                fields, sensitiveLifetime: model.retentionPolicy.sensitiveLifetime,
+                detectSecrets: model.intelligence.detectSecrets, fallbackTitle: fields.title)
             let saved = try await store.updateSnippetDraft(
                 id: id, title: fields.title, text: fields.body, keyword: fields.keyword)
             guard saved else {
@@ -113,13 +124,20 @@ extension LibraryView {
                 return false
             }
             draft.markSaved(snippetID: id, fields)
-            snippets = try await store.snippets()
-            model.refreshSpotlight()
-            return true
+        } catch SnippetDraftSaveError.protectedContent {
+            if draft.snippetID == id, draft.edited == fields { draftIsProtected = true }
+            model.diagnostics.record(
+                String(localized: "Snippets"),
+                String(localized: "Protected content cannot be saved as a snippet."))
+            return false
         } catch {
-            model.diagnostics.record("Snippets", "Couldn’t save that snippet.")
+            model.diagnostics.record(
+                String(localized: "Snippets"), String(localized: "Couldn’t save that snippet."))
             return false
         }
+        if let refreshed = try? await store.snippets() { snippets = refreshed }
+        model.refreshSpotlight()
+        return true
     }
 
     func recoverDraft() {
@@ -155,9 +173,11 @@ extension LibraryView {
                 model.paywallWindow.show(trigger: .freeLimitReached, model: model)
             } catch SnippetDraftSaveError.protectedContent {
                 model.diagnostics.record(
-                    "Snippets", "Protected content cannot be saved as a snippet.")
+                    String(localized: "Snippets"),
+                    String(localized: "Protected content cannot be saved as a snippet."))
             } catch {
-                model.diagnostics.record("Snippets", "Couldn’t save that snippet.")
+                model.diagnostics.record(
+                    String(localized: "Snippets"), String(localized: "Couldn’t save that snippet."))
             }
         }
     }
@@ -191,7 +211,10 @@ extension LibraryView {
                 selection = .allClips
                 await refreshAll()
                 model.refreshSpotlight()
-            } catch { model.diagnostics.record("Snippets", "Couldn’t save that snippet.") }
+            } catch {
+                model.diagnostics.record(
+                    String(localized: "Snippets"), String(localized: "Couldn’t save that snippet."))
+            }
         }
     }
 
@@ -231,7 +254,10 @@ extension LibraryView {
                 model.refreshSpotlight()
             } catch SnippetDraftSaveError.freeLimitReached {
                 model.paywallWindow.show(trigger: .freeLimitReached, model: model)
-            } catch { model.diagnostics.record("Snippets", "Couldn’t save that snippet.") }
+            } catch {
+                model.diagnostics.record(
+                    String(localized: "Snippets"), String(localized: "Couldn’t save that snippet."))
+            }
         }
     }
 

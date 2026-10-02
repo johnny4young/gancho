@@ -9,14 +9,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Queue edited snippet titles and text for synchronization while keeping keyword-only
-  edits local and preserving uploads that were already pending. Local keyword
-  edits no longer outrank newer remote title/body changes.
+- Queue edited snippet titles and text for synchronization while keeping
+  keyword-only edits local and preserving uploads that were already pending.
+  Local keyword edits no longer outrank newer remote title/body changes. Edits
+  carrying protected content are refused with an inline notice.
 
 - Preserve modified snippet drafts when their original is removed; recover them
-  explicitly as a new classified snippet or discard them without restoring it. Library
-  loading and safe copying remain available with the in-memory fallback store,
-  which does not support snippet persistence.
+  explicitly as a new classified snippet or discard them without restoring it.
+  Library loading and safe copying remain available with the in-memory fallback
+  store, which does not support snippet persistence.
 
 - Use native mouse click counts for panel double-click paste while preserving
   immediate single-click selection, context menus and file dragging.

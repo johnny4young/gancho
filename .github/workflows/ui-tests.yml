@@ -117,7 +117,7 @@ jobs:
         if: always()
         continue-on-error: true
         env:
-          UI_EVIDENCE_LABEL: ${{ inputs.scope == 'interaction-stress' && 'macOS interaction stress (10x)' || 'macOS UI tests' }}
+          UI_EVIDENCE_LABEL: ${{ inputs.scope == 'feature-stress' && 'macOS feature stress (10x)' || inputs.scope == 'interaction-stress' && 'macOS interaction stress (10x)' || 'macOS UI tests' }}
         run: |
           # pipefail so a broken reporter shows as a failed step
           # instead of inheriting tee's exit 0.
