@@ -367,7 +367,9 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             let cursor = try ClipRow.fetchCursor(
                 db, sql: sql, arguments: StatementArguments(arguments))
             while let row = try cursor.next(), results.count < limit {
-                let content = String((row.contentText ?? "").prefix(Self.regexHaystackLimit))
+                let content =
+                    query.metadataOnly
+                    ? "" : String((row.contentText ?? "").prefix(Self.regexHaystackLimit))
                 let haystacks = [row.title, row.preview, content]
                 let matches = haystacks.contains { text in
                     regex.firstMatch(
@@ -428,6 +430,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             try ClipRow
                 .select(ClipRow.metadataColumns)
                 .filter(Column("isArchived") == false)
+                .filter(sql: Self.unexpiredPredicate, arguments: [Date.now])
                 // Recency = the clip's last activity: lastUsedAt when it has been
                 // re-copied/used, else its createdAt. A freshly captured clip has
                 // a nil lastUsedAt, so ordering by lastUsedAt alone (NULLs last in
@@ -454,6 +457,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 .select(ClipRow.metadataColumns)
                 .filter(keys: Set(ids.map(\.uuidString)))
                 .filter(Column("isArchived") == false)
+                .filter(sql: Self.unexpiredPredicate, arguments: [Date.now])
                 .fetchAll(db)
             let itemsByID = Dictionary(uniqueKeysWithValues: rows.map { ($0.item.id, $0.item) })
             return ids.compactMap { itemsByID[$0] }
@@ -470,6 +474,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             try ClipRow
                 .select(ClipRow.metadataColumns)
                 .filter(Column("isArchived") == false)
+                .filter(sql: Self.unexpiredPredicate, arguments: [Date.now])
                 .order(Column("isPinned").desc, Column("createdAt").desc)
                 .limit(limit, offset: offset)
                 .fetchAll(db)
@@ -480,7 +485,9 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// Visible (non-archived) items — matches what lists show.
     public func count() async throws -> Int {
         try await writer.read { db in
-            try ClipRow.filter(Column("isArchived") == false).fetchCount(db)
+            try ClipRow.filter(Column("isArchived") == false)
+                .filter(sql: Self.unexpiredPredicate, arguments: [Date.now])
+                .fetchCount(db)
         }
     }
 
@@ -567,9 +574,17 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         return removed
     }
 
+    /// Nil for an expired row that retention has not purged yet.
     public func content(for id: UUID) async throws -> ClipContent? {
+        try await content(for: id, includingExpired: false)
+    }
+
+    func content(for id: UUID, includingExpired: Bool) async throws -> ClipContent? {
         let row = try await writer.read { db in
-            try ClipRow.filter(key: id.uuidString).fetchOne(db)
+            let request = ClipRow.filter(key: id.uuidString)
+            return try includingExpired
+                ? request.fetchOne(db)
+                : request.filter(sql: Self.unexpiredPredicate, arguments: [Date.now]).fetchOne(db)
         }
         guard let row else { return nil }
         if let blobHash = row.contentBlobHash {

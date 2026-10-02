@@ -207,7 +207,7 @@ extension GRDBClipboardStore: SyncLocalStore {
         }
         var result: [(ClipItem, ClipContent?)] = []
         for row in rows {
-            result.append((row.item, try await content(for: row.item.id)))
+            result.append((row.item, try await content(for: row.item.id, includingExpired: true)))
         }
         return result
     }
@@ -247,7 +247,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                 arguments: [id.uuidString])
         }
         guard let row else { return nil }
-        return (row.item, try await content(for: row.item.id))
+        return (row.item, try await content(for: row.item.id, includingExpired: true))
     }
 
     public func pendingDeletionRecordIDs() async throws -> [String] {

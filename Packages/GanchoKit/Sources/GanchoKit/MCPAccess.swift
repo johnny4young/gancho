@@ -362,6 +362,8 @@ public struct MCPServerConfig: Sendable, Equatable, Codable {
 public protocol MCPClipStore: Sendable {
     func search(_ query: ClipSearchQuery, limit: Int) async throws -> [ClipItem]
     func item(id: UUID) async throws -> ClipItem?
+    /// Visible rows only: archived and expired ids are omitted.
+    func items(ids: [UUID]) async throws -> [ClipItem]
     func content(for id: UUID) async throws -> ClipContent?
     func boardIDs(for clipID: UUID) async throws -> Set<UUID>
     func setPinned(id: UUID, _ pinned: Bool) async throws
