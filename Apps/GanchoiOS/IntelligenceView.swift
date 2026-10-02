@@ -135,7 +135,8 @@ struct IOSIntelligenceView: View {
                             .background(stage.tint.opacity(0.13), in: .rect(cornerRadius: 11))
                         Text(stage.title).font(.caption2.weight(.semibold))
                             .multilineTextAlignment(.center)
-                        Text(stage.sub).font(.system(size: 9)).foregroundStyle(.tertiary)
+                        Text(stage.sub).font(.caption2).foregroundStyle(.tertiary)
+                            .multilineTextAlignment(.center)
                     }
                     .frame(width: 92)
                     if index < stages.count - 1 {

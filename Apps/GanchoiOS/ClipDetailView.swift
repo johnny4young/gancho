@@ -187,11 +187,13 @@ struct ClipDetailView: View {
             ClipTitleEditor(title: item.title) { title in
                 await model.updateClipTitle(item, title: title)
             }
+            .id(item.id)
             actionRow
             if editableText != nil {
                 ClipTextEditor(text: editableTextBinding, kind: item.kind) { text in
                     await model.updateClipText(item, text: text)
                 }
+                .id(item.id)
             } else {
                 contentSection
             }
@@ -231,7 +233,15 @@ struct ClipDetailView: View {
             isThinking = false
             translationFailed = false
         }
-        .task(id: revealed) {
+        // Call sites also reset identity with `.id(item.id)`; this keeps a
+        // revealed secret or a draft from carrying over if one ever doesn't.
+        .onChange(of: item.id) { _, _ in
+            revealed = false
+            editableText = nil
+            actionResult = nil
+            smartResult = nil
+        }
+        .task(id: ContentRequest(clipID: item.id, revealed: revealed)) {
             let store = model.store
             let payload = await ClipPreviewLoader().load(
                 item, revealMaskedContent: revealed
@@ -252,12 +262,12 @@ struct ClipDetailView: View {
                 editableText = nil
             }
         }
-        .task { await model.thumbnails.ensureLoaded(item) }
-        .task {
+        .task(id: item.id) { await model.detailImages.ensureLoaded(item) }
+        .task(id: item.id) {
             await model.refreshBoards()
             boardIDs = await model.boardMembership(for: item)
         }
-        .task { suggestedBoard = await model.suggestedBoard(for: item) }
+        .task(id: item.id) { suggestedBoard = await model.suggestedBoard(for: item) }
         // Presented as a peek: medium shows the preview + action row; drag up to
         // the large detent for chips, boards, Smart Actions, and the full text.
         .presentationDetents([.medium, .large])
@@ -277,7 +287,8 @@ struct ClipDetailView: View {
     @ViewBuilder private var contentSection: some View {
         Section {
             if item.kind == .image, !requiresMasking,
-                let thumbnail = model.thumbnails.cached(for: item.id)
+                let thumbnail = model.detailImages.cached(for: item.id)
+                    ?? model.thumbnails.cached(for: item.id)
             {
                 thumbnail
                     .resizable()
@@ -345,17 +356,6 @@ struct ClipDetailView: View {
             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
             .listRowBackground(Color.clear)
         }
-    }
-
-    private func metaChip(_ text: Text, systemImage: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: systemImage).font(.caption2)
-            text.font(.caption)
-        }
-        .padding(.horizontal, GanchoTokens.Spacing.sm)
-        .padding(.vertical, 5)
-        .background(.quaternary, in: Capsule())
-        .foregroundStyle(.secondary)
     }
 
     /// Compact board membership: the auto-board suggestion, the boards this clip
@@ -526,5 +526,23 @@ struct ClipDetailView: View {
             }
         }
     }
+}
 
+/// What the detail's content load depends on: a new clip or a reveal toggle.
+private struct ContentRequest: Hashable {
+    let clipID: UUID
+    let revealed: Bool
+}
+
+extension ClipDetailView {
+    fileprivate func metaChip(_ text: Text, systemImage: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage).font(.caption2)
+            text.font(.caption)
+        }
+        .padding(.horizontal, GanchoTokens.Spacing.sm)
+        .padding(.vertical, 5)
+        .background(.quaternary, in: Capsule())
+        .foregroundStyle(.secondary)
+    }
 }

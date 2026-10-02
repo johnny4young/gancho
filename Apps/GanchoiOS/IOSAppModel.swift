@@ -75,10 +75,13 @@ final class IOSAppModel {
     /// Content-free recent app options and aggregate counts.
     var sourceApps: [ClipSourceApp] { history.sourceApps }
     var boards: [Pinboard] = []
-    /// Set by a widget deep link; `CaptureView` consumes it to push the clip.
-    var deepLinkClipID: UUID?
-    /// Cached, downsampled thumbnails for image clips (history rows + detail).
+    /// A resolved widget/Spotlight deep link; the capture shell consumes it.
+    var deepLinkClip: ClipItem?
+    /// Row thumbnails, decoded from the store's small cached thumbnail bytes.
     let thumbnails: ClipThumbnailStore
+    /// Sharper previews for the clip detail, decoded from the full image.
+    let detailImages: ClipThumbnailStore
+    @ObservationIgnored private var widgetReloadTask: Task<Void, Never>?
     /// The "last clip ready to paste" Live Activity (Dynamic Island + lock
     /// screen); a no-op when the user hasn't enabled Live Activities.
     let clipActivity = ClipActivityController()
@@ -183,6 +186,7 @@ final class IOSAppModel {
         full = store as? any FullClipStore
         grdbForEngines = store as? GRDBClipboardStore
         thumbnails = ClipThumbnailStore(store: store)
+        detailImages = ClipThumbnailStore.detailPreviews(store: store)
         syncController = SyncController(
             store: store as? any SyncLocalStore,
             stateStoreURL: SharedStorageLocation.storeDirectory(
@@ -202,6 +206,7 @@ final class IOSAppModel {
             if wasSyncing, status != .syncing {
                 await self.refreshBoards()
                 await self.search()
+                self.reloadWidgets()
             }
         }
         syncController.onIdle = { [weak self] in self?.syncStatus = .idle }
@@ -361,28 +366,47 @@ final class IOSAppModel {
         await RetentionPass(steps: .live(store: grdb, sync: syncController))
             .run(policy: policy, tier: { self.tier }, now: Date())
         defaults.set(Date(), forKey: Self.lastMaintenanceKey)
+        // Immediate: a background run may be suspended before a debounce fires.
+        WidgetCenter.shared.reloadAllTimelines()
         if refreshingList { await search() }
         return true
     }
 
-    /// Resolves a `gancho://clip/<id>` widget link: make sure the clip is in
-    /// the list (so the detail destination finds it), then signal the view to
-    /// navigate. A foreign or unknown link is ignored.
+    /// Resolves a `gancho://clip/<id>` link and hands the clip to the shell.
+    /// A clip deleted since the widget rendered gets a note, not a blank page;
+    /// a foreign link is ignored.
     func handleDeepLink(_ url: URL) {
         guard let id = WidgetClips.clipID(fromDeepLink: url) else { return }
         Task {
-            if !captures.contains(where: { $0.id == id }),
-                let item = try? await full?.item(id: id)
-            {
-                captures.insert(item, at: 0)
+            let resolved: ClipItem?
+            if let listed = captures.first(where: { $0.id == id }) {
+                resolved = listed
+            } else {
+                resolved = try? await full?.item(id: id)
             }
-            deepLinkClipID = id
+            guard let resolved else {
+                flashNote(String(localized: "This clip is no longer available"), kind: .failure)
+                return
+            }
+            deepLinkClip = resolved
         }
     }
 
-    /// Refreshes home/lock-screen widgets after the recent list changes.
-    private func reloadWidgets() {
-        WidgetCenter.shared.reloadAllTimelines()
+    /// The freshest copy of a clip a sheet captured earlier, so its pin and
+    /// title follow edits made while it is open.
+    func liveClip(_ clip: ClipItem) -> ClipItem {
+        captures.first { $0.id == clip.id } ?? clip
+    }
+
+    /// Refreshes home/lock-screen widgets after the recent list changes,
+    /// coalescing bursts such as an inbox drain into one reload.
+    func reloadWidgets() {
+        widgetReloadTask?.cancel()
+        widgetReloadTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
 
     func refreshBoards() async {
@@ -430,7 +454,8 @@ final class IOSAppModel {
         case .clipUnavailable:
             await search()
         case .failed:
-            diagnostics.record("Snippets", "Couldn’t save the snippet.")
+            diagnostics.record(
+                String(localized: "Snippets"), String(localized: "Couldn’t save the snippet."))
         }
     }
 
@@ -445,6 +470,7 @@ final class IOSAppModel {
             await search()
             // The donated title/preview may have just changed.
             refreshSpotlight()
+            reloadWidgets()
             return true
         case .unchanged:
             return true
@@ -454,7 +480,8 @@ final class IOSAppModel {
             await search()
             return false
         case .failed:
-            diagnostics.record("Editing", "Couldn’t save the title.")
+            diagnostics.record(
+                String(localized: "Editing"), String(localized: "Couldn’t save the title."))
             return false
         }
     }
@@ -470,6 +497,7 @@ final class IOSAppModel {
             await search()
             // The donated title/preview may have just changed.
             refreshSpotlight()
+            reloadWidgets()
             return true
         case .unchanged:
             return true
@@ -479,7 +507,8 @@ final class IOSAppModel {
             await search()
             return false
         case .failed:
-            diagnostics.record("Editing", "Couldn’t save the content.")
+            diagnostics.record(
+                String(localized: "Editing"), String(localized: "Couldn’t save the content."))
             return false
         }
     }
@@ -780,10 +809,12 @@ final class IOSAppModel {
         case .pinned, .unpinned, .alreadyPinned, .alreadyUnpinned, .clipUnavailable:
             await search()
             refreshSpotlight()
+            reloadWidgets()
         case .freeLimitReached:
             proGateTick += 1
         case .failed:
-            diagnostics.record("Pins", "Couldn’t update the pin.")
+            diagnostics.record(
+                String(localized: "Pins"), String(localized: "Couldn’t update the pin."))
         }
     }
 
@@ -822,7 +853,9 @@ final class IOSAppModel {
             let landed = await LibrarySpotlightService(index: CoreSpotlightIndexer())
                 .reconcile(store: full, enabled: enabled)
             if !landed {
-                diagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
+                diagnostics.record(
+                    String(localized: "Spotlight"),
+                    String(localized: "Couldn’t update the Spotlight index."))
             }
         }
     }
@@ -938,6 +971,7 @@ final class IOSAppModel {
             return nil
         }
         await search()
+        reloadWidgets()
         return summary
     }
 

@@ -23,10 +23,13 @@ final class ClipActivityController {
     /// schedule its own dismissal so it doesn't linger.
     func show(_ item: ClipItem, sync: ClipSyncBadge) {
         guard isAvailable else { return }
+        // The widgets' masking rule: masked kinds stay masked even when the
+        // row's sensitive flag is missing.
+        let masked = ClipSafePresentation.requiresMasking(item)
         let state = ClipActivityAttributes.ContentState(
-            preview: item.isSensitive ? "•••" : String(item.preview.prefix(120)),
+            preview: String(ClipSafePresentation.displayText(for: item).prefix(120)),
             kindSymbolName: item.kind.symbolName,
-            isSensitive: item.isSensitive,
+            isSensitive: masked,
             sync: sync)
         let dismissAt = Date.now.addingTimeInterval(visibleFor)
         let content = ActivityContent(state: state, staleDate: dismissAt)
