@@ -1,5 +1,6 @@
 /// Exact top-K selection with O(K) retained values and O(log K) insertion.
-/// `precedes` must define the desired output order, including tie-breaking.
+/// `precedes` must be a strict total order, including tie-breaking; NaN keys
+/// break the heap invariant, so callers filter them before inserting.
 package struct BoundedTopK<Element: Sendable>: Sendable {
     private let limit: Int
     private let precedes: @Sendable (Element, Element) -> Bool
