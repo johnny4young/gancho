@@ -9,6 +9,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add scoped, bounded hybrid retrieval with pre-limit privacy and metadata
+  filters, deterministic related ranking and real bilingual relevance
+  evaluation.
+
 - Locally encrypted, reviewed text recipes with an editor, three conservative
   presets, bounded background execution and explicit clipboard-safe copying.
   Definitions are not synced and originals remain intact.
