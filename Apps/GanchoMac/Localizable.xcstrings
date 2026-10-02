@@ -8889,6 +8889,150 @@
           }
         }
       }
+    },
+    "Keep your unsaved snippet?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep your unsaved snippet?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Conservar el snippet sin guardar?"
+          }
+        }
+      }
+    },
+    "Save as new snippet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save as new snippet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como nuevo snippet"
+          }
+        }
+      }
+    },
+    "Discard draft": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard draft"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar borrador"
+          }
+        }
+      }
+    },
+    "The original snippet was removed. Save your changes as a new snippet or discard them before leaving.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The original snippet was removed. Save your changes as a new snippet or discard them before leaving."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El snippet original se eliminó. Guarda los cambios como un nuevo snippet o descártalos antes de salir."
+          }
+        }
+      }
+    },
+    "The original snippet was removed. Your draft is still here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The original snippet was removed. Your draft is still here."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El snippet original se eliminó. Tu borrador sigue aquí."
+          }
+        }
+      }
+    },
+    "Couldn’t load snippets; your draft is still here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t load snippets; your draft is still here."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron cargar los snippets; tu borrador sigue aquí."
+          }
+        }
+      }
+    },
+    "Recovered snippet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovered snippet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snippet recuperado"
+          }
+        }
+      }
+    },
+    "Protected content cannot be saved as a snippet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protected content cannot be saved as a snippet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El contenido protegido no se puede guardar como snippet."
+          }
+        }
+      }
+    },
+    "Remove test source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove test source"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar origen de prueba"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

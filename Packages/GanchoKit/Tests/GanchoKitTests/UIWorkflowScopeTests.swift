@@ -10,12 +10,20 @@ struct UIWorkflowScopeTests {
             source.contains(
                 "timeout-minutes: ${{ inputs.scope == 'interaction-stress' && 90 || 45 }}"))
         #expect(source.contains("if: ${{ inputs.scope != 'ios-interaction-stress' }}"))
-        #expect(source.contains("if: ${{ inputs.scope != 'interaction-stress' }}"))
+        #expect(
+            source.contains(
+                "if: ${{ inputs.scope != 'interaction-stress' && inputs.scope != 'feature-stress' }}"
+            ))
         #expect(source.contains("case \"$GANCHO_IOS_UI_SCOPE\" in"))
         #expect(source.contains("-only-testing:GanchoiOSUITests/OutboundPrivacyUITests"))
         let scopedCoverage = source.components(
             separatedBy: #"echo "Coverage scope: $UI_EVIDENCE_LABEL""#)
         #expect(scopedCoverage.count == 3, "each coverage summary must name its scope")
+        let macOSLabel =
+            "UI_EVIDENCE_LABEL: ${{ inputs.scope == 'feature-stress' && 'macOS feature stress (10x)'"
+        #expect(
+            source.components(separatedBy: macOSLabel).count == 3,
+            "macOS evidence and coverage must share every stress label")
     }
 
     private func workflow() throws -> String {
@@ -30,7 +38,7 @@ struct UIWorkflowScopeTests {
 
     @Test(
         arguments: [
-            "full", "interaction-stress", "ios-interaction-stress", "",
+            "full", "interaction-stress", "ios-interaction-stress", "feature-stress", "",
             "full; touch INJECTED", "-skip-testing:GanchoUITests"
         ], ["macos", "ios"])
     func routesOnlyKnownScopes(scope: String, platform: String) throws {
@@ -61,9 +69,19 @@ struct UIWorkflowScopeTests {
         let arguments = try #require(String(bytes: data, encoding: .utf8)).split(separator: "\0")
             .map(
                 String.init)
+        assertRoute(
+            arguments: arguments, exitStatus: process.terminationStatus,
+            platform: platform, scope: scope)
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: directory.appendingPathComponent("INJECTED").path))
+    }
+    private func assertRoute(
+        arguments: [String], exitStatus: Int32, platform: String, scope: String
+    ) {
         switch (platform, scope) {
         case (_, "full"):
-            #expect(process.terminationStatus == 0)
+            #expect(exitStatus == 0)
             let target = platform == "macos" ? "GanchoUITests" : "GanchoiOSUITests"
             #expect(arguments == ["-only-testing:\(target)"])
         case ("macos", "interaction-stress"):
@@ -72,23 +90,30 @@ struct UIWorkflowScopeTests {
                 "ClipTitleEditingUITests", "PanelBoardUITests", "PanelReproUITests",
                 "SourceAppFilterUITests", "VisualLibraryUITests"
             ]
-            #expect(process.terminationStatus == 0)
+            #expect(exitStatus == 0)
             #expect(
                 arguments == ["-test-iterations", "10"]
                     + suites.map { "-only-testing:GanchoUITests/\($0)" })
+        case ("macos", "feature-stress"):
+            #expect(exitStatus == 0)
+            #expect(
+                arguments == [
+                    "-test-iterations", "10",
+                    "-only-testing:GanchoUITests/LibrarySnippetDraftUITests",
+                    "-only-testing:GanchoUITests/VisualLibraryUITests",
+                    "-only-testing:GanchoUITests/ReuseSuggestionUITests"
+                ])
         case ("ios", "ios-interaction-stress"):
-            #expect(process.terminationStatus == 0)
+            #expect(exitStatus == 0)
             #expect(
                 arguments == [
                     "-test-iterations", "10",
                     "-only-testing:GanchoiOSUITests/OutboundPrivacyUITests"
                 ])
         default:
-            #expect(process.terminationStatus == 2)
+            #expect(exitStatus == 2)
             #expect(arguments == ["::error::Unsupported UI test scope\n"])
         }
-        #expect(
-            !FileManager.default.fileExists(
-                atPath: directory.appendingPathComponent("INJECTED").path))
     }
+
 }

@@ -546,6 +546,12 @@ a manual/UI run collects samples; the opt-in `GANCHO_PERF=1` harness holds the
 scale budgets (FTS, semantic retrieval, board paging). Instruments/energy
 traces (30-min idle CPU, repeated-round RSS) are reference-Mac evidence.
 
+Snippet draft edits mark changed shared title/body fields for upload in the same
+transaction as the edit. Keyword-only changes remain local and never clear an
+already-pending upload or advance the shared conflict timestamp. This prevents
+a local keyword edit from masking a newer remote title/body edit. Recovery
+creates a fresh identity rather than resurrecting a deleted row.
+
 ### Native UI evidence privacy
 
 Scope manual attachments to Gancho elements or windows, not the desktop. This
@@ -572,3 +578,5 @@ The macOS stress job has a 90-minute execution allocation: its 19 tests took
 ordinary 45-minute job. Full suites and the smaller iOS stress job retain their
 45-minute allocation. Test assertions, interaction timeouts, performance budgets
 and raw evidence collection are unchanged.
+
+The `feature-stress` UI scope repeats `LibrarySnippetDraftUITests`, `VisualLibraryUITests`, `ReuseSuggestionUITests` ten times. The unrelated iOS job is omitted only from this supplementary scope; full platform validation remains required on the same head. Selectors are fixed, invalid scopes fail closed, and all individual outcomes remain in the result bundle.
