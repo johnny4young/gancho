@@ -147,11 +147,39 @@ struct SyncControllerTests {
         controller.configure(tier: .pro)  // arm over the existing file
 
         controller.reset(tier: .pro)
+        await controller.settle()
 
         // The state file is gone and sync is armed again from scratch.
         #expect(!FileManager.default.fileExists(atPath: url.path))
         #expect(controller.isEnabled)
         #expect(controller.engine is FakeSyncEngine)
+    }
+
+    @Test("reset() stops the old engine before removing state, then starts the new one")
+    func resetOrdersStopRemoveStart() async {
+        let url = Self.tempURL()
+        let events = EventLog()
+        var built = 0
+        let controller = SyncController(
+            store: FakeSyncLocalStore(),
+            stateStoreURL: url,
+            iCloudAvailable: { true },
+            hasCloudKitEntitlement: { true },
+            makeEngine: { _, _, _, _, _, _, _, _ in
+                built += 1
+                return OrderedFakeEngine(name: "engine\(built)", stateURL: url, events: events)
+            })
+        controller.configure(tier: .pro)
+        await Self.until { await events.entries.count == 1 }
+
+        controller.reset(tier: .pro)
+        await Self.until { await events.entries.count == 3 }
+
+        // engine1 persists its state on stop; the reset must still start fresh.
+        #expect(
+            await events.entries == [
+                "engine1 start (state: false)", "engine1 stop", "engine2 start (state: false)"
+            ])
     }
 
     /// A unique, unused temp path for the injected state store.
@@ -213,4 +241,35 @@ private struct FakeSyncLocalStore: SyncLocalStore {
     func pendingBoardDeletionRecordIDs() async throws -> [String] { [] }
     func applyRemoteBoardDeletion(recordID: String) async throws {}
     func clearBoardTombstone(recordID: String) async throws {}
+}
+
+private actor EventLog {
+    private(set) var entries: [String] = []
+    func append(_ entry: String) { entries.append(entry) }
+}
+
+/// Writes a state file on stop, like an engine flushing its last serialization.
+private actor OrderedFakeEngine: SyncEngine {
+    let name: String
+    let stateURL: URL
+    let events: EventLog
+
+    init(name: String, stateURL: URL, events: EventLog) {
+        self.name = name
+        self.stateURL = stateURL
+        self.events = events
+    }
+
+    func start() async throws {
+        let exists = FileManager.default.fileExists(atPath: stateURL.path)
+        await events.append("\(name) start (state: \(exists))")
+    }
+    func stop() async {
+        try? Data("state".utf8).write(to: stateURL)
+        await events.append("\(name) stop")
+    }
+    func enqueue(_ items: [ClipItem]) async {}
+    func enqueueDeletion(ids: [UUID]) async {}
+    func enqueue(boards: [Pinboard]) async {}
+    func enqueueBoardDeletion(ids: [UUID]) async {}
 }
