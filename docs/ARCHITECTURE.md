@@ -598,3 +598,7 @@ ordinary 45-minute job. Full suites and the smaller iOS stress job retain their
 and raw evidence collection are unchanged.
 
 The integration `feature-stress` scope repeats all seven feature UI suites ten times, plus native translation on iOS. Its 290 macOS cases are allocated 120 minutes, based on the measured individual-suite durations; assertions and interaction timeouts are unchanged. Full-platform UI remains a separate gate.
+Meaning-search race tests suspend source responses explicitly and await the captured
+request task through completion before checking stale-delivery invariants. The task
+handle is read-only inside the core module and remains outside its public API;
+fixed scheduler-yield counts do not stand in for completed cancellation.
