@@ -118,4 +118,23 @@ struct ClipExporterTests {
         #expect(clips.lowerBound < exportedAt.lowerBound)
         #expect(exportedAt.lowerBound < version.lowerBound)
     }
+
+    @Test("A CSV export reads back through the importer, formula guard removed")
+    func csvExportReimports() throws {
+        var pinned = row(
+            id: "00000000-0000-0000-0000-000000000002", title: "Sum",
+            contentText: "=SUM(A1:A2)")
+        pinned.isPinned = true
+        let csv =
+            ClipExporter.csvHeader + ClipExporter.csvLine(for: row())
+            + ClipExporter.csvLine(for: pinned)
+
+        let document = try ClipImporter.readCSV(Data(csv.utf8))
+
+        #expect(
+            document.candidates == [
+                ClipImporter.Candidate(text: "plain", title: "t"),
+                ClipImporter.Candidate(text: "=SUM(A1:A2)", title: "Sum", isPinned: true)
+            ])
+    }
 }

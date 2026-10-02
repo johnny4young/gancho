@@ -50,6 +50,16 @@ enum ClipExporter {
         return try encoder.encode(payload)
     }
 
+    /// Inverse of the formula guard in ``csvEscape(_:)``, for re-importing an export.
+    static func removingFormulaGuard(_ field: String) -> String {
+        guard field.hasPrefix("'"), let next = field.dropFirst().first,
+            formulaTriggers.contains(next)
+        else { return field }
+        return String(field.dropFirst())
+    }
+
+    private static let formulaTriggers = "=+-@\t\r"
+
     static func csvEscape(_ field: String) -> String {
         // Formula-injection guard (OWASP CSV injection): clipboard text is
         // attacker-influenced by nature, and a field starting with = + - @
@@ -57,7 +67,7 @@ enum ClipExporter {
         // in Excel/Numbers/Sheets. Neutralize with a leading apostrophe —
         // spreadsheets then render the field as literal text.
         var field = field
-        if let first = field.first, "=+-@\t\r".contains(first) {
+        if let first = field.first, formulaTriggers.contains(first) {
             field = "'" + field
         }
         guard field.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else {
