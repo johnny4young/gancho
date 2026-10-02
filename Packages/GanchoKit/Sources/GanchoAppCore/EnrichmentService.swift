@@ -52,7 +52,8 @@ public struct EnrichmentService: Sendable {
     ) async {
         // Searchable screenshots (OCR).
         if plan.runs(.ocr), case .binary(let data, _)? = content,
-            let text = try? await ImageTextExtractor().extractText(from: data)
+            let extracted = try? await ImageTextExtractor().extractText(from: data),
+            let text = Self.storableExtractedText(extracted)
         {
             _ = try? await store.attachExtractedText(id: item.id, text: text)
         }
@@ -71,5 +72,13 @@ public struct EnrichmentService: Sendable {
         {
             _ = try? await store.saveEmbedding(clipID: item.id, vector: vector)
         }
+    }
+
+    /// Recognized text that reads as a secret is dropped: stored OCR text is
+    /// searchable and never masked, unlike a captured secret.
+    static func storableExtractedText(
+        _ text: String, detector: SensitiveDataDetector = SensitiveDataDetector()
+    ) -> String? {
+        detector.detect(text) == nil ? text : nil
     }
 }
