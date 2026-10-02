@@ -21,6 +21,8 @@
         /// the detached read's re-check (the TOCTOU window).
         var typesOnRecheck: Set<String>?
         private var typeCalls = 0
+        /// A copy that lands while the payload read is in flight.
+        var writeDuringRead: (payload: PasteboardCapture.Payload, types: Set<String>)?
 
         func currentChangeCount() -> Int {
             lock.withLock { changeCount }
@@ -41,6 +43,11 @@
                 return readDelay
             }
             if delay > 0 { Thread.sleep(forTimeInterval: delay) }
+            let landed = lock.withLock {
+                defer { writeDuringRead = nil }
+                return writeDuringRead
+            }
+            if let landed { write(landed.payload, types: landed.types) }
             return lock.withLock { payload }
         }
 
@@ -121,7 +128,7 @@
 
             monitor.pollOnce()
             monitor.pollOnce()
-            try? await Task.sleep(for: .milliseconds(50))
+            await monitor.drainPendingRead()
 
             #expect(pasteboard.readCalls == 0)
         }
@@ -141,7 +148,7 @@
 
             pasteboard.write(.text("hunter2"), types: ["public.utf8-plain-text", vetoType])
             monitor.pollOnce()
-            try? await Task.sleep(for: .milliseconds(100))
+            await monitor.drainPendingRead()
 
             #expect(captures.isEmpty)
             #expect(pasteboard.readCalls == 0, "veto must run before the read")
@@ -161,10 +168,28 @@
                 "public.utf8-plain-text", SensitivePasteboardTypes.concealed
             ]
             monitor.pollOnce()
-            try? await Task.sleep(for: .milliseconds(100))
+            await monitor.drainPendingRead()
 
             #expect(captures.isEmpty)
             #expect(pasteboard.readCalls == 0, "the re-check must run before the payload read")
+        }
+
+        @Test("A copy that lands during the read is not stored under the earlier change")
+        func changeDuringReadIsDropped() async {
+            let pasteboard = FakePasteboard()
+            let monitor = makeMonitor(pasteboard: pasteboard)
+            var captures: [PasteboardCapture] = []
+            monitor.onCapture = { captures.append($0) }
+
+            pasteboard.write(.text("first"), types: ["public.utf8-plain-text"])
+            pasteboard.writeDuringRead = (.text("second"), ["public.utf8-plain-text"])
+            monitor.pollOnce()
+            await monitor.drainPendingRead()
+            #expect(captures.isEmpty, "the newer copy must wait for its own poll")
+
+            monitor.pollOnce()
+            await monitor.drainPendingRead()
+            #expect(captures.map(\.textRepresentation) == ["second"])
         }
 
         @Test("Our own self-write marker is never re-captured")
@@ -181,7 +206,7 @@
                     MacPasteboardMonitor.selfWriteMarker.rawValue
                 ])
             monitor.pollOnce()
-            try? await Task.sleep(for: .milliseconds(100))
+            await monitor.drainPendingRead()
 
             #expect(captures.isEmpty)
             #expect(pasteboard.readCalls == 0)
@@ -297,7 +322,7 @@
             activity.set(locked: true)
             pasteboard.write(.text("while locked"), types: ["public.utf8-plain-text"])
             _ = monitor.tick()
-            try? await Task.sleep(for: .milliseconds(50))
+            await monitor.drainPendingRead()
             #expect(captures.isEmpty)
             #expect(pasteboard.readCalls == 0)
 
