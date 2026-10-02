@@ -118,6 +118,8 @@ public struct SmartPasteService: Sendable {
                 // own cancellation check keeps an abandoned request from starting it.
             }
         }
+        try Task.checkCancellation()
+        guard engines.modelAvailable() else { throw AnnotationError.backendUnavailable }
         return try await Self.answer {
             try await engines.languageModel(clipped, Self.englishLanguageName(for: target))
         }
@@ -137,7 +139,7 @@ public struct SmartPasteService: Sendable {
 
     /// Secret redaction plus the context-window clip, applied once for both
     /// the routing decision and the engine call.
-    private func prepared(_ text: String) -> String {
+    func prepared(_ text: String) -> String {
         String(ModelInputSanitizer.sanitized(text).prefix(maxPromptCharacters))
     }
 
@@ -150,7 +152,9 @@ public struct SmartPasteService: Sendable {
         try Task.checkCancellation()
         let result = try await engine()
         try Task.checkCancellation()
-        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw TranslationFailure.noReadableResult }
+        return trimmed
     }
 
     /// The English name the model fallback's prompt needs for an unambiguous
