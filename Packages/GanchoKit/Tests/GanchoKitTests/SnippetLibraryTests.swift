@@ -123,28 +123,6 @@ struct SnippetLibraryTests {
         #expect(try await store.semanticSearch(queryVector: [1, 0]).isEmpty)
     }
 
-    @Test("An edited clip no longer dedupes a re-copy of its original text")
-    func editedClipStopsDedupingTheOriginal() async throws {
-        let store = try makeStore()
-        let original = "original body"
-        let item = ClipItem(
-            preview: original, contentHash: ClipItem.editedTextHash(original, kind: .text))
-        try await store.insert(item, content: .text(original))
-
-        try await store.updateClipText(id: item.id, text: "edited body")
-        let recopy = ClipItem(
-            preview: original, contentHash: ClipItem.editedTextHash(original, kind: .text))
-        let stored = try await store.insert(recopy, content: .text(original))
-
-        #expect(stored.id == recopy.id, "the re-copy must land as its own row")
-        #expect(try await store.content(for: item.id) == .text("edited body"))
-        #expect(try await store.count() == 2)
-        let reedit = ClipItem(
-            preview: "edited body",
-            contentHash: ClipItem.editedTextHash("edited body", kind: .text))
-        #expect(try await store.insert(reedit, content: .text("edited body")).id == item.id)
-    }
-
     @Test("Atomic text editing rejects sensitive, masked-kind, and binary rows")
     func textEditingRejectsReadOnlyRows() async throws {
         let store = try makeStore()

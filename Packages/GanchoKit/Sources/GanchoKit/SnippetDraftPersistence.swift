@@ -39,17 +39,13 @@ extension GRDBClipboardStore: SnippetDraftStoring {
             try db.execute(
                 sql: """
                     UPDATE clip SET title = ?, contentText = ?, preview = ?, keyword = ?,
-                        contentHash = ?,
                         updatedAt = CASE WHEN ? THEN ? ELSE updatedAt END,
                         needsUpload = CASE WHEN ? THEN 1 ELSE needsUpload END
                     WHERE id = ? AND isSnippet = 1
                     """,
                 arguments: [
                     title, text, String(text.prefix(120)),
-                    trimmed?.isEmpty == false ? trimmed : nil,
-                    row.contentText == text
-                        ? row.contentHash : ClipItem.editedTextHash(text, kind: row.item.kind),
-                    sharedFieldsChanged, now,
+                    trimmed?.isEmpty == false ? trimmed : nil, sharedFieldsChanged, now,
                     sharedFieldsChanged, id.uuidString
                 ])
             if row.contentText != text {

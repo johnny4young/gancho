@@ -81,9 +81,4 @@ public struct ClipItem: Identifiable, Codable, Equatable, Sendable {
     public static func hash(of text: String, kind: ClipContentKind) -> String {
         hash(of: Data(text.utf8), kind: kind)
     }
-
-    /// The dedupe key capture would compute for `text`, for rows edited in place.
-    public static func editedTextHash(_ text: String, kind: ClipContentKind) -> String {
-        hash(of: ContentNormalizer.canonicalText(text, kind: kind), kind: kind)
-    }
 }
