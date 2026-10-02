@@ -10,6 +10,11 @@ import Observation
 @MainActor @Observable final class PanelSelectionModel {
     private var state = PanelSelectionState()
     private var cursorID: UUID?
+    /// Set when the panel opens: refreshes keep the newest clip selected
+    /// until the user moves, instead of following a clip that slid down.
+    private var newestFollow: NewestFollow?
+
+    private enum NewestFollow { case anyRow, skippingPinned }
 
     var snapshot: PanelSelectionState { state }
     var selectedIndex: Int { state.cursorIndex }
@@ -31,10 +36,17 @@ import Observation
     }
 
     func select(_ index: Int, toggling: Bool, in rows: [ClipItem]) {
+        newestFollow = nil
         apply(toggling ? .toggle(index: index) : .replace(index: index), in: rows)
     }
 
+    func followNewest(skippingPinned: Bool, in rows: [ClipItem]) {
+        newestFollow = skippingPinned ? .skippingPinned : .anyRow
+        reconcile(in: rows)
+    }
+
     func move(by delta: Int, extending: Bool, in rows: [ClipItem]) {
+        newestFollow = nil
         if state.cursorIndex < 0 {
             apply(.replace(index: delta < 0 ? rows.count - 1 : 0), in: rows)
             return
@@ -53,10 +65,19 @@ import Observation
 
     func reconcile(in rows: [ClipItem]) {
         guard state.cursorIndex >= 0 else { return }
+        if let newestFollow {
+            let newest =
+                newestFollow == .skippingPinned
+                ? rows.firstIndex(where: { !$0.isPinned }) ?? 0 : 0
+            cursorID = nil
+            apply(.replace(index: newest), in: rows)
+            return
+        }
         apply(.reconcile, in: rows)
     }
 
     func clear(in rows: [ClipItem]) {
+        newestFollow = nil
         reconcile(in: rows)
         apply(.replace(index: state.cursorIndex), in: rows)
     }

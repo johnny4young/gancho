@@ -8,6 +8,7 @@ import SwiftUI
 public struct GanchoSurface: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.ganchoOpaqueSurfaces) private var opaqueSurfaces
 
     let shape: RoundedRectangle
 
@@ -16,12 +17,19 @@ public struct GanchoSurface: ViewModifier {
         // main legibility cost, regardless of which setting flagged it.
         // Below macOS/iOS 26 Liquid Glass does not exist, so those systems
         // take the same opaque-material branch accessibility already uses.
-        if #available(macOS 26.0, iOS 26.0, *), !reduceTransparency, contrast != .increased {
+        if #available(macOS 26.0, iOS 26.0, *), !opaqueSurfaces, !reduceTransparency,
+            contrast != .increased
+        {
             content.glassEffect(.regular, in: shape)
         } else {
             content.background(.background.secondary, in: shape)
         }
     }
+}
+
+extension EnvironmentValues {
+    /// Solid surfaces instead of glass, for windows the user keeps opaque.
+    @Entry public var ganchoOpaqueSurfaces = false
 }
 
 extension View {

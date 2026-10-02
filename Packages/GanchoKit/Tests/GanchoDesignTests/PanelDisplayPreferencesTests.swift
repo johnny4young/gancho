@@ -49,6 +49,15 @@ struct PanelDisplayPreferencesTests {
         #expect(PanelTextStyle.title3.baseSize < PanelTextStyle.title2.baseSize)
     }
 
+    @Test("A remembered size shows its preset; a manual size shows none")
+    func presetMatching() {
+        for preset in PanelSizePreset.allCases {
+            #expect(PanelSizePreset.matching(preset.contentSize) == preset)
+        }
+        #expect(PanelSizePreset.matching(CGSize(width: 864.5, height: 540)) == .standard)
+        #expect(PanelSizePreset.matching(CGSize(width: 900, height: 600)) == nil)
+    }
+
     @Test("Panel presets grow monotonically from Compact to Large")
     func panelPresetOrdering() {
         let compact = PanelSizePreset.compact.contentSize

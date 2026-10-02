@@ -30,6 +30,18 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Open the panel on the newest clip with the search field focused, instead of
+  the row and filter rail the previous session ended on. Arrow keys move
+  between rows without a cross-fade, and board suggestions and translation
+  checks wait until the selection settles.
+
+- Make the panel solid by default, with a "Translucent background" option, and
+  show which panel size preset is active. The panel answers the shortcut on
+  key down and is prepared ahead of the first open.
+
+- Keep developer actions behind "More actions" so each peek shows the
+  essentials first; the choice is remembered.
+
 - Keep recipe review headings and delivery controls visible while scrolling longer eight-step definitions.
 
 - Bound selected-text row previews by Unicode scalars, so oversized combining

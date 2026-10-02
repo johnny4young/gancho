@@ -25,6 +25,34 @@ struct PanelSelectionModelTests {
         #expect(model.selectionCount(in: rows) == 4)
     }
 
+    @Test("Opening follows the newest unpinned clip until the user moves")
+    func opensOnNewestClip() {
+        let model = PanelSelectionModel()
+        let pinned = ClipItem(preview: "pinned", contentHash: "pinned", isPinned: true)
+        var list = [pinned] + rows
+        model.select(4, toggling: false, in: list)
+        model.followNewest(skippingPinned: true, in: list)
+        #expect(model.selectedItem(in: list)?.id == rows[0].id)
+
+        let fresh = ClipItem(preview: "fresh", contentHash: "fresh")
+        list = [pinned, fresh] + rows
+        model.reconcile(in: list)
+        #expect(model.selectedItem(in: list)?.id == fresh.id, "a capture while open stays newest")
+
+        model.move(by: 1, extending: false, in: list)
+        let later = [pinned, ClipItem(preview: "later", contentHash: "later"), fresh] + rows
+        model.reconcile(in: later)
+        #expect(model.selectedItem(in: later)?.id == rows[0].id, "moving ends the follow")
+    }
+
+    @Test("A search opens on its first result, pinned or not")
+    func searchOpensOnFirstResult() {
+        let model = PanelSelectionModel()
+        let pinned = ClipItem(preview: "pinned", contentHash: "pinned", isPinned: true)
+        model.followNewest(skippingPinned: false, in: [pinned] + rows)
+        #expect(model.selectedItem(in: [pinned] + rows)?.id == pinned.id)
+    }
+
     @Test("Toggling off the cursor moves default actions to a selected clip")
     func toggledCursorMovesToSelectedClip() {
         let model = PanelSelectionModel()

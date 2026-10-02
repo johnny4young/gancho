@@ -262,6 +262,12 @@ public struct PanelDateGroup: Identifiable, Sendable {
         selectionModel.select(index, toggling: toggling, in: filtered)
     }
 
+    /// Opening the panel selects the newest clip (the newest unpinned one in the
+    /// recent list) and keeps it selected through refreshes until the user moves.
+    public func followNewestClip() {
+        selectionModel.followNewest(skippingPinned: query.isEmpty, in: filtered)
+    }
+
     /// Shift-Up/Down grows or contracts a contiguous selection from its anchor.
     public func moveSelection(by delta: Int, extending: Bool) {
         invalidateMeaningIntent()

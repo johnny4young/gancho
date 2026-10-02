@@ -93,6 +93,15 @@ final class PanelController: NSObject, NSWindowDelegate {
         set { defaults.set(newValue, forKey: PanelAmbientTint.storageKey) }
     }
 
+    /// Off by default: a solid panel. The view reads the same key through `@AppStorage`.
+    var translucentBackground: Bool {
+        get { defaults.bool(forKey: PanelTranslucency.storageKey) }
+        set {
+            defaults.set(newValue, forKey: PanelTranslucency.storageKey)
+            if let panel { applyBackground(to: panel) }
+        }
+    }
+
     var preferredContentSize: CGSize {
         let width = defaults.double(forKey: PreferenceKey.contentWidth)
         let height = defaults.double(forKey: PreferenceKey.contentHeight)
@@ -103,9 +112,16 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// Registers the global shortcut. Called once from AppModel.init.
     func attach(model: AppModel) {
         self.model = model
-        KeyboardShortcuts.onKeyUp(for: .togglePanel) { [weak self, weak model] in
+        // Key down, not key up: the panel answers the press instead of waiting
+        // for the user to release the shortcut.
+        KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self, weak model] in
             guard let self, let model else { return }
             self.toggle(model: model)
+        }
+        // Build the hosting view while idle so the first open only orders it in.
+        DispatchQueue.main.async { [weak self, weak model] in
+            guard let self, let model, !Self.isUITestLaunch else { return }
+            _ = self.ensurePanel(model: model)
         }
     }
 
@@ -357,24 +373,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         created.standardWindowButton(.closeButton)?.isHidden = true
         created.standardWindowButton(.miniaturizeButton)?.isHidden = true
         created.standardWindowButton(.zoomButton)?.isHidden = true
-        // No window shadow: on a translucent borderless panel the shadow hugs
-        // the glass and reads as a dark hairline around the edge. The glass
-        // material carries its own depth.
-        created.hasShadow = false
         created.level = .floating
         // Active-space behavior: the panel follows the user, never drags
         // them to another space.
         created.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-        #if DEBUG
-            let usesOpaqueUITestBackground =
-                CommandLine.arguments.contains("-opaque-panel-for-ui-test")
-            created.isOpaque = usesOpaqueUITestBackground
-            created.backgroundColor =
-                usesOpaqueUITestBackground ? .windowBackgroundColor : .clear
-        #else
-            created.isOpaque = false
-            created.backgroundColor = .clear
-        #endif
+        applyBackground(to: created)
         created.contentView = hosting
         created.contentMinSize = NSSize(
             width: Self.minimumContentSize.width, height: Self.minimumContentSize.height)
@@ -393,6 +396,18 @@ final class PanelController: NSObject, NSWindowDelegate {
         created.delegate = self
         panel = created
         return created
+    }
+
+    private func applyBackground(to panel: NSPanel) {
+        var translucent = translucentBackground
+        #if DEBUG
+            if CommandLine.arguments.contains("-opaque-panel-for-ui-test") { translucent = false }
+        #endif
+        panel.isOpaque = !translucent
+        panel.backgroundColor = translucent ? .clear : .windowBackgroundColor
+        // Glass carries its own depth (a shadow reads as a dark hairline around
+        // it); a solid panel needs the shadow to separate from the windows below.
+        panel.hasShadow = !translucent
     }
 
     private func persistContentSize(_ requestedSize: CGSize) {

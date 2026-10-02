@@ -110,10 +110,8 @@ struct PanelView: View {
     @Namespace private var boardRailNamespace
     @Namespace private var filterRailNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// False for one frame on every open, so the panel settles in from a hair
-    /// smaller instead of snapping on.
-    @State private var entered = true
     @AppStorage private var ambientTintEnabled: Bool
+    @AppStorage private var translucentBackground: Bool
     @AppStorage private var panelLayoutRaw: String
     /// What the gallery currently fits; 1 while the list is showing.
     @State private var galleryColumns = 2
@@ -130,6 +128,8 @@ struct PanelView: View {
             store: displayDefaults)
         _ambientTintEnabled = AppStorage(
             wrappedValue: false, PanelAmbientTint.storageKey, store: displayDefaults)
+        _translucentBackground = AppStorage(
+            wrappedValue: false, PanelTranslucency.storageKey, store: displayDefaults)
         _panelLayoutRaw = AppStorage(
             wrappedValue: PanelLayout.list.rawValue, PanelLayout.storageKey, store: displayDefaults)
     }
@@ -197,13 +197,11 @@ struct PanelView: View {
                         )
                         // Drafts, async save callbacks, and action state belong to
                         // one clip only. A new selection gets a fresh preview identity.
+                        // Swapped instantly: keyboard navigation must not wait
+                        // on a cross-fade between two peeks.
                         .id(selected.id)
-                        .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
                     }
                     .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
-                    .animation(
-                        GanchoMotion.smooth(reduceMotion: reduceMotion),
-                        value: selected.id)
                 }
             }
             statusFooter
@@ -224,8 +222,7 @@ struct PanelView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
         .ganchoSurface(radius: GanchoTokens.Radius.lg)
-        .scaleEffect(entered ? 1 : 0.985)
-        .opacity(entered ? 1 : 0)
+        .environment(\.ganchoOpaqueSurfaces, !translucentBackground)
         // The glass IS the panel: it fills the window edge to edge, title-bar
         // band included, so there is no transparent ring for AppKit's window
         // outline to show through.
@@ -359,7 +356,7 @@ struct PanelView: View {
             // First visible frame: close the panel-open latency interval the
             // controller began in show().
             model.panel.notePanelDidAppear()
-            playEntrance()
+            search.followNewestClip()
             // Defer one runloop: on the FIRST open the field editor isn't
             // ready when onAppear fires, so an immediate focus is dropped
             // (arrow keys beep). The notification below re-grabs it on every
@@ -376,13 +373,17 @@ struct PanelView: View {
             focus = .search
         }
         // Posted by the controller only on a hidden → shown transition, so a
-        // panel that merely regains key (a sheet closing, a pinned panel
-        // refocused) never replays the entrance.
+        // panel that merely regains key keeps the user's place.
         .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidShow)) {
             notification in
             guard let window = notification.object as? NSWindow, model.panel.isPanelWindow(window)
             else { return }
-            playEntrance()
+            // Every open starts from the newest clip with the search field
+            // focused, whatever rail or row the previous session ended on.
+            model.panel.notePanelDidAppear()
+            railFocus = nil
+            focus = .search
+            search.followNewestClip()
             // Only a meaning search needs restarting; recents refresh on their own.
             if search.meaningEnabled, !search.query.isEmpty { Task { await search.refresh() } }
         }
@@ -434,16 +435,6 @@ struct PanelView: View {
             .accessibilityHidden(true)
             .transition(.opacity)
         }
-    }
-
-    /// The open "pop": reset without animating, then settle in. Only the
-    /// `entered` flag is inside the transaction, so nothing else animates.
-    private func playEntrance() {
-        guard !reduceMotion, entered else { return }
-        var reset = Transaction()
-        reset.disablesAnimations = true
-        withTransaction(reset) { entered = false }
-        withAnimation(GanchoMotion.smooth) { entered = true }
     }
 
     /// A DEBUG-only, launch-argument-gated real drop destination. It exercises

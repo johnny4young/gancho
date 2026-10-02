@@ -10,6 +10,7 @@ import SwiftUI
 /// cannot become a second navigation owner or reach into `AppModel`.
 struct PanelResultsView<RowContent: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.ganchoOpaqueSurfaces) private var opaqueSurfaces
     @State private var listIsScrolling = false
 
     let query: String
@@ -144,7 +145,13 @@ struct PanelResultsView<RowContent: View>: View {
         .textCase(.uppercase)
         .padding(.horizontal, GanchoTokens.Spacing.xs)
         .padding(.vertical, GanchoTokens.Spacing.xxs)
-        .background(.ultraThinMaterial)
+        .background {
+            if opaqueSurfaces {
+                Rectangle().fill(.background.secondary)
+            } else {
+                Rectangle().fill(.ultraThinMaterial)
+            }
+        }
     }
 
     /// Rolling digits when a section grows or shrinks (a capture, a delete).
