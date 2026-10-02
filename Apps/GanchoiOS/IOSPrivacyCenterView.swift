@@ -26,7 +26,7 @@ struct IOSPrivacyCenterView: View {
                         Image(systemName: "lock.shield.fill").font(.title2)
                         Spacer()
                         Text(verbatim: "0")
-                            .font(.system(size: 44, weight: .bold))
+                            .font(.largeTitle.bold())
                             .monospacedDigit()
                     }
                     Text("Clipboard-content analytics requests")

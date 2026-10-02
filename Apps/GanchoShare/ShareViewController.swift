@@ -75,16 +75,8 @@ final class ShareViewController: UIViewController {
     /// Richest-first extraction, mirroring the macOS reader's fidelity
     /// order: image > URL > plain text.
     private func capture(from provider: NSItemProvider) async -> PasteboardCapture? {
-        if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier),
-            let image = try? await provider.loadItem(forTypeIdentifier: UTType.image.identifier)
-        {
-            if let png = (image as? UIImage)?.pngData() {
-                return PasteboardCapture(payload: .image(data: png, typeIdentifier: "public.png"))
-            }
-            if let url = image as? URL, let data = try? Data(contentsOf: url) {
-                return PasteboardCapture(
-                    payload: .image(data: data, typeIdentifier: UTType.image.identifier))
-            }
+        if let image = await imageCapture(from: provider) {
+            return image
         }
         if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
             let url = try? await provider.loadItem(forTypeIdentifier: UTType.url.identifier)
@@ -106,5 +98,47 @@ final class ShareViewController: UIViewController {
             }
         }
         return nil
+    }
+
+    /// The original image bytes under their own type (a JPEG stays a JPEG),
+    /// whether the provider vends data or a file. Re-encoding to PNG is the
+    /// last resort, for providers that only hand over a `UIImage`.
+    private func imageCapture(from provider: NSItemProvider) async -> PasteboardCapture? {
+        guard
+            let type = provider.registeredContentTypes.first(where: { $0.conforms(to: .image) })
+        else { return nil }
+        var original = await loadData(type, from: provider)
+        if original == nil { original = await loadFile(type, from: provider) }
+        if let data = original {
+            return PasteboardCapture(payload: .image(data: data, typeIdentifier: type.identifier))
+        }
+        let item = try? await provider.loadItem(forTypeIdentifier: UTType.image.identifier)
+        if let url = item as? URL, let data = try? Data(contentsOf: url) {
+            let fileType = UTType(filenameExtension: url.pathExtension) ?? type
+            return PasteboardCapture(
+                payload: .image(data: data, typeIdentifier: fileType.identifier))
+        }
+        if let png = (item as? UIImage)?.pngData() {
+            return PasteboardCapture(
+                payload: .image(data: png, typeIdentifier: UTType.png.identifier))
+        }
+        return nil
+    }
+
+    private func loadData(_ type: UTType, from provider: NSItemProvider) async -> Data? {
+        await withCheckedContinuation { continuation in
+            _ = provider.loadDataRepresentation(for: type) { data, _ in
+                continuation.resume(returning: data)
+            }
+        }
+    }
+
+    /// The file only exists inside the completion handler, so read it there.
+    private func loadFile(_ type: UTType, from provider: NSItemProvider) async -> Data? {
+        await withCheckedContinuation { continuation in
+            _ = provider.loadFileRepresentation(for: type, openInPlace: false) { url, _, _ in
+                continuation.resume(returning: url.flatMap { try? Data(contentsOf: $0) })
+            }
+        }
     }
 }

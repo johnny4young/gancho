@@ -8,44 +8,19 @@ import UIKit
 import UniformTypeIdentifiers
 import WidgetKit
 
-/// The one sheet the capture screen can present at a time.
-enum CaptureSheet: Identifiable {
-    case settings
-    case boards
-    case boardAppearance(Pinboard)
-    case peek(ClipItem)
-    case move(ClipItem)
-    case pro
-
-    var id: String {
-        switch self {
-        case .settings: "settings"
-        case .boards: "boards"
-        case .boardAppearance(let board): "board-appearance-\(board.id.uuidString)"
-        case .peek(let clip): "peek-\(clip.id)"
-        case .move(let clip): "move-\(clip.id)"
-        case .pro: "pro"
-        }
-    }
-}
-
-// CaptureView coordinates the iOS capture surface, detail sheets, and history
-// list today; keep this local until the screen can be split safely.
-// swiftlint:disable type_body_length
 struct CaptureView: View {
-    // swiftlint:enable type_body_length
     @Environment(IOSAppModel.self) private var model
-    @Environment(\.scenePhase) private var scenePhase
-    /// One sheet at a time — Settings, the boards home, a clip peek, or the
-    /// move-to-board sheet. A single `.sheet(item:)` because stacking several
-    /// `.sheet` modifiers on one view is unreliable (two `isPresented` sheets
-    /// silently drop one — that's why the boards home wouldn't open).
+    /// One sheet at a time; see `CaptureShell`.
     @State private var activeSheet: CaptureSheet?
     @State private var showNewBoard = false
     @State private var newBoardName = ""
     @State private var renameTarget: Pinboard?
     @State private var renameField = ""
     @State private var path: [UUID] = []
+    /// Deep-linked clips by id, so the pushed detail survives a list refresh
+    /// that no longer contains them.
+    @State private var deepLinkedClips: [UUID: ClipItem] = [:]
+    @State private var boardPendingDeletion: Pinboard?
     @State private var answer: IOSAppModel.ClipboardAnswer?
     @State private var isAsking = false
     @State private var askTask: Task<Void, Never>?
@@ -56,9 +31,9 @@ struct CaptureView: View {
             VStack(spacing: 0) {
                 boardRail
                 List {
-                    if model.storageIsEphemeral { storageWarningSection }
+                    if model.storageIsEphemeral { StorageWarningSection() }
                     syncStatusSection
-                    pasteboardSection
+                    PasteboardSection()
 
                     if !model.query.isEmpty, model.askAvailable {
                         Section {
@@ -97,93 +72,10 @@ struct CaptureView: View {
                 }
                 .navigationTitle("Gancho")
                 .navigationDestination(for: UUID.self) { id in
-                    if let item = model.captures.first(where: { $0.id == id }) {
-                        ClipDetailView(item: item)
-                    }
+                    ClipDetailDestination(id: id, fallback: deepLinkedClips[id])
                 }
                 .toolbar {
-                    // Search keeps its bottom-bar slot (a bottom item alone
-                    // would move the field back under the title), and the
-                    // system paste control rides beside it: the one action the
-                    // screen is for, within thumb reach, drawn by the OS so
-                    // the one-tap consent stays the system's. Its own glass
-                    // would double the control's green capsule, so the shared
-                    // background steps aside.
-                    DefaultToolbarItem(kind: .search, placement: .bottomBar)
-                    ToolbarItem(placement: .bottomBar) {
-                        // One accessibility element: the bar item otherwise
-                        // exposes a wrapper labelled by the control's visible
-                        // text, and the label set here never reaches it.
-                        PasteControlView { providers in model.ingest(providers: providers) }
-                            .frame(width: 112, height: 44)
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityAddTraits(.isButton)
-                            .accessibilityIdentifier("paste-control")
-                            .accessibilityLabel(Text("Paste into Gancho"))
-                    }
-                    .sharedBackgroundVisibility(.hidden)
-                    ToolbarItem(placement: .topBarTrailing) {
-                        kindFilterMenu
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            activeSheet = .boards
-                        } label: {
-                            Image(systemName: "rectangle.stack")
-                        }
-                        .accessibilityLabel(Text("Boards"))
-                        .accessibilityIdentifier("boards-home-open")
-                    }
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            activeSheet = .settings
-                        } label: {
-                            Image(systemName: "gearshape")
-                        }
-                        .accessibilityLabel(Text("Settings"))
-                    }
-                }
-                .sheet(item: $activeSheet) { sheet in
-                    switch sheet {
-                    case .settings: IOSSettingsView()
-                    case .boards: BoardsHomeView()
-                    case .boardAppearance(let board):
-                        BoardIdentityEditor(board: board) { colorHex, emoji in
-                            await model.updateBoardIdentity(
-                                board, colorHex: colorHex, emoji: emoji)
-                        }
-                    case .peek(let clip):
-                        // Wrap the peek in its own NavigationStack so it gets a
-                        // titled bar + an explicit Done button (the codebase
-                        // sheet convention) — drag-to-dismiss isn't discoverable.
-                        // The pushed (deep-link) path keeps the parent's back
-                        // button, so ClipDetailView itself stays unwrapped.
-                        NavigationStack {
-                            ClipDetailView(item: clip)
-                                .toolbar {
-                                    ToolbarItem(placement: .confirmationAction) {
-                                        Button("Done") { activeSheet = nil }
-                                    }
-                                }
-                        }
-                    case .move(let clip): MoveToBoardSheet(item: clip)
-                    case .pro:
-                        // Wrapped like the peek: a titled bar + explicit Done,
-                        // since drag-to-dismiss isn't discoverable.
-                        NavigationStack {
-                            ProInfoView()
-                                .toolbar {
-                                    ToolbarItem(placement: .confirmationAction) {
-                                        Button("Done") { activeSheet = nil }
-                                    }
-                                }
-                        }
-                    }
-                }
-                .onChange(of: model.proGateTick) { _, _ in
-                    // A free-tier limit was hit somewhere — show the Pro screen
-                    // rather than letting a vanishing note dead-end the user.
-                    activeSheet = .pro
+                    CaptureToolbar(layout: .phone, model: model, activeSheet: $activeSheet)
                 }
                 .alert("New board", isPresented: $showNewBoard) {
                     TextField("Board name", text: $newBoardName)
@@ -201,29 +93,22 @@ struct CaptureView: View {
                 .accessibilityIdentifier("capture-screen")
             }
         }
-        .task { await activate() }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            Task { await activate() }
+        .captureShell(activeSheet: $activeSheet) { clip in
+            activeSheet = nil
+            deepLinkedClips[clip.id] = clip
+            path = [clip.id]
         }
-        // Re-sense the pasteboard every time the app comes forward — the most
-        // reliable signal (scenePhase can miss). This is how the capture card
-        // tracks what you just copied in another app.
-        .onReceive(
-            NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
-        ) { _ in
-            Task { await model.refreshHints() }
-        }
-        // …and when the pasteboard changes while we're foreground (e.g. you tap
-        // Copy on a clip), so the card reflects it without a round-trip away.
-        .onReceive(NotificationCenter.default.publisher(for: UIPasteboard.changedNotification)) {
-            _ in
-            Task { await model.refreshHints() }
-        }
-        .onChange(of: model.deepLinkClipID) { _, id in
-            guard let id else { return }
-            path = [id]
-            model.deepLinkClipID = nil
+        .confirmationDialog(
+            "Delete this board?",
+            isPresented: Binding(
+                get: { boardPendingDeletion != nil },
+                set: { if !$0 { boardPendingDeletion = nil } }),
+            presenting: boardPendingDeletion
+        ) { board in
+            Button("Delete board", role: .destructive) { model.deleteBoard(board) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Your clips stay in history — only the board is removed.")
         }
     }
 
@@ -303,18 +188,9 @@ struct CaptureView: View {
         }
     }
 
-    // The row body intentionally keeps gesture, navigation, and thumbnail
-    // wiring together so UI behavior remains obvious during this lint adoption.
-    // swiftlint:disable function_body_length
-    /// Boards axis (above the type filter), as a horizontal rail of chips: All
-    /// clips · Favorites · user boards · New board. The active chip takes the
-    /// system accent; long-press a user board to rename or delete it.
-    /// One history row: tap pushes the detail (the peek lands in a later phase),
-    /// swipe gives Copy / Pin / Delete, and reaching the last rows pulls the next
-    /// page (infinite scroll).
-    @ViewBuilder
+    /// One history row: tap opens the peek, swipe and long-press give the
+    /// shared row actions, and reaching the last rows pulls the next page.
     private func clipRow(_ item: ClipItem) -> some View {
-        // swiftlint:enable function_body_length
         Button {
             activeSheet = .peek(item)
         } label: {
@@ -323,85 +199,7 @@ struct CaptureView: View {
         .buttonStyle(.plain)
         .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
         .onAppear { Task { await model.loadMoreIfNeeded(item) } }
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                Task { await model.delete(item) }
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-            Button {
-                Task { await model.togglePin(item) }
-            } label: {
-                Label(
-                    item.isPinned ? "Unpin" : "Pin",
-                    systemImage: item.isPinned ? "pin.slash" : "pin")
-            }
-            .tint(.orange)
-        }
-        .swipeActions(edge: .leading) {
-            Button {
-                Task { await model.copyToPasteboard(item) }
-            } label: {
-                Label("Copy", systemImage: "doc.on.doc")
-            }
-            .tint(.blue)
-            Button {
-                activeSheet = .move(item)
-            } label: {
-                Label("Board", systemImage: "tray.and.arrow.down")
-            }
-            .tint(.indigo)
-        }
-        .contextMenu {
-            Button {
-                Task { await model.copyToPasteboard(item) }
-            } label: {
-                Label("Copy", systemImage: "doc.on.clipboard")
-            }
-            if ClipSafeDelivery.isEligible(item) {
-                ShareLink(
-                    item: model.shareItem(for: item),
-                    preview: SharePreview("Gancho")
-                ) {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                }
-                .accessibilityIdentifier("clip-share-action")
-            }
-            Button {
-                Task { await model.togglePin(item) }
-            } label: {
-                Label(
-                    item.isPinned ? "Unpin" : "Pin",
-                    systemImage: item.isPinned ? "pin.slash" : "pin")
-            }
-            Divider()
-            Button(role: .destructive) {
-                Task { await model.delete(item) }
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        } preview: {
-            clipPreview(item)
-        }
-    }
-
-    /// The rich preview iOS lifts under a long-press: the image renders for
-    /// image clips, otherwise the (masked-if-sensitive) text preview.
-    @ViewBuilder
-    private func clipPreview(_ item: ClipItem) -> some View {
-        if item.kind == .image, !ClipSafePresentation.requiresMasking(item),
-            let thumbnail = model.thumbnails.cached(for: item.id)
-        {
-            thumbnail
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: 300, maxHeight: 220)
-        } else {
-            Text(ClipSafePresentation.displayText(for: item))
-                .font(item.kind == .code ? .body.monospaced() : .body)
-                .padding()
-                .frame(maxWidth: 300, alignment: .leading)
-        }
+        .clipRowActions(item, model: model) { activeSheet = .move(item) }
     }
 
     private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
@@ -423,6 +221,9 @@ struct CaptureView: View {
         }
     }
 
+    /// Boards axis (above the type filter), as a horizontal rail of chips: All
+    /// clips · Favorites · user boards · New board. The active chip takes the
+    /// system accent; long-press a user board to rename or delete it.
     private var boardRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: GanchoTokens.Spacing.xs) {
@@ -452,7 +253,7 @@ struct CaptureView: View {
                                 renameTarget = board
                             }
                             Button("Delete board", role: .destructive) {
-                                model.deleteBoard(board)
+                                boardPendingDeletion = board
                             }
                         }
                     }
@@ -512,14 +313,6 @@ struct CaptureView: View {
         Binding(get: { renameTarget != nil }, set: { if !$0 { renameTarget = nil } })
     }
 
-    private var kindFilterMenu: some View {
-        @Bindable var model = self.model
-        return HistoryFilterMenu(
-            kindFilter: $model.kindFilter,
-            selectedSourceAppBundleID: $model.selectedSourceAppBundleID,
-            sourceApps: model.sourceApps)
-    }
-
     private var hasActiveFilter: Bool {
         model.kindFilter != nil || model.selectedBoardID != nil
             || model.selectedSourceAppBundleID != nil
@@ -563,49 +356,6 @@ struct CaptureView: View {
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
             }
-        }
-    }
-
-    /// Foreground activation: metadata hints + extension inbox, no reads.
-    private func activate() async {
-        model.syncNow()
-        await model.refreshHints()
-        await model.drainSharedInbox()
-        await model.refreshBoards()
-        await model.refreshSourceApps()
-        await model.search()
-    }
-
-    /// The design's Pasteboard section: the status row the capture screen
-    /// shows above history (see `PasteboardStatusRow`).
-    private var pasteboardSection: some View {
-        Section {
-            PasteboardStatusRow()
-                .listRowBackground(Color.clear)
-                .listRowInsets(
-                    EdgeInsets(
-                        top: GanchoTokens.Spacing.xxs, leading: GanchoTokens.Spacing.xxs,
-                        bottom: GanchoTokens.Spacing.xxs, trailing: GanchoTokens.Spacing.xxs))
-        }
-    }
-
-    /// Shown only when the durable store failed to open — captures are running
-    /// in memory and will be lost on relaunch. Honest beats silent.
-    private var storageWarningSection: some View {
-        Section {
-            Label {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("History isn't being saved").font(.subheadline.weight(.semibold))
-                    Text(
-                        "Gancho couldn't open its secure storage. Captures will vanish when you quit the app."
-                    )
-                    .font(.footnote).foregroundStyle(.secondary)
-                }
-            } icon: {
-                Image(systemName: "externaldrive.badge.exclamationmark")
-                    .foregroundStyle(GanchoTokens.Palette.danger)
-            }
-            .accessibilityIdentifier("storage-warning")
         }
     }
 
@@ -670,6 +420,22 @@ struct CaptureView: View {
         }
     }
 
+}
+
+/// A pushed clip detail that follows the live row, falling back to the
+/// deep-linked snapshot when the current list doesn't hold it.
+private struct ClipDetailDestination: View {
+    @Environment(IOSAppModel.self) private var model
+    let id: UUID
+    let fallback: ClipItem?
+
+    var body: some View {
+        if let item = model.captures.first(where: { $0.id == id }) ?? fallback {
+            ClipDetailView(item: item)
+        } else {
+            ContentUnavailableView("This clip is no longer available", systemImage: "tray")
+        }
+    }
 }
 
 /// `UIPasteControl` wrapper: the system button that pastes WITHOUT any

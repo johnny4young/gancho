@@ -3,6 +3,7 @@ import ClipboardCore
 import GanchoAI
 import GanchoKit
 import UIKit
+import WidgetKit
 
 /// The intents ARE the public API: they open the same App Group store and
 /// run the same classification pipeline the UI uses — no logic forks.
@@ -69,8 +70,10 @@ struct CopyLastURLIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let store = try IntentStore.open()
-        // Newest URL by kind (an empty fuzzy query matches nothing).
-        let item = try await store.items(offset: 0, limit: 200).first { $0.kind == .url }
+        // A filter-only search reaches every URL, not just a recent window.
+        let item = try await store.search(
+            ClipSearchQuery(text: "", kinds: [.url]), limit: 1
+        ).first
         guard let item, case .text(let url)? = try await store.content(for: item.id) else {
             return .result(dialog: "No URLs in your history yet.")
         }
@@ -88,6 +91,7 @@ struct ClearSensitiveIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let store = try IntentStore.open()
         let removed = try await store.deleteAllSensitive()
+        if removed > 0 { WidgetCenter.shared.reloadAllTimelines() }
         return .result(dialog: "Removed \(removed) sensitive clips.")
     }
 }
@@ -113,7 +117,13 @@ struct AskClipboardIntent: AppIntent {
             return .result(dialog: "Ask needs Apple Intelligence on this device.")
         }
         let store = try IntentStore.open()
-        switch await ClipboardQA().answer(question: question, store: store, useSemantic: true) {
+        // The same device-local toggle the app's Ask uses.
+        let useSemantic = await MainActor.run {
+            IntelligencePreferences.load(from: SharedCapture.preferences).semanticSearch
+        }
+        switch await ClipboardQA().answer(
+            question: question, store: store, useSemantic: useSemantic)
+        {
         case .unavailable:
             return .result(dialog: "Ask needs Apple Intelligence on this device.")
         case .noMatch:
@@ -145,7 +155,8 @@ struct ClipEntity: AppEntity, Identifiable {
 
     var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(
-            title: "\(preview)", subtitle: "\(kind)")
+            title: "\(preview)",
+            subtitle: LocalizedStringResource(String.LocalizationValue(kind)))
     }
 }
 

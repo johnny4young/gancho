@@ -130,12 +130,15 @@ public enum ClipListShape {
     ///
     /// `kinds` reaches SQL only when the caller passes it. macOS narrows by kind
     /// on the client (its filter also feeds de-duplication and selection, which
-    /// are client-side anyway) and passes nil; iOS pushes it down.
+    /// are client-side anyway) and passes nil; iOS pushes it down, so a kind
+    /// filter with no text takes the filter-only search instead of a recent
+    /// page that may hold none of that kind.
     public func firstPage(
         query: String, boardID: UUID?, sourceAppBundleID: String?,
         kinds: Set<ClipContentKind>? = nil
     ) async -> ClipListPage {
-        if query.isEmpty, sourceAppBundleID == nil {
+        let filtersByKind = source.isDurable && kinds?.isEmpty == false
+        if query.isEmpty, sourceAppBundleID == nil, !filtersByKind {
             if let boardID, source.isDurable {
                 // A board pages like the recent list — a curated set is still
                 // unbounded (a 10k-member board must not load whole on open).

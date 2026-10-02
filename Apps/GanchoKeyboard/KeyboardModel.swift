@@ -2,6 +2,7 @@ import GanchoKit
 import ImageIO
 import SwiftUI
 import UIKit
+import WidgetKit
 
 /// Backs the keyboard UI. Reads the App Group store (only when Full Access is
 /// granted), exposes the pin-first / search list as masked-safe entries, and
@@ -47,6 +48,8 @@ final class KeyboardModel: ObservableObject {
     /// depends on capabilities, not the concrete store.
     private let store: (any ClipReading & ClipSearching & BoardStoring & ClipMutating)?
     private var noteTask: Task<Void, Never>?
+    /// The one in-flight list reload; each keystroke or board switch replaces it.
+    private var reloadTask: Task<Void, Never>?
 
     init(
         hasFullAccess: Bool,
@@ -75,13 +78,15 @@ final class KeyboardModel: ObservableObject {
     func load() async {
         guard let store else { return }
         boards = (try? await store.pinboards()) ?? []
-        if let selectedBoardID {
+        let board = selectedBoardID
+        if let board {
             // Strictly one small page — the keyboard extension runs under a
             // tight memory ceiling, and the store orders pinned-first so the
             // page keeps the pins on top.
             let page =
-                (try? await store.search(KeyboardClips.query(boardID: selectedBoardID), limit: 60))
+                (try? await store.search(KeyboardClips.query(boardID: board), limit: 60))
                 ?? []
+            guard isCurrent(text: "", board: board) else { return }
             entries = KeyboardClips.ordered(
                 pinned: page.filter(\.isPinned), recent: page.filter { !$0.isPinned })
             sections = []
@@ -91,6 +96,7 @@ final class KeyboardModel: ObservableObject {
             // ordering would split the date buckets after reusing an old clip.
             let recent = ((try? await store.search(KeyboardClips.query(), limit: 60)) ?? [])
                 .filter { ClipSafeDelivery.isEligible($0) }
+            guard isCurrent(text: "", board: nil) else { return }
             sections = ClipSections.grouped(recent, now: .now).compactMap { group in
                 let entries = WidgetClips.entries(from: group.clips, limit: group.clips.count)
                 return entries.isEmpty
@@ -107,25 +113,39 @@ final class KeyboardModel: ObservableObject {
             await load()
             return
         }
+        let board = selectedBoardID
         let hits =
             (try? await store.search(
-                KeyboardClips.query(text: trimmed, boardID: selectedBoardID), limit: 30)) ?? []
+                KeyboardClips.query(text: trimmed, boardID: board), limit: 30)) ?? []
+        // A slower, older query must not overwrite what the user typed since.
+        guard isCurrent(text: trimmed, board: board) else { return }
         entries = WidgetClips.entries(
             from: hits.filter { ClipSafeDelivery.isEligible($0) }, limit: 30)
         sections = []
+    }
+
+    /// True while the result of a read for `text` and `board` still matches
+    /// what the keyboard shows; a cancelled or superseded read drops its rows.
+    private func isCurrent(text: String, board: UUID?) -> Bool {
+        !Task.isCancelled && selectedBoardID == board
+            && searchText.trimmingCharacters(in: .whitespaces) == text
+    }
+
+    /// Restart the reload for the current query, cancelling the previous one.
+    func searchTextChanged() {
+        scheduleReload()
+    }
+
+    private func scheduleReload() {
+        reloadTask?.cancel()
+        reloadTask = Task { await reloadCurrent() }
     }
 
     /// Switch the active board filter and reload through the current path
     /// (search results stay scoped if a query is present).
     func selectBoard(_ id: UUID?) {
         selectedBoardID = id
-        Task {
-            if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
-                await load()
-            } else {
-                await runSearch()
-            }
-        }
+        scheduleReload()
     }
 
     /// Acts on a tapped clip: text/file refs insert into the field; images go
@@ -247,7 +267,8 @@ final class KeyboardModel: ObservableObject {
         guard let store else { return }
         Task {
             try? await store.deleteForSync(id: entry.id, now: .now)
-            await reloadCurrent()
+            WidgetCenter.shared.reloadAllTimelines()
+            scheduleReload()
         }
     }
 
@@ -273,7 +294,8 @@ final class KeyboardModel: ObservableObject {
             let outcome = await SharedCapture.saveCurrentClipboard()
             saving = false
             flashNote(SharedCapture.message(for: outcome))
-            await load()
+            if case .saved = outcome { WidgetCenter.shared.reloadAllTimelines() }
+            scheduleReload()
         }
     }
 
