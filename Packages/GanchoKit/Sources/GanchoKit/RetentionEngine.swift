@@ -169,14 +169,19 @@ extension GRDBClipboardStore {
     /// steady-state mass-delete paths (retention purge, panic delete) use
     /// the precise ``removeBlobsIfOrphaned(_:)`` instead; keep this as the
     /// explicit garbage-collection entry point for repair/maintenance.
-    func removeOrphanedBlobs() async throws -> Int {
+    ///
+    /// Only files older than `olderThan` go: a blob is written before the row
+    /// that references it commits, so a fresh unreferenced file may belong to
+    /// a capture or sync apply still in flight.
+    @discardableResult
+    public func removeOrphanedBlobs(olderThan cutoff: Date? = nil) async throws -> Int {
         let referenced = try await writer.read { db in
             try String.fetchSet(
                 db,
                 sql: "SELECT DISTINCT contentBlobHash FROM clip WHERE contentBlobHash IS NOT NULL"
             )
         }
-        return blobsForMaintenance.removeAll(except: referenced)
+        return blobsForMaintenance.removeAll(except: referenced, olderThan: cutoff)
     }
 
     /// Appends one purge run to the log (Privacy Center counters).

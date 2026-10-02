@@ -302,10 +302,39 @@ extension GRDBClipboardStore: SyncLocalStore {
         _ item: ClipItem, content: ClipContent?, systemFields: Data
     ) async throws -> Bool {
         let finalRow = try preparedRow(for: item, content: content)
-        return try await writer.write { db in
-            try applyPreparedUpsert(
+        var candidates = Set([finalRow.contentBlobHash].compactMap { $0 })
+        let (applied, previous) = try await writer.write { db in
+            let previous = try Self.blobHashes(ofClips: [item.id.uuidString], in: db)
+            let applied = try applyPreparedUpsert(
                 finalRow, item: item, content: content, systemFields: systemFields, in: db)
+            return (applied, previous)
         }
+        candidates.formUnion(previous)
+        await removeBlobsIfOrphanedAfterCommit(candidates)
+        return applied
+    }
+
+    /// Blob hashes the given clip rows reference right now, read inside the
+    /// transaction that is about to replace or delete them.
+    static func blobHashes(ofClips ids: [String], in db: Database) throws -> Set<String> {
+        guard !ids.isEmpty else { return [] }
+        var hashes = Set<String>()
+        for chunk in ids.chunked(into: orphanLookupChunkSize) {
+            let placeholders = Array(repeating: "?", count: chunk.count).joined(separator: ",")
+            hashes.formUnion(
+                try String.fetchSet(
+                    db,
+                    sql: "SELECT contentBlobHash FROM clip "
+                        + "WHERE contentBlobHash IS NOT NULL AND id IN (\(placeholders))",
+                    arguments: StatementArguments(chunk)))
+        }
+        return hashes
+    }
+
+    /// Post-commit cleanup that never fails the write it follows: an
+    /// unprovable orphan is kept for the maintenance sweep.
+    func removeBlobsIfOrphanedAfterCommit(_ candidates: Set<String>) async {
+        _ = try? await removeBlobsIfOrphaned(candidates)
     }
 
     /// Builds the row a remote change will write, doing its blob I/O here so
@@ -453,8 +482,11 @@ extension GRDBClipboardStore: SyncLocalStore {
 
         let staged = prepared
         let counted = summary
-        return try await writer.write { db in
+        var candidates = Set(staged.compactMap(\.row.contentBlobHash))
+        let (result, previous) = try await writer.write { db in
             var summary = counted
+            let previous = try Self.blobHashes(
+                ofClips: staged.map(\.change.item.id.uuidString) + clipDeletions, in: db)
             // Boards FIRST. A clip's membership creates a placeholder board for
             // any id it does not find locally, stamped `createdAt = now` and
             // `isSystem = 0`. The board upsert that follows deliberately leaves
@@ -472,8 +504,11 @@ extension GRDBClipboardStore: SyncLocalStore {
             applyStagedClips(staged, into: &summary, in: db)
             applyRemoteDeletions(
                 clips: clipDeletions, boards: boardDeletions, into: &summary, in: db)
-            return summary
+            return (summary, previous)
         }
+        candidates.formUnion(previous)
+        await removeBlobsIfOrphanedAfterCommit(candidates)
+        return result
     }
 
     /// The clip half of a page. Each change gets its own savepoint.
@@ -564,9 +599,12 @@ extension GRDBClipboardStore: SyncLocalStore {
     }
 
     public func applyRemoteDeletion(recordID: String) async throws {
-        try await writer.write { db in
+        let previous = try await writer.write { db in
+            let previous = try Self.blobHashes(ofClips: [recordID], in: db)
             try db.execute(sql: "DELETE FROM clip WHERE id = ?", arguments: [recordID])
+            return previous
         }
+        await removeBlobsIfOrphanedAfterCommit(previous)
     }
 
     public func clearTombstone(recordID: String) async throws {
