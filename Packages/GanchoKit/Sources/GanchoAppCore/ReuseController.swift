@@ -107,20 +107,19 @@ public final class ReuseController {
                 ? items.filter { !deletionCoordinator.isPending($0.id) } : items)
     }
 
-    /// Records the local ranking/search signals after a paste succeeds, moves
-    /// the reused item to the top through the store's metadata-only insert, and
-    /// reconciles the visible page from the store of record.
+    /// Records the local ranking/search signals after a paste succeeds (the use
+    /// bumps `lastUsedAt`, which moves the clip to the top) and reconciles the
+    /// visible page from the store of record.
     @discardableResult
     public func recordPaste(of item: ClipItem, now: Date = .now) async -> ClipItem? {
         let suggestion = await recordUseAndSnippetSuggestion(for: item, now: now)
         await rememberActiveSearch(now: now)
-        _ = try? await store.insert(item, content: nil)
         await refreshRecents()
         return suggestion
     }
 
     /// A successful drag is a reuse signal but must not reorder the list under
-    /// the pointer, so it records usage/search without the metadata insert.
+    /// the pointer, so it records usage/search without refreshing the page.
     @discardableResult
     public func recordDragDelivery(of item: ClipItem, now: Date = .now) async -> ClipItem? {
         let suggestion = await recordUseAndSnippetSuggestion(for: item, now: now)
@@ -129,7 +128,7 @@ public final class ReuseController {
     }
 
     /// Snippet insertion bumps frecency and refreshes, but it does not consume
-    /// the panel's search query or perform a second move-to-top insert.
+    /// the panel's search query.
     public func recordSnippetPaste(of item: ClipItem, now: Date = .now) async {
         _ = await recordUseAndSnippetSuggestion(for: item, now: now)
         await refreshRecents()
