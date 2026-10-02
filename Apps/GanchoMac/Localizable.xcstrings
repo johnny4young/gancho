@@ -2796,12 +2796,12 @@
         }
       }
     },
-    "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, Smart Actions, and masking.": {
+    "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, developer actions, and masking.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un clasificador determinista etiqueta cada clip en menos de 5 ms — JWT, JSON, color, tarjeta, URL… — sin red. Alimenta los previews, las Smart Actions y el enmascarado."
+            "value": "Un clasificador determinista etiqueta cada clip en menos de 5 ms — JWT, JSON, color, tarjeta, URL… — sin red. Alimenta los previews, las acciones de desarrollador y el enmascarado."
           }
         }
       }
