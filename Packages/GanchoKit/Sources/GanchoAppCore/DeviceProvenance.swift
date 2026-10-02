@@ -6,7 +6,6 @@ import Foundation
 public enum DeviceProvenance {
     /// Reads the supplied provider once per capture. Nil or whitespace-only
     /// names remain nil; no host lookup or cached fallback is performed here.
-    @MainActor
     public static func currentDeviceName(using readName: () -> String?) -> String? {
         normalized(readName())
     }

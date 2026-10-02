@@ -5,6 +5,11 @@ import Testing
 
 @Suite("DeviceProvenance — capture provenance name")
 struct DeviceProvenanceTests {
+    @Test("Normalization needs no main actor")
+    nonisolated func normalizesOffTheMainActor() {
+        #expect(DeviceProvenance.currentDeviceName { "  Studio  " } == "Studio")
+    }
+
     @Test("Normalization trims and collapses unusable names to nil")
     func normalization() {
         #expect(DeviceProvenance.normalized("Fixture Mac") == "Fixture Mac")
