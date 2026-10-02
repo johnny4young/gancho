@@ -9,6 +9,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep panel sizing under AppKit control to avoid redundant whole-view size
+  measurement delaying translation results, while preserving resize bounds and
+  display preferences.
+
+- Show installed native translation destinations independently of Apple
+  Intelligence, with an unavailable-engine message instead of an empty result.
+
 - Queue edited snippet titles and text for synchronization while keeping
   keyword-only edits local and preserving uploads that were already pending.
   Local keyword edits no longer outrank newer remote title/body changes. Edits

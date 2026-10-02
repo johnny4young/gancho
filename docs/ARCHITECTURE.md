@@ -579,4 +579,29 @@ ordinary 45-minute job. Full suites and the smaller iOS stress job retain their
 45-minute allocation. Test assertions, interaction timeouts, performance budgets
 and raw evidence collection are unchanged.
 
-The `feature-stress` UI scope repeats `LibrarySnippetDraftUITests`, `VisualLibraryUITests`, `ReuseSuggestionUITests` ten times. The unrelated iOS job is omitted only from this supplementary scope; full platform validation remains required on the same head. Selectors are fixed, invalid scopes fail closed, and all individual outcomes remain in the result bundle.
+The `feature-stress` UI scope repeats `LibrarySnippetDraftUITests`,
+`VisualLibraryUITests`, `ReuseSuggestionUITests` and
+`TranslationCapabilityUITests` ten times on macOS, plus the iOS translation
+suite. Its macOS job has the same 90-minute allocation as interaction stress;
+full platform validation remains required on the same head. Selectors are
+fixed, invalid scopes fail closed, and all individual outcomes remain in the
+result bundle.
+
+The installed-translation UI journey activates the identified native destination
+menu item directly, rather than combining hover with a global Return event. It
+keeps the foreground guard and the same result deadline. Disposable-store engines
+verify capability routing and presentation without system language assets; their
+results are not evidence of real-provider translation quality or latency.
+
+
+The floating history panel owns its frame and content resize limits in AppKit.
+Its `NSHostingView.sizingOptions` is empty: inferred minimum, ideal and maximum
+SwiftUI constraints would duplicate that authority and remeasure the full panel
+on result-state changes. Hosted phase traces and targeted samples identified
+these layout passes delaying main-thread translation delivery after the engine
+had already completed. The explicit sizing boundary preserves normal SwiftUI
+layout within the supplied frame, saved presets and text scaling; it changes no
+engine routing or result timeout. Native translation tests assert that the
+panel's frame stays unchanged across delivery, while display-preference tests
+cover resizing and relaunch persistence. See Apple's
+[`NSHostingView.sizingOptions` documentation](https://developer.apple.com/documentation/swiftui/nshostingview/sizingoptions).

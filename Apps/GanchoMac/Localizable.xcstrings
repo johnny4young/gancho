@@ -8890,6 +8890,38 @@
         }
       }
     },
+    "Install a language pair (macOS 26+) or use an available on-device model.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install a language pair (macOS 26+) or use an available on-device model."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instala un par de idiomas (macOS 26 o posterior) o usa un modelo local disponible."
+          }
+        }
+      }
+    },
+    "Translation unavailable. Install a language pair on macOS 26 or use an available on-device model.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation unavailable. Install a language pair on macOS 26 or use an available on-device model."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducción no disponible. Instala un par de idiomas en macOS 26 o usa un modelo local disponible."
+          }
+        }
+      }
+    },
     "Keep your unsaved snippet?": {
       "localizations": {
         "en": {
