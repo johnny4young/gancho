@@ -612,3 +612,9 @@ Recipe UI coverage also executes a visibly changing transform, checks both previ
 explicitly copies through the isolated test sink, and reopens the original clip to
 verify that neither its text nor the clip count changed. Pure delivery tests verify
 the writer callback and clipboard/privacy race vetoes separately.
+
+The installed-translation UI journey activates the identified native destination
+menu item directly, rather than combining hover with a global Return event. It
+keeps the foreground guard and the same result deadline. Disposable-store engines
+verify capability routing and presentation without system language assets; their
+results are not evidence of real-provider translation quality or latency.
