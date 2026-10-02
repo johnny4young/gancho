@@ -12,9 +12,10 @@ that complements the automated checks.
 - **VoiceOver**: rows combine into one element reading "kind, preview";
   masked previews stay masked for VO too; the menu-bar icon announces the
   capture state; no element ships with a bare "button" label.
-- **Display settings**: Reduce Transparency AND Increase Contrast both swap
-  Liquid Glass for a solid surface (`GanchoSurface`). System text styles are
-  used broadly, but fixed-size labels and the panel text-size override mean
+- **Display settings**: the panel is solid by default. With Settings ›
+  General › Translucent background on, Reduce Transparency AND Increase
+  Contrast both swap Liquid Glass for a solid surface (`GanchoSurface`).
+  System text styles are used broadly, but fixed-size labels and the panel text-size override mean
   this is not a guarantee that every element follows system Dynamic Type.
 - Accessibility identifiers are stable kebab-case and never localized.
 
@@ -22,8 +23,9 @@ that complements the automated checks.
 
 Accessibility-tree assertions do not establish that every control is usable
 with VoiceOver. Run the manual flow below on the identified release candidate.
-The panel currently uses animated transitions and repeating progress symbols;
-there is no app-level Reduce Motion handling yet. Include Reduce Motion,
+Panel transitions honor Reduce Motion through `GanchoMotion`
+(`quick`/`smooth`/`replace(reduceMotion:)`); repeating progress symbols still
+animate. Include Reduce Motion,
 larger text, contrast, small windows, Library cards and saved filters in manual
 acceptance. Space toggles a focused filter chip; in the search field it types a
 space rather than opening a preview.
@@ -37,7 +39,8 @@ space rather than opening a preview.
    closes.
 4. Open the menu bar item — confirm the status announcement matches the
    actual state (capturing / paused / private mode).
-5. Toggle Reduce Transparency in System Settings → confirm the panel
-   re-renders solid without restart.
+5. Turn on Settings › General › Translucent background, then toggle Reduce
+   Transparency in System Settings → confirm the panel re-renders solid
+   without restart.
 
 Record date + macOS build of the last run in the release checklist.

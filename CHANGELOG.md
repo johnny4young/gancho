@@ -22,8 +22,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Definitions are not synced and originals remain intact.
 
 - Versioned, bounded deterministic text action and recipe contracts, reusing
-  existing transforms and the selected-context formatter. Editor and local
-  persistence follow separately.
+  existing transforms and the selected-context formatter.
 
 - Prepare explicitly selected text as reviewed, bounded Markdown, with optional
   selected-ID, read-only MCP access expiring after one hour.
@@ -37,7 +36,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Make the panel solid by default, with a "Translucent background" option, and
   show which panel size preset is active. The panel answers the shortcut on
-  key down and is prepared ahead of the first open.
+  key down, is prepared ahead of the first open, and appears at once without
+  the open entrance animation.
 
 - Keep developer actions behind "More actions" so each peek shows the
   essentials first; the choice is remembered.

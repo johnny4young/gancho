@@ -49,5 +49,5 @@ Launch with explicit AppleLanguages, no system change needed:
 
 ```bash
 open Gancho.app --args -AppleLanguages '(es)'
-xcrun simctl launch booted com.johnny4young.gancho.GanchoiOS -AppleLanguages '(es)'
+xcrun simctl launch booted com.johnny4young.gancho -AppleLanguages '(es)'
 ```

@@ -254,9 +254,11 @@ appears on the other Mac without any manual refresh, and its footer settles on
 | 14 | Quit and relaunch both | A + B | Both come back to the same history, same boards, same pins. |
 | 15 | **Settings → Pro → Deactivate this Mac** | B | The seat is released. B drops to free and keeps its **encrypted local history**. A is untouched and still Pro. |
 
-If sync stalls at any row, `Settings → Reset & re-pull sync` discards the local
-`CKSyncEngine` state token and re-pulls. Needing it is itself a finding — note
-which row, because a released build should never require it.
+If sync stalls at any row on a Debug build, `Settings → Pro → Reset & re-pull
+sync` (Debug-only) discards the local `CKSyncEngine` state token and re-pulls.
+Release builds do not have it: record the row and the stall, then quit and
+relaunch both apps. Needing either is itself a finding, because a released
+build should never require it.
 
 **For 0.8.3 specifically**, one of the two Macs should be running **macOS 15.4
 Sequoia**, since this is the first release to advertise that floor. On it,
