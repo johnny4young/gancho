@@ -31,6 +31,7 @@ struct ClipPeek: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var recipeRequest: TextRecipeReviewRequest?
     @State var actionResult: String?
+    @Binding private var showsMoreActions: Bool
     @State private var boardIDs: Set<UUID> = []
     /// Smart Paste can run the on-device model — show a spinner while it thinks.
     @State var translationTargets: [TranslationDestination] = []
@@ -69,6 +70,7 @@ struct ClipPeek: View {
     init(
         item: ClipItem, text: String, isTextEditable: Bool,
         focus: FocusState<PanelFocus?>.Binding, isEditingInline: Binding<Bool>,
+        showsMoreActions: Binding<Bool>,
         addToBoard: @escaping () -> Void, addToLastBoard: @escaping () -> Void
     ) {
         self.item = item
@@ -76,6 +78,7 @@ struct ClipPeek: View {
         self.isTextEditable = isTextEditable
         self.focus = focus
         _isEditingInline = isEditingInline
+        _showsMoreActions = showsMoreActions
         self.addToBoard = addToBoard
         self.addToLastBoard = addToLastBoard
         _presentedTitle = State(initialValue: item.title)
@@ -146,8 +149,9 @@ struct ClipPeek: View {
                                 resultBox(actionResult)
                                     .transition(GanchoMotion.replace(reduceMotion: reduceMotion))
                             }
-                            if !chipActions.isEmpty {
-                                secondaryActions
+                            if !devActions.isEmpty {
+                                moreActionsToggle
+                                if showsMoreActions { secondaryActions }
                             }
                         }
                         // Scoped to the three things that come and go inside
@@ -274,7 +278,7 @@ struct ClipPeek: View {
             guard !Task.isCancelled else { return }
             boardIDs = membership
         }
-        .task(id: item.id) { suggestedBoard = await model.suggestedBoard(for: item) }
+        .task(id: item.id) { await loadSuggestedBoard() }
     }
 
     /// "Add to Dev?" — the one-tap board suggestion. Accepting files the clip;
@@ -452,8 +456,11 @@ struct ClipPeek: View {
         return actions
     }
 
+    /// Only the expanded Dev Actions take keyboard positions after the dock.
+    private var chipActions: [PeekAction] { showsMoreActions ? devActions : [] }
+
     /// The per-kind Dev Actions, never for a masked or hidden preview.
-    private var chipActions: [PeekAction] {
+    private var devActions: [PeekAction] {
         guard !hidesPreview else { return [] }
         return DevActions.actions(for: item.kind).map { action in
             PeekAction(
@@ -610,6 +617,27 @@ extension ClipPeek {
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("peek-dock")
+    }
+
+    /// Arrowing through rows must not compute an embedding per row.
+    private func loadSuggestedBoard() async {
+        try? await Task.sleep(for: .milliseconds(350))
+        guard !Task.isCancelled else { return }
+        suggestedBoard = await model.suggestedBoard(for: item)
+    }
+
+    /// Dev Actions stay one click away instead of crowding every peek.
+    private var moreActionsToggle: some View {
+        Button {
+            showsMoreActions.toggle()
+        } label: {
+            Label(
+                showsMoreActions ? "Fewer actions" : "More actions",
+                systemImage: showsMoreActions ? "chevron.up" : "chevron.down")
+        }
+        .buttonStyle(.borderless)
+        .panelFont(.caption)
+        .accessibilityIdentifier("peek-more-actions")
     }
 
     /// The Dev Actions as wrapping chips inside the peek's scrolling content,

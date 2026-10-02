@@ -35,6 +35,24 @@ public enum PanelSizePreset: String, CaseIterable, Identifiable, Sendable {
         case .large: CGSize(width: 1_080, height: 680)
         }
     }
+
+    /// The preset a remembered size came from; nil after a manual resize.
+    nonisolated public static func matching(_ size: CGSize) -> Self? {
+        allCases.first {
+            abs($0.contentSize.width - size.width) <= 1
+                && abs($0.contentSize.height - size.height) <= 1
+        }
+    }
+}
+
+/// Whether the panel lets the desktop show through. Off by default: a solid
+/// panel keeps clips legible over any wallpaper or window.
+public enum PanelTranslucency {
+    public static let storageKey = "panel-translucent-background"
+
+    nonisolated public static func isEnabled(in defaults: UserDefaults) -> Bool {
+        defaults.bool(forKey: storageKey)
+    }
 }
 
 /// The optional ambient wash behind the panel: a faint field of the selected

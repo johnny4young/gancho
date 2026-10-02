@@ -15,6 +15,9 @@ extension ClipPeek {
             translationTargets = []
             return
         }
+        // Settle first: arrowing through rows must not probe language pairs per row.
+        try? await Task.sleep(for: .milliseconds(250))
+        guard !Task.isCancelled else { return }
         let requestedText = presentedText
         let targets = try? await model.translationDestinations(requestedText)
         guard !Task.isCancelled, canSmartPaste, presentedText == requestedText else { return }

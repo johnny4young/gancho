@@ -78,9 +78,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
             waitUntil { !panel.exists }, "Escape must hide the panel before editing Settings")
         app.windows["Settings"].firstMatch.click()
 
-        let largeSize = app.buttons["panel-size-large"].firstMatch
-        XCTAssertTrue(largeSize.waitForExistence(timeout: 3))
-        largeSize.click()
+        choosePanelSize("Large", afterVerifying: "Standard", in: app)
 
         // SwiftUI's segmented Picker is exposed as a RadioGroup on macOS.
         let textSize = app.radioGroups["panel-text-size"].firstMatch
@@ -161,5 +159,18 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
     private func historyPanel(in app: XCUIApplication) -> XCUIElement {
         // NSPanel is exposed as a Dialog rather than a Window on macOS 26.
         app.descendants(matching: .any)["history-panel"].firstMatch
+    }
+
+    /// The segmented size control shows the remembered preset before switching.
+    @MainActor
+    private func choosePanelSize(
+        _ preset: String, afterVerifying current: String, in app: XCUIApplication
+    ) {
+        let panelSize = app.radioGroups["panel-size"].firstMatch
+        XCTAssertTrue(panelSize.waitForExistence(timeout: 3))
+        XCTAssertEqual(
+            panelSize.radioButtons[current].value as? Int, 1,
+            "the remembered preset must show as selected")
+        panelSize.radioButtons[preset].click()
     }
 }

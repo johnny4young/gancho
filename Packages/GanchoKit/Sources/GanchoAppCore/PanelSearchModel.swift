@@ -262,6 +262,16 @@ public struct PanelDateGroup: Identifiable, Sendable {
         selectionModel.select(index, toggling: toggling, in: filtered)
     }
 
+    /// Opening the panel selects the first row (the first unpinned one without a
+    /// query) and keeps it selected through refreshes until the user interacts.
+    public func followNewestClip() {
+        selectionModel.followNewest(skippingPinned: query.isEmpty, in: filtered)
+    }
+
+    public func endNewestFollow() {
+        selectionModel.endNewestFollow()
+    }
+
     /// Shift-Up/Down grows or contracts a contiguous selection from its anchor.
     public func moveSelection(by delta: Int, extending: Bool) {
         invalidateMeaningIntent()

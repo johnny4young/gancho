@@ -10,6 +10,7 @@ import SwiftUI
 /// cannot become a second navigation owner or reach into `AppModel`.
 struct PanelResultsView<RowContent: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.ganchoOpaqueSurfaces) private var opaqueSurfaces
     @State private var listIsScrolling = false
 
     let query: String
@@ -26,6 +27,8 @@ struct PanelResultsView<RowContent: View>: View {
     let columns: Int
     let onColumnsChange: (Int) -> Void
     let clearFilters: () -> Void
+    /// A user-driven scroll, as opposed to the list following the selection.
+    var onUserScroll: () -> Void = {}
     /// Builds one row. `PanelView` owns row effects (selection, drag, context
     /// menu, pagination), so the row arrives already wired instead of this
     /// slice reaching for the state those effects need.
@@ -83,7 +86,10 @@ struct PanelResultsView<RowContent: View>: View {
                     guard let id else { return }
                     proxy.scrollTo(id)
                 }
-                .onScrollPhaseChange { _, phase in listIsScrolling = phase != .idle }
+                .onScrollPhaseChange { _, phase in
+                    listIsScrolling = phase != .idle
+                    if phase == .interacting { onUserScroll() }
+                }
                 .environment(\.listIsScrolling, listIsScrolling)
             }
         }
@@ -144,7 +150,13 @@ struct PanelResultsView<RowContent: View>: View {
         .textCase(.uppercase)
         .padding(.horizontal, GanchoTokens.Spacing.xs)
         .padding(.vertical, GanchoTokens.Spacing.xxs)
-        .background(.ultraThinMaterial)
+        .background {
+            if opaqueSurfaces {
+                Rectangle().fill(.background.secondary)
+            } else {
+                Rectangle().fill(.ultraThinMaterial)
+            }
+        }
     }
 
     /// Rolling digits when a section grows or shrinks (a capture, a delete).

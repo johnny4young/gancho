@@ -49,6 +49,25 @@ struct PanelDisplayPreferencesTests {
         #expect(PanelTextStyle.title3.baseSize < PanelTextStyle.title2.baseSize)
     }
 
+    @Test("A remembered size shows its preset; a manual size shows none")
+    func presetMatching() {
+        for preset in PanelSizePreset.allCases {
+            #expect(PanelSizePreset.matching(preset.contentSize) == preset)
+        }
+        #expect(PanelSizePreset.matching(CGSize(width: 864.5, height: 540)) == .standard)
+        #expect(PanelSizePreset.matching(CGSize(width: 900, height: 600)) == nil)
+    }
+
+    @Test("The panel is solid until the user opts into translucency")
+    func translucencyDefaultsOff() throws {
+        let suite = "panel-translucency-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        #expect(!PanelTranslucency.isEnabled(in: defaults))
+        defaults.set(true, forKey: PanelTranslucency.storageKey)
+        #expect(PanelTranslucency.isEnabled(in: defaults))
+    }
+
     @Test("Panel presets grow monotonically from Compact to Large")
     func panelPresetOrdering() {
         let compact = PanelSizePreset.compact.contentSize

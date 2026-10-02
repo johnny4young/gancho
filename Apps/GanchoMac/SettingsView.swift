@@ -160,6 +160,8 @@ private struct GeneralSettingsTab: View {
     /// Local state, like Launch at login: the controller's flag isn't
     /// observable, so a Binding straight into it would leave the switch stale.
     @State private var ambientTint = false
+    @State private var translucentBackground = false
+    @State private var panelSize: PanelSizePreset?
     @State private var shortcutWarning: String?
     @State private var transferNote: String?
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
@@ -215,16 +217,32 @@ private struct GeneralSettingsTab: View {
                 .pickerStyle(.segmented)
                 .accessibilityIdentifier("panel-text-size")
 
-                LabeledContent("Panel size") {
-                    HStack {
-                        panelSizeButton("Compact", preset: .compact)
-                        panelSizeButton("Standard", preset: .standard)
-                        panelSizeButton("Large", preset: .large)
-                    }
+                Picker("Panel size", selection: panelSizeSelection) {
+                    Text("Compact").tag(PanelSizePreset?.some(.compact))
+                    Text("Standard").tag(PanelSizePreset?.some(.standard))
+                    Text("Large").tag(PanelSizePreset?.some(.large))
                 }
+                .pickerStyle(.segmented)
+                .onAppear { panelSize = PanelSizePreset.matching(model.panel.preferredContentSize) }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)
+                ) { notification in
+                    guard let window = notification.object as? NSWindow,
+                        model.panel.isPanelWindow(window)
+                    else { return }
+                    panelSize = PanelSizePreset.matching(
+                        window.contentRect(forFrameRect: window.frame).size)
+                }
+                .accessibilityIdentifier("panel-size")
                 Text("Manual resizing is remembered automatically.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                Toggle("Translucent background", isOn: $translucentBackground)
+                    .onAppear { translucentBackground = model.panel.translucentBackground }
+                    .onChange(of: translucentBackground) { _, enabled in
+                        model.panel.translucentBackground = enabled
+                    }
+                    .accessibilityIdentifier("panel-translucent-background")
                 Toggle("Ambient color", isOn: $ambientTint)
                     .onAppear { ambientTint = model.panel.ambientTint }
                     .onChange(of: ambientTint) { _, enabled in
@@ -297,11 +315,14 @@ private struct GeneralSettingsTab: View {
             set: { model.panel.textSize = $0 })
     }
 
-    private func panelSizeButton(
-        _ title: LocalizedStringKey, preset: PanelSizePreset
-    ) -> some View {
-        Button(title) { model.panel.resize(to: preset) }
-            .accessibilityIdentifier("panel-size-\(preset.rawValue)")
+    /// Resizes only on a user choice, never when the remembered size is shown.
+    private var panelSizeSelection: Binding<PanelSizePreset?> {
+        Binding(
+            get: { panelSize },
+            set: { preset in
+                panelSize = preset
+                if let preset { model.panel.resize(to: preset) }
+            })
     }
 
     private func exportSettings() {
