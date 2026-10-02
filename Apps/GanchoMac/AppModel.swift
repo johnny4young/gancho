@@ -92,6 +92,7 @@ final class AppModel {
     /// handle is the next property, and it says so.
     let fullStore: (any FullClipStore)?
     var textReuseReader: (any ClipReading)? { fullStore }
+    var textRecipeStore: (any TextRecipeStoring)? { fullStore }
     /// Narrow concrete handle kept ONLY to construct in-module engines
     /// (`RetentionEngine`, `TierEnforcement`, `GanchoArchive`), to feed
     /// `SyncEngineFactory`, and to reach the MCP access log / sync-internal

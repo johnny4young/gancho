@@ -105,14 +105,16 @@ struct UIWorkflowScopeTests {
                     "-only-testing:GanchoUITests/VisualLibraryUITests",
                     "-only-testing:GanchoUITests/ReuseSuggestionUITests",
                     "-only-testing:GanchoUITests/TranslationCapabilityUITests",
-                    "-only-testing:GanchoUITests/SelectedContextUITests"
+                    "-only-testing:GanchoUITests/SelectedContextUITests",
+                    "-only-testing:GanchoUITests/TextRecipeUITests"
                 ])
         case ("ios", "feature-stress"):
             #expect(exitStatus == 0)
             #expect(
                 arguments == [
                     "-test-iterations", "10",
-                    "-only-testing:GanchoiOSUITests/TranslationCapabilityUITests"
+                    "-only-testing:GanchoiOSUITests/TranslationCapabilityUITests",
+                    "-only-testing:GanchoiOSUITests/ClipTitleEditingUITests"
                 ])
         case ("ios", "ios-interaction-stress"):
             #expect(exitStatus == 0)

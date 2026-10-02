@@ -580,12 +580,21 @@ ordinary 45-minute job. Full suites and the smaller iOS stress job retain their
 and raw evidence collection are unchanged.
 
 The `feature-stress` UI scope repeats `LibrarySnippetDraftUITests`,
-`VisualLibraryUITests`, `ReuseSuggestionUITests` and
-`TranslationCapabilityUITests` and `SelectedContextUITests` ten times on macOS,
-plus the iOS translation suite. Its macOS job has the same 90-minute allocation as interaction stress;
-full platform validation remains required on the same head. Selectors are
-fixed, invalid scopes fail closed, and all individual outcomes remain in the
-result bundle.
+`VisualLibraryUITests`, `ReuseSuggestionUITests`, `TranslationCapabilityUITests`,
+`SelectedContextUITests` and `TextRecipeUITests` ten times on macOS, plus the
+iOS translation and inline-title editing suites. Its macOS job has the same
+90-minute allocation as interaction stress; full platform validation remains
+required on the same head. Selectors are fixed, invalid scopes fail closed, and
+all individual outcomes remain in the result bundle.
+
+Native text entry is sent character by character and its full field value is
+asserted before Save, so incomplete input cannot masquerade as a persistence
+regression. The saved-title assertion and its deadline remain unchanged.
+
+Recipe UI coverage also executes a visibly changing transform, checks both previews,
+explicitly copies through the isolated test sink, and reopens the original clip to
+verify that neither its text nor the clip count changed. Pure delivery tests verify
+the writer callback and clipboard/privacy race vetoes separately.
 
 The installed-translation UI journey activates the identified native destination
 menu item directly, rather than combining hover with a global Return event. It

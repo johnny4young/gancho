@@ -6,23 +6,11 @@ public struct CombinedTextPart: Identifiable, Sendable, Equatable {
         case text(String)
         case unavailable, incompatible, protected, tooLarge
     }
-    /// Bounded display-only excerpt; one grapheme can contain arbitrarily many marks.
-    /// Whole characters are kept while they fit, so emoji sequences are never split.
-    /// The complete text remains unchanged for validation and delivery.
+    /// Bounded display-only excerpt. The complete text remains unchanged for
+    /// validation and delivery.
     public var preview: String? {
         guard case .text(let text) = content else { return nil }
-        let limit = 80
-        var used = 0
-        var end = text.startIndex
-        for character in text {
-            used += character.unicodeScalars.count
-            guard used <= limit else { break }
-            end = text.index(after: end)
-        }
-        if end == text.startIndex, !text.isEmpty {
-            return String(String.UnicodeScalarView(text.unicodeScalars.prefix(limit)))
-        }
-        return String(text[..<end])
+        return BoundedPreview.make(text, maximumScalars: 80)
     }
 
     public let id: UUID
@@ -97,5 +85,24 @@ public struct CombinedTextService: Sendable {
         }
         return try TextComposition.join(
             texts, separator: separator, maximumUTF8Bytes: Self.maximumUTF8Bytes)
+    }
+}
+
+/// Display-only prefix bounded by Unicode scalars, since one grapheme can contain
+/// arbitrarily many marks. Whole characters are kept while they fit, so emoji
+/// sequences are never split; a single oversized grapheme is cut by scalars.
+public enum BoundedPreview {
+    public static func make(_ text: String, maximumScalars limit: Int) -> String {
+        var used = 0
+        var end = text.startIndex
+        for character in text {
+            used += character.unicodeScalars.count
+            guard used <= limit else { break }
+            end = text.index(after: end)
+        }
+        if end == text.startIndex, !text.isEmpty {
+            return String(String.UnicodeScalarView(text.unicodeScalars.prefix(limit)))
+        }
+        return String(text[..<end])
     }
 }
