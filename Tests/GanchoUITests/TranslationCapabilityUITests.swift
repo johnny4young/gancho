@@ -65,9 +65,8 @@ final class TranslationCapabilityUITests: XCTestCase {
         let spanish = app.menuItems["translation-target-es"].firstMatch
         XCTAssertTrue(spanish.waitForExistence(timeout: 5))
         XCTAssertTrue(spanish.isEnabled)
-        spanish.hover()
         try SynthesizedInput.requireForeground(app)
-        app.typeKey(.return, modifierFlags: [])
+        spanish.click()
         let result = app.descendants(matching: .any).matching(
             identifier: "intelligence-result-text"
         ).firstMatch
