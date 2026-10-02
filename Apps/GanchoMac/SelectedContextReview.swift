@@ -19,9 +19,10 @@ struct SelectedContextReview: View {
     @State private var operation: Task<Void, Never>?
     @State private var generation = UUID()
 
+    @State private var prepared: PreparedSelectedContext?
+
     var body: some View {
-        let prepared = try? SelectedContextFormatter.format(parts)
-        return VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Prepare context for AI…").panelFont(.headline)
             Text(
                 "Up to 100 text clips and 64 KiB including headers. Nothing is saved or sent automatically."
@@ -90,6 +91,9 @@ struct SelectedContextReview: View {
         }
         .padding(20).frame(width: 580, height: 570)
         .task { await load() }
+        .onChange(of: parts, initial: true) { _, current in
+            prepared = try? SelectedContextFormatter.format(current)
+        }
         .onChange(of: model.preferences.isPrivateModePaused) { _, paused in
             if paused { cancel() }
         }
@@ -133,8 +137,9 @@ struct SelectedContextReview: View {
                         generation == request && !model.preferences.isPrivateModePaused
                             && model.pendingDeletionIDs.isDisjoint(with: expected.map(\.id))
                     },
+                    // Only a copy writes the clipboard; a grant never depends on it.
                     destinationUnchanged: {
-                        revision == NSPasteboard.general.changeCount
+                        asGrant || revision == NSPasteboard.general.changeCount
                     },
                     deliver: { prepared in
                         if asGrant {

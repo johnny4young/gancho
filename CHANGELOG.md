@@ -9,7 +9,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Prepare explicitly selected text as reviewed, bounded Markdown, with optional selected-ID, read-only MCP access expiring after one hour.
+- Prepare explicitly selected text as reviewed, bounded Markdown, with optional
+  selected-ID, read-only MCP access expiring after one hour.
 
 ### Fixed
 

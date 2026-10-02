@@ -11,10 +11,7 @@ struct UIWorkflowScopeTests {
                 "timeout-minutes: ${{ (inputs.scope == 'interaction-stress' || "
                     + "inputs.scope == 'feature-stress') && 90 || 45 }}"))
         #expect(source.contains("if: ${{ inputs.scope != 'ios-interaction-stress' }}"))
-        #expect(
-            source.contains(
-                "if: ${{ inputs.scope != 'interaction-stress' && inputs.scope != 'feature-stress' }}"
-            ))
+        #expect(source.contains("if: ${{ inputs.scope != 'interaction-stress' }}"))
         #expect(source.contains("case \"$GANCHO_IOS_UI_SCOPE\" in"))
         #expect(source.contains("-only-testing:GanchoiOSUITests/OutboundPrivacyUITests"))
         let scopedCoverage = source.components(
