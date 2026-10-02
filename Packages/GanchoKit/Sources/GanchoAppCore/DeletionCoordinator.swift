@@ -17,9 +17,8 @@ public struct DeletionTransaction: Identifiable, Equatable, Hashable, Sendable {
 /// Owns the macOS undo-window deletion STATE MACHINE that used to be inlined in
 /// `AppModel` (`pendingDeletionIDs`/`deletionTasks` plus `delete`/`undoDelete`/
 /// `commitDeletion`): the pending set, the per-id grace timer, and the
-/// "commit only if still pending" boundary check. Pulling it into the package
-/// makes the timing/state logic reachable by `swift test` for the first time —
-/// it lives in an app target today and cannot be exercised.
+/// "commit only if still pending" boundary check. Living in the package keeps
+/// the timing/state logic reachable by `swift test`.
 ///
 /// `ReuseController` owns the immediate recent-list update and post-commit
 /// reconciliation. The platform shell keeps the user-facing Undo toast and

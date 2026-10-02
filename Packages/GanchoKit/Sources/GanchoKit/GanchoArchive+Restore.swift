@@ -211,7 +211,10 @@ extension GanchoArchive {
                     summary.skippedDuplicates += 1
                 } else {
                     var fresh = row
-                    if try ClipRow.filter(key: row.id).fetchCount(db) > 0 {
+                    // Every store lookup keys by the canonical UUID string, so a
+                    // malformed or non-canonical id would restore unreachable.
+                    fresh.id = UUID(uuidString: row.id)?.uuidString ?? UUID().uuidString
+                    if try ClipRow.filter(key: fresh.id).fetchCount(db) > 0 {
                         fresh.id = UUID().uuidString
                     }
                     try fresh.insert(db)

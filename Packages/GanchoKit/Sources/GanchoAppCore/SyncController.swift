@@ -104,16 +104,31 @@ public final class SyncController {
     /// when the enablement decision flips — safe to call on launch and on every
     /// tier/account change. Mirrors both shells' `configureSync` body exactly.
     public func configure(tier: UserTier) {
-        guard let store else { return }
+        reconfigure(tier: tier, removingState: false)
+    }
+
+    /// Serializes engine handoffs: the previous engine stops and persisted state
+    /// is removed (when asked) before the new engine starts.
+    private var lifecycle: Task<Void, Never>?
+
+    /// Awaits every handoff scheduled so far.
+    func settle() async {
+        await lifecycle?.value
+    }
+
+    private func reconfigure(tier: UserTier, removingState: Bool) {
+        guard let store else {
+            if removingState { Self.removeStateFiles(at: stateStoreURL) }
+            return
+        }
         let enable = SyncEnablement.shouldEnable(
             tier: tier,
             iCloudAvailable: iCloudAvailable(),
             hasCloudKitEntitlement: hasCloudKitEntitlement())
-        guard enable != enabled else { return }
+        guard enable != enabled || removingState else { return }
         enabled = enable
 
         let previous = engine
-        Task { await previous.stop() }
         let stateStore = SyncStateStore.file(at: stateStoreURL)
         let pollStateStore = SyncStateStore.file(
             at: stateStoreURL.appendingPathExtension("poll"))
@@ -130,12 +145,28 @@ public final class SyncController {
             // The explicit pull's change tokens live beside the engine blob
             // (same directory, `.poll` suffix), so reset(tier:) wipes both.
             pollStateStore)
+        let next = engine
+        let prior = lifecycle
+        let stateStoreURL = stateStoreURL
+        let handoff = Task {
+            await prior?.value
+            await previous.stop()
+            if removingState { Self.removeStateFiles(at: stateStoreURL) }
+        }
+        lifecycle = handoff
         if enable {
-            let engine = engine
-            Task { try? await engine.start() }
+            Task {
+                await handoff.value
+                try? await next.start()
+            }
         } else {
             onIdle?()
         }
+    }
+
+    nonisolated private static func removeStateFiles(at url: URL) {
+        try? FileManager.default.removeItem(at: url)
+        try? FileManager.default.removeItem(at: url.appendingPathExtension("poll"))
     }
 
     /// Pull the latest from iCloud (and push pending) RIGHT NOW. The engine is
@@ -146,7 +177,11 @@ public final class SyncController {
     public func syncNow() {
         guard enabled else { return }
         let engine = engine
-        Task { try? await engine.start() }
+        let prior = lifecycle
+        Task {
+            await prior?.value
+            try? await engine.start()
+        }
     }
 
     /// User-triggered sync cycle (macOS "Force sync"; iOS pull-to-refresh).
@@ -155,17 +190,14 @@ public final class SyncController {
     /// `Task` to keep its synchronous call site.
     public func forceSync() async {
         let engine = engine
+        await lifecycle?.value
         try? await engine.start()
     }
 
     /// Drop the persisted engine state and re-arm from scratch (the "reset &
-    /// re-pull" affordance). Mirrors both shells' `resetSyncAndRepull`: remove
-    /// the state file, force the enabled flag down, and reconfigure — so the
-    /// flip rebuilds the engine over a fresh state file.
+    /// re-pull" affordance): the old engine stops before its state files are
+    /// removed, and the new engine starts over the fresh state.
     public func reset(tier: UserTier) {
-        try? FileManager.default.removeItem(at: stateStoreURL)
-        try? FileManager.default.removeItem(at: stateStoreURL.appendingPathExtension("poll"))
-        enabled = false
-        configure(tier: tier)
+        reconfigure(tier: tier, removingState: true)
     }
 }

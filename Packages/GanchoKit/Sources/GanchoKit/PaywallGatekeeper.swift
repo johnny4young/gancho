@@ -126,16 +126,3 @@ public enum PurchaseOutcome: Sendable, Equatable {
     /// an outcome this build does not recognize.
     case failed
 }
-
-/// Honest placeholder used where no real handler is wired (previews, tests).
-public struct UnavailablePurchaseHandler: PurchaseHandling {
-    public init() {}
-    public var isPurchaseAvailable: Bool { false }
-    public func availableProducts() async -> [ProProduct] { [] }
-    public func purchase(_ plan: ProProduct.Plan) async throws -> PurchaseOutcome {
-        // Nothing to cancel: this handler cannot transact at all.
-        .failed
-    }
-    public func restorePurchases() async throws -> Bool { false }
-    public func currentTier() async -> UserTier { .free }
-}

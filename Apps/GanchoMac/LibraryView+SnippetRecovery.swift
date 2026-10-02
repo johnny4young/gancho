@@ -117,8 +117,8 @@ extension LibraryView {
             _ = try SnippetDraftRecovery.prepare(
                 fields, sensitiveLifetime: model.retentionPolicy.sensitiveLifetime,
                 detectSecrets: model.intelligence.detectSecrets, fallbackTitle: fields.title)
-            let saved = try await store.updateSnippetDraft(
-                id: id, title: fields.title, text: fields.body, keyword: fields.keyword)
+            let saved = try await SnippetDraftController().save(
+                id: id, fields: fields, store: store, engine: model.syncController.engine)
             guard saved else {
                 draft.markMissing(snippetID: id)
                 return false
@@ -153,9 +153,9 @@ extension LibraryView {
                     fields, sensitiveLifetime: model.retentionPolicy.sensitiveLifetime,
                     detectSecrets: model.intelligence.detectSecrets,
                     fallbackTitle: String(localized: "Recovered snippet"))
-                let recovered = try await store.saveRecoveredSnippet(
+                let recovered = try await SnippetDraftController().saveRecovered(
                     item: prepared.item, text: prepared.text, keyword: fields.keyword,
-                    isPro: model.tier == .pro)
+                    isPro: model.tier == .pro, store: store, engine: model.syncController.engine)
                 guard draft.snippetID == originalID else { return }
                 draft = SnippetDraft()
                 pendingDraftSelection = nil
@@ -242,9 +242,9 @@ extension LibraryView {
                     .init(title: text, body: text),
                     sensitiveLifetime: model.retentionPolicy.sensitiveLifetime,
                     detectSecrets: model.intelligence.detectSecrets, fallbackTitle: text)
-                let item = try await store.saveRecoveredSnippet(
+                let item = try await SnippetDraftController().saveRecovered(
                     item: prepared.item, text: prepared.text, keyword: nil,
-                    isPro: model.tier == .pro)
+                    isPro: model.tier == .pro, store: store, engine: model.syncController.engine)
                 snippets.insert(item, at: 0)
                 guard draft.snippetID == leaving.snippetID, draft.edited == leaving.edited else {
                     return

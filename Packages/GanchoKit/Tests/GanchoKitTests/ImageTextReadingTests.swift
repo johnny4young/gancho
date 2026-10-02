@@ -44,6 +44,23 @@ struct ImageTextReadingTests {
         #expect(try await store.imageTextInput(id: UUID(), now: .now) == nil)
     }
 
+    @Test("Attaching OCR text queues no upload and keeps the sync revision")
+    func attachIsDeviceLocal() async throws {
+        let store = try makeStore()
+        let item = ClipItem(kind: .image, contentHash: "ocr-local")
+        _ = try await store.insert(
+            item, content: .binary(data: Data([3, 4]), typeIdentifier: "public.png"))
+        try await store.markUploaded(id: item.id, systemFields: Data([1]))
+        let before = try await store.item(id: item.id)
+
+        try await store.attachExtractedText(id: item.id, text: "indexed locally")
+
+        #expect(try await store.pendingUploadIDs().isEmpty)
+        #expect(try await store.item(id: item.id)?.updatedAt == before?.updatedAt)
+        #expect(
+            try await store.imageTextInput(id: item.id, now: .now) == .cached("indexed locally"))
+    }
+
     private func makeStore() throws -> GRDBClipboardStore {
         let store = GRDBClipboardStore(
             writer: try DatabaseQueue(),

@@ -28,6 +28,9 @@ public struct SelectedContextManifest: Codable, Sendable, Equatable {
 public struct PreparedSelectedContext: Sendable, Equatable {
     public let manifest: SelectedContextManifest
     public let markdown: String
+    /// The reviewed `contentHash` per clip, filled by `SelectedContextDelivery`
+    /// so a grant authorizes these revisions rather than bare ids.
+    public internal(set) var revisions: [UUID: String] = [:]
 }
 
 /// Pure, bounded Markdown. Excerpts remain literal text even when they contain HTML or fences.
@@ -81,15 +84,29 @@ public enum SelectedContextFormatter {
         deliver: (PreparedSelectedContext) throws -> Void
     ) async throws -> Outcome {
         try Task.checkCancellation()
-        let current = try await CombinedTextService().load(ids: expected.map(\.id), from: store)
+        let ids = expected.map(\.id)
+        let before = try await revisions(of: ids, in: store)
+        let current = try await CombinedTextService().load(ids: ids, from: store)
+        let after = try await revisions(of: ids, in: store)
         try Task.checkCancellation()
         guard isAllowed() else { return .blocked }
-        guard current == expected else { return .changed(current) }
-        let prepared = try SelectedContextFormatter.format(current)
+        guard current == expected, before == after, after.count == ids.count else {
+            return .changed(current)
+        }
+        var prepared = try SelectedContextFormatter.format(current)
+        prepared.revisions = after
         try Task.checkCancellation()
         guard destinationUnchanged() else { return .changed(current) }
         try deliver(prepared)
         return .delivered
+    }
+
+    private static func revisions(
+        of ids: [UUID], in store: any ClipReading
+    ) async throws -> [UUID: String] {
+        Dictionary(
+            try await store.items(ids: ids).map { ($0.id, $0.contentHash) },
+            uniquingKeysWith: { first, _ in first })
     }
 
     public static func grant(
@@ -102,7 +119,14 @@ public enum SelectedContextFormatter {
         return MCPClientGrant(
             clientName: name, scope: .all, accessMode: .readOnly,
             contextPack: MCPContextPack(
-                name: "Selected context", clipIDs: Set(context.manifest.orderedIDs)),
+                name: "Selected context", clipIDs: Set(context.manifest.orderedIDs),
+                clipRevisions: context.revisions.isEmpty
+                    ? nil
+                    : Dictionary(
+                        uniqueKeysWithValues: context.revisions.map {
+                            ($0.key.uuidString, $0.value)
+                        }
+                    )),
             createdAt: now, expiresAt: now.addingTimeInterval(3_600))
     }
 }

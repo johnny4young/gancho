@@ -234,9 +234,15 @@
             }
 
             scheduleRead(
+                changeCount: count,
                 isFromUniversalClipboard: types.contains(
                     SensitivePasteboardTypes.remoteClipboard),
                 sourceAppBundleID: sourceAppBundleID)
+        }
+
+        /// Awaits the in-flight content read, if any. Internal for tests.
+        func drainPendingRead() async {
+            await pendingRead?.value
         }
 
         /// Forgets pasteboard changes that happened while capture was paused
@@ -250,13 +256,15 @@
         /// content, so an unfinished read for a superseded change would return
         /// the NEW bytes under the OLD change's metadata. Coalescing also caps
         /// memory under copy bursts (no read-task chain can build up).
-        private func scheduleRead(isFromUniversalClipboard: Bool, sourceAppBundleID: String?) {
+        private func scheduleRead(
+            changeCount: Int, isFromUniversalClipboard: Bool, sourceAppBundleID: String?
+        ) {
             pendingRead?.cancel()
             let reader = self.reader
             let preferences = self.preferences
             lastContentReadAt = Date()
             pendingRead = Task { [weak self] in
-                let payload = await Self.readDetached(reader)
+                let payload = await Self.readDetached(reader, changeCount: changeCount)
                 guard !Task.isCancelled, let payload,
                     let filtered = Self.apply(preferences, to: payload)
                 else { return }
@@ -300,17 +308,22 @@
         /// A→B swap could slip vetoed content under the old change's clean
         /// types, so the CURRENT types are re-checked immediately before the
         /// payload read and a now-vetoed change is dropped silently — like a
-        /// cancelled read; the next poll re-vetoes the new change anyway.
+        /// cancelled read; the next poll re-vetoes the new change anyway. The
+        /// change count is compared before and after the read for the same
+        /// reason: a newer copy must not be stored under this change's source.
         nonisolated private static func readDetached(
-            _ reader: any PasteboardReading
+            _ reader: any PasteboardReading, changeCount: Int
         ) async -> PasteboardCapture.Payload? {
             await Task.detached(priority: .utility) {
-                guard !Task.isCancelled else { return nil }
+                guard !Task.isCancelled, reader.currentChangeCount() == changeCount else {
+                    return nil
+                }
                 let typesNow = reader.currentTypes()
                 guard !typesNow.contains(Self.selfWriteMarker.rawValue),
                     SensitivePasteboardTypes.captureVeto.isDisjoint(with: typesNow)
                 else { return nil }
-                return reader.readPayload()
+                let payload = reader.readPayload()
+                return reader.currentChangeCount() == changeCount ? payload : nil
             }.value
         }
     }

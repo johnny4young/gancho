@@ -11,8 +11,8 @@ import GanchoMCP
 /// resolves identically) and offers the DevEx Maccy/Raycast users expect:
 ///
 ///   gancho search <query> [--limit N] [--mode exact|fuzzy|regex] [--json]
-///   gancho copy <clip-id>
-///   gancho save [--title <t>] [--language <id>] [--content-base64 <b64>]
+///   gancho copy <clip-id> [--reveal]
+///   gancho save [--title <t>] [--language <id>] [--content-base64 <b64>] [--allow-secret]
 ///   gancho export [--csv] [--include-sensitive] [--out <path>]
 ///   gancho boards [--json]
 ///   gancho pin <clip-id> | unpin <clip-id>
@@ -93,11 +93,20 @@ struct GanchoCLI {
     }
 
     private static func runCopy(_ args: [String]) async throws {
-        guard let raw = args.first, let id = UUID(uuidString: raw) else {
-            printErr("usage: gancho copy <clip-id>")
+        let options = Options(args)
+        guard let raw = options.positionals.first, let id = UUID(uuidString: raw) else {
+            printErr("usage: gancho copy <clip-id> [--reveal]")
             exit(2)
         }
         let store = try openStore()
+        guard let item = try await store.item(id: id) else {
+            printErr("No clip with id \(raw).")
+            exit(1)
+        }
+        if let refusal = CLIPolicy.copyRefusal(for: item, reveal: options.flag("reveal")) {
+            printErr(refusal)
+            exit(1)
+        }
         guard let content = try await store.content(for: id) else {
             printErr("No clip with id \(raw).")
             exit(1)
@@ -105,6 +114,9 @@ struct GanchoCLI {
         #if canImport(AppKit)
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
+            for marker in CLIPolicy.pasteboardMarkers(for: item) {
+                pasteboard.setString("1", forType: NSPasteboard.PasteboardType(marker))
+            }
             switch content {
             case .text(let text):
                 pasteboard.setString(text, forType: .string)
@@ -149,6 +161,11 @@ struct GanchoCLI {
             exit(2)
         }
 
+        if let refusal = CLIPolicy.saveRefusal(for: text, allowSecret: options.flag("allow-secret"))
+        {
+            printErr(refusal)
+            exit(1)
+        }
         let title = options.value("title") ?? defaultTitle(from: text)
         let store = try openStore()
         let saved = try await store.saveSnippet(title: title, text: text, language: language)
@@ -177,7 +194,7 @@ struct GanchoCLI {
             ? try await store.exportCSV(excludeSensitive: excludeSensitive)
             : try await store.exportJSON(excludeSensitive: excludeSensitive)
         if let path = options.value("out") {
-            try data.write(to: URL(fileURLWithPath: path))
+            try CLIPolicy.writePrivately(data, to: URL(fileURLWithPath: path))
             printRow("Exported \(ByteSize.formatted(data.count)) to \(path).")
         } else {
             printData(data)
@@ -468,8 +485,9 @@ struct GanchoCLI {
 
                 USAGE:
                   gancho search <query> [--limit N] [--mode exact|fuzzy|regex] [--json]
-                  gancho copy <clip-id>
+                  gancho copy <clip-id> [--reveal]
                   gancho save [--title <t>] [--language <id>] [--content-base64 <b64>]
+                              [--allow-secret]
                   gancho export [--csv] [--include-sensitive] [--out <path>]
                   gancho boards [--json]
                   gancho pin <clip-id>

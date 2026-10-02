@@ -53,7 +53,7 @@
 
             pasteboard.write(.text("hunter2"), types: types)
             monitor.pollOnce()
-            try? await Task.sleep(for: .milliseconds(80))
+            await monitor.drainPendingRead()
 
             #expect(captures.isEmpty, "\(manager) copy must never be stored")
             #expect(pasteboard.readCalls == 0, "veto must run before the read")
@@ -74,7 +74,7 @@
 
             pasteboard.write(.text("account number"), types: ["public.utf8-plain-text"])
             monitor.pollOnce()
-            try? await Task.sleep(for: .milliseconds(80))
+            await monitor.drainPendingRead()
 
             #expect(captures.isEmpty)
             #expect(pasteboard.readCalls == 0)
@@ -269,15 +269,13 @@
             monitor.ignoreNextCopy()
             pasteboard.write(.text("skip me"), types: ["public.utf8-plain-text"])
             monitor.pollOnce()
-            try? await Task.sleep(for: .milliseconds(80))
+            await monitor.drainPendingRead()
             #expect(captures.isEmpty)
             #expect(pasteboard.readCalls == 0)
 
             pasteboard.write(.text("capture me"), types: ["public.utf8-plain-text"])
             monitor.pollOnce()
-            for _ in 0..<200 where captures.isEmpty {
-                try? await Task.sleep(for: .milliseconds(5))
-            }
+            await monitor.drainPendingRead()
             #expect(captures.map(\.textRepresentation) == ["capture me"])
             #expect(ignores == [.userIgnoredNext])
         }

@@ -33,8 +33,14 @@ private actor ReuseStoreSpy: ClipboardStore, ReuseUsageStoring {
         return stored
     }
 
+    /// Recently used first, like the store's recency order; untouched rows keep seed order.
     func items(offset: Int, limit: Int) async throws -> [ClipItem] {
-        Array(storage.dropFirst(offset).prefix(limit))
+        let ordered = storage.enumerated().sorted {
+            let lhs = $0.element.lastUsedAt ?? .distantPast
+            let rhs = $1.element.lastUsedAt ?? .distantPast
+            return lhs == rhs ? $0.offset < $1.offset : lhs > rhs
+        }.map(\.element)
+        return Array(ordered.dropFirst(offset).prefix(limit))
     }
 
     func count() async throws -> Int { storage.count }
@@ -150,7 +156,7 @@ struct ReuseControllerTests {
         #expect(recorder.recentSnapshots == [[first.id, second.id]])
     }
 
-    @Test("A successful paste records use and search before moving the clip to the top")
+    @Test("A successful paste records use and search; the use itself moves the clip up")
     func recordPaste() async {
         let store = ReuseStoreSpy()
         let first = clip("first")
@@ -161,7 +167,9 @@ struct ReuseControllerTests {
 
         await controller.recordPaste(of: second, now: Date(timeIntervalSince1970: 100))
 
-        #expect(await store.eventLog() == ["use:second", "search:invoice", "insert:second"])
+        // No metadata insert: it bumped updatedAt without queueing an upload and
+        // could re-insert a deleted clip as a content-less row.
+        #expect(await store.eventLog() == ["use:second", "search:invoice"])
         #expect(controller.activeSearchQuery.isEmpty)
         #expect(controller.recentItems.map(\.id) == [second.id, first.id])
         #expect(await controller.recentSearches() == ["invoice"])

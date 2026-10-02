@@ -175,8 +175,8 @@ extension GRDBClipboardStore {
     ) -> (sql: String, arguments: [any DatabaseValueConvertible]) {
         var restricted = query
         restricted.excludesSensitive = true
-        var sql = "WHERE clip.isArchived = 0 AND (clip.expiresAt IS NULL OR clip.expiresAt > ?)"
-        var arguments: [any DatabaseValueConvertible] = [Date.now]
+        var sql = "WHERE clip.isArchived = 0"
+        var arguments: [any DatabaseValueConvertible] = []
         appendFilters(for: restricted, to: &sql, arguments: &arguments)
         let masked = ClipContentKind.allCases.filter(\.prefersMaskedPreview).map(\.rawValue)
             .sorted()

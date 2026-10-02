@@ -188,7 +188,7 @@ struct TelemetryTests {
         pipeline.setConsent(.disabled)
         pipeline.record(.searchPerformed)
 
-        try? await Task.sleep(for: .milliseconds(20))
+        // Recording is synchronous: nothing can arrive after this point.
         #expect(probe.constructionCount == 0)
         #expect(sender.sent.isEmpty)
         #expect(pipeline.counts().isEmpty)
@@ -213,15 +213,11 @@ struct TelemetryTests {
         pipeline.setConsent(.enabled)
         #expect(probe.constructionCount == 1)
         pipeline.record(.paywallShown(trigger: .freeLimitReached))
-        for _ in 0..<100 where sender.sent.isEmpty {
-            try? await Task.sleep(for: .milliseconds(5))
-        }
         #expect(sender.sent.first?.0 == "paywall_shown")
         #expect(sender.sent.first?.1 == ["trigger": "freeLimitReached"])
 
         pipeline.setConsent(.disabled)
         pipeline.record(.searchPerformed)
-        try? await Task.sleep(for: .milliseconds(20))
         #expect(sender.sent.count == 1)
         #expect(sender.shutdownCount == 1)
         #expect(pipeline.counts().isEmpty)
@@ -250,7 +246,6 @@ struct TelemetryTests {
 
         #expect(factory.sender.shutdownCount == 1)
         pipeline.record(.appLaunched)
-        try? await Task.sleep(for: .milliseconds(20))
         #expect(factory.sender.sent.isEmpty)
     }
 

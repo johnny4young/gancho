@@ -48,6 +48,21 @@ struct SnippetDraftPersistenceTests {
         #expect(try await store.semanticSearch(queryVector: [1, 0]).isEmpty)
     }
 
+    @Test("An edited snippet no longer dedupes a re-copy of its original text")
+    func editedSnippetStopsDedupingTheOriginal() async throws {
+        let store = try makeStore()
+        let item = try await store.saveSnippet(title: "T", text: "Before")
+        #expect(
+            try await store.updateSnippetDraft(id: item.id, title: "T", text: "After", keyword: nil)
+        )
+
+        let recopy = ClipItem(
+            kind: .code, preview: "Before",
+            contentHash: ClipItem.editedTextHash("Before", kind: .code))
+        #expect(try await store.insert(recopy, content: .text("Before")).id == recopy.id)
+        #expect(try await store.content(for: item.id) == .text("After"))
+    }
+
     @Test(
         "Editing uploaded snippet content queues its shared fields for sync",
         arguments: [

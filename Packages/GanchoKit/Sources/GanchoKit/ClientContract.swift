@@ -126,6 +126,8 @@ public protocol ClipMutating: Sendable {
 
     /// Plain local delete. When sync is active use `deleteForSync(id:now:)`
     /// instead, or the deletion will not propagate to the user's other devices.
+    /// A row that already reached iCloud is still tombstoned here, so turning
+    /// sync back on propagates the deletion instead of resurrecting the row.
     func delete(id: UUID) async throws
 
     /// Records the deletion as a tombstone AND removes the row, so the
@@ -184,11 +186,9 @@ public protocol ClipEnriching: Sendable {
     /// or the blob.
     func attachExtractedText(id: UUID, text: String) async throws
 
-    /// Edits a non-sensitive, text-backed clip; recomputes the preview and
-    /// invalidates its semantic vector. Binary, file-reference, structured
-    /// color, and sensitive rows reject the write. The content hash deliberately
-    /// stays unchanged: edits are curation, and re-copying the original must
-    /// still dedupe to this row.
+    /// Edits a non-sensitive, text-backed clip; recomputes the preview and the
+    /// dedupe hash and invalidates its semantic vector. Binary, file-reference,
+    /// structured color, and sensitive rows reject the write.
     func updateClipText(id: UUID, text: String) async throws
 
     /// Stores (or replaces) a clip's sentence-embedding vector for semantic
@@ -219,7 +219,8 @@ public protocol BoardStoring: Sendable {
 
     /// Deletes a user board; its clips return to plain history (memberships
     /// cascade away, clips are never deleted). No-op on system boards. When
-    /// sync is active use `deletePinboardForSync(id:now:)` instead.
+    /// sync is active use `deletePinboardForSync(id:now:)` instead. A board
+    /// that already reached iCloud takes that tombstoning path here too.
     func deletePinboard(id: UUID) async throws
 
     /// Deletes a board AND records a tombstone so the deletion reaches the

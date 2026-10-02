@@ -85,19 +85,21 @@ extension GRDBClipboardStore {
 
     /// OCR enrichment for image clips: extracted text lands in contentText
     /// (FTS-indexed → screenshots become searchable) without altering the
-    /// preview or the blob. Flags `needsUpload` so the OCR fruit syncs.
+    /// preview or the blob. Device-local: a binary clip's record never carries
+    /// contentText, so the write neither bumps the revision nor queues an
+    /// upload that would re-send the asset unchanged.
     public func attachExtractedText(id: UUID, text: String) async throws {
         try await writer.write { db in
             try db.execute(
-                sql: "UPDATE clip SET contentText = ?, updatedAt = ?, needsUpload = 1 WHERE id = ?",
-                arguments: [text, Date(), id.uuidString])
+                sql: "UPDATE clip SET contentText = ? WHERE id = ?",
+                arguments: [text, id.uuidString])
         }
     }
 
-    /// Edits a non-sensitive text-backed clip and recomputes its preview. The
-    /// hash is left as-is on purpose: edits are curation, and re-copying the
-    /// original must still dedupe against this row. Invalidates the stale
-    /// semantic vector and flags `needsUpload` for cross-device propagation.
+    /// Edits a non-sensitive text-backed clip and recomputes its preview and
+    /// dedupe hash, so re-copying the original text captures a new clip instead
+    /// of surfacing the edited one. Invalidates the stale semantic vector and
+    /// flags `needsUpload` for cross-device propagation.
     /// The SQL predicates repeat the controller guards atomically so a row that
     /// becomes sensitive or binary while an editor is open cannot be replaced.
     public func updateClipText(id: UUID, text: String) async throws {
@@ -108,15 +110,21 @@ extension GRDBClipboardStore {
         let rejectedKinds = ClipContentKind.textEditingRejectedKinds.map(\.rawValue)
         let kindPlaceholders = rejectedKinds.map { _ in "?" }.joined(separator: ", ")
         try await writer.write { db in
+            let kind = try String.fetchOne(
+                db, sql: "SELECT kind FROM clip WHERE id = ?", arguments: [id.uuidString]
+            ).flatMap(ClipContentKind.init(rawValue:))
+            guard let kind else { throw ClipTextEditError.readOnly }
             var arguments: [any DatabaseValueConvertible] = [
-                text, String(text.prefix(120)), Date(), id.uuidString
+                text, String(text.prefix(120)), ClipItem.editedTextHash(text, kind: kind), Date(),
+                id.uuidString
             ]
             arguments.append(contentsOf: rejectedKinds)
             arguments.append("public.file-url")
             try db.execute(
                 sql: """
                     UPDATE clip
-                    SET contentText = ?, preview = ?, updatedAt = ?, needsUpload = 1
+                    SET contentText = ?, preview = ?, contentHash = ?, updatedAt = ?,
+                        needsUpload = 1
                     WHERE id = ?
                       AND isSensitive = 0
                       AND kind NOT IN (\(kindPlaceholders))
@@ -161,10 +169,14 @@ extension GRDBClipboardStore {
         try await writer.write { db in
             try db.execute(
                 sql: """
-                    UPDATE clip SET title = ?, contentText = ?, preview = ?, updatedAt = ?
+                    UPDATE clip SET title = ?, contentText = ?, preview = ?, updatedAt = ?,
+                        contentHash = ?
                     WHERE id = ? AND isSnippet = 1
                     """,
-                arguments: [title, text, String(text.prefix(120)), Date(), id.uuidString])
+                arguments: [
+                    title, text, String(text.prefix(120)), Date(),
+                    ClipItem.editedTextHash(text, kind: .code), id.uuidString
+                ])
         }
     }
 

@@ -34,13 +34,13 @@
 
             pasteboard.write(.text("visible to the meeting"), types: ["public.utf8-plain-text"])
             _ = monitor.tick()
-            try? await Task.sleep(for: .milliseconds(60))
+            await monitor.drainPendingRead()
             #expect(captures.isEmpty)
             #expect(pasteboard.readCalls == 0)
 
             monitor.pausedForScreenShare = false
             _ = monitor.tick()
-            try? await Task.sleep(for: .milliseconds(80))
+            await monitor.drainPendingRead()
             #expect(captures.isEmpty, "share-time copies must never backfill")
             #expect(monitor.status == .running)
         }

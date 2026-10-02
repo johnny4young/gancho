@@ -213,6 +213,17 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         /// already-encrypted store (random header bytes).
         static func encryptPlaintextStoreIfNeeded(at path: String, passphrase: String) throws {
             let fileManager = FileManager.default
+            let encryptedPath = path + ".encrypting"
+            // An earlier swap that stopped after dropping the plaintext file
+            // left the finished export behind: publish it instead of starting
+            // over with an empty store.
+            if !fileManager.fileExists(atPath: path), fileManager.fileExists(atPath: encryptedPath)
+            {
+                try? fileManager.removeItem(atPath: path + "-wal")
+                try? fileManager.removeItem(atPath: path + "-shm")
+                try fileManager.moveItem(atPath: encryptedPath, toPath: path)
+                return
+            }
             guard fileManager.fileExists(atPath: path) else { return }  // fresh install
 
             // A plaintext database starts with the 16-byte SQLite magic header;
@@ -222,7 +233,6 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             try handle.close()
             guard header == Data("SQLite format 3\u{0}".utf8) else { return }  // already encrypted
 
-            let encryptedPath = path + ".encrypting"
             try? fileManager.removeItem(atPath: encryptedPath)
             // Scope the plaintext connection so it closes before the file swap.
             do {
@@ -238,12 +248,13 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 }
             }
 
-            // Swap the encrypted file in, dropping the plaintext file and any
-            // stale WAL/SHM siblings that belong to the old database.
-            try fileManager.removeItem(atPath: path)
+            // Drop the old database's WAL/SHM first so they can never pair
+            // with the encrypted file, then swap it in with one rename: the
+            // plaintext file stays in place until the export replaces it.
             try? fileManager.removeItem(atPath: path + "-wal")
             try? fileManager.removeItem(atPath: path + "-shm")
-            try fileManager.moveItem(atPath: encryptedPath, toPath: path)
+            try AtomicFileReplace.publish(
+                staged: URL(fileURLWithPath: encryptedPath), as: URL(fileURLWithPath: path))
         }
     #endif
 
@@ -367,7 +378,9 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             let cursor = try ClipRow.fetchCursor(
                 db, sql: sql, arguments: StatementArguments(arguments))
             while let row = try cursor.next(), results.count < limit {
-                let content = String((row.contentText ?? "").prefix(Self.regexHaystackLimit))
+                let content =
+                    query.metadataOnly
+                    ? "" : String((row.contentText ?? "").prefix(Self.regexHaystackLimit))
                 let haystacks = [row.title, row.preview, content]
                 let matches = haystacks.contains { text in
                     regex.firstMatch(
@@ -428,6 +441,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             try ClipRow
                 .select(ClipRow.metadataColumns)
                 .filter(Column("isArchived") == false)
+                .filter(sql: Self.unexpiredPredicate, arguments: [Date.now])
                 // Recency = the clip's last activity: lastUsedAt when it has been
                 // re-copied/used, else its createdAt. A freshly captured clip has
                 // a nil lastUsedAt, so ordering by lastUsedAt alone (NULLs last in
@@ -454,6 +468,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 .select(ClipRow.metadataColumns)
                 .filter(keys: Set(ids.map(\.uuidString)))
                 .filter(Column("isArchived") == false)
+                .filter(sql: Self.unexpiredPredicate, arguments: [Date.now])
                 .fetchAll(db)
             let itemsByID = Dictionary(uniqueKeysWithValues: rows.map { ($0.item.id, $0.item) })
             return ids.compactMap { itemsByID[$0] }
@@ -470,6 +485,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             try ClipRow
                 .select(ClipRow.metadataColumns)
                 .filter(Column("isArchived") == false)
+                .filter(sql: Self.unexpiredPredicate, arguments: [Date.now])
                 .order(Column("isPinned").desc, Column("createdAt").desc)
                 .limit(limit, offset: offset)
                 .fetchAll(db)
@@ -480,7 +496,9 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// Visible (non-archived) items — matches what lists show.
     public func count() async throws -> Int {
         try await writer.read { db in
-            try ClipRow.filter(Column("isArchived") == false).fetchCount(db)
+            try ClipRow.filter(Column("isArchived") == false)
+                .filter(sql: Self.unexpiredPredicate, arguments: [Date.now])
+                .fetchCount(db)
         }
     }
 
@@ -489,6 +507,12 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             let hash = try ClipRow
                 .filter(key: id.uuidString)
                 .fetchOne(db)?.contentBlobHash
+            // A row that ever reached iCloud keeps a tombstone even with sync
+            // off, so re-enabling sync cannot resurrect it from the cloud.
+            try db.execute(
+                sql: "INSERT OR REPLACE INTO sync_tombstone (recordID, deletedAt) "
+                    + "SELECT id, ? FROM clip WHERE id = ? AND syncSystemFields IS NOT NULL",
+                arguments: [Date.now, id.uuidString])
             try ClipRow.deleteOne(db, key: id.uuidString)
             return hash
         }
@@ -561,9 +585,17 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         return removed
     }
 
+    /// Nil for an expired row that retention has not purged yet.
     public func content(for id: UUID) async throws -> ClipContent? {
+        try await content(for: id, includingExpired: false)
+    }
+
+    func content(for id: UUID, includingExpired: Bool) async throws -> ClipContent? {
         let row = try await writer.read { db in
-            try ClipRow.filter(key: id.uuidString).fetchOne(db)
+            let request = ClipRow.filter(key: id.uuidString)
+            return try includingExpired
+                ? request.fetchOne(db)
+                : request.filter(sql: Self.unexpiredPredicate, arguments: [Date.now]).fetchOne(db)
         }
         guard let row else { return nil }
         if let blobHash = row.contentBlobHash {

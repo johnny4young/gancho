@@ -56,19 +56,25 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
     public var boardName: String?
     public var clipIDs: Set<UUID>
     public var timeScope: MCPTimeScope
+    /// The reviewed `contentHash` per clip id (uuidString keys). When present,
+    /// a clip whose content changed after review is outside the pack. Nil for
+    /// packs that predate revision binding.
+    public var clipRevisions: [String: String]?
 
     public init(
         name: String,
         boardID: UUID? = nil,
         boardName: String? = nil,
         clipIDs: Set<UUID> = [],
-        timeScope: MCPTimeScope = .allTime
+        timeScope: MCPTimeScope = .allTime,
+        clipRevisions: [String: String]? = nil
     ) {
         self.name = name
         self.boardID = boardID
         self.boardName = boardName
         self.clipIDs = clipIDs
         self.timeScope = timeScope
+        self.clipRevisions = clipRevisions
     }
 
     public var isExplicit: Bool {
@@ -86,6 +92,9 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
         }
         if let boardID, !boardIDs.contains(boardID) { return false }
         if !clipIDs.isEmpty, !clipIDs.contains(item.id) { return false }
+        if let clipRevisions, clipRevisions[item.id.uuidString] != item.contentHash {
+            return false
+        }
         return true
     }
 }
@@ -362,6 +371,8 @@ public struct MCPServerConfig: Sendable, Equatable, Codable {
 public protocol MCPClipStore: Sendable {
     func search(_ query: ClipSearchQuery, limit: Int) async throws -> [ClipItem]
     func item(id: UUID) async throws -> ClipItem?
+    /// Visible rows only: archived and expired ids are omitted.
+    func items(ids: [UUID]) async throws -> [ClipItem]
     func content(for id: UUID) async throws -> ClipContent?
     func boardIDs(for clipID: UUID) async throws -> Set<UUID>
     func setPinned(id: UUID, _ pinned: Bool) async throws
