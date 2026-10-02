@@ -42,6 +42,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep developer actions behind "More actions" so each peek shows the
   essentials first; the choice is remembered.
 
+- Inject device-name reads from the app and capture-extension shells, keeping
+  platform UI imports and real host-name discovery out of the provenance core
+  and its tests. Existing provenance, deduplication and sync metadata are
+  unchanged.
+
 - Keep recipe review headings and delivery controls visible while scrolling longer eight-step definitions.
 
 - Bound selected-text row previews by Unicode scalars, so oversized combining

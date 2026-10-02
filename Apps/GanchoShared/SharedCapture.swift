@@ -37,7 +37,7 @@ enum SharedCapture {
                 sensitiveLifetime: RetentionPolicy.load(from: defaults).sensitiveLifetime,
                 detectSecrets: intelligence.detectSecrets,
                 tier: .free, intelligence: intelligence,
-                sourceDeviceName: DeviceProvenance.currentDeviceName()),
+                sourceDeviceName: PlatformDeviceProvenance.currentDeviceName()),
             openStore: { try IntentStore.open() })
     }
 

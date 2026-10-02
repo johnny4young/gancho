@@ -702,7 +702,7 @@ final class AppModel {
                 tier: tier,
                 intelligence: intelligence,
                 allowsFreeTitle: freeAITitlesRemaining > 0,
-                sourceDeviceName: DeviceProvenance.currentDeviceName())
+                sourceDeviceName: PlatformDeviceProvenance.currentDeviceName())
             // Closed by the coordinator the moment the insert phase ends, on
             // success and on failure both — NOT when `ingest` returns. `ingest`
             // also awaits the sync enqueue, which builds `CKSyncEngine` on
