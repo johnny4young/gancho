@@ -201,6 +201,12 @@ one page only for a selection displaced across its boundary, never an unbounded
 scan for a deleted item. A page requested while a refresh runs is deferred and
 loaded once the refresh commits.
 
+Panel rows keep one simultaneous tap recognizer for immediate selection and
+read the current native mouse-up click count for double-click paste. This avoids
+competition between separate single/double SwiftUI recognizers. Native
+regression coverage exercises paste, drag, context menus, range selection and
+gallery switching; seed readiness is a separate boundary.
+
 ## Platform contracts
 
 | Platform family | What is allowed | What is forbidden |
@@ -539,11 +545,6 @@ thermal-dependent). `-measure-panel` prints the panel first-frame wall-clock so
 a manual/UI run collects samples; the opt-in `GANCHO_PERF=1` harness holds the
 scale budgets (FTS, semantic retrieval, board paging). Instruments/energy
 traces (30-min idle CPU, repeated-round RSS) are reference-Mac evidence.
-
-Panel rows keep one simultaneous tap recognizer for immediate selection and
-read the current native mouse-up click count for double-click paste. This avoids
-competition between separate single/double SwiftUI recognizers. Native regression coverage exercises paste, drag, context menus,
-range selection and gallery switching; seed readiness is a separate boundary.
 
 ### Native UI evidence privacy
 
