@@ -31,7 +31,7 @@ struct ClipPeek: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var recipeRequest: TextRecipeReviewRequest?
     @State var actionResult: String?
-    @AppStorage("peek-shows-more-actions") private var showsMoreActions = false
+    @Binding private var showsMoreActions: Bool
     @State private var boardIDs: Set<UUID> = []
     /// Smart Paste can run the on-device model — show a spinner while it thinks.
     @State var translationTargets: [TranslationDestination] = []
@@ -70,6 +70,7 @@ struct ClipPeek: View {
     init(
         item: ClipItem, text: String, isTextEditable: Bool,
         focus: FocusState<PanelFocus?>.Binding, isEditingInline: Binding<Bool>,
+        showsMoreActions: Binding<Bool>,
         addToBoard: @escaping () -> Void, addToLastBoard: @escaping () -> Void
     ) {
         self.item = item
@@ -77,6 +78,7 @@ struct ClipPeek: View {
         self.isTextEditable = isTextEditable
         self.focus = focus
         _isEditingInline = isEditingInline
+        _showsMoreActions = showsMoreActions
         self.addToBoard = addToBoard
         self.addToLastBoard = addToLastBoard
         _presentedTitle = State(initialValue: item.title)

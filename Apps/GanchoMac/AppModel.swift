@@ -452,7 +452,7 @@ final class AppModel {
         let screenShareDetector = ScreenShareDetector()
         let manualOCR = ManualOCRSession()
         let screenTextWorkflow = ScreenTextWorkflow()
-        let toasts = ToastPresenter()
+        let toasts = ToastPresenter(defaults: appDefaults)
         self.manualOCR = manualOCR
         self.screenTextWorkflow = screenTextWorkflow
         self.toasts = toasts

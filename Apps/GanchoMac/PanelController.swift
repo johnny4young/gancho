@@ -95,7 +95,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// Off by default: a solid panel. The view reads the same key through `@AppStorage`.
     var translucentBackground: Bool {
-        get { defaults.bool(forKey: PanelTranslucency.storageKey) }
+        get { PanelTranslucency.isEnabled(in: defaults) }
         set {
             defaults.set(newValue, forKey: PanelTranslucency.storageKey)
             if let panel { applyBackground(to: panel) }

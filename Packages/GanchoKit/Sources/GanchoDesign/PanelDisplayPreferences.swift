@@ -49,6 +49,10 @@ public enum PanelSizePreset: String, CaseIterable, Identifiable, Sendable {
 /// panel keeps clips legible over any wallpaper or window.
 public enum PanelTranslucency {
     public static let storageKey = "panel-translucent-background"
+
+    nonisolated public static func isEnabled(in defaults: UserDefaults) -> Bool {
+        defaults.bool(forKey: storageKey)
+    }
 }
 
 /// The optional ambient wash behind the panel: a faint field of the selected

@@ -58,6 +58,16 @@ struct PanelDisplayPreferencesTests {
         #expect(PanelSizePreset.matching(CGSize(width: 900, height: 600)) == nil)
     }
 
+    @Test("The panel is solid until the user opts into translucency")
+    func translucencyDefaultsOff() throws {
+        let suite = "panel-translucency-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        #expect(!PanelTranslucency.isEnabled(in: defaults))
+        defaults.set(true, forKey: PanelTranslucency.storageKey)
+        #expect(PanelTranslucency.isEnabled(in: defaults))
+    }
+
     @Test("Panel presets grow monotonically from Compact to Large")
     func panelPresetOrdering() {
         let compact = PanelSizePreset.compact.contentSize

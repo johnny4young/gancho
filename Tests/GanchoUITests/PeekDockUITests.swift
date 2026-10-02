@@ -33,6 +33,27 @@ final class PeekDockUITests: XCTestCase {
     }
 
     @MainActor
+    func testDevActionsStayBehindMoreActions() throws {
+        let app = launchPanel()
+        defer { app.terminate() }
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        try SynthesizedInput.requireForeground(app)
+        search.click()
+        search.typeText("Synthetic link")
+        XCTAssertTrue(app.staticTexts["peek-link-url"].firstMatch.waitForExistence(timeout: 5))
+        let more = app.buttons["peek-more-actions"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        let parse = app.buttons["dev-action-parseURL"].firstMatch
+        XCTAssertFalse(parse.exists, "developer actions start collapsed")
+        more.click()
+        XCTAssertTrue(parse.waitForExistence(timeout: 5), "More actions reveals them")
+        XCTAssertTrue(app.buttons["preview-paste"].firstMatch.isHittable, "Paste stays first")
+        more.click()
+        XCTAssertTrue(parse.waitForNonExistence(timeout: 5), "Fewer actions hides them again")
+    }
+
+    @MainActor
     func testPeekShortcutsRefreshBoardMembershipWithoutChangingSelection() throws {
         let app = launchPanel()
         defer { app.terminate() }

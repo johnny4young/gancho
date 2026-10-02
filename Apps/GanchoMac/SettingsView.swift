@@ -217,15 +217,21 @@ private struct GeneralSettingsTab: View {
                 .pickerStyle(.segmented)
                 .accessibilityIdentifier("panel-text-size")
 
-                Picker("Panel size", selection: $panelSize) {
+                Picker("Panel size", selection: panelSizeSelection) {
                     Text("Compact").tag(PanelSizePreset?.some(.compact))
                     Text("Standard").tag(PanelSizePreset?.some(.standard))
                     Text("Large").tag(PanelSizePreset?.some(.large))
                 }
                 .pickerStyle(.segmented)
                 .onAppear { panelSize = PanelSizePreset.matching(model.panel.preferredContentSize) }
-                .onChange(of: panelSize) { _, preset in
-                    if let preset { model.panel.resize(to: preset) }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)
+                ) { notification in
+                    guard let window = notification.object as? NSWindow,
+                        model.panel.isPanelWindow(window)
+                    else { return }
+                    panelSize = PanelSizePreset.matching(
+                        window.contentRect(forFrameRect: window.frame).size)
                 }
                 .accessibilityIdentifier("panel-size")
                 Text("Manual resizing is remembered automatically.")
@@ -307,6 +313,16 @@ private struct GeneralSettingsTab: View {
         Binding(
             get: { model.panel.textSize },
             set: { model.panel.textSize = $0 })
+    }
+
+    /// Resizes only on a user choice, never when the remembered size is shown.
+    private var panelSizeSelection: Binding<PanelSizePreset?> {
+        Binding(
+            get: { panelSize },
+            set: { preset in
+                panelSize = preset
+                if let preset { model.panel.resize(to: preset) }
+            })
     }
 
     private func exportSettings() {

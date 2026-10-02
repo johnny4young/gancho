@@ -112,6 +112,7 @@ struct PanelView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage private var ambientTintEnabled: Bool
     @AppStorage private var translucentBackground: Bool
+    @AppStorage private var peekShowsMoreActions: Bool
     @AppStorage private var panelLayoutRaw: String
     /// What the gallery currently fits; 1 while the list is showing.
     @State private var galleryColumns = 2
@@ -130,6 +131,8 @@ struct PanelView: View {
             wrappedValue: false, PanelAmbientTint.storageKey, store: displayDefaults)
         _translucentBackground = AppStorage(
             wrappedValue: false, PanelTranslucency.storageKey, store: displayDefaults)
+        _peekShowsMoreActions = AppStorage(
+            wrappedValue: false, "peek-shows-more-actions", store: displayDefaults)
         _panelLayoutRaw = AppStorage(
             wrappedValue: PanelLayout.list.rawValue, PanelLayout.storageKey, store: displayDefaults)
     }
@@ -192,6 +195,7 @@ struct PanelView: View {
                             isTextEditable: presentation.isTextEditable,
                             focus: $focus,
                             isEditingInline: $peekIsEditingInline,
+                            showsMoreActions: $peekShowsMoreActions,
                             addToBoard: presentBoardPicker,
                             addToLastBoard: { model.assignToLastBoard(search.selectedItems) }
                         )
@@ -256,6 +260,10 @@ struct PanelView: View {
         }
         .onDisappear { search.cancelMeaningSearch() }
         .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
+        // A capture must not swap the peek out from under an inline edit.
+        .onChange(of: peekIsEditingInline) { _, editing in
+            if editing { search.endNewestFollow() }
+        }
         .onChange(of: model.preferences.isPrivateModePaused) { _, _ in
             search.cancelMeaningSearch()
             Task { await search.refresh() }
@@ -353,8 +361,8 @@ struct PanelView: View {
             }
         }
         .onAppear {
-            // First visible frame: close the panel-open latency interval the
-            // controller began in show().
+            // Lazily built panels (UI tests) reach their first frame here; a
+            // prewarmed panel closes the interval from the show notification.
             model.panel.notePanelDidAppear()
             search.followNewestClip()
             // Defer one runloop: on the FIRST open the field editor isn't
@@ -380,7 +388,8 @@ struct PanelView: View {
             else { return }
             // Every open starts from the newest clip with the search field
             // focused, whatever rail or row the previous session ended on.
-            model.panel.notePanelDidAppear()
+            // The interval closes on the next turn, after this frame commits.
+            DispatchQueue.main.async { model.panel.notePanelDidAppear() }
             railFocus = nil
             focus = .search
             search.followNewestClip()
@@ -670,6 +679,7 @@ struct PanelView: View {
                         search.selectedBoardID = nil
                         search.selectedSourceAppBundleID = nil
                     },
+                    onUserScroll: { search.endNewestFollow() },
                     row: { item in clipRow(item: item) })
             }
             .padding(.top, GanchoTokens.Spacing.xxs)

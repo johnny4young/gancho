@@ -93,6 +93,11 @@ private struct ToastView: View {
 final class ToastPresenter {
     private var panel: NSPanel?
     private var dismissTask: Task<Void, Never>?
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
 
     /// Show a toast top-center on the active screen. A new toast replaces any
     /// currently shown one and resets the auto-dismiss timer.
@@ -106,7 +111,9 @@ final class ToastPresenter {
                 .frame(width: 360)
                 // Keep width available for wrapping, but collapse the hosting
                 // view's otherwise flexible height to the toast's ideal height.
-                .fixedSize(horizontal: false, vertical: true))
+                .fixedSize(horizontal: false, vertical: true)
+                .environment(
+                    \.ganchoOpaqueSurfaces, !PanelTranslucency.isEnabled(in: defaults)))
         host.layout()
         let size = host.fittingSize
 

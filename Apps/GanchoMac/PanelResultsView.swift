@@ -27,6 +27,8 @@ struct PanelResultsView<RowContent: View>: View {
     let columns: Int
     let onColumnsChange: (Int) -> Void
     let clearFilters: () -> Void
+    /// A user-driven scroll, as opposed to the list following the selection.
+    var onUserScroll: () -> Void = {}
     /// Builds one row. `PanelView` owns row effects (selection, drag, context
     /// menu, pagination), so the row arrives already wired instead of this
     /// slice reaching for the state those effects need.
@@ -84,7 +86,10 @@ struct PanelResultsView<RowContent: View>: View {
                     guard let id else { return }
                     proxy.scrollTo(id)
                 }
-                .onScrollPhaseChange { _, phase in listIsScrolling = phase != .idle }
+                .onScrollPhaseChange { _, phase in
+                    listIsScrolling = phase != .idle
+                    if phase == .interacting { onUserScroll() }
+                }
                 .environment(\.listIsScrolling, listIsScrolling)
             }
         }

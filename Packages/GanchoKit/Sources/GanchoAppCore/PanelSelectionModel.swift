@@ -45,6 +45,11 @@ import Observation
         reconcile(in: rows)
     }
 
+    /// Inline edits and scrolling keep the current clip from here on.
+    func endNewestFollow() {
+        newestFollow = nil
+    }
+
     func move(by delta: Int, extending: Bool, in rows: [ClipItem]) {
         newestFollow = nil
         if state.cursorIndex < 0 {

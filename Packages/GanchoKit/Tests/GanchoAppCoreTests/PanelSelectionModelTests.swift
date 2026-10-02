@@ -45,6 +45,17 @@ struct PanelSelectionModelTests {
         #expect(model.selectedItem(in: later)?.id == rows[0].id, "moving ends the follow")
     }
 
+    @Test("An inline edit or scroll keeps the current clip through a capture")
+    func endingFollowKeepsCurrentClip() {
+        let model = PanelSelectionModel()
+        model.followNewest(skippingPinned: true, in: rows)
+        model.endNewestFollow()
+        let fresh = ClipItem(preview: "fresh", contentHash: "fresh")
+        let list = [fresh] + rows
+        model.reconcile(in: list)
+        #expect(model.selectedItem(in: list)?.id == rows[0].id)
+    }
+
     @Test("A search opens on its first result, pinned or not")
     func searchOpensOnFirstResult() {
         let model = PanelSelectionModel()
