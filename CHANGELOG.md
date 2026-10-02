@@ -7,7 +7,16 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Prepare explicitly selected text as reviewed, bounded Markdown, with optional
+  selected-ID, read-only MCP access expiring after one hour.
+
 ### Fixed
+
+- Bound selected-text row previews by Unicode scalars, so oversized combining
+  sequences cannot make a visually short excerpt expensive to render. Full
+  reviewed text and delivery limits are unchanged.
 
 - Keep panel sizing under AppKit control to avoid redundant whole-view size
   measurement delaying translation results, while preserving resize bounds and

@@ -581,8 +581,8 @@ and raw evidence collection are unchanged.
 
 The `feature-stress` UI scope repeats `LibrarySnippetDraftUITests`,
 `VisualLibraryUITests`, `ReuseSuggestionUITests` and
-`TranslationCapabilityUITests` ten times on macOS, plus the iOS translation
-suite. Its macOS job has the same 90-minute allocation as interaction stress;
+`TranslationCapabilityUITests` and `SelectedContextUITests` ten times on macOS,
+plus the iOS translation suite. Its macOS job has the same 90-minute allocation as interaction stress;
 full platform validation remains required on the same head. Selectors are
 fixed, invalid scopes fail closed, and all individual outcomes remain in the
 result bundle.

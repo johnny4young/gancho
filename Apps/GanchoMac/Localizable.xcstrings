@@ -8890,6 +8890,166 @@
         }
       }
     },
+    "Copy Markdown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Markdown"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar Markdown"
+          }
+        }
+      }
+    },
+    "Couldn’t prepare or share this context. Try again; existing access is unchanged.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t prepare or share this context. Try again; existing access is unchanged."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo preparar o compartir este contexto. Inténtalo de nuevo; los accesos existentes no han cambiado."
+          }
+        }
+      }
+    },
+    "Grant selected context access": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grant selected context access"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorizar acceso al contexto seleccionado"
+          }
+        }
+      }
+    },
+    "One-hour, read-only access to these IDs. Enabling MCP reactivates other valid grants.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One-hour, read-only access to these IDs. Enabling MCP reactivates other valid grants."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso de solo lectura a estos identificadores durante una hora. Activar MCP reactiva otros permisos vigentes."
+          }
+        }
+      }
+    },
+    "Prepare context for AI…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepare context for AI…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparar contexto para IA…"
+          }
+        }
+      }
+    },
+    "Read-only access expires in one hour. Revoke it in MCP Access.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read-only access expires in one hour. Revoke it in MCP Access."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El acceso de solo lectura caduca en una hora. Revócalo en Acceso MCP."
+          }
+        }
+      }
+    },
+    "Remove incompatible clips or reduce the context below 64 KiB.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove incompatible clips or reduce the context below 64 KiB."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retira los clips incompatibles o reduce el contexto a menos de 64 KiB."
+          }
+        }
+      }
+    },
+    "Up to 100 text clips and 64 KiB including headers. Nothing is saved or sent automatically.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to 100 text clips and 64 KiB including headers. Nothing is saved or sent automatically."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hasta 100 clips de texto y 64 KiB incluidos los encabezados. No se guarda ni envía nada automáticamente."
+          }
+        }
+      }
+    },
+    "Copy connection command": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy connection command"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar comando de conexión"
+          }
+        }
+      }
+    },
+    "The selection or clipboard changed. Review and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selection or clipboard changed. Review and try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La selección o el portapapeles cambiaron. Revisa e inténtalo de nuevo."
+          }
+        }
+      }
+    },
     "Install a language pair (macOS 26+) or use an available on-device model.": {
       "localizations": {
         "en": {

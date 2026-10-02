@@ -104,7 +104,8 @@ struct UIWorkflowScopeTests {
                     "-only-testing:GanchoUITests/LibrarySnippetDraftUITests",
                     "-only-testing:GanchoUITests/VisualLibraryUITests",
                     "-only-testing:GanchoUITests/ReuseSuggestionUITests",
-                    "-only-testing:GanchoUITests/TranslationCapabilityUITests"
+                    "-only-testing:GanchoUITests/TranslationCapabilityUITests",
+                    "-only-testing:GanchoUITests/SelectedContextUITests"
                 ])
         case ("ios", "feature-stress"):
             #expect(exitStatus == 0)

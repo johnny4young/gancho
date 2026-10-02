@@ -6,6 +6,25 @@ public struct CombinedTextPart: Identifiable, Sendable, Equatable {
         case text(String)
         case unavailable, incompatible, protected, tooLarge
     }
+    /// Bounded display-only excerpt; one grapheme can contain arbitrarily many marks.
+    /// Whole characters are kept while they fit, so emoji sequences are never split.
+    /// The complete text remains unchanged for validation and delivery.
+    public var preview: String? {
+        guard case .text(let text) = content else { return nil }
+        let limit = 80
+        var used = 0
+        var end = text.startIndex
+        for character in text {
+            used += character.unicodeScalars.count
+            guard used <= limit else { break }
+            end = text.index(after: end)
+        }
+        if end == text.startIndex, !text.isEmpty {
+            return String(String.UnicodeScalarView(text.unicodeScalars.prefix(limit)))
+        }
+        return String(text[..<end])
+    }
+
     public let id: UUID
     public let content: Content
     public init(id: UUID, content: Content) {

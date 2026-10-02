@@ -293,17 +293,12 @@ struct GanchoCLI {
 
     private static func runEnable(_: [String]) throws {
         let directory = storeDirectory()
-        var config = MCPServerConfig.load(fromStoreDirectory: directory)
-        config.isEnabled = true
-        try config.save(toStoreDirectory: directory)
+        try MCPServerConfig.update(in: directory) { $0.isEnabled = true }
         printRow("MCP access enabled. Each client still needs an active grant.")
     }
 
     private static func runDisable() throws {
-        let current = MCPServerConfig.load(fromStoreDirectory: storeDirectory())
-        var updated = current
-        updated.isEnabled = false
-        try updated.save(toStoreDirectory: storeDirectory())
+        try MCPServerConfig.update(in: storeDirectory()) { $0.isEnabled = false }
         printRow("MCP access disabled.")
     }
 
@@ -364,10 +359,10 @@ struct GanchoCLI {
             expiresAt: Date().addingTimeInterval(Double(expiryHours) * 60 * 60))
 
         let directory = storeDirectory()
-        var config = MCPServerConfig.load(fromStoreDirectory: directory)
-        config.isEnabled = true
-        config.grants.append(grant)
-        try config.save(toStoreDirectory: directory)
+        try MCPServerConfig.update(in: directory) { config in
+            config.isEnabled = true
+            config.grants.append(grant)
+        }
         printRow("Created grant \(grant.id.uuidString) for \(grant.safeClientName).")
         printRow("Connect with: gancho mcp --grant \(grant.id.uuidString)")
     }
@@ -378,13 +373,16 @@ struct GanchoCLI {
             exit(2)
         }
         let directory = storeDirectory()
-        var config = MCPServerConfig.load(fromStoreDirectory: directory)
-        guard let index = config.grants.firstIndex(where: { $0.id == id }) else {
+        var found = false
+        try MCPServerConfig.update(in: directory) { config in
+            guard let index = config.grants.firstIndex(where: { $0.id == id }) else { return }
+            config.grants[index].revokedAt = .now
+            found = true
+        }
+        guard found else {
             printErr("No client grant with id \(rawID).")
             exit(2)
         }
-        config.grants[index].revokedAt = .now
-        try config.save(toStoreDirectory: directory)
         printRow("Revoked client grant \(rawID). New calls now fail closed.")
     }
 

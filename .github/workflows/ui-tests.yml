@@ -76,7 +76,8 @@ jobs:
                 -only-testing:GanchoUITests/LibrarySnippetDraftUITests \
                 -only-testing:GanchoUITests/VisualLibraryUITests \
                 -only-testing:GanchoUITests/ReuseSuggestionUITests \
-                -only-testing:GanchoUITests/TranslationCapabilityUITests)
+                -only-testing:GanchoUITests/TranslationCapabilityUITests \
+                -only-testing:GanchoUITests/SelectedContextUITests)
               ;;
             interaction-stress)
               test_arguments=(-test-iterations 10)
