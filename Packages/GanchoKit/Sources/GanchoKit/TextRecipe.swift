@@ -26,10 +26,12 @@ public struct TextActionStep: Codable, Sendable, Equatable, Identifiable {
     }
 
     public func validate() throws {
-        guard version == 1 else { throw TextRecipeError.unsupportedVersion }
-        guard TextActionCatalog.descriptors.contains(where: { $0.id == actionID }) else {
+        guard let descriptor = TextActionCatalog.descriptors.first(where: { $0.id == actionID })
+        else {
+            guard version == 1 else { throw TextRecipeError.unsupportedVersion }
             throw TextRecipeError.unknownAction
         }
+        guard version == descriptor.version else { throw TextRecipeError.unsupportedVersion }
         guard parameters.isEmpty else { throw TextRecipeError.invalidParameters }
     }
 }
@@ -75,8 +77,8 @@ public struct TextRecipe: Codable, Identifiable, Sendable, Equatable {
     /// Structure can be inspected without deleting unknown actions or versions.
     public func validateStructure() throws {
         guard version == Self.currentVersion else { throw TextRecipeError.unsupportedVersion }
-        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-            name.count <= Self.maximumNameLength,
+        let visibleName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !visibleName.isEmpty, visibleName.count <= Self.maximumNameLength,
             !steps.isEmpty, steps.count <= Self.maximumSteps,
             Set(steps.map(\.id)).count == steps.count
         else { throw TextRecipeError.invalidDefinition }

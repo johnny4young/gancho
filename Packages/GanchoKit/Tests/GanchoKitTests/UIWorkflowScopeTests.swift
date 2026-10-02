@@ -8,16 +8,24 @@ struct UIWorkflowScopeTests {
         let source = try workflow()
         #expect(
             source.contains(
-                "timeout-minutes: ${{ (inputs.scope == 'interaction-stress' "
-                    + "|| inputs.scope == 'feature-stress') && 90 || 45 }}"
-            ))
+                "timeout-minutes: ${{ (inputs.scope == 'interaction-stress' || "
+                    + "inputs.scope == 'feature-stress') && 90 || 45 }}"))
         #expect(source.contains("if: ${{ inputs.scope != 'ios-interaction-stress' }}"))
-        #expect(
-            source.contains(
-                "if: ${{ inputs.scope != 'interaction-stress' }}"
-            ))
+        #expect(source.contains("if: ${{ inputs.scope != 'interaction-stress' }}"))
         #expect(source.contains("case \"$GANCHO_IOS_UI_SCOPE\" in"))
         #expect(source.contains("-only-testing:GanchoiOSUITests/OutboundPrivacyUITests"))
+        let scopedCoverage = source.components(
+            separatedBy: #"echo "Coverage scope: $UI_EVIDENCE_LABEL""#)
+        #expect(scopedCoverage.count == 3, "each coverage summary must name its scope")
+        let macOSLabel =
+            "UI_EVIDENCE_LABEL: ${{ inputs.scope == 'feature-stress' && 'macOS feature stress (10x)'"
+        let iOSLabel =
+            "UI_EVIDENCE_LABEL: ${{ inputs.scope == 'feature-stress' && 'iOS feature stress (10x)'"
+        for label in [macOSLabel, iOSLabel] {
+            #expect(
+                source.components(separatedBy: label).count == 3,
+                "evidence and coverage must share every stress label")
+        }
     }
 
     private func workflow() throws -> String {
@@ -93,6 +101,10 @@ struct UIWorkflowScopeTests {
             #expect(
                 arguments == [
                     "-test-iterations", "10",
+                    "-only-testing:GanchoUITests/LibrarySnippetDraftUITests",
+                    "-only-testing:GanchoUITests/VisualLibraryUITests",
+                    "-only-testing:GanchoUITests/ReuseSuggestionUITests",
+                    "-only-testing:GanchoUITests/TranslationCapabilityUITests",
                     "-only-testing:GanchoUITests/SelectedContextUITests",
                     "-only-testing:GanchoUITests/TextRecipeUITests"
                 ])
@@ -101,6 +113,7 @@ struct UIWorkflowScopeTests {
             #expect(
                 arguments == [
                     "-test-iterations", "10",
+                    "-only-testing:GanchoiOSUITests/TranslationCapabilityUITests",
                     "-only-testing:GanchoiOSUITests/ClipTitleEditingUITests"
                 ])
         case ("ios", "ios-interaction-stress"):

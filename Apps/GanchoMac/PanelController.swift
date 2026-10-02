@@ -328,6 +328,9 @@ final class PanelController: NSObject, NSWindowDelegate {
             rootView: PanelView(model: model, displayDefaults: defaults)
                 .environment(model)
                 .ganchoTinted())
+        // AppKit owns the panel frame and resize limits. Avoid remeasuring the
+        // entire SwiftUI tree for unused intrinsic/minimum/maximum constraints.
+        hosting.sizingOptions = []
         let styleMask: NSWindow.StyleMask =
             Self.isUITestLaunch
             ? [.titled, .closable, .resizable, .fullSizeContentView]

@@ -73,6 +73,17 @@ struct TextRecipeTests {
             try recipe(Array(repeating: "transform.plainText", count: 9)).validate()
         }
         try recipe(Array(repeating: "transform.plainText", count: 8)).validate()
+        let steps = [TextActionStep(actionID: "transform.plainText")]
+        let padded = "  " + String(repeating: "n", count: TextRecipe.maximumNameLength) + "  "
+        try TextRecipe(name: padded, steps: steps).validate()
+        #expect(throws: TextRecipeError.invalidDefinition) {
+            try TextRecipe(name: padded + "n", steps: steps).validate()
+        }
+        #expect(throws: TextRecipeError.unsupportedVersion) {
+            try TextRecipe(
+                name: "Old", steps: [TextActionStep(actionID: "transform.plainText", version: 2)]
+            ).validate()
+        }
     }
 
     @Test func byteLimitsRejectInputsIntermediateExpansionAndContextHeaders() async throws {

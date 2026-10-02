@@ -426,7 +426,7 @@ public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring 
 public typealias FullClipStore = ClipReading & ClipSearching & ClipMutating & ClipEnriching
     & SourceAppProviding & ReuseSuggestionProviding & BoardStoring & SnippetStoring
     & StoreStatsProviding & PrivateActivityReceiptStoring & ExportProviding & StoreMaintaining
-    & TextRecipeStoring
+    & SnippetDraftStoring & TextRecipeStoring
 
 // MARK: - Production conformances
 
