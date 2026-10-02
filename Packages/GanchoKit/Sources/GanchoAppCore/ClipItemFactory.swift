@@ -14,7 +14,7 @@ import GanchoKit
 /// references, rich text, and the plain-text default) maps exactly as the
 /// inlined code did — same preview strings, the same `ClipItem.hash(...)`
 /// inputs, the same content mapping, and the same sensitive branch that stores
-/// masked `.text` for a flagged rich clip instead of the `.rtf` binary.
+/// a flagged rich clip's plain `.text` instead of its `.rtf` binary.
 public enum ClipItemFactory {
     /// Capture payload → classified, normalized, sensitivity-decorated clip
     /// plus its full content for the store.

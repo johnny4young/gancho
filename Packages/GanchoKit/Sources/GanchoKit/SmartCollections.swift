@@ -106,33 +106,3 @@ extension GRDBClipboardStore {
         return try await search(rule.query, limit: limit)
     }
 }
-
-/// Replay detection: content the user keeps re-copying is snippet material.
-/// Re-copies bump `lastUsedAt` on the SAME row (dedupe), so "used recently
-/// AND old AND not yet a snippet" is the signal.
-public struct SnippetSuggestor: Sendable {
-    private let store: GRDBClipboardStore
-
-    public init(store: GRDBClipboardStore) {
-        self.store = store
-    }
-
-    /// Clips re-used after at least `minAge` since creation — the replay
-    /// pattern — that aren't snippets or sensitive yet.
-    public func suggestions(
-        minAge: TimeInterval = 86_400, limit: Int = 5, now: Date = .now
-    ) async throws -> [ClipItem] {
-        try await store.writer.read { db in
-            try ClipRow.fetchAll(
-                db,
-                sql: """
-                    SELECT \(ClipRow.metadataSelectionSQL) FROM clip
-                    WHERE isSnippet = 0 AND isSensitive = 0 AND isArchived = 0
-                      AND lastUsedAt IS NOT NULL
-                      AND (julianday(lastUsedAt) - julianday(createdAt)) * 86400 >= ?
-                    ORDER BY lastUsedAt DESC LIMIT ?
-                    """, arguments: [minAge, limit]
-            ).map(\.item)
-        }
-    }
-}
