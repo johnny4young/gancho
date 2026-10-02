@@ -141,15 +141,15 @@ extension GRDBClipboardStore {
             candidates: scored, query: query, snippetsOnly: snippetsOnly)
     }
 
-    private func semanticMetadata(
+    func semanticMetadata(
         candidates: [SemanticCandidate], query: ClipSearchQuery, snippetsOnly: Bool
     ) async throws -> [ClipItem] {
         let topIDs = candidates.map(\.id)
         let stamps = Dictionary(uniqueKeysWithValues: candidates.map { ($0.id, $0.updatedAt) })
         let items = try await writer.read { db in
             var scopeQuery = query
-            scopeQuery.includedIDs = Set(topIDs.compactMap(UUID.init(uuidString:)))
-                .intersection(query.includedIDs ?? Set(topIDs.compactMap(UUID.init(uuidString:))))
+            let candidateIDs = Set(topIDs.compactMap(UUID.init(uuidString:)))
+            scopeQuery.includedIDs = candidateIDs.intersection(query.includedIDs ?? candidateIDs)
             let scope = Self.semanticScope(scopeQuery, snippetsOnly: snippetsOnly)
             let fetched = try ClipRow.fetchAll(
                 db,
@@ -166,7 +166,7 @@ extension GRDBClipboardStore {
         return items
     }
 
-    private struct SemanticCandidate: Sendable {
+    struct SemanticCandidate: Sendable {
         let id: String
         let score: Float
         let updatedAt: Date

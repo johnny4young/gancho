@@ -45,6 +45,24 @@ struct ScopedSemanticSearchTests {
             ).isEmpty)
     }
 
+    @Test func candidatesScoredBeforeAnEditAreDropped() async throws {
+        let store = try store()
+        let item = ClipItem(preview: "Current", contentHash: "current")
+        try await store.insert(item, content: .text(item.preview))
+        let current = try #require(try await store.item(id: item.id))
+        let stale = GRDBClipboardStore.SemanticCandidate(
+            id: item.id.uuidString, score: 1, updatedAt: current.updatedAt.addingTimeInterval(-60))
+        let fresh = GRDBClipboardStore.SemanticCandidate(
+            id: item.id.uuidString, score: 1, updatedAt: current.updatedAt)
+        let query = ClipSearchQuery(text: "")
+        #expect(
+            try await store.semanticMetadata(candidates: [stale], query: query, snippetsOnly: false)
+                .isEmpty)
+        #expect(
+            try await store.semanticMetadata(candidates: [fresh], query: query, snippetsOnly: false)
+                .map(\.id) == [item.id])
+    }
+
     @Test func protectedExpiredAndArchivedRowsCannotConsumeLimit() async throws {
         let store = try store()
         let safe = ClipItem(preview: "Safe", contentHash: "safe")

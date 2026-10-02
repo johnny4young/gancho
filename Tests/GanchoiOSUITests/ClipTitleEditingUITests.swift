@@ -15,7 +15,11 @@ final class ClipTitleEditingUITests: XCTestCase {
         let field = app.textFields["detail-title-field"].firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 2))
         field.tap()
-        field.typeText("Team standup")
+        let title = "Team standup"
+        for character in title { field.typeText(String(character)) }
+        XCTAssertEqual(
+            field.value as? String, title,
+            "The complete synthetic title must reach the field before Save")
         app.buttons["detail-save-title"].firstMatch.tap()
 
         XCTAssertTrue(app.staticTexts["Team standup"].waitForExistence(timeout: 5))

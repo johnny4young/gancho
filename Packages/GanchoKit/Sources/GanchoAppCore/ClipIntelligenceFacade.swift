@@ -48,8 +48,17 @@ public struct ClipIntelligenceFacade: Sendable {
 
     /// On-device translation to `target` — Apple's native Translation session
     /// when the pair is installed, the on-device model otherwise; nil on failure.
-    public func translate(_ text: String, to target: Locale.Language) async -> String? {
-        try? await smartPasteService.translate(text, to: target)
+    public func translate(
+        _ text: String, to target: Locale.Language, engines: TranslationEngines = .live
+    ) async -> String? {
+        try? await smartPasteService.translate(text, to: target, engines: engines)
+    }
+
+    public func translationDestinations(
+        _ text: String, enabled: Bool, engines: TranslationEngines = .live
+    ) async throws -> [TranslationDestination] {
+        try await TranslationCapabilities.destinations(
+            text: text, enabled: enabled, engines: engines)
     }
 
     /// Retrieves the most relevant clips (semantic when the embeddings are

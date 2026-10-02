@@ -9,11 +9,60 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Explicit, off-by-default meaning suggestions in a separate panel section, with cancellation and index-coverage status while conventional results remain intact.
+- Explicit, off-by-default meaning suggestions in a separate panel section, with
+  cancellation and index-coverage status while conventional results remain
+  intact.
 
-- Add scoped, bounded hybrid retrieval with pre-limit privacy and metadata filters, deterministic related ranking and real bilingual relevance evaluation.
+- Add scoped, bounded hybrid retrieval with pre-limit privacy and metadata
+  filters, deterministic related ranking and real bilingual relevance
+  evaluation.
+
+- Locally encrypted, reviewed text recipes with an editor, three conservative
+  presets, bounded background execution and explicit clipboard-safe copying.
+  Definitions are not synced and originals remain intact.
+
+- Versioned, bounded deterministic text action and recipe contracts, reusing
+  existing transforms and the selected-context formatter. Editor and local
+  persistence follow separately.
+
+- Prepare explicitly selected text as reviewed, bounded Markdown, with optional
+  selected-ID, read-only MCP access expiring after one hour.
 
 ### Fixed
+
+- Keep recipe review headings and delivery controls visible while scrolling longer eight-step definitions.
+
+- Bound selected-text row previews by Unicode scalars, so oversized combining
+  sequences cannot make a visually short excerpt expensive to render. Full
+  reviewed text and delivery limits are unchanged.
+
+- Keep panel sizing under AppKit control to avoid redundant whole-view size
+  measurement delaying translation results, while preserving resize bounds and
+  display preferences.
+
+- Show installed native translation destinations independently of Apple
+  Intelligence, with an unavailable-engine message instead of an empty result.
+
+- Queue edited snippet titles and text for synchronization while keeping
+  keyword-only edits local and preserving uploads that were already pending.
+  Local keyword edits no longer outrank newer remote title/body changes. Edits
+  carrying protected content are refused with an inline notice.
+
+- Preserve modified snippet drafts when their original is removed; recover them
+  explicitly as a new classified snippet or discard them without restoring it.
+  Library loading and safe copying remain available with the in-memory fallback
+  store, which does not support snippet persistence.
+
+- Use native mouse click counts for panel double-click paste while preserving
+  immediate single-click selection, context menus and file dragging.
+
+- Make macOS UI fixtures await ephemeral capture ingestion before showing the
+  panel, and keep opt-in Library evidence on the primary display without
+  changing normal window placement. Timer views import Combine explicitly.
+- Scope native UI attachments to Gancho components and add supplemental
+  ten-iteration hosted macOS and iOS interaction stress runs; full platform
+  validation remains separate. Translucent component captures require an
+  isolated synthetic desktop.
 
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.9.1 DMG.

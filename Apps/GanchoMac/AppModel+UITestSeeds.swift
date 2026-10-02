@@ -23,13 +23,13 @@ extension AppModel {
         return NSPasteboardReader()
     }
 
-    /// Runs every requested `-seed-*` fixture in the original launch order and
-    /// returns the durable-seed tasks the `-open-panel-on-launch` flow awaits
-    /// before showing the panel. A normal launch returns an empty array.
+    /// Runs the denylist fixture synchronously, starts every other requested
+    /// `-seed-*` fixture, and returns the tasks the `-open-panel-on-launch` flow
+    /// awaits before showing the panel. A normal launch returns an empty array.
     func seedUITestFixturesIfRequested() -> [Task<Void, Never>] {
-        seedSampleClipsIfRequested()
         seedDenylistEntryIfRequested()
         return [
+            seedSampleClipsIfRequested(),
             seedSampleBoardsIfRequested(),
             seedPanelReproIfRequested(),
             seedSourceAppsIfRequested(),
@@ -49,15 +49,17 @@ extension AppModel {
     /// Strictly gated on BOTH the launch arg and the ephemeral store, so a real
     /// user's durable history is never touched and a normal launch (no arg) is a
     /// byte-for-byte no-op. The seed content is synthetic and non-secret.
-    private func seedSampleClipsIfRequested() {
+    private func seedSampleClipsIfRequested() -> Task<Void, Never>? {
         guard CommandLine.arguments.contains("-seed-sample-clips"), storageIsEphemeral
-        else { return }
-        for capture in [
-            PasteboardCapture(text: "seed alpha"),
-            PasteboardCapture(text: "https://seed.example/one"),
-            PasteboardCapture(text: "seed beta")
-        ] {
-            ingest(capture)
+        else { return nil }
+        return Task {
+            for capture in [
+                PasteboardCapture(text: "seed alpha"),
+                PasteboardCapture(text: "https://seed.example/one"),
+                PasteboardCapture(text: "seed beta")
+            ] {
+                await ingest(capture)?.value
+            }
         }
     }
 

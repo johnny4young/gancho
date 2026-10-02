@@ -8,6 +8,7 @@ import SwiftUI
 struct PanelSelectionContextBar: View {
     let selectionCount: Int
     let copyCombined: () -> Void
+    let prepareAIContext: () -> Void
     let addToStack: () -> Void
     let addToBoard: () -> Void
     let delete: () -> Void
@@ -26,6 +27,10 @@ struct PanelSelectionContextBar: View {
             .help("Copy combined…")
             .accessibilityLabel("Copy combined…")
             .accessibilityIdentifier("selection-copy-combined-button")
+            Button(action: prepareAIContext) { Image(systemName: "text.document") }
+                .help("Prepare context for AI…")
+                .accessibilityLabel("Prepare context for AI…")
+                .accessibilityIdentifier("selection-ai-context-button")
             Button(action: addToStack) {
                 Image(systemName: "square.stack.3d.up")
             }
