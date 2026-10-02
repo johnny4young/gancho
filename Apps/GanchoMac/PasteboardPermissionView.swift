@@ -1,5 +1,6 @@
 import AppKit
 import ClipboardCore
+import Combine
 import GanchoDesign
 import GanchoKit
 import SwiftUI

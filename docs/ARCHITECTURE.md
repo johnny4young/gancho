@@ -201,6 +201,12 @@ one page only for a selection displaced across its boundary, never an unbounded
 scan for a deleted item. A page requested while a refresh runs is deferred and
 loaded once the refresh commits.
 
+Panel rows keep one simultaneous tap recognizer for immediate selection and
+read the current native mouse-up click count for double-click paste. This avoids
+competition between separate single/double SwiftUI recognizers. Native
+regression coverage exercises paste, drag, context menus, range selection and
+gallery switching; seed readiness is a separate boundary.
+
 ## Platform contracts
 
 | Platform family | What is allowed | What is forbidden |
@@ -486,6 +492,22 @@ becomes a planned workstream after an explicit product decision.
 - User-facing strings go through a String Catalog with English and Spanish from
   the first real UI string.
 
+### Native UI fixture readiness
+
+Synthetic ephemeral captures return their ingestion tasks so test-launch windows
+wait for all requested fixtures, including the final history refresh. This does
+not serialize the production pasteboard monitor or change its capture policy.
+The readiness regression asserts all three sample rows as soon as the panel's
+search field is present, without waiting separately for each row.
+
+Visual Library tests opt into `-place-library-for-ui-test` with a disposable
+store. It places the window on the primary display because XCTest window
+screenshots can fail on displays with negative coordinates. Normal window
+placement is unchanged; this fixture does not certify multi-monitor behavior.
+Keep failed result bundles, and use a separate DerivedData directory if a stale
+compiled module prevents a run from reaching its tests. Never suppress an
+assertion or disable screenshots to turn a failed capture into a pass.
+
 ## Decisions
 
 1. **Minimum macOS 15.4 / iOS 26.** The Foundation Models tier and Liquid
@@ -523,3 +545,30 @@ thermal-dependent). `-measure-panel` prints the panel first-frame wall-clock so
 a manual/UI run collects samples; the opt-in `GANCHO_PERF=1` harness holds the
 scale budgets (FTS, semantic retrieval, board paging). Instruments/energy
 traces (30-min idle CPU, repeated-round RSS) are reference-Mac evidence.
+
+### Native UI evidence privacy
+
+Scope manual attachments to Gancho elements or windows, not the desktop. This
+limits capture bounds but does not guarantee privacy: translucent surfaces can
+show another application's content through their background. Collect visual
+acceptance evidence only on a dedicated runner with a synthetic desktop, not an
+owner's active desktop. Keep automatic failure evidence on that isolated runner.
+Do not close other apps or change system settings to make local evidence safe.
+If unsafe local media is discovered, retain content-free outcomes and logs,
+remove only the generated media-bearing artifacts, and regenerate evidence on
+an isolated runner. Do not publish the unsafe media or call a skipped capture a
+successful visual check.
+
+The manual `ui-tests.yml` workflow defaults to the complete macOS/iOS suites.
+Its explicit `interaction-stress` scope runs the fixed native interaction suites
+ten times on a clean hosted Mac. The `ios-interaction-stress` scope repeats the
+safe and protected context-menu tests ten times on an iPhone simulator. Each
+scope has a separate concurrency group and skips the other platform only for
+that supplemental run; a successful full-platform run on the same SHA is still
+required. Neither stress run retries failed tests until they pass.
+
+The macOS stress job has a 90-minute execution allocation: its 19 tests took
+298 seconds in a full-suite sample, so ten rounds plus building do not fit the
+ordinary 45-minute job. Full suites and the smaller iOS stress job retain their
+45-minute allocation. Test assertions, interaction timeouts, performance budgets
+and raw evidence collection are unchanged.
