@@ -9989,6 +9989,76 @@
           }
         }
       }
+    },
+    "Couldn’t save a copied clip.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar un clip copiado."
+          }
+        }
+      }
+    },
+    "Spotlight": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotlight"
+          }
+        }
+      }
+    },
+    "Couldn’t update the Spotlight index.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar el índice de Spotlight."
+          }
+        }
+      }
+    },
+    "Editing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edición"
+          }
+        }
+      }
+    },
+    "Pins": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fijados"
+          }
+        }
+      }
+    },
+    "Couldn’t update the pin.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar el fijado."
+          }
+        }
+      }
+    },
+    "Couldn’t save the snippet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el snippet."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

@@ -635,7 +635,9 @@ final class AppModel {
                     .reconcile(store: store, enabled: spotlightIndexing)
             },
             onFailure: { [weak self] in
-                self?.diagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
+                self?.diagnostics.record(
+                    String(localized: "Spotlight"),
+                    String(localized: "Couldn’t update the Spotlight index."))
             })
         spotlightCoordinator = coordinator
 
@@ -732,7 +734,8 @@ final class AppModel {
                     syncEngine: syncController.engine,
                     didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
             } catch {
-                diagnostics.record("Capture", "Couldn’t save a copied clip.")
+                diagnostics.record(
+                    String(localized: "Capture"), String(localized: "Couldn’t save a copied clip."))
                 return
             }
             // Bucketized analytics: kind + a length BUCKET, never the content.
@@ -1631,7 +1634,8 @@ final class AppModel {
             await refreshRecents()
             return false
         case .failed:
-            diagnostics.record("Editing", "Couldn’t save the title.")
+            diagnostics.record(
+                String(localized: "Editing"), String(localized: "Couldn’t save the title."))
             return false
         }
     }
@@ -1656,7 +1660,8 @@ final class AppModel {
             await refreshRecents()
             return false
         case .failed:
-            diagnostics.record("Editing", "Couldn’t save the content.")
+            diagnostics.record(
+                String(localized: "Editing"), String(localized: "Couldn’t save the content."))
             return false
         }
     }
@@ -1699,7 +1704,8 @@ final class AppModel {
             case .freeLimitReached:
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
             case .failed:
-                diagnostics.record("Pins", "Couldn’t update the pin.")
+                diagnostics.record(
+                    String(localized: "Pins"), String(localized: "Couldn’t update the pin."))
             }
         }
     }
@@ -1721,7 +1727,8 @@ final class AppModel {
             case .clipUnavailable:
                 await refreshRecents()
             case .failed:
-                diagnostics.record("Snippets", "Couldn’t save the snippet.")
+                diagnostics.record(
+                    String(localized: "Snippets"), String(localized: "Couldn’t save the snippet."))
             }
         }
     }

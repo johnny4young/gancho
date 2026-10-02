@@ -29,9 +29,9 @@ swift build -c release --package-path Packages/GanchoKit --product gancho
 | Command | What it does |
 | --- | --- |
 | `gancho search <query> [--limit N] [--mode exact\|fuzzy\|regex] [--json]` | Search history; prints `id⇥kind⇥title` (or JSON with `--json`). |
-| `gancho copy <clip-id>` | Put a clip's content back on the system pasteboard. |
-| `gancho save [--title <t>] [--language <id>] [--content-base64 <b64>]` | Save a snippet into the Library (or pipe raw text on stdin). |
-| `gancho export [--csv] [--out <path>]` | Export the whole history as JSON (default) or CSV. |
+| `gancho copy <clip-id> [--reveal]` | Put a clip's content back on the system pasteboard. Sensitive clips need `--reveal` and are marked concealed; expired clips are refused. |
+| `gancho save [--title <t>] [--language <id>] [--content-base64 <b64>] [--allow-secret]` | Save a snippet into the Library (or pipe raw text on stdin). Detected secrets are refused unless `--allow-secret` is passed. |
+| `gancho export [--csv] [--out <path>]` | Export the whole history as JSON (default) or CSV; `--out` files are owner-only. Gancho's CSV can be imported back. |
 | `gancho boards [--json]` | List board identifiers used to create explicit MCP contexts. |
 | `gancho pin <clip-id>` / `gancho unpin <clip-id>` | Organize one clip from the terminal. |
 | `gancho mcp --grant <grant-id>` | Run one authorized stdio MCP session (see below). |
@@ -66,7 +66,8 @@ Every grant combines four independent limits:
 - **Explicit context.** One approved board (or a curated clip set in embedded
   clients), optionally narrowed to the last hour/day/week/month. There is no
   ambient-history fallback.
-- **Read policy.** `metadata` returns titles/previews only; `boards` can return
+- **Read policy.** `metadata` returns titles/previews only and its search matches
+  only titles and previews (no regex); `boards` can return
   content for marked clips inside the context; `all` can return non-sensitive
   content, still only inside the context.
 - **Mutation policy.** Read-only is the default. Read-write permits pinning or
@@ -114,7 +115,9 @@ stop a client. Disabling MCP remains a global emergency stop.
 
 Selected text clips can be reviewed and copied as bounded Markdown, with an
 optional read-only grant limited to exactly those clips that expires after one
-hour. See [docs/SELECTED-CONTEXT.md](SELECTED-CONTEXT.md).
+hour. A clip edited after the grant stops being served. Archived and expired
+clips are treated as missing by every MCP read. See
+[docs/SELECTED-CONTEXT.md](SELECTED-CONTEXT.md).
 
 ---
 
