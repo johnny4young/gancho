@@ -35,10 +35,24 @@ import Observation
     }
 
     func move(by delta: Int, extending: Bool, in rows: [ClipItem]) {
+        if state.cursorIndex < 0 {
+            apply(.replace(index: delta < 0 ? rows.count - 1 : 0), in: rows)
+            return
+        }
         apply(.move(delta: delta, extending: extending), in: rows)
     }
 
+    func preserveEmptySelection() {
+        state = PanelSelectionState(cursorIndex: -1)
+        cursorID = nil
+    }
+
+    func resumeAutomaticSelection() {
+        if state.cursorIndex < 0 { state = PanelSelectionState() }
+    }
+
     func reconcile(in rows: [ClipItem]) {
+        guard state.cursorIndex >= 0 else { return }
         apply(.reconcile, in: rows)
     }
 

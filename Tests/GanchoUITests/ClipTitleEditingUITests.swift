@@ -11,11 +11,13 @@ final class ClipTitleEditingUITests: XCTestCase {
         ]
         app.launch()
         defer { app.terminate() }
+        app.activate()
 
         let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
         guard row.waitForExistence(timeout: 10), row.isHittable else {
             throw XCTSkip("seeded panel row is not reachable on this runner")
         }
+        try SynthesizedInput.requireForeground(app)
         row.click()
 
         let edit = app.buttons["preview-edit-title"].firstMatch
@@ -23,11 +25,12 @@ final class ClipTitleEditingUITests: XCTestCase {
         edit.click()
         let field = app.textFields["preview-title-field"].firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 2))
-        field.typeText("Team standup")
+        try typeTextReliably("Team standup", into: field, in: app)
         app.buttons["preview-save-title"].firstMatch.click()
 
         XCTAssertTrue(app.staticTexts["Team standup"].waitForExistence(timeout: 5))
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(
+            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
         attachment.name = "macOS inline clip title editing"
         attachment.lifetime = .keepAlways
         add(attachment)

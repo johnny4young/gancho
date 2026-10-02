@@ -71,11 +71,19 @@ Persistence and sync implementations
   └─ future LAN / self-hosted / non-Apple transports behind SyncEngine
 ```
 
-The intended AppCore framework boundary above has a current exception:
-`DeviceProvenance` reads `UIDevice.current.name` through a conditional UIKit
-import. `CoreSpotlightIndexer` is also a platform adapter in this target. These
-are not permission for feature controllers to import UI frameworks; platform
-reads should be injected from the shells when those seams are refactored.
+`DeviceProvenance` accepts an explicit name reader and only normalizes its value.
+`PlatformDeviceProvenance` in the shared app shell owns macOS host-name and iOS
+UIKit access; macOS includes only that shared source, while the iOS app, widget
+and keyboard targets already include the shared capture shell. Each capture reads
+the provider once, without caching, entitlement changes or a fallback identifier.
+Package tests inject synthetic values and never discover the test machine's name.
+Callers of the package's provenance helper must now supply the reader explicitly.
+
+`CoreSpotlightIndexer` remains the one system-index adapter in AppCore, behind
+`SpotlightIndexing` and conditional CoreSpotlight availability. The Mac and iOS
+composition roots construct it; policy tests inject a fake. Its curated domain,
+privacy filtering and reconciliation are unchanged. This explicit adapter is not
+permission for feature controllers to import UI frameworks.
 
 App targets stay thin. If feature logic cannot be tested from a SwiftPM target,
 it probably lives in the wrong layer.
@@ -200,6 +208,12 @@ action immediately. Browse refreshes retain the loaded window in one read, plus
 one page only for a selection displaced across its boundary, never an unbounded
 scan for a deleted item. A page requested while a refresh runs is deferred and
 loaded once the refresh commits.
+
+Panel rows keep one simultaneous tap recognizer for immediate selection and
+read the current native mouse-up click count for double-click paste. This avoids
+competition between separate single/double SwiftUI recognizers. Native
+regression coverage exercises paste, drag, context menus, range selection and
+gallery switching; seed readiness is a separate boundary.
 
 ## Platform contracts
 
@@ -486,6 +500,22 @@ becomes a planned workstream after an explicit product decision.
 - User-facing strings go through a String Catalog with English and Spanish from
   the first real UI string.
 
+### Native UI fixture readiness
+
+Synthetic ephemeral captures return their ingestion tasks so test-launch windows
+wait for all requested fixtures, including the final history refresh. This does
+not serialize the production pasteboard monitor or change its capture policy.
+The readiness regression asserts all three sample rows as soon as the panel's
+search field is present, without waiting separately for each row.
+
+Visual Library tests opt into `-place-library-for-ui-test` with a disposable
+store. It places the window on the primary display because XCTest window
+screenshots can fail on displays with negative coordinates. Normal window
+placement is unchanged; this fixture does not certify multi-monitor behavior.
+Keep failed result bundles, and use a separate DerivedData directory if a stale
+compiled module prevents a run from reaching its tests. Never suppress an
+assertion or disable screenshots to turn a failed capture into a pass.
+
 ## Decisions
 
 1. **Minimum macOS 15.4 / iOS 26.** The Foundation Models tier and Liquid
@@ -524,12 +554,89 @@ a manual/UI run collects samples; the opt-in `GANCHO_PERF=1` harness holds the
 scale budgets (FTS, semantic retrieval, board paging). Instruments/energy
 traces (30-min idle CPU, repeated-round RSS) are reference-Mac evidence.
 
+Meaning-search race tests suspend source responses explicitly and await the
+captured request task through completion before checking stale-delivery
+invariants. The task handle is read-only inside the core module and remains
+outside its public API; fixed scheduler-yield counts do not stand in for
+completed cancellation.
+
+Snippet draft edits mark changed shared title/body fields for upload in the same
+transaction as the edit. Keyword-only changes remain local and never clear an
+already-pending upload or advance the shared conflict timestamp. This prevents
+a local keyword edit from masking a newer remote title/body edit. Recovery
+creates a fresh identity rather than resurrecting a deleted row.
+
+### Native UI evidence privacy
+
+Scope manual attachments to Gancho elements or windows, not the desktop. This
+limits capture bounds but does not guarantee privacy: translucent surfaces can
+show another application's content through their background. Collect visual
+acceptance evidence only on a dedicated runner with a synthetic desktop, not an
+owner's active desktop. Keep automatic failure evidence on that isolated runner.
+Do not close other apps or change system settings to make local evidence safe.
+If unsafe local media is discovered, retain content-free outcomes and logs,
+remove only the generated media-bearing artifacts, and regenerate evidence on
+an isolated runner. Do not publish the unsafe media or call a skipped capture a
+successful visual check.
+
+The manual `ui-tests.yml` workflow defaults to the complete macOS/iOS suites.
+Its explicit `interaction-stress` scope runs the fixed native interaction suites
+ten times on a clean hosted Mac. The `ios-interaction-stress` scope repeats the
+safe and protected context-menu tests ten times on an iPhone simulator. Each
+scope has a separate concurrency group and skips the other platform only for
+that supplemental run; a successful full-platform run on the same SHA is still
+required. Neither stress run retries failed tests until they pass.
+
+The macOS stress job has a 90-minute execution allocation: its 19 tests took
+298 seconds in a full-suite sample, so ten rounds plus building do not fit the
+ordinary 45-minute job. Full suites and the smaller iOS stress job retain their
+45-minute allocation. Test assertions, interaction timeouts, performance budgets
+and raw evidence collection are unchanged.
+
+The `feature-stress` UI scope repeats `LibrarySnippetDraftUITests`,
+`VisualLibraryUITests`, `ReuseSuggestionUITests`, `TranslationCapabilityUITests`,
+`SelectedContextUITests` and `TextRecipeUITests` ten times on macOS, plus the
+iOS translation and inline-title editing suites. Its macOS job has the same
+90-minute allocation as interaction stress; full platform validation remains
+required on the same head. Selectors are fixed, invalid scopes fail closed, and
+all individual outcomes remain in the result bundle.
+
+Native text entry is sent character by character and its full field value is
+asserted before Save, so incomplete input cannot masquerade as a persistence
+regression. The saved-title assertion and its deadline remain unchanged.
+
+Recipe UI coverage also executes a visibly changing transform, checks both previews,
+explicitly copies through the isolated test sink, and reopens the original clip to
+verify that neither its text nor the clip count changed. Pure delivery tests verify
+the writer callback and clipboard/privacy race vetoes separately.
+
+The installed-translation UI journey activates the identified native destination
+menu item directly, rather than combining hover with a global Return event. It
+keeps the foreground guard and the same result deadline. Disposable-store engines
+verify capability routing and presentation without system language assets; their
+results are not evidence of real-provider translation quality or latency.
+
+
+The floating history panel owns its frame and content resize limits in AppKit.
+Its `NSHostingView.sizingOptions` is empty: inferred minimum, ideal and maximum
+SwiftUI constraints would duplicate that authority and remeasure the full panel
+on result-state changes. Hosted phase traces and targeted samples identified
+these layout passes delaying main-thread translation delivery after the engine
+had already completed. The explicit sizing boundary preserves normal SwiftUI
+layout within the supplied frame, saved presets and text scaling; it changes no
+engine routing or result timeout. Native translation tests assert that the
+panel's frame stays unchanged across delivery, while display-preference tests
+cover resizing and relaunch persistence. See Apple's
+[`NSHostingView.sizingOptions` documentation](https://developer.apple.com/documentation/swiftui/nshostingview/sizingoptions).
+
 ### Exact cosine ranking
 
 The stored-vector search and in-memory reference index share a package-private
 bounded top-K selector. It retains at most K candidates and uses O(log K)
-replacement rather than sorting the full corpus. Both preserve input order for
-equal scores. The in-memory index rejects zero, non-finite, and overflowing
-norms before mutation; a rejected insert cannot contaminate subsequent queries.
-The standalone index benchmark exercises ranking mechanics, not end-to-end
-model quality or UI latency. Storage retrieval has its own scale harness.
+replacement rather than sorting the full corpus. Equal scores fall back to
+insertion order in the index and to clip ID in storage. The in-memory index
+rejects zero, non-finite, and overflowing norms before mutation; a rejected
+insert cannot contaminate subsequent queries. The standalone index benchmark
+exercises ranking mechanics, not end-to-end model quality or UI latency.
+Storage retrieval has its own scale harness.
+

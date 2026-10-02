@@ -8889,6 +8889,966 @@
           }
         }
       }
+    },
+    "By meaning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By meaning"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por significado"
+          }
+        }
+      }
+    },
+    "Related by meaning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Related by meaning"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relacionados por significado"
+          }
+        }
+      }
+    },
+    "Enter a search; regex uses conventional results only.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a search; regex uses conventional results only."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe una búsqueda; regex usa solo resultados convencionales."
+          }
+        }
+      }
+    },
+    "Finding related clips…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding related clips…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscando clips relacionados…"
+          }
+        }
+      }
+    },
+    "Related suggestions may include weak matches.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Related suggestions may include weak matches."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las sugerencias relacionadas pueden incluir coincidencias débiles."
+          }
+        }
+      }
+    },
+    "Some clips are not indexed; conventional search remains complete.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some clips are not indexed; conventional search remains complete."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algunos clips no están indexados; la búsqueda convencional sigue completa."
+          }
+        }
+      }
+    },
+    "Meaning search unavailable; conventional search still works.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meaning search unavailable; conventional search still works."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Búsqueda por significado no disponible; la búsqueda convencional sigue funcionando."
+          }
+        }
+      }
+    },
+    "Meaning search accepts up to 1,000 characters and 4 KiB.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meaning search accepts up to 1,000 characters and 4 KiB."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La búsqueda por significado admite hasta 1.000 caracteres y 4 KiB."
+          }
+        }
+      }
+    },
+    "Copy Markdown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Markdown"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar Markdown"
+          }
+        }
+      }
+    },
+    "Couldn’t prepare or share this context. Try again; existing access is unchanged.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t prepare or share this context. Try again; existing access is unchanged."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo preparar o compartir este contexto. Inténtalo de nuevo; los accesos existentes no han cambiado."
+          }
+        }
+      }
+    },
+    "Grant selected context access": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grant selected context access"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorizar acceso al contexto seleccionado"
+          }
+        }
+      }
+    },
+    "One-hour, read-only access to these IDs. Enabling MCP reactivates other valid grants.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One-hour, read-only access to these IDs. Enabling MCP reactivates other valid grants."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso de solo lectura a estos identificadores durante una hora. Activar MCP reactiva otros permisos vigentes."
+          }
+        }
+      }
+    },
+    "Prepare context for AI…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepare context for AI…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparar contexto para IA…"
+          }
+        }
+      }
+    },
+    "Read-only access expires in one hour. Revoke it in MCP Access.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read-only access expires in one hour. Revoke it in MCP Access."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El acceso de solo lectura caduca en una hora. Revócalo en Acceso MCP."
+          }
+        }
+      }
+    },
+    "Remove incompatible clips or reduce the context below 64 KiB.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove incompatible clips or reduce the context below 64 KiB."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retira los clips incompatibles o reduce el contexto a menos de 64 KiB."
+          }
+        }
+      }
+    },
+    "Up to 100 text clips and 64 KiB including headers. Nothing is saved or sent automatically.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to 100 text clips and 64 KiB including headers. Nothing is saved or sent automatically."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hasta 100 clips de texto y 64 KiB incluidos los encabezados. No se guarda ni envía nada automáticamente."
+          }
+        }
+      }
+    },
+    "Copy connection command": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy connection command"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar comando de conexión"
+          }
+        }
+      }
+    },
+    "The selection or clipboard changed. Review and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selection or clipboard changed. Review and try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La selección o el portapapeles cambiaron. Revisa e inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Text recipes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text recipes"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recetas de texto"
+          }
+        }
+      }
+    },
+    "Text recipes…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text recipes…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recetas de texto…"
+          }
+        }
+      }
+    },
+    "Local recipes. Originals stay unchanged; copying is explicit.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local recipes. Originals stay unchanged; copying is explicit."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recetas locales. Los originales no cambian; copiar es una acción explícita."
+          }
+        }
+      }
+    },
+    "Recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receta"
+          }
+        }
+      }
+    },
+    "Choose a recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige una receta"
+          }
+        }
+      }
+    },
+    "New recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nueva receta"
+          }
+        }
+      }
+    },
+    "Recipe name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recipe name"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre de la receta"
+          }
+        }
+      }
+    },
+    "This definition is damaged. Other recipes are unaffected; you can delete it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This definition is damaged. Other recipes are unaffected; you can delete it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta definición está dañada. Las otras recetas no se afectan; puedes eliminarla."
+          }
+        }
+      }
+    },
+    "This clip is unavailable, protected or not text-backed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This clip is unavailable, protected or not text-backed."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este clip no está disponible, está protegido o no contiene texto."
+          }
+        }
+      }
+    },
+    "Previews show up to 8,000 characters. Copy includes the complete result.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previews show up to 8,000 characters. Copy includes the complete result."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las vistas previas muestran hasta 8.000 caracteres. Se copia el resultado completo."
+          }
+        }
+      }
+    },
+    "Could not complete this operation. Check the definition, sizes and clip availability, then retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not complete this operation. Check the definition, sizes and clip availability, then retry."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo completar esta operación. Revisa la definición, los tamaños y la disponibilidad del clip e inténtalo otra vez."
+          }
+        }
+      }
+    },
+    "The clipboard changed. Review the result and choose Copy result again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The clipboard changed. Review the result and choose Copy result again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El portapapeles cambió. Revisa el resultado y vuelve a elegir Copiar resultado."
+          }
+        }
+      }
+    },
+    "Run recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ejecutar receta"
+          }
+        }
+      }
+    },
+    "Discard unsaved recipe changes?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard unsaved recipe changes?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Descartar los cambios de la receta sin guardar?"
+          }
+        }
+      }
+    },
+    "Action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acción"
+          }
+        }
+      }
+    },
+    "Add step": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add step"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir paso"
+          }
+        }
+      }
+    },
+    "Save recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar receta"
+          }
+        }
+      }
+    },
+    "Before": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antes"
+          }
+        }
+      }
+    },
+    "After": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Después"
+          }
+        }
+      }
+    },
+    "Damaged recipe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Damaged recipe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receta dañada"
+          }
+        }
+      }
+    },
+    "Unsupported action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsupported action"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acción no compatible"
+          }
+        }
+      }
+    },
+    "Clean OCR": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clean OCR"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limpiar OCR"
+          }
+        }
+      }
+    },
+    "Clean list": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clean list"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limpiar lista"
+          }
+        }
+      }
+    },
+    "Prepare redacted context": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepare redacted context"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparar contexto redactado"
+          }
+        }
+      }
+    },
+    "Normalize line endings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normalize line endings"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normalizar saltos de línea"
+          }
+        }
+      }
+    },
+    "Trim trailing line spaces": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trim trailing line spaces"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recortar espacios finales de línea"
+          }
+        }
+      }
+    },
+    "Trim each line": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trim each line"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recortar cada línea"
+          }
+        }
+      }
+    },
+    "Format as context": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format as context"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formatear como contexto"
+          }
+        }
+      }
+    },
+    "Discard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
+          }
+        }
+      }
+    },
+    "Up to eight steps and 1 MiB per input and result; context formatting allows 64 KiB.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to eight steps and 1 MiB per input and result; context formatting allows 64 KiB."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hasta ocho pasos y 1 MiB por entrada y resultado; el formato de contexto admite 64 KiB."
+          }
+        }
+      }
+    },
+    "Use a name of up to 80 characters and one to eight supported steps. Unknown versions cannot run.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use a name of up to 80 characters and one to eight supported steps. Unknown versions cannot run."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa un nombre de hasta 80 caracteres y de uno a ocho pasos compatibles. Las versiones desconocidas no se pueden ejecutar."
+          }
+        }
+      }
+    },
+    "Install a language pair (macOS 26+) or use an available on-device model.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install a language pair (macOS 26+) or use an available on-device model."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instala un par de idiomas (macOS 26 o posterior) o usa un modelo local disponible."
+          }
+        }
+      }
+    },
+    "Translation unavailable. Install a language pair on macOS 26 or use an available on-device model.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation unavailable. Install a language pair on macOS 26 or use an available on-device model."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducción no disponible. Instala un par de idiomas en macOS 26 o usa un modelo local disponible."
+          }
+        }
+      }
+    },
+    "Keep your unsaved snippet?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep your unsaved snippet?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Conservar el snippet sin guardar?"
+          }
+        }
+      }
+    },
+    "Save as new snippet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save as new snippet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como nuevo snippet"
+          }
+        }
+      }
+    },
+    "Discard draft": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard draft"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar borrador"
+          }
+        }
+      }
+    },
+    "The original snippet was removed. Save your changes as a new snippet or discard them before leaving.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The original snippet was removed. Save your changes as a new snippet or discard them before leaving."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El snippet original se eliminó. Guarda los cambios como un nuevo snippet o descártalos antes de salir."
+          }
+        }
+      }
+    },
+    "The original snippet was removed. Your draft is still here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The original snippet was removed. Your draft is still here."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El snippet original se eliminó. Tu borrador sigue aquí."
+          }
+        }
+      }
+    },
+    "Couldn’t load snippets; your draft is still here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t load snippets; your draft is still here."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron cargar los snippets; tu borrador sigue aquí."
+          }
+        }
+      }
+    },
+    "Recovered snippet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovered snippet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snippet recuperado"
+          }
+        }
+      }
+    },
+    "Protected content cannot be saved as a snippet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protected content cannot be saved as a snippet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El contenido protegido no se puede guardar como snippet."
+          }
+        }
+      }
+    },
+    "Remove test source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove test source"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar origen de prueba"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

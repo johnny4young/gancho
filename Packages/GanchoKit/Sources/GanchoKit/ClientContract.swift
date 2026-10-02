@@ -411,7 +411,7 @@ public protocol StoreMaintaining: Sendable {
 public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring & ExportProviding
 
 /// The full first-party surface the Mac and iOS app models hold in place of the
-/// concrete `GRDBClipboardStore`: all twelve facets composed. App code downcasts
+/// concrete `GRDBClipboardStore`: the first-party facets composed. App code downcasts
 /// its `any ClipboardStore` to this ONCE at the composition root
 /// (`store as? any FullClipStore`, nil on the in-memory fallback) and reaches
 /// every capability through it; only engine construction and MCP/sync internals
@@ -420,12 +420,14 @@ public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring 
 /// `ClipboardStore` is intentionally NOT composed in: each of its requirements
 /// (`insert`, `count`, `content(for:)`, `delete`, `items(offset:limit:)`,
 /// `exportJSON`/`exportCSV`) is already restated by one of the facets, so adding
-/// it would only duplicate requirements in the existential. The twelve facets have
+/// it would only duplicate requirements in the existential. These facets have
 /// no overlapping requirements among themselves, so member access on an
 /// `any FullClipStore` is unambiguous.
 public typealias FullClipStore = ClipReading & ClipSearching & ClipMutating & ClipEnriching
-    & SourceAppProviding & ReuseSuggestionProviding & BoardStoring & SnippetStoring
+    & ScopedSemanticSearching & SourceAppProviding & ReuseSuggestionProviding & BoardStoring
+    & SnippetStoring
     & StoreStatsProviding & PrivateActivityReceiptStoring & ExportProviding & StoreMaintaining
+    & SnippetDraftStoring & TextRecipeStoring
 
 // MARK: - Production conformances
 

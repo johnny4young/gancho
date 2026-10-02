@@ -18,6 +18,7 @@ struct PanelResultsView<RowContent: View>: View {
     let isGroupedView: Bool
     let groups: [PanelDateGroup]
     let items: [ClipItem]
+    var relatedIDs: Set<UUID> = []
     let selectedID: UUID?
     /// List rows, or a grid of cards `columns` wide; the grid reports the
     /// column count it fits so keyboard moves match what is on screen.
@@ -112,9 +113,18 @@ struct PanelResultsView<RowContent: View>: View {
         }
     }
 
-    private var flatRows: some View {
-        ForEach(items) { item in
-            row(item)
+    @ViewBuilder private var flatRows: some View {
+        ForEach(items.filter { !relatedIDs.contains($0.id) }) { item in row(item) }
+        if !relatedIDs.isEmpty {
+            Section {
+                ForEach(items.filter { relatedIDs.contains($0.id) }) { item in row(item) }
+            } header: {
+                Text("Related by meaning")
+                    .panelFont(.caption, .semibold)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("meaning-related-heading")
+            }
         }
     }
 

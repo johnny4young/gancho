@@ -711,18 +711,34 @@ final class IOSAppModel {
     /// gates only model-backed rewrites and translations.
     var smartPasteAvailable: Bool { intelligence.smartPaste }
 
-    /// Model-backed rewrites and translations require Apple Intelligence in
+    /// Model-backed rewrites require Apple Intelligence in
     /// addition to the user's Smart Paste opt-in.
     var smartPasteModelAvailable: Bool {
-        intelligence.smartPaste && ClipIntelligenceFacade.modelAvailable
+        intelligence.smartPaste && translationEngines.modelAvailable()
     }
 
     func smartPaste(_ text: String, action: SmartPasteAction) async -> String? {
         await intelligenceFacade.transform(text, action: action)
     }
 
+    private var translationEngines: TranslationEngines {
+        #if DEBUG
+            if CommandLine.arguments.contains("-ui-test-installed-translation"),
+                CommandLine.arguments.contains("-use-temp-durable-store")
+            {
+                return TranslationUITestFixture.engines
+            }
+        #endif
+        return .live
+    }
+
+    func translationDestinations(_ text: String) async throws -> [TranslationDestination] {
+        try await intelligenceFacade.translationDestinations(
+            text, enabled: smartPasteAvailable, engines: translationEngines)
+    }
+
     func smartTranslate(_ text: String, to target: Locale.Language) async -> String? {
-        await intelligenceFacade.translate(text, to: target)
+        await intelligenceFacade.translate(text, to: target, engines: translationEngines)
     }
 
     // MARK: - Ask your clipboard (grounded on-device QA)
@@ -1119,7 +1135,7 @@ final class IOSAppModel {
             precomputedKind: precomputedKind,
             tier: tier,
             intelligence: intelligence,
-            sourceDeviceName: DeviceProvenance.currentDeviceName())
+            sourceDeviceName: PlatformDeviceProvenance.currentDeviceName())
     }
 
     /// Side effects of a durable write; the caller owns the user-facing note.

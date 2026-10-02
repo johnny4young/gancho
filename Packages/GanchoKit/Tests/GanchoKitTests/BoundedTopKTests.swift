@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import GanchoKit
@@ -19,12 +20,16 @@ struct BoundedTopKTests {
         }
     }
 
-    @Test("Storage retrieval preserves scan-order ties at the cutoff")
+    @Test("Storage retrieval breaks ties by clip ID at the cutoff")
     func storageRankingTies() {
         let values: [(id: String, score: Float)] = [
-            ("first", 0.5), ("best", 1), ("second", 0.5), ("worst", -1), ("third", 0.5)
+            ("c", 0.5), ("best", 1), ("a", 0.5), ("worst", -1), ("b", 0.5)
         ]
-        let selected = GRDBClipboardStore.partialTopK(values, count: 3)
-        #expect(selected.map(\.id) == ["best", "first", "second"])
+        var top = BoundedTopK<GRDBClipboardStore.SemanticCandidate>(
+            limit: 3, by: GRDBClipboardStore.candidatePrecedes)
+        for value in values {
+            top.insert(.init(id: value.id, score: value.score, updatedAt: .distantPast))
+        }
+        #expect(top.sorted.map(\.id) == ["best", "a", "b"])
     }
 }
