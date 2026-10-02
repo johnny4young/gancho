@@ -167,6 +167,9 @@ final class AppModel {
     var tier: UserTier {
         didSet { tier.save(to: defaults) }
     }
+    /// Bumped by every applied tier, so a slow launch lookup cannot overwrite a
+    /// tier StoreKit delivered while it was in flight.
+    @ObservationIgnored private var tierGeneration = 0
 
     /// Optional anonymous diagnostics are off until the user explicitly
     /// consents. Withdrawing consent tears down the transport immediately.
@@ -569,8 +572,9 @@ final class AppModel {
             if forceFreeTier {
                 applyTier(.free)  // deterministic free tier: skip StoreKit + forcePro
             } else {
+                let generation = tierGeneration
                 let entitled = await purchases.currentTier()
-                if entitled != tier { applyTier(entitled) }
+                if generation == tierGeneration, entitled != tier { applyTier(entitled) }
                 #if DEBUG
                     if DebugFlags.forcePro, tier != .pro { applyTier(.pro) }
                 #endif
@@ -581,8 +585,11 @@ final class AppModel {
                     // license still drops Pro on the next launch that reaches
                     // Lemon Squeezy.
                     if let license = purchases as? LicenseKeyPurchaseHandler {
+                        let generation = tierGeneration
                         let refreshed = await license.refreshIfNeeded()
-                        if refreshed != tier { applyTier(refreshed) }
+                        if generation == tierGeneration, refreshed != tier {
+                            applyTier(refreshed)
+                        }
                     }
                 #endif
             }
@@ -715,14 +722,18 @@ final class AppModel {
             // make the first capture after launch an outlier about something
             // else entirely.
             let ingestInterval = Signpost.captureToInsert.begin()
-            guard
-                let outcome = try? await ingestionCoordinator.ingest(
+            let outcome: ClipIngestionCoordinator.Outcome
+            do {
+                outcome = try await ingestionCoordinator.ingest(
                     capture,
                     configuration: configuration,
                     store: store,
                     syncEngine: syncController.engine,
                     didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
-            else { return }
+            } catch {
+                diagnostics.record("Capture", "Couldn’t save a copied clip.")
+                return
+            }
             // Bucketized analytics: kind + a length BUCKET, never the content.
             telemetry.record(
                 .itemCaptured(
@@ -1332,6 +1343,7 @@ final class AppModel {
     /// Applies a tier from StoreKit and releases any archived clips when the
     /// user becomes Pro (free-tier archiving is reversible — no data hostage).
     private func applyTier(_ newTier: UserTier) {
+        tierGeneration += 1
         tier = newTier
         syncController.configure(tier: tier)
         guard let grdbForEngines else { return }
