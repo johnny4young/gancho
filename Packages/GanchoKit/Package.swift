@@ -86,7 +86,8 @@ let package = Package(
             name: "GanchoAppCore",
             dependencies: ["GanchoKit", "GanchoAI", "ClipboardCore"]),
         .target(name: "GanchoMCP", dependencies: ["GanchoKit"]),
-        .executableTarget(name: "gancho", dependencies: ["GanchoKit", "GanchoMCP"]),
+        .executableTarget(
+            name: "gancho", dependencies: ["GanchoKit", "GanchoMCP", "GanchoAI", "ClipboardCore"]),
         .testTarget(
             name: "GanchoKitTests",
             dependencies: ["GanchoKit"],
