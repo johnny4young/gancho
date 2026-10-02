@@ -45,8 +45,10 @@ final class PasteBackUITests: XCTestCase {
         XCTAssertFalse(row.isSelected)
         row.click()
         XCTAssertTrue(row.isSelected)
+        // A wrong paste shows its notice and closes the panel asynchronously.
+        let toast = app.descendants(matching: .any)["gancho-toast"].firstMatch
+        XCTAssertFalse(toast.waitForExistence(timeout: 2), "a single click must not paste")
         XCTAssertTrue(app.descendants(matching: .any)["history-panel"].firstMatch.exists)
-        XCTAssertFalse(app.descendants(matching: .any)["gancho-toast"].firstMatch.exists)
     }
 
     /// Double-clicks the first seeded row, a plain paste, and returns the panel.

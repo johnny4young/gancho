@@ -420,12 +420,13 @@ public typealias GanchoClientStore = ClipReading & ClipSearching & BoardStoring 
 /// `ClipboardStore` is intentionally NOT composed in: each of its requirements
 /// (`insert`, `count`, `content(for:)`, `delete`, `items(offset:limit:)`,
 /// `exportJSON`/`exportCSV`) is already restated by one of the facets, so adding
-/// it would only duplicate requirements in the existential. The twelve facets have
+/// it would only duplicate requirements in the existential. The facets have
 /// no overlapping requirements among themselves, so member access on an
 /// `any FullClipStore` is unambiguous.
 public typealias FullClipStore = ClipReading & ClipSearching & ClipMutating & ClipEnriching
     & SourceAppProviding & ReuseSuggestionProviding & BoardStoring & SnippetStoring
     & StoreStatsProviding & PrivateActivityReceiptStoring & ExportProviding & StoreMaintaining
+    & SnippetDraftStoring
 
 // MARK: - Production conformances
 

@@ -248,10 +248,10 @@ struct PanelView: View {
         .task { await model.refreshBoards() }
         .sheet(item: $combinedSelection) { selection in
             CombinedTextReview(ids: selection.ids).environment(model)
-        }.sheet(item: $aiContextSelection) { selection in
+        }
+        .sheet(item: $aiContextSelection) { selection in
             SelectedContextReview(ids: selection.ids).environment(model)
         }
-
         .sheet(item: $filterDraft) { rule in
             SavedFilterEditor(rule: rule, boards: model.boards) {
                 await model.savedFilters.save($0)

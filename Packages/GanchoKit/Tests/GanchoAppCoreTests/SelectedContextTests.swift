@@ -20,6 +20,13 @@ struct SelectedContextTests {
         #expect(CombinedTextPart(id: UUID(), content: .protected).preview == nil)
     }
 
+    @Test func selectionPreviewNeverSplitsAnEmojiSequence() {
+        let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}\u{200D}\u{1F466}"
+        let text = String(repeating: "a", count: 78) + family + "tail"
+        #expect(part(text).preview == String(repeating: "a", count: 78))
+        #expect(part("short \(family)").preview == "short \(family)")
+    }
+
     @Test func visibleOrderAndUnicode() throws {
         let first = part("Hola niño\n世界")
         let second = part("e\u{301}\r\nnext")

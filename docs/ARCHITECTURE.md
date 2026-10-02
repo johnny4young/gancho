@@ -201,6 +201,12 @@ one page only for a selection displaced across its boundary, never an unbounded
 scan for a deleted item. A page requested while a refresh runs is deferred and
 loaded once the refresh commits.
 
+Panel rows keep one simultaneous tap recognizer for immediate selection and
+read the current native mouse-up click count for double-click paste. This avoids
+competition between separate single/double SwiftUI recognizers. Native
+regression coverage exercises paste, drag, context menus, range selection and
+gallery switching; seed readiness is a separate boundary.
+
 ## Platform contracts
 
 | Platform family | What is allowed | What is forbidden |
@@ -540,10 +546,11 @@ a manual/UI run collects samples; the opt-in `GANCHO_PERF=1` harness holds the
 scale budgets (FTS, semantic retrieval, board paging). Instruments/energy
 traces (30-min idle CPU, repeated-round RSS) are reference-Mac evidence.
 
-Panel rows keep one simultaneous tap recognizer for immediate selection and
-read the current native mouse-up click count for double-click paste. This avoids
-competition between separate single/double SwiftUI recognizers. Native regression coverage exercises paste, drag, context menus,
-range selection and gallery switching; seed readiness is a separate boundary.
+Snippet draft edits mark changed shared title/body fields for upload in the same
+transaction as the edit. Keyword-only changes remain local and never clear an
+already-pending upload or advance the shared conflict timestamp. This prevents
+a local keyword edit from masking a newer remote title/body edit. Recovery
+creates a fresh identity rather than resurrecting a deleted row.
 
 ### Native UI evidence privacy
 
@@ -572,4 +579,29 @@ ordinary 45-minute job. Full suites and the smaller iOS stress job retain their
 45-minute allocation. Test assertions, interaction timeouts, performance budgets
 and raw evidence collection are unchanged.
 
-The `feature-stress` UI scope repeats `SelectedContextUITests` ten times. The unrelated iOS job is omitted only from this supplementary scope; full platform validation remains required on the same head. Selectors are fixed, invalid scopes fail closed, and all individual outcomes remain in the result bundle.
+The `feature-stress` UI scope repeats `LibrarySnippetDraftUITests`,
+`VisualLibraryUITests`, `ReuseSuggestionUITests` and
+`TranslationCapabilityUITests` and `SelectedContextUITests` ten times on macOS,
+plus the iOS translation suite. Its macOS job has the same 90-minute allocation as interaction stress;
+full platform validation remains required on the same head. Selectors are
+fixed, invalid scopes fail closed, and all individual outcomes remain in the
+result bundle.
+
+The installed-translation UI journey activates the identified native destination
+menu item directly, rather than combining hover with a global Return event. It
+keeps the foreground guard and the same result deadline. Disposable-store engines
+verify capability routing and presentation without system language assets; their
+results are not evidence of real-provider translation quality or latency.
+
+
+The floating history panel owns its frame and content resize limits in AppKit.
+Its `NSHostingView.sizingOptions` is empty: inferred minimum, ideal and maximum
+SwiftUI constraints would duplicate that authority and remeasure the full panel
+on result-state changes. Hosted phase traces and targeted samples identified
+these layout passes delaying main-thread translation delivery after the engine
+had already completed. The explicit sizing boundary preserves normal SwiftUI
+layout within the supplied frame, saved presets and text scaling; it changes no
+engine routing or result timeout. Native translation tests assert that the
+panel's frame stays unchanged across delivery, while display-preference tests
+cover resizing and relaunch persistence. See Apple's
+[`NSHostingView.sizingOptions` documentation](https://developer.apple.com/documentation/swiftui/nshostingview/sizingoptions).
