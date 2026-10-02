@@ -546,6 +546,12 @@ a manual/UI run collects samples; the opt-in `GANCHO_PERF=1` harness holds the
 scale budgets (FTS, semantic retrieval, board paging). Instruments/energy
 traces (30-min idle CPU, repeated-round RSS) are reference-Mac evidence.
 
+Meaning-search race tests suspend source responses explicitly and await the
+captured request task through completion before checking stale-delivery
+invariants. The task handle is read-only inside the core module and remains
+outside its public API; fixed scheduler-yield counts do not stand in for
+completed cancellation.
+
 Snippet draft edits mark changed shared title/body fields for upload in the same
 transaction as the edit. Keyword-only changes remain local and never clear an
 already-pending upload or advance the shared conflict timestamp. This prevents

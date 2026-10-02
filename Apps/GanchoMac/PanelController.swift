@@ -493,6 +493,14 @@ extension NSRect {
 final class KeyPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
+    override func orderOut(_ sender: Any?) {
+        let wasVisible = isVisible
+        super.orderOut(sender)
+        if wasVisible {
+            NotificationCenter.default.post(name: .ganchoPanelDidHide, object: self)
+        }
+    }
+
     /// The panel is created once and reused (reopening is an `orderFront`), so
     /// any close request (⌘W, a programmatic close) hides it rather than
     /// destroying the instance.
@@ -502,6 +510,7 @@ final class KeyPanel: NSPanel {
 }
 
 extension Notification.Name {
+    static let ganchoPanelDidHide = Notification.Name("com.johnny4young.gancho.panel-did-hide")
     /// The panel went from hidden to shown (never a re-order of a visible one).
     static let ganchoPanelDidShow = Notification.Name("com.johnny4young.gancho.panel-did-show")
 }

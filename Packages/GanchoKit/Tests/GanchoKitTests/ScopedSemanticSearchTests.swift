@@ -101,4 +101,29 @@ struct ScopedSemanticSearchTests {
         #expect(try await store.semanticSearch(queryVector: [.nan, 0]).isEmpty)
         #expect(try await store.semanticSearch(queryVector: [.infinity, 0]).isEmpty)
     }
+    @Test func coverageCountsOnlyScopedCurrentTextEmbeddings() async throws {
+        let store = try store()
+        let eligible = ClipItem(
+            kind: .code, contentHash: "indexed", sourceAppBundleID: "test.editor")
+        let missing = ClipItem(
+            kind: .code, contentHash: "missing", sourceAppBundleID: "test.editor")
+        let foreign = ClipItem(contentHash: "foreign", sourceAppBundleID: "other")
+        let protected = ClipItem(contentHash: "private", isSensitive: true)
+        for item in [eligible, missing, foreign, protected] {
+            try await store.insert(item, content: .text("Synthetic"))
+        }
+        try await store.saveEmbedding(clipID: eligible.id, vector: [1, 0])
+        let query = ClipSearchQuery(text: "", kinds: [.code], sourceAppBundleID: "test.editor")
+        #expect(
+            try await store.semanticIndexCoverage(query: query, dimension: 2)
+                == SemanticIndexCoverage(eligible: 2, indexed: 1))
+        try await store.writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip_embedding SET modelVersion = -1 WHERE clipID = ?",
+                arguments: [eligible.id.uuidString])
+        }
+        #expect(try await store.semanticIndexCoverage(query: query, dimension: 2).indexed == 0)
+        #expect(try await store.semanticIndexCoverage(query: query, dimension: 3).indexed == 0)
+    }
+
 }

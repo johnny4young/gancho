@@ -178,7 +178,7 @@ extension GRDBClipboardStore {
         left.score == right.score ? left.id < right.id : left.score > right.score
     }
 
-    private static func semanticScope(
+    static func semanticScope(
         _ query: ClipSearchQuery, snippetsOnly: Bool
     ) -> (sql: String, arguments: [any DatabaseValueConvertible]) {
         var restricted = query
