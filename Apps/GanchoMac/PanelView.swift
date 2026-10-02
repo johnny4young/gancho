@@ -172,6 +172,66 @@ struct PanelView: View {
     }
 
     var body: some View {
+        // Split from `panelContent` so each half type-checks in reasonable time.
+        panelContent
+            // A capture must not swap the peek, an inline edit or the board picker's
+            // target out from under the user once they leave the search field.
+            .onChange(of: peekIsEditingInline) { _, editing in
+                if editing { search.endNewestFollow() }
+            }
+            .onChange(of: focus) { _, newFocus in
+                if newFocus != .search { search.endNewestFollow() }
+            }
+            .onAppear {
+                // Lazily built panels (UI tests) reach their first frame here; a
+                // prewarmed panel closes the interval from the show notification.
+                model.panel.notePanelDidAppear()
+                search.followNewestClip()
+                // Defer one runloop: on the FIRST open the field editor isn't
+                // ready when onAppear fires, so an immediate focus is dropped
+                // (arrow keys beep). The notification below re-grabs it on every
+                // key transition, which covers first open and reopens alike.
+                DispatchQueue.main.async { focus = .search }
+            }
+            .onReceive(
+                NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)
+            ) { notification in
+                guard let window = notification.object as? NSWindow,
+                    model.panel.isPanelWindow(window), !showBoardPicker, !peekIsEditingInline
+                else { return }
+                // A completion window returning key status must not redirect the
+                // remainder of an inline edit into the search field.
+                focus = .search
+            }
+            // Posted by the controller only on a hidden → shown transition, so a
+            // panel that merely regains key keeps the user's place.
+            .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidShow)) {
+                notification in
+                guard let window = notification.object as? NSWindow,
+                    model.panel.isPanelWindow(window)
+                else { return }
+                // Every open starts from the newest clip with the search field
+                // focused, whatever rail or row the previous session ended on.
+                // The interval closes on the next turn, after this frame commits.
+                DispatchQueue.main.async { model.panel.notePanelDidAppear() }
+                // An unsaved inline edit survives a trip to another app.
+                guard !peekIsEditingInline else { return }
+                railFocus = nil
+                focus = .search
+                search.followNewestClip()
+                // Only a meaning search needs restarting; recents refresh on their own.
+                if search.meaningEnabled, !search.query.isEmpty { Task { await search.refresh() } }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidHide)) {
+                notification in
+                guard let window = notification.object as? NSWindow,
+                    model.panel.isPanelWindow(window)
+                else { return }
+                search.cancelMeaningSearch()
+            }
+    }
+
+    @ViewBuilder private var panelContent: some View {
         let panelTextSize = PanelTextSize.resolved(panelTextSizeRaw)
         // ONE surface for list and peek. The peek opens BESIDE the list (not a
         // modal) and follows the selected clip, Quick-Look-style, but it is part
@@ -248,14 +308,6 @@ struct PanelView: View {
         .task { await model.refreshBoards() }
         .onDisappear { search.cancelMeaningSearch() }
         .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
-        // A capture must not swap the peek, an inline edit or the board picker's
-        // target out from under the user once they leave the search field.
-        .onChange(of: peekIsEditingInline) { _, editing in
-            if editing { search.endNewestFollow() }
-        }
-        .onChange(of: focus) { _, newFocus in
-            if newFocus != .search { search.endNewestFollow() }
-        }
         .onChange(of: model.preferences.isPrivateModePaused) { _, _ in
             search.cancelMeaningSearch()
             Task { await search.refresh() }
@@ -352,49 +404,6 @@ struct PanelView: View {
             await preview.load(search.selectedItem) { id in
                 try await store.content(for: id)
             }
-        }
-        .onAppear {
-            // Lazily built panels (UI tests) reach their first frame here; a
-            // prewarmed panel closes the interval from the show notification.
-            model.panel.notePanelDidAppear()
-            search.followNewestClip()
-            // Defer one runloop: on the FIRST open the field editor isn't
-            // ready when onAppear fires, so an immediate focus is dropped
-            // (arrow keys beep). The notification below re-grabs it on every
-            // key transition, which covers first open and reopens alike.
-            DispatchQueue.main.async { focus = .search }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
-            notification in
-            guard let window = notification.object as? NSWindow,
-                model.panel.isPanelWindow(window), !showBoardPicker, !peekIsEditingInline
-            else { return }
-            // A completion window returning key status must not redirect the
-            // remainder of an inline edit into the search field.
-            focus = .search
-        }
-        // Posted by the controller only on a hidden → shown transition, so a
-        // panel that merely regains key keeps the user's place.
-        .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidShow)) {
-            notification in
-            guard let window = notification.object as? NSWindow, model.panel.isPanelWindow(window)
-            else { return }
-            // Every open starts from the newest clip with the search field
-            // focused, whatever rail or row the previous session ended on.
-            // The interval closes on the next turn, after this frame commits.
-            DispatchQueue.main.async { model.panel.notePanelDidAppear() }
-            // An unsaved inline edit survives a trip to another app.
-            guard !peekIsEditingInline else { return }
-            railFocus = nil
-            focus = .search
-            search.followNewestClip()
-            // Only a meaning search needs restarting; recents refresh on their own.
-            if search.meaningEnabled, !search.query.isEmpty { Task { await search.refresh() } }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidHide)) { notification in
-            guard let window = notification.object as? NSWindow, model.panel.isPanelWindow(window)
-            else { return }
-            search.cancelMeaningSearch()
         }
     }
 
