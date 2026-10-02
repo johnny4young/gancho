@@ -499,7 +499,9 @@ struct ClipDetailView: View {
                         .accessibilityIdentifier("smart-paste-menu")
                     }
                 }
-                if canSmartPaste, !translationTargets.contains(where: { $0.isAvailable }) {
+                if canSmartPaste, !translationTargets.isEmpty,
+                    !translationTargets.contains(where: { $0.isAvailable })
+                {
                     Text("Install a supported language pair or use an available on-device model.")
                         .font(.caption).foregroundStyle(.secondary)
                 }

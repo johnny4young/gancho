@@ -30,10 +30,15 @@ extension ClipDetailView {
     }
 
     func runSmartPaste(_ action: SmartPasteAction) {
+        translationTask?.cancel()
+        let request = UUID()
+        translationRequestID = request
         smartResult = nil
+        translationFailed = false
         isThinking = true
-        Task {
+        translationTask = Task {
             let result = await model.smartPaste(fullText, action: action)
+            guard !Task.isCancelled, translationRequestID == request else { return }
             isThinking = false
             smartResult = result ?? String(localized: "Couldn’t run that — try again.")
         }

@@ -28,7 +28,8 @@ public enum TranslationCapabilities {
         }
         let source = engines.identifySource(SmartPasteService().prepared(text))
         var destinations: [TranslationDestination] = []
-        for code in targetCodes {
+        for code in targetCodes
+        where source?.languageCode != Locale.Language(identifier: code).languageCode {
             try Task.checkCancellation()
             let status: TranslationPairStatus
             if let source {

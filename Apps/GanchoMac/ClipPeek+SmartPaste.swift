@@ -60,7 +60,8 @@ extension ClipPeek {
                 }
                 .accessibilityIdentifier("translation-destinations-menu")
             }
-            if !translationTargets.contains(where: { $0.isAvailable }) {
+            if !translationTargets.isEmpty, !translationTargets.contains(where: { $0.isAvailable })
+            {
                 Text("Install a language pair (macOS 26+) or use an available on-device model.")
             }
             Divider()
@@ -79,10 +80,15 @@ extension ClipPeek {
     }
 
     private func runSmartPaste(_ action: SmartPasteAction) {
+        translationTask?.cancel()
+        let request = UUID()
+        translationRequestID = request
         actionResult = nil
+        translationFailed = false
         isThinking = true
-        Task {
+        translationTask = Task {
             let result = await model.smartPaste(presentedText, action: action)
+            guard !Task.isCancelled, translationRequestID == request else { return }
             isThinking = false
             actionResult = result ?? String(localized: "Couldn’t run that — try again.")
         }

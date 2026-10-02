@@ -32,7 +32,6 @@ struct ClipPeek: View {
     @State var actionResult: String?
     @State private var boardIDs: Set<UUID> = []
     /// Smart Paste can run the on-device model — show a spinner while it thinks.
-    @Environment(\.scenePhase) private var scenePhase
     @State var translationTargets: [TranslationDestination] = []
     @State var translationFailed = false
     @State var translationRefresh = 0
@@ -256,8 +255,9 @@ struct ClipPeek: View {
         }
         .onDisappear { isEditingInline = false }
         .task(id: translationAvailabilityRequest) { await refreshTranslationTargets() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { translationRefresh += 1 }
+        // The panel's hosting view has no scene phase; re-check pairs on every show.
+        .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidShow)) { _ in
+            translationRefresh += 1
         }
         .onDisappear { translationTask?.cancel() }
         .onChange(of: presentedText) { _, _ in
