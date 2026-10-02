@@ -30,6 +30,7 @@ enum GanchoDatabaseMigrator {
         case inboxReceipts = "v23-inbox-receipts"
         case inboxReceiptClip = "v24-inbox-receipt-clip"
         case textRecipes = "v25-text-recipes"
+        case embeddingCleanup = "v26-embedding-cleanup"
     }
 
     static var identifiers: [String] {
@@ -73,6 +74,17 @@ enum GanchoDatabaseMigrator {
                     sql: "INSERT INTO text_recipe (id, definition) VALUES (?, ?)",
                     arguments: [recipe.id.uuidString, try JSONEncoder().encode(recipe)])
             }
+        }
+        migrator.registerMigration(Identifier.embeddingCleanup.rawValue) { db in
+            // Vectors are keyed by clip id without a foreign key; every delete
+            // path (retention, sync, plain) must drop the vector with its clip.
+            try db.execute(
+                sql: "DELETE FROM clip_embedding WHERE clipID NOT IN (SELECT id FROM clip)")
+            try db.execute(
+                sql: """
+                    CREATE TRIGGER clip_embedding_follows_clip AFTER DELETE ON clip
+                    BEGIN DELETE FROM clip_embedding WHERE clipID = OLD.id; END
+                    """)
         }
         return migrator
     }
