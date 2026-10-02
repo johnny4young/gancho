@@ -3795,6 +3795,38 @@
           }
         }
       }
+    },
+    "Install a supported language pair or use an available on-device model.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install a supported language pair or use an available on-device model."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instala un par de idiomas compatible o usa un modelo local disponible."
+          }
+        }
+      }
+    },
+    "Translation unavailable. Install the language pair in Translate settings or enable Apple Intelligence.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation unavailable. Install the language pair in Translate settings or enable Apple Intelligence."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducción no disponible. Instala el par de idiomas en los ajustes de Traducción o activa Apple Intelligence."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

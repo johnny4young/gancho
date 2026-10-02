@@ -43,6 +43,8 @@ public enum TranslationRoute: Sendable, Equatable {
 /// The seams a translation runs through, injectable so routing, fallback,
 /// cancellation and privacy can be tested without language assets or a model.
 public struct TranslationEngines: Sendable {
+    /// Checked again before starting the generative fallback.
+    public var modelAvailable: @Sendable () -> Bool
     /// The dominant language of the text, or nil when it cannot be told.
     public var identifySource: @Sendable (String) -> Locale.Language?
     /// What the platform can do for this pair right now.
@@ -59,8 +61,10 @@ public struct TranslationEngines: Sendable {
             @escaping @Sendable (Locale.Language, Locale.Language) async -> TranslationPairStatus,
         native:
             @escaping @Sendable (String, Locale.Language, Locale.Language) async throws -> String,
-        languageModel: @escaping @Sendable (String, String) async throws -> String
+        languageModel: @escaping @Sendable (String, String) async throws -> String,
+        modelAvailable: @escaping @Sendable () -> Bool = { true }
     ) {
+        self.modelAvailable = modelAvailable
         self.identifySource = identifySource
         self.pairStatus = pairStatus
         self.native = native
@@ -103,5 +107,6 @@ public struct TranslationEngines: Sendable {
             let session = LanguageModelSession(
                 instructions: SmartPasteService.translateInstructions(to: englishName))
             return try await session.respond(to: text).content
-        })
+        },
+        modelAvailable: { SmartPasteService.isAvailable })
 }

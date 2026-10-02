@@ -63,6 +63,7 @@ struct PanelView: View {
     // swiftlint:enable type_body_length
     @Environment(AppModel.self) private var model
     @State private var combinedSelection: CombinedTextSelection?
+    @State private var aiContextSelection: CombinedTextSelection?
     @State private var filterDraft: SmartCollectionRule?
     @FocusState private var focus: PanelFocus?
     /// The search + list state (query, results, filters, selection, paging,
@@ -247,6 +248,9 @@ struct PanelView: View {
         .task { await model.refreshBoards() }
         .sheet(item: $combinedSelection) { selection in
             CombinedTextReview(ids: selection.ids).environment(model)
+        }
+        .sheet(item: $aiContextSelection) { selection in
+            SelectedContextReview(ids: selection.ids).environment(model)
         }
         .sheet(item: $filterDraft) { rule in
             SavedFilterEditor(rule: rule, boards: model.boards) {
@@ -739,6 +743,9 @@ struct PanelView: View {
                 copyCombined: {
                     combinedSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
                 },
+                prepareAIContext: {
+                    aiContextSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
+                },
                 addToStack: { model.pushToStack(search.selectedItems) },
                 addToBoard: presentBoardPicker,
                 delete: { model.delete(search.selectedItems) },
@@ -1127,16 +1134,18 @@ struct PanelView: View {
                 guard let index = search.visibleIndex(of: item.id) else { return }
                 Task { await search.loadMoreIfNeeded(index) }
             }
-            // Single click SELECTS, double-click PASTES; hover no longer moves
-            // the selection (arrows + click only). The select tap is a
-            // `simultaneousGesture` so it fires on the FIRST click without waiting
-            // to see whether a double-click follows — a plain `.onTapGesture`
-            // beside `count: 2` makes SwiftUI delay every single click to
-            // disambiguate, which is what made selection feel laggy.
-            .onTapGesture(count: 2) { model.paste(item) }
+            // Select immediately, but use macOS's click count for activation.
+            // Competing SwiftUI single/double recognizers can lose the second
+            // tap even when AppKit has delivered a native double-click.
             .simultaneousGesture(
                 TapGesture().onEnded {
-                    select(item, toggling: NSEvent.modifierFlags.contains(.command))
+                    if let event = NSApp.currentEvent, event.type == .leftMouseUp,
+                        event.clickCount == 2
+                    {
+                        model.paste(item)
+                    } else {
+                        select(item, toggling: NSEvent.modifierFlags.contains(.command))
+                    }
                 }
             )
             .contextMenu { contextMenu(for: item) }
