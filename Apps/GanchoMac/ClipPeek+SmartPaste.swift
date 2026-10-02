@@ -1,7 +1,6 @@
 import Foundation
 import GanchoAI
 import GanchoDesign
-import OSLog
 import SwiftUI
 
 extension ClipPeek {
@@ -114,18 +113,7 @@ extension ClipPeek {
 
     func translationDiagnosticPhase(_ phase: String) {
         #if DEBUG
-            let arguments = CommandLine.arguments
-            guard arguments.contains("-use-temp-durable-store"),
-                arguments.contains("-ui-test-installed-translation"),
-                let index = arguments.firstIndex(of: "-translation-diagnostic-nonce"),
-                arguments.indices.contains(index + 1),
-                let nonce = UUID(uuidString: arguments[index + 1])
-            else { return }
-            Logger(
-                subsystem: "com.johnny4young.gancho.translation-diagnostic", category: "lifecycle"
-            ).notice(
-                "request \(nonce.uuidString, privacy: .public) uptime \(ProcessInfo.processInfo.systemUptime, privacy: .public) phase \(phase, privacy: .public)"
-            )
+            TranslationDiagnostic.phase(phase)
         #endif
     }
 

@@ -1157,7 +1157,7 @@ final class AppModel {
             if CommandLine.arguments.contains("-ui-test-installed-translation"),
                 CommandLine.arguments.contains("-use-temp-durable-store")
             {
-                return TranslationUITestFixture.engines
+                return TranslationDiagnostic.engines
             }
         #endif
         return .live
