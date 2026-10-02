@@ -37,7 +37,8 @@ public struct ClipDeletionWorkflow: Sendable {
     /// - Parameters:
     ///   - ids: the clips to delete, in the caller's order. Empty is a no-op
     ///     that reports `.deleted(propagated: false)` — nothing failed.
-    ///   - store: the plain local delete used when sync is off.
+    ///   - store: the plain local delete used when sync is off; it still
+    ///     tombstones rows that ever synced, without enqueueing anything.
     ///   - syncStore: the tombstoning surface. Nil means this build has no
     ///     durable store facet, so the plain path runs even with sync on —
     ///     preserving the shells' existing `guard let` behavior rather than

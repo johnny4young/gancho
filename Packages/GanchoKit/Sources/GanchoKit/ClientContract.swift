@@ -126,6 +126,8 @@ public protocol ClipMutating: Sendable {
 
     /// Plain local delete. When sync is active use `deleteForSync(id:now:)`
     /// instead, or the deletion will not propagate to the user's other devices.
+    /// A row that already reached iCloud is still tombstoned here, so turning
+    /// sync back on propagates the deletion instead of resurrecting the row.
     func delete(id: UUID) async throws
 
     /// Records the deletion as a tombstone AND removes the row, so the
@@ -219,7 +221,8 @@ public protocol BoardStoring: Sendable {
 
     /// Deletes a user board; its clips return to plain history (memberships
     /// cascade away, clips are never deleted). No-op on system boards. When
-    /// sync is active use `deletePinboardForSync(id:now:)` instead.
+    /// sync is active use `deletePinboardForSync(id:now:)` instead. A board
+    /// that already reached iCloud takes that tombstoning path here too.
     func deletePinboard(id: UUID) async throws
 
     /// Deletes a board AND records a tombstone so the deletion reaches the

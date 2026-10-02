@@ -489,6 +489,12 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             let hash = try ClipRow
                 .filter(key: id.uuidString)
                 .fetchOne(db)?.contentBlobHash
+            // A row that ever reached iCloud keeps a tombstone even with sync
+            // off, so re-enabling sync cannot resurrect it from the cloud.
+            try db.execute(
+                sql: "INSERT OR REPLACE INTO sync_tombstone (recordID, deletedAt) "
+                    + "SELECT id, ? FROM clip WHERE id = ? AND syncSystemFields IS NOT NULL",
+                arguments: [Date.now, id.uuidString])
             try ClipRow.deleteOne(db, key: id.uuidString)
             return hash
         }
