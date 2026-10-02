@@ -19,7 +19,7 @@ public struct SpotlightEntry: Sendable, Equatable {
 }
 
 /// The system-index writer the service drives. The CoreSpotlight adapter
-/// lives in the app shells; tests use a fake, so the reconcile policy (what
+/// is constructed by the app shells; tests use a fake, so the reconcile policy (what
 /// is donated, when the domain is wiped) is fully unit-testable.
 public protocol SpotlightIndexing: Sendable {
     /// Replace the entire Gancho domain with `entries` (wipe + index).

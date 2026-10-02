@@ -82,6 +82,7 @@ targets:
         PROVISIONING_PROFILE_SPECIFIER: $(GANCHO_PROVISIONING_PROFILE_SPECIFIER)
     sources:
       - path: Apps/GanchoMac
+      - path: Apps/GanchoShared/PlatformDeviceProvenance.swift
     dependencies:
       - package: GanchoKit
         products:
