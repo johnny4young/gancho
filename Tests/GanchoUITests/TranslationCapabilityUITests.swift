@@ -50,6 +50,9 @@ final class TranslationCapabilityUITests: XCTestCase {
         try SynthesizedInput.requireForeground(app)
         app.typeKey(.tab, modifierFlags: [])
         row.click()
+        let panel = app.dialogs["history-panel"].firstMatch
+        XCTAssertTrue(panel.exists)
+        let originalFrame = panel.frame
         let menu = app.descendants(matching: .any).matching(identifier: "smart-paste-menu")
             .firstMatch
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
@@ -71,21 +74,26 @@ final class TranslationCapabilityUITests: XCTestCase {
             identifier: "intelligence-result-text"
         ).firstMatch
         let found = result.waitForExistence(timeout: 5)
-        let panel = app.dialogs["history-panel"].firstMatch
         if !found, panel.exists {
-            let failure = XCTAttachment(screenshot: panel.screenshot())
-            failure.name = "Translation result missing — synthetic"
-            failure.lifetime = .keepAlways
-            add(failure)
+            attachPanelScreenshot(panel, name: "Translation result missing — synthetic")
         }
         XCTAssertTrue(found)
         XCTAssertTrue(
             result.label.contains("Traducción sintética")
                 || (result.value as? String)?.contains("Traducción sintética") == true)
-        let attachment = XCTAttachment(
-            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
-        attachment.name =
-            "Installed translation — synthetic — \(language) — \(extraArguments.joined(separator: " "))"
+        XCTAssertEqual(panel.frame.width, originalFrame.width, accuracy: 1)
+        XCTAssertEqual(panel.frame.height, originalFrame.height, accuracy: 1)
+        attachPanelScreenshot(
+            panel,
+            name:
+                "Installed translation — synthetic — \(language) — \(extraArguments.joined(separator: " "))"
+        )
+    }
+
+    @MainActor
+    private func attachPanelScreenshot(_ panel: XCUIElement, name: String) {
+        let attachment = XCTAttachment(screenshot: panel.screenshot())
+        attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
     }

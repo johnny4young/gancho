@@ -28,6 +28,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   explicitly as a new classified snippet or discard them without restoring it. Library
   loading and safe copying remain available with the in-memory fallback store,
   which does not support snippet persistence.
+- Keep panel sizing under AppKit control to avoid redundant whole-view size
+  measurement delaying translation results, while preserving resize bounds and
+  display preferences.
+
 - Show installed native translation destinations independently of Apple Intelligence, with an unavailable-engine message instead of an empty result.
 - Reject invalid vectors in the in-memory cosine index and select exact top-K
   results without sorting the full corpus. Retrieval preserves tie order and
