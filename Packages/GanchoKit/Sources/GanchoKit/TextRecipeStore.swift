@@ -60,6 +60,9 @@ extension GRDBClipboardStore: TextRecipeStoring {
     }
     public func saveTextRecipe(_ recipe: TextRecipe) async throws {
         try Task.checkCancellation()
+        var normalized = recipe
+        normalized.name = recipe.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let recipe = normalized
         try recipe.validate()
         let data = try JSONEncoder().encode(recipe)
         guard data.count <= 65_536 else { throw TextRecipeError.tooLarge }

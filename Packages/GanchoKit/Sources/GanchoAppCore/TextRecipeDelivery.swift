@@ -26,6 +26,6 @@ import GanchoKit
 public enum TextRecipePreview {
     public static let maximumScalars = 8000
     public static func make(_ text: String) -> String {
-        String(text.unicodeScalars.prefix(maximumScalars))
+        BoundedPreview.make(text, maximumScalars: maximumScalars)
     }
 }

@@ -27,6 +27,14 @@ struct TextRecipeStoreTests {
         #expect(try await store.textRecipes().count == 2)
         #expect(try await store.item(id: clip.id) != nil)
     }
+    @Test func savedNamesDropSurroundingWhitespace() async throws {
+        let store = try store(try DatabaseQueue())
+        let recipe = TextRecipe(
+            name: "  Clean notes \n", steps: [TextActionStep(actionID: "transform.plainText")])
+        try await store.saveTextRecipe(recipe)
+        let saved = try await store.textRecipes().first { $0.id == recipe.id.uuidString }
+        #expect(saved?.recipe?.name == "Clean notes")
+    }
     @Test func reopeningEncryptedStorePreservesEditedDefinitions() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "recipe-restart-\(UUID())")

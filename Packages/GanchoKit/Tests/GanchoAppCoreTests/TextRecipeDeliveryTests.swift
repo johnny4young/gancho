@@ -88,6 +88,10 @@ struct TextRecipeDeliveryTests {
         #expect(original.unicodeScalars.count == 100_001)
         #expect(TextRecipePreview.make("OCR\n  paragraph") == "OCR\n  paragraph")
         #expect(TextRecipePreview.make("").isEmpty)
+        let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}\u{200D}\u{1F466}"
+        let limit = TextRecipePreview.maximumScalars
+        let boundary = String(repeating: "a", count: limit - 2) + family
+        #expect(TextRecipePreview.make(boundary) == String(repeating: "a", count: limit - 2))
     }
 
 }

@@ -86,7 +86,8 @@ struct TextRecipeReview: View {
                 }
                 Button("Cancel", role: .cancel) { pendingSelection = nil }
             }
-            .onChange(of: draft) { _, _ in cancel() }
+            // The result depends only on the steps; renaming keeps it.
+            .onChange(of: draft?.steps) { _, _ in cancel() }
             .onChange(of: model.preferences.isPrivateModePaused) { _, paused in
                 if paused {
                     cancel()
@@ -202,7 +203,7 @@ struct TextRecipeReview: View {
     }
     private func title(_ record: StoredTextRecipe) -> String {
         guard let recipe = record.recipe else { return String(localized: "Damaged recipe") }
-        if TextRecipePresets.all.contains(where: { $0.id == recipe.id && $0.name == recipe.name }) {
+        if isUntouchedPreset(recipe) {
             return String(localized: String.LocalizationValue(recipe.name))
         }
         return recipe.name
@@ -234,8 +235,16 @@ struct TextRecipeReview: View {
     private func applySelection(_ id: String) {
         cancel()
         selectedID = id
-        draft = records.first(where: { $0.id == id })?.recipe
-        savedDraft = draft
+        var recipe = records.first(where: { $0.id == id })?.recipe
+        // An untouched preset shows the same localized name the picker uses.
+        if let preset = recipe, isUntouchedPreset(preset) {
+            recipe?.name = String(localized: String.LocalizationValue(preset.name))
+        }
+        draft = recipe
+        savedDraft = recipe
+    }
+    private func isUntouchedPreset(_ recipe: TextRecipe) -> Bool {
+        TextRecipePresets.all.contains { $0.id == recipe.id && $0.name == recipe.name }
     }
     private func selectNew() {
         cancel()
