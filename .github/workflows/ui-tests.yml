@@ -196,7 +196,7 @@ jobs:
               test_arguments=(-only-testing:GanchoiOSUITests)
               ;;
             feature-stress)
-              test_arguments=(-test-iterations 10 -only-testing:GanchoiOSUITests/TranslationCapabilityUITests)
+              test_arguments=(-test-iterations 10 -only-testing:GanchoiOSUITests/TranslationCapabilityUITests -only-testing:GanchoiOSUITests/ClipTitleEditingUITests)
               ;;
             ios-interaction-stress)
               test_arguments=(-test-iterations 10 -only-testing:GanchoiOSUITests/OutboundPrivacyUITests)

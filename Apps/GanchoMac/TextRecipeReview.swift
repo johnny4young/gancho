@@ -42,40 +42,15 @@ struct TextRecipeReview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Text recipes").panelFont(.headline)
+                .accessibilityIdentifier("text-recipe-title")
             Text("Local recipes. Originals stay unchanged; copying is explicit.").panelFont(
                 .caption)
             Text(
                 "Up to eight steps and 1 MiB per input and result; context formatting allows 64 KiB."
             ).panelFont(.caption)
-            HStack {
-                Picker("Recipe", selection: Binding(get: { selectedID }, set: { select($0) })) {
-                    Text("Choose a recipe").tag("")
-                    ForEach(records) { record in
-                        Text(title(record)).tag(record.id)
-                    }
-                }.accessibilityIdentifier("text-recipe-picker")
-                Button("New recipe") { selectNew() }.disabled(dirty || loading || operation != nil)
-                    .accessibilityIdentifier("text-recipe-new")
-                Button("Delete") { remove() }.disabled(selectedID.isEmpty || operation != nil)
-                    .accessibilityIdentifier("text-recipe-delete")
-            }
-            if draft != nil {
-                editor
-            } else if !selectedID.isEmpty {
-                Text("This definition is damaged. Other recipes are unaffected; you can delete it.")
-                    .foregroundStyle(.orange)
-            }
-            if !model.preferences.isPrivateModePaused, let input {
-                HStack(alignment: .top) {
-                    preview("Before", input, identifier: "text-recipe-before")
-                    preview("After", result ?? "", identifier: "text-recipe-after")
-                }
-                Text("Previews show up to 8,000 characters. Copy includes the complete result.")
-                    .panelFont(.caption).foregroundStyle(.secondary)
-            } else if !loading {
-                Text("This clip is unavailable, protected or not text-backed.").foregroundStyle(
-                    .orange)
-            }
+            ScrollView {
+                recipeContent
+            }.accessibilityIdentifier("text-recipe-content-scroll")
             if failed {
                 Text(
                     "Could not complete this operation. Check the definition, sizes and clip availability, then retry."
@@ -135,6 +110,40 @@ struct TextRecipeReview: View {
                 draft = nil
                 savedDraft = nil
             }
+    }
+
+    private var recipeContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Picker("Recipe", selection: Binding(get: { selectedID }, set: { select($0) })) {
+                    Text("Choose a recipe").tag("")
+                    ForEach(records) { record in
+                        Text(title(record)).tag(record.id)
+                    }
+                }.accessibilityIdentifier("text-recipe-picker")
+                Button("New recipe") { selectNew() }.disabled(dirty || loading || operation != nil)
+                    .accessibilityIdentifier("text-recipe-new")
+                Button("Delete") { remove() }.disabled(selectedID.isEmpty || operation != nil)
+                    .accessibilityIdentifier("text-recipe-delete")
+            }
+            if draft != nil {
+                editor
+            } else if !selectedID.isEmpty {
+                Text("This definition is damaged. Other recipes are unaffected; you can delete it.")
+                    .foregroundStyle(.orange)
+            }
+            if !model.preferences.isPrivateModePaused, let input {
+                HStack(alignment: .top) {
+                    preview("Before", input, identifier: "text-recipe-before")
+                    preview("After", result ?? "", identifier: "text-recipe-after")
+                }
+                Text("Previews show up to 8,000 characters. Copy includes the complete result.")
+                    .panelFont(.caption).foregroundStyle(.secondary)
+            } else if !loading {
+                Text("This clip is unavailable, protected or not text-backed.").foregroundStyle(
+                    .orange)
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var editor: some View {

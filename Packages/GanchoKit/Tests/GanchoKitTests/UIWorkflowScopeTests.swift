@@ -108,7 +108,8 @@ struct UIWorkflowScopeTests {
             #expect(
                 arguments == [
                     "-test-iterations", "10",
-                    "-only-testing:GanchoiOSUITests/TranslationCapabilityUITests"
+                    "-only-testing:GanchoiOSUITests/TranslationCapabilityUITests",
+                    "-only-testing:GanchoiOSUITests/ClipTitleEditingUITests"
                 ])
         case ("ios", "ios-interaction-stress"):
             #expect(exitStatus == 0)

@@ -32,6 +32,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reject invalid vectors in the in-memory cosine index and select exact top-K
   results without sorting the full corpus. Retrieval preserves tie order and
   shares its bounded selector with the stored-vector search.
+- Keep recipe review headings and delivery controls visible while scrolling longer eight-step definitions.
+
 - Bound selected-text row previews by Unicode scalars, so oversized combining
   sequences cannot make a visually short excerpt expensive to render. Full
   reviewed text and delivery limits are unchanged.

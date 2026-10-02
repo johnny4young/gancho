@@ -597,8 +597,18 @@ ordinary 45-minute job. Full suites and the smaller iOS stress job retain their
 45-minute allocation. Test assertions, interaction timeouts, performance budgets
 and raw evidence collection are unchanged.
 
-The integration `feature-stress` scope repeats all seven feature UI suites ten times, plus native translation on iOS. Its 290 macOS cases are allocated 120 minutes, based on the measured individual-suite durations; assertions and interaction timeouts are unchanged. Full-platform UI remains a separate gate.
+The integration `feature-stress` scope repeats all seven feature UI suites ten times, plus native translation and inline-title editing on iOS. Its 300 macOS cases are allocated 120 minutes, based on the measured individual-suite durations; assertions and interaction timeouts are unchanged. Full-platform UI remains a separate gate.
 Meaning-search race tests suspend source responses explicitly and await the captured
 request task through completion before checking stale-delivery invariants. The task
 handle is read-only inside the core module and remains outside its public API;
 fixed scheduler-yield counts do not stand in for completed cancellation.
+
+The recipe feature stress scope also repeats iOS inline-title editing ten times.
+Native text entry is sent character by character and its full field value is
+asserted before Save, so incomplete input cannot masquerade as a persistence
+regression. The saved-title assertion and its deadline remain unchanged.
+
+Recipe UI coverage also executes a visibly changing transform, checks both previews,
+explicitly copies through the isolated test sink, and reopens the original clip to
+verify that neither its text nor the clip count changed. Pure delivery tests verify
+the writer callback and clipboard/privacy race vetoes separately.

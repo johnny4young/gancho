@@ -56,3 +56,10 @@ Preview shaping is bounded to 8,000 Unicode scalars (at most 32 KiB of text),
 not only grapheme count: a single grapheme can contain arbitrarily many combining
 marks. This display-only bound does not alter the input, intermediate results or
 explicitly copied output.
+
+The editor scrolls independently of the heading and delivery controls, so adding
+up to eight steps does not clip the review or make Cancel, Run recipe, and Copy
+result leave the sheet. The appearance matrix checks both the initial preset
+and the eight-step limit at large text size, in English and Spanish. Repeated
+hosted execution has a 90-minute job allocation; individual UI deadlines and
+all latency budgets remain unchanged.
