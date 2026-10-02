@@ -88,6 +88,10 @@ jobs:
               exit 2
               ;;
           esac
+          python3 scripts/translation-latency-probe.py --self-test
+          python3 scripts/translation-latency-probe.py build/translation-samples &
+          diagnostic_pid=$!
+          trap 'kill "$diagnostic_pid" 2>/dev/null || true; wait "$diagnostic_pid" || true' EXIT
           xcodebuild -disableAutomaticPackageResolution \
             test -project Gancho.xcodeproj -scheme Gancho \
             -destination 'platform=macOS,arch=arm64' \
@@ -137,6 +141,7 @@ jobs:
             build/macos-ui.xcresult
             build/macos-ui.log
             build/translation-phases.json
+            build/translation-samples
             build/macos-ui-evidence
           if-no-files-found: warn
           retention-days: 14

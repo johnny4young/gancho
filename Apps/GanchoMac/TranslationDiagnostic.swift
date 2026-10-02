@@ -22,6 +22,7 @@
                     phase("fixture-native-entered")
                     let result = try await base.native(text, source, target)
                     phase("fixture-native-returned")
+                    DispatchQueue.main.async { phase("dispatch-main-resumed") }
                     return result
                 },
                 languageModel: base.languageModel, modelAvailable: base.modelAvailable)
