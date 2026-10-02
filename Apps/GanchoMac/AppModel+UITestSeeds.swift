@@ -23,9 +23,9 @@ extension AppModel {
         return NSPasteboardReader()
     }
 
-    /// Runs every requested `-seed-*` fixture in the original launch order and
-    /// returns the seed tasks the `-open-panel-on-launch` flow awaits
-    /// before showing the panel. A normal launch returns an empty array.
+    /// Runs the denylist fixture synchronously, starts every other requested
+    /// `-seed-*` fixture, and returns the tasks the `-open-panel-on-launch` flow
+    /// awaits before showing the panel. A normal launch returns an empty array.
     func seedUITestFixturesIfRequested() -> [Task<Void, Never>] {
         seedDenylistEntryIfRequested()
         return [

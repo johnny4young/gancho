@@ -16,6 +16,9 @@ struct UIWorkflowScopeTests {
             ))
         #expect(source.contains("case \"$GANCHO_IOS_UI_SCOPE\" in"))
         #expect(source.contains("-only-testing:GanchoiOSUITests/OutboundPrivacyUITests"))
+        let scopedCoverage = source.components(
+            separatedBy: #"echo "Coverage scope: $UI_EVIDENCE_LABEL""#)
+        #expect(scopedCoverage.count == 3, "each coverage summary must name its scope")
     }
 
     private func workflow() throws -> String {

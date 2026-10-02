@@ -24,8 +24,28 @@ struct UITestEvidenceHygieneTests {
                 source.range(of: #"\bXCUIScreen\b"#, options: .regularExpression) == nil,
                 "Use a scoped component in \(file.lastPathComponent)")
             #expect(
-                !source.contains("app.screenshot()"),
+                applicationScreenshot(in: source) == nil,
                 "An application screenshot may contain other apps in \(file.lastPathComponent)")
         }
+    }
+
+    @Test("Application screenshots are found under any receiver name")
+    func applicationScreenshotDetection() {
+        #expect(
+            applicationScreenshot(in: "add(XCTAttachment(screenshot: app.screenshot()))") != nil)
+        #expect(
+            applicationScreenshot(in: "let gancho = XCUIApplication()\n_ = gancho.screenshot()")
+                != nil)
+        #expect(applicationScreenshot(in: "_ = XCUIApplication().screenshot()") != nil)
+        #expect(applicationScreenshot(in: "_ = app.dialogs[\"history-panel\"].screenshot()") == nil)
+    }
+
+    /// Receivers are `app` plus every name bound to `XCUIApplication(...)` in the file.
+    private func applicationScreenshot(in source: String) -> Range<String.Index>? {
+        var receivers = ["app", #"XCUIApplication\([^)]*\)"#]
+        let binding = #/(?:let|var)\s+(\w+)\s*(?::\s*XCUIApplication\s*)?=\s*XCUIApplication\(/#
+        receivers += source.matches(of: binding).map { String($0.1) }
+        let pattern = #"\b(?:"# + receivers.joined(separator: "|") + #")\s*\.screenshot\(\)"#
+        return source.range(of: pattern, options: .regularExpression)
     }
 }

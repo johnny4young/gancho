@@ -201,6 +201,12 @@ one page only for a selection displaced across its boundary, never an unbounded
 scan for a deleted item. A page requested while a refresh runs is deferred and
 loaded once the refresh commits.
 
+Panel rows keep one simultaneous tap recognizer for immediate selection and
+read the current native mouse-up click count for double-click paste. This avoids
+competition between separate single/double SwiftUI recognizers. Native
+regression coverage exercises paste, drag, context menus, range selection and
+gallery switching; seed readiness is a separate boundary.
+
 ## Platform contracts
 
 | Platform family | What is allowed | What is forbidden |
@@ -543,13 +549,8 @@ traces (30-min idle CPU, repeated-round RSS) are reference-Mac evidence.
 Snippet draft edits mark changed shared title/body fields for upload in the same
 transaction as the edit. Keyword-only changes remain local and never clear an
 already-pending upload or advance the shared conflict timestamp. This prevents
-a local keyword edit from masking a newer remote title/body edit. Recovery creates a fresh identity rather than resurrecting
-a deleted row.
-
-Panel rows keep one simultaneous tap recognizer for immediate selection and
-read the current native mouse-up click count for double-click paste. This avoids
-competition between separate single/double SwiftUI recognizers. Native regression coverage exercises paste, drag, context menus,
-range selection and gallery switching; seed readiness is a separate boundary.
+a local keyword edit from masking a newer remote title/body edit. Recovery
+creates a fresh identity rather than resurrecting a deleted row.
 
 ### Native UI evidence privacy
 
