@@ -3,10 +3,13 @@ import XCTest
 final class ReuseSuggestionUITests: XCTestCase {
     @MainActor
     func testThirdPasteOffersOneTapSnippetPromotionAndCapturesEvidence() throws {
+        continueAfterFailure = false
         let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item",
-            "-use-temp-durable-store", "-seed-reuse-suggestion",
+            "-use-temp-durable-store", "-seed-reuse-suggestion", "-start-capture-paused",
+            "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.reuse.\(UUID())",
+            "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
             // A real paste, answered by the sink: the suggestion follows only a
             // posted paste, and the sink never touches the real clipboard.
             "-ui-test-paste-sink", "pasted",
@@ -14,18 +17,25 @@ final class ReuseSuggestionUITests: XCTestCase {
         ]
         app.launch()
         defer { app.terminate() }
+        app.activate()
 
-        let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+        try SynthesizedInput.requireForeground(app)
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row")
+            .matching(NSPredicate(format: "label CONTAINS %@", "Reusable standup update"))
+            .firstMatch
         guard row.waitForExistence(timeout: 10), row.isHittable else {
             throw XCTSkip("seeded panel row is not reachable on this runner")
         }
+        try SynthesizedInput.requireForeground(app)
         row.doubleClick()
 
         let toast = app.descendants(matching: .any)["gancho-toast"].firstMatch
         XCTAssertTrue(toast.waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["Used 3 times — save as a snippet?"].exists)
 
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let toastPanel = app.descendants(matching: .any)["gancho-toast-panel"].firstMatch
+        XCTAssertTrue(toastPanel.exists)
+        let attachment = XCTAttachment(screenshot: toastPanel.screenshot())
         attachment.name = "macOS exact-third-use snippet suggestion"
         attachment.lifetime = .keepAlways
         add(attachment)

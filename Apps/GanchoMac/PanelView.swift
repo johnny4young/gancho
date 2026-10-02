@@ -63,6 +63,7 @@ struct PanelView: View {
     // swiftlint:enable type_body_length
     @Environment(AppModel.self) private var model
     @State private var combinedSelection: CombinedTextSelection?
+    @State private var aiContextSelection: CombinedTextSelection?
     @State private var filterDraft: SmartCollectionRule?
     @FocusState private var focus: PanelFocus?
     /// The search + list state (query, results, filters, selection, paging,
@@ -248,10 +249,24 @@ struct PanelView: View {
         .sheet(item: $combinedSelection) { selection in
             CombinedTextReview(ids: selection.ids).environment(model)
         }
+        .sheet(item: $aiContextSelection) { selection in
+            SelectedContextReview(ids: selection.ids).environment(model)
+        }
         .sheet(item: $filterDraft) { rule in
             SavedFilterEditor(rule: rule, boards: model.boards) {
                 await model.savedFilters.save($0)
             }
+        }
+        .onDisappear { search.cancelMeaningSearch() }
+        .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
+        .onChange(of: model.preferences.isPrivateModePaused) { _, _ in
+            search.cancelMeaningSearch()
+            Task { await search.refresh() }
+        }
+        .onChange(of: model.intelligence.semanticSearch) { _, enabled in
+            search.cancelMeaningSearch()
+            if !enabled { search.meaningEnabled = false }
+            Task { await search.refresh() }
         }
         .onChange(of: search.query) { _, newValue in
             // A new query invalidates a previous answer and drops rail focus
@@ -368,6 +383,13 @@ struct PanelView: View {
             guard let window = notification.object as? NSWindow, model.panel.isPanelWindow(window)
             else { return }
             playEntrance()
+            // Only a meaning search needs restarting; recents refresh on their own.
+            if search.meaningEnabled, !search.query.isEmpty { Task { await search.refresh() } }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidHide)) { notification in
+            guard let window = notification.object as? NSWindow, model.panel.isPanelWindow(window)
+            else { return }
+            search.cancelMeaningSearch()
         }
     }
 
@@ -636,6 +658,10 @@ struct PanelView: View {
                     askRow
                 }
 
+                if model.intelligence.semanticSearch, !model.preferences.isPrivateModePaused {
+                    MeaningSearchControls(search: search)
+                }
+
                 PanelResultsView(
                     query: search.query,
                     hasActiveFilter: search.hasActiveFilter,
@@ -643,6 +669,7 @@ struct PanelView: View {
                     isGroupedView: search.isGroupedView,
                     groups: search.groups,
                     items: search.filtered,
+                    relatedIDs: search.meaning.relatedIDs,
                     selectedID: search.selectedItem?.id,
                     layout: layout,
                     columns: galleryColumns,
@@ -738,6 +765,9 @@ struct PanelView: View {
                 selectionCount: search.selectionCount,
                 copyCombined: {
                     combinedSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
+                },
+                prepareAIContext: {
+                    aiContextSelection = CombinedTextSelection(ids: search.selectedItems.map(\.id))
                 },
                 addToStack: { model.pushToStack(search.selectedItems) },
                 addToBoard: presentBoardPicker,
@@ -1127,16 +1157,18 @@ struct PanelView: View {
                 guard let index = search.visibleIndex(of: item.id) else { return }
                 Task { await search.loadMoreIfNeeded(index) }
             }
-            // Single click SELECTS, double-click PASTES; hover no longer moves
-            // the selection (arrows + click only). The select tap is a
-            // `simultaneousGesture` so it fires on the FIRST click without waiting
-            // to see whether a double-click follows — a plain `.onTapGesture`
-            // beside `count: 2` makes SwiftUI delay every single click to
-            // disambiguate, which is what made selection feel laggy.
-            .onTapGesture(count: 2) { model.paste(item) }
+            // Select immediately, but use macOS's click count for activation.
+            // Competing SwiftUI single/double recognizers can lose the second
+            // tap even when AppKit has delivered a native double-click.
             .simultaneousGesture(
                 TapGesture().onEnded {
-                    select(item, toggling: NSEvent.modifierFlags.contains(.command))
+                    if let event = NSApp.currentEvent, event.type == .leftMouseUp,
+                        event.clickCount == 2
+                    {
+                        model.paste(item)
+                    } else {
+                        select(item, toggling: NSEvent.modifierFlags.contains(.command))
+                    }
                 }
             )
             .contextMenu { contextMenu(for: item) }

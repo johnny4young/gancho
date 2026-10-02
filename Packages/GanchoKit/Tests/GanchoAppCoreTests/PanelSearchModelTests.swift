@@ -8,7 +8,14 @@ import Testing
 /// run without a real store. It slices `recent` into pages exactly like the
 /// GRDB `recentForBrowse`, so pagination boundaries (reachedEnd, mid-scroll
 /// guard) are exercised honestly.
-@MainActor private final class FakeSource: PanelSearchSource {
+@MainActor private final class FakeSource: PanelSearchSource, MeaningSearchSource {
+    var related: [ClipItem] = []
+    var lastRelatedQuery: ClipSearchQuery?
+    func relatedItems(for query: ClipSearchQuery) async throws -> MeaningSearchResponse {
+        lastRelatedQuery = query
+        return MeaningSearchResponse(
+            items: related, coverage: SemanticIndexCoverage(eligible: 3, indexed: 3))
+    }
     var isDurable = true
     var recent: [ClipItem] = []
     var searchResults: [ClipItem] = []
@@ -17,6 +24,7 @@ import Testing
     var pending: Set<UUID> = []
     var sourceApps: [ClipSourceApp] = []
     var lastSearchQuery: ClipSearchQuery?
+    var onSearch: (() -> Void)?
     /// Runs inside `boardItems` — lets a test mutate the model "during" the
     /// await, to exercise the stale-page guard.
     var onBoardItems: (() -> Void)?
@@ -33,6 +41,7 @@ import Testing
     }
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
         lastSearchQuery = query
+        onSearch?()
         return Array(searchResults.prefix(limit))
     }
     func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
@@ -78,6 +87,49 @@ struct PanelSearchModelTests {
         source.resetDeletionPendingCalls()
         for _ in 0..<1_000 { #expect(model.visibleIndex(of: first.id) == 0) }
         #expect(source.deletionPendingCalls == 0)
+    }
+
+    @Test func relatedArrivalPreservesConventionalOrderAndSelectedUUID() async {
+        let source = FakeSource()
+        source.searchResults = items(2)
+        let related = ClipItem(preview: "Related synthetic clip")
+        source.related = [source.searchResults[0], related]
+        let model = PanelSearchModel(source: source)
+        model.query = "synthetic"
+        model.meaningEnabled = true
+        await model.refresh()
+        let literalIDs = model.results.map(\.id)
+        let selectedID = model.selectedItem?.id
+        for _ in 0..<10_000 {
+            if model.meaning.status == .ready { break }
+            await Task.yield()
+        }
+        #expect(model.meaning.status == .ready)
+        #expect(Array(model.results.prefix(literalIDs.count)).map(\.id) == literalIDs)
+        #expect(model.meaning.relatedIDs == [related.id])
+        #expect(model.selectedItem?.id == selectedID)
+        #expect(model.results.count == literalIDs.count + 1)
+    }
+
+    @Test func relatedArrivalDoesNotInventASelectionWhenLiteralResultsAreEmpty() async {
+        let source = FakeSource()
+        let item = ClipItem(preview: "Synthetic related result")
+        source.related = [item]
+        let model = PanelSearchModel(source: source)
+        model.query = "unmatched"
+        model.meaningEnabled = true
+        await model.refresh()
+        #expect(model.selectedItem == nil)
+        for _ in 0..<10_000 {
+            if model.meaning.status == .ready { break }
+            await Task.yield()
+        }
+        #expect(model.meaning.status == .ready)
+        #expect(model.selectedItem == nil)
+        #expect(model.selectionCount == 0)
+        model.moveSelection(by: 1, extending: false)
+        #expect(model.selectedItem?.id == item.id)
+        #expect(model.selectionCount == 1)
     }
 
     // MARK: - Recent load + pagination
@@ -474,4 +526,57 @@ struct PanelSearchModelTests {
         await model.refresh()
         #expect(model.results.map(\.preview) == ["alpha beta"])
     }
+}
+
+extension PanelSearchModelTests {
+    @Test(arguments: [false, true])
+    func cancelledMeaningIntentDuringConventionalReadDoesNotStartLater(navigate: Bool) async {
+        let source = FakeSource()
+        let literal = ClipItem(preview: "Synthetic literal")
+        source.searchResults = [literal]
+        source.related = [ClipItem(preview: "Synthetic related")]
+        let model = PanelSearchModel(source: source)
+        model.query = "synthetic"
+        model.results = [literal]
+        model.meaningEnabled = true
+        source.onSearch = {
+            if navigate { model.select(0) } else { model.cancelMeaningSearch() }
+        }
+        await model.refresh()
+        #expect(model.results.map(\.id) == [literal.id])
+        #expect(model.meaning.status == .idle)
+        await Task.yield()
+        #expect(source.lastRelatedQuery == nil)
+    }
+
+    @Test func sameQueryRefreshRestoresSelectedRelatedUUIDAfterRankingChanges() async {
+        let source = FakeSource()
+        let first = ClipItem(preview: "First synthetic related")
+        let second = ClipItem(preview: "Second synthetic related")
+        source.related = [first, second]
+        let model = PanelSearchModel(source: source)
+        model.query = "unmatched"
+        model.meaningEnabled = true
+        await model.refresh()
+        for _ in 0..<10_000 {
+            if model.meaning.status == .ready { break }
+            await Task.yield()
+        }
+        #expect(model.meaning.status == .ready)
+        model.select(0)
+        #expect(model.selectedItem?.id == first.id)
+        source.related = [second, first]
+        source.onSearch = {
+            #expect(model.meaning.relatedIDs == [first.id, second.id])
+        }
+        await model.refresh()
+        for _ in 0..<10_000 {
+            if model.meaning.status == .ready { break }
+            await Task.yield()
+        }
+        #expect(model.meaning.status == .ready)
+        #expect(model.selectedItem?.id == first.id)
+        #expect(model.selectedIndex == 1)
+    }
+
 }

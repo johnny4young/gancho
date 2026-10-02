@@ -91,6 +91,8 @@ final class AppModel {
     /// and sent readers looking for GRDB APIs that are not on it. The concrete
     /// handle is the next property, and it says so.
     let fullStore: (any FullClipStore)?
+    var textReuseReader: (any ClipReading)? { fullStore }
+    var textRecipeStore: (any TextRecipeStoring)? { fullStore }
     /// Narrow concrete handle kept ONLY to construct in-module engines
     /// (`RetentionEngine`, `TierEnforcement`, `GanchoArchive`), to feed
     /// `SyncEngineFactory`, and to reach the MCP access log / sync-internal
@@ -683,7 +685,8 @@ final class AppModel {
 
     // MARK: - Capture pipeline
 
-    func ingest(_ capture: PasteboardCapture) {
+    @discardableResult
+    func ingest(_ capture: PasteboardCapture) -> Task<Void, Never>? {
         // Universal Clipboard delivers a copy made on another device. If that
         // device runs gancho it captures and syncs the original — already
         // enriched (title/OCR) — so re-capturing the remote copy here only
@@ -691,8 +694,8 @@ final class AppModel {
         // isn't gancho, the user never chose to save it. Either way, skip it;
         // this also keeps cross-device capture consistent with iOS's consensual
         // model (the origin device decides, the rest receive via sync).
-        guard !capture.isFromUniversalClipboard else { return }
-        Task {
+        guard !capture.isFromUniversalClipboard else { return nil }
+        return Task {
             let configuration = ClipIngestionCoordinator.Configuration(
                 sensitiveLifetime: retentionPolicy.sensitiveLifetime,
                 detectSecrets: intelligence.detectSecrets,
@@ -1141,18 +1144,34 @@ final class AppModel {
         intelligence.smartPaste
     }
 
-    /// Model-backed rewrites and translations require Apple Intelligence in
+    /// Model-backed rewrites require Apple Intelligence in
     /// addition to the user's Smart Paste opt-in.
     var smartPasteModelAvailable: Bool {
-        intelligence.smartPaste && ClipIntelligenceFacade.modelAvailable
+        intelligence.smartPaste && translationEngines.modelAvailable()
     }
 
     func smartPaste(_ text: String, action: SmartPasteAction) async -> String? {
         await intelligenceFacade.transform(text, action: action)
     }
 
+    private var translationEngines: TranslationEngines {
+        #if DEBUG
+            if CommandLine.arguments.contains("-ui-test-installed-translation"),
+                CommandLine.arguments.contains("-use-temp-durable-store")
+            {
+                return TranslationUITestFixture.engines
+            }
+        #endif
+        return .live
+    }
+
+    func translationDestinations(_ text: String) async throws -> [TranslationDestination] {
+        try await intelligenceFacade.translationDestinations(
+            text, enabled: smartPasteAvailable, engines: translationEngines)
+    }
+
     func smartTranslate(_ text: String, to target: Locale.Language) async -> String? {
-        await intelligenceFacade.translate(text, to: target)
+        await intelligenceFacade.translate(text, to: target, engines: translationEngines)
     }
 
     // MARK: - Ask your clipboard (grounded on-device QA)
@@ -1414,6 +1433,20 @@ final class AppModel {
         return grant
     }
 
+    func createSelectedContextGrant(
+        _ context: PreparedSelectedContext, clientName: String
+    ) throws -> MCPClientGrant {
+        guard !preferences.isPrivateModePaused,
+            pendingDeletionIDs.isDisjoint(with: context.manifest.orderedIDs)
+        else { throw SelectedContextError.incompatibleSelection }
+        let grant = try SelectedContextDelivery.grant(for: context, clientName: clientName)
+        mcpConfig = try MCPServerConfig.update(in: mcpConfigDirectory) { config in
+            config.isEnabled = true
+            config.grants.append(grant)
+        }
+        return grant
+    }
+
     func revokeMCPGrant(id: UUID) {
         updateMCPConfig { config in
             guard let index = config.grants.firstIndex(where: { $0.id == id }) else { return }
@@ -1422,11 +1455,8 @@ final class AppModel {
     }
 
     private func updateMCPConfig(_ mutate: (inout MCPServerConfig) -> Void) {
-        var config = mcpConfig
-        mutate(&config)
         do {
-            try config.save(toStoreDirectory: mcpConfigDirectory)
-            mcpConfig = config
+            mcpConfig = try MCPServerConfig.update(in: mcpConfigDirectory, mutate)
         } catch {
             // A failed save leaves the in-memory config untouched, so the row
             // simply does not change state. Without a toast that is
