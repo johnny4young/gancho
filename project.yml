@@ -200,6 +200,8 @@ targets:
         products:
           - GanchoKit
           - GanchoMCP
+          - GanchoAI
+          - ClipboardCore
 
   GanchoMenuBarHelper:
     type: tool

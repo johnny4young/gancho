@@ -659,7 +659,8 @@ final class AppModel {
                 // Reclaims blobs a crash or an interrupted write left behind;
                 // the age gate spares files an in-flight write still needs.
                 MaintenanceStep("orphaned-blob-sweep") {
-                    try? await grdb.removeOrphanedBlobs(olderThan: .now.addingTimeInterval(-3_600))
+                    _ = try? await grdb.removeOrphanedBlobs(
+                        olderThan: .now.addingTimeInterval(-3_600))
                 }
             ]
             Task(priority: .utility) { await MaintenanceRunner().run(steps) }
