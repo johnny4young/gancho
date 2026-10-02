@@ -263,8 +263,9 @@ struct PanelView: View {
             search.cancelMeaningSearch()
             Task { await search.refresh() }
         }
-        .onChange(of: model.intelligence.semanticSearch) { _, _ in
+        .onChange(of: model.intelligence.semanticSearch) { _, enabled in
             search.cancelMeaningSearch()
+            if !enabled { search.meaningEnabled = false }
             Task { await search.refresh() }
         }
         .onChange(of: search.query) { _, newValue in
@@ -382,7 +383,8 @@ struct PanelView: View {
             guard let window = notification.object as? NSWindow, model.panel.isPanelWindow(window)
             else { return }
             playEntrance()
-            Task { await search.refresh() }
+            // Only a meaning search needs restarting; recents refresh on their own.
+            if search.meaningEnabled, !search.query.isEmpty { Task { await search.refresh() } }
         }
         .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidHide)) { notification in
             guard let window = notification.object as? NSWindow, model.panel.isPanelWindow(window)
@@ -656,7 +658,9 @@ struct PanelView: View {
                     askRow
                 }
 
-                MeaningSearchControls(search: search)
+                if model.intelligence.semanticSearch, !model.preferences.isPrivateModePaused {
+                    MeaningSearchControls(search: search)
+                }
 
                 PanelResultsView(
                     query: search.query,

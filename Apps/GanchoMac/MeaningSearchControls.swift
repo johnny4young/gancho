@@ -11,18 +11,22 @@ struct MeaningSearchControls: View {
                 .accessibilityIdentifier("meaning-search-toggle")
             if search.meaningEnabled {
                 if search.meaning.status == .loading { ProgressView().controlSize(.mini) }
-                Text(statusLabel)
-                    .panelFont(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("meaning-search-status")
+                if let statusLabel {
+                    Text(statusLabel)
+                        .panelFont(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("meaning-search-status")
+                }
             }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, GanchoTokens.Spacing.sm)
     }
-    private var statusLabel: LocalizedStringKey {
+    private var statusLabel: LocalizedStringKey? {
         switch search.meaning.status {
-        case .idle: "Enter a search; regex uses conventional results only."
+        case .idle:
+            // Navigation cancels a pending request; the query is already there.
+            search.query.isEmpty ? "Enter a search; regex uses conventional results only." : nil
         case .loading: "Finding related clips…"
         case .ready: "Related suggestions may include weak matches."
         case .incomplete: "Some clips are not indexed; conventional search remains complete."
