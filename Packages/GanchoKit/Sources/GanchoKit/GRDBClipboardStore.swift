@@ -213,6 +213,17 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         /// already-encrypted store (random header bytes).
         static func encryptPlaintextStoreIfNeeded(at path: String, passphrase: String) throws {
             let fileManager = FileManager.default
+            let encryptedPath = path + ".encrypting"
+            // An earlier swap that stopped after dropping the plaintext file
+            // left the finished export behind: publish it instead of starting
+            // over with an empty store.
+            if !fileManager.fileExists(atPath: path), fileManager.fileExists(atPath: encryptedPath)
+            {
+                try? fileManager.removeItem(atPath: path + "-wal")
+                try? fileManager.removeItem(atPath: path + "-shm")
+                try fileManager.moveItem(atPath: encryptedPath, toPath: path)
+                return
+            }
             guard fileManager.fileExists(atPath: path) else { return }  // fresh install
 
             // A plaintext database starts with the 16-byte SQLite magic header;
@@ -222,7 +233,6 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             try handle.close()
             guard header == Data("SQLite format 3\u{0}".utf8) else { return }  // already encrypted
 
-            let encryptedPath = path + ".encrypting"
             try? fileManager.removeItem(atPath: encryptedPath)
             // Scope the plaintext connection so it closes before the file swap.
             do {
@@ -238,12 +248,13 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 }
             }
 
-            // Swap the encrypted file in, dropping the plaintext file and any
-            // stale WAL/SHM siblings that belong to the old database.
-            try fileManager.removeItem(atPath: path)
+            // Drop the old database's WAL/SHM first so they can never pair
+            // with the encrypted file, then swap it in with one rename: the
+            // plaintext file stays in place until the export replaces it.
             try? fileManager.removeItem(atPath: path + "-wal")
             try? fileManager.removeItem(atPath: path + "-shm")
-            try fileManager.moveItem(atPath: encryptedPath, toPath: path)
+            try AtomicFileReplace.publish(
+                staged: URL(fileURLWithPath: encryptedPath), as: URL(fileURLWithPath: path))
         }
     #endif
 
