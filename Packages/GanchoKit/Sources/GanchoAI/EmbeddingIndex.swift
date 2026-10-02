@@ -1,5 +1,6 @@
 import Accelerate
 import Foundation
+import GanchoKit
 import NaturalLanguage
 
 /// Sentence-level text embedding boundary. Implementations are NOT required
@@ -82,13 +83,13 @@ public struct EmbeddingIndex: Sendable {
     }
 
     /// Inserts a vector, normalizing it so search is a pure dot product.
-    /// Zero vectors are rejected (`noVectors`) — they would NaN the scores.
+    /// Zero, non-finite, and overflowing norms are rejected (`noVectors`).
     public mutating func insert(id: UUID, vector: [Float]) throws {
         guard vector.count == dimension else {
             throw EmbeddingError.dimensionMismatch(expected: dimension, got: vector.count)
         }
         let norm = sqrt(vDSP.sumOfSquares(vector))
-        guard norm > 0 else { throw EmbeddingError.noVectors }
+        guard norm > 0, norm.isFinite else { throw EmbeddingError.noVectors }
         ids.append(id)
         storage.append(contentsOf: vDSP.divide(vector, norm))
     }
@@ -100,10 +101,12 @@ public struct EmbeddingIndex: Sendable {
         }
         guard !ids.isEmpty, topK > 0 else { return [] }
         let norm = sqrt(vDSP.sumOfSquares(query))
-        guard norm > 0 else { throw EmbeddingError.noVectors }
+        guard norm > 0, norm.isFinite else { throw EmbeddingError.noVectors }
         let unit = vDSP.divide(query, norm)
 
-        var scores = [Float](repeating: 0, count: ids.count)
+        var top = BoundedTopK<(row: Int, score: Float)>(limit: topK) {
+            $0.score == $1.score ? $0.row < $1.row : $0.score > $1.score
+        }
         storage.withUnsafeBufferPointer { flat in
             unit.withUnsafeBufferPointer { q in
                 for row in 0..<ids.count {
@@ -111,15 +114,11 @@ public struct EmbeddingIndex: Sendable {
                     vDSP_dotpr(
                         flat.baseAddress! + row * dimension, 1,
                         q.baseAddress!, 1, &dot, vDSP_Length(dimension))
-                    scores[row] = dot
+                    top.insert((row, dot))
                 }
             }
         }
 
-        return
-            zip(ids, scores)
-            .sorted { $0.1 > $1.1 }
-            .prefix(topK)
-            .map { (id: $0.0, score: $0.1) }
+        return top.sorted.map { (id: ids[$0.row], score: $0.score) }
     }
 }

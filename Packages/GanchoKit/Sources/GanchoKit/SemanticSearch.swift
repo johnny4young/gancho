@@ -83,7 +83,7 @@ extension GRDBClipboardStore {
         // and the dot product reads the BLOB's bytes where they already are,
         // so the resident cost is one row plus the scores.
         let scored = try await writer.read { db -> [SemanticCandidate] in
-            var scored: [SemanticCandidate] = []
+            var top = BoundedTopK<SemanticCandidate>(limit: topK, by: Self.candidatePrecedes)
             let scope = Self.semanticScope(query, snippetsOnly: snippetsOnly)
             let cursor = try Row.fetchCursor(
                 db,
@@ -121,18 +121,10 @@ extension GRDBClipboardStore {
                     }
                 }
                 if let score {
-                    let candidate = SemanticCandidate(
-                        id: id, score: score, updatedAt: row["updatedAt"])
-                    if scored.count < topK {
-                        scored.append(candidate)
-                        scored.sort(by: Self.candidatePrecedes)
-                    } else if Self.candidatePrecedes(candidate, scored[topK - 1]) {
-                        scored[topK - 1] = candidate
-                        scored.sort(by: Self.candidatePrecedes)
-                    }
+                    top.insert(SemanticCandidate(id: id, score: score, updatedAt: row["updatedAt"]))
                 }
             }
-            return scored
+            return top.sorted
         }
         try Task.checkCancellation()
         guard !scored.isEmpty else { return [] }
@@ -172,7 +164,7 @@ extension GRDBClipboardStore {
         let updatedAt: Date
     }
 
-    private static func candidatePrecedes(
+    static func candidatePrecedes(
         _ left: SemanticCandidate, _ right: SemanticCandidate
     ) -> Bool {
         left.score == right.score ? left.id < right.id : left.score > right.score
