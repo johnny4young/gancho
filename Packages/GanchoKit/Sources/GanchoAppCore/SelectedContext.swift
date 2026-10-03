@@ -28,7 +28,7 @@ public struct SelectedContextManifest: Codable, Sendable, Equatable {
 public struct PreparedSelectedContext: Sendable, Equatable {
     public let manifest: SelectedContextManifest
     public let markdown: String
-    /// The reviewed `contentHash` per clip, filled by `SelectedContextDelivery`
+    /// The reviewed `contextRevision` per clip, filled by `SelectedContextDelivery`
     /// so a grant authorizes these revisions rather than bare ids.
     public internal(set) var revisions: [UUID: String] = [:]
 }
@@ -105,7 +105,7 @@ public enum SelectedContextFormatter {
         of ids: [UUID], in store: any ClipReading
     ) async throws -> [UUID: String] {
         Dictionary(
-            try await store.items(ids: ids).map { ($0.id, $0.contentHash) },
+            try await store.items(ids: ids).map { ($0.id, $0.contextRevision) },
             uniquingKeysWith: { first, _ in first })
     }
 

@@ -32,18 +32,22 @@ struct MCPAccessScopeTests {
         #expect(!pack.contains(item: old, boardIDs: [boardID], now: now))
     }
 
-    @Test("a revision-bound pack rejects a clip whose content changed after review")
+    @Test("a revision-bound pack rejects a clip changed after review")
     func revisionBoundPack() throws {
         let now = Date(timeIntervalSince1970: 100_000)
         let reviewed = ClipItem(createdAt: now, contentHash: "reviewed")
         var edited = reviewed
         edited.contentHash = "edited"
+        // A text edit keeps the dedupe hash but always advances updatedAt.
+        var editedInPlace = reviewed
+        editedInPlace.updatedAt = now.addingTimeInterval(1)
         let pack = MCPContextPack(
             name: "Selected", clipIDs: [reviewed.id],
-            clipRevisions: [reviewed.id.uuidString: "reviewed"])
+            clipRevisions: [reviewed.id.uuidString: reviewed.contextRevision])
 
         #expect(pack.contains(item: reviewed, boardIDs: [], now: now))
         #expect(!pack.contains(item: edited, boardIDs: [], now: now))
+        #expect(!pack.contains(item: editedInPlace, boardIDs: [], now: now))
 
         let legacyJSON = Data(
             #"{"name":"Old","clipIDs":["\#(reviewed.id.uuidString)"],"timeScope":"all-time"}"#.utf8)

@@ -467,11 +467,11 @@ public actor CKSyncEngineAdapter: SyncEngine {
         return engine
     }
 
+    var hasLiveEngine: Bool { engine != nil }
+
     /// The engine's persisted state, or nil to start from scratch. State that
     /// no longer decodes is not fatal (the engine re-fetches everything), but
     /// a full re-fetch must not happen without a trace.
-    var hasLiveEngine: Bool { engine != nil }
-
     func loadSerialization() -> CKSyncEngine.State.Serialization? {
         guard let data = stateStore.load() else { return nil }
         do {

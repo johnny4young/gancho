@@ -115,9 +115,9 @@ stop a client. Disabling MCP remains a global emergency stop.
 
 Selected text clips can be reviewed and copied as bounded Markdown, with an
 optional read-only grant limited to exactly those clips that expires after one
-hour. A clip edited after the grant stops being served. Archived and expired
-clips are treated as missing by every MCP read. See
-[docs/SELECTED-CONTEXT.md](SELECTED-CONTEXT.md).
+hour. A clip that changes after the grant (an edit, a title or a pin) stops
+being served until you grant it again. Archived and expired clips are treated
+as missing by every MCP read. See [docs/SELECTED-CONTEXT.md](SELECTED-CONTEXT.md).
 
 ---
 

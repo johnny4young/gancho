@@ -54,7 +54,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hide expired clips from lists, search, counts, content reads and MCP right
   away instead of waiting for the next purge, and treat archived clips as
   missing over MCP. Metadata-scope MCP search matches only titles and previews,
-  and selected-context grants stop serving a clip edited after review.
+  and selected-context grants stop serving a clip changed after review.
 
 - Remove blobs, thumbnails and semantic vectors together with their clip,
   including remote deletions, and sweep orphaned blobs after launch on the Mac.

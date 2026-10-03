@@ -125,16 +125,20 @@ struct ClipExporterTests {
             id: "00000000-0000-0000-0000-000000000002", title: "Sum",
             contentText: "=SUM(A1:A2)")
         pinned.isPinned = true
+        let quoted = row(
+            id: "00000000-0000-0000-0000-000000000003", title: "Quoted",
+            contentText: "'=literal")
         let csv =
             ClipExporter.csvHeader + ClipExporter.csvLine(for: row())
-            + ClipExporter.csvLine(for: pinned)
+            + ClipExporter.csvLine(for: pinned) + ClipExporter.csvLine(for: quoted)
 
         let document = try ClipImporter.readCSV(Data(csv.utf8))
 
         #expect(
             document.candidates == [
                 ClipImporter.Candidate(text: "plain", title: "t"),
-                ClipImporter.Candidate(text: "=SUM(A1:A2)", title: "Sum", isPinned: true)
+                ClipImporter.Candidate(text: "=SUM(A1:A2)", title: "Sum", isPinned: true),
+                ClipImporter.Candidate(text: "'=literal", title: "Quoted")
             ])
     }
 }

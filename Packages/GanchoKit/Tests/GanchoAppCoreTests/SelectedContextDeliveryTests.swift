@@ -55,10 +55,13 @@ struct SelectedContextDeliveryTests {
         #expect(probe.delivered.count == 1)
         #expect(probe.delivered.first?.manifest.orderedIDs == expected.map(\.id))
         let prepared = try #require(probe.delivered.first)
-        #expect(prepared.revisions == [expected[0].id: "context-synthetic"])
+        let reviewed = try #require(try await reader.item(id: expected[0].id))
+        #expect(prepared.revisions == [expected[0].id: reviewed.contextRevision])
         let grant = try SelectedContextDelivery.grant(for: prepared, clientName: "Client")
         #expect(
-            grant.contextPack?.clipRevisions == [expected[0].id.uuidString: "context-synthetic"])
+            grant.contextPack?.clipRevisions == [
+                expected[0].id.uuidString: reviewed.contextRevision
+            ])
     }
 
     @Test(arguments: [ContextDeliveryReader.Mutation.removed, .protected, .expired, .edited])

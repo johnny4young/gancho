@@ -53,7 +53,7 @@ enum ClipExporter {
     /// Inverse of the formula guard in ``csvEscape(_:)``, for re-importing an export.
     static func removingFormulaGuard(_ field: String) -> String {
         guard field.hasPrefix("'"), let next = field.dropFirst().first,
-            formulaTriggers.contains(next)
+            formulaTriggers.contains(next) || next == "'"
         else { return field }
         return String(field.dropFirst())
     }
@@ -67,7 +67,9 @@ enum ClipExporter {
         // in Excel/Numbers/Sheets. Neutralize with a leading apostrophe —
         // spreadsheets then render the field as literal text.
         var field = field
-        if let first = field.first, formulaTriggers.contains(first) {
+        // A leading apostrophe is guarded too, so the import can always tell
+        // the guard from text that genuinely starts with one.
+        if let first = field.first, formulaTriggers.contains(first) || first == "'" {
             field = "'" + field
         }
         guard field.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else {

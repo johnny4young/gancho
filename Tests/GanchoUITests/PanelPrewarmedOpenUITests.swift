@@ -23,26 +23,30 @@ final class PanelPrewarmedOpenUITests: XCTestCase {
         GanchoUITestCommands.post("openPanel", token: token)
         let panel = app.descendants(matching: .any)["history-panel"].firstMatch
         XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        // Rows are matched by label: the row id also reaches its child texts.
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        XCTAssertTrue(rows.element(boundBy: 2).waitForExistence(timeout: 10))
-        let newest = rows.element(boundBy: 0)
+        let newest = rows.matching(NSPredicate(format: "label CONTAINS %@", "Xcode source sample"))
+            .firstMatch
+        let second = rows.matching(NSPredicate(format: "label CONTAINS %@", "Safari source link"))
+            .firstMatch
+        XCTAssertTrue(newest.waitForExistence(timeout: 10))
+        XCTAssertTrue(second.exists)
         XCTAssertTrue(newest.isSelected, "the first open selects the newest clip")
-        let newestLabel = newest.label
 
         let search = app.textFields["search-field"].firstMatch
         try SynthesizedInput.requireForeground(app)
         XCTAssertTrue(SynthesizedInput.waitForKeyboardFocus(search, timeout: 5))
         search.typeKey(.downArrow, modifierFlags: [])
-        XCTAssertTrue(rows.element(boundBy: 1).isSelected, "arrows move from the newest clip")
+        XCTAssertTrue(second.isSelected, "arrows move from the newest clip")
+        XCTAssertFalse(newest.isSelected)
 
         search.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
         GanchoUITestCommands.post("openPanel", token: token)
         XCTAssertTrue(panel.waitForExistence(timeout: 5))
-        let reopened = rows.element(boundBy: 0)
-        XCTAssertTrue(reopened.waitForExistence(timeout: 5))
-        XCTAssertEqual(reopened.label, newestLabel)
-        XCTAssertTrue(reopened.isSelected, "a reopen starts from the newest clip again")
+        XCTAssertTrue(newest.waitForExistence(timeout: 5))
+        XCTAssertTrue(newest.isSelected, "a reopen starts from the newest clip again")
+        XCTAssertFalse(second.isSelected)
         XCTAssertTrue(
             SynthesizedInput.waitForKeyboardFocus(search, timeout: 5),
             "a reopen focuses the search field")

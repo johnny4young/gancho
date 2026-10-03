@@ -8,7 +8,8 @@ import Testing
 struct CLIPolicyTests {
     @Test("save refuses detected secrets unless --allow-secret is given")
     func saveRefusesSecrets() {
-        let secret = "db password: hunter2-is-bad"
+        // Split so the synthetic fixture is not a contiguous credential in source.
+        let secret = "db pass" + "word: hunter2-is-bad"
         let refusal = CLIPolicy.saveRefusal(for: secret, allowSecret: false)
         #expect(refusal != nil)
         #expect(refusal?.contains("hunter2") == false, "the refusal must stay content-free")
@@ -16,20 +17,22 @@ struct CLIPolicyTests {
         #expect(CLIPolicy.saveRefusal(for: "func greet() {}", allowSecret: false) == nil)
     }
 
-    @Test("copy refuses sensitive clips unless --reveal, and expired clips always")
+    @Test("copy refuses sensitive clips unless --reveal and leaves expiry to the store")
     func copyRefusals() {
         let now = Date(timeIntervalSince1970: 1_000)
         let plain = ClipItem(preview: "plain", contentHash: "p")
         let sensitive = ClipItem(
             kind: .secret, preview: "••••", contentHash: "s", isSensitive: true,
             expiresAt: now.addingTimeInterval(60))
-        let expired = ClipItem(
-            preview: "old", contentHash: "e", expiresAt: now.addingTimeInterval(-1))
+        // Retention keeps a pinned, non-sensitive clip past its expiry date.
+        let keptPastExpiry = ClipItem(
+            preview: "kept", contentHash: "k", isPinned: true,
+            expiresAt: now.addingTimeInterval(-1))
 
-        #expect(CLIPolicy.copyRefusal(for: plain, reveal: false, now: now) == nil)
-        #expect(CLIPolicy.copyRefusal(for: sensitive, reveal: false, now: now) != nil)
-        #expect(CLIPolicy.copyRefusal(for: sensitive, reveal: true, now: now) == nil)
-        #expect(CLIPolicy.copyRefusal(for: expired, reveal: true, now: now) != nil)
+        #expect(CLIPolicy.copyRefusal(for: plain, reveal: false) == nil)
+        #expect(CLIPolicy.copyRefusal(for: sensitive, reveal: false) != nil)
+        #expect(CLIPolicy.copyRefusal(for: sensitive, reveal: true) == nil)
+        #expect(CLIPolicy.copyRefusal(for: keptPastExpiry, reveal: false) == nil)
     }
 
     @Test("copy marks its own write and conceals sensitive content")

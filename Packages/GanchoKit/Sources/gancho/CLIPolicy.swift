@@ -15,12 +15,10 @@ enum CLIPolicy {
             + "pass --allow-secret to save it anyway."
     }
 
-    /// Why `gancho copy` refuses `item`, or nil when it may be copied.
-    /// Expired clips stay unavailable even with `--reveal`.
-    static func copyRefusal(for item: ClipItem, reveal: Bool, now: Date = .now) -> String? {
-        if let expiresAt = item.expiresAt, expiresAt <= now {
-            return "Clip \(item.id.uuidString) has expired."
-        }
+    /// Why `gancho copy` refuses `item`, or nil when it may be copied. Expiry
+    /// is the store's call: `content(for:)` hides exactly the rows retention
+    /// will purge, while pinned, board and snippet clips stay copyable.
+    static func copyRefusal(for item: ClipItem, reveal: Bool) -> String? {
         if ClipSafePresentation.requiresMasking(item), !reveal {
             return "Clip \(item.id.uuidString) is sensitive; pass --reveal to copy it."
         }

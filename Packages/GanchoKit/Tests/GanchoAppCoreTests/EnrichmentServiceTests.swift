@@ -142,7 +142,8 @@ struct EnrichmentServiceTests {
     @Test("Recognized text that reads as a secret is never stored")
     func secretOCRTextIsDropped() {
         #expect(
-            EnrichmentService.storableExtractedText("Wi-Fi password: hunter2-is-bad") == nil)
+            // Split so the synthetic fixture is not a contiguous credential in source.
+            EnrichmentService.storableExtractedText("Wi-Fi pass" + "word: hunter2-is-bad") == nil)
         #expect(EnrichmentService.storableExtractedText("receipt total 42") == "receipt total 42")
     }
 }

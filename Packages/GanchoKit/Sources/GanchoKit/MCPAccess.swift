@@ -56,8 +56,8 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
     public var boardName: String?
     public var clipIDs: Set<UUID>
     public var timeScope: MCPTimeScope
-    /// The reviewed `contentHash` per clip id (uuidString keys). When present,
-    /// a clip whose content changed after review is outside the pack. Nil for
+    /// The reviewed ``ClipItem/contextRevision`` per clip id (uuidString keys).
+    /// When present, a clip changed after review is outside the pack. Nil for
     /// packs that predate revision binding.
     public var clipRevisions: [String: String]?
 
@@ -92,7 +92,7 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
         }
         if let boardID, !boardIDs.contains(boardID) { return false }
         if !clipIDs.isEmpty, !clipIDs.contains(item.id) { return false }
-        if let clipRevisions, clipRevisions[item.id.uuidString] != item.contentHash {
+        if let clipRevisions, clipRevisions[item.id.uuidString] != item.contextRevision {
             return false
         }
         return true
@@ -380,4 +380,13 @@ public protocol MCPClipStore: Sendable {
     @discardableResult
     func createPinboard(name: String, sfSymbol: String) async throws -> Pinboard
     func assign(clipID: UUID, toBoard boardID: UUID) async throws
+}
+
+extension ClipItem {
+    /// Identifies the reviewed state of a clip for selected-context grants.
+    /// Text edits keep `contentHash` (edits are curation) but always advance
+    /// `updatedAt`, stored to the millisecond, so both take part.
+    public var contextRevision: String {
+        "\(contentHash)@\(Int64((updatedAt.timeIntervalSince1970 * 1_000).rounded()))"
+    }
 }

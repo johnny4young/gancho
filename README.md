@@ -121,7 +121,7 @@ stay in reusable modules.
   </tr>
 </table>
 
-<sub>Screens captured from the app's UI tests with synthetic data (v0.8.4).</sub>
+<sub>Screens captured from the app's UI tests with synthetic data.</sub>
 
 **Capture & privacy**
 

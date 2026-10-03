@@ -101,7 +101,9 @@ VERSION=0.1.0 ./scripts/package-macos-zip.sh
    The panel screens in the README and the website's screens band come from
    `ProductScreensUITests` the same way: run `make test-ui` and
    `make ui-evidence`, then scale the `screen-panel-*` attachments to 1200 px
-   wide into `site/assets/` when the panel they show has changed.
+   wide into `site/assets/` when the panel they show has changed. Captures from
+   the hosted UI workflow's evidence artifact are 1x (864 px) and are published
+   at their native size, with the `<img>` width/height updated to match.
 4. Keep the website's release hierarchy current: feature the version being
    shipped with its screenshot, move the previous current release into the
    compact recent-evolution milestones, and keep the full collapsible archive
