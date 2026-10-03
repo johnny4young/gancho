@@ -7,6 +7,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-02
+
 ### Added
 
 - Explicit, off-by-default meaning suggestions in a separate panel section, with
