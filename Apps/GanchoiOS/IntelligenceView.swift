@@ -57,7 +57,7 @@ struct IOSIntelligenceView: View {
                     "wand.and.stars", GanchoTokens.Palette.kindTint(for: .uuid),
                     "Smart classification",
                     // swiftlint:disable:next line_length
-                    "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, Smart Actions, and masking.",
+                    "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, developer actions, and masking.",
                     alwaysOn: true)
                 toggleRow(
                     "sparkles", GanchoTokens.Palette.accent, "Smarter titles",
@@ -135,7 +135,8 @@ struct IOSIntelligenceView: View {
                             .background(stage.tint.opacity(0.13), in: .rect(cornerRadius: 11))
                         Text(stage.title).font(.caption2.weight(.semibold))
                             .multilineTextAlignment(.center)
-                        Text(stage.sub).font(.system(size: 9)).foregroundStyle(.tertiary)
+                        Text(stage.sub).font(.caption2).foregroundStyle(.tertiary)
+                            .multilineTextAlignment(.center)
                     }
                     .frame(width: 92)
                     if index < stages.count - 1 {

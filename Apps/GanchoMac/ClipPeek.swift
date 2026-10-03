@@ -112,6 +112,7 @@ struct ClipPeek: View {
             }
             if hidesPreview {
                 Text(verbatim: ClipSafePresentation.masked)
+                    .panelFont(.body)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .accessibilityIdentifier("peek-masked")
             } else {
@@ -162,12 +163,16 @@ struct ClipPeek: View {
                         .animation(peekContentAnimation, value: actionResult)
                     }
                     .onChange(of: actionIndex) { _, index in
-                        let dockCount = dockActions.count
-                        guard index >= dockCount, chipActions.indices.contains(index - dockCount)
+                        let chipStart = chipStartIndex
+                        guard index >= chipStart, chipActions.indices.contains(index - chipStart)
                         else { return }
                         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
-                            proxy.scrollTo(chipActions[index - dockCount].id, anchor: .center)
+                            proxy.scrollTo(chipActions[index - chipStart].id, anchor: .center)
                         }
+                    }
+                    .onChange(of: showsMoreActions) { _, _ in
+                        // Collapsing must not leave the keyboard on a hidden chip.
+                        if actionIndex >= navActions.count { actionIndex = dockActions.count }
                     }
                 }
             }
@@ -317,6 +322,7 @@ struct ClipPeek: View {
             TypeBadge(kind: item.kind, style: .pill)
             if hidesPreview {
                 Text(verbatim: ClipSafePresentation.masked)
+                    .panelFont(.headline)
                     .accessibilityIdentifier("preview-title")
             } else if isEditingTitle {
                 TextField("Title", text: $titleDraft)
@@ -329,6 +335,7 @@ struct ClipPeek: View {
                     .disabled(isSavingTitle)
                     .accessibilityIdentifier("preview-save-title")
                 Button("Cancel") { cancelTitleEditing() }
+                    .keyboardShortcut(.cancelAction)
                     .buttonStyle(.borderless)
                     .disabled(isSavingTitle)
                     .accessibilityIdentifier("preview-cancel-title")
@@ -391,15 +398,11 @@ struct ClipPeek: View {
             ForEach(model.boards.filter { boardIDs.contains($0.id) }.prefix(3)) { board in
                 HStack(spacing: 3) {
                     BoardIdentityMark(board: board, size: 10)
-                    if board.isSystem {
-                        Text("Favorites")
-                    } else {
-                        Text(verbatim: board.name)
-                    }
+                    board.displayTitle
                 }
                 .panelFont(.caption2, .medium)
                 .lineLimit(1)
-                .help(board.isSystem ? Text("Favorites") : Text(verbatim: board.name))
+                .help(board.displayTitle)
                 .accessibilityIdentifier("peek-board-\(board.id.uuidString)")
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
@@ -412,69 +415,6 @@ struct ClipPeek: View {
         .labelStyle(.titleAndIcon)
         .lineLimit(1)
     }
-
-    /// The keyboard order: the dock, then the Dev Action chips. Smart Paste
-    /// keeps its own menu (it is async and has a language submenu).
-    private var navActions: [PeekAction] { dockActions + chipActions }
-
-    /// Paste variants first (the common case), then OCR, Pin and Board.
-    private var dockActions: [PeekAction] {
-        var actions: [PeekAction] = [
-            PeekAction(
-                id: "preview-paste", title: "Paste", symbol: "doc.on.clipboard", shortcut: "⏎"
-            ) {
-                model.paste(item)
-            },
-            PeekAction(
-                id: "preview-paste-plain", title: "Paste plain", symbol: "doc.plaintext",
-                shortTitle: "Plain", shortcut: "⌥⏎"
-            ) {
-                model.paste(item, asPlainText: true)
-            }
-        ]
-        // APPENDED, never inserted at 0: `actionIndex` resets to 0 whenever peek
-        // takes focus and Return runs `navActions[actionIndex]`, so position 0 IS
-        // the default keyboard action. Putting OCR there would silently turn
-        // Return on an image clip from Paste into Copy text from image.
-        if model.canCopyImageText(item) {
-            actions.append(
-                PeekAction(
-                    id: "image-copy-text", title: "Copy text from image", symbol: "text.viewfinder",
-                    shortTitle: "Copy text", shortcut: "⇧⌘C"
-                ) { model.copyImageText(item, surface: .peek) })
-        }
-        actions.append(
-            PeekAction(
-                id: "preview-pin", title: item.isPinned ? "Unpin" : "Pin",
-                symbol: item.isPinned ? "pin.slash" : "pin", shortcut: "⌘P"
-            ) { model.togglePin(item) })
-        actions.append(
-            PeekAction(
-                id: "preview-board", title: "Add to board", symbol: "tray", shortTitle: "Board",
-                shortcut: "⌘B"
-            ) { addToBoard() })
-        return actions
-    }
-
-    /// Only the expanded Dev Actions take keyboard positions after the dock.
-    private var chipActions: [PeekAction] { showsMoreActions ? devActions : [] }
-
-    /// The per-kind Dev Actions, never for a masked or hidden preview.
-    private var devActions: [PeekAction] {
-        guard !hidesPreview else { return [] }
-        return DevActions.actions(for: item.kind).map { action in
-            PeekAction(
-                id: "dev-action-\(action.id.rawValue)",
-                title: LocalizedStringKey(action.title), symbol: "wand.and.sparkles"
-            ) {
-                actionResult = (try? action.transform(presentedText)) ?? ""
-                UserDefaults.standard.set(
-                    UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
-                    forKey: "dev-actions-run")
-            }
-        }
-    }
-
 }
 
 // MARK: - Hero
@@ -626,27 +566,20 @@ extension ClipPeek {
         suggestedBoard = await model.suggestedBoard(for: item)
     }
 
-    /// Dev Actions stay one click away instead of crowding every peek.
-    private var moreActionsToggle: some View {
-        Button {
-            showsMoreActions.toggle()
-        } label: {
-            Label(
-                showsMoreActions ? "Fewer actions" : "More actions",
-                systemImage: showsMoreActions ? "chevron.up" : "chevron.down")
+    /// Dev Actions stay one click (or one arrow) away instead of crowding every peek.
+    @ViewBuilder private var moreActionsToggle: some View {
+        if let toggle = toggleActions.first {
+            actionButton(toggle, index: dockActions.count, style: .chip)
         }
-        .buttonStyle(.borderless)
-        .panelFont(.caption)
-        .accessibilityIdentifier("peek-more-actions")
     }
 
     /// The Dev Actions as wrapping chips inside the peek's scrolling content,
     /// so a code clip's dozen transforms never push the dock out of the panel.
     private var secondaryActions: some View {
-        let dockCount = dockActions.count
+        let chipStart = chipStartIndex
         return FlowLayout(spacing: GanchoTokens.Spacing.xxs) {
             ForEach(Array(chipActions.enumerated()), id: \.element.id) { offset, action in
-                actionButton(action, index: dockCount + offset, style: .chip)
+                actionButton(action, index: chipStart + offset, style: .chip)
             }
         }
     }
@@ -819,6 +752,93 @@ extension ClipPeek {
                     SystemPasteboardWriter().write(.text(result), asPlainText: true)
                     model.toasts.show(GanchoToast(message: "Copied"))
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Keyboard actions
+
+extension ClipPeek {
+    /// The keyboard order: the dock, the More actions toggle, then the Dev
+    /// Action chips. Smart Paste keeps its own menu (it is async and has a
+    /// language submenu).
+    private var navActions: [PeekAction] { dockActions + toggleActions + chipActions }
+
+    private var chipStartIndex: Int { dockActions.count + toggleActions.count }
+
+    private var toggleActions: [PeekAction] {
+        guard !devActions.isEmpty else { return [] }
+        return [
+            PeekAction(
+                id: "peek-more-actions",
+                title: showsMoreActions ? "Fewer actions" : "More actions",
+                symbol: showsMoreActions ? "chevron.up" : "chevron.down"
+            ) { showsMoreActions.toggle() }
+        ]
+    }
+
+    /// Paste variants first (the common case), then OCR, Pin and Board.
+    private var dockActions: [PeekAction] {
+        var actions: [PeekAction] = [
+            PeekAction(
+                id: "preview-paste", title: "Paste", symbol: "doc.on.clipboard", shortcut: "⏎"
+            ) {
+                model.paste(item)
+            },
+            PeekAction(
+                id: "preview-paste-plain", title: "Paste plain", symbol: "doc.plaintext",
+                shortTitle: "Plain", shortcut: "⌥⏎"
+            ) {
+                model.paste(item, asPlainText: true)
+            }
+        ]
+        // APPENDED, never inserted at 0: `actionIndex` resets to 0 whenever peek
+        // takes focus and Return runs `navActions[actionIndex]`, so position 0 IS
+        // the default keyboard action. Putting OCR there would silently turn
+        // Return on an image clip from Paste into Copy text from image.
+        if model.canCopyImageText(item) {
+            actions.append(
+                PeekAction(
+                    id: "image-copy-text", title: "Copy text from image", symbol: "text.viewfinder",
+                    shortTitle: "Copy text", shortcut: "⇧⌘C"
+                ) { model.copyImageText(item, surface: .peek) })
+        }
+        actions.append(
+            PeekAction(
+                id: "preview-pin", title: item.isPinned ? "Unpin" : "Pin",
+                symbol: item.isPinned ? "pin.slash" : "pin", shortcut: "⌘P"
+            ) { model.togglePin(item) })
+        actions.append(
+            PeekAction(
+                id: "preview-board", title: "Add to board", symbol: "tray", shortTitle: "Board",
+                shortcut: "⌘B"
+            ) { addToBoard() })
+        return actions
+    }
+
+    /// Only the expanded Dev Actions take keyboard positions after the dock.
+    private var chipActions: [PeekAction] { showsMoreActions ? devActions : [] }
+
+    /// The per-kind Dev Actions, never for a masked or hidden preview.
+    private var devActions: [PeekAction] {
+        guard !hidesPreview else { return [] }
+        return DevActions.actions(for: item.kind).map { action in
+            PeekAction(
+                id: "dev-action-\(action.id.rawValue)",
+                title: LocalizedStringKey(action.title), symbol: "wand.and.sparkles"
+            ) {
+                do {
+                    actionResult = try action.transform(presentedText)
+                } catch {
+                    actionResult = nil
+                    model.toasts.show(
+                        GanchoToast(
+                            message: "This action can’t transform this clip.", style: .warning))
+                }
+                UserDefaults.standard.set(
+                    UserDefaults.standard.integer(forKey: "dev-actions-run") + 1,
+                    forKey: "dev-actions-run")
             }
         }
     }

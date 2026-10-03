@@ -50,20 +50,4 @@ struct SmartCollectionsTests {
         SmartCollectionRule.saveAll(rules, to: defaults)
         #expect(SmartCollectionRule.loadAll(from: defaults) == rules)
     }
-
-    @Test("Replay suggestions surface re-used, non-snippet, non-sensitive clips")
-    func replaySuggestions() async throws {
-        let store = try makeStore()
-        let created = Date(timeIntervalSince1970: 1_750_000_000)
-        // Re-used two days after creation → replay signal.
-        let replayed = ClipItem(
-            createdAt: created, lastUsedAt: created.addingTimeInterval(2 * 86_400),
-            preview: "standup template", contentHash: "hr")
-        // Fresh, never reused.
-        let fresh = ClipItem(createdAt: created, preview: "one-off", contentHash: "hf")
-        try await store.importBatch([(replayed, .text("standup")), (fresh, .text("x"))])
-
-        let suggestions = try await SnippetSuggestor(store: store).suggestions()
-        #expect(suggestions.map(\.preview) == ["standup template"])
-    }
 }

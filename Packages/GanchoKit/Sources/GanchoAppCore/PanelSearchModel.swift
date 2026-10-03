@@ -455,7 +455,6 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// come out contiguous in one linear pass.
     public func rebuildGroups() {
         rebuildVisible()
-        reconcileSelection()
         guard isGroupedView else {
             if !groups.isEmpty { groups = [] }
             return

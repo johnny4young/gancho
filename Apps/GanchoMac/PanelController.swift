@@ -47,11 +47,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     private static let measuresFirstFrame =
         CommandLine.arguments.contains("-measure-panel")
 
-    /// The panel auto-hides when it loses key focus (the user clicks another
-    /// app or window), Spotlight-style. Flip this to keep it open on purpose —
-    /// the seam for a future "pin" affordance.
-    var keepsOpenOnFocusLoss = false
-
     /// True while a drag that started inside the panel is still in flight —
     /// dropping into another app can steal key focus, and hiding the source
     /// window mid-drag would cancel the drag.
@@ -324,10 +319,10 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// Auto-hide when the panel loses key focus — a click in another app or
     /// window dismisses it (Spotlight-style). Held open while a preview sheet is
-    /// attached, while pinned, while a drag-out is in flight, and under UI tests
+    /// attached, while a drag-out is in flight, and under UI tests
     /// (which drive visibility via the launch hook, not focus).
     func windowDidResignKey(_ notification: Notification) {
-        guard !Self.isUITestLaunch, !keepsOpenOnFocusLoss, !isDraggingOut,
+        guard !Self.isUITestLaunch, !isDraggingOut,
             let panel, panel.attachedSheet == nil
         else { return }
         panel.orderOut(nil)
@@ -461,14 +456,7 @@ final class PanelController: NSObject, NSWindowDelegate {
                 y: frame.midY - panel.frame.height / 2))
     }
 
-    private static var targetScreen: NSScreen? {
-        let mouse = NSEvent.mouseLocation
-        return NSScreen.screens.first { $0.frame.contains(mouse) }
-            ?? NSApp.keyWindow?.screen
-            ?? NSApp.mainWindow?.screen
-            ?? NSScreen.main
-            ?? NSScreen.screens.first
-    }
+    private static var targetScreen: NSScreen? { NSScreen.underPointer }
 }
 
 /// Retained only for the lifetime of one AppKit drag. The source owns no app

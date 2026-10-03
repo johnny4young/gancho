@@ -64,7 +64,7 @@ struct KeyboardView: View {
                 }
                 ForEach(model.boards) { board in
                     boardChip(
-                        label: board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                        label: board.displayTitle,
                         systemImage: board.sfSymbol,
                         dotColor: board.isSystem ? nil : BoardColors.color(for: board),
                         isActive: model.selectedBoardID == board.id
@@ -113,7 +113,7 @@ struct KeyboardView: View {
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .onChange(of: model.searchText) { _, _ in
-                        Task { await model.runSearch() }
+                        model.searchTextChanged()
                     }
             } else {
                 Spacer(minLength: 0)
@@ -379,7 +379,7 @@ private struct FullAccessPrompt: View {
                 .font(.headline)
             Text(
                 // swiftlint:disable:next line_length
-                "Turn on Full Access in Settings → General → Keyboard → Keyboards → Gancho. Nothing you copy or type ever leaves your device."
+                "Turn on Full Access in Settings → General → Keyboard → Keyboards → Gancho. Gancho never records what you type, and your clips leave this device only if you turn on iCloud sync."
             )
             .font(.caption)
             .foregroundStyle(.secondary)

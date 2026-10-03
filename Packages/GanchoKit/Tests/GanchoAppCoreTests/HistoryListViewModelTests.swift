@@ -206,6 +206,27 @@ struct HistoryListViewModelTests {
         #expect(model.visibleClips.count == 51)
     }
 
+    /// A sparse kind used to filter only the loaded recent page, so a first
+    /// page with none of that kind showed an empty list with nothing to scroll.
+    @Test func aKindFilterWithoutTextLoadsMatchesBeyondTheFirstRecentPage() async {
+        let source = FakeSource()
+        source.recent = items(150, kind: .text)
+        source.searchResults = items(3, kind: .image)
+        let model = HistoryListViewModel(source: source)
+        model.kindFilter = .image
+
+        await model.search()
+
+        #expect(model.visibleClips.count == 3)
+        #expect(source.lastSearchQuery?.text.isEmpty == true)
+        #expect(source.lastSearchQuery?.kinds == [.image])
+        #expect(model.isGroupedView, "an empty query still groups by date")
+        #expect(model.sections.flatMap(\.clips).count == 3)
+
+        await model.loadMoreIfNeeded(model.visibleClips[2])
+        #expect(model.captures.count == 3, "a filter-only search is bounded, never paged")
+    }
+
     @Test func aQueryTakesTheRankedSearchPathAndIsNotGrouped() async {
         let source = FakeSource()
         source.searchResults = items(5)

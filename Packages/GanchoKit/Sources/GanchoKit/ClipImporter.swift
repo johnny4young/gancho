@@ -52,6 +52,8 @@ public enum ClipImporter {
     /// Decodes generic RFC-4180 CSV. The header must include `text`; `title`
     /// and `pinned` are optional. Empty or structurally short data rows are
     /// counted as unsupported rather than silently presented as importable.
+    /// Gancho's own CSV export (`contentText`, `isPinned`) reads back too, with
+    /// its formula-guard apostrophe removed.
     public static func readCSV(_ data: Data) throws -> Document {
         guard var content = String(data: data, encoding: .utf8) else {
             throw ImportError.unreadable(.notUTF8)
@@ -66,11 +68,16 @@ public enum ClipImporter {
         let header = rawHeader.map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         }
-        guard let textIndex = header.firstIndex(of: "text") else {
+        let isGanchoExport = header.contains("contenttext")
+        guard let textIndex = header.firstIndex(of: "text") ?? header.firstIndex(of: "contenttext")
+        else {
             throw ImportError.unreadable(.missingTextColumn)
         }
         let titleIndex = header.firstIndex(of: "title")
-        let pinnedIndex = header.firstIndex(of: "pinned")
+        let pinnedIndex = header.firstIndex(of: "pinned") ?? header.firstIndex(of: "ispinned")
+        if isGanchoExport {
+            rows = rows.map { $0.map(ClipExporter.removingFormulaGuard) }
+        }
 
         var candidates: [Candidate] = []
         var unsupportedCount = 0

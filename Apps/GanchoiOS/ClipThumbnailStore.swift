@@ -8,12 +8,8 @@ import GanchoKit
 typealias ClipThumbnailStore = GanchoDesign.ClipThumbnailStore
 
 extension ClipThumbnailStore {
-    /// The historical iOS surface: constructed straight from the store; reads
-    /// the clip's `.binary` blob on demand.
-    ///
-    /// Policy (unchanged from the pre-unification store): FIFO cap of 64,
-    /// 480 px decode ceiling (covers both the row tile and the larger detail
-    /// preview on a Retina phone), default decode priority, and sensitive
+    /// History rows: decodes the store's small cached thumbnail, never the
+    /// full blob. FIFO cap of 64, default decode priority, and sensitive
     /// image clips are never decoded — they keep their masked preview.
     convenience init(store: any ClipboardStore) {
         self.init(
@@ -22,10 +18,28 @@ extension ClipThumbnailStore {
             skipsSensitiveClips: true,
             decodePriority: nil,
             imageData: { id in
-                guard case .binary(let data, _)? = try? await store.content(for: id) else {
-                    return nil
+                // The in-memory fallback has no thumbnail cache to read.
+                guard let reader = store as? any ClipReading else {
+                    return await ClipThumbnailStore.fullImageData(id, store: store)
                 }
-                return data
+                return try? await reader.thumbnailData(for: id)
             })
+    }
+
+    /// The clip detail's preview: up to 340 pt tall, so it decodes from the
+    /// full image at 480 px. Only a handful of details are open at once.
+    static func detailPreviews(store: any ClipboardStore) -> ClipThumbnailStore {
+        ClipThumbnailStore(
+            maxCached: 8,
+            maxPixel: 480,
+            skipsSensitiveClips: true,
+            decodePriority: nil,
+            imageData: { id in await fullImageData(id, store: store) })
+    }
+
+    @MainActor
+    private static func fullImageData(_ id: UUID, store: any ClipboardStore) async -> Data? {
+        guard case .binary(let data, _)? = try? await store.content(for: id) else { return nil }
+        return data
     }
 }

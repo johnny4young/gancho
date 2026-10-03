@@ -3,10 +3,12 @@ import GanchoKit
 import SwiftUI
 
 /// iPad layout: kind filters in the sidebar, history in the content column,
-/// per-clip detail on the right — the same model the iPhone stack drives.
+/// per-clip detail on the right — the same model and shell the iPhone stack
+/// drives.
 struct IPadSplitView: View {
     @Environment(IOSAppModel.self) private var model
     @State private var selectedID: UUID?
+    @State private var activeSheet: CaptureSheet?
     /// Bound to the history search field so ⌘F can focus it from a hardware
     /// keyboard (Magic Keyboard / Smart Keyboard Folio).
     @FocusState private var searchFocused: Bool
@@ -24,7 +26,7 @@ struct IPadSplitView: View {
                     }
                     ForEach(model.boards) { board in
                         boardRow(
-                            label: board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                            label: board.displayTitle,
                             symbol: board.sfSymbol, isActive: model.selectedBoardID == board.id
                         ) {
                             model.selectedBoardID = board.id
@@ -54,24 +56,25 @@ struct IPadSplitView: View {
             }
         } content: {
             List(selection: $selectedID) {
-                if model.storageIsEphemeral { storageWarningSection }
-                ForEach(model.captures) { item in
-                    ClipCard(item: item).tag(item.id)
+                if model.storageIsEphemeral { StorageWarningSection() }
+                PasteboardSection()
+                Section {
+                    ForEach(model.visibleClips) { clipRow($0) }
                 }
             }
             .overlay {
                 // Gate on the storage warning so the empty-state doesn't cover
                 // the "History isn't being saved" row when the store is ephemeral.
-                if model.captures.isEmpty && !model.storageIsEphemeral {
+                if model.visibleClips.isEmpty && !model.storageIsEphemeral {
                     ContentUnavailableView(
                         "No clips here", systemImage: "tray",
                         description: Text("Copy or share something to Gancho to see it here."))
                 }
             }
-            // A search/filter replaces `captures`; drop a selection that's no
-            // longer in the list so the detail pane's empty state is intentional,
+            // A search/filter replaces the list; drop a selection that's no
+            // longer in it so the detail pane's empty state is intentional,
             // not a ghost of a filtered-out clip.
-            .onChange(of: model.captures) { _, clips in
+            .onChange(of: model.visibleClips) { _, clips in
                 if let id = selectedID, !clips.contains(where: { $0.id == id }) {
                     selectedID = nil
                 }
@@ -80,14 +83,20 @@ struct IPadSplitView: View {
             .searchFocused($searchFocused)
             .onChange(of: model.query) { _, _ in Task { await model.search() } }
             .navigationTitle(Text("History"))
+            .toolbar {
+                CaptureToolbar(layout: .pad, model: model, activeSheet: $activeSheet)
+            }
             .refreshable { await model.forceSync() }
         } detail: {
-            if let item = model.captures.first(where: { $0.id == selectedID }) {
+            if let item = model.visibleClips.first(where: { $0.id == selectedID }) {
                 // ClipDetailView is shaped for the iPhone peek sheet (full-width
                 // action row, edge-to-edge text). On a wide iPad pane that runs
                 // the buttons and lines too long, so cap it to a readable column
-                // and centre it instead of stretching to the pane edge.
+                // and centre it instead of stretching to the pane edge. The id
+                // gives every clip fresh detail state: a revealed secret or a
+                // draft must never carry over to the next selection.
                 ClipDetailView(item: item)
+                    .id(item.id)
                     .frame(maxWidth: 680)
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
@@ -99,13 +108,23 @@ struct IPadSplitView: View {
         // selected clip, ⌘1–9 copy the Nth recent clip. ↑↓ row navigation comes
         // free from the List's selection binding.
         .background { keyboardCommands }
-        .task {
-            await model.refreshHints()
-            await model.drainSharedInbox()
-            await model.refreshBoards()
-            await model.refreshSourceApps()
-            await model.search()
+        .captureShell(activeSheet: $activeSheet) { clip in
+            // Select it when the current filters show it; otherwise peek.
+            if model.visibleClips.contains(where: { $0.id == clip.id }) {
+                activeSheet = nil
+                selectedID = clip.id
+            } else {
+                activeSheet = .peek(clip)
+            }
         }
+    }
+
+    private func clipRow(_ item: ClipItem) -> some View {
+        ClipCard(item: item, thumbnail: model.thumbnails.cached(for: item.id))
+            .tag(item.id)
+            .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+            .onAppear { Task { await model.loadMoreIfNeeded(item) } }
+            .clipRowActions(item, model: model) { activeSheet = .move(item) }
     }
 
     /// Invisible buttons whose only job is to carry `.keyboardShortcut`s for a
@@ -129,7 +148,7 @@ struct IPadSplitView: View {
     /// Copy the clip currently highlighted in the history column.
     private func copySelected() {
         guard let id = selectedID,
-            let item = model.captures.first(where: { $0.id == id })
+            let item = model.visibleClips.first(where: { $0.id == id })
         else { return }
         Task { await model.copyToPasteboard(item) }
     }
@@ -137,30 +156,10 @@ struct IPadSplitView: View {
     /// Copy the Nth clip in the visible history (⌘1–9), selecting it too so the
     /// detail pane follows and the action is visible.
     private func copyClip(at index: Int) {
-        let clips = model.captures
+        let clips = model.visibleClips
         guard clips.indices.contains(index) else { return }
         selectedID = clips[index].id
         Task { await model.copyToPasteboard(clips[index]) }
-    }
-
-    /// Shown when iPad is also on the in-memory fallback. The iPhone stack has
-    /// the same warning; keep the split view honest too.
-    private var storageWarningSection: some View {
-        Section {
-            Label {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("History isn't being saved").font(.subheadline.weight(.semibold))
-                    Text(
-                        "Gancho couldn't open its secure storage. Captures will vanish when you quit the app."
-                    )
-                    .font(.footnote).foregroundStyle(.secondary)
-                }
-            } icon: {
-                Image(systemName: "externaldrive.badge.exclamationmark")
-                    .foregroundStyle(GanchoTokens.Palette.danger)
-            }
-            .accessibilityIdentifier("storage-warning")
-        }
     }
 
     /// A board row in the sidebar: glyph + name, with a checkmark on the active

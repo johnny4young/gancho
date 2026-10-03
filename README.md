@@ -69,6 +69,7 @@ colour, and a gallery layout behind ⌘G.
 - [Setup (< 10 min)](#setup--10-min)
 - [Layout](#layout)
 - [Privacy invariants](#privacy-invariants)
+- [More docs](#more-docs)
 - [Contributing](#contributing)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
@@ -120,7 +121,7 @@ stay in reusable modules.
   </tr>
 </table>
 
-<sub>Screens captured from the app's UI tests with synthetic data (v0.8.4).</sub>
+<sub>Screens captured from the app's UI tests with synthetic data.</sub>
 
 **Capture & privacy**
 
@@ -149,13 +150,14 @@ stay in reusable modules.
 
 **macOS app**
 
-- Menu-bar agent and resizable Liquid Glass floating panel (⇧⌘V): keyboard-first,
-  type-to-search, composable source/kind/board/date filters, editable titles and
+- Menu-bar agent and resizable floating panel (⇧⌘V), solid by default with an
+  optional translucent Liquid Glass background: keyboard-first, type-to-search, composable source/kind/board/date filters, editable titles and
   explicit Save/Cancel text refinement, per-kind previews, a privacy-safe
   read-only full-content preview (⌘Y), paste-back via synthetic ⌘V
   (layout-aware keycodes, plain-text paste, restore-previous), onboarding,
-  Settings, and the Privacy Center. Compact/Standard/Large geometry shortcuts
-  and semantic text-size controls persist across relaunches.
+  Settings, and the Privacy Center. A Compact/Standard/Large Panel size picker
+  that shows the active preset, the translucent background option, and text
+  size persist across relaunches.
 - Pins and boards (multi-membership collections) and a unified Library for
   boards and snippets. Boards can use a fixed accessible color and an optional
   emoji identity that persists and syncs across Mac, iPhone, and iPad. A local,
@@ -197,8 +199,9 @@ stay in reusable modules.
 - Apple Intelligence titles (fallback-safe), automatic screenshot OCR (Pro), and semantic
   indexing for grounded Q&A and board suggestions — each behind a per-stage
   toggle on the Intelligence screen.
-- Dev Actions (JWT decode, JSON pretty/minify, Base64, URL parse, color
-  conversion, UUID formats), also exposed as App Intents.
+- Developer actions (JWT decode, JSON pretty/minify, Base64, URL parse, color
+  conversion, UUID formats), also exposed as App Intents. In the Mac peek they
+  sit under **More actions**, which remembers whether it is open.
 - Smart Paste — rewrite a clip before pasting (summarize, fix grammar, change
   tone, key points), translate, and redact PII — all on-device and secret-safe.
 - Ask your clipboard — grounded Q&A over history (semantic retrieval + the
@@ -313,7 +316,7 @@ the full release runbook, signing/notarization secrets, and manual QA checklist.
 ## Layout
 
 ```text
-Apps/GanchoMac          macOS menu-bar agent + Liquid Glass panel
+Apps/GanchoMac          macOS menu-bar agent + floating panel
 Apps/GanchoiOS          iPhone/iPad app (+ Share, keyboard, widgets)
 site/                   Cloudflare landing source + signed appcast source
 CHANGELOG.md            Release notes that must match MARKETING_VERSION
@@ -353,6 +356,14 @@ project.yml             XcodeGen source of truth for Gancho.xcodeproj
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture and
 platform strategy.
+
+## More docs
+
+- [Selected context for AI](docs/SELECTED-CONTEXT.md) — not in a published release yet
+- [Text recipes](docs/TEXT-RECIPES.md) — not in a published release yet
+- [Scoped hybrid retrieval](docs/HYBRID-RETRIEVAL.md) — not in a published release yet
+- [On-device translation](docs/TRANSLATION.md)
+- [Snippet draft recovery](docs/SNIPPETS.md)
 
 ## Contributing
 

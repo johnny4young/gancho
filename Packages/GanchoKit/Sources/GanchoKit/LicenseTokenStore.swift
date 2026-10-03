@@ -76,14 +76,3 @@ public struct KeychainLicenseTokenStore: LicenseTokenStore {
         }
     }
 }
-
-/// In-memory store for previews, tests, and from-source builds.
-public final class InMemoryLicenseTokenStore: LicenseTokenStore {
-    private let storedToken: Mutex<String?>
-
-    public init(token: String? = nil) { self.storedToken = Mutex(token) }
-
-    public func load() -> String? { storedToken.withLock { $0 } }
-    public func save(_ token: String) throws { storedToken.withLock { $0 = token } }
-    public func clear() throws { storedToken.withLock { $0 = nil } }
-}

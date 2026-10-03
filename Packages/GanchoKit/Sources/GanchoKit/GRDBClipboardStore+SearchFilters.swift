@@ -1,3 +1,4 @@
+import Foundation
 import GRDB
 
 extension GRDBClipboardStore {
@@ -44,5 +45,15 @@ extension GRDBClipboardStore {
         if query.excludesSensitive {
             sql += " AND clip.isSensitive = 0"
         }
+        sql += " AND " + unexpiredPredicate
+        arguments.append(Date.now)
     }
+
+    /// Hides rows past their own `expiresAt` that retention will purge on that
+    /// date; the rows retention exempts (snippets, curated non-sensitive clips)
+    /// stay visible so they are never hidden yet kept.
+    static let unexpiredPredicate =
+        "(clip.expiresAt IS NULL OR clip.expiresAt > ? OR clip.isSnippet = 1"
+        + " OR (clip.isSensitive = 0 AND (clip.isPinned = 1"
+        + " OR clip.id IN (SELECT clipID FROM clip_board))))"
 }

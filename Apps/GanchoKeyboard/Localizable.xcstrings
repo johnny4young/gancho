@@ -101,12 +101,12 @@
         }
       }
     },
-    "Turn on Full Access in Settings → General → Keyboard → Keyboards → Gancho. Nothing you copy or type ever leaves your device.": {
+    "Turn on Full Access in Settings → General → Keyboard → Keyboards → Gancho. Gancho never records what you type, and your clips leave this device only if you turn on iCloud sync.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Activa Acceso Completo en Ajustes → General → Teclado → Teclados → Gancho. Nada de lo que copies o escribas sale de tu dispositivo."
+            "value": "Activa Acceso Completo en Ajustes → General → Teclado → Teclados → Gancho. Gancho nunca registra lo que escribes, y tus clips solo salen de este dispositivo si activas la sincronización con iCloud."
           }
         }
       }

@@ -542,7 +542,7 @@ or values, enforced by `SignpostHygieneTests`):
 
 | Interval (signpost) | Budget (warm p95) | Where it begins → ends |
 | --- | ---: | --- |
-| `panel-to-first-frame` | < 100 ms | `PanelController.show()` → `PanelView.onAppear` |
+| `panel-to-first-frame` | < 100 ms | `PanelController.show()` → `.ganchoPanelDidShow` handled by the prewarmed `PanelView` (first `onAppear` when built lazily) |
 | `query-to-results` | < 75 ms | search field change → results applied |
 | `launch-to-store-ready` | — (cold) | `AppModel.init` start → durable store ready |
 | `paste-dispatch` | < 100 ms | paste action → `⌘V` event posted (target-app time excluded) |

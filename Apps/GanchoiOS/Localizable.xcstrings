@@ -1433,6 +1433,12 @@
     },
     "address": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Address"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1443,6 +1449,12 @@
     },
     "code": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1453,6 +1465,12 @@
     },
     "color": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1473,6 +1491,12 @@
     },
     "creditCard": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Credit card"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1483,6 +1507,12 @@
     },
     "date": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1493,6 +1523,12 @@
     },
     "email": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1503,6 +1539,12 @@
     },
     "fileReference": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1513,6 +1555,12 @@
     },
     "image": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1523,6 +1571,12 @@
     },
     "json": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JSON"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1533,6 +1587,12 @@
     },
     "jwt": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JWT"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1563,6 +1623,12 @@
     },
     "phoneNumber": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone number"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1573,6 +1639,12 @@
     },
     "richText": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rich text"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1593,6 +1665,12 @@
     },
     "secret": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secret"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1603,6 +1681,12 @@
     },
     "text": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1613,6 +1697,12 @@
     },
     "trackingNumber": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tracking number"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1623,6 +1713,12 @@
     },
     "url": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1633,6 +1729,12 @@
     },
     "uuid": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UUID"
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -1681,12 +1783,12 @@
         }
       }
     },
-    "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, Smart Actions, and masking.": {
+    "A deterministic classifier tags each clip in under 5 ms — JWT, JSON, color, card, URL… — with zero network. Drives previews, developer actions, and masking.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un clasificador determinista etiqueta cada clip en menos de 5 ms — JWT, JSON, color, tarjeta, URL… — sin red. Alimenta los previews, las Smart Actions y el enmascarado."
+            "value": "Un clasificador determinista etiqueta cada clip en menos de 5 ms — JWT, JSON, color, tarjeta, URL… — sin red. Alimenta los previews, las acciones de desarrollador y el enmascarado."
           }
         }
       }
@@ -3824,6 +3926,126 @@
           "stringUnit": {
             "state": "translated",
             "value": "Traducción no disponible. Instala el par de idiomas en los ajustes de Traducción o activa Apple Intelligence."
+          }
+        }
+      }
+    },
+    "Delete this board?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Eliminar este tablero?"
+          }
+        }
+      }
+    },
+    "Your clips stay in history — only the board is removed.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus clips quedan en el historial — solo se elimina el tablero."
+          }
+        }
+      }
+    },
+    "This clip is no longer available": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este clip ya no está disponible"
+          }
+        }
+      }
+    },
+    "Snippets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snippets"
+          }
+        }
+      }
+    },
+    "Couldn’t save the snippet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el snippet."
+          }
+        }
+      }
+    },
+    "Editing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edición"
+          }
+        }
+      }
+    },
+    "Pins": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fijados"
+          }
+        }
+      }
+    },
+    "Couldn’t update the pin.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar el fijado."
+          }
+        }
+      }
+    },
+    "Spotlight": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotlight"
+          }
+        }
+      }
+    },
+    "Couldn’t update the Spotlight index.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar el índice de Spotlight."
+          }
+        }
+      }
+    },
+    "Sync": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronización"
+          }
+        }
+      }
+    },
+    "Couldn’t subscribe to iCloud change notifications; inbound sync may lag.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo suscribir a las notificaciones de cambios de iCloud; la sincronización entrante puede retrasarse."
           }
         }
       }

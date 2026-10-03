@@ -82,9 +82,10 @@ struct CombinedTextSourceTests {
         let ids = [missing, text.id, image.id, protected.id, expired.id, token.id, card.id]
         let parts = try await service.load(ids: ids, from: store)
         #expect(parts.map(\.id) == ids)
+        // An expired row reads as gone, exactly like the missing id.
         #expect(
             parts.map(\.content) == [
-                .unavailable, .text("first"), .incompatible, .protected, .protected, .protected,
+                .unavailable, .text("first"), .incompatible, .protected, .unavailable, .protected,
                 .protected
             ])
         #expect(!token.isSensitive && ClipSafePresentation.requiresMasking(token))

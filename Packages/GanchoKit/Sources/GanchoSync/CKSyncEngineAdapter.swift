@@ -33,6 +33,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
     /// next explicit `start()`. While paused we stop feeding new changes — the
     /// visible-sync-status work surfaces this to the user.
     private var isPaused = false
+    /// Set by `stop()`; a stopped adapter never rebuilds its engine, so a stale
+    /// reference held past a reconfiguration cannot revive sync.
+    private var isStopped = false
     private var receiveHealth = SyncReceiveHealth()
     private var pollTask: Task<Void, any Error>?
     private var pollID: UUID?
@@ -109,6 +112,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
     // MARK: - SyncEngine boundary
 
     public func start() async throws {
+        guard !isStopped else { throw CancellationError() }
         let generation = receiveGeneration
         isPaused = false
         // Staged CKAsset files are plaintext clip content; each is deleted the
@@ -118,8 +122,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
         ClipRecordMapper.sweepStagedAssets()
         try await completeIdentityReset()
         try await retryUploadIntents()
-        guard generation == receiveGeneration else { throw CancellationError() }
-        let engine = ensureEngine()
+        guard generation == receiveGeneration, let engine = ensureEngine() else {
+            throw CancellationError()
+        }
         engine.state.add(pendingDatabaseChanges: [
             .saveZone(CKRecordZone(zoneID: zoneID)),
             .saveZone(CKRecordZone(zoneID: boardZoneID))
@@ -314,6 +319,13 @@ public actor CKSyncEngineAdapter: SyncEngine {
     }
 
     public func stop() async {
+        isStopped = true
+        interrupt()
+    }
+
+    /// Halts receive work and drops the engine without retiring the adapter
+    /// (an account switch restarts the same adapter).
+    private func interrupt() {
         receiveGeneration += 1
         pollTask?.cancel()
         pollTask = nil
@@ -334,8 +346,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
         guard generation == receiveGeneration, loadPollTokens().identityResetZones == nil else {
             return
         }
-        guard !isPaused, !outboundFailures.contains(.reset) else { return }
-        let engine = ensureEngine()
+        guard !isPaused, !outboundFailures.contains(.reset), let engine = ensureEngine() else {
+            return
+        }
         engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
         engine.state.add(pendingRecordZoneChanges: items.map { .saveRecord(recordID(for: $0.id)) })
     }
@@ -362,8 +375,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
     }
 
     public func enqueueDeletion(ids: [UUID]) async {
-        guard !isPaused, !outboundFailures.contains(.reset) else { return }
-        let engine = ensureEngine()
+        guard !isPaused, !outboundFailures.contains(.reset), let engine = ensureEngine() else {
+            return
+        }
         engine.state.add(
             pendingRecordZoneChanges: ids.map { .deleteRecord(recordID(for: $0)) })
     }
@@ -375,16 +389,18 @@ public actor CKSyncEngineAdapter: SyncEngine {
         guard generation == receiveGeneration, loadPollTokens().identityResetZones == nil else {
             return
         }
-        guard !isPaused, !outboundFailures.contains(.reset) else { return }
-        let engine = ensureEngine()
+        guard !isPaused, !outboundFailures.contains(.reset), let engine = ensureEngine() else {
+            return
+        }
         engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: boardZoneID))])
         engine.state.add(
             pendingRecordZoneChanges: boards.map { .saveRecord(boardRecordID(for: $0.id)) })
     }
 
     public func enqueueBoardDeletion(ids: [UUID]) async {
-        guard !isPaused, !outboundFailures.contains(.reset) else { return }
-        let engine = ensureEngine()
+        guard !isPaused, !outboundFailures.contains(.reset), let engine = ensureEngine() else {
+            return
+        }
         engine.state.add(
             pendingRecordZoneChanges: ids.map { .deleteRecord(boardRecordID(for: $0)) })
     }
@@ -438,7 +454,8 @@ public actor CKSyncEngineAdapter: SyncEngine {
 
     // MARK: - Engine lifecycle
 
-    private func ensureEngine() -> CKSyncEngine {
+    private func ensureEngine() -> CKSyncEngine? {
+        guard !isStopped else { return nil }
         if let engine { return engine }
         let database = CKContainer(identifier: containerIdentifier).privateCloudDatabase
         let configuration = CKSyncEngine.Configuration(
@@ -449,6 +466,8 @@ public actor CKSyncEngineAdapter: SyncEngine {
         self.engine = engine
         return engine
     }
+
+    var hasLiveEngine: Bool { engine != nil }
 
     /// The engine's persisted state, or nil to start from scratch. State that
     /// no longer decodes is not fatal (the engine re-fetches everything), but
@@ -680,7 +699,7 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             } catch { failOutbound(.pending) }
         case .signOut, .switchAccounts:
             // Old-account callbacks must not restore identities after reset.
-            await stop()
+            interrupt()
             // Forget the old account's record identities; keep local history.
             do {
                 try await beginIdentityReset(zones: [zoneID.zoneName, boardZoneID.zoneName])

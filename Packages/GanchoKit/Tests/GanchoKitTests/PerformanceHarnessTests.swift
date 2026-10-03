@@ -663,7 +663,6 @@ struct ListContentIsolationTests {
             matching: SmartCollectionRule(name: "Text", kinds: [.text]), limit: 50)
         _ = try await store.filterOnlySearch(
             ClipSearchQuery(text: "", kinds: [.text]), limit: 50)
-        _ = try await SnippetSuggestor(store: store).suggestions(minAge: 0, limit: 5)
         _ = try await store.semanticSearch(
             queryVector: [Float](repeating: 0.5, count: 512), topK: 5)
 

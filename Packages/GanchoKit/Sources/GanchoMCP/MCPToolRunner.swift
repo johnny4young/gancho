@@ -101,6 +101,13 @@ public struct MCPToolRunner: Sendable {
         _ args: SearchClipsArgs,
         grant: MCPClientGrant
     ) async throws -> MCPToolResult {
+        let metadataOnly = grant.scope == .metadata
+        if metadataOnly, Self.mode(args.mode) == .regex {
+            await record(.searchClips, grant: grant, denial: .scope)
+            return MCPToolResult(
+                text: "Regex search needs content access approved in Gancho Settings.",
+                isError: true)
+        }
         guard let pack = grant.contextPack, pack.isExplicit else {
             if !requiresContextPack {
                 var query = ClipSearchQuery(
@@ -108,7 +115,8 @@ public struct MCPToolRunner: Sendable {
                     mode: Self.mode(args.mode),
                     kinds: ClipContentKind.unmaskedKinds,
                     markedOnly: grant.scope == .boards,
-                    excludesSensitive: true)
+                    excludesSensitive: true,
+                    metadataOnly: metadataOnly)
                 query.markedOnly = grant.scope == .boards
                 var hits = try await store.search(query, limit: min(max(args.limit ?? 25, 1), 100))
                 hits.removeAll(where: ClipSafePresentation.requiresMasking)
@@ -132,7 +140,8 @@ public struct MCPToolRunner: Sendable {
             boardID: pack.boardID,
             markedOnly: grant.scope == .boards,
             includedIDs: pack.clipIDs.isEmpty ? nil : pack.clipIDs,
-            excludesSensitive: true)
+            excludesSensitive: true,
+            metadataOnly: metadataOnly)
         // A selected board is already stronger than broad "marked" scope and
         // avoids an unnecessary second condition on the same junction table.
         if pack.boardID != nil { query.markedOnly = false }
@@ -150,7 +159,7 @@ public struct MCPToolRunner: Sendable {
     }
 
     private func getClip(_ args: GetClipArgs, grant: MCPClientGrant) async throws -> MCPToolResult {
-        guard let id = UUID(uuidString: args.id), let item = try await store.item(id: id) else {
+        guard let id = UUID(uuidString: args.id), let item = try await visibleItem(id: id) else {
             await record(.getClip, grant: grant)
             return MCPToolResult(text: "No clip with that id.", isError: true)
         }
@@ -190,7 +199,7 @@ public struct MCPToolRunner: Sendable {
         _ args: CreatePinArgs,
         grant: MCPClientGrant
     ) async throws -> MCPToolResult {
-        guard let id = UUID(uuidString: args.id), let item = try await store.item(id: id) else {
+        guard let id = UUID(uuidString: args.id), let item = try await visibleItem(id: id) else {
             await record(.createPin, grant: grant)
             return MCPToolResult(text: "No clip with that id.", isError: true)
         }
@@ -264,7 +273,7 @@ public struct MCPToolRunner: Sendable {
         }
         var clips: [StackClip] = []
         for raw in args.ids {
-            guard let id = UUID(uuidString: raw), let item = try await store.item(id: id) else {
+            guard let id = UUID(uuidString: raw), let item = try await visibleItem(id: id) else {
                 continue
             }
             // Context before the sensitive veto — same order as getClip/createPin
@@ -309,6 +318,11 @@ public struct MCPToolRunner: Sendable {
         let boardIDs =
             pack.boardID == nil ? Set<UUID>() : try await store.boardIDs(for: item.id)
         return pack.contains(item: item, boardIDs: boardIDs, now: now())
+    }
+
+    /// Archived and expired clips read as missing, like they do in every list.
+    private func visibleItem(id: UUID) async throws -> ClipItem? {
+        try await store.items(ids: [id]).first
     }
 
     private func isMarked(_ item: ClipItem) async throws -> Bool {

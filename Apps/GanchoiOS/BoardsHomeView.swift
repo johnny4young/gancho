@@ -43,11 +43,7 @@ struct MoveToBoardSheet: View {
                         } label: {
                             HStack(spacing: GanchoTokens.Spacing.sm) {
                                 BoardDot(board: board)
-                                if board.isSystem {
-                                    Text("Favorites")
-                                } else {
-                                    Text(verbatim: board.name)
-                                }
+                                board.displayTitle
                                 Spacer()
                                 if memberIDs.contains(board.id) {
                                     Image(systemName: "checkmark")
@@ -128,6 +124,7 @@ struct BoardsHomeView: View {
     @State private var renameTarget: Pinboard?
     @State private var renameField = ""
     @State private var appearanceTarget: Pinboard?
+    @State private var boardPendingDeletion: Pinboard?
 
     private var systemBoards: [Pinboard] { model.boards.filter(\.isSystem) }
     private var userBoards: [Pinboard] { model.boards.filter { !$0.isSystem } }
@@ -185,6 +182,18 @@ struct BoardsHomeView: View {
                         board, colorHex: colorHex, emoji: emoji)
                 }
             }
+            .confirmationDialog(
+                "Delete this board?",
+                isPresented: Binding(
+                    get: { boardPendingDeletion != nil },
+                    set: { if !$0 { boardPendingDeletion = nil } }),
+                presenting: boardPendingDeletion
+            ) { board in
+                Button("Delete board", role: .destructive) { delete(board) }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("Your clips stay in history — only the board is removed.")
+            }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
@@ -201,7 +210,7 @@ struct BoardsHomeView: View {
             open(board.id)
         } label: {
             boardLabel(
-                board.isSystem ? Text("Favorites") : Text(verbatim: board.name),
+                board.displayTitle,
                 icon: BoardDot(board: board, size: 14), tint: .primary,
                 count: counts[board.id] ?? 0)
         }
@@ -213,7 +222,7 @@ struct BoardsHomeView: View {
         .swipeActions(edge: .trailing) {
             if !board.isSystem {
                 Button(role: .destructive) {
-                    delete(board)
+                    boardPendingDeletion = board
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
@@ -248,7 +257,7 @@ struct BoardsHomeView: View {
             Label("Rename board", systemImage: "pencil")
         }
         Button(role: .destructive) {
-            delete(board)
+            boardPendingDeletion = board
         } label: {
             Label("Delete board", systemImage: "trash")
         }

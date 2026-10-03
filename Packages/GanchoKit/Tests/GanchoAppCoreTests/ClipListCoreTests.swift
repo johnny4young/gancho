@@ -181,6 +181,34 @@ struct ClipListCoreTests {
         #expect(clientSide.searchQueries.first?.query.kinds == nil)
     }
 
+    @Test("A pushed kind filter with no text takes the filter-only search, not the recent page")
+    func pushedKindFilterWithoutTextSearches() async {
+        let source = RecordingSource()
+        source.recent = [clip("recent text")]
+        source.hits = [ClipItem(kind: .image, preview: "screenshot")]
+        let page = await ClipListCore(source: source, configuration: .iOSHistory)
+            .firstPage(query: "", boardID: nil, sourceAppBundleID: nil, kinds: [.image])
+
+        #expect(page.items.map(\.preview) == ["screenshot"])
+        #expect(page.reachedEnd, "a filter-only search is a bounded set")
+        #expect(source.recentBrowseCalls.isEmpty)
+        #expect(source.searchQueries.first?.query.text.isEmpty == true)
+        #expect(source.searchQueries.first?.query.kinds == [.image])
+        #expect(source.searchQueries.first?.limit == ClipListCore.searchLimitWithoutQuery)
+    }
+
+    @Test("A pushed kind filter on a board keeps the board in the filter-only search")
+    func pushedKindFilterOnABoardSearchesTheBoard() async {
+        let source = RecordingSource()
+        let boardID = UUID()
+        _ = await ClipListCore(source: source, configuration: .iOSHistory)
+            .firstPage(query: "", boardID: boardID, sourceAppBundleID: nil, kinds: [.url])
+
+        #expect(source.boardCalls.isEmpty)
+        #expect(source.searchQueries.first?.query.boardID == boardID)
+        #expect(source.searchQueries.first?.query.kinds == [.url])
+    }
+
     // MARK: - The non-durable fallback
 
     @Test("Without a durable store both shells scan a bounded slice and filter it")

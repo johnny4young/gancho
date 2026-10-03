@@ -54,9 +54,10 @@ struct PanelSelectionContextBar: View {
             .accessibilityIdentifier("selection-delete-button")
 
             Divider().frame(height: 16)
-            Button("Clear", action: clear)
+            Button("Clear selection", action: clear)
                 .accessibilityIdentifier("selection-clear-button")
         }
+        .panelFont(.callout)
         .buttonStyle(.plain)
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .padding(.vertical, GanchoTokens.Spacing.xxs)

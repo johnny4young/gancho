@@ -97,6 +97,7 @@ struct ClipTextEditor: View {
             HStack {
                 Spacer(minLength: 0)
                 Button("Cancel") { cancel() }
+                    .keyboardShortcut(.cancelAction)
                     .disabled(isSaving)
                     .accessibilityIdentifier("preview-cancel-content")
                 Button("Save") { save() }

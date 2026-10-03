@@ -1,7 +1,7 @@
 # Scoped hybrid retrieval
 
-Implemented source contract after v0.9.1; not availability in a published release.
-This delivery is the retrieval engine, not the panel opt-in UI.
+Implemented after v0.9.1 and not yet in a published release. It covers the
+retrieval engine and the opt-in panel suggestions described below.
 
 ## Retrieval and privacy
 
@@ -36,9 +36,8 @@ must improve by at least ten percentage points in each language, with literal
 results unchanged. The evaluation also reports unrelated suggestions for
 unanswered queries; top-K is retrieval, not an abstention or confidence guarantee.
 
-Missing real evidence, failed relevance or other required gates keeps this engine
-and its dependent panel PR draft. Raw output and toolchain belong in PR evidence,
-not claims that a synthetic corpus proves all real-world relevance.
+A synthetic corpus does not prove all real-world relevance; raw output and the
+toolchain used belong with the evaluation evidence, not in product claims.
 
 ## Explicit panel suggestions (unreleased)
 

@@ -15,7 +15,7 @@
 - **Run `make format` before committing; `make lint` and `make test` must pass.**
 - **Tests:** Swift Testing (`@Suite`/`@Test`) for unit tests. XCTest only for
   UI tests. Accessibility identifiers use kebab-case with semantic
-  suffixes (`history-panel`, `clip-row`, `settings-pane`).
+  suffixes (`history-panel`, `clip-row`, `settings-tab-general`).
 - **Commits:** Conventional Commits, English, imperative. **Never add AI
   co-authorship or generated-by trailers** (no `Co-Authored-By: Claude`, no
   watermarks) — repository policy.

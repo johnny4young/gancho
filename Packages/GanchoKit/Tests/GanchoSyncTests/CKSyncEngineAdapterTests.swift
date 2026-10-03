@@ -74,6 +74,21 @@ struct CKSyncEngineAdapterTests {
         #expect(!log.entries.contains { $0.message.contains("synthetic") })
     }
 
+    @Test("A stopped adapter never rebuilds an engine on enqueue or start")
+    func stoppedAdapterStaysStopped() async throws {
+        let store = RecordingStore()
+        let adapter = makeAdapter(store: store)
+        await adapter.stop()
+
+        await adapter.enqueue([ClipItem(preview: "synthetic", contentHash: "h")])
+        await adapter.enqueueDeletion(ids: [UUID()])
+        await adapter.enqueue(boards: [Pinboard(name: "b")])
+        await adapter.enqueueBoardDeletion(ids: [UUID()])
+        await #expect(throws: CancellationError.self) { try await adapter.start() }
+
+        #expect(await adapter.hasLiveEngine == false)
+    }
+
     @Test("A titled clip record applies — the enrichment fruit reaches the store")
     func titledRecordApplies() async throws {
         let store = RecordingStore()

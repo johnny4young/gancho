@@ -33,6 +33,8 @@ public struct ClipSearchQuery: Sendable, Equatable {
     /// Veto detector-flagged rows in SQL rather than filtering them after the
     /// limit. Normal history search keeps its existing inclusive default.
     public var excludesSensitive: Bool
+    /// Match only title and preview, never the stored body.
+    public var metadataOnly: Bool
 
     public init(
         text: String,
@@ -44,7 +46,8 @@ public struct ClipSearchQuery: Sendable, Equatable {
         markedOnly: Bool = false,
         pinnedOnly: Bool = false,
         includedIDs: Set<UUID>? = nil,
-        excludesSensitive: Bool = false
+        excludesSensitive: Bool = false,
+        metadataOnly: Bool = false
     ) {
         self.text = text
         self.mode = mode
@@ -56,6 +59,7 @@ public struct ClipSearchQuery: Sendable, Equatable {
         self.markedOnly = markedOnly
         self.includedIDs = includedIDs
         self.excludesSensitive = excludesSensitive
+        self.metadataOnly = metadataOnly
     }
 
     /// Builds the FTS5 MATCH expression. Every token is double-quoted (with
@@ -64,6 +68,11 @@ public struct ClipSearchQuery: Sendable, Equatable {
     /// never break or subvert the query. Fuzzy adds the prefix star OUTSIDE
     /// the quotes, the only place FTS5 honors it.
     func ftsMatchExpression() -> String? {
+        guard let expression = unscopedMatchExpression() else { return nil }
+        return metadataOnly ? "{title preview} : (\(expression))" : expression
+    }
+
+    private func unscopedMatchExpression() -> String? {
         let tokens = text.split(whereSeparator: \.isWhitespace)
         guard !tokens.isEmpty else { return nil }
 

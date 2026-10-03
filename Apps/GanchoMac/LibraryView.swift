@@ -161,7 +161,10 @@ struct LibraryView: View {
                         }
                     }
                 } header: {
-                    sectionHeader(Text("Boards"), identifier: "board-new", badge: boardLimitBadge) {
+                    sectionHeader(
+                        Text("Boards"), identifier: "board-new", addLabel: "New board",
+                        badge: boardLimitBadge
+                    ) {
                         boardNameField = ""
                         boardSheet = .new
                     }
@@ -209,7 +212,7 @@ struct LibraryView: View {
                 } header: {
                     sectionHeader(
                         Text("Library · Snippets"), identifier: "snippet-new",
-                        badge: snippetLimitBadge
+                        addLabel: "New snippet", badge: snippetLimitBadge
                     ) {
                         createSnippet()
                     }
@@ -243,7 +246,7 @@ struct LibraryView: View {
     }
 
     private func boardTitle(_ board: Pinboard) -> Text {
-        board.isSystem ? Text("Favorites") : Text(verbatim: board.name)
+        board.displayTitle
     }
 
     private func snippetRow(_ snippet: ClipItem) -> some View {
@@ -267,7 +270,8 @@ struct LibraryView: View {
     }
 
     private func sectionHeader(
-        _ label: Text, identifier: String, badge: Text? = nil, add: @escaping () -> Void
+        _ label: Text, identifier: String, addLabel: LocalizedStringKey, badge: Text? = nil,
+        add: @escaping () -> Void
     )
         -> some View
     {
@@ -282,6 +286,8 @@ struct LibraryView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
+            .help(Text(addLabel))
+            .accessibilityLabel(Text(addLabel))
             .accessibilityIdentifier(identifier)
         }
     }
@@ -401,11 +407,7 @@ struct LibraryView: View {
         case .pinned: Text("Pinned")
         case .board(let id):
             if let board = boards.first(where: { $0.id == id }) {
-                if board.isSystem {
-                    Text("Favorites")
-                } else {
-                    Text(verbatim: board.name)
-                }
+                board.displayTitle
             } else {
                 Text("All clips")
             }
@@ -458,11 +460,7 @@ struct LibraryView: View {
                 Button {
                     mutate { model.assign(clip, toBoard: board) }
                 } label: {
-                    if board.isSystem {
-                        Text("Favorites")
-                    } else {
-                        Text(verbatim: board.name)
-                    }
+                    board.displayTitle
                 }
             }
         }

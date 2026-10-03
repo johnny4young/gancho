@@ -167,6 +167,9 @@ final class AppModel {
     var tier: UserTier {
         didSet { tier.save(to: defaults) }
     }
+    /// Bumped by every applied tier, so a slow launch lookup cannot overwrite a
+    /// tier StoreKit delivered while it was in flight.
+    @ObservationIgnored private var tierGeneration = 0
 
     /// Optional anonymous diagnostics are off until the user explicitly
     /// consents. Withdrawing consent tears down the transport immediately.
@@ -569,8 +572,9 @@ final class AppModel {
             if forceFreeTier {
                 applyTier(.free)  // deterministic free tier: skip StoreKit + forcePro
             } else {
+                let generation = tierGeneration
                 let entitled = await purchases.currentTier()
-                if entitled != tier { applyTier(entitled) }
+                if generation == tierGeneration, entitled != tier { applyTier(entitled) }
                 #if DEBUG
                     if DebugFlags.forcePro, tier != .pro { applyTier(.pro) }
                 #endif
@@ -581,8 +585,11 @@ final class AppModel {
                     // license still drops Pro on the next launch that reaches
                     // Lemon Squeezy.
                     if let license = purchases as? LicenseKeyPurchaseHandler {
+                        let generation = tierGeneration
                         let refreshed = await license.refreshIfNeeded()
-                        if refreshed != tier { applyTier(refreshed) }
+                        if generation == tierGeneration, refreshed != tier {
+                            applyTier(refreshed)
+                        }
                     }
                 #endif
             }
@@ -628,7 +635,9 @@ final class AppModel {
                     .reconcile(store: store, enabled: spotlightIndexing)
             },
             onFailure: { [weak self] in
-                self?.diagnostics.record("Spotlight", "Couldn’t update the Spotlight index.")
+                self?.diagnostics.record(
+                    String(localized: "Spotlight"),
+                    String(localized: "Couldn’t update the Spotlight index."))
             })
         spotlightCoordinator = coordinator
 
@@ -648,6 +657,12 @@ final class AppModel {
                 // change missed while not running and applies the toggle state.
                 MaintenanceStep("spotlight-reconcile") {
                     await coordinator.reconcileNow()
+                },
+                // Reclaims blobs a crash or an interrupted write left behind;
+                // the age gate spares files an in-flight write still needs.
+                MaintenanceStep("orphaned-blob-sweep") {
+                    _ = try? await grdb.removeOrphanedBlobs(
+                        olderThan: .now.addingTimeInterval(-3_600))
                 }
             ]
             Task(priority: .utility) { await MaintenanceRunner().run(steps) }
@@ -710,14 +725,19 @@ final class AppModel {
             // make the first capture after launch an outlier about something
             // else entirely.
             let ingestInterval = Signpost.captureToInsert.begin()
-            guard
-                let outcome = try? await ingestionCoordinator.ingest(
+            let outcome: ClipIngestionCoordinator.Outcome
+            do {
+                outcome = try await ingestionCoordinator.ingest(
                     capture,
                     configuration: configuration,
                     store: store,
                     syncEngine: syncController.engine,
                     didFinishInsert: { Signpost.captureToInsert.end(ingestInterval) })
-            else { return }
+            } catch {
+                diagnostics.record(
+                    String(localized: "Capture"), String(localized: "Couldn’t save a copied clip."))
+                return
+            }
             // Bucketized analytics: kind + a length BUCKET, never the content.
             telemetry.record(
                 .itemCaptured(
@@ -1327,6 +1347,7 @@ final class AppModel {
     /// Applies a tier from StoreKit and releases any archived clips when the
     /// user becomes Pro (free-tier archiving is reversible — no data hostage).
     private func applyTier(_ newTier: UserTier) {
+        tierGeneration += 1
         tier = newTier
         syncController.configure(tier: tier)
         guard let grdbForEngines else { return }
@@ -1613,7 +1634,8 @@ final class AppModel {
             await refreshRecents()
             return false
         case .failed:
-            diagnostics.record("Editing", "Couldn’t save the title.")
+            diagnostics.record(
+                String(localized: "Editing"), String(localized: "Couldn’t save the title."))
             return false
         }
     }
@@ -1638,7 +1660,8 @@ final class AppModel {
             await refreshRecents()
             return false
         case .failed:
-            diagnostics.record("Editing", "Couldn’t save the content.")
+            diagnostics.record(
+                String(localized: "Editing"), String(localized: "Couldn’t save the content."))
             return false
         }
     }
@@ -1681,7 +1704,8 @@ final class AppModel {
             case .freeLimitReached:
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
             case .failed:
-                diagnostics.record("Pins", "Couldn’t update the pin.")
+                diagnostics.record(
+                    String(localized: "Pins"), String(localized: "Couldn’t update the pin."))
             }
         }
     }
@@ -1703,7 +1727,8 @@ final class AppModel {
             case .clipUnavailable:
                 await refreshRecents()
             case .failed:
-                diagnostics.record("Snippets", "Couldn’t save the snippet.")
+                diagnostics.record(
+                    String(localized: "Snippets"), String(localized: "Couldn’t save the snippet."))
             }
         }
     }
@@ -1738,8 +1763,10 @@ final class AppModel {
     /// reversible, so offer the reversal in the toast instead of making the user
     /// hunt through the board menu to take it back.
     func assignWithUndo(_ item: ClipItem, toBoard board: Pinboard) {
-        Task {
-            guard await setBoardMembership(item, board: board, member: true) else { return }
+        Task { [weak self] in
+            guard let self, await setBoardMembership(item, board: board, member: true) else {
+                return
+            }
             toasts.show(
                 GanchoToast(
                     message: "Added to board",

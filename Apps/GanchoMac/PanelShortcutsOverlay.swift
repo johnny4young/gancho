@@ -34,6 +34,8 @@ struct PanelShortcutsOverlay: View {
                 .accessibilityIdentifier("panel-shortcuts-close-button")
             }
             shortcutLine(["↑", "↓"], "Move selection")
+            shortcutLine(["⇧", "↑", "↓"], "Extend selection")
+            shortcutLine(["⌘"], "Click to select several clips")
             shortcutLine(["→"], "Open actions")
             shortcutLine(["←"], "Back to list")
             shortcutLine(["⏎"], "Paste")
@@ -42,6 +44,8 @@ struct PanelShortcutsOverlay: View {
             shortcutLine(["⌘", "P"], "Pin or unpin")
             shortcutLine(["⌘", "S"], "Save as snippet")
             shortcutLine(["⌘", "B"], "Add to board")
+            shortcutLine(["⇧", "⌘", "B"], "Add to last board")
+            shortcutLine(["⌥", "⌘", "⏎"], "Add to paste stack")
             shortcutLine(["⌘", "Y"], "Preview")
             shortcutLine(["⌘", "G"], "List or gallery")
             shortcutLine(["⇧", "⌘", "C"], "Copy text from image")
@@ -52,10 +56,7 @@ struct PanelShortcutsOverlay: View {
         }
         .padding(GanchoTokens.Spacing.md)
         .frame(width: 320)
-        .background(
-            .regularMaterial,
-            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
-        )
+        .ganchoSurface(radius: GanchoTokens.Radius.lg)
         .overlay(
             RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
                 .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline)

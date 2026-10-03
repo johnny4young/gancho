@@ -14,6 +14,8 @@ public protocol TextRecipeStoring: Sendable {
     func textRecipes() async throws -> [StoredTextRecipe]
     func saveTextRecipe(_ recipe: TextRecipe) async throws
     func deleteTextRecipe(id: String) async throws
+    /// Re-adds deleted presets; presets the user kept or edited are untouched.
+    func restoreTextRecipePresets() async throws
 }
 
 public enum TextRecipePresets {
@@ -80,6 +82,21 @@ extension GRDBClipboardStore: TextRecipeStoring {
         try await writer.write { db in
             try Task.checkCancellation()
             try db.execute(sql: "DELETE FROM text_recipe WHERE id = ?", arguments: [id])
+        }
+    }
+    public func restoreTextRecipePresets() async throws {
+        try Task.checkCancellation()
+        let presets = try TextRecipePresets.all.map {
+            ($0.id.uuidString, try JSONEncoder().encode($0))
+        }
+        try await writer.write { db in
+            try Task.checkCancellation()
+            for (id, definition) in presets {
+                try db.execute(
+                    sql:
+                        "INSERT INTO text_recipe (id, definition) VALUES (?, ?) ON CONFLICT (id) DO NOTHING",
+                    arguments: [id, definition])
+            }
         }
     }
 }

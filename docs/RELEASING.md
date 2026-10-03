@@ -101,7 +101,9 @@ VERSION=0.1.0 ./scripts/package-macos-zip.sh
    The panel screens in the README and the website's screens band come from
    `ProductScreensUITests` the same way: run `make test-ui` and
    `make ui-evidence`, then scale the `screen-panel-*` attachments to 1200 px
-   wide into `site/assets/` when the panel they show has changed.
+   wide into `site/assets/` when the panel they show has changed. Captures from
+   the hosted UI workflow's evidence artifact are 1x (864 px) and are published
+   at their native size, with the `<img>` width/height updated to match.
 4. Keep the website's release hierarchy current: feature the version being
    shipped with its screenshot, move the previous current release into the
    compact recent-evolution milestones, and keep the full collapsible archive
@@ -254,9 +256,11 @@ appears on the other Mac without any manual refresh, and its footer settles on
 | 14 | Quit and relaunch both | A + B | Both come back to the same history, same boards, same pins. |
 | 15 | **Settings → Pro → Deactivate this Mac** | B | The seat is released. B drops to free and keeps its **encrypted local history**. A is untouched and still Pro. |
 
-If sync stalls at any row, `Settings → Reset & re-pull sync` discards the local
-`CKSyncEngine` state token and re-pulls. Needing it is itself a finding — note
-which row, because a released build should never require it.
+If sync stalls at any row on a Debug build, `Settings → Pro → Reset & re-pull
+sync` (Debug-only) discards the local `CKSyncEngine` state token and re-pulls.
+Release builds do not have it: record the row and the stall, then quit and
+relaunch both apps. Needing either is itself a finding, because a released
+build should never require it.
 
 **For 0.8.3 specifically**, one of the two Macs should be running **macOS 15.4
 Sequoia**, since this is the first release to advertise that floor. On it,

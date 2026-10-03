@@ -134,9 +134,16 @@ extension GRDBClipboardStore {
 
     /// Deleting a board never deletes its clips — the `clip_board` rows cascade
     /// away and the clips return to plain history. System boards can't be
-    /// deleted (the `isSystem = 0` guard).
+    /// deleted (the `isSystem = 0` guard). A board that ever reached iCloud
+    /// takes the tombstoning path even with sync off.
     public func deletePinboard(id: UUID) async throws {
         try await writer.write { db in
+            let wasSynced =
+                try Bool.fetchOne(
+                    db,
+                    sql: "SELECT syncSystemFields IS NOT NULL FROM pinboard WHERE id = ?",
+                    arguments: [id.uuidString]) ?? false
+            if wasSynced { return try deletePinboardForSync(id: id, now: .now, in: db) }
             try db.execute(
                 sql: "DELETE FROM pinboard WHERE id = ? AND isSystem = 0",
                 arguments: [id.uuidString])
@@ -280,35 +287,39 @@ extension GRDBClipboardStore {
     /// placeholder elsewhere. A no-op on the protected Favorites board.
     public func deletePinboardForSync(id: UUID, now: Date = .now) async throws {
         try await writer.write { db in
-            let isSystem =
-                try Bool.fetchOne(
-                    db, sql: "SELECT isSystem FROM pinboard WHERE id = ?",
-                    arguments: [id.uuidString]) ?? true
-            guard !isSystem else { return }
-            try db.execute(
-                sql: "INSERT OR REPLACE INTO board_tombstone (recordID, deletedAt) VALUES (?, ?)",
-                arguments: [id.uuidString, now])
-            let latestMemberRevision = try Date.fetchOne(
-                db,
-                sql: """
-                    SELECT MAX(updatedAt) FROM clip
-                    WHERE id IN (SELECT clipID FROM clip_board WHERE boardID = ?)
-                    """,
-                arguments: [id.uuidString])
-            // Membership travels on the clip record. A prior upload ack must
-            // never clear this new dirty state, even if the clock did not move.
-            let revision =
-                latestMemberRevision.map {
-                    max(now, $0.addingTimeInterval(0.001))
-                } ?? now
-            try db.execute(
-                sql: "UPDATE clip SET needsUpload = 1, updatedAt = ? "
-                    + "WHERE id IN (SELECT clipID FROM clip_board WHERE boardID = ?)",
-                arguments: [revision, id.uuidString])
-            try db.execute(
-                sql: "DELETE FROM clip_board WHERE boardID = ?", arguments: [id.uuidString])
-            try db.execute(sql: "DELETE FROM pinboard WHERE id = ?", arguments: [id.uuidString])
+            try deletePinboardForSync(id: id, now: now, in: db)
         }
+    }
+
+    private func deletePinboardForSync(id: UUID, now: Date, in db: Database) throws {
+        let isSystem =
+            try Bool.fetchOne(
+                db, sql: "SELECT isSystem FROM pinboard WHERE id = ?",
+                arguments: [id.uuidString]) ?? true
+        guard !isSystem else { return }
+        try db.execute(
+            sql: "INSERT OR REPLACE INTO board_tombstone (recordID, deletedAt) VALUES (?, ?)",
+            arguments: [id.uuidString, now])
+        let latestMemberRevision = try Date.fetchOne(
+            db,
+            sql: """
+                SELECT MAX(updatedAt) FROM clip
+                WHERE id IN (SELECT clipID FROM clip_board WHERE boardID = ?)
+                """,
+            arguments: [id.uuidString])
+        // Membership travels on the clip record. A prior upload ack must
+        // never clear this new dirty state, even if the clock did not move.
+        let revision =
+            latestMemberRevision.map {
+                max(now, $0.addingTimeInterval(0.001))
+            } ?? now
+        try db.execute(
+            sql: "UPDATE clip SET needsUpload = 1, updatedAt = ? "
+                + "WHERE id IN (SELECT clipID FROM clip_board WHERE boardID = ?)",
+            arguments: [revision, id.uuidString])
+        try db.execute(
+            sql: "DELETE FROM clip_board WHERE boardID = ?", arguments: [id.uuidString])
+        try db.execute(sql: "DELETE FROM pinboard WHERE id = ?", arguments: [id.uuidString])
     }
 
     /// Applies a board deletion that arrived from another device: removes the

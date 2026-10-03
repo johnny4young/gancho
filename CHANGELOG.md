@@ -22,13 +22,65 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Definitions are not synced and originals remain intact.
 
 - Versioned, bounded deterministic text action and recipe contracts, reusing
-  existing transforms and the selected-context formatter. Editor and local
-  persistence follow separately.
+  existing transforms and the selected-context formatter.
 
 - Prepare explicitly selected text as reviewed, bounded Markdown, with optional
   selected-ID, read-only MCP access expiring after one hour.
 
+- Restore deleted default text recipes from the recipe editor without touching
+  recipes you kept or edited.
+
 ### Fixed
+
+- Keep the panel's hidden ⌘V, ⌥⌘V, ⌘Y, ⌘G and ⇧⌘C shortcuts away from a field
+  being edited, the board picker and the shortcuts sheet, and stop list keys
+  acting behind that sheet. Escape cancels a title or content edit.
+
+- End the open-time newest-clip selection as soon as you scroll, edit, move into
+  the peek, open the board picker or use ⌘P, ⌘S or ⌘B, and keep an unsaved
+  inline edit across a trip to another app. More actions is reachable from the
+  keyboard, a failed developer action says so, and the gallery's arrow keys
+  follow the grid you see.
+
+- Show "Results" or "Filtered" instead of "Recent" above searches and filters,
+  resize the panel from Settings only when you pick a size, confirm backups and
+  report a settings file that couldn't be imported. Toasts and the shortcuts
+  sheet follow the solid panel preference.
+
+- Keep a stopped iCloud sync engine stopped, order sync restarts and resets, and
+  tombstone already-synced clips and boards deleted while sync is off so they
+  don't come back.
+
+- Hide expired clips from lists, search, counts, content reads and MCP right
+  away instead of waiting for the next purge, and treat archived clips as
+  missing over MCP. Metadata-scope MCP search matches only titles and previews,
+  and selected-context grants stop serving a clip changed after review.
+
+- Remove blobs, thumbnails and semantic vectors together with their clip,
+  including remote deletions, and sweep orphaned blobs after launch on the Mac.
+
+- Keep secret-looking automatic OCR text out of the store, stop OCR from
+  re-uploading images it can't sync, and drop a capture whose pasteboard
+  changed during the read.
+
+- Guard the CLI: `gancho save` refuses detected secrets unless `--allow-secret`
+  is passed, `gancho copy` needs `--reveal` for sensitive clips and refuses
+  expired ones, and `gancho export --out` writes owner-only files. Gancho's CSV
+  export can be imported back, and restored archives repair malformed ids.
+
+- Record failed captures in the Privacy Center, ignore a stale tier lookup at
+  launch, and swap in a freshly encrypted store atomically with recovery of a
+  leftover copy.
+
+- Give iPad the iPhone shell (paste control, settings, sheets, deep links,
+  pagination, row actions), reset the detail pane per clip, make the Type
+  filter work without a query, keep the iPhone peek live, reload widgets after
+  changes, confirm board deletion, and use thumbnails for history rows.
+
+- Cancel superseded keyboard searches, keep shared images in their original
+  format, mask the Live Activity like widgets, show readable kind names in
+  English, localize diagnostics, and align the keyboard's Full Access privacy
+  copy with onboarding.
 
 - Open the panel on the newest clip with the search field focused, instead of
   the row and filter rail the previous session ended on. Arrow keys move
@@ -37,7 +89,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Make the panel solid by default, with a "Translucent background" option, and
   show which panel size preset is active. The panel answers the shortcut on
-  key down and is prepared ahead of the first open.
+  key down, is prepared ahead of the first open, and appears at once without
+  the open entrance animation.
 
 - Keep developer actions behind "More actions" so each peek shows the
   essentials first; the choice is remembered.

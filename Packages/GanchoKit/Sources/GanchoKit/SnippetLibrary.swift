@@ -85,12 +85,14 @@ extension GRDBClipboardStore {
 
     /// OCR enrichment for image clips: extracted text lands in contentText
     /// (FTS-indexed → screenshots become searchable) without altering the
-    /// preview or the blob. Flags `needsUpload` so the OCR fruit syncs.
+    /// preview or the blob. Device-local: a binary clip's record never carries
+    /// contentText, so the write neither bumps the revision nor queues an
+    /// upload that would re-send the asset unchanged.
     public func attachExtractedText(id: UUID, text: String) async throws {
         try await writer.write { db in
             try db.execute(
-                sql: "UPDATE clip SET contentText = ?, updatedAt = ?, needsUpload = 1 WHERE id = ?",
-                arguments: [text, Date(), id.uuidString])
+                sql: "UPDATE clip SET contentText = ? WHERE id = ?",
+                arguments: [text, id.uuidString])
         }
     }
 

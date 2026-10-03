@@ -3,7 +3,8 @@ import GanchoKit
 import SwiftUI
 
 /// The panel's modal layer: creating or renaming a board, confirming a board
-/// deletion, and the snippet-fill and board-appearance sheets.
+/// deletion, and every panel sheet (snippet fill, board appearance, combined
+/// text, AI context and saved filters).
 ///
 /// `PanelView` stays the single navigation owner — it still holds the state
 /// these bind to and the focus and keyboard semantics around them. This
@@ -21,11 +22,17 @@ struct PanelSheetPresentations: ViewModifier {
     enum Sheet: Identifiable {
         case snippet(SnippetFillRequest)
         case boardAppearance(Pinboard)
+        case combinedText(CombinedTextSelection)
+        case aiContext(CombinedTextSelection)
+        case savedFilter(SmartCollectionRule)
 
         var id: String {
             switch self {
             case .snippet(let request): "snippet-\(request.id.uuidString)"
             case .boardAppearance(let board): "board-appearance-\(board.id.uuidString)"
+            case .combinedText(let selection): "combined-\(selection.id.uuidString)"
+            case .aiContext(let selection): "ai-context-\(selection.id.uuidString)"
+            case .savedFilter(let rule): "saved-filter-\(rule.id.uuidString)"
             }
         }
     }
@@ -42,6 +49,8 @@ struct PanelSheetPresentations: ViewModifier {
     let deleteBoard: (Pinboard) -> Void
     let pasteSnippet: (SnippetFillRequest, [String: String]) -> Void
     let updateBoardIdentity: @MainActor (Pinboard, String?, String?) async -> Bool
+    /// The review and filter sheets need the app model; the owner builds them.
+    let reviewSheet: (Sheet) -> AnyView
 
     func body(content: Content) -> some View {
         content
@@ -75,6 +84,8 @@ struct PanelSheetPresentations: ViewModifier {
                     BoardIdentityEditor(board: board) { colorHex, emoji in
                         await updateBoardIdentity(board, colorHex, emoji)
                     }
+                case .combinedText, .aiContext, .savedFilter:
+                    reviewSheet(sheet)
                 }
             }
     }
