@@ -17,13 +17,18 @@
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
 **Status: public v0.9.1; in active development toward 1.0.**
-**Source version: v0.9.1.** The published direct download requires macOS 15.4+
-(build 18). Local history and manual OCR are Free; Pro activation through
-Lemon Squeezy is included. The on-device model tier requires macOS 26.
+**Source version: v0.10.0 (unreleased).** The published v0.9.1 direct download
+requires macOS 15.4+ (build 18). Local history and manual OCR are Free; Pro
+activation through Lemon Squeezy is included. The on-device model tier requires
+macOS 26. The v0.10.0 source adds text recipes, off-by-default meaning
+suggestions, selected context for AI tools and translation with installed
+languages, opens a solid panel on the newest clip, and hardens privacy and
+sync; it is not yet a published build. See its
+[release notes](docs/releases/v0.10.0.md).
 
-![The Gancho panel at the Large text size: bigger rows, peek and dock](site/assets/v0.9.1-release.png)
+![The Gancho panel, solid by default, with a link peek and developer actions collapsed](site/assets/v0.10.0-release.png)
 
-*v0.9.1 at the Large text size, with synthetic fixtures: the Text size preference now scales the panel.*
+*v0.10.0 candidate with synthetic fixtures; not evidence of a published release.*
 
 [Download v0.9.1](https://github.com/johnny4young/gancho/releases/tag/v0.9.1)
 for the redesigned Mac panel with a Text size preference that scales it — one toolbar, a peek with a hero card and an
