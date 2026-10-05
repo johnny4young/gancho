@@ -21,6 +21,7 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     /// Admission token for asynchronous license operations. A response may
     /// change local state only while it still owns the current operation.
     private var operationID = UUID()
+    private var refreshID = UUID()
 
     public init(
         store: any LicenseTokenStore,
@@ -83,9 +84,13 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     /// The single place a refresh verdict changes local state, so the scheduled
     /// and on-demand paths can never drift apart.
     private func refresh(_ record: LicenseActivationRecord) async -> UserTier {
-        let operation = beginOperation()
+        // A background refresh cannot supersede a user's pending activation.
+        // It still needs its own latest-request fence within this generation.
+        let operation = operationID
+        let request = UUID()
+        refreshID = request
         let outcome = await activation.refresh(record)
-        guard operationID == operation,
+        guard operationID == operation, refreshID == request,
             storedRecord()?.licenseKey == record.licenseKey,
             storedRecord()?.instanceID == record.instanceID
         else { return await currentTier() }
@@ -156,6 +161,7 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
                 return .storageUnavailable(reason: "The license did not persist on this device")
             }
             revokedThisSession = false
+            _ = beginOperation()  // Fence refreshes started during this activation.
             return .activated
         case .rejected(let reason):
             return .invalidKey(reason: reason)

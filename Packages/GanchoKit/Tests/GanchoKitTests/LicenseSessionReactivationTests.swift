@@ -5,10 +5,14 @@ import Testing
 
 private actor DelayedLicenseTransport {
     private let delayedPath: String
+    private let delayedKey: String?
     private var pending: CheckedContinuation<Void, Never>?
     private var waiter: CheckedContinuation<Void, Never>?
 
-    init(delayedPath: String) { self.delayedPath = delayedPath }
+    init(delayedPath: String, delayedKey: String? = nil) {
+        self.delayedPath = delayedPath
+        self.delayedKey = delayedKey
+    }
 
     func waitUntilPending() async {
         if pending != nil { return }
@@ -21,7 +25,9 @@ private actor DelayedLicenseTransport {
     }
 
     func response(_ request: URLRequest) async -> (Data, URLResponse) {
-        if request.url?.lastPathComponent == delayedPath {
+        let body = String(decoding: request.httpBody ?? Data(), as: UTF8.self)
+        let selectedKey = delayedKey.map { body.contains("license_key=\($0)") } ?? true
+        if request.url?.lastPathComponent == delayedPath && selectedKey {
             await withCheckedContinuation { continuation in
                 pending = continuation
                 waiter?.resume()
@@ -96,6 +102,38 @@ struct LicenseSessionReactivationTests {
             await old.value
             #expect(await handler.currentTier() == .pro)
         }
+    }
+
+    @Test("A delayed older activation cannot overwrite the latest activation")
+    func staleActivation() async {
+        let store = InMemoryLicenseTokenStore()
+        let fake = DelayedLicenseTransport(delayedPath: "activate", delayedKey: "OLD")
+        let handler = makeHandler(store: store) { await fake.response($0) }
+        let old = Task { await handler.activateResult(licenseKey: "OLD") }
+        await fake.waitUntilPending()
+        #expect(await handler.activateResult(licenseKey: "NEW") == .activated)
+        await fake.resume()
+        guard case .storageUnavailable = await old.value else {
+            Issue.record("the superseded activation must not be admitted")
+            return
+        }
+        #expect(store.load()?.contains("NEW") == true)
+        #expect(await handler.currentTier() == .pro)
+    }
+
+    @Test("Background refresh cannot cancel a pending user activation")
+    func refreshDuringActivation() async {
+        let store = InMemoryLicenseTokenStore()
+        let fake = DelayedLicenseTransport(delayedPath: "activate", delayedKey: "NEW")
+        let handler = makeHandler(store: store) { await fake.response($0) }
+        #expect(await handler.activateResult(licenseKey: "OLD") == .activated)
+        let activation = Task { await handler.activateResult(licenseKey: "NEW") }
+        await fake.waitUntilPending()
+        _ = await handler.recheckNow()
+        await fake.resume()
+        #expect(await activation.value == .activated)
+        #expect(store.load()?.contains("NEW") == true)
+        #expect(await handler.currentTier() == .pro)
     }
 
     @Test("Failed save and failed readback never release the revocation latch")
