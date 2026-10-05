@@ -32,6 +32,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Detect a credit card even when an earlier order or reference number fails
+  its checksum, so mixed clipboard text still gets masking and short expiry.
+
 - Keep the panel's hidden ⌘V, ⌥⌘V, ⌘Y, ⌘G and ⇧⌘C shortcuts away from a field
   being edited, the board picker and the shortcuts sheet, and stop list keys
   acting behind that sheet. Escape cancels a title or content edit.

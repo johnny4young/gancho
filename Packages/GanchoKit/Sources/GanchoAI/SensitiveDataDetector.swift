@@ -79,7 +79,7 @@ public struct SensitiveDataDetector: Sendable {
             return .azureConnectionString
         }
         if containsAuthorizationSecret(text) { return .authorizationHeader }
-        if let card = containedCardCandidate(text), Luhn.validates(card) {
+        if containsValidCard(text) {
             return .creditCard
         }
         if isProbablePassword(text) { return .probablePassword }
@@ -107,15 +107,19 @@ public struct SensitiveDataDetector: Sendable {
         return matches(#"(?i)\bbearer\s+[A-Za-z0-9\-._~+/]{20,}=*"#, in: text)
     }
 
-    /// 13–19 digit run (spaces/dashes allowed) anywhere in the text.
-    private func containedCardCandidate(_ text: String) -> String? {
-        guard
-            let range = text.range(
+    /// Checks every 13–19 digit run (spaces/dashes allowed). An order number
+    /// that fails Luhn must not hide a later card in the same clipboard text.
+    private func containsValidCard(_ text: String) -> Bool {
+        var searchRange = text.startIndex..<text.endIndex
+        while let range = text.range(
                 of: #"(?<![0-9])(?:[0-9][ -]?){12,18}[0-9](?![0-9])"#,
-                options: .regularExpression)
-        else { return nil }
-        let digits = text[range].filter(\.isNumber)
-        return (13...19).contains(digits.count) ? String(digits) : nil
+                options: .regularExpression, range: searchRange)
+        {
+            let digits = text[range].filter(\.isNumber)
+            if Luhn.validates(String(digits)) { return true }
+            searchRange = range.upperBound..<text.endIndex
+        }
+        return false
     }
 
     /// Three routes, all conservative:

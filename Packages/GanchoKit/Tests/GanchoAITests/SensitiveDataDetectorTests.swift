@@ -140,6 +140,21 @@ struct SensitiveDataDetectorTests {
     func negatives(input: String) {
         #expect(detector.detect(input) == nil, "input: \(input)")
     }
+
+    @Test("A non-card number cannot hide a later card", arguments: [
+        "order 1234 5678 9012 3456; card 4111 1111 1111 1111",
+        "order 1234567890123456\ncard 378282246310005",
+        "📦 1234-5678-9012-3456; invalid 4111 1111 1111 1112; card 5555-5555-5555-4444"
+    ])
+    func cardAfterNonCard(input: String) {
+        #expect(detector.detect(input) == .creditCard)
+    }
+
+    @Test("Several invalid card-shaped numbers stay clean")
+    func nonCardNumbersStayClean() {
+        #expect(
+            detector.detect("order 1234 5678 9012 3456; reference 4111 1111 1111 1112") == nil)
+    }
 }
 
 @Suite("Sensitive masking + ingestion decoration")
