@@ -1,35 +1,21 @@
-import Darwin
 import Foundation
 
-/// An open database pins its filesystem generation. Recovery requires an
-/// exclusive cross-process lease, so it cannot move bytes beneath another pool.
+/// An open database registers its filesystem generation durably. Recovery
+/// requires exclusive logical ownership, not a file lock held during suspension.
 final class StoreGenerationLease: @unchecked Sendable {
-    private var descriptor: Int32
+    private let ownership: StoreProcessOwnership
+    let directory: URL
 
     init(in directory: URL, exclusive: Bool) throws {
-        let path = directory.appendingPathComponent(".store-generation.lock").path
-        descriptor = open(path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0o600)
-        guard descriptor >= 0 else { throw POSIXError(.EIO) }
-        guard flock(descriptor, (exclusive ? LOCK_EX : LOCK_SH) | LOCK_NB) == 0 else {
-            let failure = errno
-            close(descriptor)
-            descriptor = -1
-            throw POSIXError(POSIXErrorCode(rawValue: failure) ?? .EBUSY)
-        }
+        guard let ownership = try StoreProcessOwnership.acquire(
+            in: directory, scope: .generation, exclusive: exclusive)
+        else { throw StoreProcessOwnership.Failure.busy }
+        self.ownership = ownership
+        self.directory = directory.standardizedFileURL.resolvingSymlinksInPath()
     }
 
-    func downgrade() throws {
-        guard flock(descriptor, LOCK_SH | LOCK_NB) == 0 else { throw POSIXError(.EBUSY) }
-    }
-
-    func release() {
-        guard descriptor >= 0 else { return }
-        _ = flock(descriptor, LOCK_UN)
-        close(descriptor)
-        descriptor = -1
-    }
-
-    deinit { release() }
+    func downgrade() throws { try ownership.downgrade() }
+    func release() { ownership.release() }
 }
 
 /// Preserves a whole database/blob/thumbnail generation before creating a new
@@ -47,20 +33,35 @@ enum StoreGenerationRecovery {
         var members: [String]
     }
 
-    static func openLease(in directory: URL) throws -> StoreGenerationLease {
-        let lease = try StoreGenerationLease(in: directory, exclusive: false)
+    static func openLease(
+        in directory: URL, checkingPlaintextConversion: Bool = false
+    ) throws -> StoreGenerationLease {
+        var lease = try StoreGenerationLease(in: directory, exclusive: false)
         let journalURL = directory.appendingPathComponent(journalName)
-        guard FileManager.default.fileExists(atPath: journalURL.path) else { return lease }
-        // Release the shared descriptor before acquiring exclusive ownership.
-        lease.release()
-        return try resumeLease(in: directory)
+        let pending = FileManager.default.fileExists(atPath: journalURL.path)
+        let converting = try checkingPlaintextConversion && needsPlaintextConversion(in: directory)
+        if pending || converting {
+            lease.release()
+            lease = try StoreGenerationLease(in: directory, exclusive: true)
+            // Recheck after exclusive acquisition: another opener may have
+            // completed recovery while this shared registration was released.
+            if FileManager.default.fileExists(atPath: journalURL.path) {
+                try resume(in: directory)
+            }
+            if !checkingPlaintextConversion { try lease.downgrade() }
+        }
+        return lease
     }
 
-    private static func resumeLease(in directory: URL) throws -> StoreGenerationLease {
-        let exclusive = try StoreGenerationLease(in: directory, exclusive: true)
-        try resume(in: directory)
-        try exclusive.downgrade()
-        return exclusive
+    private static func needsPlaintextConversion(in directory: URL) throws -> Bool {
+        let database = directory.appendingPathComponent("gancho.sqlite")
+        let manager = FileManager.default
+        if !manager.fileExists(atPath: database.path) {
+            return true  // Creation can race a plaintext opener too.
+        }
+        let handle = try FileHandle(forReadingFrom: database)
+        defer { try? handle.close() }
+        return try handle.read(upToCount: 16) == Data("SQLite format 3\u{0}".utf8)
     }
 
     static func archive(

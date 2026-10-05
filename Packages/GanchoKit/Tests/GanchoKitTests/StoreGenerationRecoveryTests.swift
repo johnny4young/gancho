@@ -50,7 +50,7 @@ struct StoreGenerationRecoveryTests {
         }
     }
 
-    @Test("An active generation blocks recovery across independent file descriptors")
+    @Test("An active generation blocks recovery across independent coordinator connections")
     func activeGenerationCannotBeMoved() throws {
         let root = try fixture()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -64,6 +64,32 @@ struct StoreGenerationRecoveryTests {
         try StoreGenerationRecovery.archive(in: root, suffix: "allowed")
         let preserved = root.appendingPathComponent(".unreadable-allowed/blobs/hash")
         #expect(FileManager.default.fileExists(atPath: preserved.path))
+    }
+
+    @Test("Plaintext and fresh namespace initialization require exclusive ownership")
+    func conversionCannotMoveAnActivePool() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fresh = try StoreGenerationRecovery.openLease(
+            in: root, checkingPlaintextConversion: true)
+        #expect(throws: StoreProcessOwnership.Failure.self) {
+            try StoreGenerationRecovery.openLease(in: root)
+        }
+        let header = Data("SQLite format 3\u{0}".utf8)
+        try header.write(to: root.appendingPathComponent("gancho.sqlite"))
+        try fresh.downgrade()
+        #expect(throws: StoreProcessOwnership.Failure.self) {
+            try StoreGenerationRecovery.openLease(in: root, checkingPlaintextConversion: true)
+        }
+        fresh.release()
+        let conversion = try StoreGenerationRecovery.openLease(
+            in: root, checkingPlaintextConversion: true)
+        defer { conversion.release() }
+        #expect(throws: StoreProcessOwnership.Failure.self) {
+            try StoreGenerationRecovery.openLease(in: root)
+        }
     }
 
     #if SQLITE_HAS_CODEC

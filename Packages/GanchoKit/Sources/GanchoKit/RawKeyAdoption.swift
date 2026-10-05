@@ -48,7 +48,8 @@ import GRDB
         ) throws -> GRDBClipboardStore {
             try FileManager.default.createDirectory(
                 at: directory, withIntermediateDirectories: true)
-            let generationLease = try StoreGenerationRecovery.openLease(in: directory)
+            let generationLease = try StoreGenerationRecovery.openLease(
+                in: directory, checkingPlaintextConversion: true)
             let dbPath = directory.appendingPathComponent("gancho.sqlite").path
 
             var configuration = Configuration()
@@ -77,6 +78,7 @@ import GRDB
                 // x'…' literal — or every sealed blob/thumbnail is lost.
                 encryptionKeyData: BlobStore.encryptionKeyData(for: passphrase))
             try blobStore.encryptPlaintextFilesIfNeeded()
+            try generationLease.downgrade()
             let store = GRDBClipboardStore(
                 writer: pool, blobs: blobStore, generationLease: generationLease)
             return store

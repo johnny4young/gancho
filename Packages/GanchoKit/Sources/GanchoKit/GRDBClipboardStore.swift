@@ -35,7 +35,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     ///   path used by tests and the perf harness.
     public convenience init(directory: URL, passphrase: String? = nil) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let generationLease = try StoreGenerationRecovery.openLease(in: directory)
+        let generationLease = try StoreGenerationRecovery.openLease(
+            in: directory, checkingPlaintextConversion: passphrase != nil)
         let dbPath = directory.appendingPathComponent("gancho.sqlite").path
 
         var configuration = Configuration()
@@ -88,6 +89,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             directory: directory.appendingPathComponent("blobs"),
             encryptionKeyData: blobEncryptionKeyData)
         try blobStore.encryptPlaintextFilesIfNeeded()
+        try generationLease.downgrade()
         self.init(
             writer: pool,
             blobs: blobStore, generationLease: generationLease)
