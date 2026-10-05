@@ -161,8 +161,8 @@ public enum GanchoArchive {
     private static func validateExport(_ manifest: Manifest, in directory: URL) throws {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let stored = try decoder.decode(
-            Manifest.self, from: Data(contentsOf: directory.appendingPathComponent("manifest.json")))
+        let manifestURL = directory.appendingPathComponent("manifest.json")
+        let stored = try decoder.decode(Manifest.self, from: Data(contentsOf: manifestURL))
         guard stored.version == manifest.version, stored.clipCount == manifest.clipCount,
             stored.checksums == manifest.checksums
         else { throw ArchiveError.corruptArchive("staged manifest does not match the export") }
