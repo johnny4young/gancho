@@ -99,8 +99,10 @@ struct PassphraseKeychainFailureTests {
     @Test("Valid preferred and synchronized keys remain byte-for-byte unchanged")
     func validLegacyAndFallback() throws {
         let uppercase = Data(String(repeating: "AB", count: 32).utf8)
-        for fake in [FakePassphraseKeychain(local: uppercase, synchronized: valid),
-            FakePassphraseKeychain(synchronized: valid)]
+        for fake in [
+            FakePassphraseKeychain(local: uppercase, synchronized: valid),
+            FakePassphraseKeychain(synchronized: valid)
+        ]
         {
             let expected = fake.local ?? valid
             let result = try KeychainPassphraseStore(operations: fake)

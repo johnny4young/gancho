@@ -348,9 +348,10 @@ public struct KeychainPassphraseStore: Sendable {
     /// rewriting authority; arbitrary passphrases belong only to explicit
     /// `GRDBClipboardStore(directory:passphrase:)` callers, not this item.
     static func isStoredKey(_ key: String) -> Bool {
-        key.utf8.count == 64 && key.utf8.allSatisfy { byte in
-            (48...57).contains(byte) || (65...70).contains(byte) || (97...102).contains(byte)
-        }
+        key.utf8.count == 64
+            && key.utf8.allSatisfy { byte in
+                (48...57).contains(byte) || (65...70).contains(byte) || (97...102).contains(byte)
+            }
     }
 
     // MARK: - Key generation
