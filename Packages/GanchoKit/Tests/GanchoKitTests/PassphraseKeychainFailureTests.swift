@@ -102,8 +102,7 @@ struct PassphraseKeychainFailureTests {
         for fake in [
             FakePassphraseKeychain(local: uppercase, synchronized: valid),
             FakePassphraseKeychain(synchronized: valid)
-        ]
-        {
+        ] {
             let expected = fake.local ?? valid
             let result = try KeychainPassphraseStore(operations: fake)
                 .loadOrCreateKeyReportingFreshness()
