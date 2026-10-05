@@ -1,61 +1,47 @@
-import Darwin
 import Foundation
+import GRDB
 
-/// The database writer and the filesystem cannot share a SQLite transaction.
-/// This cross-process lease covers binary adoption through row commit, and
-/// orphan reference lookup through deletion, on the same stable lock inode.
-final class BlobOwnershipLease: @unchecked Sendable {
-    private var descriptor: Int32
+/// A committed logical token covers binary adoption through row commit and
+/// orphan reference lookup through deletion. No kernel lock or coordinator
+/// transaction survives the async boundary. Recovery uses the same coordinator.
+final class BlobOwnershipLease: Sendable {
+    private let ownership: StoreProcessOwnership
 
-    private init(for directory: URL) throws {
-        // Shipped older sweeps exclude this directory, but not arbitrary hidden
-        // files in the blob root. Keep the lock inode stable across those sweeps.
-        let lockDirectory = directory.appendingPathComponent("thumbnails", isDirectory: true)
-        try FileManager.default.createDirectory(at: lockDirectory, withIntermediateDirectories: true)
-        let path = lockDirectory.appendingPathComponent(".ownership.lock").path
-        descriptor = open(path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0o600)
-        guard descriptor >= 0 else { throw POSIXError(.EIO) }
-    }
+    private init(ownership: StoreProcessOwnership) { self.ownership = ownership }
 
     static func acquire(for directory: URL) async throws -> BlobOwnershipLease {
-        let lease = try BlobOwnershipLease(for: directory)
-        while !lease.tryLock() {
-            let failure = errno
-            guard failure == EWOULDBLOCK || failure == EINTR else {
-                throw POSIXError(POSIXErrorCode(rawValue: failure) ?? .EIO)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while true {
+            try Task.checkCancellation()
+            do {
+                if let lease = try tryAcquire(for: directory) {
+                    try Task.checkCancellation()
+                    return lease
+                }
+            } catch let error as DatabaseError {
+                guard error.resultCode == .SQLITE_BUSY || error.resultCode == .SQLITE_LOCKED
+                else { throw error }
             }
-            // Never block Swift's cooperative executor while another task owns
-            // the lease across a GRDB await. Cancellation keeps unprovable bytes.
+            // Live/suspended/unverifiable owners are not timed out or revoked.
+            // Only this request times out, reporting busy with all bytes intact.
+            guard ContinuousClock.now < deadline else { throw StoreProcessOwnership.Failure.busy }
             try await Task.sleep(for: .milliseconds(10))
         }
-        try Task.checkCancellation()
-        return lease
     }
 
     static func tryAcquire(for directory: URL) throws -> BlobOwnershipLease? {
-        let lease = try BlobOwnershipLease(for: directory)
-        if lease.tryLock() { return lease }
-        let failure = errno
-        guard failure == EWOULDBLOCK else {
-            throw POSIXError(POSIXErrorCode(rawValue: failure) ?? .EIO)
-        }
-        return nil
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        guard let ownership = try StoreProcessOwnership.acquire(
+            in: directory, scope: .blob, exclusive: true)
+        else { return nil }
+        return BlobOwnershipLease(ownership: ownership)
     }
 
-    func tryLock() -> Bool { flock(descriptor, LOCK_EX | LOCK_NB) == 0 }
-
-    func release() {
-        guard descriptor >= 0 else { return }
-        _ = flock(descriptor, LOCK_UN)
-        close(descriptor)
-        descriptor = -1
-    }
-
-    deinit { release() }
+    func release() { ownership.release() }
 }
 
 extension GRDBClipboardStore {
     func acquireBlobOwnership() async throws -> BlobOwnershipLease {
-        try await BlobOwnershipLease.acquire(for: blobsForMaintenance.directory)
+        try await BlobOwnershipLease.acquire(for: blobOwnershipDirectory())
     }
 }

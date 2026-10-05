@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import Testing
 
 @_spi(GanchoInternal) @testable import GanchoKit
@@ -67,10 +68,10 @@ struct BlobOwnershipRaceTests {
             }
         }
         await barrier.waitUntilPaused()
-        // Independent descriptor proves the cross-process kernel lease
-        // is actually held after the read, without a timing-based sleep.
+        // An independent coordinator connection proves the committed logical
+        // token is still held after the read, without a timing-based sleep.
         let competing = try BlobOwnershipLease.tryAcquire(
-            for: second.blobsForMaintenance.directory)
+            for: second.blobOwnershipDirectory())
         #expect(competing == nil)
         competing?.release()
         let item = ClipItem(kind: .image, preview: "fixture", contentHash: "adopted")
@@ -85,8 +86,7 @@ struct BlobOwnershipRaceTests {
         let stored = try #require(items.first)
         #expect(try await second.content(for: stored.id) == content)
         #expect(FileManager.default.fileExists(
-            atPath: second.blobsForMaintenance.directory
-                .appendingPathComponent("thumbnails/.ownership.lock").path))
+            atPath: directory.appendingPathComponent(StoreProcessOwnership.fileName).path))
     }
 
     private func prepareArchive(
@@ -132,7 +132,55 @@ struct BlobOwnershipRaceTests {
         #expect(try store.blobsForMaintenance.read(hash: hash) == payload)
     }
 
-    @Test("A shipped legacy sweep cannot unlink the ownership lock inode")
+    @Test("Borrowing a production writer cannot create a second ownership domain")
+    func injectedWriterSharesProductionOwnership() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let production = try GRDBClipboardStore(directory: root)
+        let injected = GRDBClipboardStore(
+            writer: production.writer, blobs: production.blobsForMaintenance)
+        #expect(try production.blobOwnershipDirectory() == injected.blobOwnershipDirectory())
+        let held = try await production.acquireBlobOwnership()
+        defer { held.release() }
+        let competing = try BlobOwnershipLease.tryAcquire(for: injected.blobOwnershipDirectory())
+        #expect(competing == nil)
+        competing?.release()
+    }
+
+    @Test("Independent in-memory fixtures do not share a temporary-parent coordinator")
+    func inMemoryFixtureNamespaces() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let first = GRDBClipboardStore(
+            writer: try DatabaseQueue(), blobs: BlobStore(directory: root.appendingPathComponent("a")))
+        let second = GRDBClipboardStore(
+            writer: try DatabaseQueue(), blobs: BlobStore(directory: root.appendingPathComponent("b")))
+        let held = try await first.acquireBlobOwnership()
+        defer { held.release() }
+        let independent = try await second.acquireBlobOwnership()
+        independent.release()
+        #expect(try first.blobOwnershipDirectory() != second.blobOwnershipDirectory())
+    }
+
+    @Test("A live owner produces bounded busy instead of unsafe lease expiry")
+    func liveOwnerWaitIsBounded() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try GRDBClipboardStore(directory: root)
+        let held = try await store.acquireBlobOwnership()
+        defer { held.release() }
+        await #expect(throws: StoreProcessOwnership.Failure.self) {
+            try await store.acquireBlobOwnership()
+        }
+        let competing = try BlobOwnershipLease.tryAcquire(for: store.blobOwnershipDirectory())
+        #expect(competing == nil)
+        competing?.release()
+    }
+
+    @Test("A shipped legacy sweep cannot remove the coordinator")
     func legacySweepKeepsCoordination() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
@@ -144,14 +192,14 @@ struct BlobOwnershipRaceTests {
         let directory = store.blobsForMaintenance.directory
         let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         // Reproduce the shipped pre-lease sweep's exact exclusions. It does not
-        // skip hidden root files, and therefore cannot own the new lock there.
+        // skip hidden root files. The coordinator is outside the blob root.
         for name in files where name != "thumbnails" && name != BlobStore.migrationMarker {
             store.blobsForMaintenance.delete(hash: name)
         }
-        let competing = try BlobOwnershipLease.tryAcquire(for: directory)
+        let competing = try BlobOwnershipLease.tryAcquire(for: store.blobOwnershipDirectory())
         #expect(competing == nil)
         competing?.release()
-        let protected = directory.appendingPathComponent("thumbnails/.ownership.lock")
+        let protected = root.appendingPathComponent(StoreProcessOwnership.fileName)
         #expect(FileManager.default.fileExists(atPath: protected.path))
     }
 

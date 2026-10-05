@@ -25,6 +25,25 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// Maintenance-only blob access for same-module engines (orphan sweeps).
     var blobsForMaintenance: BlobStore { blobs }
 
+    func blobOwnershipDirectory() throws -> URL {
+        if let generationLease { return generationLease.directory }
+        let path = writer.path
+        let memoryURI = path.hasPrefix("file:")
+            && URLComponents(string: path)?.queryItems?.contains {
+                $0.name == "mode" && $0.value == "memory"
+            } == true
+        if path.isEmpty || path == ":memory:" || memoryURI {
+            return blobs.directory.appendingPathComponent("thumbnails", isDirectory: true)
+        }
+        // File-backed injected facades must use the same root as production,
+        // even when they borrow a production pool without its registration.
+        guard !path.hasPrefix("file:") else {
+            throw StoreProcessOwnership.Failure.malformedMetadata
+        }
+        return URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
+            .deletingLastPathComponent()
+    }
+
     /// Production store at a directory (database + blobs side by side).
     ///
     /// - Parameter passphrase: when non-nil and the build links SQLCipher, the
@@ -35,7 +54,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     ///   path used by tests and the perf harness.
     public convenience init(directory: URL, passphrase: String? = nil) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let generationLease = try StoreGenerationRecovery.openLease(in: directory)
+        let generationLease = try StoreGenerationRecovery.openLease(
+            in: directory, checkingPlaintextConversion: passphrase != nil)
         let dbPath = directory.appendingPathComponent("gancho.sqlite").path
 
         var configuration = Configuration()
@@ -88,6 +108,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             directory: directory.appendingPathComponent("blobs"),
             encryptionKeyData: blobEncryptionKeyData)
         try blobStore.encryptPlaintextFilesIfNeeded()
+        try generationLease.downgrade()
         self.init(
             writer: pool,
             blobs: blobStore, generationLease: generationLease)
