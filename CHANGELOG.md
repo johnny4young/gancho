@@ -32,6 +32,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep MCP search inside the exact reviewed clip revisions. Changed clips no
+  longer expose new previews or displace unchanged matches from a limited search.
+
 - Keep the panel's hidden ⌘V, ⌥⌘V, ⌘Y, ⌘G and ⇧⌘C shortcuts away from a field
   being edited, the board picker and the shortcuts sheet, and stop list keys
   acting behind that sheet. Escape cancels a title or content edit.

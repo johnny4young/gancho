@@ -139,7 +139,7 @@ public struct MCPToolRunner: Sendable {
             dateRange: pack.timeScope.lowerBound(relativeTo: currentTime).map { $0...currentTime },
             boardID: pack.boardID,
             markedOnly: grant.scope == .boards,
-            includedIDs: pack.clipIDs.isEmpty ? nil : pack.clipIDs,
+            includedIDs: try await searchableIDs(in: pack),
             excludesSensitive: true,
             metadataOnly: metadataOnly)
         // A selected board is already stronger than broad "marked" scope and
@@ -150,6 +150,7 @@ public struct MCPToolRunner: Sendable {
         hits.removeAll { item in
             ClipSafePresentation.requiresMasking(item)
                 || (!pack.clipIDs.isEmpty && !pack.clipIDs.contains(item.id))
+                || (pack.clipRevisions.map { $0[item.id.uuidString] != item.contextRevision } ?? false)
         }
 
         let summaries = hits.map(ClipSummary.init)
@@ -309,6 +310,20 @@ public struct MCPToolRunner: Sendable {
     }
 
     // MARK: - Context and exposure
+
+    /// A reviewed selection authorizes revisions, not just ids. Narrow before
+    /// LIMIT so a changed clip cannot displace an unchanged match. Search hits
+    /// are checked again above in case an edit races this preliminary read.
+    private func searchableIDs(in pack: MCPContextPack) async throws -> Set<UUID>? {
+        let selectedIDs = pack.clipIDs.isEmpty ? nil : pack.clipIDs
+        guard let revisions = pack.clipRevisions else { return selectedIDs }
+        let ids = revisions.keys.compactMap(UUID.init(uuidString:)).filter {
+            selectedIDs?.contains($0) ?? true
+        }
+        let items = try await store.items(ids: ids)
+        return Set(
+            items.filter { revisions[$0.id.uuidString] == $0.contextRevision }.map(\.id))
+    }
 
     private func isInsideContext(
         _ item: ClipItem,
