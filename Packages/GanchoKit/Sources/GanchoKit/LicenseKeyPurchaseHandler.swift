@@ -18,6 +18,9 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     /// only half-applied must still drop Pro, so the decision sticks for the
     /// session no matter what storage did.
     private var revokedThisSession = false
+    /// Admission token for asynchronous license operations. A response may
+    /// change local state only while it still owns the current operation.
+    private var operationID = UUID()
 
     public init(
         store: any LicenseTokenStore,
@@ -65,7 +68,7 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
         guard let record = storedRecord(),
             LicenseEntitlementPolicy.needsRevalidation(record, now: now())
         else { return await currentTier() }
-        return await apply(await activation.refresh(record))
+        return await refresh(record)
     }
 
     /// Re-checks immediately, ignoring the schedule. This is what a lapsed
@@ -74,13 +77,19 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     @discardableResult
     public func recheckNow() async -> UserTier {
         guard let record = storedRecord() else { return await currentTier() }
-        return await apply(await activation.refresh(record))
+        return await refresh(record)
     }
 
     /// The single place a refresh verdict changes local state, so the scheduled
     /// and on-demand paths can never drift apart.
-    private func apply(_ refresh: LicenseActivationService.Refresh) async -> UserTier {
-        switch refresh {
+    private func refresh(_ record: LicenseActivationRecord) async -> UserTier {
+        let operation = beginOperation()
+        let outcome = await activation.refresh(record)
+        guard operationID == operation,
+            storedRecord()?.licenseKey == record.licenseKey,
+            storedRecord()?.instanceID == record.instanceID
+        else { return await currentTier() }
+        switch outcome {
         case .confirmed(let refreshed):
             try? persist(refreshed)
         case .revoked:
@@ -97,14 +106,18 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     /// reach Lemon Squeezy: the user asked to sign out here, and the slot can be
     /// reclaimed from their Lemon Squeezy account.
     public func deactivate() async -> LicenseActivationResult {
-        guard let record = storedRecord() else { return .activated }
-        let outcome = await activation.deactivate(record)
+        let record = storedRecord()
+        _ = beginOperation()
         revokedThisSession = true
-        do {
-            try store.clear()
-        } catch {
-            return .storageUnavailable(reason: error.localizedDescription)
+        // Local sign-out takes effect before the network suspension. An older
+        // deactivation response never clears a later verified activation.
+        var storageFailure: String?
+        do { try store.clear() } catch { storageFailure = error.localizedDescription }
+        guard let record else {
+            return storageFailure.map { .storageUnavailable(reason: $0) } ?? .activated
         }
+        let outcome = await activation.deactivate(record)
+        if let storageFailure { return .storageUnavailable(reason: storageFailure) }
         if case .unreachable(let reason) = outcome {
             return .networkUnavailable(reason: reason)
         }
@@ -117,7 +130,12 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     public func activateResult(licenseKey: String) async -> LicenseActivationResult {
         let trimmed = licenseKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .invalidKey(reason: "Empty key") }
-        switch await activation.activate(licenseKey: trimmed, instanceName: instanceName) {
+        let operation = beginOperation()
+        let outcome = await activation.activate(licenseKey: trimmed, instanceName: instanceName)
+        guard operationID == operation else {
+            return .storageUnavailable(reason: "A newer license action superseded this request")
+        }
+        switch outcome {
         case .activated(let record):
             // Persist, then confirm it reads back. A Keychain write can fail; if
             // it does, the entitlement wouldn't survive a relaunch (currentTier
@@ -131,12 +149,13 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
             // through ISO-8601, which drops sub-second precision, so a
             // byte-equality check here would fail every successful activation.
             // What must be proven is that the license survived the write.
-            let stored = storedRecord()
+            let stored = persistedRecord()
             guard stored?.licenseKey == record.licenseKey,
                 stored?.instanceID == record.instanceID
             else {
                 return .storageUnavailable(reason: "The license did not persist on this device")
             }
+            revokedThisSession = false
             return .activated
         case .rejected(let reason):
             return .invalidKey(reason: reason)
@@ -149,8 +168,20 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
     /// JSON, so the storage layer and its access-group behavior are unchanged.
     private func storedRecord() -> LicenseActivationRecord? {
         guard !revokedThisSession else { return nil }
+        return persistedRecord()
+    }
+
+    /// Readback for admission is independent of the old revocation latch.
+    /// Only a verified new record may clear that latch.
+    private func persistedRecord() -> LicenseActivationRecord? {
         guard let raw = store.load(), let data = raw.data(using: .utf8) else { return nil }
         return try? JSONDecoder.license.decode(LicenseActivationRecord.self, from: data)
+    }
+
+    private func beginOperation() -> UUID {
+        let operation = UUID()
+        operationID = operation
+        return operation
     }
 
     private func persist(_ record: LicenseActivationRecord) throws {
