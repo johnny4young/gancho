@@ -39,7 +39,10 @@ enum AtomicArchivePublication {
     private static func rename(_ source: URL, to destination: URL, flags: UInt32) -> Int32 {
         source.withUnsafeFileSystemRepresentation { sourcePath in
             destination.withUnsafeFileSystemRepresentation { destinationPath in
-                guard let sourcePath, let destinationPath else { errno = EINVAL; return -1 }
+                guard let sourcePath, let destinationPath else {
+                    errno = EINVAL
+                    return -1
+                }
                 return renameatx_np(AT_FDCWD, sourcePath, AT_FDCWD, destinationPath, flags)
             }
         }
