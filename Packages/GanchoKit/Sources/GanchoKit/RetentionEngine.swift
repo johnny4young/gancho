@@ -128,9 +128,12 @@ extension GRDBClipboardStore {
     /// without seeding tens of thousands of rows; production always takes the
     /// default.
     func removeBlobsIfOrphaned(
-        _ candidates: Set<String>, chunkSize: Int = GRDBClipboardStore.orphanLookupChunkSize
+        _ candidates: Set<String>, chunkSize: Int = GRDBClipboardStore.orphanLookupChunkSize,
+        afterReferenceCheck: @Sendable () async -> Void = {}
     ) async throws -> Int {
         guard !candidates.isEmpty else { return 0 }
+        let ownership = try await acquireBlobOwnership()
+        defer { ownership.release() }
         // One query per CHUNK, not one per candidate: a purge of a few hundred
         // image clips issued a few hundred COUNT(*) round trips to learn which
         // of their blobs nobody else references.
@@ -159,6 +162,8 @@ extension GRDBClipboardStore {
             }
             return candidates.subtracting(stillReferenced)
         }
+        await afterReferenceCheck()
+        try Task.checkCancellation()
         for hash in orphaned {
             blobsForMaintenance.delete(hash: hash)
         }
@@ -170,17 +175,26 @@ extension GRDBClipboardStore {
     /// the precise ``removeBlobsIfOrphaned(_:)`` instead; keep this as the
     /// explicit garbage-collection entry point for repair/maintenance.
     ///
-    /// Only files older than `olderThan` go: a blob is written before the row
-    /// that references it commits, so a fresh unreferenced file may belong to
-    /// a capture or sync apply still in flight.
+    /// `olderThan` is an optional retention preference. Safety comes from the
+    /// lease shared with every row-adoption path, including old-file re-adoption.
     @discardableResult
     public func removeOrphanedBlobs(olderThan cutoff: Date? = nil) async throws -> Int {
+        try await removeOrphanedBlobs(olderThan: cutoff, afterReferenceCheck: {})
+    }
+
+    func removeOrphanedBlobs(
+        olderThan cutoff: Date?, afterReferenceCheck: @Sendable () async -> Void
+    ) async throws -> Int {
+        let ownership = try await acquireBlobOwnership()
+        defer { ownership.release() }
         let referenced = try await writer.read { db in
             try String.fetchSet(
                 db,
                 sql: "SELECT DISTINCT contentBlobHash FROM clip WHERE contentBlobHash IS NOT NULL"
             )
         }
+        await afterReferenceCheck()
+        try Task.checkCancellation()
         return blobsForMaintenance.removeAll(except: referenced, olderThan: cutoff)
     }
 

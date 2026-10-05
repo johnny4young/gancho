@@ -301,6 +301,8 @@ extension GRDBClipboardStore: SyncLocalStore {
     public func applyRemoteUpsert(
         _ item: ClipItem, content: ClipContent?, systemFields: Data
     ) async throws -> Bool {
+        let ownership = try await acquireBlobOwnership()
+        defer { ownership.release() }
         let finalRow = try preparedRow(for: item, content: content)
         var candidates = Set([finalRow.contentBlobHash].compactMap { $0 })
         let (applied, previous) = try await writer.write { db in
@@ -309,6 +311,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                 finalRow, item: item, content: content, systemFields: systemFields, in: db)
             return (applied, previous)
         }
+        ownership.release()
         candidates.formUnion(previous)
         await removeBlobsIfOrphanedAfterCommit(candidates)
         return applied
@@ -465,6 +468,8 @@ extension GRDBClipboardStore: SyncLocalStore {
         clips: [RemoteClipChange], boards: [RemoteBoardChange],
         clipDeletions: [String], boardDeletions: [String]
     ) async throws -> RemoteApplySummary {
+        let ownership = try await acquireBlobOwnership()
+        defer { ownership.release() }
         // Blobs first, outside the transaction: file I/O has no business
         // holding a write lock, and a blob written for a change that then rolls
         // back is inert content-addressed bytes the orphan sweep reclaims.
@@ -506,6 +511,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                 clips: clipDeletions, boards: boardDeletions, into: &summary, in: db)
             return (summary, previous)
         }
+        ownership.release()
         candidates.formUnion(previous)
         await removeBlobsIfOrphanedAfterCommit(candidates)
         return result

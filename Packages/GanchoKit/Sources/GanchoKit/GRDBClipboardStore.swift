@@ -284,6 +284,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// Skips dedupe on purpose: imports are presumed pre-deduplicated, and
     /// per-row lookups would turn 100k inserts into minutes.
     public func importBatch(_ entries: [(item: ClipItem, content: ClipContent?)]) async throws {
+        let ownership = try await acquireBlobOwnership()
+        defer { ownership.release() }
         var rows: [ClipRow] = []
         rows.reserveCapacity(entries.count)
         for entry in entries {
@@ -399,6 +401,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
 
     @discardableResult
     public func insert(_ item: ClipItem, content: ClipContent?) async throws -> ClipItem {
+        let ownership = try await acquireBlobOwnership()
+        defer { ownership.release() }
         let row = try insertionRow(item, content: content)
         return try await writer.write { db in try Self.insert(row, in: db).item }
     }
@@ -533,15 +537,20 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// past that point is maintenance.
     ///
     /// When the reference check itself fails we KEEP the bytes. Blob ownership
-    /// is not atomic with the database, so an unprovable orphan must never be
-    /// removed — a leftover blob is reclaimed by `removeOrphanedBlobs()` on its
+    /// is coordinated with adoption through a cross-process lease, and an
+    /// unprovable orphan must never be removed — a leftover blob is reclaimed by `removeOrphanedBlobs()` on its
     /// next sweep, while bytes deleted in error are gone.
-    func removeBlobIfOrphaned(_ hash: String?) async {
-        guard let hash else { return }
+    func removeBlobIfOrphaned(
+        _ hash: String?, afterReferenceCheck: @Sendable () async -> Void = {}
+    ) async {
+        guard let hash, let ownership = try? await acquireBlobOwnership() else { return }
+        defer { ownership.release() }
         let stillReferenced =
             (try? await writer.read { db in
                 try ClipRow.filter(Column("contentBlobHash") == hash).fetchCount(db) > 0
             }) ?? true
+        await afterReferenceCheck()
+        guard !Task.isCancelled else { return }
         if !stillReferenced {
             blobs.delete(hash: hash)
         }

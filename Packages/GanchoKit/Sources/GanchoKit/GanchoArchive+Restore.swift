@@ -162,15 +162,11 @@ extension GanchoArchive {
     private static func apply(
         _ archive: ValidatedArchive, to store: GRDBClipboardStore
     ) async throws -> RestoreSummary {
-        // Blobs first (content-addressed = idempotent), then rows in ONE
-        // transaction. A crash or failure can leave an orphaned blob file but
-        // never a dangling row — and restore deliberately does NOT clean
-        // orphans up: blob-creation ownership can't be decided atomically with
-        // the database, so an eager delete can race a concurrent capture that
-        // just adopted the same hash and destroy a live clip's payload. An
-        // orphan is the harmless outcome — a content-addressed file no row
-        // references, re-adopted verbatim by any future capture of the same
-        // content.
+        // Hold the same cross-process boundary as capture and orphan cleanup
+        // from the first blob adoption until every restored row commits.
+        // A rollback may leave an orphan; it never authorizes eager deletion.
+        let ownership = try await store.acquireBlobOwnership()
+        defer { ownership.release() }
         try writeBlobs(archive, to: store)
         return try await restoreRows(archive.rows, into: store)
     }
