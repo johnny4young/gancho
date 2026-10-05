@@ -110,6 +110,7 @@ struct PassphraseKeychainFailureTests {
             #expect(!result.isFresh && fake.adds == 0 && fake.deletes == 0)
         }
         #expect(!KeychainPassphraseStore.isStoredKey(String(repeating: "é", count: 64)))
-        #expect(!KeychainPassphraseStore.isStoredKey(String(decoding: valid, as: UTF8.self) + "\n"))
+        let validString = try #require(String(bytes: valid, encoding: .utf8))
+        #expect(!KeychainPassphraseStore.isStoredKey(validString + "\n"))
     }
 }
