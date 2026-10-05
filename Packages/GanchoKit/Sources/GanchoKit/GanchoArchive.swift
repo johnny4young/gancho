@@ -159,11 +159,29 @@ public enum GanchoArchive {
     }
 
     private static func validateExport(_ manifest: Manifest, in directory: URL) throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let stored = try decoder.decode(
+            Manifest.self, from: Data(contentsOf: directory.appendingPathComponent("manifest.json")))
+        guard stored.version == manifest.version, stored.clipCount == manifest.clipCount,
+            stored.checksums == manifest.checksums
+        else { throw ArchiveError.corruptArchive("staged manifest does not match the export") }
         for (path, expected) in manifest.checksums {
-            try Task.checkCancellation()
-            guard sha256(try Data(contentsOf: directory.appendingPathComponent(path))) == expected
-            else { throw ArchiveError.checksumMismatch(path) }
+            guard try fileDigest(directory.appendingPathComponent(path)) == expected else {
+                throw ArchiveError.checksumMismatch(path)
+            }
         }
+    }
+
+    private static func fileDigest(_ file: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: file)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while let bytes = try handle.read(upToCount: 64 << 10), !bytes.isEmpty {
+            try Task.checkCancellation()
+            hasher.update(data: bytes)
+        }
+        return hex(hasher.finalize())
     }
 
     // MARK: - Restore (merge with dedupe; transactional rollback)

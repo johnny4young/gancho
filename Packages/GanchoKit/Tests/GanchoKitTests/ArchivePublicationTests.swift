@@ -36,7 +36,8 @@ struct ArchivePublicationTests {
             ClipItem(preview: "original", contentHash: "original"), content: .text("original"))
         let destination = root.appendingPathComponent("backup.ganchoarchive")
         try await GanchoArchive.export(from: original, to: destination)
-        try Data("unrelated sentinel".utf8).write(to: destination.appendingPathComponent("sentinel"))
+        try Data("unrelated sentinel".utf8)
+            .write(to: destination.appendingPathComponent("sentinel"))
         let before = try snapshot(destination)
         let replacement = try makeStore(in: root, name: "replacement-blobs")
         try await replacement.insert(
@@ -53,7 +54,8 @@ struct ArchivePublicationTests {
             }
             #expect(try snapshot(destination) == before)
             let restored = try makeStore(in: root, name: "restored-\(UUID().uuidString)")
-            #expect(try await GanchoArchive.restore(from: destination, into: restored).inserted == 1)
+            let summary = try await GanchoArchive.restore(from: destination, into: restored)
+            #expect(summary.inserted == 1)
             let siblings = try FileManager.default.contentsOfDirectory(atPath: root.path)
             #expect(!siblings.contains { $0.hasPrefix(".ganchoarchive-stage-") })
         }
