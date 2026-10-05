@@ -112,8 +112,8 @@ public struct SensitiveDataDetector: Sendable {
     private func containsValidCard(_ text: String) -> Bool {
         var searchRange = text.startIndex..<text.endIndex
         while let range = text.range(
-                of: #"(?<![0-9])(?:[0-9][ -]?){12,18}[0-9](?![0-9])"#,
-                options: .regularExpression, range: searchRange)
+            of: #"(?<![0-9])(?:[0-9][ -]?){12,18}[0-9](?![0-9])"#,
+            options: .regularExpression, range: searchRange)
         {
             let digits = text[range].filter(\.isNumber)
             if Luhn.validates(String(digits)) { return true }
