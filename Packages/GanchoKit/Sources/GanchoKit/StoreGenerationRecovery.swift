@@ -8,7 +8,7 @@ final class StoreGenerationLease: @unchecked Sendable {
 
     init(in directory: URL, exclusive: Bool) throws {
         let path = directory.appendingPathComponent(".store-generation.lock").path
-        descriptor = open(path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        descriptor = open(path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0o600)
         guard descriptor >= 0 else { throw POSIXError(.EIO) }
         guard flock(descriptor, (exclusive ? LOCK_EX : LOCK_SH) | LOCK_NB) == 0 else {
             let failure = errno
@@ -37,7 +37,9 @@ final class StoreGenerationLease: @unchecked Sendable {
 /// A partial or ambiguous generation fails closed; it is never opened as empty.
 enum StoreGenerationRecovery {
     static let journalName = ".store-recovery.json"
-    static let members = ["gancho.sqlite", "gancho.sqlite-wal", "gancho.sqlite-shm", "blobs"]
+    static let members = [
+        "gancho.sqlite", "gancho.sqlite-wal", "gancho.sqlite-shm", "gancho.sqlite.encrypting", "blobs"
+    ]
 
     private struct Journal: Codable {
         var archive: String
@@ -77,7 +79,9 @@ enum StoreGenerationRecovery {
         let archive = directory.appendingPathComponent(archiveName, isDirectory: true)
         try manager.createDirectory(
             at: archive, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
-        let present = members.filter { manager.fileExists(atPath: directory.appendingPathComponent($0).path) }
+        let present = members.filter {
+            manager.fileExists(atPath: directory.appendingPathComponent($0).path)
+        }
         guard present.contains("gancho.sqlite") else { throw CocoaError(.fileReadNoSuchFile) }
         let journal = Journal(archive: archiveName, members: present)
         try JSONEncoder().encode(journal).write(to: journalURL, options: .atomic)
@@ -101,8 +105,8 @@ enum StoreGenerationRecovery {
             journal.members.allSatisfy({ members.contains($0) })
         else { throw CocoaError(.fileReadCorruptFile) }
         let archive = directory.appendingPathComponent(journal.archive, isDirectory: true)
-        guard (try archive.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])).isDirectory == true,
-            (try archive.resourceValues(forKeys: [.isSymbolicLinkKey])).isSymbolicLink != true
+        let attributes = try archive.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard attributes.isDirectory == true, attributes.isSymbolicLink != true
         else { throw CocoaError(.fileReadCorruptFile) }
         for name in journal.members {
             let source = directory.appendingPathComponent(name)

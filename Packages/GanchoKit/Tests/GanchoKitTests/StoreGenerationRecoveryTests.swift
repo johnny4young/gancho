@@ -11,9 +11,10 @@ struct StoreGenerationRecoveryTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(
             at: root.appendingPathComponent("blobs/thumbnails"), withIntermediateDirectories: true)
-        for name in ["gancho.sqlite", "gancho.sqlite-wal", "gancho.sqlite-shm", "blobs/hash",
-            "blobs/thumbnails/hash.png"]
-        {
+        for name in [
+            "gancho.sqlite", "gancho.sqlite-wal", "gancho.sqlite-shm", "gancho.sqlite.encrypting",
+            "blobs/hash", "blobs/thumbnails/hash.png"
+        ] {
             try Data(name.utf8).write(to: root.appendingPathComponent(name))
         }
         return root
@@ -25,22 +26,27 @@ struct StoreGenerationRecoveryTests {
             let root = try fixture()
             defer { try? FileManager.default.removeItem(at: root) }
             #expect(throws: Interrupted.self) {
-                try StoreGenerationRecovery.archive(in: root, suffix: "fixture", afterMove: {
+                try StoreGenerationRecovery.archive(in: root, suffix: "fixture") {
                     if $0 == interruptedName { throw Interrupted() }
-                })
+                }
             }
-            #expect(FileManager.default.fileExists(
-                atPath: root.appendingPathComponent(StoreGenerationRecovery.journalName).path))
+            let journal = root.appendingPathComponent(StoreGenerationRecovery.journalName)
+            #expect(FileManager.default.fileExists(atPath: journal.path))
             let lease = try StoreGenerationRecovery.openLease(in: root)
             defer { lease.release() }
             let archived = root.appendingPathComponent(".unreadable-fixture")
             for member in StoreGenerationRecovery.members {
-                #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent(member).path))
-                #expect(FileManager.default.fileExists(atPath: archived.appendingPathComponent(member).path))
+                let sourceExists = FileManager.default.fileExists(
+                    atPath: root.appendingPathComponent(member).path)
+                let archivedExists = FileManager.default.fileExists(
+                    atPath: archived.appendingPathComponent(member).path)
+                #expect(!sourceExists && archivedExists)
             }
-            #expect(try Data(contentsOf: archived.appendingPathComponent("blobs/hash")) == Data("blobs/hash".utf8))
-            #expect(try Data(contentsOf: archived.appendingPathComponent("blobs/thumbnails/hash.png"))
-                == Data("blobs/thumbnails/hash.png".utf8))
+            let blob = try Data(contentsOf: archived.appendingPathComponent("blobs/hash"))
+            let thumbnail = try Data(
+                contentsOf: archived.appendingPathComponent("blobs/thumbnails/hash.png"))
+            #expect(blob == Data("blobs/hash".utf8))
+            #expect(thumbnail == Data("blobs/thumbnails/hash.png".utf8))
         }
     }
 
@@ -52,36 +58,47 @@ struct StoreGenerationRecoveryTests {
         #expect(throws: (any Error).self) {
             try StoreGenerationRecovery.archive(in: root, suffix: "blocked")
         }
-        #expect(try Data(contentsOf: root.appendingPathComponent("gancho.sqlite")) == Data("gancho.sqlite".utf8))
+        let original = try Data(contentsOf: root.appendingPathComponent("gancho.sqlite"))
+        #expect(original == Data("gancho.sqlite".utf8))
         shared.release()
         try StoreGenerationRecovery.archive(in: root, suffix: "allowed")
-        #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent(".unreadable-allowed/blobs/hash").path))
+        let preserved = root.appendingPathComponent(".unreadable-allowed/blobs/hash")
+        #expect(FileManager.default.fileExists(atPath: preserved.path))
     }
 
     #if SQLITE_HAS_CODEC
         @Test("Fresh-key binary recapture is readable; old generation survives maintenance")
         func binaryRecovery() async throws {
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
             defer { try? FileManager.default.removeItem(at: root) }
             let oldKey = String(repeating: "a1", count: 32)
             let newKey = String(repeating: "b2", count: 32)
             let payload = Data("old-generation-binary-payload".utf8)
             let original = ClipItem(kind: .image, preview: "fixture", contentHash: "original")
-            var old: GRDBClipboardStore? = try GRDBClipboardStore(directory: root, passphrase: oldKey)
-            try await old?.insert(original, content: .binary(data: payload, typeIdentifier: "public.data"))
+            var old: GRDBClipboardStore? = try GRDBClipboardStore(
+                directory: root, passphrase: oldKey)
+            let content = ClipContent.binary(data: payload, typeIdentifier: "public.data")
+            try await old?.insert(original, content: content)
             old = nil
             let oldBlob = root.appendingPathComponent("blobs/\(GanchoArchive.sha256(payload))")
             let oldBytes = try Data(contentsOf: oldBlob)
-            let recovered = try GRDBClipboardStore.openEncrypted(directory: root, key: newKey, keyIsFresh: true)
+            let recovered = try GRDBClipboardStore.openEncrypted(
+                directory: root, key: newKey, keyIsFresh: true)
             let recaptured = ClipItem(kind: .image, preview: "fixture", contentHash: "recaptured")
-            try await recovered.insert(recaptured, content: .binary(data: payload, typeIdentifier: "public.data"))
-            #expect(try await recovered.content(for: recaptured.id) == .binary(data: payload, typeIdentifier: "public.data"))
+            try await recovered.insert(recaptured, content: content)
+            #expect(try await recovered.content(for: recaptured.id) == content)
             _ = try await recovered.removeOrphanedBlobs()
-            let archive = try #require(try FileManager.default.contentsOfDirectory(
-                at: root, includingPropertiesForKeys: nil).first { $0.lastPathComponent.hasPrefix(".unreadable-") })
-            #expect(try Data(contentsOf: archive.appendingPathComponent("blobs/\(GanchoArchive.sha256(payload))")) == oldBytes)
+            let children = try FileManager.default.contentsOfDirectory(
+                at: root, includingPropertiesForKeys: nil)
+            let archive = try #require(children.first {
+                $0.lastPathComponent.hasPrefix(".unreadable-")
+            })
+            let archivedBytes = try Data(
+                contentsOf: archive.appendingPathComponent("blobs/\(GanchoArchive.sha256(payload))"))
+            #expect(archivedBytes == oldBytes)
             let preserved = try GRDBClipboardStore(directory: archive, passphrase: oldKey)
-            #expect(try await preserved.content(for: original.id) == .binary(data: payload, typeIdentifier: "public.data"))
+            #expect(try await preserved.content(for: original.id) == content)
         }
     #endif
 }
