@@ -15,7 +15,10 @@ private actor DelayedLicenseTransport {
         await withCheckedContinuation { waiter = $0 }
     }
 
-    func resume() { pending?.resume(); pending = nil }
+    func resume() {
+        pending?.resume()
+        pending = nil
+    }
 
     func response(_ request: URLRequest) async -> (Data, URLResponse) {
         if request.url?.lastPathComponent == delayedPath {
@@ -56,17 +59,16 @@ struct LicenseSessionReactivationTests {
     @Test("Deactivate or revoke then activate a new key on the same handler")
     func reactivate() async {
         for revoke in [false, true] {
-            let handler = makeHandler(store: InMemoryLicenseTokenStore(), transport: { request in
-                let json = request.url?.lastPathComponent == "activate"
-                    ? DelayedLicenseTransport.activated : #"{"valid":false,"deactivated":true}"#
-                return (
-                    Data(json.utf8),
-                    HTTPURLResponse(
-                        url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-                )
-            })
+            let fake = DelayedLicenseTransport(delayedPath: "never")
+            let handler = makeHandler(store: InMemoryLicenseTokenStore()) {
+                await fake.response($0)
+            }
             #expect(await handler.activateResult(licenseKey: "OLD") == .activated)
-            if revoke { _ = await handler.recheckNow() } else { _ = await handler.deactivate() }
+            if revoke {
+                _ = await handler.recheckNow()
+            } else {
+                _ = await handler.deactivate()
+            }
             #expect(await handler.currentTier() == .free)
             #expect(await handler.activateResult(licenseKey: "NEW") == .activated)
             #expect(await handler.currentTier() == .pro)
@@ -77,13 +79,16 @@ struct LicenseSessionReactivationTests {
     func staleResponses() async {
         for path in ["validate", "deactivate"] {
             let delayed = DelayedLicenseTransport(delayedPath: path)
-            let handler = makeHandler(store: InMemoryLicenseTokenStore(), transport: {
+            let handler = makeHandler(store: InMemoryLicenseTokenStore()) {
                 await delayed.response($0)
-            })
+            }
             #expect(await handler.activateResult(licenseKey: "OLD") == .activated)
             let old = Task {
-                if path == "validate" { _ = await handler.recheckNow() }
-                else { _ = await handler.deactivate() }
+                if path == "validate" {
+                    _ = await handler.recheckNow()
+                } else {
+                    _ = await handler.deactivate()
+                }
             }
             await delayed.waitUntilPending()
             #expect(await handler.activateResult(licenseKey: "NEW") == .activated)
@@ -97,13 +102,8 @@ struct LicenseSessionReactivationTests {
     func failedAdmission() async {
         for failSave in [false, true] {
             let store = ReactivationFailureStore()
-            let handler = makeHandler(store: store, transport: { request in
-                return (
-                    Data(DelayedLicenseTransport.activated.utf8),
-                    HTTPURLResponse(
-                        url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-                )
-            })
+            let fake = DelayedLicenseTransport(delayedPath: "never")
+            let handler = makeHandler(store: store) { await fake.response($0) }
             #expect(await handler.activateResult(licenseKey: "OLD") == .activated)
             _ = await handler.deactivate()
             store.failSave = failSave
