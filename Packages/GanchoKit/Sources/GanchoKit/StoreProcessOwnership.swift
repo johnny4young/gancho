@@ -139,9 +139,9 @@ final class StoreProcessOwnership: @unchecked Sendable {
     fileprivate static func makeQueue(in directory: URL) throws -> DatabaseQueue {
         var configuration = Configuration()
         configuration.busyMode = .timeout(0.1)
-        configuration.automaticMemoryManagement = false
         configuration.journalMode = .wal
         #if os(iOS)
+            configuration.automaticMemoryManagement = false
             configuration.observesSuspensionNotifications = true
         #endif
         let path = directory.appendingPathComponent(fileName).path
@@ -186,7 +186,10 @@ final class StoreProcessOwnership: @unchecked Sendable {
 /// remains durable while the process is suspended, without holding a file lock.
 final class StoreOwnershipLifecycle: @unchecked Sendable {
     static let shared = StoreOwnershipLifecycle()
-    private struct Release: Hashable { var token: String; var owner: String }
+    private struct Release: Hashable {
+        var token: String
+        var owner: String
+    }
     private let mutex = NSLock()
     private var suspended = false
     private var pending: [URL: Set<Release>] = [:]
