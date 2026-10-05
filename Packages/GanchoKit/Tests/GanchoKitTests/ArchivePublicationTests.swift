@@ -106,4 +106,33 @@ struct ArchivePublicationTests {
         let target = try makeStore(in: root, name: "restore-blobs")
         #expect(try await GanchoArchive.restore(from: destination, into: target).inserted == 1)
     }
+
+    @Test("An actual rename failure preserves the prior archive and recovery stage")
+    func actualRenameFailurePreservesBackup() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = try makeStore(in: root, name: "source-blobs")
+        let destination = root.appendingPathComponent("backup.ganchoarchive")
+        try await GanchoArchive.export(from: source, to: destination)
+        try Data("sentinel".utf8).write(to: destination.appendingPathComponent("sentinel"))
+        let before = try snapshot(destination)
+        let stage = try AtomicArchivePublication.makeStage(beside: destination)
+        try Data("replacement fixture".utf8).write(to: stage.appendingPathComponent("clips.json"))
+        let recoverable = root.appendingPathComponent(".recoverable-fixture-stage")
+        try FileManager.default.moveItem(at: stage, to: recoverable)
+        // Exercise the real Darwin syscall's ENOENT path, rather than throwing
+        // at the checkpoint before calling the publication primitive.
+        #expect(throws: POSIXError.self) {
+            try AtomicArchivePublication.publish(
+                stage, as: destination, replacement: .replaceExisting)
+        }
+        #expect(try snapshot(destination) == before)
+        let stagedBytes = try Data(contentsOf: recoverable.appendingPathComponent("clips.json"))
+        #expect(stagedBytes == Data("replacement fixture".utf8))
+        let target = try makeStore(in: root, name: "restore-blobs")
+        let summary = try await GanchoArchive.restore(from: destination, into: target)
+        #expect(summary.inserted == 0)
+    }
+
 }
