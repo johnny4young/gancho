@@ -25,7 +25,7 @@ private actor DelayedLicenseTransport {
     }
 
     func response(_ request: URLRequest) async -> (Data, URLResponse) {
-        let body = String(decoding: request.httpBody ?? Data(), as: UTF8.self)
+        let body = String(bytes: request.httpBody ?? Data(), encoding: .utf8) ?? ""
         let selectedKey = delayedKey.map { body.contains("license_key=\($0)") } ?? true
         if request.url?.lastPathComponent == delayedPath && selectedKey {
             await withCheckedContinuation { continuation in
