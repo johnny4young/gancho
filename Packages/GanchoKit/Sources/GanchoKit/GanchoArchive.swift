@@ -9,6 +9,15 @@ import GRDB
 public enum GanchoArchive {
     public static let currentVersion = 1
 
+    public enum ReplacementPolicy: Sendable, Equatable {
+        case failIfExists
+        /// Callers must obtain the user's replacement decision before selecting
+        /// this policy for an existing user-owned archive.
+        case replaceExisting
+    }
+
+    enum ExportCheckpoint: Sendable, Equatable { case rows, blobs, manifest, promotion }
+
     public struct Options: Sendable, Equatable {
         /// Drop sensitive clips entirely from the archive.
         public var excludeSensitive: Bool
@@ -44,10 +53,35 @@ public enum GanchoArchive {
 
     @discardableResult
     public static func export(
-        from store: GRDBClipboardStore, to directory: URL, options: Options = Options()
+        from store: GRDBClipboardStore, to directory: URL, options: Options = Options(),
+        replacement: ReplacementPolicy = .failIfExists
     ) async throws -> Manifest {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try await export(
+            from: store, to: directory, options: options, replacement: replacement,
+            checkpoint: { _ in })
+    }
 
+    static func export(
+        from store: GRDBClipboardStore, to directory: URL, options: Options,
+        replacement: ReplacementPolicy,
+        checkpoint: @Sendable (ExportCheckpoint) throws -> Void
+    ) async throws -> Manifest {
+        let stage = try AtomicArchivePublication.makeStage(beside: directory)
+        defer { try? FileManager.default.removeItem(at: stage) }
+        try Task.checkCancellation()
+        let manifest = try await exportIntoStage(
+            from: store, to: stage, options: options, checkpoint: checkpoint)
+        try validateExport(manifest, in: stage)
+        try checkpoint(.promotion)
+        try Task.checkCancellation()
+        try AtomicArchivePublication.publish(stage, as: directory, replacement: replacement)
+        return manifest
+    }
+
+    private static func exportIntoStage(
+        from store: GRDBClipboardStore, to directory: URL, options: Options,
+        checkpoint: @Sendable (ExportCheckpoint) throws -> Void
+    ) async throws -> Manifest {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.sortedKeys]
@@ -79,12 +113,11 @@ public enum GanchoArchive {
             try? FileManager.default.removeItem(at: staged)
             throw error
         }
-        // Published only once it is whole, so a failed export leaves no
-        // half-written clips.json where the old code wrote atomically — and,
-        // just as importantly, leaves the PREVIOUS one intact. Remove-then-move
-        // would not: it exposes a window with no clips.json at all, and a
-        // failure after the remove destroys a good archive.
+        // This rename is private to the owned stage. Nothing in the selected
+        // destination changes until all files and their manifest are complete.
         try AtomicFileReplace.publish(staged: staged, as: clipsURL)
+        try checkpoint(.rows)
+        try Task.checkCancellation()
 
         let clipCount = streamed.count
         let referencedBlobs = streamed.blobs
@@ -95,6 +128,7 @@ public enum GanchoArchive {
             try FileManager.default.createDirectory(
                 at: blobDir, withIntermediateDirectories: true)
             for hash in referencedBlobs {
+                try Task.checkCancellation()
                 guard let data = try store.blobsForMaintenance.read(hash: hash) else {
                     throw ArchiveError.corruptArchive(
                         "source store is missing or has a corrupt referenced blob")
@@ -110,6 +144,8 @@ public enum GanchoArchive {
             }
         }
 
+        try checkpoint(.blobs)
+        try Task.checkCancellation()
         let manifest = Manifest(
             version: currentVersion, exportedAt: .now, clipCount: clipCount,
             checksums: checksums)
@@ -118,7 +154,16 @@ public enum GanchoArchive {
         manifestEncoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try manifestEncoder.encode(manifest)
             .write(to: directory.appendingPathComponent("manifest.json"), options: .atomic)
+        try checkpoint(.manifest)
         return manifest
+    }
+
+    private static func validateExport(_ manifest: Manifest, in directory: URL) throws {
+        for (path, expected) in manifest.checksums {
+            try Task.checkCancellation()
+            guard sha256(try Data(contentsOf: directory.appendingPathComponent(path))) == expected
+            else { throw ArchiveError.checksumMismatch(path) }
+        }
     }
 
     // MARK: - Restore (merge with dedupe; transactional rollback)
@@ -164,6 +209,7 @@ public enum GanchoArchive {
             try emit(Data("[".utf8))
             let cursor = try ClipRow.order(Column("createdAt").asc).fetchCursor(db)
             while var row = try cursor.next() {
+                try Task.checkCancellation()
                 if options.excludeSensitive, row.requiresProtectedExport { continue }
                 if options.metadataOnly {
                     row.contentText = nil
