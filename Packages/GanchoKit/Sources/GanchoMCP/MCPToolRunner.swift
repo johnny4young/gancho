@@ -148,9 +148,13 @@ public struct MCPToolRunner: Sendable {
 
         var hits = try await store.search(query, limit: limit)
         hits.removeAll { item in
-            ClipSafePresentation.requiresMasking(item)
+            if let revisions = pack.clipRevisions,
+                revisions[item.id.uuidString] != item.contextRevision
+            {
+                return true
+            }
+            return ClipSafePresentation.requiresMasking(item)
                 || (!pack.clipIDs.isEmpty && !pack.clipIDs.contains(item.id))
-                || (pack.clipRevisions.map { $0[item.id.uuidString] != item.contextRevision } ?? false)
         }
 
         let summaries = hits.map(ClipSummary.init)

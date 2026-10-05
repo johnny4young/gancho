@@ -38,7 +38,8 @@ struct MCPReviewedSearchTests {
         let result = try resultJSON(response)
 
         #expect(!response.isError)
-        #expect(result["clips"]?.arrayValue?.map { $0["id"]?.stringValue } == [allowed.id.uuidString])
+        #expect(
+            result["clips"]?.arrayValue?.map { $0["id"]?.stringValue } == [allowed.id.uuidString])
         #expect(!response.content.contains { $0.text.contains("unapproved replacement") })
         #expect(await sink.events.last?.resultCount == 1)
     }
