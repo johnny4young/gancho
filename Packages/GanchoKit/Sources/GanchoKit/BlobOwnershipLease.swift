@@ -8,8 +8,11 @@ final class BlobOwnershipLease: @unchecked Sendable {
     private var descriptor: Int32
 
     private init(for directory: URL) throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let path = directory.appendingPathComponent(".ownership.lock").path
+        // Shipped older sweeps exclude this directory, but not arbitrary hidden
+        // files in the blob root. Keep the lock inode stable across those sweeps.
+        let lockDirectory = directory.appendingPathComponent("thumbnails", isDirectory: true)
+        try FileManager.default.createDirectory(at: lockDirectory, withIntermediateDirectories: true)
+        let path = lockDirectory.appendingPathComponent(".ownership.lock").path
         descriptor = open(path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0o600)
         guard descriptor >= 0 else { throw POSIXError(.EIO) }
     }

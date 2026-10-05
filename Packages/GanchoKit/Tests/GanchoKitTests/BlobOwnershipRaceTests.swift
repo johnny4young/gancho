@@ -86,7 +86,7 @@ struct BlobOwnershipRaceTests {
         #expect(try await second.content(for: stored.id) == content)
         #expect(FileManager.default.fileExists(
             atPath: second.blobsForMaintenance.directory
-                .appendingPathComponent(".ownership.lock").path))
+                .appendingPathComponent("thumbnails/.ownership.lock").path))
     }
 
     private func prepareArchive(
@@ -131,4 +131,28 @@ struct BlobOwnershipRaceTests {
         await #expect(throws: CancellationError.self) { try await cleanup.value }
         #expect(try store.blobsForMaintenance.read(hash: hash) == payload)
     }
+
+    @Test("A shipped legacy sweep cannot unlink the ownership lock inode")
+    func legacySweepKeepsCoordination() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try GRDBClipboardStore(directory: root)
+        _ = try store.blobsForMaintenance.write(Data("orphan fixture".utf8))
+        let ownership = try await store.acquireBlobOwnership()
+        defer { ownership.release() }
+        let directory = store.blobsForMaintenance.directory
+        let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+        // Reproduce the shipped pre-lease sweep's exact exclusions. It does not
+        // skip hidden root files, and therefore cannot own the new lock there.
+        for name in files where name != "thumbnails" && name != BlobStore.migrationMarker {
+            store.blobsForMaintenance.delete(hash: name)
+        }
+        let competing = try BlobOwnershipLease.tryAcquire(for: directory)
+        #expect(competing == nil)
+        competing?.release()
+        let protected = directory.appendingPathComponent("thumbnails/.ownership.lock")
+        #expect(FileManager.default.fileExists(atPath: protected.path))
+    }
+
 }
