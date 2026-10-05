@@ -94,8 +94,8 @@ struct StoreGenerationRecoveryTests {
             let archive = try #require(children.first {
                 $0.lastPathComponent.hasPrefix(".unreadable-")
             })
-            let archivedBytes = try Data(
-                contentsOf: archive.appendingPathComponent("blobs/\(GanchoArchive.sha256(payload))"))
+            let archivedBlob = archive.appendingPathComponent("blobs/\(GanchoArchive.sha256(payload))")
+            let archivedBytes = try Data(contentsOf: archivedBlob)
             #expect(archivedBytes == oldBytes)
             let preserved = try GRDBClipboardStore(directory: archive, passphrase: oldKey)
             #expect(try await preserved.content(for: original.id) == content)

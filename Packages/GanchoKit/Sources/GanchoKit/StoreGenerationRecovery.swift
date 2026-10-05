@@ -38,7 +38,8 @@ final class StoreGenerationLease: @unchecked Sendable {
 enum StoreGenerationRecovery {
     static let journalName = ".store-recovery.json"
     static let members = [
-        "gancho.sqlite", "gancho.sqlite-wal", "gancho.sqlite-shm", "gancho.sqlite.encrypting", "blobs"
+        "gancho.sqlite", "gancho.sqlite-wal", "gancho.sqlite-shm",
+        "gancho.sqlite.encrypting", "blobs"
     ]
 
     private struct Journal: Codable {
