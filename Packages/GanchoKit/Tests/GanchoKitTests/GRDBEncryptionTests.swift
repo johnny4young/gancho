@@ -181,7 +181,7 @@ import Testing
 
             let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
             #expect(
-                names.contains { $0.hasPrefix("gancho.sqlite.unreadable-") },
+                names.contains { $0.hasPrefix(".unreadable-") },
                 "the unreadable database is moved aside, never deleted")
         }
 
@@ -219,7 +219,7 @@ import Testing
             }
             let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
             #expect(
-                !names.contains { $0.hasPrefix("gancho.sqlite.unreadable-") },
+                !names.contains { $0.hasPrefix(".unreadable-") },
                 "a non-fresh failure must leave the store untouched")
         }
 
