@@ -146,6 +146,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Keep MCP search inside the exact reviewed clip revisions. Changed clips no
   longer expose new previews or displace unchanged matches from a limited search.
+- Read MCP clip policy and content from one database snapshot, so an intervening
+  edit cannot pair previously approved metadata with an unreviewed body.
 
 ## [0.9.1] - 2026-09-29
 

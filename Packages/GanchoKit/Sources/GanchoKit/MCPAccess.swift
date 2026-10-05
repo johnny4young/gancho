@@ -366,6 +366,15 @@ public struct MCPServerConfig: Sendable, Equatable, Codable {
     }
 }
 
+/// One authorization and content result from a consistent store snapshot.
+public enum MCPClipReadResult: Sendable, Equatable {
+    case missing
+    case outsideContext
+    case sensitive
+    case metadata(ClipItem)
+    case content(ClipItem, ClipContent?)
+}
+
 /// The narrow store surface MCP tools need. `boardIDs` makes both broad
 /// marked-content scope and one-board context packs exact without N+1 searches.
 public protocol MCPClipStore: Sendable {
@@ -374,6 +383,11 @@ public protocol MCPClipStore: Sendable {
     /// Visible rows only: archived and expired ids are omitted.
     func items(ids: [UUID]) async throws -> [ClipItem]
     func content(for id: UUID) async throws -> ClipContent?
+    /// Policy metadata, board membership and text must come from one database
+    /// snapshot. Implementations must not compose separately awaited reads.
+    func readForMCP(
+        id: UUID, grant: MCPClientGrant, requiresContextPack: Bool, now: Date
+    ) async throws -> MCPClipReadResult
     func boardIDs(for clipID: UUID) async throws -> Set<UUID>
     func setPinned(id: UUID, _ pinned: Bool) async throws
     func pinboards() async throws -> [Pinboard]

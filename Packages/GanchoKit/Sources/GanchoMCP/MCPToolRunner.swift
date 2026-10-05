@@ -164,40 +164,40 @@ public struct MCPToolRunner: Sendable {
     }
 
     private func getClip(_ args: GetClipArgs, grant: MCPClientGrant) async throws -> MCPToolResult {
-        guard let id = UUID(uuidString: args.id), let item = try await visibleItem(id: id) else {
+        guard let id = UUID(uuidString: args.id) else {
             await record(.getClip, grant: grant)
             return MCPToolResult(text: "No clip with that id.", isError: true)
         }
-        guard try await isInsideContext(item, grant: grant) else {
+        switch try await readForMCP(id: id, grant: grant) {
+        case .missing:
+            await record(.getClip, grant: grant)
+            return MCPToolResult(text: "No clip with that id.", isError: true)
+        case .outsideContext:
             // Same message as a genuine miss so a scoped client can't use the
             // reply to tell "exists but outside my context" from "doesn't exist"
             // — that would leak clip existence across the whole history. The
             // ledger still records the real .outsideContext reason.
             await record(.getClip, grant: grant, denial: .outsideContext)
             return MCPToolResult(text: "No clip with that id.", isError: true)
-        }
-        if ClipSafePresentation.requiresMasking(item) {
+        case .sensitive:
             await record(.getClip, grant: grant, denial: .sensitive)
             return MCPToolResult(
                 text: "Clip is sensitive and cannot be read over MCP.", isError: true)
-        }
-
-        let summary = ClipSummary(item: item)
-        if grant.scope == .metadata {
+        case .metadata(let item):
             // A metadata summary WAS returned to the agent, so it counts as one
             // result even though the content body is withheld by scope — this
             // keeps "Agent results returned" honest. The .scope denial still
             // records that the body itself was never exposed.
             await record(.getClip, grant: grant, count: 1, denial: .scope)
-            return ok(ClipDetail(summary: summary, content: nil, contentWithheld: true))
+            return ok(
+                ClipDetail(summary: ClipSummary(item: item), content: nil, contentWithheld: true))
+        case .content(let item, let content):
+            await record(.getClip, grant: grant, count: 1)
+            return ok(
+                ClipDetail(
+                    summary: ClipSummary(item: item), content: contentText(content),
+                    contentWithheld: false))
         }
-        if grant.scope == .boards, !(try await isMarked(item)) {
-            await record(.getClip, grant: grant, count: 1, denial: .scope)
-            return ok(ClipDetail(summary: summary, content: nil, contentWithheld: true))
-        }
-        let body = try await contentText(for: id)
-        await record(.getClip, grant: grant, count: 1)
-        return ok(ClipDetail(summary: summary, content: body, contentWithheld: false))
     }
 
     private func createPin(
@@ -278,16 +278,12 @@ public struct MCPToolRunner: Sendable {
         }
         var clips: [StackClip] = []
         for raw in args.ids {
-            guard let id = UUID(uuidString: raw), let item = try await visibleItem(id: id) else {
+            guard let id = UUID(uuidString: raw),
+                case .content(let item, let content) = try await readForMCP(id: id, grant: grant),
+                let body = contentText(content)
+            else {
                 continue
             }
-            // Context before the sensitive veto — same order as getClip/createPin
-            // so out-of-context and sensitive are never distinguishable if a
-            // future change ever surfaces a per-item reason here.
-            if !(try await isInsideContext(item, grant: grant)) { continue }
-            if ClipSafePresentation.requiresMasking(item) { continue }
-            if grant.scope == .boards, !(try await isMarked(item)) { continue }
-            guard let body = try await contentText(for: id) else { continue }
             clips.append(StackClip(id: raw, title: item.title, text: body))
         }
         await record(.pasteStack, grant: grant, count: clips.count)
@@ -344,13 +340,13 @@ public struct MCPToolRunner: Sendable {
         try await store.items(ids: [id]).first
     }
 
-    private func isMarked(_ item: ClipItem) async throws -> Bool {
-        if item.isPinned { return true }
-        return !(try await store.boardIDs(for: item.id)).isEmpty
+    private func readForMCP(id: UUID, grant: MCPClientGrant) async throws -> MCPClipReadResult {
+        try await store.readForMCP(
+            id: id, grant: grant, requiresContextPack: requiresContextPack, now: now())
     }
 
-    private func contentText(for id: UUID) async throws -> String? {
-        switch try await store.content(for: id) {
+    private func contentText(_ content: ClipContent?) -> String? {
+        switch content {
         case .text(let text): return text
         case .fileReferences(let paths): return paths.joined(separator: "\n")
         case .binary(let data, let type):
