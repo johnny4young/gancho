@@ -7,9 +7,9 @@ final class StoreGenerationLease: @unchecked Sendable {
     let directory: URL
 
     init(in directory: URL, exclusive: Bool) throws {
-        guard let ownership = try StoreProcessOwnership.acquire(
+        let acquired = try StoreProcessOwnership.acquire(
             in: directory, scope: .generation, exclusive: exclusive)
-        else { throw StoreProcessOwnership.Failure.busy }
+        guard let ownership = acquired else { throw StoreProcessOwnership.Failure.busy }
         self.ownership = ownership
         self.directory = directory.standardizedFileURL.resolvingSymlinksInPath()
     }

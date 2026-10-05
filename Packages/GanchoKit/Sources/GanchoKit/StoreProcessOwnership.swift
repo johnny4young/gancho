@@ -85,7 +85,9 @@ final class StoreProcessOwnership: @unchecked Sendable {
                     let otherRecovering = otherScope == .generation && storedExclusive == 1
                     if recovering || otherRecovering
                         || (scope == .blob && otherScope == .blob)
-                    { return false }
+                    {
+                        return false
+                    }
                 }
                 try db.execute(
                     sql: "INSERT INTO owner VALUES (?, ?, ?, ?, ?)",
@@ -163,8 +165,8 @@ final class StoreProcessOwnership: @unchecked Sendable {
         let existing = try String.fetchOne(
             db, sql: "SELECT sql FROM sqlite_master WHERE name = 'owner' AND type = 'table'")
         if version == 0 {
-            let objects = try Int.fetchOne(
-                db, sql: "SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'") ?? 0
+            let query = "SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+            let objects = try Int.fetchOne(db, sql: query) ?? 0
             guard existing == nil, objects == 0 else { throw Failure.malformedMetadata }
             try db.execute(sql: schema)
             try db.execute(sql: "PRAGMA user_version = 1")
