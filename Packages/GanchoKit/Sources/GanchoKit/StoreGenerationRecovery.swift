@@ -49,9 +49,8 @@ enum StoreGenerationRecovery {
 
     static func openLease(in directory: URL) throws -> StoreGenerationLease {
         let lease = try StoreGenerationLease(in: directory, exclusive: false)
-        guard FileManager.default.fileExists(
-            atPath: directory.appendingPathComponent(journalName).path)
-        else { return lease }
+        let journalURL = directory.appendingPathComponent(journalName)
+        guard FileManager.default.fileExists(atPath: journalURL.path) else { return lease }
         // Release the shared descriptor before acquiring exclusive ownership.
         lease.release()
         return try resumeLease(in: directory)

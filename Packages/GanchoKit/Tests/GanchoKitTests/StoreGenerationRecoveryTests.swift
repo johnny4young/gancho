@@ -81,7 +81,8 @@ struct StoreGenerationRecoveryTests {
             let content = ClipContent.binary(data: payload, typeIdentifier: "public.data")
             try await old?.insert(original, content: content)
             old = nil
-            let oldBlob = root.appendingPathComponent("blobs/\(GanchoArchive.sha256(payload))")
+            let blobName = GanchoArchive.sha256(payload)
+            let oldBlob = root.appendingPathComponent("blobs/\(blobName)")
             let oldBytes = try Data(contentsOf: oldBlob)
             let recovered = try GRDBClipboardStore.openEncrypted(
                 directory: root, key: newKey, keyIsFresh: true)
@@ -91,10 +92,11 @@ struct StoreGenerationRecoveryTests {
             _ = try await recovered.removeOrphanedBlobs()
             let children = try FileManager.default.contentsOfDirectory(
                 at: root, includingPropertiesForKeys: nil)
-            let archive = try #require(children.first {
+            let archivedGeneration = children.first {
                 $0.lastPathComponent.hasPrefix(".unreadable-")
-            })
-            let archivedBlob = archive.appendingPathComponent("blobs/\(GanchoArchive.sha256(payload))")
+            }
+            let archive = try #require(archivedGeneration)
+            let archivedBlob = archive.appendingPathComponent("blobs/\(blobName)")
             let archivedBytes = try Data(contentsOf: archivedBlob)
             #expect(archivedBytes == oldBytes)
             let preserved = try GRDBClipboardStore(directory: archive, passphrase: oldKey)
