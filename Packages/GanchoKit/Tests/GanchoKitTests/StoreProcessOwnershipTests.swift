@@ -21,8 +21,8 @@ struct StoreProcessOwnershipTests {
             in: root, scope: .generation, exclusive: false)
         let held = try #require(heldClaim)
         defer { held.release() }
-        let queue = try DatabaseQueue(path: root.appendingPathComponent(
-            StoreProcessOwnership.fileName).path)
+        let coordinator = root.appendingPathComponent(StoreProcessOwnership.fileName)
+        let queue = try DatabaseQueue(path: coordinator.path)
         let mode = try queue.read { db in try String.fetchOne(db, sql: "PRAGMA journal_mode") }
         #expect(mode == "wal")
         // A completely independent writer can commit while the logical pin is
@@ -101,8 +101,8 @@ struct StoreProcessOwnershipTests {
         let heldClaim = try StoreProcessOwnership.acquire(
             in: root, scope: .blob, exclusive: true, lifecycle: lifecycle)
         let held = try #require(heldClaim)
-        let queue = try DatabaseQueue(path: root.appendingPathComponent(
-            StoreProcessOwnership.fileName).path)
+        let coordinator = root.appendingPathComponent(StoreProcessOwnership.fileName)
+        let queue = try DatabaseQueue(path: coordinator.path)
         lifecycle.suspend()
         held.release()
         let retained = try queue.read { db in
@@ -133,8 +133,8 @@ struct StoreProcessOwnershipTests {
         let heldClaim = try StoreProcessOwnership.acquire(
             in: root, scope: .blob, exclusive: true, lifecycle: lifecycle)
         let held = try #require(heldClaim)
-        let competing = try DatabaseQueue(path: root.appendingPathComponent(
-            StoreProcessOwnership.fileName).path)
+        let coordinator = root.appendingPathComponent(StoreProcessOwnership.fileName)
+        let competing = try DatabaseQueue(path: coordinator.path)
         try competing.writeWithoutTransaction { db in
             try db.execute(sql: "BEGIN IMMEDIATE")
             defer { try? db.execute(sql: "ROLLBACK") }
@@ -145,9 +145,10 @@ struct StoreProcessOwnershipTests {
             in: root, scope: .blob, exclusive: true, lifecycle: lifecycle)
         let next = try #require(nextClaim)
         next.release()
-        #expect(try competing.read {
-            db in try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM owner")
-        } == 0)
+        let remaining = try competing.read { db in
+            try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM owner")
+        }
+        #expect(remaining == 0)
     }
 
     @Test("Missing or unknown versioned coordinator schema fails closed")
@@ -155,15 +156,15 @@ struct StoreProcessOwnershipTests {
         for version in [1, 2] {
             let root = try directory()
             defer { try? FileManager.default.removeItem(at: root) }
-            let queue = try DatabaseQueue(path: root.appendingPathComponent(
-                StoreProcessOwnership.fileName).path)
+            let coordinator = root.appendingPathComponent(StoreProcessOwnership.fileName)
+            let queue = try DatabaseQueue(path: coordinator.path)
             try queue.write { db in try db.execute(sql: "PRAGMA user_version = \(version)") }
             #expect(throws: StoreProcessOwnership.Failure.self) {
                 try StoreProcessOwnership.acquire(in: root, scope: .blob, exclusive: true)
             }
-            #expect(try queue.read { db in
-                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sqlite_master WHERE name = 'owner'")
-            } == 0)
+            let query = "SELECT COUNT(*) FROM sqlite_master WHERE name = 'owner'"
+            let objects = try queue.read { db in try Int.fetchOne(db, sql: query) }
+            #expect(objects == 0)
         }
     }
 
