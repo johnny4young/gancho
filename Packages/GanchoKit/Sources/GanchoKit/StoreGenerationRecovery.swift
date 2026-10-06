@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// An open database registers its filesystem generation durably. Recovery
@@ -76,19 +77,22 @@ enum StoreGenerationRecovery {
             try resume(in: directory, afterMove: afterMove)
             return
         }
-        let archiveName = ".unreadable-\(suffix)"
-        let archive = directory.appendingPathComponent(archiveName, isDirectory: true)
-        try manager.createDirectory(
-            at: archive, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         let present = members.filter {
             manager.fileExists(atPath: directory.appendingPathComponent($0).path)
         }
         guard present.contains("gancho.sqlite") else { throw CocoaError(.fileReadNoSuchFile) }
+        let archiveName = ".unreadable-\(suffix)"
+        let archive = directory.appendingPathComponent(archiveName, isDirectory: true)
+        try manager.createDirectory(
+            at: archive, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         let journal = Journal(archive: archiveName, members: present)
         try JSONEncoder().encode(journal).write(to: journalURL, options: .atomic)
         let handle = try FileHandle(forWritingTo: journalURL)
         try handle.synchronize()
         try handle.close()
+        // The journal and the archive directory must be durable entries before
+        // the first member moves, or a crash could lose the record of the move.
+        try synchronizeDirectory(directory)
         try resume(in: directory, afterMove: afterMove)
     }
 
@@ -120,6 +124,23 @@ enum StoreGenerationRecovery {
                 try afterMove(name)
             }
         }
+        // Every rename must reach disk before the journal that describes it is
+        // dropped; afterwards the journal removal itself is made durable.
+        try synchronizeDirectory(archive)
+        try synchronizeDirectory(directory)
         try manager.removeItem(at: journalURL)
+        try synchronizeDirectory(directory)
+    }
+
+    /// Flushes a directory's entries. `F_FULLFSYNC` asks the drive to commit
+    /// its cache too; volumes that do not support it fall back to `fsync`.
+    static func synchronizeDirectory(_ directory: URL) throws {
+        let descriptor = open(directory.path, O_RDONLY)
+        guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        defer { close(descriptor) }
+        if fcntl(descriptor, F_FULLFSYNC) == 0 { return }
+        guard fsync(descriptor) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
     }
 }

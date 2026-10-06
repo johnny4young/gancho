@@ -15,7 +15,15 @@ final class StoreProcessOwnership: @unchecked Sendable {
     struct Identity: Sendable {
         var pid: Int32
         var token: String
-        static var current: Self { Self(pid: getpid(), token: processToken) }
+        /// `kern.bootsessionuuid` when the claim was made; empty when unknown.
+        var bootSession = ""
+        /// Process start in microseconds since 1970; 0 when unknown.
+        var startTime: Int64 = 0
+        static var current: Self {
+            Self(
+                pid: getpid(), token: processToken, bootSession: currentBootSession,
+                startTime: currentStartTime)
+        }
     }
     private struct Owner: Decodable, FetchableRecord {
         var token: String
@@ -23,6 +31,29 @@ final class StoreProcessOwnership: @unchecked Sendable {
         var pid: Int64
         var scope: String
         var exclusive: Int
+        /// Nil for a claim migrated from the version-1 ledger.
+        var bootSession: String?
+        var startTime: Int64?
+
+        struct Claim {
+            var stamp: Identity
+            var scope: Scope
+            var exclusive: Bool
+        }
+
+        /// Any malformed field fails the whole ledger closed.
+        func validated() throws -> Claim {
+            guard pid > 0, pid <= Int64(Int32.max), UUID(uuidString: token) != nil,
+                UUID(uuidString: processToken) != nil,
+                let parsedScope = Scope(rawValue: self.scope),
+                exclusive == 0 || exclusive == 1
+            else { throw Failure.malformedMetadata }
+            let stamp = Identity(
+                pid: Int32(pid), token: processToken, bootSession: bootSession ?? "",
+                startTime: startTime ?? 0)
+            guard stamp.hasValidStamp else { throw Failure.malformedMetadata }
+            return Claim(stamp: stamp, scope: parsedScope, exclusive: exclusive == 1)
+        }
     }
     private let queue: DatabaseQueue
     private let lifecycle: StoreOwnershipLifecycle
@@ -47,12 +78,14 @@ final class StoreProcessOwnership: @unchecked Sendable {
         in directory: URL, scope: Scope, exclusive: Bool,
         identity: Identity = .current,
         probe: @Sendable (Int32) -> ProcessState = processState,
+        liveness: Liveness = .system,
         lifecycle: StoreOwnershipLifecycle = .shared
     ) throws -> StoreProcessOwnership? {
         let directory = directory.standardizedFileURL.resolvingSymlinksInPath()
         let pid = identity.pid
         let owner = identity.token
-        guard pid > 0, UUID(uuidString: owner) != nil else { throw Failure.malformedMetadata }
+        guard pid > 0, UUID(uuidString: owner) != nil, identity.hasValidStamp
+        else { throw Failure.malformedMetadata }
         return try lifecycle.withActive {
             let queue = try makeQueue(in: directory)
             var retained = false
@@ -61,37 +94,31 @@ final class StoreProcessOwnership: @unchecked Sendable {
             let acquired = try queue.write { db in
                 try prepareSchema(db)
                 try lifecycle.drainPending(in: db, directory: directory)
-                let rows = try Owner.fetchAll(
-                    db, sql: "SELECT token, processToken, pid, scope, exclusive FROM owner")
+                let rows = try Owner.fetchAll(db, sql: ownerQuery)
                 for row in rows {
-                    let storedPID = row.pid
-                    let storedToken = row.token
-                    let storedOwner = row.processToken
-                    let storedScope = row.scope
-                    let storedExclusive = row.exclusive
-                    guard storedPID > 0, storedPID <= Int64(Int32.max),
-                        UUID(uuidString: storedToken) != nil, UUID(uuidString: storedOwner) != nil,
-                        let otherScope = Scope(rawValue: storedScope),
-                        storedExclusive == 0 || storedExclusive == 1
-                    else { throw Failure.malformedMetadata }
-                    if probe(Int32(storedPID)) == .exited {
+                    let other = try row.validated()
+                    if isStale(other.stamp, probe: probe, liveness: liveness) {
                         try db.execute(
-                            sql: "DELETE FROM owner WHERE token = ?", arguments: [storedToken])
+                            sql: "DELETE FROM owner WHERE token = ?", arguments: [row.token])
                         continue
                     }
                     // Recovery is exclusive over both scopes. Blob work also
                     // checks recovery, including injected stores without a pin.
                     let recovering = scope == .generation && exclusive
-                    let otherRecovering = otherScope == .generation && storedExclusive == 1
+                    let otherRecovering = other.scope == .generation && other.exclusive
                     if recovering || otherRecovering
-                        || (scope == .blob && otherScope == .blob)
+                        || (scope == .blob && other.scope == .blob)
                     {
                         return false
                     }
                 }
+                try removeOrphanIdentities(in: db)
                 try db.execute(
                     sql: "INSERT INTO owner VALUES (?, ?, ?, ?, ?)",
                     arguments: [token, owner, pid, scope.rawValue, exclusive ? 1 : 0])
+                try db.execute(
+                    sql: "INSERT INTO owner_identity VALUES (?, ?, ?)",
+                    arguments: [token, identity.bootSession, identity.startTime])
                 return true
             }
             lifecycle.didCommitPending(in: directory)
@@ -133,7 +160,8 @@ final class StoreProcessOwnership: @unchecked Sendable {
     static func processState(_ pid: Int32) -> ProcessState {
         guard pid > 0 else { return .unverifiable }
         // Signal zero sends no signal. ESRCH is the only documented proof of
-        // absence; sandbox/permission errors and PID reuse keep the claim.
+        // absence; sandbox/permission errors keep the claim. PID reuse is
+        // judged separately by the boot session and process start time.
         if kill(pid, 0) == 0 { return .live }
         return errno == ESRCH ? .exited : .unverifiable
     }
@@ -149,37 +177,6 @@ final class StoreProcessOwnership: @unchecked Sendable {
         let path = directory.appendingPathComponent(fileName).path
         return try DatabaseQueue(path: path, configuration: configuration)
     }
-
-    private static func prepareSchema(_ db: Database) throws {
-        let version = try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
-        guard version == 0 || version == 1 else { throw Failure.malformedMetadata }
-        let schema = """
-            CREATE TABLE owner (
-                token TEXT PRIMARY KEY NOT NULL,
-                processToken TEXT NOT NULL,
-                pid INTEGER NOT NULL CHECK (pid > 0 AND pid <= 2147483647),
-                scope TEXT NOT NULL CHECK (scope IN ('generation', 'blob')),
-                exclusive INTEGER NOT NULL CHECK (exclusive IN (0, 1))
-            )
-            """
-        let existing = try String.fetchOne(
-            db, sql: "SELECT sql FROM sqlite_master WHERE name = 'owner' AND type = 'table'")
-        if version == 0 {
-            let query = "SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
-            let objects = try Int.fetchOne(db, sql: query) ?? 0
-            guard existing == nil, objects == 0 else { throw Failure.malformedMetadata }
-            try db.execute(sql: schema)
-            try db.execute(sql: "PRAGMA user_version = 1")
-        } else {
-            // Never recreate a missing/versioned ledger or accept a different
-            // schema: that could erase knowledge of an active logical owner.
-            guard let existing,
-                existing.split(whereSeparator: \.isWhitespace)
-                    == schema.split(whereSeparator: \.isWhitespace)
-            else { throw Failure.malformedMetadata }
-        }
-    }
-
 }
 
 /// Serializes only short coordinator transactions against the iOS suspension
@@ -229,6 +226,7 @@ final class StoreOwnershipLifecycle: @unchecked Sendable {
                 sql: "DELETE FROM owner WHERE token = ? AND processToken = ?",
                 arguments: [release.token, release.owner])
         }
+        try StoreProcessOwnership.removeOrphanIdentities(in: db)
     }
 
     fileprivate func didCommitPending(in directory: URL) {

@@ -129,4 +129,17 @@ struct StoreGenerationRecoveryTests {
             #expect(try await preserved.content(for: original.id) == content)
         }
     #endif
+
+    @Test("Archiving a directory without a database leaves no empty archive behind")
+    func missingDatabaseLeavesNoArchive() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        #expect(throws: CocoaError.self) {
+            try StoreGenerationRecovery.archive(in: root, suffix: "empty")
+        }
+        let entries = try FileManager.default.contentsOfDirectory(atPath: root.path)
+        #expect(!entries.contains { $0.hasPrefix(".unreadable-") })
+        #expect(!entries.contains(StoreGenerationRecovery.journalName))
+    }
 }

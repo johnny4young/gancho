@@ -43,16 +43,33 @@ retain their queues until safe cleanup, rather than relying on deinitialization.
 known-finished operations enter this retry set. Cancellation never releases an
 operation before its protected transaction/work has finished.
 
-A positive, bounded PID is checked with `kill(pid, 0)`, which sends no signal.
-Only `ESRCH` permits automatic reclamation: Apple's [iOS kill(2) manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/kill.2.html)
-defines that result as absence of the corresponding process. Successful checks,
-permission/sandbox failures, unknown errors, malformed identities, and current
-live PIDs reused after exit or reboot remain fail-closed. UUID mismatch, elapsed
-time, missing heartbeats, and suspension are never evidence of death. Recovery
-returns busy immediately; async blob ownership has a bounded wait. A stale claim
-whose PID is reused or whose liveness cannot be established may withhold availability
-until that PID is provably absent. No destructive timeout/forced-reclamation path
-is provided. The user-facing caller must report busy/error, not silently reset.
+Every claim is stamped with the kernel boot session (`kern.bootsessionuuid`) and,
+where `sysctl(KERN_PROC_PID)` reports it, the claimant's process start time. A
+claim is reclaimed only on positive evidence:
+
+- its boot session differs from the current one (claims never survive a reboot,
+  and PIDs restart at boot, so this covers the most common reuse case);
+- `kill(pid, 0)` reports `ESRCH`, which Apple's [iOS kill(2) manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/kill.2.html)
+  defines as absence of the process; or
+- the PID can be signalled (`kill` succeeds) and its current start time differs
+  from the recorded one, i.e. the PID now belongs to another process.
+
+Unknown stamps (an unavailable sysctl, or a claim migrated from the version-1
+ledger), permission/sandbox failures, unknown errors and processes whose start
+time cannot be read remain fail-closed; malformed stamps fail the ledger closed.
+UUID mismatch, elapsed time, missing heartbeats and suspension are never evidence
+of death. Recovery returns busy immediately; async blob ownership has a bounded
+wait. Within one boot, a claim whose PID was reused by a process this one may not
+signal (another user's, or another sandboxed app's on iOS) still withholds
+availability until that PID is provably absent. No destructive
+timeout/forced-reclamation path is provided. The user-facing caller must report
+busy/error, not silently reset.
+
+The ledger is versioned with `user_version`. Version 2 adds the
+`owner_identity` table beside `owner`; a version-1 ledger is migrated in place by
+creating that table, and its existing claims keep their PID-only judgement. A
+missing table, an unknown version or an altered schema still fails closed and is
+never recreated.
 
 ## Compatibility and qualification boundary
 
