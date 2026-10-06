@@ -5,6 +5,9 @@ import Foundation
 /// Existing archives are exchanged atomically, never removed before promotion.
 /// The old archive lands in the owned stage and can be recovered after a crash.
 enum AtomicArchivePublication {
+    /// One `renameatx_np` call: 0 on success, otherwise the `errno` it failed with.
+    typealias Renamer = @Sendable (_ source: URL, _ destination: URL, _ flags: UInt32) -> Int32
+
     static func makeStage(beside destination: URL) throws -> URL {
         let parent = destination.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
@@ -16,35 +19,66 @@ enum AtomicArchivePublication {
     }
 
     static func publish(
-        _ stage: URL, as destination: URL, replacement: GanchoArchive.ReplacementPolicy
+        _ stage: URL, as destination: URL, replacement: GanchoArchive.ReplacementPolicy,
+        renamer: Renamer = AtomicArchivePublication.systemRename
     ) throws {
-        let installed = rename(stage, to: destination, flags: UInt32(RENAME_EXCL))
-        if installed == 0 { return }
-        let failure = errno
-        guard failure == EEXIST, replacement == .replaceExisting else {
-            throw POSIXError(POSIXErrorCode(rawValue: failure) ?? .EIO)
+        let exclusive = renamer(stage, destination, UInt32(RENAME_EXCL))
+        if exclusive == 0 { return }
+        if exclusive == ENOTSUP || exclusive == EINVAL {
+            // exFAT, FAT and some SMB volumes cannot rename exclusively. Only a
+            // NEW destination may fall back; there is no previous archive to
+            // protect there, and replacement still requires an atomic exchange.
+            guard !itemExists(at: destination) else {
+                throw CocoaError(.fileWriteFileExists)
+            }
+            let plain = renamer(stage, destination, 0)
+            guard plain == 0 else { throw posixError(plain) }
+            return
         }
-        let attributes = try FileManager.default.attributesOfItem(atPath: destination.path)
-        guard attributes[.type] as? FileAttributeType == .typeDirectory else {
-            throw CocoaError(.fileWriteFileExists)
+        guard exclusive == EEXIST, replacement == .replaceExisting else {
+            throw posixError(exclusive)
         }
-        guard rename(stage, to: destination, flags: UInt32(RENAME_SWAP)) == 0 else {
-            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
-        }
+        try requireReplaceableArchive(at: destination)
+        let swapped = renamer(stage, destination, UInt32(RENAME_SWAP))
+        guard swapped == 0 else { throw posixError(swapped) }
         // Cleanup belongs to the caller's stage defer. It is best-effort after
         // successful promotion: cleanup failure must not report export failure
         // after the destination has already changed.
     }
 
-    private static func rename(_ source: URL, to destination: URL, flags: UInt32) -> Int32 {
+    /// Replacement exchanges the whole directory and the caller then deletes
+    /// the old one, so only a previous Gancho archive (it has a manifest) or
+    /// an empty folder may be replaced. Any other folder a save panel lets the
+    /// user name is refused untouched.
+    static func requireReplaceableArchive(at destination: URL) throws {
+        let attributes = try FileManager.default.attributesOfItem(atPath: destination.path)
+        guard attributes[.type] as? FileAttributeType == .typeDirectory else {
+            throw CocoaError(.fileWriteFileExists)
+        }
+        let entries = try FileManager.default.contentsOfDirectory(atPath: destination.path)
+            .filter { $0 != ".DS_Store" }
+        guard entries.isEmpty || entries.contains("manifest.json") else {
+            throw CocoaError(.fileWriteFileExists)
+        }
+    }
+
+    static let systemRename: Renamer = { source, destination, flags in
         source.withUnsafeFileSystemRepresentation { sourcePath in
             destination.withUnsafeFileSystemRepresentation { destinationPath in
-                guard let sourcePath, let destinationPath else {
-                    errno = EINVAL
-                    return -1
-                }
-                return renameatx_np(AT_FDCWD, sourcePath, AT_FDCWD, destinationPath, flags)
+                guard let sourcePath, let destinationPath else { return EINVAL }
+                let result = renameatx_np(
+                    AT_FDCWD, sourcePath, AT_FDCWD, destinationPath, flags)
+                return result == 0 ? 0 : errno
             }
         }
+    }
+
+    /// `lstat`-based: a dangling symlink still counts as an existing item.
+    private static func itemExists(at url: URL) -> Bool {
+        (try? FileManager.default.attributesOfItem(atPath: url.path)) != nil
+    }
+
+    private static func posixError(_ code: Int32) -> POSIXError {
+        POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
     }
 }

@@ -135,4 +135,73 @@ struct ArchivePublicationTests {
         #expect(summary.inserted == 0)
     }
 
+    @Test("Replacement refuses a folder that is not a Gancho archive")
+    func replacementRefusesForeignFolder() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = try makeStore(in: root, name: "blobs")
+        let destination = root.appendingPathComponent("Projects")
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        try Data("user notes".utf8).write(to: destination.appendingPathComponent("notes.txt"))
+        let before = try snapshot(destination)
+
+        await #expect(throws: CocoaError.self) {
+            try await GanchoArchive.export(
+                from: source, to: destination, replacement: .replaceExisting)
+        }
+        #expect(try snapshot(destination) == before)
+        let siblings = try FileManager.default.contentsOfDirectory(atPath: root.path)
+        #expect(!siblings.contains { $0.hasPrefix(".ganchoarchive-stage-") })
+    }
+
+    @Test("Replacement accepts an empty folder, ignoring Finder metadata")
+    func replacementAcceptsEmptyFolder() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = try makeStore(in: root, name: "blobs")
+        try await source.insert(
+            ClipItem(preview: "kept", contentHash: "kept"), content: .text("kept"))
+        let destination = root.appendingPathComponent("backup.ganchoarchive")
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        try Data().write(to: destination.appendingPathComponent(".DS_Store"))
+
+        try await GanchoArchive.export(
+            from: source, to: destination, replacement: .replaceExisting)
+        let target = try makeStore(in: root, name: "restore-blobs")
+        #expect(try await GanchoArchive.restore(from: destination, into: target).inserted == 1)
+    }
+
+    @Test(
+        "Volumes without exclusive rename publish new archives and never replace",
+        arguments: [ENOTSUP, EINVAL])
+    func unsupportedExclusiveRename(failure: Int32) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        // Models exFAT/FAT/SMB: any flagged rename fails, a plain one works.
+        let renamer: AtomicArchivePublication.Renamer = { source, destination, flags in
+            flags == 0 ? AtomicArchivePublication.systemRename(source, destination, 0) : failure
+        }
+
+        let fresh = root.appendingPathComponent("fresh.ganchoarchive")
+        let stage = try AtomicArchivePublication.makeStage(beside: fresh)
+        try Data("fresh".utf8).write(to: stage.appendingPathComponent("manifest.json"))
+        try AtomicArchivePublication.publish(
+            stage, as: fresh, replacement: .failIfExists, renamer: renamer)
+        #expect(
+            try Data(contentsOf: fresh.appendingPathComponent("manifest.json"))
+                == Data("fresh".utf8))
+
+        for policy in [GanchoArchive.ReplacementPolicy.failIfExists, .replaceExisting] {
+            let second = try AtomicArchivePublication.makeStage(beside: fresh)
+            defer { try? FileManager.default.removeItem(at: second) }
+            try Data("second".utf8).write(to: second.appendingPathComponent("manifest.json"))
+            #expect(throws: CocoaError.self) {
+                try AtomicArchivePublication.publish(
+                    second, as: fresh, replacement: policy, renamer: renamer)
+            }
+            #expect(
+                try Data(contentsOf: fresh.appendingPathComponent("manifest.json"))
+                    == Data("fresh".utf8))
+        }
+    }
 }

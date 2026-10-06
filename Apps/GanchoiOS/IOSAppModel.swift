@@ -947,6 +947,13 @@ final class IOSAppModel {
         guard let grdb = grdbForEngines else { return nil }
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("gancho-backup.ganchoarchive", isDirectory: true)
+        // This temporary path is app-owned. An older build exported in place,
+        // so an interrupted export may have left a folder without a manifest,
+        // which replacement refuses; clear only that leftover.
+        let manifest = dir.appendingPathComponent("manifest.json")
+        if !FileManager.default.fileExists(atPath: manifest.path) {
+            try? FileManager.default.removeItem(at: dir)
+        }
         // Detector-flagged secrets never leave the encrypted store via backup:
         // they carry a short expiry precisely so they don't persist, and an
         // archive in Files is permanent plaintext.

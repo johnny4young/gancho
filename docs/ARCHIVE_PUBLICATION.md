@@ -15,7 +15,11 @@ implicit, per-file overwrite behavior.
 Select `.replaceExisting` only after obtaining a replacement decision for a
 user-owned destination, or for a temporary destination owned by the application.
 It replaces the complete directory, including files not declared in its manifest;
-it is not a merge into an arbitrary directory.
+it is not a merge into an arbitrary directory. Replacement is therefore limited to
+a directory that is already a Gancho archive (it contains `manifest.json`) or is
+empty apart from Finder's `.DS_Store`. Any other existing folder — for example one
+named in a save panel by mistake — is refused untouched with a
+"file exists" error.
 
 Current production call sites:
 
@@ -24,7 +28,9 @@ Current production call sites:
   replacement decision
 - iOS: `Apps/GanchoiOS/IOSAppModel.swift`, `makeBackupArchive()`, passes
   `.replaceExisting` for its fixed application-owned temporary archive, before
-  the system file exporter presents the user's final Files destination
+  the system file exporter presents the user's final Files destination. A
+  leftover at that temporary path without a manifest (an interrupted in-place
+  export from an older build) is removed first, since replacement would refuse it
 - CLI: `Packages/GanchoKit/Sources/gancho/GanchoCLI.swift`, `runExport()`, produces
   plain JSON or CSV through `exportJSON`/`exportCSV`. It does not call
   `GanchoArchive.export` or produce a portable archive, so this directory
@@ -34,13 +40,16 @@ Current production call sites:
 
 The exporter builds the complete result in a private, uniquely named sibling
 stage. It verifies the stored manifest and streams file checksum validation with
-bounded memory. Cancellation is checked while writing and validating, and before
-publication. None of those operations modifies the selected destination.
+bounded memory. Cancellation is checked between export phases, per blob, while validating, and
+before publication; the row stream inside GRDB's read is cancelled by GRDB itself. None of those operations modifies the selected destination.
 
 Publication uses Darwin's exclusive rename for a fresh destination and atomic
 `RENAME_SWAP` for explicitly replacing an existing directory on a filesystem that
-supports it. Unsupported filesystem operations fail while retaining the previous
-archive; there is no remove-then-move fallback. A successful exchange leaves the
+supports it. Volumes without `renameatx_np` flag support (exFAT, FAT and some SMB
+shares report `ENOTSUP` or `EINVAL`) can still receive a NEW archive: after
+checking that nothing exists at the destination, the stage is moved with a plain
+rename. Replacing an existing archive on such a volume fails while retaining the
+previous archive; there is no remove-then-move fallback. A successful exchange leaves the
 former archive at the owned stage path until best-effort cleanup completes. An
 interruption can therefore leave a recoverable hidden stage.
 
