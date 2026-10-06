@@ -304,6 +304,21 @@ Store shape:
 - tombstones for sync-compatible deletion.
 - an open JSON/CSV export so users can leave without data lock-in.
 
+### CSV migration preview
+
+`ClipImporter.readCSV` owns a synchronous, read-only preview. Its scanner visits one
+raw row at a time; header interpretation and candidate projection do not retain a
+second complete row matrix. Gancho formula guards are removed only when the header
+identifies a Gancho export. Candidate order, first matching columns, optional fields,
+and unsupported-row counts keep the established import contract.
+
+The document is returned only after the entire scanner succeeds. An unterminated
+quoted tail takes precedence over an invalid header, and no partially projected
+candidates escape after a parse error. Classification, sensitive-content policy,
+deduplication, consent, and the eventual transaction remain the app-layer migration
+coordinator's responsibilities. The input string and final candidates still live in
+memory; this is not a bounded-memory streaming-file API or a measured performance claim.
+
 ### Encryption at rest
 
 The whole local database — every table **and the FTS5 index** — is encrypted with
