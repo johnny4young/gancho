@@ -193,10 +193,14 @@ public struct MCPToolRunner: Sendable {
                 ClipDetail(summary: ClipSummary(item: item), content: nil, contentWithheld: true))
         case .content(let item, let content):
             await record(.getClip, grant: grant, count: 1)
+            // The payload row came from the authorized snapshot, but blob bytes
+            // are read after it closes. A blob reclaimed in between yields no
+            // body; report it as withheld rather than as an empty clip.
+            let body = contentText(content)
             return ok(
                 ClipDetail(
-                    summary: ClipSummary(item: item), content: contentText(content),
-                    contentWithheld: false))
+                    summary: ClipSummary(item: item), content: body,
+                    contentWithheld: body == nil))
         }
     }
 
@@ -204,19 +208,29 @@ public struct MCPToolRunner: Sendable {
         _ args: CreatePinArgs,
         grant: MCPClientGrant
     ) async throws -> MCPToolResult {
-        guard let id = UUID(uuidString: args.id), let item = try await visibleItem(id: id) else {
+        guard let id = UUID(uuidString: args.id) else {
             await record(.createPin, grant: grant)
             return MCPToolResult(text: "No clip with that id.", isError: true)
         }
-        guard try await isInsideContext(item, grant: grant) else {
+        // Visibility, context membership and sensitivity come from one store
+        // snapshot, like getClip. Pinning never needs the body, so the check
+        // runs with metadata scope and never selects payload columns.
+        var policyGrant = grant
+        policyGrant.scope = .metadata
+        switch try await readForMCP(id: id, grant: policyGrant) {
+        case .missing:
+            await record(.createPin, grant: grant)
+            return MCPToolResult(text: "No clip with that id.", isError: true)
+        case .outsideContext:
             // Generic miss message — see getClip: don't let the reply reveal
             // that an out-of-context id exists elsewhere in the store.
             await record(.createPin, grant: grant, denial: .outsideContext)
             return MCPToolResult(text: "No clip with that id.", isError: true)
-        }
-        if ClipSafePresentation.requiresMasking(item) {
+        case .sensitive:
             await record(.createPin, grant: grant, denial: .sensitive)
             return MCPToolResult(text: "Sensitive clips cannot be pinned over MCP.", isError: true)
+        case .metadata, .content:
+            break
         }
 
         if !requiresContextPack {
@@ -323,21 +337,6 @@ public struct MCPToolRunner: Sendable {
         let items = try await store.items(ids: ids)
         return Set(
             items.filter { revisions[$0.id.uuidString] == $0.contextRevision }.map(\.id))
-    }
-
-    private func isInsideContext(
-        _ item: ClipItem,
-        grant: MCPClientGrant
-    ) async throws -> Bool {
-        guard let pack = grant.contextPack, pack.isExplicit else { return !requiresContextPack }
-        let boardIDs =
-            pack.boardID == nil ? Set<UUID>() : try await store.boardIDs(for: item.id)
-        return pack.contains(item: item, boardIDs: boardIDs, now: now())
-    }
-
-    /// Archived and expired clips read as missing, like they do in every list.
-    private func visibleItem(id: UUID) async throws -> ClipItem? {
-        try await store.items(ids: [id]).first
     }
 
     private func readForMCP(id: UUID, grant: MCPClientGrant) async throws -> MCPClipReadResult {
