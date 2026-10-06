@@ -13,8 +13,18 @@ uses WAL. Short synchronous writer transactions atomically acquire, downgrade, o
 release logical claims; no new application-owned file lock or coordinator
 transaction is held during pool lifetime, filesystem moves, blob work, or `await`.
 
-A shared generation registration is retained by the store and by the pool's
-configuration closure. Exclusive recovery conflicts with all generation and blob
+A shared generation registration is retained by the store and each actual SQLite
+writer/reader/snapshot connection. Configuration preparation captures it weakly
+and fails closed if it is gone. A private per-connection SQL function owns one ARC
+reference through SQLite's `sqlite3_create_function_v2` destructor; its scalar
+callback returns NULL and no application query or persisted schema uses it. The
+destructor drops only that connection's reference after SQLite closes its pager,
+including delayed `close_v2` zombie completion. Configuration/watchdog objects may
+survive without over-pinning a closed connection. Registration failure also invokes
+the destructor, so there is no second release on the failure path. See the
+[SQLite function lifetime contract](https://www.sqlite.org/c3ref/create_function.html)
+and [close contract](https://www.sqlite.org/c3ref/close.html). SQLCipher builds use
+SQLCipher C symbols, not system SQLite functions on SQLCipher pointers. Exclusive recovery conflicts with all generation and blob
 claims. Registration precedes inspecting the journal/header. Pending recovery or
 plaintext/absent database conversion requires exclusive ownership; the journal is
 rechecked after acquiring it. The claim remains exclusive through the namespace

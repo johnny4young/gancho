@@ -28,7 +28,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     func blobOwnershipDirectory() throws -> URL {
         if let generationLease { return generationLease.directory }
         let path = writer.path
-        let memoryURI = path.hasPrefix("file:")
+        let memoryURI =
+            path.hasPrefix("file:")
             && URLComponents(string: path)?.queryItems?.contains {
                 $0.name == "mode" && $0.value == "memory"
             } == true
@@ -99,9 +100,14 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             blobEncryptionKeyData = nil
         #endif
 
-        // The pool retains its generation lease even if callers retain the
-        // writer independently of this facade.
-        configuration.prepareDatabase { _ in withExtendedLifetime(generationLease) {} }
+        // Actual writer/reader/snapshot connections retain the generation.
+        // Closed GRDB configuration/watchdog objects must not over-pin it.
+        configuration.prepareDatabase { [weak generationLease] db in
+            guard let generationLease else {
+                throw StoreGenerationLease.ConnectionFailure.releasedGeneration
+            }
+            try generationLease.pin(to: db)
+        }
         let pool = try DatabasePool(path: dbPath, configuration: configuration)
         try GanchoDatabaseMigrator.make().migrate(pool)
         let blobStore = BlobStore(

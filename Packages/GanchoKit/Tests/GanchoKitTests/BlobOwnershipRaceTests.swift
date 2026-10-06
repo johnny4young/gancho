@@ -85,8 +85,8 @@ struct BlobOwnershipRaceTests {
         let items = try await second.items(offset: 0, limit: 5)
         let stored = try #require(items.first)
         #expect(try await second.content(for: stored.id) == content)
-        #expect(FileManager.default.fileExists(
-            atPath: directory.appendingPathComponent(StoreProcessOwnership.fileName).path))
+        let coordinator = directory.appendingPathComponent(StoreProcessOwnership.fileName)
+        #expect(FileManager.default.fileExists(atPath: coordinator.path))
     }
 
     private func prepareArchive(
@@ -154,9 +154,11 @@ struct BlobOwnershipRaceTests {
             .appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let first = GRDBClipboardStore(
-            writer: try DatabaseQueue(), blobs: BlobStore(directory: root.appendingPathComponent("a")))
+            writer: try DatabaseQueue(),
+            blobs: BlobStore(directory: root.appendingPathComponent("a")))
         let second = GRDBClipboardStore(
-            writer: try DatabaseQueue(), blobs: BlobStore(directory: root.appendingPathComponent("b")))
+            writer: try DatabaseQueue(),
+            blobs: BlobStore(directory: root.appendingPathComponent("b")))
         let held = try await first.acquireBlobOwnership()
         defer { held.release() }
         let independent = try await second.acquireBlobOwnership()

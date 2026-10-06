@@ -31,9 +31,9 @@ final class BlobOwnershipLease: Sendable {
 
     static func tryAcquire(for directory: URL) throws -> BlobOwnershipLease? {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        guard let ownership = try StoreProcessOwnership.acquire(
+        let acquired = try StoreProcessOwnership.acquire(
             in: directory, scope: .blob, exclusive: true)
-        else { return nil }
+        guard let ownership = acquired else { return nil }
         return BlobOwnershipLease(ownership: ownership)
     }
 
