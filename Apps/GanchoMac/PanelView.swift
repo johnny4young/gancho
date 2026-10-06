@@ -67,6 +67,7 @@ struct PanelView: View {
     /// grouping) — lifted into `PanelSearchModel` so it is `@Observable` and
     /// unit-testable; the view keeps presentation only.
     @State private var search: PanelSearchModel
+    @State private var pasteTask: Task<Void, Never>?
     /// Selected-clip preview identity, loading, and editability. The model
     /// rejects stale/cancelled results before the peek can render them.
     @State private var preview: PanelPreviewModel
@@ -141,10 +142,10 @@ struct PanelView: View {
     /// (ahead of the field editor), so ⌘V pastes the SELECTED clip like Enter.
     private var commandShortcutButtons: some View {
         Group {
-            Button("") { if let item = search.selectedItem { model.paste(item) } }
+            Button("") { pasteSelected(plain: false) }
                 .keyboardShortcut("v", modifiers: .command)
             Button("") {
-                if let item = search.selectedItem { model.paste(item, asPlainText: true) }
+                pasteSelected(plain: true)
             }
             .keyboardShortcut("v", modifiers: [.command, .option])
             Button("") {
@@ -228,6 +229,8 @@ struct PanelView: View {
                     model.panel.isPanelWindow(window)
                 else { return }
                 search.cancelMeaningSearch()
+                search.cancelPendingPaste()
+                pasteTask?.cancel()
             }
     }
 
@@ -306,7 +309,11 @@ struct PanelView: View {
             await search.refresh()
         }
         .task { await model.refreshBoards() }
-        .onDisappear { search.cancelMeaningSearch() }
+        .onDisappear {
+            search.cancelMeaningSearch()
+            search.cancelPendingPaste()
+            pasteTask?.cancel()
+        }
         .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
         .onChange(of: model.preferences.isPrivateModePaused) { _, _ in
             search.cancelMeaningSearch()
@@ -572,17 +579,14 @@ struct PanelView: View {
                     // keyword match takes Enter (you typed the snippet shortcut on
                     // purpose); else Enter pastes the selection (⌥Return = plain).
                     if railFocus != nil { return handleNav(.toggle) }
-                    if press.modifiers.contains(.command), press.modifiers.contains(.option),
-                        !search.selectedItems.isEmpty
-                    {
-                        model.pushToStack(search.selectedItems)
+                    if press.modifiers.contains(.command), press.modifiers.contains(.option) {
+                        if search.hasCurrentResults, !search.selectedItems.isEmpty {
+                            model.pushToStack(search.selectedItems)
+                        }
                         return .handled
                     }
-                    if let match = search.snippetMatch {
-                        invokeSnippet(match)
-                    } else {
-                        pasteSelected(plain: press.modifiers.contains(.option))
-                    }
+                    pasteSelected(
+                        plain: press.modifiers.contains(.option), includingSnippet: true)
                     return .handled
                 }
                 .onKeyPress(.escape) {
@@ -611,7 +615,7 @@ struct PanelView: View {
                 .onKeyPress(characters: .decimalDigits, phases: .down) { press in
                     guard !showShortcuts, press.modifiers.contains(.command),
                         let digit = Int(press.characters), (1...9).contains(digit),
-                        search.filtered.indices.contains(digit - 1)
+                        search.hasCurrentResults, search.filtered.indices.contains(digit - 1)
                     else { return .ignored }
                     model.paste(search.filtered[digit - 1])
                     return .handled
@@ -1347,9 +1351,19 @@ struct PanelView: View {
         }
     }
 
-    private func pasteSelected(plain: Bool) {
-        guard let item = search.selectedItem else { return }
-        model.paste(item, asPlainText: plain)
+    private func pasteSelected(plain: Bool, includingSnippet: Bool = false) {
+        guard pasteTask == nil else { return }
+        pasteTask = Task {
+            defer { pasteTask = nil }
+            guard let target = await search.resolvePasteTarget(includingSnippet: includingSnippet),
+                !Task.isCancelled
+            else { return }
+            if target.isSnippet {
+                invokeSnippet(target.item)
+            } else {
+                model.paste(target.item, asPlainText: plain)
+            }
+        }
     }
 
     /// Resolves a clicked row against the current list; a row that already

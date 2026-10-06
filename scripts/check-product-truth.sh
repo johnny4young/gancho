@@ -44,7 +44,12 @@ published_notes="docs/releases/v${published_version}.md"
 [[ -f "$published_notes" ]] || fail "published release notes are missing"
 published_floor="$(sed -nE 's/^Gancho requires macOS ([0-9.]+) or later.*/\1/p' "$published_notes")"
 [[ -n "$published_floor" ]] || fail "published release notes must state their macOS floor"
-require_literal_count site/index.html "macOS ${published_floor}+ · iOS 26+" 2
+require_literal site/index.html "data-i18n=\"hero.f1\">macOS ${published_floor}+ · iOS/iPadOS: aún no disponible"
+require_literal site/index.html "\"hero.f1\": \"macOS ${published_floor}+ · iOS/iPadOS: not yet available\""
+require_literal_count site/index.html '$19.99' 2
+require_literal site/index.html 'data-i18n="pro.cta">Consultar precio y total en Lemon Squeezy'
+require_literal site/index.html 'https://johnny4young.lemonsqueezy.com/checkout/buy/be41fa28-055d-4803-893d-9ddada3cc89d'
+forbid_regex site/index.html 'pro.availability.*(Desde la app|In the app)|Check the current price in Settings'
 require_literal docs/PRODUCT-TRUTH.md "GitHub release \`v${published_version}\`"
 published_sha="$(sed -nE 's/^SHA-256: `([a-f0-9]{64})`.*/\1/p' "$published_notes")"
 [[ -n "$published_sha" ]] || fail "published release notes must state the DMG checksum"

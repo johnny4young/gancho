@@ -54,6 +54,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
     private var meaningIntent = UUID()
     private func invalidateMeaningIntent() {
+        cancelPendingPaste()
         meaningIntent = UUID()
         meaning.cancelPending()
     }
@@ -63,6 +64,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     private var isRefreshing = false
     private var loadMoreDeferred = false
     private var displayedContext: Context?
+    private var pasteRequestID: UUID?
 
     private struct Context: Equatable {
         let query: String
@@ -80,6 +82,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     private func invalidateRequests() {
+        cancelPendingPaste()
         let relatedIDs = meaning.relatedIDs
         meaning.invalidate()
         if !relatedIDs.isEmpty { results.removeAll { relatedIDs.contains($0.id) } }
@@ -220,6 +223,35 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public var selectedItems: [ClipItem] {
         selectionModel.selectedItems(in: filtered)
     }
+
+    /// A paste may only consume rows loaded for the live query and filters.
+    public var hasCurrentResults: Bool { displayedContext == context }
+
+    public struct PasteTarget: Sendable {
+        public let item: ClipItem
+        public let isSnippet: Bool
+    }
+
+    /// Resolve an immediate Enter against the current search, rather than the
+    /// previous rows still on screen. A later query, navigation, dismissal or
+    /// paste request cancels this intent; no delayed paste survives it.
+    public func resolvePasteTarget(includingSnippet: Bool) async -> PasteTarget? {
+        let request = UUID()
+        pasteRequestID = request
+        defer { if pasteRequestID == request { pasteRequestID = nil } }
+        while !hasCurrentResults {
+            guard pasteRequestID == request, !Task.isCancelled else { return nil }
+            await refresh()
+        }
+        guard pasteRequestID == request, !Task.isCancelled else { return nil }
+        if includingSnippet, let snippetMatch {
+            return PasteTarget(item: snippetMatch, isSnippet: true)
+        }
+        guard let selectedItem else { return nil }
+        return PasteTarget(item: selectedItem, isSnippet: false)
+    }
+
+    public func cancelPendingPaste() { pasteRequestID = nil }
 
     public var selectionCount: Int { selectionModel.selectionCount(in: filtered) }
 
