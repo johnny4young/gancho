@@ -62,9 +62,10 @@ struct ClipCSVPreviewTests {
         #expect(document.unsupportedCount == 0)
         for (index, candidate) in document.candidates.enumerated() {
             #expect(
-                candidate == .init(
-                    text: "row-\(index)", title: "Title \(index)",
-                    isPinned: index.isMultiple(of: 2)))
+                candidate
+                    == .init(
+                        text: "row-\(index)", title: "Title \(index)",
+                        isPinned: index.isMultiple(of: 2)))
         }
         #expect(try ClipImporter.readCSV(data) == document)
     }
