@@ -214,8 +214,10 @@ struct BlobOwnershipRaceTests {
         // A long import, restore or sync page in any process holds this lease.
         let held = try await store.acquireBlobOwnership()
         defer { held.release() }
-        let clock = ContinuousClock()
-        let started = clock.now
+        // Proof is behavioral, not wall-clock: the lease is held for the whole test and
+        // a waiter gives up with `busy` after its bounded wait, so every write below
+        // succeeding means none of them asked for the lease. Elapsed time on a shared CI
+        // runner says nothing about that.
 
         _ = try await store.insert(
             ClipItem(preview: "typed", contentHash: "typed"), content: .text("typed"))
@@ -239,7 +241,6 @@ struct BlobOwnershipRaceTests {
             ],
             boards: [], clipDeletions: [], boardDeletions: [])
 
-        #expect(clock.now - started < .seconds(2))
         let previews = Set(try await store.items(offset: 0, limit: 10).map(\.preview))
         #expect(previews.isSuperset(of: ["typed", "file", "imported", "inbox", "remote"]))
         // Binary adoption still waits for the holder and reports busy.
