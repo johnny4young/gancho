@@ -4,6 +4,13 @@ import Testing
 
 @testable import GanchoKit
 
+// A stored weak reference works on the package's Swift 6.2 minimum too;
+// unlike a weak local, it does not trigger newer compiler mutability warnings.
+private final class WeakGenerationFacade {
+    weak var value: GRDBClipboardStore?
+    init(_ value: GRDBClipboardStore?) { self.value = value }
+}
+
 @Suite("Generation pins follow actual SQLite connection lifetime")
 struct StoreGenerationConnectionPinTests {
     private func directory() -> URL {
@@ -15,11 +22,11 @@ struct StoreGenerationConnectionPinTests {
         let root = directory()
         defer { try? FileManager.default.removeItem(at: root) }
         var store: GRDBClipboardStore? = try GRDBClipboardStore(directory: root)
-        weak var facade = store
+        let facade = WeakGenerationFacade(store)
         let writer = try #require(store?.writer)
         let configuration = writer.configuration
         store = nil
-        #expect(facade == nil)
+        #expect(facade.value == nil)
         #expect(throws: StoreProcessOwnership.Failure.self) {
             try StoreGenerationRecovery.archive(in: root, suffix: "blocked")
         }
@@ -42,11 +49,11 @@ struct StoreGenerationConnectionPinTests {
         let root = directory()
         defer { try? FileManager.default.removeItem(at: root) }
         var store: GRDBClipboardStore? = try GRDBClipboardStore(directory: root)
-        weak var facade = store
+        let facade = WeakGenerationFacade(store)
         let pool = try #require(store?.writer as? DatabasePool)
         let snapshot = try pool.makeSnapshot()
         store = nil
-        #expect(facade == nil)
+        #expect(facade.value == nil)
         try pool.close()
         #expect(throws: StoreProcessOwnership.Failure.self) {
             try StoreGenerationRecovery.archive(in: root, suffix: "blocked")
