@@ -25,6 +25,12 @@ final class StoreProcessOwnership: @unchecked Sendable {
                 startTime: currentStartTime)
         }
     }
+    /// A validated ledger row.
+    private struct OwnerClaim {
+        var stamp: Identity
+        var scope: Scope
+        var exclusive: Bool
+    }
     private struct Owner: Decodable, FetchableRecord {
         var token: String
         var processToken: String
@@ -35,14 +41,8 @@ final class StoreProcessOwnership: @unchecked Sendable {
         var bootSession: String?
         var startTime: Int64?
 
-        struct Claim {
-            var stamp: Identity
-            var scope: Scope
-            var exclusive: Bool
-        }
-
         /// Any malformed field fails the whole ledger closed.
-        func validated() throws -> Claim {
+        func validated() throws -> OwnerClaim {
             guard pid > 0, pid <= Int64(Int32.max), UUID(uuidString: token) != nil,
                 UUID(uuidString: processToken) != nil,
                 let parsedScope = Scope(rawValue: self.scope),
@@ -52,7 +52,7 @@ final class StoreProcessOwnership: @unchecked Sendable {
                 pid: Int32(pid), token: processToken, bootSession: bootSession ?? "",
                 startTime: startTime ?? 0)
             guard stamp.hasValidStamp else { throw Failure.malformedMetadata }
-            return Claim(stamp: stamp, scope: parsedScope, exclusive: exclusive == 1)
+            return OwnerClaim(stamp: stamp, scope: parsedScope, exclusive: exclusive == 1)
         }
     }
     private let queue: DatabaseQueue
