@@ -153,7 +153,7 @@ struct StoreProcessOwnershipTests {
 
     @Test("Missing or unknown versioned coordinator schema fails closed")
     func damagedCoordinatorIsNotReset() throws {
-        for version in [1, 2] {
+        for version in [1, 2, 3] {
             let root = try directory()
             defer { try? FileManager.default.removeItem(at: root) }
             let coordinator = root.appendingPathComponent(StoreProcessOwnership.fileName)
@@ -182,5 +182,119 @@ struct StoreProcessOwnershipTests {
                 in: root, scope: .blob, exclusive: true,
                 identity: .init(pid: 42, token: "not-a-process-identity"))
         }
+    }
+
+    @Test("A claim from an earlier boot is stale even when its PID looks alive")
+    func earlierBootClaimIsReclaimed() throws {
+        let bootA = UUID().uuidString
+        for (currentBoot, reclaimed) in [(UUID().uuidString, true), (bootA, false), ("", false)] {
+            let root = try directory()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let heldClaim = try StoreProcessOwnership.acquire(
+                in: root, scope: .blob, exclusive: true,
+                identity: .init(pid: 42, token: UUID().uuidString, bootSession: bootA))
+            let held = try #require(heldClaim)
+            defer { held.release() }
+            let contender = try StoreProcessOwnership.acquire(
+                in: root, scope: .blob, exclusive: true, probe: { _ in .live },
+                liveness: .init(bootSession: currentBoot, startTime: { _ in nil }))
+            #expect((contender != nil) == reclaimed)
+            contender?.release()
+        }
+    }
+
+    @Test("A reused PID is detected by start time only when the process can be inspected")
+    func reusedPIDIsReclaimed() throws {
+        let boot = UUID().uuidString
+        let cases: [(StoreProcessOwnership.ProcessState, Int64?, Bool)] = [
+            (.live, 2_000, true),  // same PID, different process
+            (.live, 1_000, false),  // the claimant itself
+            (.live, nil, false),  // start time withheld
+            (.unverifiable, 2_000, false)  // cannot signal it: never inferred
+        ]
+        for (state, observed, reclaimed) in cases {
+            let root = try directory()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let heldClaim = try StoreProcessOwnership.acquire(
+                in: root, scope: .generation, exclusive: false,
+                identity: .init(
+                    pid: 42, token: UUID().uuidString, bootSession: boot, startTime: 1_000))
+            let held = try #require(heldClaim)
+            defer { held.release() }
+            let contender = try StoreProcessOwnership.acquire(
+                in: root, scope: .generation, exclusive: true, probe: { _ in state },
+                liveness: .init(bootSession: boot, startTime: { _ in observed }))
+            #expect((contender != nil) == reclaimed)
+            contender?.release()
+        }
+    }
+
+    @Test("A version-1 ledger migrates in place and keeps its claims")
+    func versionOneLedgerMigrates() throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let coordinator = root.appendingPathComponent(StoreProcessOwnership.fileName)
+        let queue = try DatabaseQueue(path: coordinator.path)
+        try queue.write { db in
+            try db.execute(sql: StoreProcessOwnership.ownerSchema)
+            try db.execute(
+                sql: "INSERT INTO owner VALUES (?, ?, 42, 'generation', 0)",
+                arguments: [UUID().uuidString, UUID().uuidString])
+            try db.execute(sql: "PRAGMA user_version = 1")
+        }
+        // The legacy claim has no identity stamp, so only its PID judges it.
+        let blocked = try StoreProcessOwnership.acquire(
+            in: root, scope: .generation, exclusive: true, probe: { _ in .live },
+            liveness: .init(bootSession: UUID().uuidString, startTime: { _ in 7 }))
+        #expect(blocked == nil)
+        blocked?.release()
+        let (version, identityTables) = try queue.read { db in
+            (
+                try Int.fetchOne(db, sql: "PRAGMA user_version"),
+                try Int.fetchOne(
+                    db, sql: "SELECT COUNT(*) FROM sqlite_master WHERE name = 'owner_identity'")
+            )
+        }
+        #expect(version == 2 && identityTables == 1)
+        let reclaimedClaim = try StoreProcessOwnership.acquire(
+            in: root, scope: .generation, exclusive: true, probe: { _ in .exited })
+        let reclaimed = try #require(reclaimedClaim)
+        reclaimed.release()
+        let leftovers = try queue.read { db in
+            try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM owner_identity")
+        }
+        #expect(leftovers == 0)
+    }
+
+    @Test("Malformed identity stamps are rejected on write and on read")
+    func malformedStamp() throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        #expect(throws: StoreProcessOwnership.Failure.self) {
+            try StoreProcessOwnership.acquire(
+                in: root, scope: .blob, exclusive: true,
+                identity: .init(pid: 42, token: UUID().uuidString, bootSession: "not-a-boot"))
+        }
+        let heldClaim = try StoreProcessOwnership.acquire(
+            in: root, scope: .generation, exclusive: false)
+        let held = try #require(heldClaim)
+        defer { held.release() }
+        let coordinator = root.appendingPathComponent(StoreProcessOwnership.fileName)
+        let queue = try DatabaseQueue(path: coordinator.path)
+        try queue.write { db in
+            try db.execute(sql: "UPDATE owner_identity SET bootSession = 'garbage'")
+        }
+        #expect(throws: StoreProcessOwnership.Failure.self) {
+            try StoreProcessOwnership.acquire(in: root, scope: .blob, exclusive: true)
+        }
+    }
+
+    @Test("This process stamps its claims with the boot session and its start time")
+    func currentIdentityIsStamped() {
+        let current = StoreProcessOwnership.Identity.current
+        #expect(current.hasValidStamp)
+        #expect(UUID(uuidString: current.bootSession) != nil)
+        #expect(current.startTime > 0)
+        #expect(StoreProcessOwnership.processStartTime(getpid()) == current.startTime)
     }
 }
