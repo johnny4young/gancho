@@ -152,6 +152,40 @@ struct SensitiveDataDetectorTests {
         #expect(detector.detect(input) == .creditCard)
     }
 
+    @Test(
+        "A card glued to a CVV, a short prefix or a phone number is still found",
+        arguments: [
+            "4111 1111 1111 1111 123",
+            "4111111111111111 123",
+            "5555-5555-5555-4444 737",
+            "Tel 555 1234 4111 1111 1111 1111",
+            "acct 12 4111 1111 1111 1111",
+            "+1 555 123 4567 4111 1111 1111 1111",
+            "3782 822463 10005 1234"
+        ])
+    func cardInsideLongerRun(input: String) {
+        #expect(detector.detect(input) == .creditCard, "input: \(input)")
+    }
+
+    @Test(
+        "Phone numbers, order ids, dates and number lists stay clean",
+        arguments: [
+            "+1 (555) 123-4567",
+            "555-123-4567",
+            "+44 20 7946 0958",
+            "+1 415 555 0132 ext 4410",
+            "Call 1-800-555-0199 or 1-800-555-0123",
+            "Order #2024-0001-2345-6789",
+            "Order ID 112-4589631-7745210",
+            "Invoice 2026 0042 7781 1290 shipped",
+            "PO 4500012345 line 0010 qty 120",
+            "2024-01-15 2024-02-15 2024-03-15",
+            "1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20"
+        ])
+    func groupedNonCardsStayClean(input: String) {
+        #expect(detector.detect(input) == nil, "input: \(input)")
+    }
+
     @Test("Several invalid card-shaped numbers stay clean")
     func nonCardNumbersStayClean() {
         #expect(

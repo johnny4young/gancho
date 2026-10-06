@@ -107,17 +107,41 @@ public struct SensitiveDataDetector: Sendable {
         return matches(#"(?i)\bbearer\s+[A-Za-z0-9\-._~+/]{20,}=*"#, in: text)
     }
 
-    /// Checks every 13–19 digit run (spaces/dashes allowed). An order number
-    /// that fails Luhn must not hide a later card in the same clipboard text.
+    /// Checks every digit run (single spaces/dashes allowed between digits).
+    /// An order number that fails Luhn must not hide a later card, and a card
+    /// glued to a CVV or a phone prefix must not hide inside one longer run.
     private func containsValidCard(_ text: String) -> Bool {
         var searchRange = text.startIndex..<text.endIndex
         while let range = text.range(
-            of: #"(?<![0-9])(?:[0-9][ -]?){12,18}[0-9](?![0-9])"#,
+            of: #"(?<![0-9])[0-9](?:[ -]?[0-9])*(?![0-9])"#,
             options: .regularExpression, range: searchRange)
         {
-            let digits = text[range].filter(\.isNumber)
-            if Luhn.validates(String(digits)) { return true }
+            if Self.containsCardSpan(text[range]) { return true }
             searchRange = range.upperBound..<text.endIndex
+        }
+        return false
+    }
+
+    /// Tries every contiguous span of separator-delimited groups in one digit
+    /// run whose digits total 13–19. A single group is a bare card number; a
+    /// multi-group span only counts when every group is 3–6 digits, the shapes
+    /// card numbers are printed in (4-4-4-4, 4-6-5, 4-4-4-4-3). That keeps a
+    /// space-separated list of small numbers, a date or a 7-digit order segment
+    /// from turning into many extra Luhn draws.
+    static func containsCardSpan(_ run: Substring) -> Bool {
+        let groups = run.split(whereSeparator: { $0 == " " || $0 == "-" })
+        for start in groups.indices {
+            var digits = ""
+            for end in start..<groups.endIndex {
+                if end > start,
+                    !groups[start...end].allSatisfy({ (3...6).contains($0.count) })
+                {
+                    break
+                }
+                digits += groups[end]
+                if digits.count > 19 { break }
+                if digits.count >= 13, Luhn.validates(digits) { return true }
+            }
         }
         return false
     }
