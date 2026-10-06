@@ -13,6 +13,13 @@ import GRDB
 extension StoreGenerationLease {
     enum ConnectionFailure: Error { case releasedGeneration, registrationFailed }
 
+    func prepare(_ configuration: inout Configuration) {
+        configuration.prepareDatabase { [weak self] db in
+            guard let self else { throw ConnectionFailure.releasedGeneration }
+            try pin(to: db)
+        }
+    }
+
     func pin(to database: Database) throws {
         guard let connection = database.sqliteConnection else {
             throw ConnectionFailure.registrationFailed

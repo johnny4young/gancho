@@ -69,12 +69,7 @@ import GRDB
             configuration.prepareDatabase { db in
                 try db.usePassphrase(sqlcipherKey)
             }
-            configuration.prepareDatabase { [weak generationLease] db in
-                guard let generationLease else {
-                    throw StoreGenerationLease.ConnectionFailure.releasedGeneration
-                }
-                try generationLease.pin(to: db)
-            }
+            generationLease.prepare(&configuration)
             let pool = try DatabasePool(path: dbPath, configuration: configuration)
             try GanchoDatabaseMigrator.make().migrate(pool)
             let blobStore = BlobStore(

@@ -1,6 +1,14 @@
 import Foundation
 import GRDB
 
+extension GRDBClipboardStore {
+    /// Injectable writer for tests (`DatabaseQueue()` in-memory).
+    public convenience init(writer: any DatabaseWriter, blobs: BlobStore) {
+        self.init(writer: writer, blobs: blobs, generationLease: nil)
+    }
+
+}
+
 // This class owns the database handle and core query/write surface. Canonical
 // migrations and row mappings live in focused sibling files.
 /// SQLite-backed source of truth for clip history (GRDB).
@@ -82,12 +90,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
 
         // Actual writer/reader/snapshot connections retain the generation.
         // Closed GRDB configuration/watchdog objects must not over-pin it.
-        configuration.prepareDatabase { [weak generationLease] db in
-            guard let generationLease else {
-                throw StoreGenerationLease.ConnectionFailure.releasedGeneration
-            }
-            try generationLease.pin(to: db)
-        }
+        generationLease.prepare(&configuration)
         let pool = try DatabasePool(path: dbPath, configuration: configuration)
         try GanchoDatabaseMigrator.make().migrate(pool)
         let blobStore = BlobStore(
@@ -260,11 +263,6 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 staged: URL(fileURLWithPath: encryptedPath), as: URL(fileURLWithPath: path))
         }
     #endif
-
-    /// Injectable writer for tests (`DatabaseQueue()` in-memory).
-    public convenience init(writer: any DatabaseWriter, blobs: BlobStore) {
-        self.init(writer: writer, blobs: blobs, generationLease: nil)
-    }
 
     init(writer: any DatabaseWriter, blobs: BlobStore, generationLease: StoreGenerationLease?) {
         self.writer = writer
