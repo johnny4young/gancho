@@ -134,7 +134,9 @@ extension StoreProcessOwnership {
         guard sysctlbyname("kern.bootsessionuuid", &buffer, &size, nil, 0) == 0 else {
             return ""
         }
-        let value = String(decoding: buffer.prefix { $0 != 0 }, as: UTF8.self)
+        guard let value = String(bytes: buffer.prefix { $0 != 0 }, encoding: .utf8) else {
+            return ""
+        }
         return UUID(uuidString: value) == nil ? "" : value
     }
 
