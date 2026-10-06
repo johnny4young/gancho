@@ -1,6 +1,34 @@
 import Foundation
 import GRDB
 
+extension GRDBClipboardStore {
+    /// Injectable writer for tests (`DatabaseQueue()` in-memory).
+    public convenience init(writer: any DatabaseWriter, blobs: BlobStore) {
+        self.init(writer: writer, blobs: blobs, generationLease: nil)
+    }
+
+    func blobOwnershipDirectory() throws -> URL {
+        if let generationLease { return generationLease.directory }
+        let path = writer.path
+        let memoryURI =
+            path.hasPrefix("file:")
+            && URLComponents(string: path)?.queryItems?.contains {
+                $0.name == "mode" && $0.value == "memory"
+            } == true
+        if path.isEmpty || path == ":memory:" || memoryURI {
+            return blobs.directory.appendingPathComponent("thumbnails", isDirectory: true)
+        }
+        // File-backed injected facades must use the same root as production,
+        // even when they borrow a production pool without its registration.
+        guard !path.hasPrefix("file:") else {
+            throw StoreProcessOwnership.Failure.malformedMetadata
+        }
+        return URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
+            .deletingLastPathComponent()
+    }
+
+}
+
 // This class owns the database handle and core query/write surface. Canonical
 // migrations and row mappings live in focused sibling files.
 /// SQLite-backed source of truth for clip history (GRDB).
@@ -24,26 +52,6 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
 
     /// Maintenance-only blob access for same-module engines (orphan sweeps).
     var blobsForMaintenance: BlobStore { blobs }
-
-    func blobOwnershipDirectory() throws -> URL {
-        if let generationLease { return generationLease.directory }
-        let path = writer.path
-        let memoryURI =
-            path.hasPrefix("file:")
-            && URLComponents(string: path)?.queryItems?.contains {
-                $0.name == "mode" && $0.value == "memory"
-            } == true
-        if path.isEmpty || path == ":memory:" || memoryURI {
-            return blobs.directory.appendingPathComponent("thumbnails", isDirectory: true)
-        }
-        // File-backed injected facades must use the same root as production,
-        // even when they borrow a production pool without its registration.
-        guard !path.hasPrefix("file:") else {
-            throw StoreProcessOwnership.Failure.malformedMetadata
-        }
-        return URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
-            .deletingLastPathComponent()
-    }
 
     /// Production store at a directory (database + blobs side by side).
     ///
@@ -102,12 +110,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
 
         // Actual writer/reader/snapshot connections retain the generation.
         // Closed GRDB configuration/watchdog objects must not over-pin it.
-        configuration.prepareDatabase { [weak generationLease] db in
-            guard let generationLease else {
-                throw StoreGenerationLease.ConnectionFailure.releasedGeneration
-            }
-            try generationLease.pin(to: db)
-        }
+        generationLease.prepare(&configuration)
         let pool = try DatabasePool(path: dbPath, configuration: configuration)
         try GanchoDatabaseMigrator.make().migrate(pool)
         let blobStore = BlobStore(
@@ -281,11 +284,6 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         }
     #endif
 
-    /// Injectable writer for tests (`DatabaseQueue()` in-memory).
-    public convenience init(writer: any DatabaseWriter, blobs: BlobStore) {
-        self.init(writer: writer, blobs: blobs, generationLease: nil)
-    }
-
     init(writer: any DatabaseWriter, blobs: BlobStore, generationLease: StoreGenerationLease?) {
         self.writer = writer
         self.blobs = blobs
@@ -432,21 +430,6 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         defer { ownership.release() }
         let row = try insertionRow(item, content: content)
         return try await writer.write { db in try Self.insert(row, in: db).item }
-    }
-
-    func insertionRow(_ item: ClipItem, content: ClipContent?) throws -> ClipRow {
-        var row = ClipRow(item: item)
-        switch content {
-        case .text(let text): row.contentText = text
-        case .binary(let data, let typeIdentifier):
-            row.contentBlobHash = try blobs.write(data)
-            row.contentTypeIdentifier = typeIdentifier
-        case .fileReferences(let paths):
-            row.contentText = paths.joined(separator: "\n")
-            row.contentTypeIdentifier = "public.file-url"
-        case nil: break
-        }
-        return row
     }
 
     static func insert(_ row: ClipRow, in db: Database) throws -> ClipRow {

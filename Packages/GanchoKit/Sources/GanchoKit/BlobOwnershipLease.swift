@@ -41,6 +41,21 @@ final class BlobOwnershipLease: Sendable {
 }
 
 extension GRDBClipboardStore {
+    func insertionRow(_ item: ClipItem, content: ClipContent?) throws -> ClipRow {
+        var row = ClipRow(item: item)
+        switch content {
+        case .text(let text): row.contentText = text
+        case .binary(let data, let typeIdentifier):
+            row.contentBlobHash = try blobsForMaintenance.write(data)
+            row.contentTypeIdentifier = typeIdentifier
+        case .fileReferences(let paths):
+            row.contentText = paths.joined(separator: "\n")
+            row.contentTypeIdentifier = "public.file-url"
+        case nil: break
+        }
+        return row
+    }
+
     func acquireBlobOwnership() async throws -> BlobOwnershipLease {
         try await BlobOwnershipLease.acquire(for: blobOwnershipDirectory())
     }
