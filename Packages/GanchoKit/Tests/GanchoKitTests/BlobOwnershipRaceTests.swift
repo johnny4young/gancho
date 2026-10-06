@@ -205,4 +205,48 @@ struct BlobOwnershipRaceTests {
         #expect(FileManager.default.fileExists(atPath: protected.path))
     }
 
+    @Test("Text, file and metadata writes never wait for the blob lease")
+    func nonBinaryWritesSkipTheLease() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try GRDBClipboardStore(directory: root)
+        // A long import, restore or sync page in any process holds this lease.
+        let held = try await store.acquireBlobOwnership()
+        defer { held.release() }
+        let clock = ContinuousClock()
+        let started = clock.now
+
+        _ = try await store.insert(
+            ClipItem(preview: "typed", contentHash: "typed"), content: .text("typed"))
+        _ = try await store.insert(
+            ClipItem(preview: "file", contentHash: "file"),
+            content: .fileReferences(["/tmp/fixture.txt"]))
+        try await store.importBatch([
+            (ClipItem(preview: "imported", contentHash: "imported"), .text("imported"))
+        ])
+        _ = try await store.insertInboxDelivery(
+            id: "text-fixture", item: ClipItem(preview: "inbox", contentHash: "inbox"),
+            content: .text("inbox"))
+        _ = try await store.applyRemoteUpsert(
+            ClipItem(preview: "remote", contentHash: "remote"), content: .text("remote"),
+            systemFields: Data())
+        _ = try await store.applyRemoteChanges(
+            clips: [
+                RemoteClipChange(
+                    item: ClipItem(preview: "page", contentHash: "page"), content: .text("page"),
+                    systemFields: Data(), boardIDs: [])
+            ],
+            boards: [], clipDeletions: [], boardDeletions: [])
+
+        #expect(clock.now - started < .seconds(2))
+        let previews = Set(try await store.items(offset: 0, limit: 10).map(\.preview))
+        #expect(previews.isSuperset(of: ["typed", "file", "imported", "inbox", "remote"]))
+        // Binary adoption still waits for the holder and reports busy.
+        await #expect(throws: StoreProcessOwnership.Failure.self) {
+            try await store.insert(
+                ClipItem(kind: .image, preview: "image", contentHash: "image"),
+                content: .binary(data: Data("image".utf8), typeIdentifier: "public.data"))
+        }
+    }
 }

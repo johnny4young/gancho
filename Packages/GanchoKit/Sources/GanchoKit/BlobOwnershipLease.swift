@@ -59,4 +59,20 @@ extension GRDBClipboardStore {
     func acquireBlobOwnership() async throws -> BlobOwnershipLease {
         try await BlobOwnershipLease.acquire(for: blobOwnershipDirectory())
     }
+
+    /// Only binary content adopts a content-addressed blob, so only it can race
+    /// an orphan sweep. Text, file references and metadata never take the
+    /// cross-process lease: a long import, restore or sync page holding it must
+    /// never turn an ordinary text capture into a `busy` failure.
+    func acquireBlobOwnership(
+        adopting contents: some Sequence<ClipContent?>
+    ) async throws -> BlobOwnershipLease? {
+        guard contents.contains(where: Self.adoptsBlob) else { return nil }
+        return try await acquireBlobOwnership()
+    }
+
+    static func adoptsBlob(_ content: ClipContent?) -> Bool {
+        if case .binary? = content { return true }
+        return false
+    }
 }

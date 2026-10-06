@@ -10,8 +10,8 @@ extension GRDBClipboardStore: InboxClipIngesting {
         if try await writer.read({ db in try Self.hasInboxReceipt(id, in: db) }) {
             return .alreadyCommitted
         }
-        let ownership = try await acquireBlobOwnership()
-        defer { ownership.release() }
+        let ownership = try await acquireBlobOwnership(adopting: [content])
+        defer { ownership?.release() }
         let row = try insertionRow(item, content: content)
         return try await writer.write { db in
             try Task.checkCancellation()

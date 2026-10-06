@@ -309,8 +309,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// Skips dedupe on purpose: imports are presumed pre-deduplicated, and
     /// per-row lookups would turn 100k inserts into minutes.
     public func importBatch(_ entries: [(item: ClipItem, content: ClipContent?)]) async throws {
-        let ownership = try await acquireBlobOwnership()
-        defer { ownership.release() }
+        let ownership = try await acquireBlobOwnership(adopting: entries.lazy.map { $0.content })
+        defer { ownership?.release() }
         var rows: [ClipRow] = []
         rows.reserveCapacity(entries.count)
         for entry in entries {
@@ -426,8 +426,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
 
     @discardableResult
     public func insert(_ item: ClipItem, content: ClipContent?) async throws -> ClipItem {
-        let ownership = try await acquireBlobOwnership()
-        defer { ownership.release() }
+        let ownership = try await acquireBlobOwnership(adopting: [content])
+        defer { ownership?.release() }
         let row = try insertionRow(item, content: content)
         return try await writer.write { db in try Self.insert(row, in: db).item }
     }
