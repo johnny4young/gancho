@@ -8,6 +8,7 @@ private actor DelayedLicenseTransport {
     private let delayedKey: String?
     private var pending: CheckedContinuation<Void, Never>?
     private var waiter: CheckedContinuation<Void, Never>?
+    private(set) var deactivatedKeys: [String] = []
 
     init(delayedPath: String, delayedKey: String? = nil) {
         self.delayedPath = delayedPath
@@ -35,7 +36,12 @@ private actor DelayedLicenseTransport {
             }
         }
         let path = request.url?.lastPathComponent
-        let json = path == "activate" ? Self.activated : #"{"valid":false,"deactivated":true}"#
+        let key = Self.licenseKey(in: body)
+        if path == "deactivate" { deactivatedKeys.append(key) }
+        let json =
+            path == "activate"
+            ? Self.activated(instance: "instance-\(key)")
+            : #"{"valid":false,"deactivated":true}"#
         return (
             Data(json.utf8),
             HTTPURLResponse(
@@ -43,10 +49,17 @@ private actor DelayedLicenseTransport {
         )
     }
 
-    static let activated =
-        #"{"activated":true,"instance":{"id":"new-instance"},"#
-        + #""meta":{"store_id":\#(LemonSqueezyValidator.expectedStoreID),"#
-        + #""product_id":\#(LemonSqueezyValidator.expectedProductID)}}"#
+    /// Lemon Squeezy creates a distinct instance per activation.
+    static func activated(instance: String) -> String {
+        #"{"activated":true,"instance":{"id":"\#(instance)"},"#
+            + #""meta":{"store_id":\#(LemonSqueezyValidator.expectedStoreID),"#
+            + #""product_id":\#(LemonSqueezyValidator.expectedProductID)}}"#
+    }
+
+    private static func licenseKey(in body: String) -> String {
+        let field = body.split(separator: "&").first { $0.hasPrefix("license_key=") }
+        return field.map { String($0.dropFirst("license_key=".count)) } ?? ""
+    }
 }
 
 @MainActor
@@ -119,6 +132,8 @@ struct LicenseSessionReactivationTests {
         }
         #expect(store.load()?.contains("NEW") == true)
         #expect(await handler.currentTier() == .pro)
+        // The superseded reply's remote seat is released; the stored one is not.
+        #expect(await fake.deactivatedKeys == ["OLD"])
     }
 
     @Test("Background refresh cannot cancel a pending user activation")

@@ -138,6 +138,14 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
         let operation = beginOperation()
         let outcome = await activation.activate(licenseKey: trimmed, instanceName: instanceName)
         guard operationID == operation else {
+            // A newer action owns local state, but Lemon Squeezy already spent
+            // an activation slot on this reply. Release it, unless it is the
+            // very instance the newer action stored, so the seat is not stuck.
+            if case .activated(let record) = outcome,
+                persistedRecord()?.instanceID != record.instanceID
+            {
+                _ = await activation.deactivate(record)
+            }
             return .storageUnavailable(reason: "A newer license action superseded this request")
         }
         switch outcome {
