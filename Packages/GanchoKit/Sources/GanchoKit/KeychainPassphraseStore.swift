@@ -29,6 +29,30 @@ public struct AccessGroupResolution: Sendable, Equatable {
     public let contradictedBuildSetting: Bool
 }
 
+/// The three `SecItem…` calls the passphrase store makes, injectable so tests
+/// can model Keychain failures without touching a real Keychain.
+protocol PassphraseKeychainOperations: Sendable {
+    func read(_ query: [String: Any]) -> (OSStatus, Data?)
+    func add(_ query: [String: Any]) -> OSStatus
+    func delete(_ query: [String: Any]) -> OSStatus
+}
+
+private struct SystemPassphraseKeychainOperations: PassphraseKeychainOperations {
+    func read(_ query: [String: Any]) -> (OSStatus, Data?) {
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        return (status, item as? Data)
+    }
+
+    func add(_ query: [String: Any]) -> OSStatus {
+        SecItemAdd(query as CFDictionary, nil)
+    }
+
+    func delete(_ query: [String: Any]) -> OSStatus {
+        SecItemDelete(query as CFDictionary)
+    }
+}
+
 /// Stores the SQLCipher database key in the Keychain.
 ///
 /// There is no user-facing passphrase: the key is a 256-bit value generated
@@ -56,28 +80,6 @@ public struct AccessGroupResolution: Sendable, Equatable {
 /// The key is never logged, never derived from user input, and never leaves the
 /// Keychain except to open the database in `Configuration.prepareDatabase`.
 /// `Failure` deliberately carries only an `OSStatus`, never the key material.
-protocol PassphraseKeychainOperations: Sendable {
-    func read(_ query: [String: Any]) -> (OSStatus, Data?)
-    func add(_ query: [String: Any]) -> OSStatus
-    func delete(_ query: [String: Any]) -> OSStatus
-}
-
-private struct SystemPassphraseKeychainOperations: PassphraseKeychainOperations {
-    func read(_ query: [String: Any]) -> (OSStatus, Data?) {
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-        return (status, item as? Data)
-    }
-
-    func add(_ query: [String: Any]) -> OSStatus {
-        SecItemAdd(query as CFDictionary, nil)
-    }
-
-    func delete(_ query: [String: Any]) -> OSStatus {
-        SecItemDelete(query as CFDictionary)
-    }
-}
-
 public struct KeychainPassphraseStore: Sendable {
     public enum Failure: Error, Sendable, Equatable {
         /// `SecItem…` returned an unexpected status. Holds the raw `OSStatus`
