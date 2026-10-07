@@ -312,13 +312,17 @@ struct SyncBlobCleanupContentionTests {
         let content = ClipContent.text("replacement")
         let fields = Data("system fields".utf8)
         if mode == 0 {
-            #expect(try await store.applyRemoteUpsert(replacement, content: content, systemFields: fields))
+            #expect(
+                try await store.applyRemoteUpsert(replacement, content: content, systemFields: fields))
         } else if mode == 3 {
             try await store.applyRemoteDeletion(recordID: original.id.uuidString)
         } else {
             let changes =
                 mode == 1
-                ? [RemoteClipChange(item: replacement, content: content, systemFields: fields, boardIDs: [])]
+                ? [
+                    RemoteClipChange(
+                        item: replacement, content: content, systemFields: fields, boardIDs: [])
+                ]
                 : []
             let summary = try await store.applyRemoteChanges(
                 clips: changes, boards: [],
