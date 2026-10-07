@@ -258,8 +258,9 @@ struct ReleaseMetadataTests {
         let publishedFloor = try Self.firstCapture(
             in: publishedNotes, pattern: #"Gancho requires macOS ([0-9.]+) or later"#)
         let escapedFloor = NSRegularExpression.escapedPattern(for: publishedFloor)
-        #expect(
-            try Self.matchCount(in: site, pattern: "macOS \(escapedFloor)\\+ · iOS 26\\+") == 2)
+        let platform = "macOS \(escapedFloor)\\+ · iOS/iPadOS: "
+        #expect(try Self.matchCount(in: site, pattern: platform + "aún no disponible") == 1)
+        #expect(try Self.matchCount(in: site, pattern: platform + "not yet available") == 1)
         #expect(readme.contains("**Source version: v\(marketingVersion)"))
         #expect(truth.contains("GitHub release `v\(publishedVersion)`"))
         if publishedVersion != marketingVersion {
