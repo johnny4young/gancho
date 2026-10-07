@@ -1360,7 +1360,8 @@ struct PanelView: View {
     private func pasteSelected(plain: Bool, includingSnippet: Bool = false) {
         guard !showShortcuts else { return }
         let key = PanelSearchModel.PasteRequestKey(
-            interaction: search.pasteInteractionID, plain: plain, includingSnippet: includingSnippet)
+            interaction: search.pasteInteractionID, plain: plain,
+            includingSnippet: includingSnippet)
         guard pendingPaste?.key != key else { return }
         pasteTask?.cancel()
         let request = search.beginPasteRequest()
