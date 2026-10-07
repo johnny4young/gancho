@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import Synchronization
 import Testing
 
 @_spi(GanchoInternal) @testable import GanchoKit
@@ -214,10 +215,10 @@ struct BlobOwnershipRaceTests {
         // A long import, restore or sync page in any process holds this lease.
         let held = try await store.acquireBlobOwnership()
         defer { held.release() }
-        // Proof is behavioral, not wall-clock: the lease is held for the whole test and
-        // a waiter gives up with `busy` after its bounded wait, so every write below
-        // succeeding means none of them asked for the lease. Elapsed time on a shared CI
-        // runner says nothing about that.
+        // These fresh nonbinary rows have no orphan candidates. A required
+        // admission wait would throw busy, so success proves admission was skipped.
+        // Post-commit cleanup swallows errors and needs separate attempt-count
+        // coverage; elapsed time on a shared CI runner proves neither contract.
 
         _ = try await store.insert(
             ClipItem(preview: "typed", contentHash: "typed"), content: .text("typed"))
@@ -233,7 +234,7 @@ struct BlobOwnershipRaceTests {
         _ = try await store.applyRemoteUpsert(
             ClipItem(preview: "remote", contentHash: "remote"), content: .text("remote"),
             systemFields: Data())
-        _ = try await store.applyRemoteChanges(
+        let summary = try await store.applyRemoteChanges(
             clips: [
                 RemoteClipChange(
                     item: ClipItem(preview: "page", contentHash: "page"), content: .text("page"),
@@ -242,12 +243,120 @@ struct BlobOwnershipRaceTests {
             boards: [], clipDeletions: [], boardDeletions: [])
 
         let previews = Set(try await store.items(offset: 0, limit: 10).map(\.preview))
-        #expect(previews.isSuperset(of: ["typed", "file", "imported", "inbox", "remote"]))
+        #expect(summary == RemoteApplySummary(applied: 1))
+        #expect(previews.isSuperset(of: ["typed", "file", "imported", "inbox", "remote", "page"]))
         // Binary adoption still waits for the holder and reports busy.
         await #expect(throws: StoreProcessOwnership.Failure.self) {
             try await store.insert(
                 ClipItem(kind: .image, preview: "image", contentHash: "image"),
                 content: .binary(data: Data("image".utf8), typeIdentifier: "public.data"))
         }
+    }
+}
+
+@Suite("Sync cleanup remains opportunistic after a durable nonbinary write")
+struct SyncBlobCleanupContentionTests {
+    @Test("Post-commit admission attempts once on contention or error", arguments: [false, true])
+    func cleanupAdmissionDoesNotRetry(throwsError: Bool) async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try GRDBClipboardStore(directory: root)
+        let payload = Data("deferred orphan".utf8)
+        let hash = try store.blobsForMaintenance.write(payload)
+        let held = try await store.acquireBlobOwnership()
+        defer { held.release() }
+        let attempts = Mutex(0)
+        await store.removeBlobsIfOrphanedAfterCommit([hash]) { directory in
+            attempts.withLock { $0 += 1 }
+            if throwsError { throw StoreProcessOwnership.Failure.busy }
+            return try BlobOwnershipLease.tryAcquire(for: directory)
+        }
+        #expect(attempts.withLock { $0 } == 1)
+        #expect(try store.blobsForMaintenance.read(hash: hash) == payload)
+        held.release()
+        #expect(try await store.removeOrphanedBlobs() == 1)
+    }
+
+    @Test("An empty cleanup does not attempt admission")
+    func emptyCleanupSkipsAdmission() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try GRDBClipboardStore(directory: root)
+        let attempts = Mutex(0)
+        await store.removeBlobsIfOrphanedAfterCommit([]) { _ in
+            attempts.withLock { $0 += 1 }
+            return nil
+        }
+        #expect(attempts.withLock { $0 } == 0)
+    }
+
+    @Test("Old binary replacement and deletion preserve deferred blobs", arguments: 0..<4)
+    func oldBinaryCleanupDefers(mode: Int) async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try GRDBClipboardStore(directory: root)
+        let observer = try GRDBClipboardStore(directory: root)
+        let payload = Data("old binary".utf8)
+        let hash = try store.blobsForMaintenance.write(payload)
+        let original = ClipItem(
+            updatedAt: Date(timeIntervalSince1970: 1), kind: .image,
+            preview: "old", contentHash: "old")
+        _ = try await store.insert(
+            original, content: .binary(data: payload, typeIdentifier: "public.data"))
+        let held = try await observer.acquireBlobOwnership()
+        defer { held.release() }
+        let replacement = ClipItem(id: original.id, preview: "replacement", contentHash: "new")
+        let content = ClipContent.text("replacement")
+        let fields = Data("system fields".utf8)
+        if mode == 0 {
+            #expect(try await store.applyRemoteUpsert(replacement, content: content, systemFields: fields))
+        } else if mode == 3 {
+            try await store.applyRemoteDeletion(recordID: original.id.uuidString)
+        } else {
+            let changes =
+                mode == 1
+                ? [RemoteClipChange(item: replacement, content: content, systemFields: fields, boardIDs: [])]
+                : []
+            let summary = try await store.applyRemoteChanges(
+                clips: changes, boards: [],
+                clipDeletions: mode == 2 ? [original.id.uuidString] : [], boardDeletions: [])
+            #expect(summary == RemoteApplySummary(applied: 1))
+        }
+        let items = try await observer.items(offset: 0, limit: 10)
+        if mode < 2 {
+            #expect(items.map(\.preview) == ["replacement"])
+            #expect(try await observer.content(for: original.id) == content)
+            #expect(try await observer.systemFields(for: original.id) == fields)
+        } else {
+            #expect(items.isEmpty)
+        }
+        #expect(try store.blobsForMaintenance.read(hash: hash) == payload)
+        held.release()
+        #expect(try await observer.removeOrphanedBlobs() == 1)
+        let blobURL = store.blobsForMaintenance.directory.appendingPathComponent(hash)
+        #expect(!FileManager.default.fileExists(atPath: blobURL.path))
+    }
+
+    @Test("Deferred cleanup rechecks a same-hash adoption before deleting")
+    func deferredCleanupPreservesReadoption() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try GRDBClipboardStore(directory: root)
+        let payload = Data("shared binary".utf8)
+        let content = ClipContent.binary(data: payload, typeIdentifier: "public.data")
+        let original = ClipItem(kind: .image, preview: "original", contentHash: "original")
+        _ = try await store.insert(original, content: content)
+        let held = try await store.acquireBlobOwnership()
+        defer { held.release() }
+        try await store.applyRemoteDeletion(recordID: original.id.uuidString)
+        held.release()
+        let adopted = ClipItem(kind: .image, preview: "adopted", contentHash: "adopted")
+        _ = try await store.insert(adopted, content: content)
+        #expect(try await store.removeOrphanedBlobs() == 0)
+        #expect(try await store.content(for: adopted.id) == content)
     }
 }

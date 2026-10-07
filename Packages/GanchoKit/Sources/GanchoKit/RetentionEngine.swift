@@ -134,6 +134,20 @@ extension GRDBClipboardStore {
         guard !candidates.isEmpty else { return 0 }
         let ownership = try await acquireBlobOwnership()
         defer { ownership.release() }
+        return try await removeBlobsIfOrphaned(
+            candidates, owning: ownership, chunkSize: chunkSize,
+            afterReferenceCheck: afterReferenceCheck)
+    }
+
+    /// The caller retains ownership across the reference read and deletion.
+    /// Both required maintenance and opportunistic post-commit cleanup share
+    /// this implementation; neither may delete bytes without a live token.
+    func removeBlobsIfOrphaned(
+        _ candidates: Set<String>, owning ownership: BlobOwnershipLease,
+        chunkSize: Int = GRDBClipboardStore.orphanLookupChunkSize,
+        afterReferenceCheck: @Sendable () async -> Void = {}
+    ) async throws -> Int {
+        defer { withExtendedLifetime(ownership) {} }
         // One query per CHUNK, not one per candidate: a purge of a few hundred
         // image clips issued a few hundred COUNT(*) round trips to learn which
         // of their blobs nobody else references.

@@ -334,10 +334,20 @@ extension GRDBClipboardStore: SyncLocalStore {
         return hashes
     }
 
-    /// Post-commit cleanup that never fails the write it follows: an
-    /// unprovable orphan is kept for the maintenance sweep.
-    func removeBlobsIfOrphanedAfterCommit(_ candidates: Set<String>) async {
-        _ = try? await removeBlobsIfOrphaned(candidates)
+    /// Post-commit cleanup never waits for a logical owner or fails the write
+    /// it follows. Try once: contention or an unprovable orphan leaves bytes
+    /// for the maintenance sweep, which rechecks references under ownership.
+    func removeBlobsIfOrphanedAfterCommit(
+        _ candidates: Set<String>,
+        tryOwnership: @Sendable (URL) throws -> BlobOwnershipLease? = {
+            try BlobOwnershipLease.tryAcquire(for: $0)
+        }
+    ) async {
+        guard !candidates.isEmpty,
+            let ownership = try? tryOwnership(blobOwnershipDirectory())
+        else { return }
+        defer { ownership.release() }
+        _ = try? await removeBlobsIfOrphaned(candidates, owning: ownership)
     }
 
     /// Builds the row a remote change will write, doing its blob I/O here so
