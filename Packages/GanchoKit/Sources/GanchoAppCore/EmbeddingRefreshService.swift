@@ -68,10 +68,14 @@ public struct EmbeddingRefreshService: Sendable {
     }
 
     /// Runs the refresh until nothing is stale, the task is cancelled, or the
-    /// environment turns hostile. Returns how many clips were re-embedded.
+    /// environment turns hostile. Returns how many vectors were actually committed.
+    /// Sources without ContentBoundEmbeddingStoring skip the pass rather than use
+    /// the retained, unconditional legacy write requirement.
     @discardableResult
     public func run(store: any EmbeddingRefreshSource) async -> Int {
-        guard let embedder = makeEmbedder() else { return 0 }
+        guard let embeddingStore = store as? any ContentBoundEmbeddingStoring,
+            let embedder = makeEmbedder()
+        else { return 0 }
         var refreshed = 0
         while !Task.isCancelled, isEnvironmentSuitable() {
             guard let batch = try? await store.staleEmbeddingClipIDs(limit: Self.batchSize),
@@ -82,7 +86,8 @@ public struct EmbeddingRefreshService: Sendable {
                 if Task.isCancelled || !isEnvironmentSuitable() { return refreshed }
                 guard case .text(let text)? = try? await store.content(for: id),
                     let vector = try? embedder.vector(for: String(text.prefix(Self.inputLimit))),
-                    (try? await store.saveEmbedding(clipID: id, vector: vector)) != nil
+                    (try? await embeddingStore.saveEmbeddingIfCurrent(
+                        clipID: id, vector: vector, expectedText: text)) == true
                 else { continue }
                 refreshed += 1
                 progressed = true

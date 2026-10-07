@@ -8,7 +8,7 @@ import Testing
 /// Scriptable refresh source: `stale` drains as saves land, exactly like the
 /// real store (a refreshed row stops being stale), so batch-loop convergence
 /// is exercised honestly.
-private actor FakeRefreshStore: EmbeddingRefreshSource {
+private actor FakeRefreshStore: EmbeddingRefreshSource, ContentBoundEmbeddingStoring {
     private var stale: [UUID]
     private let texts: [UUID: String]
     private(set) var saved: [UUID: [Float]] = [:]
@@ -27,6 +27,13 @@ private actor FakeRefreshStore: EmbeddingRefreshSource {
     func saveEmbedding(clipID: UUID, vector: [Float]) async throws {
         saved[clipID] = vector
         stale.removeAll { $0 == clipID }
+    }
+    func saveEmbeddingIfCurrent(
+        clipID: UUID, vector: [Float], expectedText: String
+    ) async throws -> Bool {
+        guard texts[clipID] == expectedText else { return false }
+        try await saveEmbedding(clipID: clipID, vector: vector)
+        return true
     }
 }
 
