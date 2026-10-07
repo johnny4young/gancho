@@ -159,14 +159,24 @@ extension GRDBClipboardStore {
     }
 
     /// Edits a snippet's title and full text content (the editor surface).
+    /// Queue the shared fields for upload and discard a changed body's semantic
+    /// vector in the same transaction. Missing and demoted rows remain no-ops.
     public func updateSnippet(id: UUID, title: String, text: String) async throws {
         try await writer.write { db in
+            guard let row = try ClipRow.fetchOne(db, key: id.uuidString), row.isSnippet else {
+                return
+            }
             try db.execute(
                 sql: """
-                    UPDATE clip SET title = ?, contentText = ?, preview = ?, updatedAt = ?
+                    UPDATE clip SET title = ?, contentText = ?, preview = ?, updatedAt = ?,
+                        needsUpload = 1
                     WHERE id = ? AND isSnippet = 1
                     """,
                 arguments: [title, text, String(text.prefix(120)), Date(), id.uuidString])
+            if row.contentText != text {
+                try db.execute(
+                    sql: "DELETE FROM clip_embedding WHERE clipID = ?", arguments: [id.uuidString])
+            }
         }
     }
 
