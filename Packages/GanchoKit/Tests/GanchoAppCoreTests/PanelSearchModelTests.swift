@@ -722,17 +722,21 @@ extension PanelSearchModelTests {
         let enter = PanelSearchModel.PasteRequestKey(
             interaction: interaction, plain: false, includingSnippet: true)
         #expect(
-            enter == PanelSearchModel.PasteRequestKey(
-                interaction: interaction, plain: false, includingSnippet: true))
+            enter
+                == PanelSearchModel.PasteRequestKey(
+                    interaction: interaction, plain: false, includingSnippet: true))
         #expect(
-            enter != PanelSearchModel.PasteRequestKey(
-                interaction: interaction, plain: true, includingSnippet: true))
+            enter
+                != PanelSearchModel.PasteRequestKey(
+                    interaction: interaction, plain: true, includingSnippet: true))
         #expect(
-            enter != PanelSearchModel.PasteRequestKey(
-                interaction: interaction, plain: false, includingSnippet: false))
+            enter
+                != PanelSearchModel.PasteRequestKey(
+                    interaction: interaction, plain: false, includingSnippet: false))
         #expect(
-            enter != PanelSearchModel.PasteRequestKey(
-                interaction: UUID(), plain: false, includingSnippet: true))
+            enter
+                != PanelSearchModel.PasteRequestKey(
+                    interaction: UUID(), plain: false, includingSnippet: true))
     }
 
     @Test(arguments: [false, true])
