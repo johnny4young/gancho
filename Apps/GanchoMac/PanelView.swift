@@ -68,6 +68,7 @@ struct PanelView: View {
     /// unit-testable; the view keeps presentation only.
     @State private var search: PanelSearchModel
     @State private var pasteTask: Task<Void, Never>?
+    @State private var pendingPaste: (request: UUID, key: PanelSearchModel.PasteRequestKey)?
     /// Selected-clip preview identity, loading, and editability. The model
     /// rejects stale/cancelled results before the peek can render them.
     @State private var preview: PanelPreviewModel
@@ -602,7 +603,7 @@ struct PanelView: View {
                 .onKeyPress(characters: CharacterSet(charactersIn: "/"), phases: .down) { press in
                     // ⌘/ — the universal "show me the shortcuts" gesture.
                     guard press.modifiers.contains(.command) else { return .ignored }
-                    showShortcuts.toggle()
+                    toggleKeyboardShortcuts()
                     return .handled
                 }
                 .onKeyPress(characters: CharacterSet(charactersIn: "a"), phases: .down) { press in
@@ -747,7 +748,7 @@ struct PanelView: View {
         PanelStatusFooter(
             syncStatus: model.syncStatus,
             capture: capturePresentation,
-            showKeyboardShortcuts: { showShortcuts.toggle() })
+            showKeyboardShortcuts: { toggleKeyboardShortcuts() })
     }
 
     /// The type filters: All / Links / Code / Colors / Images / Secrets as
@@ -1351,12 +1352,29 @@ struct PanelView: View {
         }
     }
 
+    private func toggleKeyboardShortcuts() {
+        if !showShortcuts { search.cancelPendingPaste() }
+        showShortcuts.toggle()
+    }
+
     private func pasteSelected(plain: Bool, includingSnippet: Bool = false) {
-        guard pasteTask == nil else { return }
+        guard !showShortcuts else { return }
+        let key = PanelSearchModel.PasteRequestKey(
+            interaction: search.pasteInteractionID, plain: plain, includingSnippet: includingSnippet)
+        guard pendingPaste?.key != key else { return }
+        pasteTask?.cancel()
+        let request = search.beginPasteRequest()
+        pendingPaste = (request, key)
         pasteTask = Task {
-            defer { pasteTask = nil }
-            guard let target = await search.resolvePasteTarget(includingSnippet: includingSnippet),
-                !Task.isCancelled
+            defer {
+                if pendingPaste?.request == request {
+                    pendingPaste = nil
+                    pasteTask = nil
+                }
+            }
+            let target = await search.resolvePasteTarget(
+                includingSnippet: includingSnippet, requestID: request)
+            guard let target, !Task.isCancelled
             else { return }
             if target.isSnippet {
                 invokeSnippet(target.item)
@@ -1452,7 +1470,10 @@ struct PanelView: View {
         let result = PanelNavigation.reduce(key, state: state, context: context)
         // Write back only what changed — avoids spurious `@State`/`@Observable`
         // invalidations (and a no-op `onChange`) on a plain arrow keypress.
-        if railFocus != result.state.railFocus { railFocus = result.state.railFocus }
+        if railFocus != result.state.railFocus {
+            search.cancelPendingPaste()
+            railFocus = result.state.railFocus
+        }
         if search.selectedIndex != result.state.selectedIndex {
             search.selectedIndex = result.state.selectedIndex
         }

@@ -676,12 +676,130 @@ extension PanelSearchModelTests {
                 await withCheckedContinuation { releaseFirst = $0 }
             }
         }
+        let firstInteraction = model.pasteInteractionID
         let first = Task { await model.resolvePasteTarget(includingSnippet: true) }
         while releaseFirst == nil { await Task.yield() }
+        // A new query and Enter must not wait for the obsolete storage read.
+        model.query = "newer result"
+        #expect(model.pasteInteractionID != firstInteraction)
+        let secondInteraction = model.pasteInteractionID
         let second = await model.resolvePasteTarget(includingSnippet: true)
+        #expect(model.pasteInteractionID == secondInteraction)
+        releaseFirst?.resume()
+        let superseded = await first.value
+        #expect(model.pasteInteractionID == secondInteraction)
+        #expect(superseded == nil)
+        #expect(second?.item.id == result.id)
+    }
+}
+
+extension PanelSearchModelTests {
+    @Test func newInputBeforeThePasteTaskStartsCancelsTheCapturedKeyAction() async {
+        let source = FakeSource()
+        source.searchResults = [ClipItem(preview: "Synthetic result")]
+        let model = PanelSearchModel(source: source)
+        model.query = "first"
+        let request = model.beginPasteRequest()
+        model.query = "second"
+        let target = await model.resolvePasteTarget(includingSnippet: true, requestID: request)
+        #expect(target == nil)
+    }
+
+    @Test func enteringThePeekCancelsAPasteWaitingForResults() async {
+        let source = FakeSource()
+        source.searchResults = [ClipItem(preview: "Synthetic result")]
+        let model = PanelSearchModel(source: source)
+        model.query = "result"
+        source.onSearch = { model.endNewestFollow() }
+        let target = await model.resolvePasteTarget(includingSnippet: true)
+        #expect(target == nil)
+    }
+}
+
+extension PanelSearchModelTests {
+    @Test func pasteRequestKeysCoalesceOnlyIdenticalEffectiveIntents() {
+        let interaction = UUID()
+        let enter = PanelSearchModel.PasteRequestKey(
+            interaction: interaction, plain: false, includingSnippet: true)
+        #expect(enter == PanelSearchModel.PasteRequestKey(
+            interaction: interaction, plain: false, includingSnippet: true))
+        #expect(enter != PanelSearchModel.PasteRequestKey(
+            interaction: interaction, plain: true, includingSnippet: true))
+        #expect(enter != PanelSearchModel.PasteRequestKey(
+            interaction: interaction, plain: false, includingSnippet: false))
+        #expect(enter != PanelSearchModel.PasteRequestKey(
+            interaction: UUID(), plain: false, includingSnippet: true))
+    }
+
+    @Test(arguments: [false, true])
+    func changedPasteModeSupersedesPendingEnterWithoutChangingTheQuery(plain: Bool) async {
+        let source = FakeSource()
+        let result = ClipItem(preview: "Synthetic selected result")
+        let snippet = ClipItem(preview: "Synthetic snippet")
+        source.searchResults = [result]
+        source.snippets["sig"] = snippet
+        let model = PanelSearchModel(source: source)
+        model.query = "sig"
+        var releaseFirst: CheckedContinuation<Void, Never>?
+        var reads = 0
+        source.beforeSearch = {
+            reads += 1
+            if reads == 1 {
+                await withCheckedContinuation { releaseFirst = $0 }
+            }
+        }
+        let interaction = model.pasteInteractionID
+        let firstRequest = model.beginPasteRequest()
+        let first = Task {
+            await model.resolvePasteTarget(includingSnippet: true, requestID: firstRequest)
+        }
+        while releaseFirst == nil { await Task.yield() }
+        // Option-Return keeps snippet priority; Command-V selects the row.
+        let replacementKey = PanelSearchModel.PasteRequestKey(
+            interaction: interaction, plain: plain, includingSnippet: plain)
+        let secondRequest = model.beginPasteRequest()
+        let second = await model.resolvePasteTarget(
+            includingSnippet: replacementKey.includingSnippet, requestID: secondRequest)
+        #expect(model.pasteInteractionID == interaction)
         releaseFirst?.resume()
         let superseded = await first.value
         #expect(superseded == nil)
-        #expect(second?.item.id == result.id)
+        #expect(second?.item.id == (plain ? snippet.id : result.id))
+        #expect(second?.isSnippet == plain)
+    }
+
+    @Test(arguments: [false, true])
+    func enteringTheFilterRailCancelsPendingPasteWithoutChangingSelection(navigate: Bool) async {
+        let source = FakeSource()
+        source.searchResults = [ClipItem(preview: "Synthetic result")]
+        let model = PanelSearchModel(source: source)
+        model.query = "result"
+        source.onSearch = {
+            guard navigate else { return }
+            let state = PanelNavigationState(selectedIndex: 0)
+            let result = PanelNavigation.reduce(
+                .up, state: state,
+                context: PanelNavigationContext(rowCount: 1, boardIDs: [], hasSelection: true))
+            #expect(result.state.railFocus == .filters(0))
+            #expect(result.state.selectedIndex == state.selectedIndex)
+            if result.state.railFocus != state.railFocus { model.cancelPendingPaste() }
+        }
+        let target = await model.resolvePasteTarget(includingSnippet: false)
+        #expect((target == nil) == navigate)
+    }
+}
+
+extension PanelSearchModelTests {
+    @Test(arguments: [false, true])
+    func openingShortcutsCancelsPendingPasteButClosingDoesNot(opening: Bool) async {
+        let source = FakeSource()
+        source.searchResults = [ClipItem(preview: "Synthetic result")]
+        let model = PanelSearchModel(source: source)
+        model.query = "result"
+        source.onSearch = {
+            if opening { model.cancelPendingPaste() }
+        }
+        let target = await model.resolvePasteTarget(includingSnippet: false)
+        #expect((target == nil) == opening)
     }
 }
