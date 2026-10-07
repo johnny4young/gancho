@@ -72,7 +72,7 @@ struct ContentBoundEmbeddingTests {
         try await store.insert(item, content: .text("body"))
         let mutations = [
             "isSensitive = 1", "kind = 'jwt'", "isArchived = 1",
-            "expiresAt = '2000-01-01 00:00:00.000'", "contentTypeIdentifier = 'public.file-url'",
+            "expiresAt = '2000-01-01 00:00:00.000'", "contentTypeIdentifier = 'public.file-url'"
         ]
         for mutation in mutations {
             try await store.writer.write { db in
