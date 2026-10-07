@@ -313,7 +313,8 @@ struct SyncBlobCleanupContentionTests {
         let fields = Data("system fields".utf8)
         if mode == 0 {
             #expect(
-                try await store.applyRemoteUpsert(replacement, content: content, systemFields: fields))
+                try await store.applyRemoteUpsert(
+                    replacement, content: content, systemFields: fields))
         } else if mode == 3 {
             try await store.applyRemoteDeletion(recordID: original.id.uuidString)
         } else {
