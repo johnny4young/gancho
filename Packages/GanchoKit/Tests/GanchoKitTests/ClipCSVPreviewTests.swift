@@ -5,7 +5,7 @@ import Testing
 
 @Suite("CSV preview projection")
 struct ClipCSVPreviewTests {
-    @Test("BOM and normalized headers keep first-column and formula-guard policy")
+    @Test("BOM and normalized headers keep column precedence and formula-guard policy")
     func exportHeader() throws {
         let csv =
             "\u{feff}contentText, TEXT ,title,title,isPinned\nignored,'=sum,'@first,second,YES"
@@ -41,11 +41,9 @@ struct ClipCSVPreviewTests {
     @Test("Malformed tails expose no document and keep syntax-error precedence")
     func malformedTail() {
         for header in ["text", "unrecognized"] {
-            var document: ClipImporter.Document?
             #expect(throws: ClipImporter.ImportError.unreadable(.unclosedQuotedField)) {
-                document = try ClipImporter.readCSV(Data("\(header)\nvalid\n\"unfinished".utf8))
+                _ = try ClipImporter.readCSV(Data("\(header)\nvalid\n\"unfinished".utf8))
             }
-            #expect(document == nil)
         }
         #expect(throws: ClipImporter.ImportError.unreadable(.emptyCSV)) {
             _ = try ClipImporter.readCSV(Data("\u{feff}\n\n".utf8))
@@ -58,15 +56,12 @@ struct ClipCSVPreviewTests {
         let rows = (0..<count).map { "row-\($0),Title \($0),\($0.isMultiple(of: 2))" }
         let data = Data((["text,title,pinned"] + rows).joined(separator: "\n").utf8)
         let document = try ClipImporter.readCSV(data)
-        #expect(document.candidates.count == count)
-        #expect(document.unsupportedCount == 0)
-        for (index, candidate) in document.candidates.enumerated() {
-            #expect(
-                candidate
-                    == .init(
-                        text: "row-\(index)", title: "Title \(index)",
-                        isPinned: index.isMultiple(of: 2)))
+        let expected = (0..<count).map {
+            ClipImporter.Candidate(
+                text: "row-\($0)", title: "Title \($0)", isPinned: $0.isMultiple(of: 2))
         }
+        #expect(document.candidates == expected)
+        #expect(document.unsupportedCount == 0)
         #expect(try ClipImporter.readCSV(data) == document)
     }
 }

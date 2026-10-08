@@ -309,8 +309,10 @@ Store shape:
 `ClipImporter.readCSV` owns a synchronous, read-only preview. Its scanner visits one
 raw row at a time; header interpretation and candidate projection do not retain a
 second complete row matrix. Gancho formula guards are removed only when the header
-identifies a Gancho export. Candidate order, first matching columns, optional fields,
-and unsupported-row counts keep the established import contract.
+identifies a Gancho export, and only for the projected fields. Candidate order, column
+selection (`text` before `contentText`, `pinned` before `isPinned`, first occurrence of
+each name), optional fields, and unsupported-row counts keep the established import
+contract.
 
 The document is returned only after the entire scanner succeeds. An unterminated
 quoted tail takes precedence over an invalid header, and no partially projected

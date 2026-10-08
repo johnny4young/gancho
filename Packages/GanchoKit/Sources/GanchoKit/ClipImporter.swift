@@ -68,29 +68,20 @@ public enum ClipImporter {
                 header = CSVHeader(rawRow)
                 return
             }
-            guard let header, let textIndex = header.textIndex else { return }
-            let row = header.isGanchoExport ? rawRow.map(ClipExporter.removingFormulaGuard) : rawRow
-            guard row.indices.contains(textIndex) else {
+            guard let header, header.textIndex != nil else { return }
+            guard let text = header.field(header.textIndex, in: rawRow),
+                !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
                 unsupportedCount += 1
                 return
             }
-            let text = row[textIndex]
-            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                unsupportedCount += 1
-                return
-            }
-            let title = header.titleIndex.flatMap { index -> String? in
-                guard row.indices.contains(index) else { return nil }
-                let value = row[index].trimmingCharacters(in: .whitespacesAndNewlines)
+            let title = header.field(header.titleIndex, in: rawRow).flatMap { field -> String? in
+                let value = field.trimmingCharacters(in: .whitespacesAndNewlines)
                 return value.isEmpty ? nil : value
             }
             let pinned =
-                header.pinnedIndex.flatMap { index -> Bool? in
-                    guard row.indices.contains(index) else { return nil }
-                    return
-                        switch row[index].trimmingCharacters(in: .whitespacesAndNewlines)
-                        .lowercased()
-                    {
+                header.field(header.pinnedIndex, in: rawRow).map { field in
+                    switch field.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
                     case "true", "1", "yes": true
                     default: false
                     }
@@ -166,6 +157,13 @@ public enum ClipImporter {
             titleIndex = names.firstIndex(of: "title")
             pinnedIndex = names.firstIndex(of: "pinned") ?? names.firstIndex(of: "ispinned")
             isGanchoExport = names.contains("contenttext")
+        }
+
+        /// Decodes only the projected field, so Gancho exports never allocate a
+        /// second, guard-stripped copy of every column in the row.
+        func field(_ index: Int?, in row: [String]) -> String? {
+            guard let index, row.indices.contains(index) else { return nil }
+            return isGanchoExport ? ClipExporter.removingFormulaGuard(row[index]) : row[index]
         }
     }
 
