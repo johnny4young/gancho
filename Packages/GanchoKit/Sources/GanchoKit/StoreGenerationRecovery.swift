@@ -86,10 +86,14 @@ enum StoreGenerationRecovery {
         try manager.createDirectory(
             at: archive, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         let journal = Journal(archive: archiveName, members: present)
-        try JSONEncoder().encode(journal).write(to: journalURL, options: .atomic)
-        let handle = try FileHandle(forWritingTo: journalURL)
+        // The journal's bytes must be durable before its name is: a published
+        // but empty journal would fail every later open closed.
+        let staged = directory.appendingPathComponent(journalName + ".staged")
+        try JSONEncoder().encode(journal).write(to: staged)
+        let handle = try FileHandle(forWritingTo: staged)
         try handle.synchronize()
         try handle.close()
+        try AtomicFileReplace.publish(staged: staged, as: journalURL)
         // The journal and the archive directory must be durable entries before
         // the first member moves, or a crash could lose the record of the move.
         try synchronizeDirectory(directory)
