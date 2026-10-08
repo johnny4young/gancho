@@ -606,18 +606,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
                 : request.filter(sql: Self.unexpiredPredicate, arguments: [Date.now]).fetchOne(db)
         }
         guard let row else { return nil }
-        if let blobHash = row.contentBlobHash {
-            guard let data = try blobs.read(hash: blobHash) else { return nil }
-            return .binary(
-                data: data, typeIdentifier: row.contentTypeIdentifier ?? "public.data")
-        }
-        if row.contentTypeIdentifier == "public.file-url", let text = row.contentText {
-            return .fileReferences(text.split(separator: "\n").map(String.init))
-        }
-        if let text = row.contentText {
-            return .text(text)
-        }
-        return nil
+        return try content(from: row)
     }
 
     /// Lazy list-row thumbnail BYTES for binary clips; nil for text clips. The
@@ -649,4 +638,23 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
 
     // MARK: - Export (always available, every tier — no data hostage)
 
+}
+
+extension GRDBClipboardStore {
+    /// Decodes only the payload identity captured by the caller's database read.
+    /// Content-addressed blobs are never reselected through a later clip lookup.
+    func content(from row: ClipRow) throws -> ClipContent? {
+        if let blobHash = row.contentBlobHash {
+            guard let data = try blobs.read(hash: blobHash) else { return nil }
+            return .binary(
+                data: data, typeIdentifier: row.contentTypeIdentifier ?? "public.data")
+        }
+        if row.contentTypeIdentifier == "public.file-url", let text = row.contentText {
+            return .fileReferences(text.split(separator: "\n").map(String.init))
+        }
+        if let text = row.contentText {
+            return .text(text)
+        }
+        return nil
+    }
 }
