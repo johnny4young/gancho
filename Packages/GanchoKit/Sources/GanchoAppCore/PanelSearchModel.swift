@@ -64,10 +64,12 @@ public struct PanelDateGroup: Identifiable, Sendable {
     private var isRefreshing = false
     private var loadMoreDeferred = false
     private var displayedContext: Context?
-    private var pasteRequestID: UUID?
+    /// Paste bookkeeping is read only by key actions, never rendered, so it
+    /// stays out of observation: every arrow key regenerates the interaction.
+    @ObservationIgnored private var pasteRequestID: UUID?
     /// Changes when input/navigation invalidates a key action, but not when
     /// its read finishes. The view uses this to coalesce only the same intent.
-    public private(set) var pasteInteractionID = UUID()
+    @ObservationIgnored public private(set) var pasteInteractionID = UUID()
 
     private struct Context: Equatable {
         let query: String

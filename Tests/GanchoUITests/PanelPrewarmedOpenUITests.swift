@@ -27,6 +27,9 @@ final class PanelPrewarmedOpenUITests: XCTestCase {
         // actually carries the selected trait and read its label.
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
         let selected = rows.matching(NSPredicate(format: "selected == true")).firstMatch
+        func selectedRows(containing label: String) -> XCUIElementQuery {
+            rows.matching(NSPredicate(format: "selected == true AND label CONTAINS %@", label))
+        }
         XCTAssertTrue(
             rows.matching(NSPredicate(format: "label CONTAINS %@", "Safari source link"))
                 .firstMatch.waitForExistence(timeout: 10))
@@ -42,6 +45,9 @@ final class PanelPrewarmedOpenUITests: XCTestCase {
         XCTAssertTrue(
             selected.label.contains("Safari source link"),
             "arrows move from the newest clip, got \(selected.label)")
+        XCTAssertEqual(
+            selectedRows(containing: "Xcode source sample").count, 0,
+            "the newest clip is no longer selected")
 
         search.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
@@ -51,6 +57,9 @@ final class PanelPrewarmedOpenUITests: XCTestCase {
         XCTAssertTrue(
             selected.label.contains("Xcode source sample"),
             "a reopen starts from the newest clip again, got \(selected.label)")
+        XCTAssertEqual(
+            selectedRows(containing: "Safari source link").count, 0,
+            "a reopen clears the previous selection")
         XCTAssertTrue(
             SynthesizedInput.waitForKeyboardFocus(search, timeout: 5),
             "a reopen focuses the search field")

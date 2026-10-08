@@ -48,7 +48,11 @@ require_literal site/index.html "data-i18n=\"hero.f1\">macOS ${published_floor}+
 require_literal site/index.html "\"hero.f1\": \"macOS ${published_floor}+ · iOS/iPadOS: not yet available\""
 require_literal_count site/index.html '$19.99' 2
 require_literal site/index.html 'data-i18n="pro.cta">Consultar precio y total en Lemon Squeezy'
-require_literal site/index.html 'https://johnny4young.lemonsqueezy.com/checkout/buy/be41fa28-055d-4803-893d-9ddada3cc89d'
+# The site's checkout link must be the one the app's paywall opens.
+checkout_id="$(sed -nE 's/^[[:space:]]*\+ "([0-9a-f-]{36})"\)!$/\1/p' \
+	Packages/GanchoKit/Sources/GanchoKit/LicenseActivation.swift)"
+[[ -n "$checkout_id" ]] || fail "LemonSqueezyStore.checkoutURL must name its checkout product"
+require_literal site/index.html "https://johnny4young.lemonsqueezy.com/checkout/buy/${checkout_id}"
 forbid_regex site/index.html 'pro.availability.*(Desde la app|In the app)|Check the current price in Settings'
 require_literal docs/PRODUCT-TRUTH.md "GitHub release \`v${published_version}\`"
 published_sha="$(sed -nE 's/^SHA-256: `([a-f0-9]{64})`.*/\1/p' "$published_notes")"

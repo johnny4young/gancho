@@ -230,8 +230,7 @@ struct PanelView: View {
                     model.panel.isPanelWindow(window)
                 else { return }
                 search.cancelMeaningSearch()
-                search.cancelPendingPaste()
-                pasteTask?.cancel()
+                cancelPendingPaste()
             }
     }
 
@@ -312,8 +311,7 @@ struct PanelView: View {
         .task { await model.refreshBoards() }
         .onDisappear {
             search.cancelMeaningSearch()
-            search.cancelPendingPaste()
-            pasteTask?.cancel()
+            cancelPendingPaste()
         }
         .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
         .onChange(of: model.preferences.isPrivateModePaused) { _, _ in
@@ -580,10 +578,12 @@ struct PanelView: View {
                     // keyword match takes Enter (you typed the snippet shortcut on
                     // purpose); else Enter pastes the selection (⌥Return = plain).
                     if railFocus != nil { return handleNav(.toggle) }
-                    if press.modifiers.contains(.command), press.modifiers.contains(.option) {
-                        if search.hasCurrentResults, !search.selectedItems.isEmpty {
-                            model.pushToStack(search.selectedItems)
-                        }
+                    // ⌥⌘Return with a selection queues it (never from stale rows);
+                    // with none it falls through to the snippet/plain paste below.
+                    if press.modifiers.contains(.command), press.modifiers.contains(.option),
+                        !search.selectedItems.isEmpty
+                    {
+                        if search.hasCurrentResults { model.pushToStack(search.selectedItems) }
                         return .handled
                     }
                     pasteSelected(
@@ -1353,8 +1353,14 @@ struct PanelView: View {
     }
 
     private func toggleKeyboardShortcuts() {
-        if !showShortcuts { search.cancelPendingPaste() }
+        if !showShortcuts { cancelPendingPaste() }
         showShortcuts.toggle()
+    }
+
+    /// Abandon both the captured key action and the read resolving it.
+    private func cancelPendingPaste() {
+        search.cancelPendingPaste()
+        pasteTask?.cancel()
     }
 
     private func pasteSelected(plain: Bool, includingSnippet: Bool = false) {
