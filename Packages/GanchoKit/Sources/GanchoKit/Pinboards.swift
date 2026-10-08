@@ -204,12 +204,16 @@ extension GRDBClipboardStore {
 
     /// The boards a clip belongs to — drives the context menu's checkmarks.
     public func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> {
-        try await writer.read { db in
-            let ids = try String.fetchAll(
-                db, sql: "SELECT boardID FROM clip_board WHERE clipID = ?",
-                arguments: [clipID.uuidString])
-            return Set(ids.compactMap { UUID(uuidString: $0) })
-        }
+        try await writer.read { db in try Self.boardIDs(forClip: clipID, in: db) }
+    }
+
+    /// Board membership inside a caller's existing database access, so a
+    /// policy check can read it from the same snapshot as the clip row.
+    static func boardIDs(forClip clipID: UUID, in db: Database) throws -> Set<UUID> {
+        let ids = try String.fetchAll(
+            db, sql: "SELECT boardID FROM clip_board WHERE clipID = ?",
+            arguments: [clipID.uuidString])
+        return Set(ids.compactMap { UUID(uuidString: $0) })
     }
 
     /// The trailing `id` breaks `updatedAt` ties — batch assignment stamps one

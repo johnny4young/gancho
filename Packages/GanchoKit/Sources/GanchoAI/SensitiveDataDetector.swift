@@ -79,7 +79,7 @@ public struct SensitiveDataDetector: Sendable {
             return .azureConnectionString
         }
         if containsAuthorizationSecret(text) { return .authorizationHeader }
-        if let card = containedCardCandidate(text), Luhn.validates(card) {
+        if containsValidCard(text) {
             return .creditCard
         }
         if isProbablePassword(text) { return .probablePassword }
@@ -107,15 +107,61 @@ public struct SensitiveDataDetector: Sendable {
         return matches(#"(?i)\bbearer\s+[A-Za-z0-9\-._~+/]{20,}=*"#, in: text)
     }
 
-    /// 13–19 digit run (spaces/dashes allowed) anywhere in the text.
-    private func containedCardCandidate(_ text: String) -> String? {
-        guard
-            let range = text.range(
-                of: #"(?<![0-9])(?:[0-9][ -]?){12,18}[0-9](?![0-9])"#,
-                options: .regularExpression)
-        else { return nil }
-        let digits = text[range].filter(\.isNumber)
-        return (13...19).contains(digits.count) ? String(digits) : nil
+    /// Digit runs with single spaces/dashes allowed between digits. Compiled
+    /// once: the detector runs on every capture, and a large numeric paste can
+    /// hold thousands of runs.
+    private static let digitRunPattern: NSRegularExpression = {
+        // swiftlint:disable:next force_try
+        try! NSRegularExpression(pattern: #"(?<![0-9])[0-9](?:[ -]?[0-9])*(?![0-9])"#)
+    }()
+
+    /// Checks every digit run. An order number that fails Luhn must not hide a
+    /// later card, and a card glued to a CVV or a phone prefix must not hide
+    /// inside one longer run.
+    private func containsValidCard(_ text: String) -> Bool {
+        var found = false
+        Self.digitRunPattern.enumerateMatches(
+            in: text, range: NSRange(text.startIndex..., in: text)
+        ) { match, _, stop in
+            guard let match, let range = Range(match.range, in: text) else { return }
+            if Self.containsCardSpan(text[range]) {
+                found = true
+                stop.pointee = true
+            }
+        }
+        return found
+    }
+
+    /// Tries the run's longest leading span of 13–19 digits whatever its
+    /// grouping (so 8-8 or digit-by-digit layouts stay covered), then every
+    /// contiguous span of separator-delimited groups whose digits total 13–19.
+    /// A single group is a bare card number; a multi-group span only counts
+    /// when every group is 3–6 digits, the shapes card numbers are printed in
+    /// (4-4-4-4, 4-6-5, 4-4-4-4-3). That keeps a space-separated list of small
+    /// numbers, a date or a 7-digit order segment from turning into many extra
+    /// Luhn draws.
+    private static func containsCardSpan(_ run: Substring) -> Bool {
+        let groups = run.split(whereSeparator: { $0 == " " || $0 == "-" })
+        var leading = ""
+        for group in groups {
+            guard leading.count + group.count <= 19 else { break }
+            leading += group
+        }
+        if leading.count >= 13, Luhn.validates(leading) { return true }
+
+        let cardShaped = { (group: Substring) in (3...6).contains(group.count) }
+        for start in groups.indices {
+            var digits = ""
+            for end in start..<groups.endIndex {
+                if end > start, !cardShaped(groups[end]) || !cardShaped(groups[start]) {
+                    break
+                }
+                digits += groups[end]
+                if digits.count > 19 { break }
+                if digits.count >= 13, Luhn.validates(digits) { return true }
+            }
+        }
+        return false
     }
 
     /// Three routes, all conservative:
