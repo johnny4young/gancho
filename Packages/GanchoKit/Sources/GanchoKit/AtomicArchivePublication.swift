@@ -46,10 +46,22 @@ enum AtomicArchivePublication {
         // after the destination has already changed.
     }
 
+    /// Refuses, before any export work, a destination that `publish` could
+    /// never accept. `publish` repeats the checks at promotion time, so this
+    /// only spares streaming the whole history into a stage that is discarded.
+    static func requirePublishable(
+        _ destination: URL, replacement: GanchoArchive.ReplacementPolicy
+    ) throws {
+        guard itemExists(at: destination) else { return }
+        guard replacement == .replaceExisting else { throw CocoaError(.fileWriteFileExists) }
+        try requireReplaceableArchive(at: destination)
+    }
+
     /// Replacement exchanges the whole directory and the caller then deletes
-    /// the old one, so only a previous Gancho archive (it has a manifest) or
-    /// an empty folder may be replaced. Any other folder a save panel lets the
-    /// user name is refused untouched.
+    /// the old one, so only a previous Gancho archive (its `manifest.json`
+    /// decodes as a Gancho manifest) or an empty folder may be replaced. Any
+    /// other folder a save panel lets the user name, including one that merely
+    /// holds an unrelated `manifest.json`, is refused untouched.
     static func requireReplaceableArchive(at destination: URL) throws {
         let attributes = try FileManager.default.attributesOfItem(atPath: destination.path)
         guard attributes[.type] as? FileAttributeType == .typeDirectory else {
@@ -57,7 +69,7 @@ enum AtomicArchivePublication {
         }
         let entries = try FileManager.default.contentsOfDirectory(atPath: destination.path)
             .filter { $0 != ".DS_Store" }
-        guard entries.isEmpty || entries.contains("manifest.json") else {
+        guard entries.isEmpty || GanchoArchive.containsArchiveManifest(destination) else {
             throw CocoaError(.fileWriteFileExists)
         }
     }

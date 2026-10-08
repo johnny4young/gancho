@@ -105,6 +105,9 @@ struct ArchivePublicationTests {
             from: source, to: destination, replacement: .replaceExisting)
         let target = try makeStore(in: root, name: "restore-blobs")
         #expect(try await GanchoArchive.restore(from: destination, into: target).inserted == 1)
+        // The swapped-out archive lands in the stage, which is then cleaned.
+        let siblings = try FileManager.default.contentsOfDirectory(atPath: root.path)
+        #expect(!siblings.contains { $0.hasPrefix(".ganchoarchive-stage-") })
     }
 
     @Test("An actual rename failure preserves the prior archive and recovery stage")
@@ -154,6 +157,27 @@ struct ArchivePublicationTests {
         #expect(!siblings.contains { $0.hasPrefix(".ganchoarchive-stage-") })
     }
 
+    @Test("Replacement refuses a folder whose manifest.json is not a Gancho manifest")
+    func replacementRefusesForeignManifest() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = try makeStore(in: root, name: "blobs")
+        let destination = root.appendingPathComponent("extension")
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        try Data(#"{"manifest_version":3,"name":"x","version":"1.0"}"#.utf8)
+            .write(to: destination.appendingPathComponent("manifest.json"))
+        try Data("source".utf8).write(to: destination.appendingPathComponent("background.js"))
+        let before = try snapshot(destination)
+
+        await #expect(throws: CocoaError.self) {
+            try await GanchoArchive.export(
+                from: source, to: destination, replacement: .replaceExisting)
+        }
+        #expect(try snapshot(destination) == before)
+        let siblings = try FileManager.default.contentsOfDirectory(atPath: root.path)
+        #expect(!siblings.contains { $0.hasPrefix(".ganchoarchive-stage-") })
+    }
+
     @Test("Replacement accepts an empty folder, ignoring Finder metadata")
     func replacementAcceptsEmptyFolder() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -182,14 +206,16 @@ struct ArchivePublicationTests {
             flags == 0 ? AtomicArchivePublication.systemRename(source, destination, 0) : failure
         }
 
+        // A decodable manifest, so `.replaceExisting` passes the archive guard
+        // and reaches the unsupported swap itself.
+        let manifest = Data(
+            #"{"checksums":{},"clipCount":0,"exportedAt":"2026-01-01T00:00:00Z","version":1}"#.utf8)
         let fresh = root.appendingPathComponent("fresh.ganchoarchive")
         let stage = try AtomicArchivePublication.makeStage(beside: fresh)
-        try Data("fresh".utf8).write(to: stage.appendingPathComponent("manifest.json"))
+        try manifest.write(to: stage.appendingPathComponent("manifest.json"))
         try AtomicArchivePublication.publish(
             stage, as: fresh, replacement: .failIfExists, renamer: renamer)
-        #expect(
-            try Data(contentsOf: fresh.appendingPathComponent("manifest.json"))
-                == Data("fresh".utf8))
+        #expect(try Data(contentsOf: fresh.appendingPathComponent("manifest.json")) == manifest)
 
         for policy in [GanchoArchive.ReplacementPolicy.failIfExists, .replaceExisting] {
             let second = try AtomicArchivePublication.makeStage(beside: fresh)
@@ -200,8 +226,7 @@ struct ArchivePublicationTests {
                     second, as: fresh, replacement: policy, renamer: renamer)
             }
             #expect(
-                try Data(contentsOf: fresh.appendingPathComponent("manifest.json"))
-                    == Data("fresh".utf8))
+                try Data(contentsOf: fresh.appendingPathComponent("manifest.json")) == manifest)
         }
     }
 }

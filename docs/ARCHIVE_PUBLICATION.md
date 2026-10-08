@@ -16,10 +16,12 @@ Select `.replaceExisting` only after obtaining a replacement decision for a
 user-owned destination, or for a temporary destination owned by the application.
 It replaces the complete directory, including files not declared in its manifest;
 it is not a merge into an arbitrary directory. Replacement is therefore limited to
-a directory that is already a Gancho archive (it contains `manifest.json`) or is
-empty apart from Finder's `.DS_Store`. Any other existing folder — for example one
-named in a save panel by mistake — is refused untouched with a
-"file exists" error.
+a directory that is already a Gancho archive (its `manifest.json` decodes as a
+supported Gancho manifest) or is empty apart from Finder's `.DS_Store`. Any other
+existing folder — for example one named in a save panel by mistake, including one
+that merely holds an unrelated `manifest.json` — is refused untouched with a
+"file exists" error. The destination is checked before any export work starts,
+and again at promotion time.
 
 Current production call sites:
 
@@ -28,9 +30,10 @@ Current production call sites:
   replacement decision
 - iOS: `Apps/GanchoiOS/IOSAppModel.swift`, `makeBackupArchive()`, passes
   `.replaceExisting` for its fixed application-owned temporary archive, before
-  the system file exporter presents the user's final Files destination. A
-  leftover at that temporary path without a manifest (an interrupted in-place
-  export from an older build) is removed first, since replacement would refuse it
+  the system file exporter presents the user's final Files destination. Anything
+  left at that app-owned temporary path (an earlier export, or an interrupted
+  in-place export from an older build) is removed first, so a failed export never
+  leaves a stale plaintext archive there
 - CLI: `Packages/GanchoKit/Sources/gancho/GanchoCLI.swift`, `runExport()`, produces
   plain JSON or CSV through `exportJSON`/`exportCSV`. It does not call
   `GanchoArchive.export` or produce a portable archive, so this directory
@@ -39,7 +42,7 @@ Current production call sites:
 ## Ownership and failure behavior
 
 The exporter builds the complete result in a private, uniquely named sibling
-stage. It verifies the stored manifest and streams file checksum validation with
+stage, writing each file in place because the whole stage is discarded on failure. It verifies the stored manifest and streams file checksum validation with
 bounded memory. Cancellation is checked between export phases, per blob, while validating, and
 before publication; the row stream inside GRDB's read is cancelled by GRDB itself. None of those operations modifies the selected destination.
 
@@ -62,7 +65,8 @@ that an already published backup failed.
 
 The regression suite checks byte-for-byte preservation of an existing archive and
 an unrelated sentinel, restoreability, cancellation, missing source blobs,
-injected row/blob/manifest/promotion failures, explicit replacement refusal,
+injected row/blob/manifest/promotion failures, explicit replacement refusal
+(including a foreign folder holding an unrelated `manifest.json`),
 successful complete replacement, and the real Darwin rename error path using
 isolated fixture directories. No live backup or Keychain is used.
 

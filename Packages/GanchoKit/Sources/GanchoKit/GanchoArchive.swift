@@ -66,6 +66,7 @@ public enum GanchoArchive {
         replacement: ReplacementPolicy,
         checkpoint: @Sendable (ExportCheckpoint) throws -> Void
     ) async throws -> Manifest {
+        try AtomicArchivePublication.requirePublishable(directory, replacement: replacement)
         let stage = try AtomicArchivePublication.makeStage(beside: directory)
         defer { try? FileManager.default.removeItem(at: stage) }
         try Task.checkCancellation()
@@ -95,9 +96,12 @@ public enum GanchoArchive {
         // and no pretty-printing a JSON array is exactly `[`, its elements
         // joined by `,`, and `]`, and `ArchiveStreamingTests` pins that against
         // `encoder.encode(rows)` so the format and its checksum cannot drift.
+        //
+        // `directory` is the export's private stage, so every file is written
+        // in place: nothing in the selected destination changes until the
+        // whole stage is promoted, and a failure discards the entire stage.
         let clipsURL = directory.appendingPathComponent("clips.json")
-        let staged = directory.appendingPathComponent(".clips.json.\(UUID().uuidString)")
-        guard FileManager.default.createFile(atPath: staged.path, contents: nil) else {
+        guard FileManager.default.createFile(atPath: clipsURL.path, contents: nil) else {
             throw ArchiveError.corruptArchive("could not stage the export")
         }
 
@@ -105,17 +109,8 @@ public enum GanchoArchive {
         // `@Sendable`, so state mutated across that boundary would not compile,
         // and keeping the handle and the hasher local is also what makes the
         // export a single pass with nothing held afterwards.
-        let streamed: (count: Int, blobs: Set<String>, digest: String)
-        do {
-            streamed = try await streamRows(
-                from: store, to: staged, options: options, encoder: encoder)
-        } catch {
-            try? FileManager.default.removeItem(at: staged)
-            throw error
-        }
-        // This rename is private to the owned stage. Nothing in the selected
-        // destination changes until all files and their manifest are complete.
-        try AtomicFileReplace.publish(staged: staged, as: clipsURL)
+        let streamed = try await streamRows(
+            from: store, to: clipsURL, options: options, encoder: encoder)
         try checkpoint(.rows)
         try Task.checkCancellation()
 
@@ -139,7 +134,7 @@ public enum GanchoArchive {
                     throw ArchiveError.corruptArchive(
                         "source store is missing or has a corrupt referenced blob")
                 }
-                try data.write(to: blobDir.appendingPathComponent(hash), options: .atomic)
+                try data.write(to: blobDir.appendingPathComponent(hash))
                 checksums["blobs/\(hash)"] = digest
             }
         }
@@ -153,7 +148,7 @@ public enum GanchoArchive {
         manifestEncoder.dateEncodingStrategy = .iso8601
         manifestEncoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try manifestEncoder.encode(manifest)
-            .write(to: directory.appendingPathComponent("manifest.json"), options: .atomic)
+            .write(to: directory.appendingPathComponent("manifest.json"))
         try checkpoint(.manifest)
         return manifest
     }
