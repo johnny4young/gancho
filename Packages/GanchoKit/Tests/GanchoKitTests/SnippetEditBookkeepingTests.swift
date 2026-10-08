@@ -44,6 +44,18 @@ struct SnippetEditBookkeepingTests {
         #expect(try await store.semanticSearch(queryVector: [1, 0]).count == 1)
     }
 
+    @Test func unchangedSaveKeepsRevisionAndSyncState() async throws {
+        let store = try makeStore()
+        let snippet = try await store.saveSnippet(title: "Title", text: "body")
+        try await store.markUploaded(id: snippet.id, systemFields: Data([1]))
+        let before = try #require(try await store.item(id: snippet.id))
+
+        try await store.updateSnippet(id: snippet.id, title: "Title", text: "body")
+
+        #expect(try await store.pendingUploadIDs().isEmpty)
+        #expect(try await store.item(id: snippet.id)?.contextRevision == before.contextRevision)
+    }
+
     @Test func demotedAndMissingRowsRemainNoOps() async throws {
         let store = try makeStore()
         let snippet = try await store.saveSnippet(title: "Old", text: "body")
