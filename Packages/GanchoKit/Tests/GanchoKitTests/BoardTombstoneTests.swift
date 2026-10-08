@@ -49,7 +49,7 @@ struct BoardTombstoneTests {
             try await store.boardIDs(forClip: clip.id)
                 == Set([known.id, unknown, Pinboard.favoritesID]))
         #expect(try await store.pinboards().contains { $0.id == deleted.id } == false)
-        #expect(try await store.pinboards().first { $0.id == unknown }?.name == "")
+        #expect(try await store.pinboards().first { $0.id == unknown }?.name.isEmpty == true)
         #expect(try await store.pendingBoardDeletionRecordIDs() == [deleted.id.uuidString])
 
         // Replacing membership with only the deleted id still clears prior members.
