@@ -24,9 +24,11 @@ import GanchoKit
 /// stage, without suspending during model computation. The injected embedder
 /// factory gives race tests deterministic vectors without requiring model assets.
 /// Background vector writes require ContentBoundEmbeddingStoring; legacy stores
-/// without that optional capability still receive title/OCR work but skip vectors.
+/// without that optional capability skip vectors. Generated titles similarly require
+/// ContentBoundTitleStoring; unsupported stores retain OCR work without unsafe writes.
 public struct EnrichmentService: Sendable {
     private let makeEmbedder: @Sendable () -> (any TextEmbedding)?
+    private let annotator: any ClipAnnotating
 
     public init() {
         self.init(makeEmbedder: {
@@ -37,8 +39,12 @@ public struct EnrichmentService: Sendable {
         })
     }
 
-    init(makeEmbedder: @escaping @Sendable () -> (any TextEmbedding)?) {
+    init(
+        makeEmbedder: @escaping @Sendable () -> (any TextEmbedding)?,
+        annotator: any ClipAnnotating = TieredClipAnnotator()
+    ) {
         self.makeEmbedder = makeEmbedder
+        self.annotator = annotator
     }
 
     /// Runs the enrichment IO shared by both shells, in the SAME order as the
@@ -68,10 +74,12 @@ public struct EnrichmentService: Sendable {
         }
         // Tier 1 — Apple Intelligence titles.
         if writeTitle, case .text(let text)? = content,
-            let annotation = try? await TieredClipAnnotator().annotate(text)
+            let titleStore = store as? any ContentBoundTitleStoring,
+            let annotation = try? await annotator.annotate(text)
         {
             let wroteTitle =
-                (try? await store.updateTitleIfEmpty(id: item.id, title: annotation.title)) == true
+                (try? await titleStore.updateTitleIfEmptyAndCurrent(
+                    id: item.id, title: annotation.title, expectedText: text)) == true
             if wroteTitle { await onTitleWritten() }
         }
         // Semantic vector (the embedder caches its model after the first call).
