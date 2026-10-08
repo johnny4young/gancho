@@ -38,7 +38,8 @@ public struct RemoteBoardChange: Sendable {
 public struct RemoteApplySummary: Sendable, Equatable {
     /// Remote changes that won and were written.
     public var applied = 0
-    /// Remote changes a newer local row beat. Normal, not a failure.
+    /// Remote changes a newer local row or a pending local deletion beat.
+    /// Normal, not a failure.
     public var skippedAsStale = 0
     /// Changes whose write threw and was rolled back on its own.
     public var failed = 0
@@ -563,9 +564,10 @@ extension GRDBClipboardStore: SyncLocalStore {
         for board in boards {
             do {
                 try db.inSavepoint {
-                    try applyRemoteBoardUpsert(
+                    let applied = try applyRemoteBoardUpsert(
                         board.board, systemFields: board.systemFields, in: db)
-                    summary.applied += 1
+                    summary.applied += applied ? 1 : 0
+                    summary.skippedAsStale += applied ? 0 : 1
                     return .commit
                 }
             } catch {
@@ -669,7 +671,7 @@ extension GRDBClipboardStore: SyncLocalStore {
     }
 
     public func applyRemoteBoardUpsert(_ board: Pinboard, systemFields: Data) async throws {
-        try await writer.write { db in
+        _ = try await writer.write { db in
             try applyRemoteBoardUpsert(board, systemFields: systemFields, in: db)
         }
     }
@@ -677,7 +679,10 @@ extension GRDBClipboardStore: SyncLocalStore {
     /// Board upsert against an open transaction, so a page shares one.
     func applyRemoteBoardUpsert(
         _ board: Pinboard, systemFields: Data, in db: Database
-    ) throws {
+    ) throws -> Bool {
+        // A pending local deletion wins over an in-flight fetched record or
+        // conflict reply, just as it does for clips.
+        guard try !Self.isBoardTombstoned(board.id, in: db) else { return false }
         // Upsert metadata WITHOUT flipping needsUpload (remote-driven). isSystem
         // is left untouched so a device's local Favorites stays a system board.
         try db.execute(
@@ -696,6 +701,7 @@ extension GRDBClipboardStore: SyncLocalStore {
                 board.id.uuidString, board.name, board.sfSymbol, board.sortIndex,
                 board.createdAt, board.isSystem, board.colorHex, board.emoji, systemFields
             ])
+        return true
     }
 
     public func forgetAllBoardSyncFields() async throws {
