@@ -74,6 +74,16 @@ extension GanchoArchive {
         return ValidatedArchive(root: root, rows: rows, blobs: blobs, limits: limits)
     }
 
+    /// Whether `directory` holds a manifest that decodes as a supported Gancho
+    /// manifest. Replacement uses it to tell a previous archive apart from a
+    /// foreign folder that happens to contain a `manifest.json`.
+    static func containsArchiveManifest(_ directory: URL) -> Bool {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let root = try? archiveRoot(directory) else { return false }
+        return (try? decodeManifest(in: root, with: decoder, limits: .production)) != nil
+    }
+
     private static func decodeManifest(
         in root: ArchiveRoot, with decoder: JSONDecoder, limits: RestoreLimits
     ) throws -> Manifest {

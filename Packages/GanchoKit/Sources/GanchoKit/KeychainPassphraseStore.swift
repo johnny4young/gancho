@@ -29,6 +29,30 @@ public struct AccessGroupResolution: Sendable, Equatable {
     public let contradictedBuildSetting: Bool
 }
 
+/// The three `SecItem…` calls the passphrase store makes, injectable so tests
+/// can model Keychain failures without touching a real Keychain.
+protocol PassphraseKeychainOperations: Sendable {
+    func read(_ query: [String: Any]) -> (OSStatus, Data?)
+    func add(_ query: [String: Any]) -> OSStatus
+    func delete(_ query: [String: Any]) -> OSStatus
+}
+
+private struct SystemPassphraseKeychainOperations: PassphraseKeychainOperations {
+    func read(_ query: [String: Any]) -> (OSStatus, Data?) {
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        return (status, item as? Data)
+    }
+
+    func add(_ query: [String: Any]) -> OSStatus {
+        SecItemAdd(query as CFDictionary, nil)
+    }
+
+    func delete(_ query: [String: Any]) -> OSStatus {
+        SecItemDelete(query as CFDictionary)
+    }
+}
+
 /// Stores the SQLCipher database key in the Keychain.
 ///
 /// There is no user-facing passphrase: the key is a 256-bit value generated
@@ -63,6 +87,9 @@ public struct KeychainPassphraseStore: Sendable {
         case keychain(OSStatus)
         /// The system CSPRNG failed to produce a key.
         case randomGenerationFailed
+        /// An item exists but is not a documented database key. Its presence
+        /// must never be confused with absence or authorize key replacement.
+        case malformedKey
     }
 
     /// Shared keychain access group for the iOS app and its database-reading
@@ -155,6 +182,7 @@ public struct KeychainPassphraseStore: Sendable {
     private let service: String
     private let account: String
     private let accessGroup: String?
+    private let operations: any PassphraseKeychainOperations
 
     /// - Parameters:
     ///   - service: keychain item service; defaults to the database-key service.
@@ -166,9 +194,20 @@ public struct KeychainPassphraseStore: Sendable {
         account: String = "gancho-sqlite",
         accessGroup: String? = nil
     ) {
+        self.init(
+            service: service, account: account, accessGroup: accessGroup,
+            operations: SystemPassphraseKeychainOperations())
+    }
+
+    init(
+        service: String = "com.johnny4young.gancho.database-key",
+        account: String = "gancho-sqlite", accessGroup: String? = nil,
+        operations: any PassphraseKeychainOperations
+    ) {
         self.service = service
         self.account = account
         self.accessGroup = accessGroup
+        self.operations = operations
     }
 
     /// Returns the existing key, or generates, stores, and returns a new one.
@@ -206,7 +245,7 @@ public struct KeychainPassphraseStore: Sendable {
     public func deleteKey() throws {
         var query = baseQuery()
         query[kSecAttrSynchronizable as String] = kSecAttrSynchronizableAny
-        let status = SecItemDelete(query as CFDictionary)
+        let status = operations.delete(query)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw Failure.keychain(status)
         }
@@ -244,17 +283,12 @@ public struct KeychainPassphraseStore: Sendable {
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        let (status, data) = operations.read(query)
         switch status {
         case errSecSuccess:
-            guard let data = item as? Data, let key = String(data: data, encoding: .utf8) else {
-                // An item exists but is unreadable — treat as missing rather
-                // than crashing. Delete it first so the caller can regenerate
-                // instead of hitting `errSecDuplicateItem` on the stale row.
-                try deleteKey()
-                return nil
-            }
+            guard let data, let key = String(data: data, encoding: .utf8),
+                Self.isStoredKey(key)
+            else { throw Failure.malformedKey }
             return key
         case errSecItemNotFound:
             return nil
@@ -297,7 +331,7 @@ public struct KeychainPassphraseStore: Sendable {
             : kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         query[kSecValueData as String] = Data(key.utf8)
 
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let status = operations.add(query)
         guard status == errSecSuccess else {
             throw Failure.keychain(status)
         }
@@ -309,6 +343,19 @@ public struct KeychainPassphraseStore: Sendable {
     /// misconfigured access group, not an entitlement-limited release flavor.
     static func synchronizableUnavailable(_ status: OSStatus) -> Bool {
         status == errSecMissingEntitlement || status == errSecNotAvailable
+    }
+
+    /// Gancho has always generated 32 random bytes encoded as 64 lowercase
+    /// ASCII hex digits. Uppercase hex is also accepted, verbatim, without
+    /// trimming or rewriting authority; arbitrary passphrases belong only to
+    /// explicit `GRDBClipboardStore(directory:passphrase:)` callers, not this item.
+    static func isStoredKey(_ key: String) -> Bool {
+        key.utf8.count == 64
+            && key.utf8.allSatisfy { byte in
+                (UInt8(ascii: "0")...UInt8(ascii: "9")).contains(byte)
+                    || (UInt8(ascii: "A")...UInt8(ascii: "F")).contains(byte)
+                    || (UInt8(ascii: "a")...UInt8(ascii: "f")).contains(byte)
+            }
     }
 
     // MARK: - Key generation
