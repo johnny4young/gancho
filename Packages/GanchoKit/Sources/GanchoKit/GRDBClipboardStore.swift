@@ -1,6 +1,34 @@
 import Foundation
 import GRDB
 
+extension GRDBClipboardStore {
+    /// Injectable writer for tests (`DatabaseQueue()` in-memory).
+    public convenience init(writer: any DatabaseWriter, blobs: BlobStore) {
+        self.init(writer: writer, blobs: blobs, generationLease: nil)
+    }
+
+    func blobOwnershipDirectory() throws -> URL {
+        if let generationLease { return generationLease.directory }
+        let path = writer.path
+        let memoryURI =
+            path.hasPrefix("file:")
+            && URLComponents(string: path)?.queryItems?.contains {
+                $0.name == "mode" && $0.value == "memory"
+            } == true
+        if path.isEmpty || path == ":memory:" || memoryURI {
+            return blobs.directory.appendingPathComponent("thumbnails", isDirectory: true)
+        }
+        // File-backed injected facades must use the same root as production,
+        // even when they borrow a production pool without its registration.
+        guard !path.hasPrefix("file:") else {
+            throw StoreProcessOwnership.Failure.malformedMetadata
+        }
+        return URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
+            .deletingLastPathComponent()
+    }
+
+}
+
 // This class owns the database handle and core query/write surface. Canonical
 // migrations and row mappings live in focused sibling files.
 /// SQLite-backed source of truth for clip history (GRDB).
@@ -19,6 +47,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// and the test harness can run statements without widening the API.
     let writer: any DatabaseWriter
     private let blobs: BlobStore
+    /// Retained for the pool's lifetime so recovery cannot relocate a live generation.
+    private let generationLease: StoreGenerationLease?
 
     /// Maintenance-only blob access for same-module engines (orphan sweeps).
     var blobsForMaintenance: BlobStore { blobs }
@@ -33,6 +63,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     ///   path used by tests and the perf harness.
     public convenience init(directory: URL, passphrase: String? = nil) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let generationLease = try StoreGenerationRecovery.openLease(
+            in: directory, checkingPlaintextConversion: passphrase != nil)
         let dbPath = directory.appendingPathComponent("gancho.sqlite").path
 
         var configuration = Configuration()
@@ -76,15 +108,19 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             blobEncryptionKeyData = nil
         #endif
 
+        // Actual writer/reader/snapshot connections retain the generation.
+        // Closed GRDB configuration/watchdog objects must not over-pin it.
+        generationLease.prepare(&configuration)
         let pool = try DatabasePool(path: dbPath, configuration: configuration)
+        try GanchoDatabaseMigrator.make().migrate(pool)
         let blobStore = BlobStore(
             directory: directory.appendingPathComponent("blobs"),
             encryptionKeyData: blobEncryptionKeyData)
         try blobStore.encryptPlaintextFilesIfNeeded()
+        try generationLease.downgrade()
         self.init(
             writer: pool,
-            blobs: blobStore)
-        try GanchoDatabaseMigrator.make().migrate(pool)
+            blobs: blobStore, generationLease: generationLease)
         // NOTE: the cosmetic legacy-preview backfill is deliberately NOT run
         // here — it scanned image rows inside a write transaction on every
         // open, taxing cold launch in the app and every extension. Apps call
@@ -156,20 +192,10 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         return dbError.resultCode == .SQLITE_NOTADB
     }
 
-    /// Moves an unreadable encrypted database (and its WAL/SHM siblings) aside to
-    /// a timestamped, collision-resistant `.unreadable-*` name so a fresh store
-    /// can take its place.
-    /// Content-addressed blobs are left in place — the fresh database won't
-    /// reference them, and an orphan sweep reclaims them later.
+    /// Preserve database/WAL/SHM and sealed blobs (including thumbnails) as
+    /// one resumable generation, outside the live content-addressed namespace.
     static func archiveUnreadableStore(in directory: URL) throws {
-        let fileManager = FileManager.default
-        let suffix = unreadableStoreArchiveSuffix()
-        for name in ["gancho.sqlite", "gancho.sqlite-wal", "gancho.sqlite-shm"] {
-            let source = directory.appendingPathComponent(name)
-            guard fileManager.fileExists(atPath: source.path) else { continue }
-            let destination = directory.appendingPathComponent("\(name).unreadable-\(suffix)")
-            try fileManager.moveItem(at: source, to: destination)
-        }
+        try StoreGenerationRecovery.archive(in: directory, suffix: unreadableStoreArchiveSuffix())
     }
 
     static func unreadableStoreArchiveSuffix(
@@ -258,10 +284,10 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         }
     #endif
 
-    /// Injectable writer for tests (`DatabaseQueue()` in-memory).
-    public init(writer: any DatabaseWriter, blobs: BlobStore) {
+    init(writer: any DatabaseWriter, blobs: BlobStore, generationLease: StoreGenerationLease?) {
         self.writer = writer
         self.blobs = blobs
+        self.generationLease = generationLease
     }
 
     /// Tests call this for in-memory databases; the directory initializer
@@ -283,23 +309,12 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// Skips dedupe on purpose: imports are presumed pre-deduplicated, and
     /// per-row lookups would turn 100k inserts into minutes.
     public func importBatch(_ entries: [(item: ClipItem, content: ClipContent?)]) async throws {
+        let ownership = try await acquireBlobOwnership(adopting: entries.lazy.map { $0.content })
+        defer { ownership?.release() }
         var rows: [ClipRow] = []
         rows.reserveCapacity(entries.count)
         for entry in entries {
-            var row = ClipRow(item: entry.item)
-            switch entry.content {
-            case .text(let text):
-                row.contentText = text
-            case .binary(let data, let typeIdentifier):
-                row.contentBlobHash = try blobs.write(data)
-                row.contentTypeIdentifier = typeIdentifier
-            case .fileReferences(let paths):
-                row.contentText = paths.joined(separator: "\n")
-                row.contentTypeIdentifier = "public.file-url"
-            case nil:
-                break
-            }
-            rows.append(row)
+            rows.append(try insertionRow(entry.item, content: entry.content))
         }
         let finalRows = rows
         try await writer.write { db in
@@ -398,23 +413,10 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
 
     @discardableResult
     public func insert(_ item: ClipItem, content: ClipContent?) async throws -> ClipItem {
+        let ownership = try await acquireBlobOwnership(adopting: [content])
+        defer { ownership?.release() }
         let row = try insertionRow(item, content: content)
         return try await writer.write { db in try Self.insert(row, in: db).item }
-    }
-
-    func insertionRow(_ item: ClipItem, content: ClipContent?) throws -> ClipRow {
-        var row = ClipRow(item: item)
-        switch content {
-        case .text(let text): row.contentText = text
-        case .binary(let data, let typeIdentifier):
-            row.contentBlobHash = try blobs.write(data)
-            row.contentTypeIdentifier = typeIdentifier
-        case .fileReferences(let paths):
-            row.contentText = paths.joined(separator: "\n")
-            row.contentTypeIdentifier = "public.file-url"
-        case nil: break
-        }
-        return row
     }
 
     static func insert(_ row: ClipRow, in db: Database) throws -> ClipRow {
@@ -532,15 +534,21 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// past that point is maintenance.
     ///
     /// When the reference check itself fails we KEEP the bytes. Blob ownership
-    /// is not atomic with the database, so an unprovable orphan must never be
-    /// removed — a leftover blob is reclaimed by `removeOrphanedBlobs()` on its
-    /// next sweep, while bytes deleted in error are gone.
-    func removeBlobIfOrphaned(_ hash: String?) async {
-        guard let hash else { return }
+    /// is coordinated with adoption through a cross-process lease, and an
+    /// unprovable orphan must never be removed — a leftover blob is reclaimed
+    /// by `removeOrphanedBlobs()` on its next sweep, while bytes deleted in
+    /// error are gone.
+    func removeBlobIfOrphaned(
+        _ hash: String?, afterReferenceCheck: @Sendable () async -> Void = {}
+    ) async {
+        guard let hash, let ownership = try? await acquireBlobOwnership() else { return }
+        defer { ownership.release() }
         let stillReferenced =
             (try? await writer.read { db in
                 try ClipRow.filter(Column("contentBlobHash") == hash).fetchCount(db) > 0
             }) ?? true
+        await afterReferenceCheck()
+        guard !Task.isCancelled else { return }
         if !stillReferenced {
             blobs.delete(hash: hash)
         }
