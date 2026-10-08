@@ -9,7 +9,9 @@ unnamed placeholder.
 The GRDB receive paths check the tombstone in the same transaction as the write.
 Board metadata is skipped, and membership rebuilds exclude only the deleted
 board IDs. Other memberships, including placeholders for genuinely unknown
-boards, continue to apply. A fetched page counts rejected board metadata as
+boards, continue to apply. When a rebuild drops a deleted board ID, the clip is
+re-queued for upload with its received revision, so the server copy stops
+naming the deleted board. A fetched page counts rejected board metadata as
 `skippedAsStale`; the clip itself can still apply normally.
 
 The public sync protocol and server-wins policy for ordinary board metadata are

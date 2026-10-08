@@ -80,6 +80,8 @@ struct BoardTombstoneTests {
         #expect(summary == RemoteApplySummary(applied: 2, skippedAsStale: 1, failed: 0))
         #expect(try await store.content(for: clip.id) == .text("body"))
         #expect(try await store.boardIDs(forClip: clip.id) == [arriving.id])
+        // The server copy still names the deleted board, so the clip re-uploads.
+        #expect(try await store.pendingUploadIDs() == [clip.id])
         #expect(try await store.pinboards().contains { $0.id == deleted.id } == false)
         #expect(try await store.pinboards().first { $0.id == arriving.id }?.name == "Arriving")
         #expect(try await store.pendingBoardDeletionRecordIDs() == [deleted.id.uuidString])

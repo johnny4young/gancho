@@ -276,6 +276,16 @@ extension GRDBClipboardStore {
                 sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) VALUES (?, ?)",
                 arguments: [clipID.uuidString, boardID.uuidString])
         }
+        // The applied record still names the deleted board on the server.
+        // Re-queue the clip so its next upload drops that id; otherwise the
+        // stale reference outlives the tombstone and can seed a placeholder
+        // once the deletion is acknowledged. `updatedAt` stays as received:
+        // other devices take an equal-timestamp remote, so the upload wins.
+        if eligibleBoardIDs.count != boardIDs.count {
+            try db.execute(
+                sql: "UPDATE clip SET needsUpload = 1 WHERE id = ?",
+                arguments: [clipID.uuidString])
+        }
     }
 
     // MARK: - Board deletion sync

@@ -38,7 +38,8 @@ public struct RemoteBoardChange: Sendable {
 public struct RemoteApplySummary: Sendable, Equatable {
     /// Remote changes that won and were written.
     public var applied = 0
-    /// Remote changes a newer local row beat. Normal, not a failure.
+    /// Remote changes a newer local row or a pending local deletion beat.
+    /// Normal, not a failure.
     public var skippedAsStale = 0
     /// Changes whose write threw and was rolled back on its own.
     public var failed = 0

@@ -52,6 +52,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   report a settings file that couldn't be imported. Toasts and the shortcuts
   sheet follow the solid panel preference.
 
+- Keep a board you deleted gone while iCloud sync is still sending the
+  deletion, instead of letting an incoming copy of the board, or a clip that
+  was still in it, bring it back. The clip's other boards are kept.
+
 - Keep a stopped iCloud sync engine stopped, order sync restarts and resets, and
   tombstone already-synced clips and boards deleted while sync is off so they
   don't come back.
