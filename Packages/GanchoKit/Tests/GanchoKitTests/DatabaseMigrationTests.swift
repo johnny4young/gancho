@@ -160,17 +160,23 @@ struct DatabaseMigrationTests {
         // rows the planner takes any index, and `< 99` matches every row, which
         // on real data makes it prefer a scan.
         let store = try await makeAnalyzedStore()
+        let excludedKinds = GRDBClipboardStore.embeddingIneligibleKinds
+        let placeholders = excludedKinds.map { _ in "?" }.joined(separator: ", ")
         let plan = try await store.writer.read { db in
-            try String.fetchAll(
+            var arguments: [any DatabaseValueConvertible] = [EmbeddingModelInfo.currentVersion]
+            arguments.append(contentsOf: excludedKinds)
+            arguments.append(16)
+            return try String.fetchAll(
                 db,
                 sql: """
                     EXPLAIN QUERY PLAN
                     SELECT e.clipID FROM clip_embedding e
                     JOIN clip c ON c.id = e.clipID
                     WHERE e.modelVersion < ? AND c.isArchived = 0 AND c.isSensitive = 0
+                      AND c.kind NOT IN (\(placeholders))
                     LIMIT ?
                     """,
-                arguments: [EmbeddingModelInfo.currentVersion, 16],
+                arguments: StatementArguments(arguments),
                 adapter: ColumnMapping(["detail": "detail"]))
         }
 

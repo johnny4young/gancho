@@ -14,15 +14,22 @@ public protocol ContentBoundEmbeddingStoring: Sendable {
     ) async throws -> Bool
 }
 
+extension GRDBClipboardStore {
+    /// Kinds background embedding never indexes: every masked-preview kind and the
+    /// payloads without a free-text body. Shared by the guarded write and the stale
+    /// refresh queue, so the queue never offers a row the write must reject.
+    static let embeddingIneligibleKinds: [String] = ClipContentKind.allCases.filter {
+        $0.prefersMaskedPreview || $0 == .image || $0 == .fileReference
+    }.map(\.rawValue)
+}
+
 extension GRDBClipboardStore: ContentBoundEmbeddingStoring {
     public func saveEmbeddingIfCurrent(
         clipID: UUID, vector: [Float], expectedText: String
     ) async throws -> Bool {
         try Task.checkCancellation()
         let data = vector.withUnsafeBufferPointer { Data(buffer: $0) }
-        let excludedKinds = ClipContentKind.allCases.filter {
-            $0.prefersMaskedPreview || $0 == .image || $0 == .fileReference
-        }.map(\.rawValue)
+        let excludedKinds = Self.embeddingIneligibleKinds
         let placeholders = excludedKinds.map { _ in "?" }.joined(separator: ", ")
         return try await writer.write { db in
             try Task.checkCancellation()
@@ -31,15 +38,18 @@ extension GRDBClipboardStore: ContentBoundEmbeddingStoring {
                 expectedText, Date.now, "public.file-url"
             ]
             arguments.append(contentsOf: excludedKinds)
+            // Visibility uses the shared read predicate: an expired row that
+            // retention keeps (pinned, boarded, or a snippet) stays searchable,
+            // so its current body must stay indexable too.
             try db.execute(
                 sql: """
                     INSERT OR REPLACE INTO clip_embedding (clipID, dimension, vector, modelVersion)
-                    SELECT id, ?, ?, ? FROM clip
-                    WHERE id = ? AND contentText = ? AND contentBlobHash IS NULL
-                      AND isSensitive = 0 AND isArchived = 0
-                      AND (expiresAt IS NULL OR expiresAt > ?)
-                      AND (contentTypeIdentifier IS NULL OR contentTypeIdentifier != ?)
-                      AND kind NOT IN (\(placeholders))
+                    SELECT clip.id, ?, ?, ? FROM clip
+                    WHERE clip.id = ? AND clip.contentText = ? AND clip.contentBlobHash IS NULL
+                      AND clip.isSensitive = 0 AND clip.isArchived = 0
+                      AND \(Self.unexpiredPredicate)
+                      AND (clip.contentTypeIdentifier IS NULL OR clip.contentTypeIdentifier != ?)
+                      AND clip.kind NOT IN (\(placeholders))
                     """,
                 arguments: StatementArguments(arguments))
             return db.changesCount == 1

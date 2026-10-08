@@ -8,13 +8,17 @@ not restore it afterward.
 `ContentBoundEmbeddingStoring` is the optional guarded-write capability. Gancho's
 GRDB store implements it with one `INSERT ... SELECT` statement in a write
 transaction. It compares the complete source text using SQLite's exact text
-comparison and requires a live, visible, non-sensitive text-backed row. A changed,
-deleted, expired, archived, masked or binary row causes a no-op, reported as false.
+comparison and requires a live, visible, non-sensitive text-backed row. Visibility
+uses the same expiry predicate as reads, so a pinned, boarded or snippet row that
+retention keeps past its expiry stays indexable. A changed, deleted, hidden expired,
+archived, masked or binary row causes a no-op, reported as false.
 No unguarded read/write gap, model execution or asynchronous wait occurs inside the
 transaction. The source body is never logged or persisted as extra metadata.
 
 Both background producers use this capability. Refresh counts only accepted writes
-as progress and stops after a zero-progress batch. A future pass can retry eligible
+as progress and stops after a zero-progress batch. The stale-vector queue excludes
+the kinds the guarded write always rejects, so such a row cannot occupy a batch
+forever and stall the rows behind it. A future pass can retry eligible
 work; this correction does not introduce a new reindexing scheduler.
 
 ## Compatibility and identity
