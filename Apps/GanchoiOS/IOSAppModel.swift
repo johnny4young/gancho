@@ -947,13 +947,17 @@ final class IOSAppModel {
         guard let grdb = grdbForEngines else { return nil }
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("gancho-backup.ganchoarchive", isDirectory: true)
+        // This temporary path is app-owned: clear whatever an earlier export
+        // (or an interrupted in-place export from an older build) left there,
+        // so a failed export never leaves a stale plaintext archive behind.
         try? FileManager.default.removeItem(at: dir)
         // Detector-flagged secrets never leave the encrypted store via backup:
         // they carry a short expiry precisely so they don't persist, and an
         // archive in Files is permanent plaintext.
         guard
             (try? await GanchoArchive.export(
-                from: grdb, to: dir, options: .init(excludeSensitive: true))) != nil
+                from: grdb, to: dir, options: .init(excludeSensitive: true),
+                replacement: .replaceExisting)) != nil
         else { return nil }
         return dir
     }

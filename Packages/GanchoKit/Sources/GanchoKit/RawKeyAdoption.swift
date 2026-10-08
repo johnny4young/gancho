@@ -48,6 +48,8 @@ import GRDB
         ) throws -> GRDBClipboardStore {
             try FileManager.default.createDirectory(
                 at: directory, withIntermediateDirectories: true)
+            let generationLease = try StoreGenerationRecovery.openLease(
+                in: directory, checkingPlaintextConversion: true)
             let dbPath = directory.appendingPathComponent("gancho.sqlite").path
 
             var configuration = Configuration()
@@ -67,15 +69,18 @@ import GRDB
             configuration.prepareDatabase { db in
                 try db.usePassphrase(sqlcipherKey)
             }
+            generationLease.prepare(&configuration)
             let pool = try DatabasePool(path: dbPath, configuration: configuration)
+            try GanchoDatabaseMigrator.make().migrate(pool)
             let blobStore = BlobStore(
                 directory: directory.appendingPathComponent("blobs"),
                 // The blob key derives from the PLAIN hex string — never the
                 // x'…' literal — or every sealed blob/thumbnail is lost.
                 encryptionKeyData: BlobStore.encryptionKeyData(for: passphrase))
             try blobStore.encryptPlaintextFilesIfNeeded()
-            let store = GRDBClipboardStore(writer: pool, blobs: blobStore)
-            try store.migrate()
+            try generationLease.downgrade()
+            let store = GRDBClipboardStore(
+                writer: pool, blobs: blobStore, generationLease: generationLease)
             return store
         }
 

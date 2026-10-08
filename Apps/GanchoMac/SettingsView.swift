@@ -356,7 +356,8 @@ private struct GeneralSettingsTab: View {
         Task {
             do {
                 try await GanchoArchive.export(
-                    from: store, to: url, options: .init(excludeSensitive: true))
+                    from: store, to: url, options: .init(excludeSensitive: true),
+                    replacement: .replaceExisting)
                 transferNote = String(localized: "Backup saved.")
             } catch {
                 // Same content-free discipline as restore: no paths, no
@@ -365,8 +366,8 @@ private struct GeneralSettingsTab: View {
                 model.diagnostics.record(
                     String(localized: "Backup"),
                     String(localized: "A backup couldn’t be created."))
-                // Best effort: don't leave a half-written archive behind.
-                try? FileManager.default.removeItem(at: url)
+                // The exporter owns and cleans its private stage. The selected
+                // destination may be the user's last usable backup.
             }
         }
     }

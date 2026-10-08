@@ -24,6 +24,8 @@ final class ActivationFunnelUITests: XCTestCase {
 
         let continueButton = app.buttons["onboarding-continue"].firstMatch
         XCTAssertTrue(continueButton.waitForExistence(timeout: 8))
+        let backButton = app.buttons["onboarding-back"].firstMatch
+        XCTAssertFalse(backButton.exists, "The first step has no previous step")
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         continueButton.click()
@@ -44,6 +46,21 @@ final class ActivationFunnelUITests: XCTestCase {
             copyFallback.waitForExistence(timeout: 5),
             "The activation handoff step must finish rendering")
         XCTAssertEqual(continueButton.label, "Open Gancho panel")
+        XCTAssertTrue(backButton.exists)
+        backButton.click()
+        XCTAssertTrue(
+            accessibilitySettings.waitForExistence(timeout: 5)
+                || permissionGranted.waitForExistence(timeout: 5))
+        backButton.click()
+        XCTAssertTrue(
+            app.buttons["onboarding-open-migration-importer"].firstMatch
+                .waitForExistence(timeout: 5))
+        XCTAssertFalse(backButton.exists)
+        XCTAssertTrue(app.buttons["onboarding-skip"].firstMatch.exists)
+        continueButton.click()
+        XCTAssertTrue(backButton.waitForExistence(timeout: 5))
+        continueButton.click()
+        XCTAssertTrue(copyFallback.waitForExistence(timeout: 5))
 
         let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         attachment.name = "macOS activation onboarding handoff"

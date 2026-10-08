@@ -301,6 +301,8 @@ extension GRDBClipboardStore: SyncLocalStore {
     public func applyRemoteUpsert(
         _ item: ClipItem, content: ClipContent?, systemFields: Data
     ) async throws -> Bool {
+        let ownership = try await acquireBlobOwnership(adopting: [content])
+        defer { ownership?.release() }
         let finalRow = try preparedRow(for: item, content: content)
         var candidates = Set([finalRow.contentBlobHash].compactMap { $0 })
         let (applied, previous) = try await writer.write { db in
@@ -310,7 +312,7 @@ extension GRDBClipboardStore: SyncLocalStore {
             return (applied, previous)
         }
         candidates.formUnion(previous)
-        await removeBlobsIfOrphanedAfterCommit(candidates)
+        await removeBlobsIfOrphanedAfterCommit(candidates, holding: ownership)
         return applied
     }
 
@@ -331,29 +333,30 @@ extension GRDBClipboardStore: SyncLocalStore {
         return hashes
     }
 
-    /// Post-commit cleanup that never fails the write it follows: an
-    /// unprovable orphan is kept for the maintenance sweep.
-    func removeBlobsIfOrphanedAfterCommit(_ candidates: Set<String>) async {
-        _ = try? await removeBlobsIfOrphaned(candidates)
+    /// Post-commit cleanup never waits for a logical owner or fails the write
+    /// it follows. A binary apply reuses the lease it already holds; otherwise
+    /// try once: contention or an unprovable orphan leaves bytes for the
+    /// maintenance sweep, which rechecks references under ownership.
+    func removeBlobsIfOrphanedAfterCommit(
+        _ candidates: Set<String>, holding held: BlobOwnershipLease? = nil,
+        tryOwnership: @Sendable (URL) throws -> BlobOwnershipLease? = {
+            try BlobOwnershipLease.tryAcquire(for: $0)
+        }
+    ) async {
+        guard !candidates.isEmpty else { return }
+        if let held {
+            _ = try? await removeBlobsIfOrphaned(candidates, owning: held)
+            return
+        }
+        guard let ownership = try? tryOwnership(blobOwnershipDirectory()) else { return }
+        defer { ownership.release() }
+        _ = try? await removeBlobsIfOrphaned(candidates, owning: ownership)
     }
 
     /// Builds the row a remote change will write, doing its blob I/O here so
     /// the transaction that follows holds no file handles.
     func preparedRow(for item: ClipItem, content: ClipContent?) throws -> ClipRow {
-        var row = ClipRow(item: item)
-        switch content {
-        case .text(let text):
-            row.contentText = text
-        case .binary(let data, let typeIdentifier):
-            row.contentBlobHash = try blobsForMaintenance.write(data)
-            row.contentTypeIdentifier = typeIdentifier
-        case .fileReferences(let paths):
-            row.contentText = paths.joined(separator: "\n")
-            row.contentTypeIdentifier = "public.file-url"
-        case nil:
-            break
-        }
-        return row
+        try insertionRow(item, content: content)
     }
 
     // swiftlint:disable function_body_length
@@ -465,6 +468,8 @@ extension GRDBClipboardStore: SyncLocalStore {
         clips: [RemoteClipChange], boards: [RemoteBoardChange],
         clipDeletions: [String], boardDeletions: [String]
     ) async throws -> RemoteApplySummary {
+        let ownership = try await acquireBlobOwnership(adopting: clips.lazy.map { $0.content })
+        defer { ownership?.release() }
         // Blobs first, outside the transaction: file I/O has no business
         // holding a write lock, and a blob written for a change that then rolls
         // back is inert content-addressed bytes the orphan sweep reclaims.
@@ -507,7 +512,7 @@ extension GRDBClipboardStore: SyncLocalStore {
             return (summary, previous)
         }
         candidates.formUnion(previous)
-        await removeBlobsIfOrphanedAfterCommit(candidates)
+        await removeBlobsIfOrphanedAfterCommit(candidates, holding: ownership)
         return result
     }
 
