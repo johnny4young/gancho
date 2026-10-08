@@ -311,9 +311,8 @@ extension GRDBClipboardStore: SyncLocalStore {
                 finalRow, item: item, content: content, systemFields: systemFields, in: db)
             return (applied, previous)
         }
-        ownership?.release()
         candidates.formUnion(previous)
-        await removeBlobsIfOrphanedAfterCommit(candidates)
+        await removeBlobsIfOrphanedAfterCommit(candidates, holding: ownership)
         return applied
     }
 
@@ -335,17 +334,21 @@ extension GRDBClipboardStore: SyncLocalStore {
     }
 
     /// Post-commit cleanup never waits for a logical owner or fails the write
-    /// it follows. Try once: contention or an unprovable orphan leaves bytes
-    /// for the maintenance sweep, which rechecks references under ownership.
+    /// it follows. A binary apply reuses the lease it already holds; otherwise
+    /// try once: contention or an unprovable orphan leaves bytes for the
+    /// maintenance sweep, which rechecks references under ownership.
     func removeBlobsIfOrphanedAfterCommit(
-        _ candidates: Set<String>,
+        _ candidates: Set<String>, holding held: BlobOwnershipLease? = nil,
         tryOwnership: @Sendable (URL) throws -> BlobOwnershipLease? = {
             try BlobOwnershipLease.tryAcquire(for: $0)
         }
     ) async {
-        guard !candidates.isEmpty,
-            let ownership = try? tryOwnership(blobOwnershipDirectory())
-        else { return }
+        guard !candidates.isEmpty else { return }
+        if let held {
+            _ = try? await removeBlobsIfOrphaned(candidates, owning: held)
+            return
+        }
+        guard let ownership = try? tryOwnership(blobOwnershipDirectory()) else { return }
         defer { ownership.release() }
         _ = try? await removeBlobsIfOrphaned(candidates, owning: ownership)
     }
@@ -353,20 +356,7 @@ extension GRDBClipboardStore: SyncLocalStore {
     /// Builds the row a remote change will write, doing its blob I/O here so
     /// the transaction that follows holds no file handles.
     func preparedRow(for item: ClipItem, content: ClipContent?) throws -> ClipRow {
-        var row = ClipRow(item: item)
-        switch content {
-        case .text(let text):
-            row.contentText = text
-        case .binary(let data, let typeIdentifier):
-            row.contentBlobHash = try blobsForMaintenance.write(data)
-            row.contentTypeIdentifier = typeIdentifier
-        case .fileReferences(let paths):
-            row.contentText = paths.joined(separator: "\n")
-            row.contentTypeIdentifier = "public.file-url"
-        case nil:
-            break
-        }
-        return row
+        try insertionRow(item, content: content)
     }
 
     // swiftlint:disable function_body_length
@@ -521,9 +511,8 @@ extension GRDBClipboardStore: SyncLocalStore {
                 clips: clipDeletions, boards: boardDeletions, into: &summary, in: db)
             return (summary, previous)
         }
-        ownership?.release()
         candidates.formUnion(previous)
-        await removeBlobsIfOrphanedAfterCommit(candidates)
+        await removeBlobsIfOrphanedAfterCommit(candidates, holding: ownership)
         return result
     }
 

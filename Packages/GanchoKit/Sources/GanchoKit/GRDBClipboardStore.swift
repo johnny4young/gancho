@@ -314,20 +314,7 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         var rows: [ClipRow] = []
         rows.reserveCapacity(entries.count)
         for entry in entries {
-            var row = ClipRow(item: entry.item)
-            switch entry.content {
-            case .text(let text):
-                row.contentText = text
-            case .binary(let data, let typeIdentifier):
-                row.contentBlobHash = try blobs.write(data)
-                row.contentTypeIdentifier = typeIdentifier
-            case .fileReferences(let paths):
-                row.contentText = paths.joined(separator: "\n")
-                row.contentTypeIdentifier = "public.file-url"
-            case nil:
-                break
-            }
-            rows.append(row)
+            rows.append(try insertionRow(entry.item, content: entry.content))
         }
         let finalRows = rows
         try await writer.write { db in
@@ -548,8 +535,9 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     ///
     /// When the reference check itself fails we KEEP the bytes. Blob ownership
     /// is coordinated with adoption through a cross-process lease, and an
-    /// unprovable orphan must never be removed — a leftover blob is reclaimed by `removeOrphanedBlobs()` on its
-    /// next sweep, while bytes deleted in error are gone.
+    /// unprovable orphan must never be removed — a leftover blob is reclaimed
+    /// by `removeOrphanedBlobs()` on its next sweep, while bytes deleted in
+    /// error are gone.
     func removeBlobIfOrphaned(
         _ hash: String?, afterReferenceCheck: @Sendable () async -> Void = {}
     ) async {

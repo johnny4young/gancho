@@ -11,6 +11,9 @@ final class BlobOwnershipLease: Sendable {
 
     static func acquire(for directory: URL) async throws -> BlobOwnershipLease {
         let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        // Each attempt opens a ledger connection and runs a write transaction,
+        // so back off instead of polling it every 10 ms for the whole window.
+        var delay = Duration.milliseconds(10)
         while true {
             try Task.checkCancellation()
             do {
@@ -25,7 +28,8 @@ final class BlobOwnershipLease: Sendable {
             // Live/suspended/unverifiable owners are not timed out or revoked.
             // Only this request times out, reporting busy with all bytes intact.
             guard ContinuousClock.now < deadline else { throw StoreProcessOwnership.Failure.busy }
-            try await Task.sleep(for: .milliseconds(10))
+            try await Task.sleep(for: delay)
+            delay = min(delay * 2, .milliseconds(100))
         }
     }
 

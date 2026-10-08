@@ -132,7 +132,17 @@ extension GRDBClipboardStore {
         afterReferenceCheck: @Sendable () async -> Void = {}
     ) async throws -> Int {
         guard !candidates.isEmpty else { return 0 }
-        let ownership = try await acquireBlobOwnership()
+        // Callers run this after their delete has committed. Contention (or a
+        // suspended/unreadable ledger) must not report that durable delete as
+        // failed: keep the bytes for the maintenance sweep instead.
+        let ownership: BlobOwnershipLease
+        do {
+            ownership = try await acquireBlobOwnership()
+        } catch let error as CancellationError {
+            throw error
+        } catch {
+            return 0
+        }
         defer { ownership.release() }
         return try await removeBlobsIfOrphaned(
             candidates, owning: ownership, chunkSize: chunkSize,

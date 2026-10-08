@@ -165,8 +165,10 @@ extension GanchoArchive {
         // Hold the same cross-process boundary as capture and orphan cleanup
         // from the first blob adoption until every restored row commits.
         // A rollback may leave an orphan; it never authorizes eager deletion.
-        let ownership = try await store.acquireBlobOwnership()
-        defer { ownership.release() }
+        // A text-only archive adopts no blob, so it never waits for the lease.
+        let adoptsBlobs = archive.rows.contains { $0.contentBlobHash != nil }
+        let ownership = adoptsBlobs ? try await store.acquireBlobOwnership() : nil
+        defer { ownership?.release() }
         try writeBlobs(archive, to: store)
         return try await restoreRows(archive.rows, into: store)
     }
