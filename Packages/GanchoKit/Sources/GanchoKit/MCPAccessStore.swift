@@ -5,6 +5,54 @@ import GRDB
 /// access log the Privacy Center reads. v9 created the content-free table and
 /// v19 added client/grant policy metadata.
 extension GRDBClipboardStore: MCPClipStore {
+    private enum MCPRowRead: Sendable {
+        case finished(MCPClipReadResult)
+        case payload(ClipRow)
+    }
+
+    public func readForMCP(
+        id: UUID, grant: MCPClientGrant, requiresContextPack: Bool, now: Date
+    ) async throws -> MCPClipReadResult {
+        // GRDB keeps every query in this read closure on one database snapshot.
+        // A later text edit, sensitivity change or board removal cannot mix its
+        // payload with authorization metadata from an earlier generation.
+        let snapshot = try await writer.read { db -> MCPRowRead in
+            let request = ClipRow.select(ClipRow.metadataColumns)
+                .filter(key: id.uuidString)
+                .filter(Column("isArchived") == false)
+                .filter(sql: Self.unexpiredPredicate, arguments: [now])
+            guard let row = try request.fetchOne(db) else { return .finished(.missing) }
+            let item = row.item
+            var boardIDs: Set<UUID> = []
+            if grant.contextPack?.boardID != nil || grant.scope == .boards {
+                boardIDs = try Self.boardIDs(forClip: id, in: db)
+            }
+            if let pack = grant.contextPack, pack.isExplicit {
+                guard pack.contains(item: item, boardIDs: boardIDs, now: now) else {
+                    return .finished(.outsideContext)
+                }
+            } else if requiresContextPack {
+                return .finished(.outsideContext)
+            }
+            if ClipSafePresentation.requiresMasking(item) { return .finished(.sensitive) }
+            if grant.scope == .metadata
+                || (grant.scope == .boards && !item.isPinned && boardIDs.isEmpty)
+            {
+                return .finished(.metadata(item))
+            }
+            // Only an authorized content read selects payload columns. The row
+            // is captured before leaving the same policy/membership snapshot.
+            guard let payload = try ClipRow.filter(key: id.uuidString).fetchOne(db) else {
+                return .finished(.missing)
+            }
+            return .payload(payload)
+        }
+        switch snapshot {
+        case .finished(let result): return result
+        case .payload(let row): return .content(row.item, try content(from: row))
+        }
+    }
+
     /// Kept with the MCP adapter rather than the core store migrations so the
     /// ledger schema and its row mapping evolve together.
     static func registerMCPClientLedgerMigration(in migrator: inout DatabaseMigrator) {
@@ -32,16 +80,6 @@ extension GRDBClipboardStore: MCPClipStore {
     public func item(id: UUID) async throws -> ClipItem? {
         try await writer.read { db in
             try ClipRow.filter(key: id.uuidString).fetchOne(db)?.item
-        }
-    }
-
-    public func boardIDs(for clipID: UUID) async throws -> Set<UUID> {
-        try await writer.read { db in
-            let rawIDs = try String.fetchAll(
-                db,
-                sql: "SELECT boardID FROM clip_board WHERE clipID = ?",
-                arguments: [clipID.uuidString])
-            return Set(rawIDs.compactMap(UUID.init(uuidString:)))
         }
     }
 
