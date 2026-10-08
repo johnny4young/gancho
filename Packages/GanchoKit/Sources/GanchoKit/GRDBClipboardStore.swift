@@ -1,6 +1,14 @@
 import Foundation
 import GRDB
 
+extension GRDBClipboardStore {
+    /// Injectable writer for tests (`DatabaseQueue()` in-memory).
+    public convenience init(writer: any DatabaseWriter, blobs: BlobStore) {
+        self.init(writer: writer, blobs: blobs, generationLease: nil)
+    }
+
+}
+
 // This class owns the database handle and core query/write surface. Canonical
 // migrations and row mappings live in focused sibling files.
 /// SQLite-backed source of truth for clip history (GRDB).
@@ -19,6 +27,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     /// and the test harness can run statements without widening the API.
     let writer: any DatabaseWriter
     private let blobs: BlobStore
+    /// Retained for the pool's lifetime so recovery cannot relocate a live generation.
+    private let generationLease: StoreGenerationLease?
 
     /// Maintenance-only blob access for same-module engines (orphan sweeps).
     var blobsForMaintenance: BlobStore { blobs }
@@ -33,6 +43,8 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
     ///   path used by tests and the perf harness.
     public convenience init(directory: URL, passphrase: String? = nil) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let generationLease = try StoreGenerationRecovery.openLease(
+            in: directory, checkingPlaintextConversion: passphrase != nil)
         let dbPath = directory.appendingPathComponent("gancho.sqlite").path
 
         var configuration = Configuration()
@@ -76,15 +88,19 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
             blobEncryptionKeyData = nil
         #endif
 
+        // Actual writer/reader/snapshot connections retain the generation.
+        // Closed GRDB configuration/watchdog objects must not over-pin it.
+        generationLease.prepare(&configuration)
         let pool = try DatabasePool(path: dbPath, configuration: configuration)
+        try GanchoDatabaseMigrator.make().migrate(pool)
         let blobStore = BlobStore(
             directory: directory.appendingPathComponent("blobs"),
             encryptionKeyData: blobEncryptionKeyData)
         try blobStore.encryptPlaintextFilesIfNeeded()
+        try generationLease.downgrade()
         self.init(
             writer: pool,
-            blobs: blobStore)
-        try GanchoDatabaseMigrator.make().migrate(pool)
+            blobs: blobStore, generationLease: generationLease)
         // NOTE: the cosmetic legacy-preview backfill is deliberately NOT run
         // here — it scanned image rows inside a write transaction on every
         // open, taxing cold launch in the app and every extension. Apps call
@@ -156,20 +172,10 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         return dbError.resultCode == .SQLITE_NOTADB
     }
 
-    /// Moves an unreadable encrypted database (and its WAL/SHM siblings) aside to
-    /// a timestamped, collision-resistant `.unreadable-*` name so a fresh store
-    /// can take its place.
-    /// Content-addressed blobs are left in place — the fresh database won't
-    /// reference them, and an orphan sweep reclaims them later.
+    /// Preserve database/WAL/SHM and sealed blobs (including thumbnails) as
+    /// one resumable generation, outside the live content-addressed namespace.
     static func archiveUnreadableStore(in directory: URL) throws {
-        let fileManager = FileManager.default
-        let suffix = unreadableStoreArchiveSuffix()
-        for name in ["gancho.sqlite", "gancho.sqlite-wal", "gancho.sqlite-shm"] {
-            let source = directory.appendingPathComponent(name)
-            guard fileManager.fileExists(atPath: source.path) else { continue }
-            let destination = directory.appendingPathComponent("\(name).unreadable-\(suffix)")
-            try fileManager.moveItem(at: source, to: destination)
-        }
+        try StoreGenerationRecovery.archive(in: directory, suffix: unreadableStoreArchiveSuffix())
     }
 
     static func unreadableStoreArchiveSuffix(
@@ -258,10 +264,10 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
         }
     #endif
 
-    /// Injectable writer for tests (`DatabaseQueue()` in-memory).
-    public init(writer: any DatabaseWriter, blobs: BlobStore) {
+    init(writer: any DatabaseWriter, blobs: BlobStore, generationLease: StoreGenerationLease?) {
         self.writer = writer
         self.blobs = blobs
+        self.generationLease = generationLease
     }
 
     /// Tests call this for in-memory databases; the directory initializer
