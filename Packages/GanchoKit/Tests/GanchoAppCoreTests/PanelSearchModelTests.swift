@@ -25,6 +25,7 @@ import Testing
     var sourceApps: [ClipSourceApp] = []
     var lastSearchQuery: ClipSearchQuery?
     var onSearch: (() -> Void)?
+    var beforeSearch: (() async -> Void)?
     /// Runs inside `boardItems` — lets a test mutate the model "during" the
     /// await, to exercise the stale-page guard.
     var onBoardItems: (() -> Void)?
@@ -41,6 +42,7 @@ import Testing
     }
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
         lastSearchQuery = query
+        await beforeSearch?()
         onSearch?()
         return Array(searchResults.prefix(limit))
     }
@@ -579,4 +581,211 @@ extension PanelSearchModelTests {
         #expect(model.selectedIndex == 1)
     }
 
+}
+
+extension PanelSearchModelTests {
+    @Test func immediatePasteResolvesTheNewQueryInsteadOfThePreviousSelection() async {
+        let source = FakeSource()
+        source.recent = [ClipItem(preview: "Previous synthetic clip")]
+        let current = ClipItem(preview: "Current synthetic result")
+        source.searchResults = [current]
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+        model.query = "current"
+        #expect(!model.hasCurrentResults)
+        let target = await model.resolvePasteTarget(includingSnippet: true)
+        #expect(target?.item.id == current.id)
+        #expect(target?.isSnippet == false)
+    }
+
+    @Test func immediatePasteDoesNotFallBackToOldRowsForAnEmptyResult() async {
+        let source = FakeSource()
+        source.recent = [ClipItem(preview: "Previous synthetic clip")]
+        let model = PanelSearchModel(source: source)
+        await model.refresh()
+        model.query = "no match"
+        let target = await model.resolvePasteTarget(includingSnippet: true)
+        #expect(target == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func immediatePastePreservesSnippetVersusPlainSelectionSemantics(includeSnippet: Bool) async {
+        let source = FakeSource()
+        let result = ClipItem(preview: "Search result")
+        let snippet = ClipItem(preview: "Snippet body")
+        source.searchResults = [result]
+        source.snippets["sig"] = snippet
+        let model = PanelSearchModel(source: source)
+        model.query = "sig"
+        let target = await model.resolvePasteTarget(includingSnippet: includeSnippet)
+        #expect(target?.item.id == (includeSnippet ? snippet.id : result.id))
+        #expect(target?.isSnippet == includeSnippet)
+    }
+
+    @Test(arguments: [false, true])
+    func queryChangeOrDismissalCancelsAPasteWaitingForResults(changeQuery: Bool) async {
+        let source = FakeSource()
+        source.searchResults = [ClipItem(preview: "Synthetic result")]
+        let model = PanelSearchModel(source: source)
+        model.query = "first"
+        source.onSearch = {
+            if changeQuery { model.query = "second" } else { model.cancelPendingPaste() }
+        }
+        let target = await model.resolvePasteTarget(includingSnippet: true)
+        #expect(target == nil)
+    }
+
+    @Test func currentSelectionDoesNotRefreshOrJumpBeforePasting() async {
+        let source = FakeSource()
+        source.searchResults = items(3)
+        let model = PanelSearchModel(source: source)
+        model.query = "item"
+        await model.refresh()
+        model.select(2)
+        source.onSearch = { Issue.record("A current selection must not be searched again") }
+        let target = await model.resolvePasteTarget(includingSnippet: false)
+        #expect(target?.item.id == source.searchResults[2].id)
+    }
+}
+
+extension PanelSearchModelTests {
+    @Test func clearingTheQueryBeforePasteReturnsToRecents() async {
+        let source = FakeSource()
+        let recent = ClipItem(preview: "Recent synthetic clip")
+        source.recent = [recent]
+        source.searchResults = [ClipItem(preview: "Old search result")]
+        let model = PanelSearchModel(source: source)
+        model.query = "old"
+        await model.refresh()
+        model.query = ""
+        let target = await model.resolvePasteTarget(includingSnippet: true)
+        #expect(target?.item.id == recent.id)
+    }
+
+    @Test func newerPasteRequestSupersedesAnInFlightRequest() async {
+        let source = FakeSource()
+        let result = ClipItem(preview: "Synthetic result")
+        source.searchResults = [result]
+        let model = PanelSearchModel(source: source)
+        model.query = "result"
+        var releaseFirst: CheckedContinuation<Void, Never>?
+        var reads = 0
+        source.beforeSearch = {
+            reads += 1
+            if reads == 1 {
+                await withCheckedContinuation { releaseFirst = $0 }
+            }
+        }
+        let firstInteraction = model.pasteInteractionID
+        let first = Task { await model.resolvePasteTarget(includingSnippet: true) }
+        while releaseFirst == nil { await Task.yield() }
+        // A new query and Enter must not wait for the obsolete storage read.
+        model.query = "newer result"
+        #expect(model.pasteInteractionID != firstInteraction)
+        let secondInteraction = model.pasteInteractionID
+        let second = await model.resolvePasteTarget(includingSnippet: true)
+        #expect(model.pasteInteractionID == secondInteraction)
+        releaseFirst?.resume()
+        let superseded = await first.value
+        #expect(model.pasteInteractionID == secondInteraction)
+        #expect(superseded == nil)
+        #expect(second?.item.id == result.id)
+    }
+}
+
+extension PanelSearchModelTests {
+    @Test func newInputBeforeThePasteTaskStartsCancelsTheCapturedKeyAction() async {
+        let source = FakeSource()
+        source.searchResults = [ClipItem(preview: "Synthetic result")]
+        let model = PanelSearchModel(source: source)
+        model.query = "first"
+        let request = model.beginPasteRequest()
+        model.query = "second"
+        let target = await model.resolvePasteTarget(includingSnippet: true, requestID: request)
+        #expect(target == nil)
+    }
+
+    @Test func enteringThePeekCancelsAPasteWaitingForResults() async {
+        let source = FakeSource()
+        source.searchResults = [ClipItem(preview: "Synthetic result")]
+        let model = PanelSearchModel(source: source)
+        model.query = "result"
+        source.onSearch = { model.endNewestFollow() }
+        let target = await model.resolvePasteTarget(includingSnippet: true)
+        #expect(target == nil)
+    }
+}
+
+extension PanelSearchModelTests {
+    @Test(arguments: [false, true])
+    func changedPasteModeSupersedesPendingEnterWithoutChangingTheQuery(plain: Bool) async {
+        let source = FakeSource()
+        let result = ClipItem(preview: "Synthetic selected result")
+        let snippet = ClipItem(preview: "Synthetic snippet")
+        source.searchResults = [result]
+        source.snippets["sig"] = snippet
+        let model = PanelSearchModel(source: source)
+        model.query = "sig"
+        var releaseFirst: CheckedContinuation<Void, Never>?
+        var reads = 0
+        source.beforeSearch = {
+            reads += 1
+            if reads == 1 {
+                await withCheckedContinuation { releaseFirst = $0 }
+            }
+        }
+        let interaction = model.pasteInteractionID
+        let firstRequest = model.beginPasteRequest()
+        let first = Task {
+            await model.resolvePasteTarget(includingSnippet: true, requestID: firstRequest)
+        }
+        while releaseFirst == nil { await Task.yield() }
+        // Option-Return keeps snippet priority; Command-V selects the row.
+        let replacementKey = PanelSearchModel.PasteRequestKey(
+            interaction: interaction, plain: plain, includingSnippet: plain)
+        let secondRequest = model.beginPasteRequest()
+        let second = await model.resolvePasteTarget(
+            includingSnippet: replacementKey.includingSnippet, requestID: secondRequest)
+        #expect(model.pasteInteractionID == interaction)
+        releaseFirst?.resume()
+        let superseded = await first.value
+        #expect(superseded == nil)
+        #expect(second?.item.id == (plain ? snippet.id : result.id))
+        #expect(second?.isSnippet == plain)
+    }
+
+    @Test(arguments: [false, true])
+    func enteringTheFilterRailCancelsPendingPasteWithoutChangingSelection(navigate: Bool) async {
+        let source = FakeSource()
+        source.searchResults = [ClipItem(preview: "Synthetic result")]
+        let model = PanelSearchModel(source: source)
+        model.query = "result"
+        source.onSearch = {
+            guard navigate else { return }
+            let state = PanelNavigationState(selectedIndex: 0)
+            let result = PanelNavigation.reduce(
+                .up, state: state,
+                context: PanelNavigationContext(rowCount: 1, boardIDs: [], hasSelection: true))
+            #expect(result.state.railFocus == .filters(0))
+            #expect(result.state.selectedIndex == state.selectedIndex)
+            if result.state.railFocus != state.railFocus { model.cancelPendingPaste() }
+        }
+        let target = await model.resolvePasteTarget(includingSnippet: false)
+        #expect((target == nil) == navigate)
+    }
+}
+
+extension PanelSearchModelTests {
+    @Test(arguments: [false, true])
+    func openingShortcutsCancelsPendingPasteButClosingDoesNot(opening: Bool) async {
+        let source = FakeSource()
+        source.searchResults = [ClipItem(preview: "Synthetic result")]
+        let model = PanelSearchModel(source: source)
+        model.query = "result"
+        source.onSearch = {
+            if opening { model.cancelPendingPaste() }
+        }
+        let target = await model.resolvePasteTarget(includingSnippet: false)
+        #expect((target == nil) == opening)
+    }
 }

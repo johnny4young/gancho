@@ -304,6 +304,23 @@ Store shape:
 - tombstones for sync-compatible deletion.
 - an open JSON/CSV export so users can leave without data lock-in.
 
+### CSV migration preview
+
+`ClipImporter.readCSV` owns a synchronous, read-only preview. Its scanner visits one
+raw row at a time; header interpretation and candidate projection do not retain a
+second complete row matrix. Gancho formula guards are removed only when the header
+identifies a Gancho export, and only for the projected fields. Candidate order, column
+selection (`text` before `contentText`, `pinned` before `isPinned`, first occurrence of
+each name), optional fields, and unsupported-row counts keep the established import
+contract.
+
+The document is returned only after the entire scanner succeeds. An unterminated
+quoted tail takes precedence over an invalid header, and no partially projected
+candidates escape after a parse error. Classification, sensitive-content policy,
+deduplication, consent, and the eventual transaction remain the app-layer migration
+coordinator's responsibilities. The input string and final candidates still live in
+memory; this is not a bounded-memory streaming-file API or a measured performance claim.
+
 ### Encryption at rest
 
 The whole local database — every table **and the FTS5 index** — is encrypted with
@@ -560,10 +577,11 @@ invariants. The task handle is read-only inside the core module and remains
 outside its public API; fixed scheduler-yield counts do not stand in for
 completed cancellation.
 
-Snippet draft edits mark changed shared title/body fields for upload in the same
-transaction as the edit. Keyword-only changes remain local and never clear an
+Snippet edits (draft saves and direct `updateSnippet` writes share one helper)
+mark changed shared title/body fields for upload in the same transaction as the
+edit. Unchanged and keyword-only saves remain local and never clear an
 already-pending upload or advance the shared conflict timestamp. This prevents
-a local keyword edit from masking a newer remote title/body edit. Recovery
+a local no-op or keyword edit from masking a newer remote title/body edit. Recovery
 creates a fresh identity rather than resurrecting a deleted row.
 
 ### Native UI evidence privacy

@@ -29,6 +29,10 @@ struct OnboardingView: View {
                 Button("Skip") { finish(completed: false, openPanel: false) }
                     .accessibilityIdentifier("onboarding-skip")
                 Spacer()
+                if step > 0 {
+                    Button("Back") { step -= 1 }
+                        .accessibilityIdentifier("onboarding-back")
+                }
                 Button(step < 2 ? "Continue" : "Open Gancho panel") {
                     if step < 2 {
                         step += 1

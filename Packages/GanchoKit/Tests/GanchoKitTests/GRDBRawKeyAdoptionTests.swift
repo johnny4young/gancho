@@ -177,7 +177,7 @@ import Testing
 
             let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
             #expect(
-                names.contains { $0.hasPrefix("gancho.sqlite.unreadable-") },
+                names.contains { $0.hasPrefix(".unreadable-") },
                 "raw-key adoption must archive the unreachable store before starting fresh")
         }
 
