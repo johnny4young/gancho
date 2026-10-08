@@ -654,6 +654,9 @@ struct ListContentIsolationTests {
         _ = try await store.items(offset: 0, limit: 50)
         _ = try await store.recentForBrowse(offset: 0, limit: 50)
         _ = try await store.items(ids: [item.id])
+        _ = try await store.readForMCP(
+            id: item.id, grant: MCPClientGrant(clientName: "Metadata", scope: .metadata),
+            requiresContextPack: false, now: .now)
         _ = try await store.search(ClipSearchQuery(text: "Title"), limit: 50)
         _ = try await store.items(inBoard: board.id, offset: 0, limit: 50)
         _ = try await store.snippets()

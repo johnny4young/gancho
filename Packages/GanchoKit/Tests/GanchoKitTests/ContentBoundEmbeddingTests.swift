@@ -66,6 +66,25 @@ struct ContentBoundEmbeddingTests {
                 clipID: item.id, vector: [1, 0], expectedText: "old"))
     }
 
+    @Test func expiredRowsThatRetentionKeepsStayIndexable() async throws {
+        // Reads keep a pinned, boarded, or snippet row visible past its expiry,
+        // so the guarded write must accept that row's current body as main did.
+        let store = try makeStore()
+        let item = ClipItem(preview: "body", contentHash: "curated-expired")
+        try await store.insert(item, content: .text("body"))
+        try await store.writer.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE clip SET isPinned = 1, expiresAt = '2000-01-01 00:00:00.000'
+                    WHERE id = ?
+                    """,
+                arguments: [item.id.uuidString])
+        }
+        #expect(
+            try await store.saveEmbeddingIfCurrent(
+                clipID: item.id, vector: [1, 0], expectedText: "body"))
+    }
+
     @Test func changedPrivacyAndExpiryRejectEvenAnIdenticalBody() async throws {
         let store = try makeStore()
         let item = ClipItem(preview: "body", contentHash: "protected-body")

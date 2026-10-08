@@ -67,7 +67,7 @@ private actor EmbeddingRaceStore: ClipEnriching, EmbeddingRefreshSource,
     }
 }
 
-@Suite("Background embedding write races")
+@Suite("Background embedding write races", .timeLimit(.minutes(1)))
 struct EmbeddingWriteRaceTests {
     @Test func captureEnrichmentRejectsAChangedBody() async {
         let store = EmbeddingRaceStore()
