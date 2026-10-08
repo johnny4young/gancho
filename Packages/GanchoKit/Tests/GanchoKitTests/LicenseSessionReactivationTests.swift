@@ -165,6 +165,8 @@ struct LicenseSessionReactivationTests {
                 Issue.record("failed admission must report storage failure")
                 return
             }
+            // Readback recovers, so only the latch can still be keeping Pro off.
+            store.failReadback = false
             #expect(await handler.currentTier() == .free)
         }
     }

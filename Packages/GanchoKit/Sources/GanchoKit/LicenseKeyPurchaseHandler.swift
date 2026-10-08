@@ -90,9 +90,10 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
         let request = UUID()
         refreshID = request
         let outcome = await activation.refresh(record)
+        let current = storedRecord()
         guard operationID == operation, refreshID == request,
-            storedRecord()?.licenseKey == record.licenseKey,
-            storedRecord()?.instanceID == record.instanceID
+            current?.licenseKey == record.licenseKey,
+            current?.instanceID == record.instanceID
         else { return await currentTier() }
         switch outcome {
         case .confirmed(let refreshed):
@@ -136,20 +137,11 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
         let trimmed = licenseKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .invalidKey(reason: "Empty key") }
         let operation = beginOperation()
-        let outcome = await activation.activate(licenseKey: trimmed, instanceName: instanceName)
-        guard operationID == operation else {
-            // A newer action owns local state, but Lemon Squeezy already spent
-            // an activation slot on this reply. Release it, unless it is the
-            // very instance the newer action stored, so the seat is not stuck.
-            if case .activated(let record) = outcome,
-                persistedRecord()?.instanceID != record.instanceID
-            {
-                _ = await activation.deactivate(record)
-            }
-            return .storageUnavailable(reason: "A newer license action superseded this request")
-        }
-        switch outcome {
+        switch await activation.activate(licenseKey: trimmed, instanceName: instanceName) {
         case .activated(let record):
+            guard operationID == operation else {
+                return await releaseSuperseded(record)
+            }
             // Persist, then confirm it reads back. A Keychain write can fail; if
             // it does, the entitlement wouldn't survive a relaunch (currentTier
             // reads from the store), so report it instead of a false success.
@@ -176,6 +168,19 @@ public final class LicenseKeyPurchaseHandler: PurchaseHandling {
         case .unreachable(let reason):
             return .networkUnavailable(reason: reason)
         }
+    }
+
+    /// A newer action owns local state, but Lemon Squeezy already spent an
+    /// activation slot on this reply. Release it, unless it is the very
+    /// instance the newer action stored, so the seat is not stuck. Rejected and
+    /// unreachable replies change no local state, so they report as they are.
+    private func releaseSuperseded(
+        _ record: LicenseActivationRecord
+    ) async -> LicenseActivationResult {
+        if persistedRecord()?.instanceID != record.instanceID {
+            _ = await activation.deactivate(record)
+        }
+        return .storageUnavailable(reason: "A newer license action superseded this request")
     }
 
     /// The record travels through the existing string-shaped Keychain store as
