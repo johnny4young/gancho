@@ -9,7 +9,7 @@ private enum IngestionStoreError: Error {
     case unavailable
 }
 
-private actor IngestionStoreSpy: ClipIngesting, ClipEnriching {
+private actor IngestionStoreSpy: ContentBoundTitleStoring, ClipIngesting, ClipEnriching {
     var returnedItem: ClipItem?
     var failsInsert = false
     private(set) var insertedItem: ClipItem?
@@ -29,6 +29,11 @@ private actor IngestionStoreSpy: ClipIngesting, ClipEnriching {
     func updateTitleIfEmpty(id: UUID, title: String) async throws -> Bool {
         titleWrites += 1
         return true
+    }
+    func updateTitleIfEmptyAndCurrent(
+        id: UUID, title: String, expectedText: String
+    ) async throws -> Bool {
+        try await updateTitleIfEmpty(id: id, title: title)
     }
     func attachExtractedText(id: UUID, text: String) async throws {
         extractedTextWrites += 1
