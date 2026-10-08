@@ -168,6 +168,18 @@ struct SensitiveDataDetectorTests {
     }
 
     @Test(
+        "A card printed in an unusual grouping is still found",
+        arguments: [
+            "41111111 11111111",
+            "4111 11111111 1111",
+            "4 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1",
+            "41111111 11111111 0000 0000"
+        ])
+    func cardInUnusualGrouping(input: String) {
+        #expect(detector.detect(input) == .creditCard, "input: \(input)")
+    }
+
+    @Test(
         "Phone numbers, order ids, dates and number lists stay clean",
         arguments: [
             "+1 (555) 123-4567",
