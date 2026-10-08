@@ -15,6 +15,17 @@ struct ClipItemFactoryTests {
     private let classifier = RuleClassifier()
     private let detector = SensitiveDataDetector()
 
+    @Test("A card after an order number receives sensitive capture policy")
+    func cardAfterOrderNumberIsSensitive() {
+        let raw = "order 1234 5678 9012 3456; card 4111 1111 1111 1111"
+        let (item, _) = make(PasteboardCapture(text: raw))
+
+        #expect(item.isSensitive)
+        #expect(item.expiresAt != nil)
+        #expect(!item.preview.contains("4111 1111 1111 1111"))
+        #expect(item.preview.hasPrefix("●●●●"))
+    }
+
     private func make(
         _ capture: PasteboardCapture, detectSecrets: Bool = true,
         sourceDeviceName: String? = nil
