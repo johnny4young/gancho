@@ -9,6 +9,15 @@ import GRDB
 public enum GanchoArchive {
     public static let currentVersion = 1
 
+    public enum ReplacementPolicy: Sendable, Equatable {
+        case failIfExists
+        /// Callers must obtain the user's replacement decision before selecting
+        /// this policy for an existing user-owned archive.
+        case replaceExisting
+    }
+
+    enum ExportCheckpoint: Sendable, Equatable { case rows, blobs, manifest, promotion }
+
     public struct Options: Sendable, Equatable {
         /// Drop sensitive clips entirely from the archive.
         public var excludeSensitive: Bool
@@ -44,10 +53,36 @@ public enum GanchoArchive {
 
     @discardableResult
     public static func export(
-        from store: GRDBClipboardStore, to directory: URL, options: Options = Options()
+        from store: GRDBClipboardStore, to directory: URL, options: Options = Options(),
+        replacement: ReplacementPolicy = .failIfExists
     ) async throws -> Manifest {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try await export(
+            from: store, to: directory, options: options, replacement: replacement,
+            checkpoint: { _ in })
+    }
 
+    static func export(
+        from store: GRDBClipboardStore, to directory: URL, options: Options,
+        replacement: ReplacementPolicy,
+        checkpoint: @Sendable (ExportCheckpoint) throws -> Void
+    ) async throws -> Manifest {
+        try AtomicArchivePublication.requirePublishable(directory, replacement: replacement)
+        let stage = try AtomicArchivePublication.makeStage(beside: directory)
+        defer { try? FileManager.default.removeItem(at: stage) }
+        try Task.checkCancellation()
+        let manifest = try await exportIntoStage(
+            from: store, to: stage, options: options, checkpoint: checkpoint)
+        try validateExport(manifest, in: stage)
+        try checkpoint(.promotion)
+        try Task.checkCancellation()
+        try AtomicArchivePublication.publish(stage, as: directory, replacement: replacement)
+        return manifest
+    }
+
+    private static func exportIntoStage(
+        from store: GRDBClipboardStore, to directory: URL, options: Options,
+        checkpoint: @Sendable (ExportCheckpoint) throws -> Void
+    ) async throws -> Manifest {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.sortedKeys]
@@ -61,9 +96,12 @@ public enum GanchoArchive {
         // and no pretty-printing a JSON array is exactly `[`, its elements
         // joined by `,`, and `]`, and `ArchiveStreamingTests` pins that against
         // `encoder.encode(rows)` so the format and its checksum cannot drift.
+        //
+        // `directory` is the export's private stage, so every file is written
+        // in place: nothing in the selected destination changes until the
+        // whole stage is promoted, and a failure discards the entire stage.
         let clipsURL = directory.appendingPathComponent("clips.json")
-        let staged = directory.appendingPathComponent(".clips.json.\(UUID().uuidString)")
-        guard FileManager.default.createFile(atPath: staged.path, contents: nil) else {
+        guard FileManager.default.createFile(atPath: clipsURL.path, contents: nil) else {
             throw ArchiveError.corruptArchive("could not stage the export")
         }
 
@@ -71,20 +109,10 @@ public enum GanchoArchive {
         // `@Sendable`, so state mutated across that boundary would not compile,
         // and keeping the handle and the hasher local is also what makes the
         // export a single pass with nothing held afterwards.
-        let streamed: (count: Int, blobs: Set<String>, digest: String)
-        do {
-            streamed = try await streamRows(
-                from: store, to: staged, options: options, encoder: encoder)
-        } catch {
-            try? FileManager.default.removeItem(at: staged)
-            throw error
-        }
-        // Published only once it is whole, so a failed export leaves no
-        // half-written clips.json where the old code wrote atomically — and,
-        // just as importantly, leaves the PREVIOUS one intact. Remove-then-move
-        // would not: it exposes a window with no clips.json at all, and a
-        // failure after the remove destroys a good archive.
-        try AtomicFileReplace.publish(staged: staged, as: clipsURL)
+        let streamed = try await streamRows(
+            from: store, to: clipsURL, options: options, encoder: encoder)
+        try checkpoint(.rows)
+        try Task.checkCancellation()
 
         let clipCount = streamed.count
         let referencedBlobs = streamed.blobs
@@ -95,6 +123,7 @@ public enum GanchoArchive {
             try FileManager.default.createDirectory(
                 at: blobDir, withIntermediateDirectories: true)
             for hash in referencedBlobs {
+                try Task.checkCancellation()
                 guard let data = try store.blobsForMaintenance.read(hash: hash) else {
                     throw ArchiveError.corruptArchive(
                         "source store is missing or has a corrupt referenced blob")
@@ -105,11 +134,13 @@ public enum GanchoArchive {
                     throw ArchiveError.corruptArchive(
                         "source store is missing or has a corrupt referenced blob")
                 }
-                try data.write(to: blobDir.appendingPathComponent(hash), options: .atomic)
+                try data.write(to: blobDir.appendingPathComponent(hash))
                 checksums["blobs/\(hash)"] = digest
             }
         }
 
+        try checkpoint(.blobs)
+        try Task.checkCancellation()
         let manifest = Manifest(
             version: currentVersion, exportedAt: .now, clipCount: clipCount,
             checksums: checksums)
@@ -117,8 +148,35 @@ public enum GanchoArchive {
         manifestEncoder.dateEncodingStrategy = .iso8601
         manifestEncoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try manifestEncoder.encode(manifest)
-            .write(to: directory.appendingPathComponent("manifest.json"), options: .atomic)
+            .write(to: directory.appendingPathComponent("manifest.json"))
+        try checkpoint(.manifest)
         return manifest
+    }
+
+    private static func validateExport(_ manifest: Manifest, in directory: URL) throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let manifestURL = directory.appendingPathComponent("manifest.json")
+        let stored = try decoder.decode(Manifest.self, from: Data(contentsOf: manifestURL))
+        guard stored.version == manifest.version, stored.clipCount == manifest.clipCount,
+            stored.checksums == manifest.checksums
+        else { throw ArchiveError.corruptArchive("staged manifest does not match the export") }
+        for (path, expected) in manifest.checksums {
+            guard try fileDigest(directory.appendingPathComponent(path)) == expected else {
+                throw ArchiveError.checksumMismatch(path)
+            }
+        }
+    }
+
+    private static func fileDigest(_ file: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: file)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while let bytes = try handle.read(upToCount: 64 << 10), !bytes.isEmpty {
+            try Task.checkCancellation()
+            hasher.update(data: bytes)
+        }
+        return hex(hasher.finalize())
     }
 
     // MARK: - Restore (merge with dedupe; transactional rollback)

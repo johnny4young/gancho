@@ -18,6 +18,9 @@ public enum DatabaseSuspension {
     /// releases its locks; any in-flight write fails with `SQLITE_INTERRUPT` or
     /// `SQLITE_ABORT` rather than risking the `0xDEAD10CC` termination.
     public static func suspend() {
+        #if os(iOS)
+            StoreOwnershipLifecycle.shared.suspend()
+        #endif
         NotificationCenter.default.post(name: Database.suspendNotification, object: nil)
     }
 
@@ -25,5 +28,9 @@ public enum DatabaseSuspension {
     /// databases start accepting writes again.
     public static func resume() {
         NotificationCenter.default.post(name: Database.resumeNotification, object: nil)
+        #if os(iOS)
+            StoreOwnershipLifecycle.shared.resume()
+            StoreOwnershipLifecycle.shared.flushPending()
+        #endif
     }
 }
