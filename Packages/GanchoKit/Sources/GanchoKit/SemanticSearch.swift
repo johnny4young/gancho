@@ -38,21 +38,29 @@ extension GRDBClipboardStore {
     /// spend battery on rows no query can return. The sensitive exclusion is
     /// belt-and-suspenders — capture never embeds sensitive clips, but this
     /// query must not feed one to the re-embed loop even if some future path
-    /// flips `isSensitive` after a vector exists.
+    /// flips `isSensitive` after a vector exists. Kinds the guarded write
+    /// always rejects are excluded too: a permanently rejected row would stay
+    /// at the head of every batch and stall the pass for the rows behind it.
     public func staleEmbeddingClipIDs(limit: Int) async throws -> [UUID] {
         // SQLite treats a negative LIMIT as "no limit" — the exact unbounded
         // read this API exists to prevent.
         guard limit > 0 else { return [] }
+        let excludedKinds = Self.embeddingIneligibleKinds
+        let placeholders = excludedKinds.map { _ in "?" }.joined(separator: ", ")
         return try await writer.read { db in
-            try String.fetchAll(
+            var arguments: [any DatabaseValueConvertible] = [EmbeddingModelInfo.currentVersion]
+            arguments.append(contentsOf: excludedKinds)
+            arguments.append(limit)
+            return try String.fetchAll(
                 db,
                 sql: """
                     SELECT e.clipID FROM clip_embedding e
                     JOIN clip c ON c.id = e.clipID
                     WHERE e.modelVersion < ? AND c.isArchived = 0 AND c.isSensitive = 0
+                      AND c.kind NOT IN (\(placeholders))
                     LIMIT ?
                     """,
-                arguments: [EmbeddingModelInfo.currentVersion, limit]
+                arguments: StatementArguments(arguments)
             ).compactMap(UUID.init(uuidString:))
         }
     }
