@@ -84,13 +84,11 @@ private struct PolicyOverrideStore: MCPClipStore {
         }
     }
 
-    func content(for id: UUID) async throws -> ClipContent? { try await base.content(for: id) }
     func search(_ query: ClipSearchQuery, limit: Int) async throws -> [ClipItem] {
         try await base.search(query, limit: limit)
     }
     func item(id: UUID) async throws -> ClipItem? { try await base.item(id: id) }
     func items(ids: [UUID]) async throws -> [ClipItem] { try await base.items(ids: ids) }
-    func boardIDs(for id: UUID) async throws -> Set<UUID> { try await base.boardIDs(for: id) }
     func setPinned(id: UUID, _ pinned: Bool) async throws {
         try await base.setPinned(id: id, pinned)
     }

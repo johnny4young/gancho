@@ -25,10 +25,7 @@ extension GRDBClipboardStore: MCPClipStore {
             let item = row.item
             var boardIDs: Set<UUID> = []
             if grant.contextPack?.boardID != nil || grant.scope == .boards {
-                let rawIDs = try String.fetchAll(
-                    db, sql: "SELECT boardID FROM clip_board WHERE clipID = ?",
-                    arguments: [id.uuidString])
-                boardIDs = Set(rawIDs.compactMap(UUID.init(uuidString:)))
+                boardIDs = try Self.boardIDs(forClip: id, in: db)
             }
             if let pack = grant.contextPack, pack.isExplicit {
                 guard pack.contains(item: item, boardIDs: boardIDs, now: now) else {
@@ -83,16 +80,6 @@ extension GRDBClipboardStore: MCPClipStore {
     public func item(id: UUID) async throws -> ClipItem? {
         try await writer.read { db in
             try ClipRow.filter(key: id.uuidString).fetchOne(db)?.item
-        }
-    }
-
-    public func boardIDs(for clipID: UUID) async throws -> Set<UUID> {
-        try await writer.read { db in
-            let rawIDs = try String.fetchAll(
-                db,
-                sql: "SELECT boardID FROM clip_board WHERE clipID = ?",
-                arguments: [clipID.uuidString])
-            return Set(rawIDs.compactMap(UUID.init(uuidString:)))
         }
     }
 

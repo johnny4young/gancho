@@ -92,10 +92,14 @@ public struct MCPContextPack: Sendable, Equatable, Codable {
         }
         if let boardID, !boardIDs.contains(boardID) { return false }
         if !clipIDs.isEmpty, !clipIDs.contains(item.id) { return false }
-        if let clipRevisions, clipRevisions[item.id.uuidString] != item.contextRevision {
-            return false
-        }
-        return true
+        return isReviewedRevision(item)
+    }
+
+    /// Whether `item` is still the revision the user reviewed. Packs that
+    /// predate revision binding accept every revision.
+    public func isReviewedRevision(_ item: ClipItem) -> Bool {
+        guard let clipRevisions else { return true }
+        return clipRevisions[item.id.uuidString] == item.contextRevision
     }
 }
 
@@ -375,20 +379,19 @@ public enum MCPClipReadResult: Sendable, Equatable {
     case content(ClipItem, ClipContent?)
 }
 
-/// The narrow store surface MCP tools need. `boardIDs` makes both broad
-/// marked-content scope and one-board context packs exact without N+1 searches.
+/// The narrow store surface MCP tools need. Per-clip reads go only through
+/// ``readForMCP(id:grant:requiresContextPack:now:)``; there is deliberately no
+/// separate content or board-membership read to compose with a policy check.
 public protocol MCPClipStore: Sendable {
     func search(_ query: ClipSearchQuery, limit: Int) async throws -> [ClipItem]
     func item(id: UUID) async throws -> ClipItem?
     /// Visible rows only: archived and expired ids are omitted.
     func items(ids: [UUID]) async throws -> [ClipItem]
-    func content(for id: UUID) async throws -> ClipContent?
     /// Policy metadata, board membership and text must come from one database
     /// snapshot. Implementations must not compose separately awaited reads.
     func readForMCP(
         id: UUID, grant: MCPClientGrant, requiresContextPack: Bool, now: Date
     ) async throws -> MCPClipReadResult
-    func boardIDs(for clipID: UUID) async throws -> Set<UUID>
     func setPinned(id: UUID, _ pinned: Bool) async throws
     func pinboards() async throws -> [Pinboard]
     @discardableResult

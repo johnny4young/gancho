@@ -36,7 +36,8 @@ struct MCPConsistentReadTests {
                 id: item.id, grant: grant, requiresContextPack: true, now: .now)
         }
         defer { gate.resume() }
-        try #require(gate.waitForPayload(), "the authorized payload query must reach the gate")
+        try #require(
+            await gate.waitForPayload(), "the authorized payload query must reach the gate")
         // The reader has already checked policy, but has not executed its payload
         // SELECT. A different WAL connection commits the replacement right now.
         try await store.updateClipText(id: item.id, text: "unapproved replacement")
@@ -80,6 +81,15 @@ private final class PayloadReadGate: @unchecked Sendable {
         _ = proceed.wait(timeout: .now() + 30)
     }
 
-    func waitForPayload() -> Bool { reached.wait(timeout: .now() + 30) == .success }
+    /// Waits on a GCD thread so the blocking semaphore never parks a Swift
+    /// concurrency worker that the reader task or parallel suites need.
+    func waitForPayload() async -> Bool {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                continuation.resume(returning: self.reached.wait(timeout: .now() + 30) == .success)
+            }
+        }
+    }
+
     func resume() { proceed.signal() }
 }

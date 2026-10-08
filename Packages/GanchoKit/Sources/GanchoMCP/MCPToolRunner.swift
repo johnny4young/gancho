@@ -148,12 +148,7 @@ public struct MCPToolRunner: Sendable {
 
         var hits = try await store.search(query, limit: limit)
         hits.removeAll { item in
-            if let revisions = pack.clipRevisions,
-                revisions[item.id.uuidString] != item.contextRevision
-            {
-                return true
-            }
-            return ClipSafePresentation.requiresMasking(item)
+            !pack.isReviewedRevision(item) || ClipSafePresentation.requiresMasking(item)
                 || (!pack.clipIDs.isEmpty && !pack.clipIDs.contains(item.id))
         }
 
@@ -334,9 +329,7 @@ public struct MCPToolRunner: Sendable {
         let ids = revisions.keys.compactMap(UUID.init(uuidString:)).filter {
             selectedIDs?.contains($0) ?? true
         }
-        let items = try await store.items(ids: ids)
-        return Set(
-            items.filter { revisions[$0.id.uuidString] == $0.contextRevision }.map(\.id))
+        return Set(try await store.items(ids: ids).filter(pack.isReviewedRevision).map(\.id))
     }
 
     private func readForMCP(id: UUID, grant: MCPClientGrant) async throws -> MCPClipReadResult {
