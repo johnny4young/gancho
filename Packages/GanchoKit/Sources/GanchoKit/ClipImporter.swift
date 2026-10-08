@@ -60,54 +60,39 @@ public enum ClipImporter {
         }
         if content.first == "\u{feff}" { content.removeFirst() }
 
-        var rows = try parseCSV(content)
-        guard let rawHeader = rows.first else {
-            throw ImportError.unreadable(.emptyCSV)
-        }
-        rows.removeFirst()
-        let header = rawHeader.map {
-            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        }
-        let isGanchoExport = header.contains("contenttext")
-        guard let textIndex = header.firstIndex(of: "text") ?? header.firstIndex(of: "contenttext")
-        else {
-            throw ImportError.unreadable(.missingTextColumn)
-        }
-        let titleIndex = header.firstIndex(of: "title")
-        let pinnedIndex = header.firstIndex(of: "pinned") ?? header.firstIndex(of: "ispinned")
-        if isGanchoExport {
-            rows = rows.map { $0.map(ClipExporter.removingFormulaGuard) }
-        }
-
+        var header: CSVHeader?
         var candidates: [Candidate] = []
         var unsupportedCount = 0
-        for row in rows {
-            guard row.indices.contains(textIndex) else {
-                unsupportedCount += 1
-                continue
+        try forEachCSVRow(content) { rawRow in
+            if header == nil {
+                header = CSVHeader(rawRow)
+                return
             }
-            let text = row[textIndex]
-            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard let header, header.textIndex != nil else { return }
+            guard let text = header.field(header.textIndex, in: rawRow),
+                !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
                 unsupportedCount += 1
-                continue
+                return
             }
-            let title = titleIndex.flatMap { index -> String? in
-                guard row.indices.contains(index) else { return nil }
-                let value = row[index].trimmingCharacters(in: .whitespacesAndNewlines)
+            let title = header.field(header.titleIndex, in: rawRow).flatMap { field -> String? in
+                let value = field.trimmingCharacters(in: .whitespacesAndNewlines)
                 return value.isEmpty ? nil : value
             }
             let pinned =
-                pinnedIndex.flatMap { index -> Bool? in
-                    guard row.indices.contains(index) else { return nil }
-                    return
-                        switch row[index].trimmingCharacters(in: .whitespacesAndNewlines)
-                        .lowercased()
-                    {
+                header.field(header.pinnedIndex, in: rawRow).map { field in
+                    switch field.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
                     case "true", "1", "yes": true
                     default: false
                     }
                 } ?? false
             candidates.append(Candidate(text: text, title: title, isPinned: pinned))
+        }
+        // Finish scanning before header validation, preserving syntax-error precedence.
+        // A malformed tail must never expose the candidates already projected locally.
+        guard let header else { throw ImportError.unreadable(.emptyCSV) }
+        guard header.textIndex != nil else {
+            throw ImportError.unreadable(.missingTextColumn)
         }
         return Document(candidates: candidates, unsupportedCount: unsupportedCount)
     }
@@ -156,11 +141,36 @@ public enum ClipImporter {
         }
     }
 
-    /// RFC-4180 parser with quoted commas, escaped quotes, and quoted newlines.
-    /// It rejects unterminated quoted fields instead of importing a truncated
-    /// document whose remaining rows would be impossible to account for.
-    static func parseCSV(_ content: String) throws -> [[String]] {
-        var rows: [[String]] = []
+    /// Header interpretation stays separate from row scanning. The first matching
+    /// column and the presence of `contentText` preserve the existing export policy.
+    private struct CSVHeader {
+        let textIndex: Int?
+        let titleIndex: Int?
+        let pinnedIndex: Int?
+        let isGanchoExport: Bool
+
+        init(_ row: [String]) {
+            let names = row.map {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            }
+            textIndex = names.firstIndex(of: "text") ?? names.firstIndex(of: "contenttext")
+            titleIndex = names.firstIndex(of: "title")
+            pinnedIndex = names.firstIndex(of: "pinned") ?? names.firstIndex(of: "ispinned")
+            isGanchoExport = names.contains("contenttext")
+        }
+
+        /// Decodes only the projected field, so Gancho exports never allocate a
+        /// second, guard-stripped copy of every column in the row.
+        func field(_ index: Int?, in row: [String]) -> String? {
+            guard let index, row.indices.contains(index) else { return nil }
+            return isGanchoExport ? ClipExporter.removingFormulaGuard(row[index]) : row[index]
+        }
+    }
+
+    /// Scans quoted commas, escaped quotes, and quoted newlines using the existing
+    /// character policy. Only one raw row is live at a time; the visitor cannot
+    /// publish a result, and any unterminated field still fails the whole preview.
+    private static func forEachCSVRow(_ content: String, visit: ([String]) -> Void) throws {
         var field = ""
         var row: [String] = []
         var inQuotes = false
@@ -173,7 +183,7 @@ public enum ClipImporter {
         }
         func endRow() {
             endField()
-            if !(row.count == 1 && row[0].isEmpty) { rows.append(row) }
+            if !(row.count == 1 && row[0].isEmpty) { visit(row) }
             row = []
         }
 
@@ -208,6 +218,5 @@ public enum ClipImporter {
             throw ImportError.unreadable(.unclosedQuotedField)
         }
         endRow()
-        return rows
     }
 }

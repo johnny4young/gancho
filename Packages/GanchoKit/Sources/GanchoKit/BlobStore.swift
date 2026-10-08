@@ -179,7 +179,7 @@ public struct BlobStore: Sendable {
             (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
         var removed = 0
         for name in files
-        where name != "thumbnails" && name != Self.migrationMarker
+        where name != "thumbnails" && !name.hasPrefix(".")
             && !referenced.contains(name) && isOlder(name, than: cutoff)
         {
             delete(hash: name)

@@ -35,23 +35,9 @@ extension GRDBClipboardStore: SnippetDraftStoring {
                 row.expiresAt.map({ $0 > now }) ?? true,
                 row.contentText != nil, row.contentBlobHash == nil
             else { throw SnippetDraftSaveError.protectedContent }
-            let sharedFieldsChanged = row.title != title || row.contentText != text
-            try db.execute(
-                sql: """
-                    UPDATE clip SET title = ?, contentText = ?, preview = ?, keyword = ?,
-                        updatedAt = CASE WHEN ? THEN ? ELSE updatedAt END,
-                        needsUpload = CASE WHEN ? THEN 1 ELSE needsUpload END
-                    WHERE id = ? AND isSnippet = 1
-                    """,
-                arguments: [
-                    title, text, String(text.prefix(120)),
-                    trimmed?.isEmpty == false ? trimmed : nil, sharedFieldsChanged, now,
-                    sharedFieldsChanged, id.uuidString
-                ])
-            if row.contentText != text {
-                try db.execute(
-                    sql: "DELETE FROM clip_embedding WHERE clipID = ?", arguments: [id.uuidString])
-            }
+            try Self.writeSnippetEdit(
+                row, title: title, text: text, keyword: trimmed?.isEmpty == false ? trimmed : nil,
+                now: now, in: db)
             return true
         }
     }

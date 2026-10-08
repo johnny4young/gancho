@@ -88,5 +88,6 @@ fi
 ! grep -RIn 'TODO' site >/dev/null || fail "site/ contains TODO markers"
 
 ./scripts/check-product-truth.sh
+python3 scripts/check-site-contrast.py
 
 printf '✓ site/ structural checks passed\n'

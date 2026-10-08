@@ -26,10 +26,11 @@
   --gray-900: #1c1c1e;
   --black:    #000000;
 
-  /* Semantic: light */
+  /* Semantic: light. Neutral small text keeps >=4.5:1 on app/card/selection
+   * surfaces; check-site-contrast.py guards both automatic and explicit themes. */
   --text-primary:    rgba(0, 0, 0, 0.88);
-  --text-secondary:  rgba(0, 0, 0, 0.5);
-  --text-tertiary:   rgba(0, 0, 0, 0.32);
+  --text-secondary:  rgba(0, 0, 0, 0.68);
+  --text-tertiary:   rgba(0, 0, 0, 0.6);
   --text-on-accent:  #ffffff;
 
   --surface-app:     var(--gray-50);
@@ -80,8 +81,8 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --text-primary:   rgba(255, 255, 255, 0.92);
-    --text-secondary: rgba(255, 255, 255, 0.55);
-    --text-tertiary:  rgba(255, 255, 255, 0.32);
+    --text-secondary: rgba(255, 255, 255, 0.68);
+    --text-tertiary:  rgba(255, 255, 255, 0.6);
     --surface-app:    var(--gray-900);
     --surface-card:   var(--gray-800);
     --surface-selection: rgba(255, 255, 255, 0.1);
@@ -99,8 +100,8 @@
 /* Force light */
 :root[data-theme="light"] {
   --text-primary:   rgba(0, 0, 0, 0.88);
-  --text-secondary: rgba(0, 0, 0, 0.5);
-  --text-tertiary:  rgba(0, 0, 0, 0.32);
+  --text-secondary: rgba(0, 0, 0, 0.68);
+  --text-tertiary:  rgba(0, 0, 0, 0.6);
   --surface-app:    var(--gray-50);
   --surface-card:   var(--gray-0);
   --surface-selection: rgba(0, 0, 0, 0.06);
@@ -117,8 +118,8 @@
 /* Force dark */
 :root[data-theme="dark"] {
   --text-primary:   rgba(255, 255, 255, 0.92);
-  --text-secondary: rgba(255, 255, 255, 0.55);
-  --text-tertiary:  rgba(255, 255, 255, 0.32);
+  --text-secondary: rgba(255, 255, 255, 0.68);
+  --text-tertiary:  rgba(255, 255, 255, 0.6);
   --surface-app:    var(--gray-900);
   --surface-card:   var(--gray-800);
   --surface-selection: rgba(255, 255, 255, 0.1);

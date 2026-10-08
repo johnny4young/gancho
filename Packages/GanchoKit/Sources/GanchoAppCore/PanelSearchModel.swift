@@ -54,6 +54,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
     private var meaningIntent = UUID()
     private func invalidateMeaningIntent() {
+        cancelPendingPaste()
         meaningIntent = UUID()
         meaning.cancelPending()
     }
@@ -63,6 +64,12 @@ public struct PanelDateGroup: Identifiable, Sendable {
     private var isRefreshing = false
     private var loadMoreDeferred = false
     private var displayedContext: Context?
+    /// Paste bookkeeping is read only by key actions, never rendered, so it
+    /// stays out of observation: every arrow key regenerates the interaction.
+    @ObservationIgnored private var pasteRequestID: UUID?
+    /// Changes when input/navigation invalidates a key action, but not when
+    /// its read finishes. The view uses this to coalesce only the same intent.
+    @ObservationIgnored public private(set) var pasteInteractionID = UUID()
 
     private struct Context: Equatable {
         let query: String
@@ -80,6 +87,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     private func invalidateRequests() {
+        cancelPendingPaste()
         let relatedIDs = meaning.relatedIDs
         meaning.invalidate()
         if !relatedIDs.isEmpty { results.removeAll { relatedIDs.contains($0.id) } }
@@ -221,6 +229,60 @@ public struct PanelDateGroup: Identifiable, Sendable {
         selectionModel.selectedItems(in: filtered)
     }
 
+    /// A paste may only consume rows loaded for the live query and filters.
+    public var hasCurrentResults: Bool { displayedContext == context }
+
+    /// Only identical repeated key actions coalesce. A different paste mode
+    /// is a new intent even when the query and selection have not changed.
+    public struct PasteRequestKey: Equatable, Sendable {
+        public let interaction: UUID
+        public let plain: Bool
+        public let includingSnippet: Bool
+
+        public init(interaction: UUID, plain: Bool, includingSnippet: Bool) {
+            self.interaction = interaction
+            self.plain = plain
+            self.includingSnippet = includingSnippet
+        }
+    }
+
+    public struct PasteTarget: Sendable {
+        public let item: ClipItem
+        public let isSnippet: Bool
+    }
+
+    /// Resolve an immediate Enter against the current search, rather than the
+    /// previous rows still on screen. A later query, navigation, dismissal or
+    /// paste request cancels this intent; no delayed paste survives it.
+    public func resolvePasteTarget(
+        includingSnippet: Bool, requestID: UUID? = nil
+    ) async -> PasteTarget? {
+        let request = requestID ?? beginPasteRequest()
+        defer { if pasteRequestID == request { pasteRequestID = nil } }
+        while !hasCurrentResults {
+            guard pasteRequestID == request, !Task.isCancelled else { return nil }
+            await refresh()
+        }
+        guard pasteRequestID == request, !Task.isCancelled else { return nil }
+        if includingSnippet, let snippetMatch {
+            return PasteTarget(item: snippetMatch, isSnippet: true)
+        }
+        guard let selectedItem else { return nil }
+        return PasteTarget(item: selectedItem, isSnippet: false)
+    }
+
+    /// Capture the key action synchronously, before its Task gets scheduled.
+    public func beginPasteRequest() -> UUID {
+        let request = UUID()
+        pasteRequestID = request
+        return request
+    }
+
+    public func cancelPendingPaste() {
+        pasteRequestID = nil
+        pasteInteractionID = UUID()
+    }
+
     public var selectionCount: Int { selectionModel.selectionCount(in: filtered) }
 
     public func isSelected(_ id: UUID) -> Bool {
@@ -269,6 +331,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     public func endNewestFollow() {
+        cancelPendingPaste()
         selectionModel.endNewestFollow()
     }
 
