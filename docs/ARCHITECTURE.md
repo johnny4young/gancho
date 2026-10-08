@@ -577,10 +577,11 @@ invariants. The task handle is read-only inside the core module and remains
 outside its public API; fixed scheduler-yield counts do not stand in for
 completed cancellation.
 
-Snippet draft edits mark changed shared title/body fields for upload in the same
-transaction as the edit. Keyword-only changes remain local and never clear an
+Snippet edits (draft saves and direct `updateSnippet` writes share one helper)
+mark changed shared title/body fields for upload in the same transaction as the
+edit. Unchanged and keyword-only saves remain local and never clear an
 already-pending upload or advance the shared conflict timestamp. This prevents
-a local keyword edit from masking a newer remote title/body edit. Recovery
+a local no-op or keyword edit from masking a newer remote title/body edit. Recovery
 creates a fresh identity rather than resurrecting a deleted row.
 
 ### Native UI evidence privacy
