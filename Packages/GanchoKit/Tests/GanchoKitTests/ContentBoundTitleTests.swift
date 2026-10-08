@@ -63,12 +63,32 @@ struct ContentBoundTitleTests {
                 id: item.id, title: "Same topic", expectedText: "old"))
     }
 
+    @Test(arguments: [
+        "kind = 'jwt'", "kind = 'creditCard'", "kind = 'future-kind'",
+        "isPinned = 1, expiresAt = '2000-01-01 00:00:00.000'"
+    ])
+    func bodyBackedRowsStayTitleable(mutation: String) async throws {
+        // Capture plans titles for every non-sensitive text clip, masked kinds
+        // included, and reads keep a curated expired row visible.
+        let store = try makeStore()
+        let item = ClipItem(preview: "body", contentHash: "title-kept-\(mutation)")
+        try await store.insert(item, content: .text("body"))
+        try await store.writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET \(mutation) WHERE id = ?",
+                arguments: [item.id.uuidString])
+        }
+        #expect(
+            try await store.updateTitleIfEmptyAndCurrent(
+                id: item.id, title: "Generated", expectedText: "body"))
+    }
+
     @Test func changedEligibilityRejectsAnIdenticalBody() async throws {
         let store = try makeStore()
         let item = ClipItem(preview: "body", contentHash: "title-eligibility")
         try await store.insert(item, content: .text("body"))
         let mutations = [
-            "isSensitive = 1", "kind = 'jwt'", "kind = 'future-kind'", "isArchived = 1",
+            "isSensitive = 1", "kind = 'image'", "kind = 'fileReference'", "isArchived = 1",
             "expiresAt = '2000-01-01 00:00:00.000'", "contentTypeIdentifier = 'public.file-url'"
         ]
         for mutation in mutations {

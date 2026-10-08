@@ -8,11 +8,16 @@ label the new body.
 Capture enrichment now requires the optional `ContentBoundTitleStoring` capability
 for generated titles. Its GRDB implementation uses one guarded UPDATE: the body
 must exactly match the source supplied to the annotator, the title must still be
-empty, and the row must remain a live, unarchived, non-sensitive text-backed item
-of a known eligible kind. A rejected guarded update changes neither the revision
-nor the upload flag. The coordinator's existing follow-up sync enqueue policy is
-unchanged. The title-written callback fires only after an accepted write, so a
-stale result does not consume the free title taste or announce a title update.
+empty, and the row must remain a visible, unarchived, non-sensitive text-backed
+item. Visibility reuses the store's shared read predicate, so an expired row that
+retention keeps (pinned, boarded, or a snippet) stays titleable. Only kinds
+without a free-text body (images, file references) are excluded. Masked kinds
+stay titleable as before: the model tier sees sanitized input and the heuristic
+tier emits fixed titles for them. A rejected guarded update changes neither the
+revision nor the upload flag. The coordinator's existing follow-up sync enqueue
+policy is unchanged. The title-written callback fires only after an accepted
+write, so a stale result does not consume the free title taste or announce a
+title update.
 
 The existing `ClipEnriching` requirements and `updateTitleIfEmpty` implementation
 remain available for source compatibility. A custom store without the guarded
