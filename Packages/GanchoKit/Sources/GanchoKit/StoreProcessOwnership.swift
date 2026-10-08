@@ -62,16 +62,18 @@ final class StoreProcessOwnership: @unchecked Sendable {
     private let owner: String
     private let mutex = NSLock()
     private var released = false
+    private var exclusive: Bool
 
     private init(
         queue: DatabaseQueue, directory: URL, token: String, owner: String,
-        lifecycle: StoreOwnershipLifecycle
+        exclusive: Bool, lifecycle: StoreOwnershipLifecycle
     ) {
         self.queue = queue
         self.lifecycle = lifecycle
         self.directory = directory
         self.token = token
         self.owner = owner
+        self.exclusive = exclusive
     }
 
     static func acquire(
@@ -126,7 +128,7 @@ final class StoreProcessOwnership: @unchecked Sendable {
             retained = true
             return StoreProcessOwnership(
                 queue: queue, directory: directory, token: token, owner: owner,
-                lifecycle: lifecycle)
+                exclusive: exclusive, lifecycle: lifecycle)
         }
     }
 
@@ -134,6 +136,9 @@ final class StoreProcessOwnership: @unchecked Sendable {
         mutex.lock()
         defer { mutex.unlock() }
         guard !released else { throw Failure.malformedMetadata }
+        // A shared claim has nothing to downgrade. Skipping the write keeps a
+        // steady-state open from failing on a busy or suspended ledger.
+        guard exclusive else { return }
         try lifecycle.withActive {
             try queue.write { db in
                 try db.execute(
@@ -142,6 +147,7 @@ final class StoreProcessOwnership: @unchecked Sendable {
                 guard db.changesCount == 1 else { throw Failure.malformedMetadata }
             }
         }
+        exclusive = false
     }
 
     func release() {
