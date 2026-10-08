@@ -3,7 +3,7 @@ import GRDB
 
 /// Database row ↔ domain mapping. Internal: the row schema is a storage
 /// detail; everything outside speaks `ClipItem` + `ClipContent`.
-struct ClipRow: Codable, FetchableRecord, PersistableRecord {
+struct ClipRow: Codable, FetchableRecord, PersistableRecord, Sendable {
     static let databaseTableName = "clip"
 
     /// Check only privacy metadata; exporting must not decode tags or create a
