@@ -32,12 +32,10 @@ private final class FakePassphraseKeychain: PassphraseKeychainOperations, @unche
     func add(_ query: [String: Any]) -> OSStatus {
         lock.withLock {
             adds += 1
-            if let duplicateWinner {
-                synchronized = duplicateWinner
-                return errSecDuplicateItem
-            }
-            synchronized = query[kSecValueData as String] as? Data
-            return errSecSuccess
+            let sync = query[kSecAttrSynchronizable as String] as? Bool ?? false
+            let stored = duplicateWinner ?? query[kSecValueData as String] as? Data
+            if sync { synchronized = stored } else { local = stored }
+            return duplicateWinner == nil ? errSecSuccess : errSecDuplicateItem
         }
     }
 
@@ -80,6 +78,18 @@ struct PassphraseKeychainFailureTests {
         #expect(fake.synchronized == valid)
     }
 
+    @Test("A malformed synchronizable key with no local key fails closed in place")
+    func malformedSynchronized() throws {
+        let malformed = Data("not-a-key".utf8)
+        let fake = FakePassphraseKeychain(synchronized: malformed)
+        #expect(throws: KeychainPassphraseStore.Failure.malformedKey) {
+            try KeychainPassphraseStore(operations: fake).loadOrCreateKeyReportingFreshness()
+        }
+        #expect(fake.reads == [false, true])
+        #expect(fake.adds == 0 && fake.deletes == 0)
+        #expect(fake.local == nil && fake.synchronized == malformed)
+    }
+
     @Test("Real absence creates once; duplicate first-launch contenders read the winner")
     func absenceAndDuplicate() throws {
         let empty = FakePassphraseKeychain()
@@ -87,6 +97,7 @@ struct PassphraseKeychainFailureTests {
         #expect(try store.loadOrCreateKeyReportingFreshness().isFresh)
         #expect(try !store.loadOrCreateKeyReportingFreshness().isFresh)
         #expect(empty.adds == 1 && empty.deletes == 0)
+        #expect(empty.local == nil && empty.synchronized != nil)
 
         let racing = FakePassphraseKeychain()
         racing.duplicateWinner = valid

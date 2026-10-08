@@ -345,14 +345,16 @@ public struct KeychainPassphraseStore: Sendable {
         status == errSecMissingEntitlement || status == errSecNotAvailable
     }
 
-    /// Gancho has always generated 32 random bytes encoded as 64 ASCII hex
-    /// digits. Accept uppercase legacy encodings verbatim, without trimming or
-    /// rewriting authority; arbitrary passphrases belong only to explicit
-    /// `GRDBClipboardStore(directory:passphrase:)` callers, not this item.
+    /// Gancho has always generated 32 random bytes encoded as 64 lowercase
+    /// ASCII hex digits. Uppercase hex is also accepted, verbatim, without
+    /// trimming or rewriting authority; arbitrary passphrases belong only to
+    /// explicit `GRDBClipboardStore(directory:passphrase:)` callers, not this item.
     static func isStoredKey(_ key: String) -> Bool {
         key.utf8.count == 64
             && key.utf8.allSatisfy { byte in
-                (48...57).contains(byte) || (65...70).contains(byte) || (97...102).contains(byte)
+                (UInt8(ascii: "0")...UInt8(ascii: "9")).contains(byte)
+                    || (UInt8(ascii: "A")...UInt8(ascii: "F")).contains(byte)
+                    || (UInt8(ascii: "a")...UInt8(ascii: "f")).contains(byte)
             }
     }
 
