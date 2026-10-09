@@ -119,7 +119,9 @@ public protocol SyncLocalStore: Sendable {
     /// record so membership rides the clip (the boards extension implements it).
     func boardIDs(forClip clipID: UUID) async throws -> Set<UUID>
     /// Rebuilds a clip's board membership from a synced record, seeding a
-    /// placeholder board for any id whose metadata hasn't synced yet.
+    /// placeholder board for any id whose metadata hasn't synced yet. Ids of
+    /// boards with a pending local deletion are dropped, and dropping one
+    /// flags the clip for re-upload.
     func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws
 
     // Board metadata sync — the board table's mirror of the clip methods above,

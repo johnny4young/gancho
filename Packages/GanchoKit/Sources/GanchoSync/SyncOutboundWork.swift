@@ -105,7 +105,33 @@ struct SyncOutboundWork: Sendable {
         }
     }
 
-    /// True means a verified local win needs sending again, never a failed apply.
+    /// The given saves whose local rows are still dirty: a newer local edit
+    /// behind an acknowledgement, or an applied server copy whose membership
+    /// rebuild dropped a board with a pending local deletion. Reads only the
+    /// save queues those records can be in. Zones match by name and the result
+    /// carries this device's own zone IDs, the form `prepare` accepts.
+    func stillDirty(_ recordIDs: Set<CKRecord.ID>) async throws -> Set<CKRecord.ID> {
+        let clips =
+            recordIDs.contains { $0.zoneID.zoneName == clipZone.zoneName }
+            ? Set(try await store.pendingUploadIDs()) : []
+        let boards =
+            recordIDs.contains { $0.zoneID.zoneName == boardZone.zoneName }
+            ? Set(try await store.pendingBoardUploads().map(\.id)) : []
+        return Set(
+            recordIDs.compactMap { recordID -> CKRecord.ID? in
+                guard let id = UUID(uuidString: recordID.recordName) else { return nil }
+                switch recordID.zoneID.zoneName {
+                case clipZone.zoneName where clips.contains(id):
+                    return CKRecord.ID(recordName: id.uuidString, zoneID: clipZone)
+                case boardZone.zoneName where boards.contains(id):
+                    return CKRecord.ID(recordName: id.uuidString, zoneID: boardZone)
+                default: return nil
+                }
+            })
+    }
+
+    /// True means the record needs sending again — a verified local win, or a
+    /// server copy that applied but left the row dirty — never a failed apply.
     func resolveConflict(_ record: CKRecord) async throws -> Bool {
         if record.recordType == BoardRecordMapper.recordType {
             guard let board = BoardRecordMapper.decode(record) else {
@@ -118,16 +144,30 @@ struct SyncOutboundWork: Sendable {
         guard let decoded = ClipRecordMapper.decode(record) else {
             throw SyncOutboundFailure.invalidRecord
         }
+        let boardIDs = Set(ClipRecordMapper.boardIDs(from: record))
         let summary = try await store.applyRemoteChanges(
             clips: [
                 .init(
                     item: decoded.item, content: decoded.content,
                     systemFields: ClipRecordMapper.encodeSystemFields(record),
-                    boardIDs: Set(ClipRecordMapper.boardIDs(from: record)))
+                    boardIDs: boardIDs)
             ],
             boards: [], clipDeletions: [], boardDeletions: [])
         guard summary.failed == 0 else { throw SyncOutboundFailure.localWrite }
-        return summary.skippedAsStale > 0
+        if summary.skippedAsStale > 0 { return true }
+        // A plain server win is clean, so this cannot loop. Only a membership
+        // rebuild that dropped a board re-flags the applied row, so the queue
+        // is read just then: a resync full of server wins must not scan it per
+        // record. The apply has committed, so an unreadable state re-sends
+        // instead of reporting a failed apply; preparation skips a clean row.
+        do {
+            guard try await store.boardIDs(forClip: decoded.item.id) != boardIDs else {
+                return false
+            }
+            return try await !stillDirty([record.recordID]).isEmpty
+        } catch {
+            return true
+        }
     }
 }
 
