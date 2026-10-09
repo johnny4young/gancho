@@ -42,6 +42,7 @@ struct SyncUploadSnapshotTests {
         try await store.updateClipText(id: item.id, text: "second body")
         gate.resume()
         let captured = try #require(try await upload.value)
+        #expect(!gate.hasTimedOut(), "the edit must commit before the upload gate releases")
 
         #expect(captured.item.preview == "first body")
         #expect(captured.content == .text("first body"))
@@ -60,6 +61,7 @@ struct SyncUploadSnapshotTests {
 private final class UploadSnapshotGate: @unchecked Sendable {
     private let lock = NSLock()
     private var armed = false
+    private var timedOut = false
     private let reached = DispatchSemaphore(value: 0)
     private let proceed = DispatchSemaphore(value: 0)
 
@@ -78,13 +80,22 @@ private final class UploadSnapshotGate: @unchecked Sendable {
         lock.unlock()
         guard shouldPause else { return }
         reached.signal()
-        _ = proceed.wait(timeout: .now() + 30)
+        let released = proceed.wait(timeout: .now() + 60) == .success
+        lock.lock()
+        timedOut = !released
+        lock.unlock()
+    }
+
+    func hasTimedOut() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return timedOut
     }
 
     func waitForSnapshot() async -> Bool {
         await withCheckedContinuation { continuation in
             DispatchQueue.global().async {
-                continuation.resume(returning: self.reached.wait(timeout: .now() + 30) == .success)
+                continuation.resume(returning: self.reached.wait(timeout: .now() + 60) == .success)
             }
         }
     }
