@@ -41,6 +41,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   deletion, instead of letting an incoming copy of the board, or a clip that
   was still in it, bring it back. The clip's other boards are kept.
 
+- Correct a clip on iCloud right away when an incoming copy of it still lists
+  a board you deleted, instead of waiting for the next full sync.
+
 - Never let a generated title or a background semantic vector computed for
   older text land on a clip whose text has since changed.
 
