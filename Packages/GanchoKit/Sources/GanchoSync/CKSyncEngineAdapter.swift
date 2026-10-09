@@ -552,12 +552,14 @@ extension CKSyncEngineAdapter {
     }
 
     /// Re-adds saves whose rows the local store still considers dirty after an
-    /// acknowledgement or an applied fetch.
+    /// acknowledgement or an applied fetch. A replaced engine is not a failure:
+    /// the next start re-enqueues every dirty row into its successor.
     private func requeueStillDirty(
         _ recordIDs: Set<CKRecord.ID>, into engine: CKSyncEngine
     ) async throws {
+        guard !recordIDs.isEmpty, self.engine === engine else { return }
         let dirty = try await outbound.stillDirty(recordIDs)
-        guard self.engine === engine else { throw CancellationError() }
+        guard self.engine === engine else { return }
         engine.state.add(pendingRecordZoneChanges: dirty.map { .saveRecord($0) })
     }
 
@@ -739,30 +741,32 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
     ) async {
         let generation = receiveGeneration
         let records = event.modifications.map(\.record)
+        var applyError: (any Error)?
         do {
             try await applyFetched(records: records, deletions: event.deletions.map(\.recordID))
         } catch {
-            guard generation == receiveGeneration, !(error is CancellationError) else { return }
-            // The engine may persist its opaque fetch token regardless. The
-            // independent poll checkpoint has NOT moved and can replay it.
-            receiveHealth.fail(error)
-            emit(.failed(receiveHealth.failure ?? .unknown))
-            scheduleReceiveRecovery(after: error)
-            return
+            applyError = error
         }
+        guard generation == receiveGeneration, !(applyError is CancellationError) else { return }
         // An applied clip can come back dirty (its membership rebuild dropped
         // a board whose local deletion is still pending). No full re-enqueue
         // follows a push-fed fetch, so register those saves here instead of
-        // leaving them for the next explicit start.
+        // leaving them for the next explicit start — also when only part of
+        // the page applied, since its other changes have already committed.
+        let clipZoneName = zoneID.zoneName
         let fetchedClips = Set(
-            records.compactMap { record -> CKRecord.ID? in
-                guard record.recordID.zoneID.zoneName == zoneID.zoneName else { return nil }
-                return UUID(uuidString: record.recordID.recordName).map { recordID(for: $0) }
-            })
-        guard !fetchedClips.isEmpty, !isPaused, !outboundFailures.contains(.reset) else { return }
-        do { try await requeueStillDirty(fetchedClips, into: syncEngine) } catch {
-            failOutbound(.pending)
+            records.map(\.recordID).filter { $0.zoneID.zoneName == clipZoneName })
+        if !isPaused, !outboundFailures.contains(.reset) {
+            do { try await requeueStillDirty(fetchedClips, into: syncEngine) } catch {
+                failOutbound(.pending)
+            }
         }
+        guard let applyError, generation == receiveGeneration else { return }
+        // The engine may persist its opaque fetch token regardless. The
+        // independent poll checkpoint has NOT moved and can replay it.
+        receiveHealth.fail(applyError)
+        emit(.failed(receiveHealth.failure ?? .unknown))
+        scheduleReceiveRecovery(after: applyError)
     }
 
     /// Applies a batch of fetched changes to the local store — shared by the

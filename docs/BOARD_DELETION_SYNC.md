@@ -12,10 +12,11 @@ board IDs. Other memberships, including placeholders for genuinely unknown
 boards, continue to apply. When a rebuild drops a deleted board ID, the clip is
 re-queued for upload with its received revision, so the server copy stops
 naming the deleted board. The CloudKit adapter registers that upload with the
-engine as soon as the clip is applied — after a push-fed fetch and after a
-server-wins conflict reply — rather than leaving it for the next explicit
-start; a clip that applied cleanly is not re-sent. A fetched page counts rejected board metadata as
-`skippedAsStale`; the clip itself can still apply normally.
+engine as soon as the clip is applied — after a push-fed fetch (including a
+page that only partly applied) and after a server-wins conflict reply — rather
+than leaving it for the next explicit start; a clip that applied cleanly is not
+re-sent. A fetched page counts rejected board metadata as `skippedAsStale`; the
+clip itself can still apply normally.
 
 The public sync protocol and server-wins policy for ordinary board metadata are
 unchanged. No schema or permanent deletion history is added. After the adapter
