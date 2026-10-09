@@ -467,4 +467,58 @@ extension SyncOutboundWorkTests {
         try await fixture.work.acknowledge(record)
         #expect(try await !fixture.store.pendingBoardUploads().map(\.id).contains(board.id))
     }
+
+    @Test("A server-wins conflict that drops a pending-deleted board is sent again")
+    func serverWinThatStaysDirty() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let item = try await fixture.insert()
+        let board = try await fixture.store.createPinboard(name: "synthetic board")
+        try await fixture.store.assign(clipID: item.id, toBoard: board.id)
+        try await fixture.store.deletePinboardForSync(id: board.id)
+        // A newer server copy from another device still names the deleted board.
+        var newer = item
+        newer.updatedAt = Date().addingTimeInterval(60)
+        let server = try #require(
+            ClipRecordMapper.record(
+                for: newer, content: .text("synthetic"), systemFields: nil,
+                zoneID: fixture.work.clipZone, boardIDs: [board.id]))
+
+        #expect(try await fixture.work.resolveConflict(server))
+        #expect(try await fixture.store.boardIDs(forClip: item.id).isEmpty)
+        #expect(try await fixture.store.pendingUploadIDs() == [item.id])
+        let replacement = try #require(
+            try await fixture.work.prepare([server.recordID])[server.recordID])
+        #expect(ClipRecordMapper.boardIDs(from: replacement).isEmpty)
+    }
+
+    @Test("Only fetched clips the apply left dirty are registered for sending")
+    func fetchedClipsLeftDirty() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let deleted = try await fixture.store.createPinboard(name: "synthetic deleted")
+        try await fixture.store.deletePinboardForSync(id: deleted.id)
+        let kept = try await fixture.store.createPinboard(name: "synthetic kept")
+        try await fixture.store.markBoardUploaded(id: kept.id, systemFields: Data([1]))
+        let stale = ClipItem(preview: "synthetic", contentHash: UUID().uuidString)
+        let clean = ClipItem(preview: "synthetic", contentHash: UUID().uuidString)
+        let staleRecord = try #require(
+            ClipRecordMapper.record(
+                for: stale, content: .text("synthetic"), systemFields: nil,
+                zoneID: fixture.work.clipZone, boardIDs: [deleted.id]))
+        let cleanRecord = try #require(
+            ClipRecordMapper.record(
+                for: clean, content: .text("synthetic"), systemFields: nil,
+                zoneID: fixture.work.clipZone, boardIDs: [kept.id]))
+        let adapter = CKSyncEngineAdapter(
+            store: fixture.store, containerIdentifier: "iCloud.test.gancho",
+            stateStore: .init(load: { nil }, save: { _ in }))
+
+        try await adapter.applyFetched(records: [staleRecord, cleanRecord], deletions: [])
+
+        let keptID = CKRecord.ID(recordName: kept.id.uuidString, zoneID: fixture.work.boardZone)
+        let dirty = try await fixture.work.stillDirty(
+            [staleRecord.recordID, cleanRecord.recordID, keptID])
+        #expect(dirty == [staleRecord.recordID])
+    }
 }

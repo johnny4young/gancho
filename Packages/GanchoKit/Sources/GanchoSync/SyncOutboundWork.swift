@@ -105,7 +105,29 @@ struct SyncOutboundWork: Sendable {
         }
     }
 
-    /// True means a verified local win needs sending again, never a failed apply.
+    /// The given saves whose local rows are still dirty: a newer local edit
+    /// behind an acknowledgement, or an applied server copy whose membership
+    /// rebuild dropped a board with a pending local deletion. Reads only the
+    /// save queues those records can be in.
+    func stillDirty(_ recordIDs: Set<CKRecord.ID>) async throws -> Set<CKRecord.ID> {
+        let clips =
+            recordIDs.contains { $0.zoneID.zoneName == clipZone.zoneName }
+            ? Set(try await store.pendingUploadIDs()) : []
+        let boards =
+            recordIDs.contains { $0.zoneID.zoneName == boardZone.zoneName }
+            ? Set(try await store.pendingBoardUploads().map(\.id)) : []
+        return recordIDs.filter { recordID in
+            guard let id = UUID(uuidString: recordID.recordName) else { return false }
+            switch recordID.zoneID.zoneName {
+            case clipZone.zoneName: return clips.contains(id)
+            case boardZone.zoneName: return boards.contains(id)
+            default: return false
+            }
+        }
+    }
+
+    /// True means the record needs sending again — a verified local win, or a
+    /// server copy that applied but left the row dirty — never a failed apply.
     func resolveConflict(_ record: CKRecord) async throws -> Bool {
         if record.recordType == BoardRecordMapper.recordType {
             guard let board = BoardRecordMapper.decode(record) else {
@@ -127,7 +149,9 @@ struct SyncOutboundWork: Sendable {
             ],
             boards: [], clipDeletions: [], boardDeletions: [])
         guard summary.failed == 0 else { throw SyncOutboundFailure.localWrite }
-        return summary.skippedAsStale > 0
+        if summary.skippedAsStale > 0 { return true }
+        // A plain server win is clean, so this cannot loop.
+        return try await !stillDirty([record.recordID]).isEmpty
     }
 }
 
