@@ -71,7 +71,8 @@ private final class UploadSnapshotGate: @unchecked Sendable {
 
     func observe(_ sql: String) {
         lock.lock()
-        let shouldPause = armed && sql.hasPrefix("SELECT * FROM clip")
+        let shouldPause =
+            armed && sql.hasPrefix("SELECT * FROM clip")
             && sql.contains("syncSystemFields IS NULL OR needsUpload = 1")
         if shouldPause { armed = false }
         lock.unlock()
