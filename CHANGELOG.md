@@ -44,6 +44,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Correct a clip on iCloud right away when an incoming copy of it still lists
   a board you deleted, instead of waiting for the next full sync.
 
+- Send a clip to iCloud with the text and details of the same edit, even when
+  you change it while sync is preparing the upload.
+
 - Never let a generated title or a background semantic vector computed for
   older text land on a clip whose text has since changed.
 
