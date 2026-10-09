@@ -11,6 +11,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Go back from later welcome steps with a new Back button; Skip and the manual
+  paste fallback stay available.
+
 - Explicit, off-by-default meaning suggestions in a separate panel section, with
   cancellation and index-coverage status while conventional results remain
   intact.
@@ -45,9 +48,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   the stale semantic vector when the text changes.
 
 - Paste with Return or ⌘V from the results of the search you just typed, never
-  from rows left over from the previous query. The welcome flow gains a Back
-  button, and the website states that the iPhone and iPad apps are not yet
-  available and shows clearer text contrast.
+  from rows left over from the previous query.
+
+- State on the website that the iPhone and iPad apps are not available yet,
+  and make its secondary text easier to read.
 
 - Preview CSV imports without keeping an extra copy of every row in memory.
 
@@ -69,6 +73,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Keep MCP search inside the exact reviewed clip revisions. Changed clips no
   longer expose new previews or displace unchanged matches from a limited search.
+
 - Read MCP clip policy and content from one database snapshot, so an intervening
   edit cannot pair previously approved metadata with an unreviewed body.
 

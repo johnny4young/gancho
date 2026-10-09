@@ -22,8 +22,8 @@ requires macOS 15.4+ (build 18). Local history and manual OCR are Free; Pro
 activation through Lemon Squeezy is included. The on-device model tier requires
 macOS 26. The v0.10.0 source adds text recipes, off-by-default meaning
 suggestions, selected context for AI tools and translation with installed
-languages, opens a solid panel on the newest clip, and hardens privacy and
-sync; it is not yet a published build. See its
+languages on macOS 26, opens a solid panel on the newest clip, and hardens
+privacy and sync; it is not yet a published build. See its
 [release notes](docs/releases/v0.10.0.md).
 
 ![The Gancho panel, solid by default, with a link peek and developer actions collapsed](site/assets/v0.10.0-release.png)
