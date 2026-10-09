@@ -12,7 +12,7 @@ import Testing
 /// degrades to the deterministic `HeuristicAnnotator` (so the title stage still
 /// succeeds), while the embedder reports no on-device assets (so the embedding
 /// stage writes nothing); the assertions below are chosen to hold either way.
-private actor FakeEnriching: ClipEnriching {
+private actor FakeEnriching: ContentBoundTitleStoring, ClipEnriching {
     private(set) var updateTitleCalls = 0
     var allowsGeneratedTitleWrite = true
     private(set) var attachExtractedTextCalls = 0
@@ -25,6 +25,11 @@ private actor FakeEnriching: ClipEnriching {
     func updateTitleIfEmpty(id: UUID, title: String) async throws -> Bool {
         updateTitleCalls += 1
         return allowsGeneratedTitleWrite
+    }
+    func updateTitleIfEmptyAndCurrent(
+        id: UUID, title: String, expectedText: String
+    ) async throws -> Bool {
+        try await updateTitleIfEmpty(id: id, title: title)
     }
     func attachExtractedText(id: UUID, text: String) async throws { attachExtractedTextCalls += 1 }
     func updateClipText(id: UUID, text: String) async throws { updateClipTextCalls += 1 }

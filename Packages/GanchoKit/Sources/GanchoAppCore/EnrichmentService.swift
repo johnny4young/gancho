@@ -20,17 +20,32 @@ import GanchoKit
 ///   `refreshRecents()`. The caller passes that as `onTitleWritten`, which runs on
 ///   the caller's actor immediately after the write, in the original position.
 ///
-/// Stateless and `Sendable`: it constructs `ImageTextExtractor` /
-/// `TieredClipAnnotator` / `ContextualSentenceEmbedder` per call exactly as the
-/// inlined code did (the process-lifetime-instance optimization is deliberately
-/// NOT taken here — this is a pure move). Each per-call helper is created and
-/// consumed inside its own `if` with no `await` between construction and last
-/// use, so no non-`Sendable` value crosses an actor boundary and the type needs no
-/// `@MainActor` isolation. On CI the annotator degrades to the heuristic and the
-/// embedder reports `hasAvailableAssets == false`, so those stages yield nothing
-/// there; the plan/`writeTitle` gating remains unit-testable.
+/// Sendable configuration constructs each non-Sendable helper only for its own
+/// stage, without suspending during model computation. The injected embedder
+/// factory gives race tests deterministic vectors without requiring model assets.
+/// Background vector writes require ContentBoundEmbeddingStoring; legacy stores
+/// without that optional capability skip vectors. Generated titles similarly require
+/// ContentBoundTitleStoring; unsupported stores retain OCR work without unsafe writes.
 public struct EnrichmentService: Sendable {
-    public init() {}
+    private let makeEmbedder: @Sendable () -> (any TextEmbedding)?
+    private let annotator: any ClipAnnotating
+
+    public init() {
+        self.init(makeEmbedder: {
+            guard let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets else {
+                return nil
+            }
+            return embedder
+        })
+    }
+
+    init(
+        makeEmbedder: @escaping @Sendable () -> (any TextEmbedding)?,
+        annotator: any ClipAnnotating = TieredClipAnnotator()
+    ) {
+        self.makeEmbedder = makeEmbedder
+        self.annotator = annotator
+    }
 
     /// Runs the enrichment IO shared by both shells, in the SAME order as the
     /// inlined code: OCR → title → embedding.
@@ -59,18 +74,22 @@ public struct EnrichmentService: Sendable {
         }
         // Tier 1 — Apple Intelligence titles.
         if writeTitle, case .text(let text)? = content,
-            let annotation = try? await TieredClipAnnotator().annotate(text)
+            let titleStore = store as? any ContentBoundTitleStoring,
+            let annotation = try? await annotator.annotate(text)
         {
             let wroteTitle =
-                (try? await store.updateTitleIfEmpty(id: item.id, title: annotation.title)) == true
+                (try? await titleStore.updateTitleIfEmptyAndCurrent(
+                    id: item.id, title: annotation.title, expectedText: text)) == true
             if wroteTitle { await onTitleWritten() }
         }
         // Semantic vector (the embedder caches its model after the first call).
         if plan.runs(.embedding), case .text(let text)? = content,
-            let embedder = ContextualSentenceEmbedder(), embedder.hasAvailableAssets,
+            let embeddingStore = store as? any ContentBoundEmbeddingStoring,
+            let embedder = makeEmbedder(),
             let vector = try? embedder.vector(for: String(text.prefix(1_000)))
         {
-            _ = try? await store.saveEmbedding(clipID: item.id, vector: vector)
+            _ = try? await embeddingStore.saveEmbeddingIfCurrent(
+                clipID: item.id, vector: vector, expectedText: text)
         }
     }
 

@@ -164,4 +164,18 @@ struct SemanticSearchTests {
         }
         #expect(try await store.staleEmbeddingClipIDs(limit: 10).isEmpty)
     }
+
+    @Test("Kinds the guarded write rejects never stall the stale-refresh queue")
+    func staleSkipsIneligibleKinds() async throws {
+        // A non-sensitive JWT can carry a vector from an earlier capture path.
+        // Left in the queue, it would be rejected forever and hold its batch slot.
+        let store = try makeStore()
+        let item = ClipItem(kind: .jwt, preview: "x", contentHash: "h")
+        try await store.insert(item, content: .text("x"))
+        try await store.saveEmbedding(clipID: item.id, vector: [1, 0])
+        try await store.writer.write { db in
+            try db.execute(sql: "UPDATE clip_embedding SET modelVersion = modelVersion - 1")
+        }
+        #expect(try await store.staleEmbeddingClipIDs(limit: 10).isEmpty)
+    }
 }

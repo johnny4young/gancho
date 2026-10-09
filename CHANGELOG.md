@@ -34,6 +34,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Detect a credit card even when an earlier order or reference number fails
+  its checksum, or when the card is followed by its security code or preceded
+  by a phone number, so mixed clipboard text still gets masking and short
+  expiry. Phone numbers, dates and order ids keep their normal handling.
+
 - Keep the panel's hidden ⌘V, ⌥⌘V, ⌘Y, ⌘G and ⇧⌘C shortcuts away from a field
   being edited, the board picker and the shortcuts sheet, and stop list keys
   acting behind that sheet. Escape cancels a title or content edit.
@@ -48,6 +53,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   resize the panel from Settings only when you pick a size, confirm backups and
   report a settings file that couldn't be imported. Toasts and the shortcuts
   sheet follow the solid panel preference.
+
+- Keep a board you deleted gone while iCloud sync is still sending the
+  deletion, instead of letting an incoming copy of the board, or a clip that
+  was still in it, bring it back. The clip's other boards are kept.
 
 - Keep a stopped iCloud sync engine stopped, order sync restarts and resets, and
   tombstone already-synced clips and boards deleted while sync is off so they
@@ -145,6 +154,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   mirror and Homebrew cask metadata with the published v0.9.1 DMG.
   Physical-device acceptance remains pending; the published app, tag and
   checksum are unchanged.
+
+- Keep MCP search inside the exact reviewed clip revisions. Changed clips no
+  longer expose new previews or displace unchanged matches from a limited search.
+- Read MCP clip policy and content from one database snapshot, so an intervening
+  edit cannot pair previously approved metadata with an unreviewed body.
 
 ## [0.9.1] - 2026-09-29
 

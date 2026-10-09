@@ -204,12 +204,16 @@ extension GRDBClipboardStore {
 
     /// The boards a clip belongs to — drives the context menu's checkmarks.
     public func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> {
-        try await writer.read { db in
-            let ids = try String.fetchAll(
-                db, sql: "SELECT boardID FROM clip_board WHERE clipID = ?",
-                arguments: [clipID.uuidString])
-            return Set(ids.compactMap { UUID(uuidString: $0) })
-        }
+        try await writer.read { db in try Self.boardIDs(forClip: clipID, in: db) }
+    }
+
+    /// Board membership inside a caller's existing database access, so a
+    /// policy check can read it from the same snapshot as the clip row.
+    static func boardIDs(forClip clipID: UUID, in db: Database) throws -> Set<UUID> {
+        let ids = try String.fetchAll(
+            db, sql: "SELECT boardID FROM clip_board WHERE clipID = ?",
+            arguments: [clipID.uuidString])
+        return Set(ids.compactMap { UUID(uuidString: $0) })
     }
 
     /// The trailing `id` breaks `updatedAt` ties — batch assignment stamps one
@@ -253,7 +257,10 @@ extension GRDBClipboardStore {
     /// Membership rebuild against an open transaction, so it can share one with
     /// the upsert that carried it rather than opening a second per record.
     func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>, in db: Database) throws {
-        for boardID in boardIDs {
+        // A clip can arrive separately from board metadata. Its stale board
+        // reference must not recreate a locally deleted board as a placeholder.
+        let eligibleBoardIDs = try boardIDs.filter { try !Self.isBoardTombstoned($0, in: db) }
+        for boardID in eligibleBoardIDs {
             // needsUpload = 0: a placeholder is a stub for a board owned by
             // another device — its real record syncs in, we don't push it.
             try db.execute(
@@ -264,14 +271,31 @@ extension GRDBClipboardStore {
         }
         try db.execute(
             sql: "DELETE FROM clip_board WHERE clipID = ?", arguments: [clipID.uuidString])
-        for boardID in boardIDs {
+        for boardID in eligibleBoardIDs {
             try db.execute(
                 sql: "INSERT OR IGNORE INTO clip_board (clipID, boardID) VALUES (?, ?)",
                 arguments: [clipID.uuidString, boardID.uuidString])
         }
+        // The applied record still names the deleted board on the server.
+        // Re-queue the clip so its next upload drops that id; otherwise the
+        // stale reference outlives the tombstone and can seed a placeholder
+        // once the deletion is acknowledged. `updatedAt` stays as received:
+        // other devices take an equal-timestamp remote, so the upload wins.
+        if eligibleBoardIDs.count != boardIDs.count {
+            try db.execute(
+                sql: "UPDATE clip SET needsUpload = 1 WHERE id = ?",
+                arguments: [clipID.uuidString])
+        }
     }
 
     // MARK: - Board deletion sync
+
+    static func isBoardTombstoned(_ id: UUID, in db: Database) throws -> Bool {
+        try Bool.fetchOne(
+            db,
+            sql: "SELECT EXISTS (SELECT 1 FROM board_tombstone WHERE recordID = ?)",
+            arguments: [id.uuidString]) ?? false
+    }
 
     /// Record IDs of board deletions waiting to propagate (board-zone tombstones).
     public func pendingBoardDeletionRecordIDs() async throws -> [String] {

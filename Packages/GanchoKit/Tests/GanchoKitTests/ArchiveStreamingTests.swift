@@ -184,16 +184,18 @@ struct ArchiveStreamingTests {
         _ = blobs  // the store's blob dir is per-test; emptying it is enough
         try? FileManager.default.removeItem(at: store.blobsForMaintenance.directory)
 
-        let directory = FileManager.default.temporaryDirectory
+        // A private parent, so the export's sibling stage is observable.
+        let parent = FileManager.default.temporaryDirectory
             .appendingPathComponent("export-\(UUID().uuidString)", isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let directory = parent.appendingPathComponent("backup.ganchoarchive", isDirectory: true)
 
         await #expect(throws: (any Error).self) {
             try await GanchoArchive.export(from: store, to: directory)
         }
-        let leftovers = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
-        #expect(
-            !leftovers.contains { $0.hasPrefix(".clips.json.") },
-            "a staging file survived: \(leftovers)")
+        // The rows streamed into the private stage; the failure discards that
+        // whole stage and never creates the destination.
+        let leftovers = (try? FileManager.default.contentsOfDirectory(atPath: parent.path)) ?? []
+        #expect(leftovers.isEmpty, "a staging artifact survived: \(leftovers)")
     }
 }
