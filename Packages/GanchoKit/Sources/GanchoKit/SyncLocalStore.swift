@@ -210,7 +210,7 @@ extension GRDBClipboardStore: SyncLocalStore {
         }
         var result: [(ClipItem, ClipContent?)] = []
         for row in rows {
-            result.append((row.item, try await content(for: row.item.id, includingExpired: true)))
+            result.append((row.item, try content(from: row)))
         }
         return result
     }
@@ -250,7 +250,9 @@ extension GRDBClipboardStore: SyncLocalStore {
                 arguments: [id.uuidString])
         }
         guard let row else { return nil }
-        return (row.item, try await content(for: row.item.id, includingExpired: true))
+        // Decode the payload selected with this metadata, not a second lookup by id.
+        // A concurrent edit or deletion must not mix two upload generations.
+        return (row.item, try content(from: row))
     }
 
     public func pendingDeletionRecordIDs() async throws -> [String] {

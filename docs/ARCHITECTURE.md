@@ -379,6 +379,14 @@ Performance budgets:
 
 `SyncEngine` is a hard boundary. The shared core never imports CloudKit.
 
+Outbound clip metadata and payload come from the same captured `ClipRow`. An edit
+that commits while an upload is being prepared cannot substitute its body under
+an earlier revision. Acknowledging that earlier revision leaves the newer edit
+pending. Binary reads use the captured content-addressed blob hash; if a
+concurrent deletion has already removed that blob, the payload is nil rather
+than another generation's bytes. The record's system fields and board
+membership are still read in separate transactions.
+
 The first production implementation is CKSyncEngine over the user's private
 iCloud database. It must persist engine state, system fields, tombstones, quota
 errors, offline recovery, and reset handling explicitly. The same boundary is

@@ -3,7 +3,7 @@
 // targets in Apps/ are thin shells. Eight library products plus a CLI:
 //   GanchoKit      — models, store protocols, sync boundary
 //   ClipboardCore  — platform pasteboard adapters (macOS capture, iOS intent-based)
-//   GanchoAI       — on-device intelligence (tier-0 classifier today)
+//   GanchoAI       — local classification, OCR, models, and text embeddings
 //   GanchoDesign   — design tokens shared across platforms
 //   GanchoTelemetry — bucket-only analytics transport (kept outside the core)
 //   GanchoSync     — CloudKit sync adapter (the only CloudKit importer)

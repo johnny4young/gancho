@@ -595,15 +595,10 @@ public final class GRDBClipboardStore: ClipboardStore, ClipImporting {
 
     /// Nil for an expired row that retention has not purged yet.
     public func content(for id: UUID) async throws -> ClipContent? {
-        try await content(for: id, includingExpired: false)
-    }
-
-    func content(for id: UUID, includingExpired: Bool) async throws -> ClipContent? {
         let row = try await writer.read { db in
-            let request = ClipRow.filter(key: id.uuidString)
-            return try includingExpired
-                ? request.fetchOne(db)
-                : request.filter(sql: Self.unexpiredPredicate, arguments: [Date.now]).fetchOne(db)
+            try ClipRow.filter(key: id.uuidString)
+                .filter(sql: Self.unexpiredPredicate, arguments: [Date.now])
+                .fetchOne(db)
         }
         guard let row else { return nil }
         return try content(from: row)
