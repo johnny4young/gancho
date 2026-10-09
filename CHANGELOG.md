@@ -7,7 +7,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-09
+
 ### Added
+
+- Go back from later welcome steps with a new Back button; Skip and the manual
+  paste fallback stay available.
 
 - Explicit, off-by-default meaning suggestions in a separate panel section, with
   cancellation and index-coverage status while conventional results remain
@@ -32,6 +37,46 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep a board you deleted gone while iCloud sync is still sending the
+  deletion, instead of letting an incoming copy of the board, or a clip that
+  was still in it, bring it back. The clip's other boards are kept.
+
+- Never let a generated title or a background semantic vector computed for
+  older text land on a clip whose text has since changed.
+
+- Queue snippet edits made through the public snippet API for sync, and drop
+  the stale semantic vector when the text changes.
+
+- Paste with Return or ⌘V from the results of the search you just typed, never
+  from rows left over from the previous query.
+
+- State on the website that the iPhone and iPad apps are not available yet,
+  and make its secondary text easier to read.
+
+- Preview CSV imports without keeping an extra copy of every row in memory.
+
+- Keep a clip's image from being deleted as an orphan while another process is
+  saving the same image, and recover an unreadable store by setting aside the
+  whole database, its journals and its images together, resuming safely after
+  an interruption.
+
+- Build each backup in a private folder and publish it only once it is
+  complete, so a failed export never damages a previous backup, and replace
+  only a folder that is already a Gancho backup or is empty.
+
+- Re-activate a Pro license after signing out or a revocation without
+  restarting Gancho, ignore late replies from superseded license requests and
+  release the seat a superseded activation used.
+
+- Fail safely on a malformed database key in the Keychain instead of deleting
+  it, which could also remove a valid synced key and force store recovery.
+
+- Keep MCP search inside the exact reviewed clip revisions. Changed clips no
+  longer expose new previews or displace unchanged matches from a limited search.
+
+- Read MCP clip policy and content from one database snapshot, so an intervening
+  edit cannot pair previously approved metadata with an unreviewed body.
+
 - Detect a credit card even when an earlier order or reference number fails
   its checksum, or when the card is followed by its security code or preceded
   by a phone number, so mixed clipboard text still gets masking and short
@@ -51,10 +96,6 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   resize the panel from Settings only when you pick a size, confirm backups and
   report a settings file that couldn't be imported. Toasts and the shortcuts
   sheet follow the solid panel preference.
-
-- Keep a board you deleted gone while iCloud sync is still sending the
-  deletion, instead of letting an incoming copy of the board, or a clip that
-  was still in it, bring it back. The clip's other boards are kept.
 
 - Keep a stopped iCloud sync engine stopped, order sync restarts and resets, and
   tombstone already-synced clips and boards deleted while sync is off so they
@@ -152,11 +193,6 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   mirror and Homebrew cask metadata with the published v0.9.1 DMG.
   Physical-device acceptance remains pending; the published app, tag and
   checksum are unchanged.
-
-- Keep MCP search inside the exact reviewed clip revisions. Changed clips no
-  longer expose new previews or displace unchanged matches from a limited search.
-- Read MCP clip policy and content from one database snapshot, so an intervening
-  edit cannot pair previously approved metadata with an unreviewed body.
 
 ## [0.9.1] - 2026-09-29
 

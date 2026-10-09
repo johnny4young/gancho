@@ -10,13 +10,13 @@
 <meta property="og:title" content="gancho — your clipboard, everywhere" />
 <meta property="og:description" content="A private-by-design clipboard history and snippet library for Mac, iPhone, and iPad. Local-first, encrypted, on-device AI." />
 <meta property="og:url" content="https://gancho.app/" />
-<meta property="og:image" content="https://gancho.app/assets/v0.9.1-release.png" />
+<meta property="og:image" content="https://gancho.app/assets/v0.10.0-release.png" />
 <meta property="og:image:width" content="1080" />
 <meta property="og:image:height" content="675" />
-<meta property="og:image:alt" content="Gancho v0.9.1 on macOS" />
+<meta property="og:image:alt" content="Gancho v0.10.0 development preview on macOS" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="https://gancho.app/assets/v0.9.1-release.png" />
-<meta name="twitter:image:alt" content="Gancho v0.9.1 on macOS" />
+<meta name="twitter:image" content="https://gancho.app/assets/v0.10.0-release.png" />
+<meta name="twitter:image:alt" content="Gancho v0.10.0 development preview on macOS" />
 <link rel="icon" href="assets/gancho-mark.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="styles.css" />
 <style>
@@ -526,19 +526,21 @@
 <section class="band band-tint" id="latest-release">
   <div class="wrap release-grid">
     <div class="release-copy">
-      <span class="kicker" data-i18n="rel.kicker">Disponible · v0.9.1</span>
-      <h2 class="h2" data-i18n="rel.title">El tamaño de texto del panel, de verdad.</h2>
-      <p class="lede" data-i18n="rel.lede">La descarga v0.9.1 hace que Ajustes › General › Panel › Tamaño del texto cambie el panel: en v0.9.0 Pequeño, Estándar y Grande se veían igual. La matriz entre dispositivos, Sequoia y accesibilidad real sigue pendiente.</p>
+      <span class="kicker" data-i18n="rel.kicker">En preparación · v0.10.0</span>
+      <h2 class="h2" data-i18n="rel.title">Próxima versión: reutiliza más, con menos estorbo.</h2>
+      <p class="lede" data-i18n="rel.lede">v0.10.0 suma recetas de texto, sugerencias por significado, contexto seleccionado para IA y traducción con los idiomas instalados, y abre un panel sólido en tu clip más nuevo. La descarga actual sigue siendo v0.9.1.</p>
       <ul class="release-list">
-        <li data-i18n="rel.1"><b>Tamaño de texto que se nota:</b> filas, peek, dock y pie del panel crecen o se achican con la preferencia, partiendo del tamaño del sistema.</li>
-        <li data-i18n="rel.2"><b>iPhone y iPad siguen al sistema:</b> las filas del historial respetan el tamaño de texto de iOS.</li>
-        <li data-i18n="rel.3"><b>Sync sin fallos silenciosos:</b> un estado de sync ilegible o un reinicio fallido tras cambiar de cuenta de iCloud quedan en Problemas recientes, sin contenido.</li>
+        <li data-i18n="rel.1"><b>Recetas de texto:</b> encadena hasta ocho pasos deterministas, revisa el resultado antes de copiar y restaura las recetas predeterminadas; se cifran en tu Mac y no se sincronizan.</li>
+        <li data-i18n="rel.2"><b>Por significado, si lo activas:</b> una sección aparte de clips relacionados bajo tu búsqueda; los resultados normales no cambian.</li>
+        <li data-i18n="rel.3"><b>Contexto seleccionado para IA:</b> Markdown revisado y acotado, o acceso de solo lectura a esos clips durante una hora; un clip que cambia deja de servirse.</li>
+        <li data-i18n="rel.4"><b>Un panel más tranquilo:</b> sólido por defecto, abre en el clip más nuevo con la búsqueda enfocada y guarda las acciones de desarrollador bajo Más acciones.</li>
+        <li data-i18n="rel.5"><b>Más privacidad:</b> los clips expirados desaparecen al instante, el acceso MCP solo a metadatos ya no busca en el contenido y la CLI se niega a guardar o copiar secretos a menos que se lo pidas.</li>
       </ul>
-      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/releases/tag/v0.9.1" data-i18n="rel.cta">Ver notas y descargar v0.9.1</a>
+      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/blob/main/CHANGELOG.md" data-i18n="rel.cta">Ver todo lo que incluye 0.10.0</a>
     </div>
     <figure class="release-shot">
-      <img src="assets/v0.9.1-release.png" width="1080" height="675" loading="lazy" decoding="async" alt="Panel de Gancho con el tamaño de texto Grande / Gancho panel at the Large text size" />
-      <figcaption data-i18n="rel.caption">v0.9.1 en macOS con tamaño de texto Grande y datos sintéticos; no sustituye las pruebas del DMG publicado.</figcaption>
+      <img src="assets/v0.10.0-release.png" width="1080" height="675" loading="lazy" decoding="async" alt="Panel sólido de Gancho con el peek de un enlace / Solid Gancho panel with a link peek" />
+      <figcaption data-i18n="rel.caption">Vista previa del candidato macOS v0.10.0 con fixtures sintéticos; no es evidencia de una release publicada.</figcaption>
     </figure>
   </div>
 </section>
@@ -549,20 +551,20 @@
     <div class="sec-head">
       <span class="kicker" data-i18n="evo.kicker">Evolución reciente</span>
       <h2 class="h2" data-i18n="evo.title">Cada versión amplía lo que Gancho puede recordar por ti.</h2>
-      <p class="lede" data-i18n="evo.lede">El panel rediseñado de 0.9.0 y las salidas protegidas de 0.8.4 son la base que 0.9.1 hace legible a tu tamaño.</p>
+      <p class="lede" data-i18n="evo.lede">El panel rediseñado de 0.9.0, legible a tu tamaño desde 0.9.1, es la base sobre la que 0.10.0 suma nuevas formas de reutilizar.</p>
     </div>
     <div class="evolution-grid">
+      <article class="milestone-card">
+        <div class="milestone-meta"><span class="milestone-version">0.9.1</span><span class="milestone-date">29 Sep 2026</span></div>
+        <h3 data-i18n="evo.v091.t">El tamaño de texto del panel, de verdad.</h3>
+        <p data-i18n="evo.v091.p">Ajustes › General › Panel › Tamaño del texto cambia de verdad el panel, y dos fallos de sync dejan rastro sin contenido en Problemas recientes.</p>
+        <a class="milestone-link" href="#release-0-9-1" data-i18n="evo.v091.cta">Ver notas de 0.9.1 →</a>
+      </article>
       <article class="milestone-card">
         <div class="milestone-meta"><span class="milestone-version">0.9.0</span><span class="milestone-date">28 Sep 2026</span></div>
         <h3 data-i18n="evo.v090.t">Un panel nuevo, con la misma privacidad.</h3>
         <p data-i18n="evo.v090.p">Una sola barra, filas que muestran qué es cada clip, peek con tarjeta y dock de acciones, movimiento con Reducir movimiento, color ambiental opcional y galería con ⌘G.</p>
         <a class="milestone-link" href="#release-0-9-0" data-i18n="evo.v090.cta">Ver notas de 0.9.0 →</a>
-      </article>
-      <article class="milestone-card">
-        <div class="milestone-meta"><span class="milestone-version">0.8.4</span><span class="milestone-date">24 Sep 2026</span></div>
-        <h3 data-i18n="evo.v084.t">Lo que sale de Gancho sigue privado.</h3>
-        <p data-i18n="evo.v084.p">Salidas protegidas en Mac e iOS, pegar que respeta al gestor de contraseñas, nada se pierde al compartir o sincronizar y el panel conserva tu lugar.</p>
-        <a class="milestone-link" href="#release-0-8-4" data-i18n="evo.v084.cta">Ver notas de 0.8.4 →</a>
       </article>
     </div>
   </div>
@@ -1015,6 +1017,10 @@
       <p class="lede" data-i18n="log.lede">Explora cada versión, de la más reciente a la primera. Abre solo el hito que quieras conocer; sus metadatos y artefactos se verifican juntos en CI.</p>
     </div>
     <div class="log">
+      <details class="release-detail" id="release-0-9-1">
+        <summary><span class="log-meta"><span class="ver">0.9.1</span><span class="dt">29 Sep 2026</span></span><span class="release-summary-title" data-i18n="evo.v091.t">El tamaño de texto del panel, de verdad.</span><svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+        <div class="log-body"><ul><li data-i18n="evo.v091.p">Ajustes › General › Panel › Tamaño del texto cambia de verdad el panel, y dos fallos de sync dejan rastro sin contenido en Problemas recientes.</li><li><a href="https://github.com/johnny4young/gancho/releases/tag/v0.9.1" data-i18n="evo.v091.cta">Ver notas de 0.9.1 →</a></li></ul></div>
+      </details>
       <details class="release-detail" id="release-0-9-0">
         <summary><span class="log-meta"><span class="ver">0.9.0</span><span class="dt">28 Sep 2026</span></span><span class="release-summary-title" data-i18n="evo.v090.t">Un panel nuevo, con la misma privacidad.</span><svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
         <div class="log-body"><ul><li data-i18n="evo.v090.p">Una sola barra, filas que muestran qué es cada clip, peek con tarjeta y dock de acciones, movimiento con Reducir movimiento, color ambiental opcional y galería con ⌘G.</li><li><a href="https://github.com/johnny4young/gancho/releases/tag/v0.9.0" data-i18n="evo.v090.cta">Ver notas de 0.9.0 →</a></li></ul></div>
@@ -1228,13 +1234,15 @@
       "panel.search": "Search your clipboard…", "panel.foot": "Local · encrypted on this Mac",
       "clip.code.t": "useEffect cleanup", "clip.secret.t": "OpenAI API key", "clip.url.t": "Privacy policy", "clip.color.t": "Brand green", "clip.image.t": "Launch mark", "clip.image.p": "PNG · 248 KB · 1640×1024 · encrypted",
       "trust.1": "Local-first", "trust.2": "Encrypted on device", "trust.3": "No middle servers", "trust.4": "No content telemetry",
-      "rel.kicker": "Available now · v0.9.1", "rel.title": "The panel's text size, for real.",
-      "rel.lede": "The v0.9.1 download makes Settings › General › Panel › Text size change the panel: in v0.9.0 Small, Standard and Large looked the same. Cross-device, Sequoia and real accessibility acceptance remain pending.",
-      "rel.1": "<b>A text size you can see:</b> the panel's rows, peek, dock and footer grow or shrink with the preference, starting from the system size.",
-      "rel.2": "<b>iPhone and iPad follow the system:</b> history rows respect the iOS text size.",
-      "rel.3": "<b>Sync without silent failures:</b> unreadable sync state or a failed restart after an iCloud account change lands in Recent issues, content-free.",
-      "rel.cta": "Read notes and download v0.9.1",
-      "rel.caption": "v0.9.1 on macOS at the Large text size with synthetic data; not a substitute for testing the published DMG.",
+      "rel.kicker": "In preparation · v0.10.0", "rel.title": "Next release: reuse more, with less in the way.",
+      "rel.lede": "v0.10.0 adds text recipes, meaning suggestions, selected context for AI and translation with installed languages, and opens a solid panel on your newest clip. The current download remains v0.9.1.",
+      "rel.1": "<b>Text recipes:</b> chain up to eight deterministic steps, review the result before copying and restore the default recipes; they are encrypted on your Mac and never synced.",
+      "rel.2": "<b>By meaning, if you turn it on:</b> a separate section of related clips under your search; regular results are unchanged.",
+      "rel.3": "<b>Selected context for AI:</b> reviewed, bounded Markdown, or read-only access to those clips for one hour; a clip that changes stops being served.",
+      "rel.4": "<b>A calmer panel:</b> solid by default, opens on the newest clip with search focused and keeps developer actions under More actions.",
+      "rel.5": "<b>More privacy:</b> expired clips disappear at once, metadata-only MCP access no longer searches clip bodies and the CLI refuses to save or copy secrets unless asked.",
+      "rel.cta": "See everything in 0.10.0",
+      "rel.caption": "Preview of the macOS v0.10.0 candidate with synthetic fixtures; not evidence of a published release.",
       "shots.kicker": "What it looks like", "shots.title": "Real app screens, with synthetic data.",
       "shots.lede": "Captured from the app's UI tests: only Gancho's own window, and only sample content.",
       "shots.1": "Free manual OCR: the image's text appears beside it, ready to copy, open or translate.",
@@ -1246,6 +1254,9 @@
       "shots.n1": "A link's host and path set large, parsed on your Mac without fetching anything; Paste, Plain, Pin and Board in the dock.",
       "shots.n2": "⌘G shows the history as cards; the arrows move by row and by column.",
       "shots.n3": "Optional ambient colour: a faint wash of the selected image's own colour, off by default.",
+      "evo.v091.t": "The panel's text size, for real.",
+      "evo.v091.p": "Settings › General › Panel › Text size really changes the panel, and two sync failures leave a content-free trace in Recent issues.",
+      "evo.v091.cta": "Read 0.9.1 release notes →",
       "evo.v090.t": "A new panel, with the same privacy.",
       "evo.v090.p": "One toolbar, rows that show what each clip is, a peek with a hero card and an action dock, motion behind Reduce Motion, optional ambient colour and a ⌘G gallery.",
       "evo.v090.cta": "Read 0.9.0 release notes →",
@@ -1262,7 +1273,7 @@
       "evo.v081.p": "A Pro purchase survives transient StoreKit gaps, with more predictable CloudKit recovery.",
       "evo.v081.cta": "Read 0.8.1 release notes →",
       "evo.kicker": "Recent evolution", "evo.title": "Every release expands what Gancho can remember for you.",
-      "evo.lede": "The redesigned panel of 0.9.0 and the protected outputs of 0.8.4 are the base that 0.9.1 makes readable at your size.",
+      "evo.lede": "The redesigned panel of 0.9.0, readable at your size since 0.9.1, is the base on which 0.10.0 adds new ways to reuse.",
       "priv.kicker": "Privacy invariants", "priv.title": "It earns your trust before it earns your convenience.",
       "priv.lede": "gancho treats what you copy as private data. It observes metadata first, vetoes sensitive pasteboards before reading them, and keeps logs and diagnostics content-free.",
       "priv.c1.t": "Veto before read", "priv.c1.p": "Password-manager, transient, concealed, and auto-generated types are rejected before gancho reads a payload.", "priv.c1.tag": "Sensitive → skipped",
