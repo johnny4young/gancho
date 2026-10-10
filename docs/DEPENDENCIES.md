@@ -89,7 +89,7 @@ initial panel binding; changing those raw names would orphan existing user
 preferences. Feature controllers register handlers, while Settings and
 onboarding use the package's recorder UI.
 
-Version 3.0.1 is the current baseline. Its Swift 6 implementation replaced the
+Version 3.1.0 is the current baseline. The 3.0 Swift 6 implementation replaced the
 registration engine and renamed `Name(default:)` to `Name(initial:)` without
 changing Gancho's stored Carbon key-code/modifier representation. Signed UI
 coverage must prove that an existing shortcut restores and has an active
@@ -108,3 +108,63 @@ release tarball and verifies a pinned SHA-256. Updating = new version + new
 checksum in that script (the canary's `SPARKLE` pin cross-checks it), then the
 signed direct-download DMG must build with re-signed helpers and pass
 `codesign --verify --deep --strict` before merging.
+
+## October 2026 maintenance review
+
+The adopted stable releases match the October 5 canary. This is a dependency
+update, not a GRDB fork rebase or an application schema migration.
+
+- **SQLCipher.swift 4.17.0 → 4.19.0.** The existing GRDB fork requirement
+  (`from: "4.17.0"`) already admits this version. The annotated release tag
+  peels to `39f212458aeb88e33bdac2200a793a3f0d55d32b`; both canonical locks
+  use that commit. Its Swift 6.0 / macOS 10.13 / iOS 12 floors fit Gancho.
+  [Zetetic's advisory](https://www.zetetic.net/blog/2026/09/08/sqlcipher-4.19.0-release/)
+  describes two low-risk issues in older versions: unquoted attached schema
+  aliases in `sqlcipher_export` and invalid `hexkey` URI input. Gancho uses a
+  fixed `encrypted` alias and `usePassphrase`, not a `hexkey` URI. The reviewed
+  paths do not establish exploitability in Gancho; the update still brings
+  upstream error-handling and migration fixes. The encryption migration test
+  now covers an apostrophe in the directory name and reopening after export.
+- **KeyboardShortcuts 3.0.1 → 3.1.0.** The existing app requirement already
+  admits it. The annotated tag peels to
+  `772133d9dbe800fdac0473226822994c5c162c58`. Swift 6.2 and macOS 10.15 remain
+  compatible with the supported build toolchain and deployment floor.
+  [The upstream delta](https://github.com/sindresorhus/KeyboardShortcuts/compare/3.0.1...3.1.0)
+  changes menu tracking, synthesized Fn handling, and recorder pause/resume;
+  it does not require changing Gancho's stable names or stored key codes.
+- **Sparkle 2.9.6 → 2.10.0.**
+  [The release](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.0)
+  raises its macOS floor to 12, below Gancho's 15.4, and fixes update progress,
+  delta handling, and signed-feed diagnostics. The tarball checksum is the
+  official release asset's SHA-256. The fetch cache now records both version
+  and checksum; an old unmarked framework can no longer silently survive a
+  pin update. Offline fixture tests cover reuse, invalidation, missing tools,
+  forced downloads, and preservation after failed verification.
+
+### Verification and merge gates
+
+The lock revisions above were checked against the upstream annotated tags and
+immutable commit manifests; they were not regenerated locally with Xcode.
+Manifest requirements and origin hashes are unchanged. CI must consume both
+locks with automatic resolution disabled and pass dependency coherence,
+formatting, lint, package encryption/raw-key/migration/durability tests,
+StoreKit tests, and both app builds. A local fixture test is not evidence that
+the real Sparkle binary was downloaded or signed correctly.
+
+Before merge, also record the results that ordinary unsigned PR CI cannot
+supply:
+
+- `GANCHO_PERF=1 make bench` for storage/search budgets.
+- A signed build reopening a backed-up, existing store produced by the old
+  SQLCipher version, checking clips and binary payloads; fresh test databases
+  created and reopened with the new version do not prove cross-version upgrade.
+- A signed direct-download DMG with re-signed helpers and
+  `codesign --verify --deep --strict`, plus the signed updater smoke check.
+- Signed shortcut restoration without preference changes, re-recording the
+  existing shortcut, cancelling/switching recorders, conflict rejection, and
+  function-key activation with a menu open. Check the lowest supported macOS
+  and a current supported system. Package conflict tests do not exercise the
+  global registration or AppKit recorder lifecycle.
+
+Keep this work in draft until those gates have evidence. Do not close the
+upstream canary issue merely because its original body mentions older releases.

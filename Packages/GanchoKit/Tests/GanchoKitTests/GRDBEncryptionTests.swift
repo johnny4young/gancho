@@ -223,10 +223,14 @@ import Testing
                 "a non-fresh failure must leave the store untouched")
         }
 
-        @Test("A pre-encryption plaintext store migrates in place without losing clips")
-        func migratesPlaintextStore() async throws {
-            let dir = tempDir()
-            defer { try? FileManager.default.removeItem(at: dir) }
+        @Test(
+            "A pre-encryption plaintext store migrates in place without losing clips",
+            arguments: [false, true])
+        func migratesPlaintextStore(quotedDirectory: Bool) async throws {
+            let root = tempDir()
+            let dir = root.appendingPathComponent(
+                quotedDirectory ? "Owner's archive" : "archive", isDirectory: true)
+            defer { try? FileManager.default.removeItem(at: root) }
 
             // 1. Seed a plaintext store (passphrase nil ⇒ no encryption).
             var plaintext: GRDBClipboardStore? = try GRDBClipboardStore(
@@ -245,11 +249,15 @@ import Testing
 
             // 2. Reopen WITH a key ⇒ in-place re-encryption runs.
             let key = try testKey()
-            let encrypted = try GRDBClipboardStore(directory: dir, passphrase: key)
+            var encrypted: GRDBClipboardStore? = try GRDBClipboardStore(directory: dir, passphrase: key)
 
-            // Clip survived.
-            #expect(try await encrypted.content(for: item.id) == .text(Self.needle))
-            #expect(try await encrypted.count() == 1)
+            // Clip survived the export, including an apostrophe in its file path.
+            #expect(try await encrypted?.content(for: item.id) == .text(Self.needle))
+            #expect(try await encrypted?.count() == 1)
+            encrypted = nil
+            let reopened = try GRDBClipboardStore(directory: dir, passphrase: key)
+            #expect(try await reopened.content(for: item.id) == .text(Self.needle))
+            #expect(try await reopened.count() == 1)
 
             // And the file is now encrypted.
             let after = try databaseBytes(in: dir)
