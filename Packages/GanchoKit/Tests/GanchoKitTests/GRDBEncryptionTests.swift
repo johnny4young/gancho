@@ -249,7 +249,8 @@ import Testing
 
             // 2. Reopen WITH a key ⇒ in-place re-encryption runs.
             let key = try testKey()
-            var encrypted: GRDBClipboardStore? = try GRDBClipboardStore(directory: dir, passphrase: key)
+            var encrypted: GRDBClipboardStore? = try GRDBClipboardStore(
+                directory: dir, passphrase: key)
 
             // Clip survived the export, including an apostrophe in its file path.
             #expect(try await encrypted?.content(for: item.id) == .text(Self.needle))
