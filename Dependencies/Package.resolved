@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sindresorhus/KeyboardShortcuts",
       "state" : {
-        "revision" : "49c3fc04ea827f816df67843bfcc57286b47ff06",
-        "version" : "3.0.1"
+        "revision" : "772133d9dbe800fdac0473226822994c5c162c58",
+        "version" : "3.1.0"
       }
     },
     {
@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sqlcipher/SQLCipher.swift.git",
       "state" : {
-        "revision" : "205df55271aa1ba512a9bfe3fd1813bc9ac52a19",
-        "version" : "4.17.0"
+        "revision" : "39f212458aeb88e33bdac2200a793a3f0d55d32b",
+        "version" : "4.19.0"
       }
     },
     {
