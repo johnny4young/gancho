@@ -160,7 +160,8 @@ final class ShortcutRecorderUITests: XCTestCase {
         try click(dismiss, in: app, configuration: configuration)
         try await waitForRecordingFocus(
             "panel-shortcut-recorder", in: app,
-            configuration: configuration)
+            configuration: configuration,
+            afterTransitionCount: blocked.measuredRecorderFocusTransitions)
         try typeKey(
             XCUIKeyboardKey.escape.rawValue, in: app, configuration: configuration,
             recorder: "panel-shortcut-recorder")
@@ -200,6 +201,100 @@ final class ShortcutRecorderUITests: XCTestCase {
         try await observeCounters(configuration, panel: 0, cyclic: 0)
         try attach(restored, name: "menu-conflict-rejected-and-optional-binding-cleared")
     }
+
+    @MainActor
+    func testRecordingPreservesInitiallyDisabledGlobalShortcuts() async throws {
+        let configuration = try RecorderConfiguration()
+        let app = XCUIApplication(bundleIdentifier: configuration.bundleIdentifier)
+        defer { cleanUp(app, configuration: configuration) }
+        let initial = try await launch(
+            app, configuration: configuration, seed: true, globalEnabled: false)
+
+        try await beginRecording("panel-shortcut-recorder", in: app, configuration: configuration)
+        try typeKey(
+            "v", in: app, configuration: configuration, modifiers: allModifiers,
+            recorder: "panel-shortcut-recorder")
+        let recorded = try await waitForSnapshot(configuration) {
+            !$0.recordingActive && $0.changes == 1
+        }
+        try require(
+            !recorded.globalShortcutsEnabled && !recorded.panelEnabled && !recorded.cyclicEnabled,
+            "Recording enabled shortcuts that were globally disabled before focus")
+        try require(
+            try preferences(recorded.storedValues) == preferences(initial.seededValues),
+            "Recording changed a disabled shortcut's persisted meaning")
+        try typeKey("v", in: app, configuration: configuration, modifiers: allModifiers)
+        try typeKey("k", in: app, configuration: configuration, modifiers: allModifiers)
+        try await observeCounters(configuration, panel: 0, cyclic: 0)
+        try attach(recorded, name: "recording-preserved-disabled-global-registration")
+    }
+
+    @MainActor
+    func testRecorderSuspendsBeforeInputFromReusedTextEditor() async throws {
+        let configuration = try RecorderConfiguration()
+        let app = XCUIApplication(bundleIdentifier: configuration.bundleIdentifier)
+        defer { cleanUp(app, configuration: configuration) }
+        let initial = try await launch(app, configuration: configuration, seed: true)
+        let scratch = app.textFields["synthetic-scratch-field"].firstMatch
+        try await waitForElement(scratch)
+        try click(scratch, in: app, configuration: configuration)
+        try require(
+            (scratch.value(forKey: "hasKeyboardFocus") as? Bool) == true,
+            "The ordinary synthetic text field did not hold focus before editor reuse")
+        try typeKey("x", in: app, configuration: configuration)
+
+        try await beginRecording("panel-shortcut-recorder", in: app, configuration: configuration)
+        let focused = try readSnapshot(configuration)
+        try require(
+            focused.measuredRecorderFocusTransitions > initial.measuredRecorderFocusTransitions
+                && focused.synchronousSuspensionFailures == 0,
+            "Registration was not suspended when AppKit completed recorder focus")
+        try typeKey(
+            "v", in: app, configuration: configuration, modifiers: allModifiers,
+            recorder: "panel-shortcut-recorder")
+        let recorded = try await waitForSnapshot(configuration) {
+            !$0.recordingActive && $0.changes == 1
+        }
+        try require(
+            recorded.globalShortcutsEnabled && recorded.synchronousSuspensionFailures == 0,
+            "Recorder focus left an enabled gap or did not restore registration")
+        try require(
+            try preferences(recorded.storedValues) == preferences(initial.seededValues),
+            "Reusing a text editor changed the current binding's persisted meaning")
+        try await observeCounters(configuration, panel: 0, cyclic: 0)
+        try attach(recorded, name: "reused-editor-suspended-before-native-recording-input")
+    }
+
+    @MainActor
+    func testRecordingPreservesDisabledNameAndOtherRegistrations() async throws {
+        let configuration = try RecorderConfiguration()
+        let app = XCUIApplication(bundleIdentifier: configuration.bundleIdentifier)
+        defer { cleanUp(app, configuration: configuration) }
+        let initial = try await launch(
+            app, configuration: configuration, seed: true, panelEnabled: false)
+
+        try await beginRecording("panel-shortcut-recorder", in: app, configuration: configuration)
+        try typeKey(
+            "v", in: app, configuration: configuration, modifiers: allModifiers,
+            recorder: "panel-shortcut-recorder")
+        let recorded = try await waitForSnapshot(configuration) {
+            !$0.recordingActive && $0.changes == 1
+        }
+        try require(
+            recorded.globalShortcutsEnabled && !recorded.panelEnabled && recorded.cyclicEnabled,
+            "Recording changed a name's disabled state or left another registration paused")
+        try require(
+            try preferences(recorded.storedValues) == preferences(initial.seededValues),
+            "Recording changed another shortcut's persisted meaning")
+        try typeKey("v", in: app, configuration: configuration, modifiers: allModifiers)
+        try await observeCounters(configuration, panel: 0, cyclic: 0)
+        try typeKey("k", in: app, configuration: configuration, modifiers: allModifiers)
+        let delivered = try await waitForSnapshot(configuration) {
+            $0.cyclicDown == 1 && $0.cyclicUp == 1
+        }
+        try await observeCounters(configuration, panel: 0, cyclic: 1)
+        try attach(delivered, name: "recording-preserved-name-disable-and-resumed-other-shortcut")
+    }
 }
 
 extension ShortcutRecorderUITests {
@@ -209,12 +304,15 @@ extension ShortcutRecorderUITests {
 
     @MainActor
     private func launch(
-        _ app: XCUIApplication, configuration: RecorderConfiguration, seed: Bool
+        _ app: XCUIApplication, configuration: RecorderConfiguration, seed: Bool,
+        globalEnabled: Bool = true, panelEnabled: Bool = true
     ) async throws -> RecorderSnapshot {
         app.launchArguments =
             [
                 "-fixture-snapshot", configuration.snapshotURL.path, "-AppleLanguages", "(en)"
             ] + (seed ? ["-fixture-seed"] : [])
+            + (globalEnabled ? [] : ["-fixture-global-shortcuts-disabled"])
+            + (panelEnabled ? [] : ["-fixture-panel-shortcut-disabled"])
         app.launch()
         try await waitForElement(app.windows["Shortcut Recorder Fixture"], seconds: 8)
         app.activate()
@@ -238,10 +336,14 @@ extension ShortcutRecorderUITests {
             try require(
                 initial.storedValues == initial.seededValues,
                 "The initial names rewrote the raw seeded preferences")
-            try requirePanel(initial, keyCode: 9, key: "V")
+            try require(
+                initial.globalShortcutsEnabled == globalEnabled,
+                "The initial global registration state does not match the fixture request")
+            try requirePanel(
+                initial, keyCode: 9, key: "V", enabled: globalEnabled && panelEnabled)
             try require(
                 initial.cyclicKeyCode == 40 && initial.cyclicModifiers == 6912
-                    && initial.cyclicEnabled,
+                    && initial.cyclicEnabled == globalEnabled,
                 "The optional cyclic binding did not restore and register")
             try requireDisplay(initial.cyclicDisplay, key: "K")
         }
@@ -302,7 +404,8 @@ extension ShortcutRecorderUITests {
             "The native recorder views are not ready before fixture input")
         if let recorder {
             let field = app.searchFields[recorder].firstMatch
-            guard snapshot.recordingActive, field.exists, field.isHittable,
+            guard snapshot.recordingActive, !snapshot.globalShortcutsEnabled,
+                field.exists, field.isHittable,
                 (field.value(forKey: "hasKeyboardFocus") as? Bool) == true
             else { throw fixtureError("The intended native recorder does not hold keyboard focus") }
         } else {
@@ -321,18 +424,32 @@ extension ShortcutRecorderUITests {
     ) async throws {
         let recorder = app.searchFields[identifier].firstMatch
         try await waitForElement(recorder)
+        let previousTransitions = try readSnapshot(configuration).measuredRecorderFocusTransitions
         try click(recorder, in: app, configuration: configuration)
-        try await waitForRecordingFocus(identifier, in: app, configuration: configuration)
+        try await waitForRecordingFocus(
+            identifier, in: app, configuration: configuration,
+            afterTransitionCount: previousTransitions)
     }
 
     @MainActor
     private func waitForRecordingFocus(
-        _ identifier: String, in app: XCUIApplication, configuration: RecorderConfiguration
+        _ identifier: String, in app: XCUIApplication, configuration: RecorderConfiguration,
+        afterTransitionCount: Int
     ) async throws {
         let recorder = app.searchFields[identifier].firstMatch
         for _ in 0..<100 {
-            if try readSnapshot(configuration).recordingActive,
-                recorder.exists, (recorder.value(forKey: "hasKeyboardFocus") as? Bool) == true
+            let snapshot = try readSnapshot(configuration)
+            if snapshot.synchronousSuspensionFailures != 0 {
+                attachFailureSnapshot(
+                    configuration, name: "recorder-synchronous-suspension-failure")
+                throw fixtureError(
+                    "Registration remained enabled at focus completion: "
+                        + "measured=\(snapshot.measuredRecorderFocusTransitions), "
+                        + "failures=\(snapshot.synchronousSuspensionFailures)")
+            }
+            if snapshot.recordingActive, !snapshot.globalShortcutsEnabled,
+                recorder.exists, (recorder.value(forKey: "hasKeyboardFocus") as? Bool) == true,
+                snapshot.measuredRecorderFocusTransitions > afterTransitionCount
             {
                 return
             }
@@ -399,10 +516,12 @@ extension ShortcutRecorderUITests {
         guard condition else { throw fixtureError(description) }
     }
 
-    private func requirePanel(_ snapshot: RecorderSnapshot, keyCode: Int, key: String) throws {
+    private func requirePanel(
+        _ snapshot: RecorderSnapshot, keyCode: Int, key: String, enabled: Bool = true
+    ) throws {
         try require(
             snapshot.panelKeyCode == keyCode && snapshot.panelModifiers == 6912
-                && snapshot.panelEnabled && snapshot.boundMenuKey == key.lowercased()
+                && snapshot.panelEnabled == enabled && snapshot.boundMenuKey == key.lowercased()
                 && snapshot.boundMenuModifiers == 1_966_080,
             "The expected panel binding, registration, and menu binding are not established")
         try requireDisplay(snapshot.panelDisplay, key: key)
@@ -510,6 +629,9 @@ private struct RecorderSnapshot: Codable, Sendable {
     let changes: Int
     let recordersReady: Bool
     let recordingActive: Bool
+    let globalShortcutsEnabled: Bool
+    let measuredRecorderFocusTransitions: Int
+    let synchronousSuspensionFailures: Int
     let panelKeyCode: Int
     let panelModifiers: Int
     let cyclicKeyCode: Int

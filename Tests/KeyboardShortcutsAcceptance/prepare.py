@@ -88,6 +88,7 @@ def prepare(repo, output, checkout):
                 "sources": [
                     {"path": str(sources / "RecorderFixtureApp.swift")},
                     {"path": str(repo / "Apps/GanchoMac/GlobalShortcuts.swift")},
+                    {"path": str(repo / "Apps/GanchoMac/ShortcutRecorder.swift")},
                     {"path": str(repo / "Packages/GanchoKit/Sources/ClipboardCore/ShortcutConflicts.swift")},
                 ],
                 "info": {"path": "RecorderFixtureInfo.plist", "properties": {
@@ -130,6 +131,7 @@ def prepare(repo, output, checkout):
             str(path.relative_to(repo)): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in [
                 repo / "Apps/GanchoMac/GlobalShortcuts.swift",
+                repo / "Apps/GanchoMac/ShortcutRecorder.swift",
                 repo / "Packages/GanchoKit/Sources/ClipboardCore/ShortcutConflicts.swift",
             ]
         },

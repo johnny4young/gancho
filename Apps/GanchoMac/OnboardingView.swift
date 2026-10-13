@@ -144,7 +144,7 @@ struct OnboardingView: View {
                 .foregroundStyle(.tint)
             Text("Your clipboard, one shortcut away")
                 .font(.title2.bold())
-            KeyboardShortcuts.Recorder("Panel shortcut:", name: .togglePanel)
+            ShortcutRecorder("Panel shortcut:", name: .togglePanel)
             Text(
                 // swiftlint:disable:next line_length
                 "Press the shortcut, pick a clip with ↑↓, hit Enter — it pastes right where you were typing. That's the whole loop."

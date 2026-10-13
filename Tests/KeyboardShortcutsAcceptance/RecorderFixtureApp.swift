@@ -14,6 +14,8 @@ final class RecorderFixtureState {
     var cyclicUp = 0 { didSet { writeSnapshot() } }
     var changes = 0 { didSet { writeSnapshot() } }
     var recordingActive = false { didSet { writeSnapshot() } }
+    var measuredRecorderFocusTransitions = 0
+    var synchronousSuspensionFailures = 0
     var shortcutWarning: String?
     let snapshotURL: URL
     let identifier: String
@@ -69,6 +71,12 @@ final class RecorderFixtureState {
         KeyboardShortcuts.onKeyUp(for: .cyclicPaste) { [weak self] in
             self?.cyclicUp += 1
         }
+        if arguments.contains("-fixture-global-shortcuts-disabled") {
+            KeyboardShortcuts.isEnabled = false
+        }
+        if arguments.contains("-fixture-panel-shortcut-disabled") {
+            KeyboardShortcuts.disable(.togglePanel)
+        }
         // A notification emitted by the actual native recorder; no simulated
         // recording state or dependency-source modification is involved.
         recordingObserver = NotificationCenter.default.addObserver(
@@ -112,6 +120,9 @@ final class RecorderFixtureState {
             "panelDown": panelDown, "panelUp": panelUp,
             "cyclicDown": cyclicDown, "cyclicUp": cyclicUp,
             "changes": changes, "recordingActive": recordingActive,
+            "globalShortcutsEnabled": KeyboardShortcuts.isEnabled,
+            "measuredRecorderFocusTransitions": measuredRecorderFocusTransitions,
+            "synchronousSuspensionFailures": synchronousSuspensionFailures,
             "recordersReady": displayed["toggle-panel"] != nil && displayed["cyclic-paste"] != nil,
             "panelKeyCode": panel?.carbonKeyCode ?? -1,
             "panelModifiers": panel?.carbonModifiers ?? -1,
@@ -135,18 +146,25 @@ final class RecorderFixtureState {
 
 private struct RecorderFixtureView: View {
     let state: RecorderFixtureState
+    @State private var scratch = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Shortcut Recorder Fixture").font(.title)
-            KeyboardShortcuts.Recorder("Panel shortcut:", name: .togglePanel) { shortcut in
+            TextField("Synthetic scratch", text: $scratch)
+                .accessibilityIdentifier("synthetic-scratch-field")
+            ShortcutRecorder(
+                "Panel shortcut:", name: .togglePanel,
+                accessibilityIdentifier: "panel-shortcut-recorder"
+            ) { shortcut in
                 state.shortcutChanged(shortcut)
             }
-            .accessibilityIdentifier("panel-shortcut-recorder")
-            KeyboardShortcuts.Recorder("Cyclic paste shortcut:", name: .cyclicPaste) { shortcut in
+            ShortcutRecorder(
+                "Cyclic paste shortcut:", name: .cyclicPaste,
+                accessibilityIdentifier: "cyclic-shortcut-recorder"
+            ) { shortcut in
                 state.shortcutChanged(shortcut)
             }
-            .accessibilityIdentifier("cyclic-shortcut-recorder")
             if let warning = state.shortcutWarning {
                 Text("This shortcut is used by the system (\(warning)).")
             }
@@ -160,7 +178,7 @@ private struct RecorderFixtureView: View {
             .font(.system(.body, design: .monospaced))
         }
         .padding(28)
-        .frame(width: 540, height: 260)
+        .frame(width: 540, height: 300)
     }
 }
 
@@ -203,8 +221,8 @@ final class ShortcutRecorderFixture: NSObject, NSApplicationDelegate {
         mainMenu.addItem(item)
         NSApp.mainMenu = mainMenu
 
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 596, height: 316),
+        let window = RecorderFixtureWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 596, height: 356),
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Shortcut Recorder Fixture"
         window.contentView = NSHostingView(rootView: RecorderFixtureView(state: state))
@@ -212,6 +230,21 @@ final class ShortcutRecorderFixture: NSObject, NSApplicationDelegate {
             Self.recorders(in: window?.contentView).reduce(into: [:]) { values, recorder in
                 values[recorder.shortcutName.rawValue] = recorder.stringValue
             }
+        }
+        window.recorderFocusCompleted = { [weak state, weak window] in
+            guard let state, let window,
+                Self.recorders(in: window.contentView).contains(where: {
+                    if window.firstResponder === $0 { return true }
+                    guard let editor = window.firstResponder as? NSTextView, editor.isFieldEditor
+                    else { return false }
+                    return $0.currentEditor() === editor && editor.delegate === $0
+                })
+            else { return }
+            state.measuredRecorderFocusTransitions += 1
+            if KeyboardShortcuts.isEnabled {
+                state.synchronousSuspensionFailures += 1
+            }
+            state.writeSnapshot()
         }
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -241,4 +274,20 @@ final class ShortcutRecorderFixture: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+}
+
+/// Read-only timing probe after AppKit completes a first-responder request.
+/// It never changes focus, registration, or input delivery itself.
+@MainActor
+private final class RecorderFixtureWindow: NSWindow {
+    var recorderFocusCompleted: (() -> Void)?
+    private var focusRequestDepth = 0
+
+    override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
+        focusRequestDepth += 1
+        defer { focusRequestDepth -= 1 }
+        let accepted = super.makeFirstResponder(responder)
+        if accepted, focusRequestDepth == 1 { recorderFocusCompleted?() }
+        return accepted
+    }
 }

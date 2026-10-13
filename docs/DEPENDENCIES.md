@@ -87,7 +87,8 @@ KeyboardShortcuts is an app-level macOS dependency, not part of GanchoKit.
 `Apps/GanchoMac/GlobalShortcuts.swift` owns the stable shortcut names and
 initial panel binding; changing those raw names would orphan existing user
 preferences. Feature controllers register handlers, while Settings and
-onboarding use the package's recorder UI.
+onboarding use `ShortcutRecorder`, which retains the package's native Cocoa
+recorder and manages recording-time registration through public AppKit focus APIs.
 
 Version 3.0.1 is temporarily held by an exact requirement in `project.yml`.
 Version 3.1.0 loses the consumed-event result in its local menu monitors and
@@ -122,8 +123,9 @@ coverage must prove that an existing shortcut restores and has an active
 registration without rewriting the maintainer's preference.
 
 The isolated recorder gate is `make test-shortcuts-recorder`, using the same
-checkout and signing environment. On macOS 26.6.2, exact 3.0.1 passes four of
-five cases: restoration, cancellation/switching, replacement/relaunch, and
+checkout and signing environment. Before Gancho's integration, on macOS
+26.6.2 exact 3.0.1 passed four of five cases: restoration,
+cancellation/switching, replacement/relaunch, and
 conflict rejection/clearing. Re-recording an already registered binding stays
 in recording mode; the same case passes with unmodified 3.1.0. Version 3.0.1
 keeps Carbon hot keys registered while pausing callbacks, whereas 3.1.0
@@ -132,6 +134,25 @@ existing limitation of the version already selected by the base branch, not
 complete recorder acceptance. Retain the failing assertion and require both
 native gates before accepting a future replacement; do not trade the confirmed
 menu replay regression for a passing recorder case.
+
+Gancho's shared recorder integration observes `NSWindow.firstResponder` through
+its supported KVO contract. A shared MainActor lease disables global registration
+while the native recorder holds focus and restores the previous global enabled
+state on focus loss, window resignation/closure, detach or dismantle. It preserves
+stored values, per-name flags, handlers and native conflict handling; no dependency
+source is patched. Window updates reconcile reused field editors. The fixture
+compiles this same production source and keeps the original regression checks,
+adding globally disabled and individually disabled restoration cases, plus
+synchronous focus-completion coverage after ordinary text-field editor reuse. All eight
+cases and the independent menu gate must pass on the retained exact version;
+the historical four-of-five result is not relabeled as passing integration proof.
+The current signed integration run on macOS 26.6.2 passes all eight cases with
+zero skips and a fresh synchronous focus measurement for each recording
+gesture. Early field-editor ownership uses public view-hierarchy membership
+as well as the mature delegate/currentEditor association. A negative wrapper
+control omitting that early recognition fails the timing assertion before
+recording input; the independent menu gate still passes without replay.
+This is evidence on the tested runtime, not minimum-OS or whole-app certification.
 
 Treat every future major update as its own PR. Review the complete upstream API
 and registration-lifecycle delta, update `project.yml`, refresh the app lock

@@ -19,7 +19,7 @@ recorder)
 	shortcut_scheme=ShortcutRecorderFixture
 	shortcut_testing=ShortcutRecorderUITests
 	shortcut_result=native-recorder
-	shortcut_expected_tests=5
+	shortcut_expected_tests=8
 	;;
 *)
 	printf 'SHORTCUT_ACCEPTANCE_SCOPE must be menu or recorder\n' >&2

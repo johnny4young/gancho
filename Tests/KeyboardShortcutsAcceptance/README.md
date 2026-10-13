@@ -59,15 +59,17 @@ report an authorization or focus failure as a blocked gate.
 
 ## Recorder and persisted binding restoration
 
-The separate recorder host compiles Gancho's shortcut catalog and the
-Foundation-only `ShortcutConflicts` checker unchanged, then hosts the actual SwiftUI
-`KeyboardShortcuts.Recorder` in an `NSHostingView`. Inert down/up counters use the
+The separate recorder host compiles Gancho's shortcut catalog, shared
+`ShortcutRecorder` integration and Foundation-only `ShortcutConflicts` checker,
+then hosts the integration in an `NSHostingView`. It retains the unmodified
+native `KeyboardShortcuts.RecorderCocoa`, including its delegate, persistence
+and conflict handling. Inert down/up counters use the
 registration APIs used by Gancho's panel and optional actions. Synthetic raw
 Carbon JSON is seeded into its UUID standard-defaults domain before the first
 shortcut name is accessed, preventing initial defaults from hiding a failed
 restoration. All seeded chords use four modifiers and ordinary letter keys.
 
-Five focused tests cover:
+Eight focused tests cover:
 
 1. Preserved raw preferences, displayed bindings, enabled registration, and one
    native down/up pair for each synthetic binding.
@@ -79,17 +81,24 @@ Five focused tests cover:
    a true relaunch using the same UUID domain without reset or reseeding.
 5. Real fixture-menu conflict rejection, native optional-binding clearing, and
    an absent stored binding with inactive registration across relaunch.
+6. Recording while global shortcuts start disabled, preserving that disabled
+   state and delivering no actions afterward.
+7. Recording an individually disabled name, preserving its disabled state
+   while another registration resumes and delivers once.
+8. Moving from an ordinary synthetic text field into the recorder, checking
+   that registration is suspended when AppKit completes the outermost focus
+   request, before recording input is sent.
 
 The runner waits for both native recorders, guards each gesture, requires
 actual recorder focus before recording keys, and removes only its validated
 UUID domain after each complete case, including failure cleanup. The host
 preserves that domain at termination so
-relaunch tests exercise storage. The wrapper enforces all five tests passed,
+relaunch tests exercise storage. The wrapper enforces all eight tests passed,
 zero failures, zero skips, zero expected failures, and a Passed result;
 lack of focus must fail before input is sent.
 
-This gate exercises the native dependency recorder and Gancho's unchanged
-shortcut-name contract on the tested runtime/layout. Menu-conflict rejection
+This gate exercises the native dependency recorder, shared Gancho recording
+integration and unchanged shortcut-name contract on the tested runtime/layout. Menu-conflict rejection
 uses the dependency's native conflict handling. The compiled Gancho conflict
 checker is called for successful synthetic chords; its full reserved-system
 shortcut table is not exercised by this fixture. The gate does not host the actual
@@ -97,11 +106,26 @@ Settings or onboarding views, execute Gancho's paste/capture actions, start its
 composition root, or prove helper/APNs/StoreKit/Sparkle startup. Minimum macOS
 15.4 and physical/function-key routes need their own runtime evidence.
 
-The signed macOS 26.6.2 run on exact 3.0.1 passed four recorder cases. The
+Before the shared integration, the signed macOS 26.6.2 run on exact 3.0.1 passed four recorder cases. The
 unchanged-binding case remained in recording mode with zero changes/actions
 and preserved preferences. The same fixture case passed on unmodified 3.1.0;
-the locked 3.0.1 version also matches the base branch. Keep this case failing
-until the dependency satisfies it. A passing menu gate does not imply a
+the locked 3.0.1 version also matches the base branch. Gancho's integration
+observes the native window's supported first-responder KVO contract and
+reconciles reused field editors on window updates. It synchronously suspends
+global registration during focus, saving and restoring the previous global
+enabled state through a shared lease. Per-name flags, values and handlers are
+not rewritten. Window focus loss/closure, detachment and dismantling release
+the lease. A read-only fixture window probe observes focus completion without
+changing focus, registration or event delivery; timing failures remain failures.
+On the tested macOS 26.6.2 runtime, the current eight-case integration gate
+passes with a fresh focus measurement for every recording gesture and zero
+timing failures, action leakage or skips. The initial KVO-only attempt was
+late because the editor's `currentEditor`/delegate association was not ready;
+the shared component also recognizes an editor already installed inside its
+native control through public view hierarchy. A negative control omitting
+that recognition fails the same timing assertion, while the historical raw
+recorder failure remains preserved. Other OS/layout behavior needs its own
+native evidence. A passing menu gate does not imply a
 passing recorder gate, and neither implies complete Gancho or release acceptance.
 
 The script prints a fresh `gancho-shortcut-menu.*` evidence directory and
