@@ -203,6 +203,39 @@ struct CKSyncEngineAdapterTests {
         #expect(await store.boardDeletions == [boardID])
     }
 
+    @Test("A stale conflict whose dirty queue cannot be read remains a failure")
+    func staleConflictDirtyReadFailure() async throws {
+        let store = RecordingStore()
+        await store.setApplyResult(false)
+        await store.setPendingIDsError(RecordingStore.Failure.boom)
+        let work = SyncOutboundWork(
+            store: store, clipZone: clipZone, boardZone: boardZone,
+            maxAssetBytes: ClipRecordMapper.defaultMaxAssetBytes)
+        let record = try #require(
+            ClipRecordMapper.record(
+                for: ClipItem(preview: "synthetic", contentHash: "h"),
+                content: .text("synthetic"), systemFields: nil, zoneID: clipZone))
+
+        await #expect(throws: RecordingStore.Failure.self) {
+            try await work.resolveConflict(record)
+        }
+    }
+
+    @Test("An applied conflict whose membership cannot be verified retries conservatively")
+    func appliedConflictMembershipReadFailure() async throws {
+        let store = RecordingStore()
+        await store.setMembershipReadError(RecordingStore.Failure.boom)
+        let work = SyncOutboundWork(
+            store: store, clipZone: clipZone, boardZone: boardZone,
+            maxAssetBytes: ClipRecordMapper.defaultMaxAssetBytes)
+        let record = try #require(
+            ClipRecordMapper.record(
+                for: ClipItem(preview: "synthetic", contentHash: "h"),
+                content: .text("synthetic"), systemFields: nil, zoneID: clipZone))
+
+        #expect(try await work.resolveConflict(record))
+    }
+
     @Test("Zone-missing classification: first-run fetches skip, real errors do not")
     func missingZoneClassification() {
         func ck(_ code: CKError.Code, userInfo: [String: Any] = [:]) -> Error {
@@ -242,10 +275,14 @@ private actor RecordingStore: SyncLocalStore {
     private var applyResult = true
     private var applyError: Error?
     private var needsUploadError: Error?
+    private var pendingIDsError: Error?
+    private var membershipReadError: Error?
 
     func setApplyResult(_ value: Bool) { applyResult = value }
     func setApplyError(_ error: Error?) { applyError = error }
     func setNeedsUploadError(_ error: Error?) { needsUploadError = error }
+    func setPendingIDsError(_ error: Error?) { pendingIDsError = error }
+    func setMembershipReadError(_ error: Error?) { membershipReadError = error }
 
     func applyRemoteUpsert(
         _ item: ClipItem, content: ClipContent?, systemFields: Data
@@ -265,7 +302,10 @@ private actor RecordingStore: SyncLocalStore {
     // Unexercised by these tests — trivial conformances.
     func pendingUploads() async throws -> [(item: ClipItem, content: ClipContent?)] { [] }
     func pendingUploadCount() async throws -> Int { 0 }
-    func pendingUploadIDs() async throws -> [UUID] { [] }
+    func pendingUploadIDs() async throws -> [UUID] {
+        if let pendingIDsError { throw pendingIDsError }
+        return []
+    }
     func pendingUpload(id: UUID) async throws -> (item: ClipItem, content: ClipContent?)? { nil }
     func pendingDeletionRecordIDs() async throws -> [String] { [] }
     func markUploaded(id: UUID, systemFields: Data, uploadedAt: Date?) async throws {}
@@ -275,7 +315,10 @@ private actor RecordingStore: SyncLocalStore {
     }
     func clearTombstone(recordID: String) async throws {}
     func forgetAllSyncFields() async throws {}
-    func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> { [] }
+    func boardIDs(forClip clipID: UUID) async throws -> Set<UUID> {
+        if let membershipReadError { throw membershipReadError }
+        return []
+    }
     func pendingBoardUploads() async throws -> [Pinboard] { [] }
     func markBoardNeedsUpload(id: UUID) async throws {}
     func markBoardUploaded(id: UUID, systemFields: Data, uploaded: Pinboard?) async throws {}

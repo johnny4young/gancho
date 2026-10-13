@@ -7,6 +7,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve queued iCloud deletions when an older upload conflict or automatic retry finishes after the local deletion.
+
 ## [0.10.0] - 2026-10-09
 
 ### Added

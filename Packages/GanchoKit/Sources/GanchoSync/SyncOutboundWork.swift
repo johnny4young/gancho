@@ -154,7 +154,11 @@ struct SyncOutboundWork: Sendable {
             ],
             boards: [], clipDeletions: [], boardDeletions: [])
         guard summary.failed == 0 else { throw SyncOutboundFailure.localWrite }
-        if summary.skippedAsStale > 0 { return true }
+        if summary.skippedAsStale > 0 {
+            // A pending deletion also rejects a server copy. Only a surviving
+            // dirty row needs a save; a tombstone must retain its delete intent.
+            return try await !stillDirty([record.recordID]).isEmpty
+        }
         // A plain server win is clean, so this cannot loop. Only a membership
         // rebuild that dropped a board re-flags the applied row, so the queue
         // is read just then: a resync full of server wins must not scan it per

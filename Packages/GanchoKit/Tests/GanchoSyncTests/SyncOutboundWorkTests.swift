@@ -425,6 +425,19 @@ struct SyncOutboundWorkTests {
 }
 
 extension SyncOutboundWorkTests {
+    @Test("A conflicted save never requests an upload for a locally deleted clip")
+    func deletedClipConflictDoesNotRequestSave() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let item = try await fixture.insert()
+        let server = try fixture.record(item)
+        try await fixture.store.deleteForSync(id: item.id)
+
+        #expect(try await !fixture.work.resolveConflict(server))
+        #expect(try await fixture.store.pendingUploadIDs().isEmpty)
+        #expect(try await fixture.store.pendingDeletionRecordIDs() == [item.id.uuidString])
+    }
+
     @Test("Corrupt local system fields fall back to a fresh record instead of blocking")
     func corruptFields() async throws {
         let fixture = try Fixture()
