@@ -89,11 +89,49 @@ initial panel binding; changing those raw names would orphan existing user
 preferences. Feature controllers register handlers, while Settings and
 onboarding use the package's recorder UI.
 
-Version 3.1.0 is the current baseline. The 3.0 Swift 6 implementation replaced the
+Version 3.0.1 is temporarily held by an exact requirement in `project.yml`.
+Version 3.1.0 loses the consumed-event result in its local menu monitors and
+replays an already handled event. A signed native fixture sent one non-repeat
+four-modifier V key press with a menu open: 3.0.1 delivered one down/one up,
+while the final strict 3.1.0 control delivered no down callbacks and two up
+callbacks, reposting the same key-up event twice. This proves the dependency's menu
+behavior in an isolated app, not the complete Gancho composition or the
+lowest supported macOS. Do not relax the exact requirement until the native
+consumed-event gate passes with the proposed replacement.
+
+Run the following with a local Git checkout containing the canonical app-lock
+revision and an existing trusted signing identity:
+
+```bash
+KEYBOARDSHORTCUTS_CHECKOUT=/path/to/KeyboardShortcuts \
+SHORTCUT_MENU_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
+make test-shortcuts-menu
+```
+
+The gate
+exports that exact revision into a disposable signed fixture, opens a native
+menu, and asserts one down/one up callback and no replay for one non-repeat
+four-modifier V press. It does not launch Gancho or use its store or preferences.
+This interactive gate is separate from package tests and needs a signed
+XCUITest runner in an active desktop session.
+
+The 3.0 Swift 6 implementation replaced the
 registration engine and renamed `Name(default:)` to `Name(initial:)` without
 changing Gancho's stored Carbon key-code/modifier representation. Signed UI
 coverage must prove that an existing shortcut restores and has an active
 registration without rewriting the maintainer's preference.
+
+The isolated recorder gate is `make test-shortcuts-recorder`, using the same
+checkout and signing environment. On macOS 26.6.2, exact 3.0.1 passes four of
+five cases: restoration, cancellation/switching, replacement/relaunch, and
+conflict rejection/clearing. Re-recording an already registered binding stays
+in recording mode; the same case passes with unmodified 3.1.0. Version 3.0.1
+keeps Carbon hot keys registered while pausing callbacks, whereas 3.1.0
+temporarily unregisters them so recording can receive the event. This is an
+existing limitation of the version already selected by the base branch, not
+complete recorder acceptance. Retain the failing assertion and require both
+native gates before accepting a future replacement; do not trade the confirmed
+menu replay regression for a passing recorder case.
 
 Treat every future major update as its own PR. Review the complete upstream API
 and registration-lifecycle delta, update `project.yml`, refresh the app lock
@@ -111,8 +149,11 @@ signed direct-download DMG must build with re-signed helpers and pass
 
 ## October 2026 maintenance review
 
-The adopted stable releases match the October 5 canary. This is a dependency
-update, not a GRDB fork rebase or an application schema migration.
+SQLCipher and Sparkle adopt the stable releases reported by the October 5
+canary. KeyboardShortcuts 3.1.0 is deferred after native validation; its
+intentional hold does not suppress the canary's newer-release warning. This
+maintenance changes dependencies without rebasing the GRDB fork or changing
+the application schema.
 
 - **SQLCipher.swift 4.17.0 → 4.19.0.** The existing GRDB fork requirement
   (`from: "4.17.0"`) already admits this version. The annotated release tag
@@ -125,13 +166,14 @@ update, not a GRDB fork rebase or an application schema migration.
   paths do not establish exploitability in Gancho; the update still brings
   upstream error-handling and migration fixes. The encryption migration test
   now covers an apostrophe in the directory name and reopening after export.
-- **KeyboardShortcuts 3.0.1 → 3.1.0.** The existing app requirement already
-  admits it. The annotated tag peels to
-  `772133d9dbe800fdac0473226822994c5c162c58`. Swift 6.2 and macOS 10.15 remain
-  compatible with the supported build toolchain and deployment floor.
+- **KeyboardShortcuts remains at 3.0.1.** Its annotated tag peels to
+  `49c3fc04ea827f816df67843bfcc57286b47ff06`. The app requirement is exact so
+  deliberate dependency resolution cannot silently restore the rejected
+  3.1.0 release (`772133d9dbe800fdac0473226822994c5c162c58`).
   [The upstream delta](https://github.com/sindresorhus/KeyboardShortcuts/compare/3.0.1...3.1.0)
   changes menu tracking, synthesized Fn handling, and recorder pause/resume;
-  it does not require changing Gancho's stable names or stored key codes.
+  it does not require changing Gancho's stable names or stored key codes, but
+  native validation found the consumed-event regression described above.
 - **Sparkle 2.9.6 → 2.10.0.**
   [The release](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.0)
   raises its macOS floor to 12, below Gancho's 15.4, and fixes update progress,
@@ -144,8 +186,9 @@ update, not a GRDB fork rebase or an application schema migration.
 ### Verification and merge gates
 
 The lock revisions above were checked against the upstream annotated tags and
-immutable commit manifests; they were not regenerated locally with Xcode.
-Manifest requirements and origin hashes are unchanged. CI must consume both
+immutable commit manifests. The exact KeyboardShortcuts hold requires
+regenerating the app lock and reviewing its origin hash; shared package pins
+must remain unchanged. CI must consume both
 locks with automatic resolution disabled and pass dependency coherence,
 formatting, lint, package encryption/raw-key/migration/durability tests,
 StoreKit tests, and both app builds. A local fixture test is not evidence that
