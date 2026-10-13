@@ -7,6 +7,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Import CSV records with CRLF line endings and preserve combining-mark text and quoted newlines while retaining formula protection when exporting and importing clips.
+
 ## [0.10.0] - 2026-10-09
 
 ### Added
