@@ -113,7 +113,7 @@ extension SignedHandoffUITests {
         try pressHelperCommand("openPanel", helper: helper)
         let root = AXUIElementCreateApplication(owner.processIdentifier)
         let panel = try waitForElement(
-            root, value: "history-panel",
+            root, value: "history-panel", inWindows: true,
             message: "The helper must open the real panel in its exact owner process")
         let search = try waitForElement(
             panel, value: "search-field",
@@ -136,7 +136,7 @@ extension SignedHandoffUITests {
         }
         XCTAssertTrue(
             waitUntil {
-                findElement(root, attribute: kAXIdentifierAttribute, value: "history-panel") == nil
+                windowElements(in: root, identifier: "history-panel")?.isEmpty == true
             },
             "The panel must hide after paste")
         let expected = "pastes=1;down=1;up=1;match=true;marked=true"
@@ -164,10 +164,10 @@ extension SignedHandoffUITests {
         let running = try receiverApplication()
         let root = AXUIElementCreateApplication(running.processIdentifier)
         let editor = try waitForElement(
-            root, value: "paste-receiver-editor",
+            root, value: "paste-receiver-editor", inWindows: true,
             message: "The exact receiver must expose its editor")
         let receipt = try waitForElement(
-            root, value: "paste-receipt-status",
+            root, value: "paste-receipt-status", inWindows: true,
             message: "The exact receiver must expose its receipt")
         try clickElement(editor)
         try require(
@@ -387,14 +387,27 @@ extension SignedHandoffUITests {
     }
 
     @MainActor
+    private func windowElements(in root: AXUIElement, identifier: String) -> [AXUIElement]? {
+        var windows: CFTypeRef?
+        guard
+            AXUIElementCopyAttributeValue(root, kAXWindowsAttribute as CFString, &windows)
+                == .success,
+            let windows = windows as? [AXUIElement]
+        else { return nil }
+        return windows.flatMap { elements(in: $0, identifier: identifier) }
+    }
+
+    @MainActor
     private func waitForElement(
-        _ root: AXUIElement, attribute: String = kAXIdentifierAttribute,
-        value: String, message: String
+        _ root: AXUIElement, value: String, inWindows: Bool = false, message: String
     ) throws -> AXUIElement {
         var element: AXUIElement?
         try require(
             waitUntil(timeout: 10) {
-                element = findElement(root, attribute: attribute, value: value)
+                element =
+                    inWindows
+                    ? windowElements(in: root, identifier: value)?.first
+                    : findElement(root, attribute: kAXIdentifierAttribute, value: value)
                 return element != nil
             }, message)
         return try XCTUnwrap(element)
