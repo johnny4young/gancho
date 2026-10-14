@@ -29,16 +29,20 @@ final class SignedHandoffUITests: XCTestCase {
             XCTAssertEqual(owner.activationPolicy, .accessory)
             try pressHelperCommand("settings", helper: helper)
             let root = AXUIElementCreateApplication(owner.processIdentifier)
-            let settings = try waitForElement(
-                root, attribute: kAXTitleAttribute, value: "Settings",
-                message: "The helper must open Settings in its exact owner process")
+            var settingsWindow: AXUIElement?
+            try require(
+                waitUntil(timeout: 10) {
+                    settingsWindow = window(in: root, title: "Settings")
+                    return settingsWindow != nil
+                }, "The helper must open the owner's real Settings window")
+            let settings = try XCTUnwrap(settingsWindow)
             let close = try relatedElement(settings, attribute: kAXCloseButtonAttribute)
             try require(
                 AXUIElementPerformAction(close, kAXPressAction as CFString) == .success,
                 "Settings must close through its native close button")
             XCTAssertTrue(
                 waitUntil {
-                    findElement(root, attribute: kAXTitleAttribute, value: "Settings") == nil
+                    window(in: root, title: "Settings") == nil
                 })
             RunLoop.current.run(until: Date().addingTimeInterval(2))
             XCTAssertFalse(owner.isTerminated, "Closing Settings must keep the owner resident")
@@ -264,34 +268,18 @@ final class SignedHandoffUITests: XCTestCase {
 
     @MainActor
     private func clickElement(_ element: AXUIElement, clickCount: Int = 1) throws {
-        var position: CFTypeRef?
-        var size: CFTypeRef?
+        var resolved: CGRect?
         try require(
-            AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &position)
-                == .success
-                && AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &size)
-                    == .success,
-            "The target control must expose its native position and size")
-        let positionValue = try XCTUnwrap(position)
-        let sizeValue = try XCTUnwrap(size)
-        try require(
-            CFGetTypeID(positionValue) == AXValueGetTypeID()
-                && CFGetTypeID(sizeValue) == AXValueGetTypeID(),
-            "The target frame must use AX values"
+            waitUntil {
+                resolved = frame(of: element)
+                guard let resolved, !resolved.isEmpty, !resolved.isInfinite else { return false }
+                return CGDisplayBounds(CGMainDisplayID()).contains(
+                    CGPoint(x: resolved.midX, y: resolved.midY))
+            },
+            "The target control must become reachable on the active display; frame=\(String(describing: resolved))"
         )
-        var origin = CGPoint.zero
-        var dimensions = CGSize.zero
-        try require(
-            AXValueGetValue(unsafeDowncast(positionValue, to: AXValue.self), .cgPoint, &origin)
-                && AXValueGetValue(
-                    unsafeDowncast(sizeValue, to: AXValue.self), .cgSize, &dimensions),
-            "The target frame must be readable")
-        let frame = CGRect(origin: origin, size: dimensions)
-        let point = CGPoint(x: frame.midX, y: frame.midY)
-        try require(
-            !frame.isEmpty && !frame.isInfinite
-                && CGDisplayBounds(CGMainDisplayID()).contains(point),
-            "The target control must be reachable on the active display")
+        let resolvedFrame = try XCTUnwrap(resolved)
+        let point = CGPoint(x: resolvedFrame.midX, y: resolvedFrame.midY)
         let source = try XCTUnwrap(CGEventSource(stateID: .hidSystemState))
         let down = try XCTUnwrap(
             CGEvent(
@@ -311,6 +299,41 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
+    private func frame(of element: AXUIElement) -> CGRect? {
+        var position: CFTypeRef?
+        var size: CFTypeRef?
+        guard
+            AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &position)
+                == .success,
+            AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &size) == .success,
+            let position, let size,
+            CFGetTypeID(position) == AXValueGetTypeID(), CFGetTypeID(size) == AXValueGetTypeID()
+        else { return nil }
+        var origin = CGPoint.zero
+        var dimensions = CGSize.zero
+        guard AXValueGetValue(unsafeDowncast(position, to: AXValue.self), .cgPoint, &origin),
+            AXValueGetValue(unsafeDowncast(size, to: AXValue.self), .cgSize, &dimensions)
+        else { return nil }
+        return CGRect(origin: origin, size: dimensions)
+    }
+
+    @MainActor
+    private func window(in root: AXUIElement, title: String) -> AXUIElement? {
+        var windows: CFTypeRef?
+        guard
+            AXUIElementCopyAttributeValue(root, kAXWindowsAttribute as CFString, &windows)
+                == .success,
+            let windows = windows as? [AXUIElement]
+        else { return nil }
+        return windows.first { candidate in
+            var actualTitle: CFTypeRef?
+            return AXUIElementCopyAttributeValue(
+                candidate, kAXTitleAttribute as CFString, &actualTitle) == .success
+                && actualTitle as? String == title
+        }
+    }
+
+    @MainActor
     private func waitForElement(
         _ root: AXUIElement, attribute: String = kAXIdentifierAttribute,
         value: String, message: String
@@ -326,15 +349,18 @@ final class SignedHandoffUITests: XCTestCase {
 
     @MainActor
     private func relatedElement(_ root: AXUIElement, attribute: String) throws -> AXUIElement {
-        var result: CFTypeRef?
+        var element: AXUIElement?
         try require(
-            AXUIElementCopyAttributeValue(root, attribute as CFString, &result) == .success,
-            "The requested native control must exist")
-        let value = try XCTUnwrap(result)
-        try require(
-            CFGetTypeID(value) == AXUIElementGetTypeID(), "The native control must be an AX element"
-        )
-        return unsafeDowncast(value, to: AXUIElement.self)
+            waitUntil {
+                var result: CFTypeRef?
+                guard
+                    AXUIElementCopyAttributeValue(root, attribute as CFString, &result) == .success,
+                    let result, CFGetTypeID(result) == AXUIElementGetTypeID()
+                else { return false }
+                element = unsafeDowncast(result, to: AXUIElement.self)
+                return true
+            }, "The requested native control must become available")
+        return try XCTUnwrap(element)
     }
 
     @MainActor
