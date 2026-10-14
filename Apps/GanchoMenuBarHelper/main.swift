@@ -1,4 +1,6 @@
 import AppKit
+import CryptoKit
+import Darwin
 import OSLog
 
 /// Paint-only menu-bar helper.
@@ -16,9 +18,10 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
     private var statusItem: NSStatusItem?
     private let menu = NSMenu()
     private var watchdog: Timer?
+    private var instanceLock: Int32?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard !hasEarlierHelperInstance else {
+        guard acquireInstanceLock() else {
             NSApp.terminate(nil)
             return
         }
@@ -43,23 +46,33 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
         startWatchdog()
     }
 
-    private var hasEarlierHelperInstance: Bool {
-        let current = NSRunningApplication.current
-        guard let executable = current.executableURL?.standardizedFileURL,
-            let bundle = current.bundleURL?.standardizedFileURL
+    /// Keep the descriptor open until process exit. Never unlink a live lock:
+    /// a replacement inode would let a late launchd copy acquire another lock.
+    private func acquireInstanceLock() -> Bool {
+        if instanceLock != nil { return true }
+        guard
+            let support = FileManager.default.urls(
+                for: .applicationSupportDirectory, in: .userDomainMask
+            ).first
         else { return false }
-        let launched = current.launchDate
-        return NSWorkspace.shared.runningApplications.contains { candidate in
-            guard !candidate.isTerminated,
-                candidate.processIdentifier != current.processIdentifier,
-                candidate.executableURL?.standardizedFileURL == executable,
-                candidate.bundleURL?.standardizedFileURL == bundle
-            else { return false }
-            if let earlier = candidate.launchDate, let launched, earlier != launched {
-                return earlier < launched
-            }
-            return candidate.processIdentifier < current.processIdentifier
+        let directory = support.appendingPathComponent(
+            "com.johnny4young.gancho.helper-locks", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true)
+        } catch { return false }
+        let bundle = Bundle.main.bundleURL.resolvingSymlinksInPath().path
+        let digest = SHA256.hash(data: Data(bundle.utf8))
+            .map { String(format: "%02x", $0) }.joined()
+        let file = directory.appendingPathComponent(digest + ".lock")
+        let descriptor = Darwin.open(file.path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0o600)
+        guard descriptor >= 0 else { return false }
+        guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+            Darwin.close(descriptor)
+            return false
         }
+        instanceLock = descriptor
+        return true
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {

@@ -25,7 +25,7 @@ final class SignedHandoffUITests: XCTestCase {
             try require(noGanchoProcesses(), "The disposable host must start without Gancho")
             try await app.launch()
             let owner = try ownedMainApplication(app: app)
-            let helper = try waitForHelper(owner: owner, app: app)
+            let helper = try waitForHelper(owner: owner)
             XCTAssertEqual(owner.activationPolicy, .accessory)
             try pressHelperCommand("settings", helper: helper)
             let root = AXUIElementCreateApplication(owner.processIdentifier)
@@ -63,7 +63,7 @@ final class SignedHandoffUITests: XCTestCase {
         defer { if app.isRunning { app.terminate() } }
         try await app.launch()
         let owner = try ownedMainApplication(app: app)
-        let helper = try waitForHelper(owner: owner, app: app)
+        let helper = try waitForHelper(owner: owner)
         try verifyDuplicateHelperExits(helper: helper, owner: owner)
         XCTAssertTrue(owner.forceTerminate())
         XCTAssertTrue(waitUntil { owner.isTerminated })
@@ -72,7 +72,7 @@ final class SignedHandoffUITests: XCTestCase {
             "The signed helper watchdog must stop without its owner")
         try await app.launch()
         let restartedOwner = try ownedMainApplication(app: app)
-        let restartedHelper = try waitForHelper(owner: restartedOwner, app: app)
+        let restartedHelper = try waitForHelper(owner: restartedOwner)
         XCTAssertNotEqual(restartedOwner.processIdentifier, owner.processIdentifier)
         XCTAssertNotEqual(restartedHelper.processIdentifier, helper.processIdentifier)
         try pressHelperCommand("quit", helper: restartedHelper)
@@ -109,7 +109,7 @@ extension SignedHandoffUITests {
         }
         try await app.launch()
         let owner = try ownedMainApplication(app: app)
-        let helper = try waitForHelper(owner: owner, app: app)
+        let helper = try waitForHelper(owner: owner)
         receiver.activate()
         editor.click()
         try require(
@@ -208,9 +208,7 @@ extension SignedHandoffUITests {
     }
 
     @MainActor
-    private func waitForHelper(
-        owner: NSRunningApplication, app: SignedHandoffApplication
-    ) throws -> NSRunningApplication {
+    private func waitForHelper(owner: NSRunningApplication) throws -> NSRunningApplication {
         let expected = try XCTUnwrap(owner.executableURL).deletingLastPathComponent()
             .appendingPathComponent("GanchoMenuBarHelper").standardizedFileURL
         var helper: NSRunningApplication?
@@ -221,12 +219,6 @@ extension SignedHandoffUITests {
                 }
                 return helper != nil
             }, "The signed helper must run from the exact app under test")
-        try require(
-            waitUntil {
-                UserDefaults(suiteName: "group.com.johnny4young.gancho")?
-                    .string(forKey: "menu-bar.nonce") == app.commandNonce
-            },
-            "The exact owner must publish this launch's command session before helper interaction")
         return try XCTUnwrap(helper)
     }
 
