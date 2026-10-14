@@ -325,6 +325,17 @@ struct ReleaseMetadataTests {
         #expect(stale.status == 1, "an advanced upstream must fail the canary")
         #expect(stale.output.contains("UPSTREAM ADVANCED: GRDB"), Comment(rawValue: stale.output))
 
+        let advancedShortcuts = pinLines.map {
+            $0.hasPrefix("KEYBOARDSHORTCUTS=") ? "KEYBOARDSHORTCUTS=99.0.0" : $0
+        }
+        let staleShortcuts = try runCanary(latest: advancedShortcuts)
+        #expect(
+            staleShortcuts.status == 1,
+            "a held shortcut dependency must still report newer releases")
+        #expect(
+            staleShortcuts.output.contains("UPSTREAM ADVANCED: KEYBOARDSHORTCUTS"),
+            Comment(rawValue: staleShortcuts.output))
+
         // A pin AHEAD of the latest release (pre-release, fork tag, rollback)
         // is deliberate state, not drift — reported, never a failure.
         let behind = pinLines.map {

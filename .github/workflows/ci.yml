@@ -56,6 +56,9 @@ jobs:
       - name: Dependency resolution locks
         run: make dependency-check
 
+      - name: Sparkle fetch cache regressions
+        run: bash scripts/test-fetch-sparkle.sh
+
       - name: Website structure
         run: make site-check
 

@@ -8,19 +8,27 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root"
 
-SPARKLE_VERSION="${SPARKLE_VERSION:-2.9.6}"
-SPARKLE_SHA256="${SPARKLE_SHA256:-52bf9e88cdd972fc0c81501377a880e90d47031bd8ca5462488f843e2609e192}"
+SPARKLE_VERSION="${SPARKLE_VERSION:-2.10.0}"
+SPARKLE_SHA256="${SPARKLE_SHA256:-c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c}"
 VENDOR_DIR="${VENDOR_DIR:-Vendor}"
 FRAMEWORK="$VENDOR_DIR/Sparkle.framework"
 TOOLS="$VENDOR_DIR/bin"
+RECEIPT="$VENDOR_DIR/.sparkle-receipt"
+expected_receipt="$SPARKLE_VERSION $SPARKLE_SHA256"
 
-if [ -d "$FRAMEWORK" ] && [ -x "$TOOLS/sign_update" ] && [ -z "${FORCE:-}" ]; then
+# A cache from another pin (or before receipts existed) must not bypass the
+# checksum-verified download. The receipt records provenance, not a signature
+# check of mutable local files; release packaging still verifies code signing.
+if [ -d "$FRAMEWORK" ] && [ -x "$TOOLS/sign_update" ] \
+	&& [ -x "$TOOLS/generate_appcast" ] && [ -x "$TOOLS/generate_keys" ] \
+	&& [ -f "$RECEIPT" ] && [ "$(cat "$RECEIPT")" = "$expected_receipt" ] \
+	&& [ -z "${FORCE:-}" ]; then
 	printf '✓ Sparkle.framework + bin/ already present in %s/ (set FORCE=1 to refetch)\n' "$VENDOR_DIR"
 	exit 0
 fi
 
 url="https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
-tmp="$(mktemp -d -t sparkle)"
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/sparkle.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 
 printf '==> Downloading Sparkle %s\n' "$SPARKLE_VERSION"
@@ -36,9 +44,15 @@ if [ "$actual" != "$SPARKLE_SHA256" ]; then
 fi
 
 printf '==> Extracting Sparkle.framework into %s/\n' "$VENDOR_DIR"
-mkdir -p "$VENDOR_DIR"
-rm -rf "$FRAMEWORK"
 tar -xf "$tmp/sparkle.tar.xz" -C "$tmp"
+# Reject incomplete archives before touching the working installation.
+[ -d "$tmp/Sparkle.framework" ] || { echo "error: missing Sparkle.framework" >&2; exit 1; }
+for tool in sign_update generate_appcast generate_keys; do
+	[ -x "$tmp/bin/$tool" ] || { echo "error: missing Sparkle tool: $tool" >&2; exit 1; }
+done
+mkdir -p "$VENDOR_DIR"
+rm -f "$RECEIPT"
+rm -rf "$FRAMEWORK"
 cp -R "$tmp/Sparkle.framework" "$FRAMEWORK"
 printf '✓ %s (Sparkle %s)\n' "$FRAMEWORK" "$SPARKLE_VERSION"
 
@@ -51,3 +65,6 @@ if [ -d "$tmp/bin" ]; then
 	cp -R "$tmp/bin" "$TOOLS"
 	printf '✓ %s (sign_update, generate_appcast, generate_keys)\n' "$TOOLS"
 fi
+
+# Publish only after both the framework and tools were installed successfully.
+printf '%s\n' "$expected_receipt" >"$RECEIPT"
