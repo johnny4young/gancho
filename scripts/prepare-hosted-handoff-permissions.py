@@ -32,6 +32,15 @@ def grant(connection, identifier, requirement):
         )
 
 
+def designated_requirement(details):
+    requirements = [line.removeprefix("# ").removeprefix("designated => ")
+                    for line in details.splitlines()
+                    if line.removeprefix("# ").startswith("designated => ")]
+    if len(requirements) != 1:
+        raise RuntimeError("Expected one designated code requirement")
+    return requirements[0]
+
+
 def self_test():
     hosted = {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted",
               "SUDO_USER": "runner", "RUNNER_TEMP": "/Users/runner/work/_temp"}
@@ -49,6 +58,8 @@ def self_test():
         else:
             raise AssertionError("A local host must be rejected")
     require_disposable_host(hosted)
+    assert designated_requirement('designated => identifier "fixture"') == 'identifier "fixture"'
+    assert designated_requirement('# designated => cdhash H"0123"') == 'cdhash H"0123"'
     connection = sqlite3.connect(":memory:")
     connection.execute(
         """CREATE TABLE access (service TEXT, client TEXT, client_type INTEGER,
@@ -85,13 +96,10 @@ def main():
         details = subprocess.check_output(
             ["codesign", "-d", "-r-", str(application)], stderr=subprocess.STDOUT, text=True
         )
-        requirements = [line.removeprefix("designated => ") for line in details.splitlines()
-                        if line.startswith("designated => ")]
-        if len(requirements) != 1:
-            raise RuntimeError("Expected one designated code requirement")
+        source = designated_requirement(details)
         with tempfile.TemporaryDirectory(dir=os.environ["RUNNER_TEMP"]) as temporary:
             requirement = Path(temporary) / "requirement.bin"
-            subprocess.run(["csreq", "-r", "=" + requirements[0], "-b", str(requirement)], check=True)
+            subprocess.run(["csreq", "-r", "=" + source, "-b", str(requirement)], check=True)
             records.append((identifier, requirement.read_bytes()))
     if {identifier for identifier, requirement in records} != expected:
         raise RuntimeError("Both the real sender and its dedicated UI runner are required")
