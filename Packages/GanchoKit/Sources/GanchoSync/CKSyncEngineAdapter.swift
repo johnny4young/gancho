@@ -547,10 +547,16 @@ extension CKSyncEngineAdapter {
     private func reenqueuePendingWork(into engine: CKSyncEngine) async throws {
         let work = try await outbound.pending()
         guard self.engine === engine else { throw CancellationError() }
+        addRetries(work.changes(clipZoneID: zoneID, boardZoneID: boardZoneID), to: engine)
+    }
+
+    /// Automatic registrations go through here so none overrides a queued deletion.
+    private func addRetries(
+        _ changes: [CKSyncEngine.PendingRecordZoneChange], to engine: CKSyncEngine
+    ) {
         engine.state.add(
             pendingRecordZoneChanges: SyncPendingWork.retryChanges(
-                work.changes(clipZoneID: zoneID, boardZoneID: boardZoneID),
-                pendingChanges: engine.state.pendingRecordZoneChanges))
+                changes, pendingChanges: engine.state.pendingRecordZoneChanges))
     }
 
     /// Re-adds saves whose rows the local store still considers dirty after an
@@ -562,10 +568,7 @@ extension CKSyncEngineAdapter {
         guard !recordIDs.isEmpty, self.engine === engine else { return }
         let dirty = try await outbound.stillDirty(recordIDs)
         guard self.engine === engine else { return }
-        engine.state.add(
-            pendingRecordZoneChanges: SyncPendingWork.retryChanges(
-                dirty.map { .saveRecord($0) }, pendingChanges: engine.state.pendingRecordZoneChanges
-            ))
+        addRetries(dirty.map { .saveRecord($0) }, to: engine)
     }
 
     /// Drop pending `.saveRecord` changes the store no longer wants uploaded. A
@@ -894,12 +897,7 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
                 let needsSend = try await outbound.resolveConflict(record)
                 outboundFailures.remove(operation)
                 outboundFailures.remove(.acknowledgement(recordID))
-                if needsSend {
-                    syncEngine.state.add(
-                        pendingRecordZoneChanges: SyncPendingWork.retryChanges(
-                            [.saveRecord(recordID)],
-                            pendingChanges: syncEngine.state.pendingRecordZoneChanges))
-                }
+                if needsSend { addRetries([.saveRecord(recordID)], to: syncEngine) }
             } catch {
                 failOutbound(operation)
                 // The durable row retries on the next explicit start, not an
@@ -913,10 +911,7 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             )
             syncEngine.state.add(
                 pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: recordID.zoneID))])
-            syncEngine.state.add(
-                pendingRecordZoneChanges: SyncPendingWork.retryChanges(
-                    [.saveRecord(recordID)],
-                    pendingChanges: syncEngine.state.pendingRecordZoneChanges))
+            addRetries([.saveRecord(recordID)], to: syncEngine)
         case .pauseForQuota:
             diagnostics?.record("Sync", "iCloud storage is full — uploads paused.")
             isPaused = true
