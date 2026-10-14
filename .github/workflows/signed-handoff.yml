@@ -93,7 +93,9 @@ jobs:
           TEST_RUNNER_GANCHO_PASTE_RECEIVER_APP: ${{ github.workspace }}/build/signed-handoff/Build/Products/Debug/GanchoPasteReceiver.app
         run: |
           set -o pipefail
-          xcodebuild -derivedDataPath build/signed-handoff \
+          xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
+            -derivedDataPath build/signed-handoff \
             -project Gancho.xcodeproj -scheme GanchoSignedIntegration \
             -destination 'platform=macOS,arch=arm64' test-without-building \
             -parallel-testing-enabled NO \

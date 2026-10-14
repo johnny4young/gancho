@@ -14,6 +14,7 @@ final class SignedHandoffUITests: XCTestCase {
             ProcessInfo.processInfo.environment["GANCHO_DISPOSABLE_SIGNED_HOST"] == "github-hosted"
                 && NSUserName() == "runner",
             "Real handoff tests require a disposable GitHub-hosted runner")
+        try require(AXIsProcessTrusted(), "The test driver must have real Accessibility permission")
     }
 
     @MainActor
@@ -27,12 +28,18 @@ final class SignedHandoffUITests: XCTestCase {
             let helper = try waitForHelper(owner: owner)
             XCTAssertEqual(owner.activationPolicy, .accessory)
             try pressHelperCommand("settings", helper: helper)
-            let settings = app.windows["Settings"].firstMatch
-            try require(settings.waitForExistence(timeout: 10), "The helper must open Settings")
-            let close = settings.buttons[XCUIIdentifierCloseWindow].firstMatch
-            try require(close.exists && close.isHittable, "Settings must expose its close button")
-            close.click()
-            XCTAssertTrue(settings.waitForNonExistence(timeout: 5))
+            let root = AXUIElementCreateApplication(owner.processIdentifier)
+            let settings = try waitForElement(
+                root, attribute: kAXTitleAttribute, value: "Settings",
+                message: "The helper must open Settings in its exact owner process")
+            let close = try relatedElement(settings, attribute: kAXCloseButtonAttribute)
+            try require(
+                AXUIElementPerformAction(close, kAXPressAction as CFString) == .success,
+                "Settings must close through its native close button")
+            XCTAssertTrue(
+                waitUntil {
+                    findElement(root, attribute: kAXTitleAttribute, value: "Settings") == nil
+                })
             RunLoop.current.run(until: Date().addingTimeInterval(2))
             XCTAssertFalse(owner.isTerminated, "Closing Settings must keep the owner resident")
             XCTAssertFalse(
@@ -78,16 +85,8 @@ final class SignedHandoffUITests: XCTestCase {
     @MainActor
     private func verifyPaste(usingReturn: Bool) throws {
         try require(noGanchoProcesses(), "The disposable host must start without Gancho")
-        let receiverPath = try XCTUnwrap(
-            ProcessInfo.processInfo.environment["GANCHO_PASTE_RECEIVER_APP"])
-        let receiver = XCUIApplication(url: URL(fileURLWithPath: receiverPath))
-        receiver.launchEnvironment["GANCHO_DISPOSABLE_PASTE_RECEIVER"] = "1"
-        receiver.launch()
+        let (receiver, editor) = try launchReceiver()
         defer { receiver.terminate() }
-        let editor = receiver.textViews["paste-receiver-editor"].firstMatch
-        try require(editor.waitForExistence(timeout: 5), "The synthetic receiver must be ready")
-        try require(editor.isHittable, "The receiver editor must be reachable")
-        editor.click()
 
         let app = makeApp()
         app.launchArguments.append("-seed-sample-clips")
@@ -106,28 +105,34 @@ final class SignedHandoffUITests: XCTestCase {
             NSWorkspace.shared.frontmostApplication?.bundleIdentifier == receiverID,
             "The receiving application must own foreground focus before opening the panel")
         try pressHelperCommand("openPanel", helper: helper)
-        let search = app.textFields["search-field"].firstMatch
+        let root = AXUIElementCreateApplication(owner.processIdentifier)
+        let panel = try waitForElement(
+            root, value: "history-panel",
+            message: "The helper must open the real panel in its exact owner process")
+        let search = try waitForElement(
+            panel, value: "search-field",
+            message: "The panel must expose its search field")
         try require(
-            search.waitForExistence(timeout: 10), "The helper must open the real history panel")
-        let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
-        try require(waitUntil { rows.count == 3 }, "All three synthetic captures must be ready")
+            waitUntil { elements(in: panel, identifier: "clip-row").count == 3 },
+            "All three synthetic captures must be ready")
         try require(
             NSWorkspace.shared.frontmostApplication?.bundleIdentifier == receiverID,
             "The nonactivating panel must preserve the receiving application as paste target")
 
         if usingReturn {
             try require(
-                waitUntil { (search.value(forKey: "hasKeyboardFocus") as? Bool) == true },
+                waitUntil { isFocused(search) },
                 "Return must be sent only after the panel search owns keyboard focus")
             try postReturn()
         } else {
-            let row = rows.firstMatch
-            try require(row.isHittable, "The selected synthetic row must be reachable")
-            row.doubleClick()
+            let row = try XCTUnwrap(elements(in: panel, identifier: "clip-row").first)
+            try clickElement(row, clickCount: 2)
         }
-
-        let panel = app.descendants(matching: .any)["history-panel"].firstMatch
-        XCTAssertTrue(panel.waitForNonExistence(timeout: 5), "The panel must hide after paste")
+        XCTAssertTrue(
+            waitUntil {
+                findElement(root, attribute: kAXIdentifierAttribute, value: "history-panel") == nil
+            },
+            "The panel must hide after paste")
         let receipt = receiver.staticTexts["paste-receipt-status"].firstMatch
         let expected = "pastes=1;down=1;up=1;match=true;marked=true"
         try require(
@@ -138,6 +143,20 @@ final class SignedHandoffUITests: XCTestCase {
             receipt.value as? String == expected, "No delayed or duplicate paste may arrive")
         XCTAssertEqual(NSWorkspace.shared.frontmostApplication?.bundleIdentifier, receiverID)
         XCTAssertFalse(helper.isTerminated, "Paste must keep the external helper resident")
+    }
+
+    @MainActor
+    private func launchReceiver() throws -> (XCUIApplication, XCUIElement) {
+        let receiverPath = try XCTUnwrap(
+            ProcessInfo.processInfo.environment["GANCHO_PASTE_RECEIVER_APP"])
+        let receiver = XCUIApplication(url: URL(fileURLWithPath: receiverPath))
+        receiver.launchEnvironment["GANCHO_DISPOSABLE_PASTE_RECEIVER"] = "1"
+        receiver.launch()
+        let editor = receiver.textViews["paste-receiver-editor"].firstMatch
+        try require(editor.waitForExistence(timeout: 5), "The synthetic receiver must be ready")
+        try require(editor.isHittable, "The receiver editor must be reachable")
+        editor.click()
+        return (receiver, editor)
     }
 
     @MainActor
@@ -193,7 +212,7 @@ final class SignedHandoffUITests: XCTestCase {
                 status = findElement(root, attribute: kAXRoleAttribute, value: kAXMenuBarItemRole)
                 return status != nil
             }, "The exact helper must expose its status item")
-        try clickStatusItem(try XCTUnwrap(status))
+        try clickElement(try XCTUnwrap(status))
         var item: AXUIElement?
         try require(
             waitUntil {
@@ -219,7 +238,10 @@ final class SignedHandoffUITests: XCTestCase {
             return element
         }
         var elements: [AXUIElement] = []
-        for relation in [kAXExtrasMenuBarAttribute, kAXChildrenAttribute, kAXMenuBarAttribute] {
+        for relation in [
+            kAXExtrasMenuBarAttribute, kAXChildrenAttribute, kAXWindowsAttribute,
+            kAXMenuBarAttribute
+        ] {
             var related: CFTypeRef?
             guard
                 AXUIElementCopyAttributeValue(element, relation as CFString, &related) == .success,
@@ -241,7 +263,7 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
-    private func clickStatusItem(_ element: AXUIElement) throws {
+    private func clickElement(_ element: AXUIElement, clickCount: Int = 1) throws {
         var position: CFTypeRef?
         var size: CFTypeRef?
         try require(
@@ -249,12 +271,13 @@ final class SignedHandoffUITests: XCTestCase {
                 == .success
                 && AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &size)
                     == .success,
-            "The helper icon must expose its native position and size")
+            "The target control must expose its native position and size")
         let positionValue = try XCTUnwrap(position)
         let sizeValue = try XCTUnwrap(size)
         try require(
             CFGetTypeID(positionValue) == AXValueGetTypeID()
-                && CFGetTypeID(sizeValue) == AXValueGetTypeID(), "The icon frame must use AX values"
+                && CFGetTypeID(sizeValue) == AXValueGetTypeID(),
+            "The target frame must use AX values"
         )
         var origin = CGPoint.zero
         var dimensions = CGSize.zero
@@ -262,13 +285,13 @@ final class SignedHandoffUITests: XCTestCase {
             AXValueGetValue(unsafeDowncast(positionValue, to: AXValue.self), .cgPoint, &origin)
                 && AXValueGetValue(
                     unsafeDowncast(sizeValue, to: AXValue.self), .cgSize, &dimensions),
-            "The helper icon frame must be readable")
+            "The target frame must be readable")
         let frame = CGRect(origin: origin, size: dimensions)
         let point = CGPoint(x: frame.midX, y: frame.midY)
         try require(
             !frame.isEmpty && !frame.isInfinite
                 && CGDisplayBounds(CGMainDisplayID()).contains(point),
-            "The signed helper icon must be reachable on the active display")
+            "The target control must be reachable on the active display")
         let source = try XCTUnwrap(CGEventSource(stateID: .hidSystemState))
         let down = try XCTUnwrap(
             CGEvent(
@@ -278,8 +301,68 @@ final class SignedHandoffUITests: XCTestCase {
             CGEvent(
                 mouseEventSource: source, mouseType: .leftMouseUp,
                 mouseCursorPosition: point, mouseButton: .left))
-        down.post(tap: .cghidEventTap)
-        up.post(tap: .cghidEventTap)
+        for count in 1...clickCount {
+            down.setIntegerValueField(.mouseEventClickState, value: Int64(count))
+            up.setIntegerValueField(.mouseEventClickState, value: Int64(count))
+            down.post(tap: .cghidEventTap)
+            up.post(tap: .cghidEventTap)
+            if count < clickCount { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
+        }
+    }
+
+    @MainActor
+    private func waitForElement(
+        _ root: AXUIElement, attribute: String = kAXIdentifierAttribute,
+        value: String, message: String
+    ) throws -> AXUIElement {
+        var element: AXUIElement?
+        try require(
+            waitUntil(timeout: 10) {
+                element = findElement(root, attribute: attribute, value: value)
+                return element != nil
+            }, message)
+        return try XCTUnwrap(element)
+    }
+
+    @MainActor
+    private func relatedElement(_ root: AXUIElement, attribute: String) throws -> AXUIElement {
+        var result: CFTypeRef?
+        try require(
+            AXUIElementCopyAttributeValue(root, attribute as CFString, &result) == .success,
+            "The requested native control must exist")
+        let value = try XCTUnwrap(result)
+        try require(
+            CFGetTypeID(value) == AXUIElementGetTypeID(), "The native control must be an AX element"
+        )
+        return unsafeDowncast(value, to: AXUIElement.self)
+    }
+
+    @MainActor
+    private func isFocused(_ element: AXUIElement) -> Bool {
+        var focused: CFTypeRef?
+        return AXUIElementCopyAttributeValue(element, kAXFocusedAttribute as CFString, &focused)
+            == .success
+            && focused as? Bool == true
+    }
+
+    @MainActor
+    private func elements(in root: AXUIElement, identifier: String, depth: Int = 0) -> [AXUIElement]
+    {
+        guard depth < 20 else { return [] }
+        var value: CFTypeRef?
+        if AXUIElementCopyAttributeValue(root, kAXIdentifierAttribute as CFString, &value)
+            == .success,
+            value as? String == identifier
+        {
+            return [root]
+        }
+        var children: CFTypeRef?
+        guard
+            AXUIElementCopyAttributeValue(root, kAXChildrenAttribute as CFString, &children)
+                == .success,
+            let children = children as? [AXUIElement]
+        else { return [] }
+        return children.flatMap { elements(in: $0, identifier: identifier, depth: depth + 1) }
     }
 
     @MainActor
