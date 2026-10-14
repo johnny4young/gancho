@@ -37,7 +37,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project fetch-sparkle resolve-dependencies dependency-check build build-signed build-ios install-ios test test-storekit coverage coverage-check test-ui test-ui-ios ui-evidence bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
+.PHONY: help project fetch-sparkle resolve-dependencies dependency-check build build-signed build-ios install-ios test test-storekit coverage coverage-check test-ui test-ui-ios test-shortcuts-menu test-shortcuts-recorder ui-evidence bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -83,6 +83,12 @@ install-ios: project ## Build the iOS app (Debug, team-signed) and install it on
 
 test: ## Run package unit tests (Swift Testing)
 	swift test $(SWIFT_PACKAGE_FLAGS) --package-path $(PACKAGE)
+
+test-shortcuts-menu: ## Verify consumed shortcut events in an isolated signed native menu fixture
+	bash scripts/test-keyboard-shortcuts-menu.sh
+
+test-shortcuts-recorder: ## Verify shortcut recording and restoration in an isolated signed native fixture
+	SHORTCUT_ACCEPTANCE_SCOPE=recorder bash scripts/test-keyboard-shortcuts-menu.sh
 
 coverage: ## Run package tests with coverage and enforce the production-source floor
 	mkdir -p build

@@ -52,13 +52,16 @@ enum ClipExporter {
 
     /// Inverse of the formula guard in ``csvEscape(_:)``, for re-importing an export.
     static func removingFormulaGuard(_ field: String) -> String {
-        guard field.hasPrefix("'"), let next = field.dropFirst().first,
-            formulaTriggers.contains(next) || next == "'"
+        let scalars = field.unicodeScalars
+        guard scalars.first == "'", let next = scalars.dropFirst().first,
+            guardedLeads.contains(next)
         else { return field }
-        return String(field.dropFirst())
+        return String(scalars.dropFirst())
     }
 
-    private static let formulaTriggers = "=+-@\t\r"
+    // A leading apostrophe is guarded too, so the import can always tell
+    // the guard from text that genuinely starts with one.
+    private static let guardedLeads: Set<Unicode.Scalar> = ["=", "+", "-", "@", "\t", "\r", "'"]
 
     static func csvEscape(_ field: String) -> String {
         // Formula-injection guard (OWASP CSV injection): clipboard text is
@@ -67,15 +70,17 @@ enum ClipExporter {
         // in Excel/Numbers/Sheets. Neutralize with a leading apostrophe —
         // spreadsheets then render the field as literal text.
         var field = field
-        // A leading apostrophe is guarded too, so the import can always tell
-        // the guard from text that genuinely starts with one.
-        if let first = field.first, formulaTriggers.contains(first) || first == "'" {
+        if let first = field.unicodeScalars.first, guardedLeads.contains(first) {
             field = "'" + field
         }
-        guard field.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else {
+        guard
+            field.unicodeScalars.contains(where: {
+                $0 == "," || $0 == "\"" || $0 == "\n" || $0 == "\r"
+            })
+        else {
             return field
         }
-        return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+        return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"", options: .literal) + "\""
     }
 }
 

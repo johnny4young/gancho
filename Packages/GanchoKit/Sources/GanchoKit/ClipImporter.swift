@@ -167,15 +167,18 @@ public enum ClipImporter {
         }
     }
 
-    /// Scans quoted commas, escaped quotes, and quoted newlines using the existing
-    /// character policy. Only one raw row is live at a time; the visitor cannot
-    /// publish a result, and any unterminated field still fails the whole preview.
+    /// Scans ASCII syntax independently of content graphemes, preserving quoted
+    /// newlines and combining marks. Only one raw row is live at a time; any
+    /// unterminated field still fails the whole preview.
     private static func forEachCSVRow(_ content: String, visit: ([String]) -> Void) throws {
         var field = ""
         var row: [String] = []
         var inQuotes = false
-        var iterator = content.makeIterator()
-        var pending: Character?
+        var iterator = content.unicodeScalars.makeIterator()
+        var pending: Unicode.Scalar?
+        // The header's terminator decides whether an unquoted CRLF ends a record:
+        // earlier exports wrote CRLF content unquoted between LF records.
+        var crlfRecords: Bool?
 
         func endField() {
             row.append(field)
@@ -186,11 +189,16 @@ public enum ClipImporter {
             if !(row.count == 1 && row[0].isEmpty) { visit(row) }
             row = []
         }
+        func endCRLF() {
+            crlfRecords = crlfRecords ?? true
+            guard crlfRecords == false else { return endRow() }
+            field.unicodeScalars.append(contentsOf: ["\r", "\n"])
+        }
 
-        while let character = pending ?? iterator.next() {
+        while let scalar = pending ?? iterator.next() {
             pending = nil
             if inQuotes {
-                if character == "\"" {
+                if scalar == "\"" {
                     if let next = iterator.next() {
                         if next == "\"" {
                             field.append("\"")
@@ -202,15 +210,22 @@ public enum ClipImporter {
                         inQuotes = false
                     }
                 } else {
-                    field.append(character)
+                    field.unicodeScalars.append(scalar)
                 }
             } else {
-                switch character {
+                switch scalar {
                 case "\"": inQuotes = true
                 case ",": endField()
-                case "\n": endRow()
-                case "\r": break
-                default: field.append(character)
+                case "\n":
+                    crlfRecords = crlfRecords ?? false
+                    endRow()
+                case "\r":
+                    pending = iterator.next()
+                    if pending == "\n" {
+                        pending = nil
+                        endCRLF()
+                    }
+                default: field.unicodeScalars.append(scalar)
                 }
             }
         }

@@ -56,6 +56,7 @@ packages:
   # Global hotkey recording + handling (MIT-licensed).
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
+    # Hold until native menu tracking preserves consumed events without replay.
     exactVersion: 3.0.1
 
 targets:
