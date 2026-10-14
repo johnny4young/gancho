@@ -335,6 +335,35 @@ targets:
     dependencies:
       - target: Gancho
 
+  # Real session keyboard events and service registration are restricted to
+  # disposable hosted runners, separate from the ordinary local UI scheme.
+  GanchoSignedIntegrationUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    deploymentTarget: "15.4"
+    settings:
+      base:
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Gancho
+    sources:
+      - path: Tests/GanchoSignedIntegrationUITests
+      - path: Tests/GanchoUITests/GanchoUITestApplication.swift
+    dependencies:
+      - target: Gancho
+      - target: GanchoPasteReceiver
+
+  GanchoPasteReceiver:
+    type: application
+    platform: macOS
+    deploymentTarget: "15.4"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.johnny4young.gancho.validation.paste-receiver
+        GENERATE_INFOPLIST_FILE: YES
+    sources:
+      - path: Tests/GanchoPasteReceiver
+
   # Minimal application host required by StoreKitTest. Keeping it separate
   # prevents purchase automation from launching Gancho's capture/sync/helper
   # lifecycle or touching the user's real local store.
@@ -555,6 +584,17 @@ targets:
             RequestsOpenAccess: true
 
 schemes:
+  GanchoSignedIntegration:
+    build:
+      targets:
+        Gancho: all
+        GanchoPasteReceiver: all
+        GanchoSignedIntegrationUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - GanchoSignedIntegrationUITests
+
   Gancho:
     build:
       targets:
