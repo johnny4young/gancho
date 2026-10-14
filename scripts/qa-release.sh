@@ -50,7 +50,12 @@ case "$artifact" in
 	section "Mounting DMG read-only"
 	TEMP_DIR="$(mktemp -d /tmp/gancho-qa.XXXXXX)"
 	attach_plist="$TEMP_DIR/attach.plist"
-	if hdiutil attach -readonly -nobrowse -plist "$artifact" > "$attach_plist"; then
+	if diskutil image attach --help >/dev/null 2>&1; then
+		attach_args=(diskutil image attach --readOnly --mountOptions nobrowse --plist)
+	else
+		attach_args=(hdiutil attach -readonly -nobrowse -plist)
+	fi
+	if "${attach_args[@]}" "$artifact" > "$attach_plist"; then
 		pass "DMG mounted read-only"
 	else
 		fail_app "DMG failed to mount"

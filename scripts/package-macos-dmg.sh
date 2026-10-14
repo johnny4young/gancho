@@ -289,7 +289,11 @@ printf '==> Creating %s\n' "$DMG_PATH"
 staging="$(mktemp -d -t gancho-dmg)"
 cp -R "$APP_PATH" "$staging/"
 ln -s /Applications "$staging/Applications"
-hdiutil create -volname "Gancho" -srcfolder "$staging" -ov -format UDZO "$DMG_PATH" >/dev/null
+if diskutil image create from --help >/dev/null 2>&1; then
+	diskutil image create from --volumeName "Gancho" --format UDZO "$staging" "$DMG_PATH" >/dev/null
+else
+	hdiutil create -volname "Gancho" -srcfolder "$staging" -ov -format UDZO "$DMG_PATH" >/dev/null
+fi
 rm -rf "$staging"
 
 if [ -n "${CODE_SIGN_IDENTITY:-}" ]; then
