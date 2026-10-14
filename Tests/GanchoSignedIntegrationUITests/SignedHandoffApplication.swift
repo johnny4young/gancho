@@ -1,16 +1,17 @@
 import AppKit
 import XCTest
 
-/// XCTest's launch waits for foreground activation, which an accessory app
-/// need not acquire. Use AppKit while retaining the same disposable state.
+/// Launch the exact executable with explicit arguments. Neither foreground
+/// activation nor LaunchServices argument forwarding is required.
 @MainActor
 final class SignedHandoffApplication {
     var launchArguments: [String] = []
-    private var application: NSRunningApplication?
+    private var process: Process?
 
-    var isRunning: Bool { application?.isTerminated == false }
+    var isRunning: Bool { process?.isRunning == true }
+    var processIdentifier: pid_t? { process?.processIdentifier }
 
-    func launch() async throws {
+    func launch() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["GANCHO_DISPOSABLE_SIGNED_HOST"] == "github-hosted",
             NSUserName() == "runner"
@@ -18,20 +19,27 @@ final class SignedHandoffApplication {
             throw NSError(domain: "GanchoSignedIntegration", code: 1)
         }
         let path = try XCTUnwrap(environment["GANCHO_SIGNED_APP"])
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = false
-        configuration.arguments = GanchoUITestApplication.isolatedArguments(launchArguments)
-        application = try await NSWorkspace.shared.openApplication(
-            at: URL(fileURLWithPath: path), configuration: configuration)
+        let child = Process()
+        child.executableURL = URL(fileURLWithPath: path)
+            .appendingPathComponent("Contents/MacOS/Gancho")
+        child.arguments = GanchoUITestApplication.isolatedArguments(launchArguments)
+        child.environment = environment.filter {
+            !$0.key.hasPrefix("DYLD_") && !$0.key.hasPrefix("XCTest")
+                && !$0.key.hasPrefix("XCInject")
+        }
+        child.standardOutput = FileHandle.nullDevice
+        child.standardError = FileHandle.nullDevice
+        process = child
+        try child.run()
     }
 
     func terminate() {
-        guard let application, !application.isTerminated else { return }
-        XCTAssertTrue(application.terminate(), "The exact owner must accept a clean quit")
+        guard let process, process.isRunning else { return }
+        process.terminate()
         let deadline = Date().addingTimeInterval(8)
-        while !application.isTerminated && Date() < deadline {
+        while process.isRunning && Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
-        XCTAssertTrue(application.isTerminated, "The exact owner must finish its clean quit")
+        XCTAssertFalse(process.isRunning, "Cleanup must stop only the exact child process")
     }
 }

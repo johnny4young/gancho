@@ -18,13 +18,13 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
-    func testSignedHelperStaysResidentAndRoutesSettingsAcrossTwoLaunches() async throws {
+    func testSignedHelperStaysResidentAndRoutesSettingsAcrossTwoLaunches() throws {
         let app = makeApp()
         defer { if app.isRunning { app.terminate() } }
         for _ in 0..<2 {
             try require(noGanchoProcesses(), "The disposable host must start without Gancho")
-            try await app.launch()
-            let owner = try ownedMainApplication()
+            try app.launch()
+            let owner = try ownedMainApplication(app: app)
             let helper = try waitForHelper(owner: owner)
             XCTAssertEqual(owner.activationPolicy, .accessory)
             try pressHelperCommand("settings", helper: helper)
@@ -44,50 +44,56 @@ final class SignedHandoffUITests: XCTestCase {
                 waitUntil {
                     window(in: root, title: "Settings") == nil
                 })
-            pauseForDuplicateObservation()
+            observeQuietPeriod()
             XCTAssertFalse(owner.isTerminated, "Closing Settings must keep the owner resident")
             XCTAssertFalse(
                 helper.isTerminated, "Closing Settings must keep the signed helper resident")
-            app.terminate()
+            try pressHelperCommand("quit", helper: helper)
+            XCTAssertTrue(
+                waitUntil { owner.isTerminated }, "The real Quit command must stop its owner")
             XCTAssertTrue(
                 waitUntil { helper.isTerminated }, "A clean quit must stop the exact helper")
         }
     }
 
     @MainActor
-    func testSignedHelperExitsWhenItsExactOwnerIsKilled() async throws {
+    func testSignedHelperExitsWhenItsExactOwnerIsKilled() throws {
         try require(noGanchoProcesses(), "The disposable host must start without Gancho")
         let app = makeApp()
         defer { if app.isRunning { app.terminate() } }
-        try await app.launch()
-        let owner = try ownedMainApplication()
+        try app.launch()
+        let owner = try ownedMainApplication(app: app)
         let helper = try waitForHelper(owner: owner)
         XCTAssertTrue(owner.forceTerminate())
         XCTAssertTrue(waitUntil { owner.isTerminated })
         XCTAssertTrue(
             waitUntil { helper.isTerminated },
             "The signed helper watchdog must stop without its owner")
-        try await app.launch()
-        let restartedOwner = try ownedMainApplication()
+        try app.launch()
+        let restartedOwner = try ownedMainApplication(app: app)
         let restartedHelper = try waitForHelper(owner: restartedOwner)
         XCTAssertNotEqual(restartedOwner.processIdentifier, owner.processIdentifier)
         XCTAssertNotEqual(restartedHelper.processIdentifier, helper.processIdentifier)
-        app.terminate()
+        try pressHelperCommand("quit", helper: restartedHelper)
+        XCTAssertTrue(waitUntil { restartedOwner.isTerminated })
         XCTAssertTrue(waitUntil { restartedHelper.isTerminated })
     }
 
     @MainActor
-    func testReturnDeliversExactlyOnceIntoAnotherApplication() async throws {
-        try await verifyPaste(usingReturn: true)
+    func testReturnDeliversExactlyOnceIntoAnotherApplication() throws {
+        try verifyPaste(usingReturn: true)
     }
 
     @MainActor
-    func testDoubleClickDeliversExactlyOnceIntoAnotherApplication() async throws {
-        try await verifyPaste(usingReturn: false)
+    func testDoubleClickDeliversExactlyOnceIntoAnotherApplication() throws {
+        try verifyPaste(usingReturn: false)
     }
 
+}
+
+extension SignedHandoffUITests {
     @MainActor
-    private func verifyPaste(usingReturn: Bool) async throws {
+    private func verifyPaste(usingReturn: Bool) throws {
         try require(noGanchoProcesses(), "The disposable host must start without Gancho")
         let (receiver, editor) = try launchReceiver()
         defer { receiver.terminate() }
@@ -100,8 +106,8 @@ final class SignedHandoffUITests: XCTestCase {
                 waitUntil { noGanchoProcesses() },
                 "Test processes must finish before the next session")
         }
-        try await app.launch()
-        let owner = try ownedMainApplication()
+        try app.launch()
+        let owner = try ownedMainApplication(app: app)
         let helper = try waitForHelper(owner: owner)
         receiver.activate()
         editor.click()
@@ -142,7 +148,7 @@ final class SignedHandoffUITests: XCTestCase {
         try require(
             waitUntil(timeout: 10) { receipt.value as? String == expected },
             "The real receiver must report one matching, marked paste and one command down/up pair")
-        pauseForDuplicateObservation()
+        observeQuietPeriod()
         XCTAssertTrue(
             receipt.value as? String == expected, "No delayed or duplicate paste may arrive")
         XCTAssertEqual(NSWorkspace.shared.frontmostApplication?.bundleIdentifier, receiverID)
@@ -174,14 +180,16 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
-    private func ownedMainApplication() throws -> NSRunningApplication {
+    private func ownedMainApplication(app: SignedHandoffApplication) throws -> NSRunningApplication
+    {
         let expected = try XCTUnwrap(ProcessInfo.processInfo.environment["GANCHO_SIGNED_APP"])
         var owner: NSRunningApplication?
         try require(
             waitUntil {
                 owner = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
                     .first {
-                        $0.executableURL?.lastPathComponent == "Gancho"
+                        $0.processIdentifier == app.processIdentifier
+                            && $0.executableURL?.lastPathComponent == "Gancho"
                             && $0.bundleURL?.standardizedFileURL
                                 == URL(fileURLWithPath: expected).standardizedFileURL
                     }
@@ -408,7 +416,7 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
-    private func pauseForDuplicateObservation() {
+    private func observeQuietPeriod() {
         RunLoop.current.run(until: Date().addingTimeInterval(2))
     }
 
