@@ -453,6 +453,11 @@ their dirty flags and removed memberships; an in-flight pre-deletion clip ack
 cannot clear the replacement upload.
 Clip conflicts reuse the received-page LWW/membership path; boards retain their
 existing server-wins contract rather than adding a cloud timestamp field.
+An ignored clip conflict requests a save only when a surviving row remains dirty;
+a pending tombstone retains its deletion. Automatic registrations after a fetch,
+acknowledgement, restart or failed save synchronously preserve deletions already
+in the engine queue, even when their earlier store snapshot still listed an
+upload. Explicit user upload intents keep their normal restore ordering.
 
 Account/zone identity resets use an additive optional `identityResetZones` field
 in the local poll checkpoint file. The reset intent is saved before identity

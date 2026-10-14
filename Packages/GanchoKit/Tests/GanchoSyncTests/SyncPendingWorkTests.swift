@@ -58,6 +58,69 @@ struct SyncPendingWorkTests {
         #expect(stale == [save(staleClip, in: clipZone), save(staleBoard, in: boardZone)])
     }
 
+    @Test("An automatic retry preserves a newer clip or board deletion", arguments: [false, true])
+    func retryPreservesPendingDeletion(board: Bool) {
+        let zone = board ? boardZone : clipZone
+        let deletedID = CKRecord.ID(recordName: UUID().uuidString, zoneID: zone)
+        let dirtyID = CKRecord.ID(recordName: UUID().uuidString, zoneID: zone)
+
+        let retries = SyncPendingWork.retryChanges(
+            [.saveRecord(deletedID), .saveRecord(dirtyID)],
+            pendingChanges: [.deleteRecord(deletedID), .saveRecord(dirtyID)])
+
+        #expect(retries == [.saveRecord(dirtyID)])
+    }
+
+    @Test("Ordinary clip and board saves still retry")
+    func retryPreservesDirtySaves() {
+        let clipID = CKRecord.ID(recordName: UUID().uuidString, zoneID: clipZone)
+        let boardID = CKRecord.ID(recordName: UUID().uuidString, zoneID: boardZone)
+
+        let retries = SyncPendingWork.retryChanges(
+            [.saveRecord(clipID), .saveRecord(boardID)], pendingChanges: [])
+
+        #expect(retries.count == 2)
+        #expect(retries.contains(.saveRecord(clipID)))
+        #expect(retries.contains(.saveRecord(boardID)))
+    }
+
+    @Test("A deletion in another zone does not block a save retry")
+    func retryIgnoresUnrelatedZoneDeletion() {
+        let name = UUID().uuidString
+        let clipID = CKRecord.ID(recordName: name, zoneID: clipZone)
+        let boardID = CKRecord.ID(recordName: name, zoneID: boardZone)
+
+        let retries = SyncPendingWork.retryChanges(
+            [.saveRecord(clipID)], pendingChanges: [.deleteRecord(boardID)])
+
+        #expect(retries == [.saveRecord(clipID)])
+    }
+
+    @Test("A retry respects a deletion whose zone owner uses CloudKit's local alias")
+    func retryMatchesOwnerAlias() {
+        let name = UUID().uuidString
+        let fetchedZone = CKRecordZone.ID(zoneName: clipZone.zoneName, ownerName: "synthetic-owner")
+        let fetchedID = CKRecord.ID(recordName: name, zoneID: fetchedZone)
+        let localID = CKRecord.ID(recordName: name, zoneID: clipZone)
+
+        let retries = SyncPendingWork.retryChanges(
+            [.saveRecord(fetchedID)], pendingChanges: [.deleteRecord(localID)])
+
+        #expect(retries.isEmpty)
+    }
+
+    @Test("Restart retries retain their durable deletion changes")
+    func retryRetainsSnapshotDeletion() {
+        let clipID = CKRecord.ID(recordName: UUID().uuidString, zoneID: clipZone)
+        let boardID = CKRecord.ID(recordName: UUID().uuidString, zoneID: boardZone)
+
+        let retries = SyncPendingWork.retryChanges(
+            [.deleteRecord(clipID), .saveRecord(boardID)],
+            pendingChanges: [.saveRecord(clipID), .deleteRecord(boardID)])
+
+        #expect(retries == [.deleteRecord(clipID)])
+    }
+
     private enum ChangeKind { case save, delete }
 
     private func save(
