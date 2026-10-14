@@ -6,6 +6,7 @@ import XCTest
 @MainActor
 final class SignedHandoffApplication {
     var launchArguments: [String] = []
+    private(set) var commandNonce = ""
     private var process: Process?
 
     var isRunning: Bool { process?.isRunning == true }
@@ -22,7 +23,9 @@ final class SignedHandoffApplication {
         let child = Process()
         child.executableURL = URL(fileURLWithPath: path)
             .appendingPathComponent("Contents/MacOS/Gancho")
-        child.arguments = GanchoUITestApplication.isolatedArguments(launchArguments)
+        commandNonce = UUID().uuidString
+        child.arguments = GanchoUITestApplication.isolatedArguments(
+            launchArguments + ["-command-nonce", commandNonce])
         child.environment = environment.filter {
             !$0.key.hasPrefix("DYLD_") && !$0.key.hasPrefix("XCTest")
                 && !$0.key.hasPrefix("XCInject")
