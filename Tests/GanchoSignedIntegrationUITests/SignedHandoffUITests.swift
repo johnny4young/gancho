@@ -228,10 +228,7 @@ extension SignedHandoffUITests {
     ) throws {
         let duplicate = Process()
         duplicate.executableURL = try XCTUnwrap(helper.executableURL)
-        duplicate.environment = ProcessInfo.processInfo.environment.filter {
-            !$0.key.hasPrefix("DYLD_") && !$0.key.hasPrefix("XCTest")
-                && !$0.key.hasPrefix("XCInject")
-        }
+        duplicate.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin"]
         duplicate.standardOutput = FileHandle.nullDevice
         duplicate.standardError = FileHandle.nullDevice
         try duplicate.run()

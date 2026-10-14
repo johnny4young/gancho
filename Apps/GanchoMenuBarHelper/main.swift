@@ -61,8 +61,11 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
             try FileManager.default.createDirectory(
                 at: directory, withIntermediateDirectories: true)
         } catch { return false }
-        let bundle = Bundle.main.bundleURL.resolvingSymlinksInPath().path
-        let digest = SHA256.hash(data: Data(bundle.utf8))
+        guard
+            let executable = NSRunningApplication.current.executableURL?
+                .resolvingSymlinksInPath().path
+        else { return false }
+        let digest = SHA256.hash(data: Data(executable.utf8))
             .map { String(format: "%02x", $0) }.joined()
         let file = directory.appendingPathComponent(digest + ".lock")
         let descriptor = Darwin.open(file.path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0o600)
