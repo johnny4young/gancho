@@ -189,6 +189,11 @@ public enum ClipImporter {
             if !(row.count == 1 && row[0].isEmpty) { visit(row) }
             row = []
         }
+        func endCRLF() {
+            crlfRecords = crlfRecords ?? true
+            guard crlfRecords == false else { return endRow() }
+            field.unicodeScalars.append(contentsOf: ["\r", "\n"])
+        }
 
         while let scalar = pending ?? iterator.next() {
             pending = nil
@@ -212,17 +217,13 @@ public enum ClipImporter {
                 case "\"": inQuotes = true
                 case ",": endField()
                 case "\n":
-                    if crlfRecords == nil { crlfRecords = false }
+                    crlfRecords = crlfRecords ?? false
                     endRow()
                 case "\r":
-                    guard let next = iterator.next() else { break }
-                    if next != "\n" {
-                        pending = next
-                    } else if crlfRecords == false {
-                        field.unicodeScalars.append(contentsOf: ["\r", "\n"])
-                    } else {
-                        crlfRecords = true
-                        endRow()
+                    pending = iterator.next()
+                    if pending == "\n" {
+                        pending = nil
+                        endCRLF()
                     }
                 default: field.unicodeScalars.append(scalar)
                 }
