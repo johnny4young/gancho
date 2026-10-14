@@ -152,6 +152,7 @@ format: ## Format Swift sources in place
 		scripts/check-dependency-resolution.swift
 
 lint: dependency-check ## Verify formatting, SwiftLint rules, and dependency locks
+	python3 scripts/prepare-hosted-handoff-permissions.py --self-test
 	swift format lint --strict --recursive Apps $(PACKAGE)/Sources $(PACKAGE)/Tests Tests \
 		scripts/check-dependency-resolution.swift
 	$(MAKE) swiftlint

@@ -174,7 +174,8 @@ struct PanelView: View {
     }
 
     var body: some View {
-        // Split from `panelContent` so each half type-checks in reasonable time.
+        // Keep lifecycle, surface, search updates, and sheets in separate expressions
+        // so the panel also type-checks with the stable macOS 15 toolchain.
         panelContent
             // A capture must not swap the peek, an inline edit or the board picker's
             // target out from under the user once they leave the search field.
@@ -234,7 +235,7 @@ struct PanelView: View {
             }
     }
 
-    @ViewBuilder private var panelContent: some View {
+    @ViewBuilder private var panelSurface: some View {
         let panelTextSize = PanelTextSize.resolved(panelTextSizeRaw)
         // ONE surface for list and peek. The peek opens BESIDE the list (not a
         // modal) and follows the selected clip, Quick-Look-style, but it is part
@@ -304,113 +305,121 @@ struct PanelView: View {
         }
         .background { commandShortcutButtons }
         .animation(.snappy(duration: 0.12), value: showShortcuts)
-        .task {
-            await search.refreshSourceApps()
-            await search.refresh()
-        }
-        .task { await model.refreshBoards() }
-        .onDisappear {
-            search.cancelMeaningSearch()
-            cancelPendingPaste()
-        }
-        .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
-        .onChange(of: model.preferences.isPrivateModePaused) { _, _ in
-            search.cancelMeaningSearch()
-            Task { await search.refresh() }
-        }
-        .onChange(of: model.intelligence.semanticSearch) { _, enabled in
-            search.cancelMeaningSearch()
-            if !enabled { search.meaningEnabled = false }
-            Task { await search.refresh() }
-        }
-        .onChange(of: search.query) { _, newValue in
-            // A new query invalidates a previous answer and drops rail focus
-            // (you're typing in the search field again).
-            askTask?.cancel()
-            askTask = nil
-            isAsking = false
-            answer = nil
-            railFocus = nil
-            // Mirror the live query so a paste knows the search that led to it
-            // Typing anything that isn't a recalled entry ends the
-            // ⌘↑ recall session.
-            model.activePanelQuery = newValue
-            if newValue != recalledQuery {
-                historyCursor = nil
-                searchHistory = []
-                recalledQuery = nil
-            }
-            Task {
-                let interval = Signpost.queryToResults.begin()
-                await search.refresh()
-                Signpost.queryToResults.end(interval)
-            }
-        }
-        .onChange(of: model.recentItems) { _, _ in
-            Task {
+    }
+
+    private var panelSearchContent: some View {
+        panelSurface
+            .task {
                 await search.refreshSourceApps()
                 await search.refresh()
             }
-        }
-        // Keyed on the pending set, not on `recentItems`: a delete filters the
-        // recent list synchronously, but an UNDO only schedules an async
-        // refresh, so watching the list would reconcile on the way out and not
-        // on the way back. This fires on both, synchronously, before the
-        // refresh — the visible list is cached now, so without it a row lingers
-        // for a store round trip and reads as "not deleted".
-        .onChange(of: model.pendingDeletionIDs) { _, _ in
-            search.reconcileVisible()
-        }
-        .onChange(of: search.selectedBoardID) { _, _ in
-            Task { await search.refresh() }
-        }
-        .onChange(of: search.selectedSourceAppBundleID) { _, _ in
-            Task { await search.refresh() }
-        }
-        // The kind filter narrows client-side, so regroup without a re-query.
-        .onChange(of: search.kindFilter) { _, _ in Task { await search.refresh() } }
-        .modifier(
-            PanelSheetPresentations(
-                boardSheetTitle: boardSheetTitle,
-                boardSheetConfirm: boardSheetConfirm,
-                boardSheetPresented: boardSheetPresented,
-                boardNameField: $boardNameField,
-                boardPendingDeletion: $boardPendingDeletion,
-                presentedSheet: $presentedSheet,
-                commitBoardSheet: commitBoardSheet,
-                deleteBoard: { board in
-                    Task {
-                        // Leave the board only once it is actually gone. This
-                        // used to clear first, so a failed delete dropped the
-                        // panel on All clips with the board still in the rail —
-                        // the same mismatch `LibraryView.deleteBoard` fixes.
-                        // Clearing the id is itself what refreshes the list
-                        // (the `onChange` above), so nothing else is needed.
-                        let deleted = await model.deleteBoard(board)
-                        if deleted, search.selectedBoardID == board.id {
-                            search.selectedBoardID = nil
-                        }
-                    }
-                },
-                pasteSnippet: { request, values in
-                    model.pasteSnippet(request.snippet, values: values)
-                },
-                updateBoardIdentity: { board, colorHex, emoji in
-                    await model.updateBoardIdentity(board, colorHex: colorHex, emoji: emoji)
-                },
-                reviewSheet: reviewSheet)
-        )
-        // Load the peek for the selected clip, keyed on its id and debounced:
-        // arrowing fast cancels the in-flight load, so only the clip you land on
-        // is read and rendered — keeps navigation responsive.
-        .task(id: search.selectedItem?.id) {
-            try? await Task.sleep(for: .milliseconds(60))
-            guard !Task.isCancelled else { return }
-            let store = model.store
-            await preview.load(search.selectedItem) { id in
-                try await store.content(for: id)
+            .task { await model.refreshBoards() }
+            .onDisappear {
+                search.cancelMeaningSearch()
+                cancelPendingPaste()
             }
-        }
+            .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
+            .onChange(of: model.preferences.isPrivateModePaused) { _, _ in
+                search.cancelMeaningSearch()
+                Task { await search.refresh() }
+            }
+            .onChange(of: model.intelligence.semanticSearch) { _, enabled in
+                search.cancelMeaningSearch()
+                if !enabled { search.meaningEnabled = false }
+                Task { await search.refresh() }
+            }
+            .onChange(of: search.query) { _, newValue in
+                // A new query invalidates a previous answer and drops rail focus
+                // (you're typing in the search field again).
+                askTask?.cancel()
+                askTask = nil
+                isAsking = false
+                answer = nil
+                railFocus = nil
+                // Mirror the live query so a paste knows the search that led to it
+                // Typing anything that isn't a recalled entry ends the
+                // ⌘↑ recall session.
+                model.activePanelQuery = newValue
+                if newValue != recalledQuery {
+                    historyCursor = nil
+                    searchHistory = []
+                    recalledQuery = nil
+                }
+                Task {
+                    let interval = Signpost.queryToResults.begin()
+                    await search.refresh()
+                    Signpost.queryToResults.end(interval)
+                }
+            }
+            .onChange(of: model.recentItems) { _, _ in
+                Task {
+                    await search.refreshSourceApps()
+                    await search.refresh()
+                }
+            }
+            // Keyed on the pending set, not on `recentItems`: a delete filters the
+            // recent list synchronously, but an UNDO only schedules an async
+            // refresh, so watching the list would reconcile on the way out and not
+            // on the way back. This fires on both, synchronously, before the
+            // refresh — the visible list is cached now, so without it a row lingers
+            // for a store round trip and reads as "not deleted".
+            .onChange(of: model.pendingDeletionIDs) { _, _ in
+                search.reconcileVisible()
+            }
+            .onChange(of: search.selectedBoardID) { _, _ in
+                Task { await search.refresh() }
+            }
+            .onChange(of: search.selectedSourceAppBundleID) { _, _ in
+                Task { await search.refresh() }
+            }
+            // The kind filter narrows client-side, so regroup without a re-query.
+            .onChange(of: search.kindFilter) { _, _ in Task { await search.refresh() } }
+    }
+
+    private var panelContent: some View {
+        panelSearchContent
+            .modifier(
+                PanelSheetPresentations(
+                    boardSheetTitle: boardSheetTitle,
+                    boardSheetConfirm: boardSheetConfirm,
+                    boardSheetPresented: boardSheetPresented,
+                    boardNameField: $boardNameField,
+                    boardPendingDeletion: $boardPendingDeletion,
+                    presentedSheet: $presentedSheet,
+                    commitBoardSheet: commitBoardSheet,
+                    deleteBoard: { board in
+                        Task {
+                            // Leave the board only once it is actually gone. This
+                            // used to clear first, so a failed delete dropped the
+                            // panel on All clips with the board still in the rail —
+                            // the same mismatch `LibraryView.deleteBoard` fixes.
+                            // Clearing the id is itself what refreshes the list
+                            // (the `onChange` above), so nothing else is needed.
+                            let deleted = await model.deleteBoard(board)
+                            if deleted, search.selectedBoardID == board.id {
+                                search.selectedBoardID = nil
+                            }
+                        }
+                    },
+                    pasteSnippet: { request, values in
+                        model.pasteSnippet(request.snippet, values: values)
+                    },
+                    updateBoardIdentity: { board, colorHex, emoji in
+                        await model.updateBoardIdentity(board, colorHex: colorHex, emoji: emoji)
+                    },
+                    reviewSheet: reviewSheet)
+            )
+            // Load the peek for the selected clip, keyed on its id and debounced:
+            // arrowing fast cancels the in-flight load, so only the clip you land on
+            // is read and rendered — keeps navigation responsive.
+            .task(id: search.selectedItem?.id) {
+                try? await Task.sleep(for: .milliseconds(60))
+                guard !Task.isCancelled else { return }
+                let store = model.store
+                await preview.load(search.selectedItem) { id in
+                    try await store.content(for: id)
+                }
+            }
     }
 
     /// The colour the ambient wash takes: an image's average, otherwise the

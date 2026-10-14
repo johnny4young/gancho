@@ -18,7 +18,7 @@ note() { printf '    %s\n' "$1"; }
 
 cleanup() {
 	if [ -n "$MOUNT_POINT" ]; then
-		hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
+		diskutil eject "$MOUNT_POINT" >/dev/null 2>&1 || true
 	fi
 	if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
 		rm -rf "$TEMP_DIR"
@@ -50,7 +50,12 @@ case "$artifact" in
 	section "Mounting DMG read-only"
 	TEMP_DIR="$(mktemp -d /tmp/gancho-qa.XXXXXX)"
 	attach_plist="$TEMP_DIR/attach.plist"
-	if hdiutil attach -readonly -nobrowse -plist "$artifact" > "$attach_plist"; then
+	if diskutil image attach --help >/dev/null 2>&1; then
+		attach_args=(diskutil image attach --readOnly --mountOptions nobrowse --plist)
+	else
+		attach_args=(hdiutil attach -readonly -nobrowse -plist)
+	fi
+	if "${attach_args[@]}" "$artifact" > "$attach_plist"; then
 		pass "DMG mounted read-only"
 	else
 		fail_app "DMG failed to mount"
