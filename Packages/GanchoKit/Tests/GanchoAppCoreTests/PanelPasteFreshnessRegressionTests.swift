@@ -5,12 +5,13 @@ import Testing
 @testable import GanchoAppCore
 
 @MainActor
-private final class PasteFreshnessSource: PanelSearchSource {
+private final class PasteFreshnessSource: PanelSearchSource, MeaningSearchSource {
     var isDurable = true
     let result = ClipItem(preview: "Synthetic conventional result")
     let snippet = ClipItem(preview: "Synthetic exact-keyword snippet")
     var additionalResults: [ClipItem] = []
     var recent: [ClipItem] = []
+    var related: [ClipItem] = []
 
     func recentBrowse(offset: Int, limit: Int) async -> [ClipItem] {
         Array(recent.dropFirst(offset).prefix(limit))
@@ -27,6 +28,10 @@ private final class PasteFreshnessSource: PanelSearchSource {
         keyword == "sig" ? snippet : nil
     }
     func isDeletionPending(_ id: UUID) -> Bool { false }
+    func relatedItems(for query: ClipSearchQuery) async throws -> MeaningSearchResponse {
+        MeaningSearchResponse(
+            items: related, coverage: SemanticIndexCoverage(eligible: 1, indexed: 1))
+    }
 }
 
 @MainActor
@@ -71,6 +76,29 @@ struct PanelPasteFreshnessRegressionTests {
         #expect(target?.item.id == source.snippet.id)
         #expect(model.selectedItem?.id == selected.id)
         #expect(model.selectedIndex == 1)
+    }
+
+    @Test func disablingMeaningDropsRelatedRowsBeforeEnter() async {
+        let source = PasteFreshnessSource()
+        let related = ClipItem(preview: "Synthetic related result")
+        source.related = [related]
+        let model = PanelSearchModel(source: source)
+        model.query = "sig"
+        model.meaningEnabled = true
+        await model.refresh()
+        for _ in 0..<10_000 {
+            if model.meaning.status == .ready { break }
+            await Task.yield()
+        }
+        #expect(model.meaning.relatedIDs == [related.id])
+
+        model.meaningEnabled = false
+        #expect(!model.hasCurrentResults)
+        let target = await model.resolvePasteTarget(includingSnippet: false)
+
+        #expect(target?.item.id == source.result.id)
+        #expect(!model.results.contains { $0.id == related.id })
+        #expect(model.hasCurrentResults)
     }
 
     @Test func meaningToggleRefreshPreservesTheLoadedBrowseWindow() async {

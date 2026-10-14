@@ -65,7 +65,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     private var loadMoreDeferred = false
     private var displayedContext: Context?
     /// Retain context for selection and paging, but require a complete rows-and-snippet refresh.
-    private var displayedSnapshotIsValid = false
+    @ObservationIgnored private var displayedSnapshotIsValid = false
     /// Paste bookkeeping is read only by key actions, never rendered, so it
     /// stays out of observation: every arrow key regenerates the interaction.
     @ObservationIgnored private var pasteRequestID: UUID?
