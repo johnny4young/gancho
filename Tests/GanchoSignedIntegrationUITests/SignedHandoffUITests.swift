@@ -241,10 +241,13 @@ extension SignedHandoffUITests {
         XCTAssertEqual(duplicate.terminationStatus, 0)
         XCTAssertFalse(helper.isTerminated, "The original helper must retain its icon")
         XCTAssertFalse(owner.isTerminated, "Discarding a duplicate must preserve the owner")
-        XCTAssertEqual(
-            NSWorkspace.shared.runningApplications.filter {
-                $0.executableURL?.standardizedFileURL == helper.executableURL?.standardizedFileURL
-            }.count, 1, "Exactly one helper must remain for this bundle")
+        XCTAssertTrue(
+            waitUntil {
+                NSWorkspace.shared.runningApplications.filter {
+                    $0.executableURL?.standardizedFileURL
+                        == helper.executableURL?.standardizedFileURL
+                }.count == 1
+            }, "Exactly one helper must remain for this bundle")
     }
 
     @MainActor

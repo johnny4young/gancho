@@ -76,9 +76,26 @@ jobs:
             -destination "platform=macOS,arch=$(uname -m)" build-for-testing \
             CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
-            CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= \
+            GANCHO_MAC_ENTITLEMENTS_PATH= GANCHO_PROVISIONING_PROFILE_SPECIFIER= \
             ENABLE_HARDENED_RUNTIME=NO \
             2>&1 | tee build/signed-handoff-build.log
+
+      - name: Verify the native driver can forward isolated launch arguments
+        run: |
+          python3 - <<'PY'
+          import json
+          import plistlib
+          import subprocess
+          from pathlib import Path
+          runner = Path('build/signed-handoff/Build/Products/Debug/GanchoSignedIntegrationUITests-Runner.app')
+          result = subprocess.run(
+              ['codesign', '--display', '--entitlements', '-', '--xml', str(runner)],
+              check=True, capture_output=True)
+          entitlements = plistlib.loads(result.stdout)
+          assert not entitlements.get('com.apple.security.app-sandbox', False), 'UI driver must forward actual launch arguments'
+          Path('build/signed-handoff-driver.json').write_text(
+              json.dumps({'native_driver_sandbox_disabled': True}) + '\n')
+          PY
 
       - name: Sign sender and helper in a temporary keychain
         env:
@@ -147,6 +164,7 @@ jobs:
             build/signed-handoff-build.log
             build/signed-handoff.log
             build/signed-handoff-signatures.json
+            build/signed-handoff-driver.json
             build/menu-bar-command-trace.json
             build/signed-handoff.xcresult
             build/signed-handoff-evidence

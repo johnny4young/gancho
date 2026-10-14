@@ -344,8 +344,15 @@ targets:
     settings:
       base:
         SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        # AppKit drops launch arguments from a sandboxed caller. This dedicated
+        # native driver fails closed outside a disposable hosted runner.
+        ENABLE_APP_SANDBOX: NO
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: GanchoPasteReceiver
+    entitlements:
+      path: Tests/GanchoSignedIntegrationUITests/SignedHandoffUITests.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
     sources:
       - path: Tests/GanchoSignedIntegrationUITests
       - path: Tests/GanchoUITests/GanchoUITestApplication.swift
