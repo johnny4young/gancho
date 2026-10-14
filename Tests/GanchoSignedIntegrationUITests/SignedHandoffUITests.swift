@@ -95,7 +95,7 @@ extension SignedHandoffUITests {
     @MainActor
     private func verifyPaste(usingReturn: Bool) async throws {
         try require(noGanchoProcesses(), "The disposable host must start without Gancho")
-        let (receiver, editor) = try launchReceiver()
+        let (receiver, editor, receipt) = try launchReceiver()
         defer { receiver.terminate() }
 
         let app = makeApp()
@@ -110,7 +110,9 @@ extension SignedHandoffUITests {
         let owner = try ownedMainApplication(app: app)
         let helper = try waitForHelper(owner: owner)
         receiver.activate()
-        editor.click()
+        try clickElement(editor)
+        try require(
+            waitUntil { isFocused(editor) }, "The receiver editor must regain keyboard focus")
         try require(
             NSWorkspace.shared.frontmostApplication?.bundleIdentifier == receiverID,
             "The receiving application must own foreground focus before opening the panel")
@@ -143,30 +145,44 @@ extension SignedHandoffUITests {
                 findElement(root, attribute: kAXIdentifierAttribute, value: "history-panel") == nil
             },
             "The panel must hide after paste")
-        let receipt = receiver.staticTexts["paste-receipt-status"].firstMatch
         let expected = "pastes=1;down=1;up=1;match=true;marked=true"
         try require(
-            waitUntil(timeout: 10) { receipt.value as? String == expected },
+            waitUntil(timeout: 10) { textValue(receipt) == expected },
             "The real receiver must report one matching, marked paste and one command down/up pair")
         observeQuietPeriod()
         XCTAssertTrue(
-            receipt.value as? String == expected, "No delayed or duplicate paste may arrive")
+            textValue(receipt) == expected, "No delayed or duplicate paste may arrive")
         XCTAssertEqual(NSWorkspace.shared.frontmostApplication?.bundleIdentifier, receiverID)
         XCTAssertFalse(helper.isTerminated, "Paste must keep the external helper resident")
     }
 
     @MainActor
-    private func launchReceiver() throws -> (XCUIApplication, XCUIElement) {
+    private func launchReceiver() throws -> (XCUIApplication, AXUIElement, AXUIElement) {
         let receiverPath = try XCTUnwrap(
             ProcessInfo.processInfo.environment["GANCHO_PASTE_RECEIVER_APP"])
         let receiver = XCUIApplication(url: URL(fileURLWithPath: receiverPath))
         receiver.launchEnvironment["GANCHO_DISPOSABLE_PASTE_RECEIVER"] = "1"
         receiver.launch()
-        let editor = receiver.textViews["paste-receiver-editor"].firstMatch
-        try require(editor.waitForExistence(timeout: 5), "The synthetic receiver must be ready")
-        try require(editor.isHittable, "The receiver editor must be reachable")
-        editor.click()
-        return (receiver, editor)
+        let visibleEditor = receiver.textViews["paste-receiver-editor"].firstMatch
+        try require(
+            visibleEditor.waitForExistence(timeout: 5), "The synthetic receiver must be ready")
+        try require(visibleEditor.isHittable, "The receiver editor must be reachable")
+        let running = try XCTUnwrap(
+            NSRunningApplication.runningApplications(withBundleIdentifier: receiverID).first {
+                $0.bundleURL?.standardizedFileURL
+                    == URL(fileURLWithPath: receiverPath).standardizedFileURL
+            })
+        let root = AXUIElementCreateApplication(running.processIdentifier)
+        let editor = try waitForElement(
+            root, value: "paste-receiver-editor",
+            message: "The exact receiver must expose its editor")
+        let receipt = try waitForElement(
+            root, value: "paste-receipt-status",
+            message: "The exact receiver must expose its receipt")
+        try clickElement(editor)
+        try require(
+            waitUntil { isFocused(editor) }, "The actual receiver editor must own keyboard focus")
+        return (receiver, editor, receipt)
     }
 
     @MainActor
@@ -379,6 +395,16 @@ extension SignedHandoffUITests {
                 return true
             }, "The requested native control must become available")
         return try XCTUnwrap(element)
+    }
+
+    @MainActor
+    private func textValue(_ element: AXUIElement) -> String? {
+        var value: CFTypeRef?
+        guard
+            AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value)
+                == .success
+        else { return nil }
+        return value as? String
     }
 
     @MainActor
