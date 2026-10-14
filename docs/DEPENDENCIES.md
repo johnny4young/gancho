@@ -204,7 +204,7 @@ the application schema.
   pin update. Offline fixture tests cover reuse, invalidation, missing tools,
   forced downloads, and preservation after failed verification.
 
-### Verification and merge gates
+### Verification and release gates
 
 The lock revisions above were checked against the upstream annotated tags and
 immutable commit manifests. The exact KeyboardShortcuts hold requires
@@ -215,8 +215,8 @@ formatting, lint, package encryption/raw-key/migration/durability tests,
 StoreKit tests, and both app builds. A local fixture test is not evidence that
 the real Sparkle binary was downloaded or signed correctly.
 
-Before merge, also record the results that ordinary unsigned PR CI cannot
-supply:
+Before releasing these updates, also record the results that ordinary
+unsigned PR CI cannot supply:
 
 - `GANCHO_PERF=1 make bench` for storage/search budgets.
 - A signed build reopening a backed-up, existing store produced by the old
@@ -229,6 +229,3 @@ supply:
   function-key activation with a menu open. Check the lowest supported macOS
   and a current supported system. Package conflict tests do not exercise the
   global registration or AppKit recorder lifecycle.
-
-Keep this work in draft until those gates have evidence. Do not close the
-upstream canary issue merely because its original body mentions older releases.

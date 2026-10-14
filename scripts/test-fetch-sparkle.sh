@@ -38,7 +38,7 @@ expect_downloads() {
 	actual="$(wc -l <"$DOWNLOAD_LOG" | tr -d ' ')"
 	[ "$actual" = "$1" ] || { cat "$tmp/output"; echo "expected $1 downloads, got $actual" >&2; exit 1; }
 }
-# An existing unmarked framework used to suppress every future version bump.
+# A cache without a matching receipt must be refetched.
 mkdir -p "$VENDOR_DIR/Sparkle.framework" "$VENDOR_DIR/bin"
 printf 'old framework\n' >"$VENDOR_DIR/Sparkle.framework/Sparkle"
 cp "$tmp/archive/bin/sign_update" "$VENDOR_DIR/bin/"
