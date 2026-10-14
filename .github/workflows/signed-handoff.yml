@@ -16,18 +16,25 @@ on:
       - scripts/prepare-hosted-handoff-permissions.py
       - scripts/sign-hosted-handoff.sh
   workflow_dispatch:
+    inputs:
+      architecture:
+        description: Architecture of the disposable standard macOS runner
+        type: choice
+        default: arm64
+        options: [arm64, x86_64]
 
 permissions:
   contents: read
 
 concurrency:
-  group: signed-handoff-${{ github.ref }}
+  group: signed-handoff-${{ github.ref }}${{ inputs.architecture == 'x86_64' && '-x86_64' || '' }}
   cancel-in-progress: true
 
 jobs:
   signed-handoff:
+    name: Signed handoff (${{ inputs.architecture || 'arm64' }})
     if: github.repository == 'johnny4young/gancho'
-    runs-on: macos-26
+    runs-on: ${{ inputs.architecture == 'x86_64' && 'macos-26-intel' || 'macos-26' }}
     timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
@@ -41,6 +48,7 @@ jobs:
           test "$GITHUB_ACTIONS" = true
           test "$RUNNER_ENVIRONMENT" = github-hosted
           test "$(id -un)" = runner
+          test "$(uname -m)" = '${{ inputs.architecture || 'arm64' }}'
           sw_vers
           xcodebuild -version
 
@@ -65,7 +73,7 @@ jobs:
             -clonedSourcePackagesDirPath build/xcode-packages \
             -derivedDataPath build/signed-handoff \
             -project Gancho.xcodeproj -scheme GanchoSignedIntegration \
-            -destination 'platform=macOS,arch=arm64' build-for-testing \
+            -destination "platform=macOS,arch=$(uname -m)" build-for-testing \
             CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
             CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= \
@@ -97,7 +105,7 @@ jobs:
             -clonedSourcePackagesDirPath build/xcode-packages \
             -derivedDataPath build/signed-handoff \
             -project Gancho.xcodeproj -scheme GanchoSignedIntegration \
-            -destination 'platform=macOS,arch=arm64' test-without-building \
+            -destination "platform=macOS,arch=$(uname -m)" test-without-building \
             -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
