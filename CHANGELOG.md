@@ -7,6 +7,14 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve queued iCloud deletions when an older upload conflict or automatic retry finishes after the local deletion.
+
+- Refresh exact snippet keyword matches before pasting after a search invalidation, while preserving the selected row and loaded pages for an unchanged search.
+
+- Import CSV records with CRLF line endings and preserve combining-mark text and quoted newlines while retaining formula protection when exporting and importing clips.
+
 ## [0.10.0] - 2026-10-09
 
 ### Added

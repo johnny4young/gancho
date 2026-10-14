@@ -54,4 +54,34 @@ struct SyncPendingWork: Equatable, Sendable {
             return false
         }
     }
+
+    /// An awaited work snapshot can predate a newly enqueued deletion. Automatic
+    /// saves must preserve that newer intent; explicit user upload intents bypass
+    /// this planner. Read the current queue and register this result without an
+    /// intervening await. This adapter uses private zones, so a fetched owner and
+    /// CloudKit's default-owner alias address the same zone and record name.
+    static func retryChanges(
+        _ changes: [CKSyncEngine.PendingRecordZoneChange],
+        pendingChanges: [CKSyncEngine.PendingRecordZoneChange]
+    ) -> [CKSyncEngine.PendingRecordZoneChange] {
+        let deletions = Set(
+            pendingChanges.compactMap { change -> RecordIdentity? in
+                guard case .deleteRecord(let id) = change else { return nil }
+                return RecordIdentity(id)
+            })
+        return changes.filter { change in
+            guard case .saveRecord(let id) = change else { return true }
+            return !deletions.contains(RecordIdentity(id))
+        }
+    }
+
+    private struct RecordIdentity: Hashable, Sendable {
+        let recordName: String
+        let zoneName: String
+
+        init(_ id: CKRecord.ID) {
+            recordName = id.recordName
+            zoneName = id.zoneID.zoneName
+        }
+    }
 }

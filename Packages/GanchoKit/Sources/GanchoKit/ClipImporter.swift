@@ -167,15 +167,15 @@ public enum ClipImporter {
         }
     }
 
-    /// Scans quoted commas, escaped quotes, and quoted newlines using the existing
-    /// character policy. Only one raw row is live at a time; the visitor cannot
-    /// publish a result, and any unterminated field still fails the whole preview.
+    /// Scans ASCII syntax independently of content graphemes, preserving quoted
+    /// newlines and combining marks. Only one raw row is live at a time; any
+    /// unterminated field still fails the whole preview.
     private static func forEachCSVRow(_ content: String, visit: ([String]) -> Void) throws {
         var field = ""
         var row: [String] = []
         var inQuotes = false
-        var iterator = content.makeIterator()
-        var pending: Character?
+        var iterator = content.unicodeScalars.makeIterator()
+        var pending: Unicode.Scalar?
 
         func endField() {
             row.append(field)
@@ -187,10 +187,10 @@ public enum ClipImporter {
             row = []
         }
 
-        while let character = pending ?? iterator.next() {
+        while let scalar = pending ?? iterator.next() {
             pending = nil
             if inQuotes {
-                if character == "\"" {
+                if scalar == "\"" {
                     if let next = iterator.next() {
                         if next == "\"" {
                             field.append("\"")
@@ -202,15 +202,15 @@ public enum ClipImporter {
                         inQuotes = false
                     }
                 } else {
-                    field.append(character)
+                    field.unicodeScalars.append(scalar)
                 }
             } else {
-                switch character {
+                switch scalar {
                 case "\"": inQuotes = true
                 case ",": endField()
                 case "\n": endRow()
                 case "\r": break
-                default: field.append(character)
+                default: field.unicodeScalars.append(scalar)
                 }
             }
         }
