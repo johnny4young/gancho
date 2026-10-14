@@ -9,6 +9,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Retry external menu-bar helper startup when a registered login agent does not appear, and discard late duplicate helpers from the same app bundle.
+
 - Preserve queued iCloud deletions when an older upload conflict or automatic retry finishes after the local deletion.
 
 - Refresh exact snippet keyword matches before pasting after a search invalidation, while preserving the selected row and loaded pages for an unchanged search.

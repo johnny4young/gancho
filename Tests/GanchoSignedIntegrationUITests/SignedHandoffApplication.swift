@@ -1,18 +1,18 @@
 import AppKit
 import XCTest
 
-/// Launch the exact executable with explicit arguments. Neither foreground
-/// activation nor LaunchServices argument forwarding is required.
+/// Launch a fresh accessory instance through LaunchServices with explicit
+/// isolation arguments, without XCTest requiring foreground activation.
 @MainActor
 final class SignedHandoffApplication {
     var launchArguments: [String] = []
     private(set) var commandNonce = ""
-    private var process: Process?
+    private var application: NSRunningApplication?
 
-    var isRunning: Bool { process?.isRunning == true }
-    var processIdentifier: pid_t? { process?.processIdentifier }
+    var isRunning: Bool { application?.isTerminated == false }
+    var processIdentifier: pid_t? { application?.processIdentifier }
 
-    func launch() throws {
+    func launch() async throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["GANCHO_DISPOSABLE_SIGNED_HOST"] == "github-hosted",
             NSUserName() == "runner"
@@ -20,29 +20,24 @@ final class SignedHandoffApplication {
             throw NSError(domain: "GanchoSignedIntegration", code: 1)
         }
         let path = try XCTUnwrap(environment["GANCHO_SIGNED_APP"])
-        let child = Process()
-        child.executableURL = URL(fileURLWithPath: path)
-            .appendingPathComponent("Contents/MacOS/Gancho")
         commandNonce = UUID().uuidString
-        child.arguments = GanchoUITestApplication.isolatedArguments(
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        configuration.createsNewApplicationInstance = true
+        configuration.arguments = GanchoUITestApplication.isolatedArguments(
             launchArguments + ["-command-nonce", commandNonce])
-        child.environment = environment.filter {
-            !$0.key.hasPrefix("DYLD_") && !$0.key.hasPrefix("XCTest")
-                && !$0.key.hasPrefix("XCInject")
-        }
-        child.standardOutput = FileHandle.nullDevice
-        child.standardError = FileHandle.nullDevice
-        process = child
-        try child.run()
+        application = try await NSWorkspace.shared.openApplication(
+            at: URL(fileURLWithPath: path), configuration: configuration)
+        XCTAssertEqual(application?.executableURL?.lastPathComponent, "Gancho")
     }
 
     func terminate() {
-        guard let process, process.isRunning else { return }
-        process.terminate()
+        guard let application, !application.isTerminated else { return }
+        if !application.terminate() { application.forceTerminate() }
         let deadline = Date().addingTimeInterval(8)
-        while process.isRunning && Date() < deadline {
+        while !application.isTerminated && Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
-        XCTAssertFalse(process.isRunning, "Cleanup must stop only the exact child process")
+        XCTAssertTrue(application.isTerminated, "Cleanup must stop only the exact owner process")
     }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 
 /// Paint-only menu-bar helper.
 ///
@@ -17,6 +18,10 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
     private var watchdog: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard !hasEarlierHelperInstance else {
+            NSApp.terminate(nil)
+            return
+        }
         NSApp.setActivationPolicy(.accessory)
         ProcessInfo.processInfo.disableAutomaticTermination(
             "Gancho keeps a resident menu-bar helper")
@@ -36,6 +41,25 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
         applyStatusPresentation()
         rebuildMenu()
         startWatchdog()
+    }
+
+    private var hasEarlierHelperInstance: Bool {
+        let current = NSRunningApplication.current
+        guard let executable = current.executableURL?.standardizedFileURL,
+            let bundle = current.bundleURL?.standardizedFileURL
+        else { return false }
+        let launched = current.launchDate
+        return NSWorkspace.shared.runningApplications.contains { candidate in
+            guard !candidate.isTerminated,
+                candidate.processIdentifier != current.processIdentifier,
+                candidate.executableURL?.standardizedFileURL == executable,
+                candidate.bundleURL?.standardizedFileURL == bundle
+            else { return false }
+            if let earlier = candidate.launchDate, let launched, earlier != launched {
+                return earlier < launched
+            }
+            return candidate.processIdentifier < current.processIdentifier
+        }
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -159,6 +183,11 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
             let command = GanchoMenuBarCommand(rawValue: rawValue)
         else { return }
 
+        #if DEBUG
+            let trace = Logger(subsystem: "com.johnny4young.gancho", category: "MenuBarCommands")
+            let name = command.rawValue
+            trace.notice("Helper selected command \(name, privacy: .public)")
+        #endif
         if command == .quit {
             // The distributed command asks the main app to quit cleanly. But a
             // dropped notification (or a nonce mismatch) must NEVER strand it
@@ -171,6 +200,10 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
             requestMainAppTermination()
         } else {
             guard let token = GanchoMenuBarBridge.readNonce(), !token.isEmpty else { return }
+            #if DEBUG
+                trace.notice(
+                    "Helper has command session; posting \(name, privacy: .public)")
+            #endif
             command.postDistributed(token: token)
         }
     }

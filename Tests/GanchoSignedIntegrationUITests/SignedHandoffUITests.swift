@@ -18,12 +18,12 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
-    func testSignedHelperStaysResidentAndRoutesSettingsAcrossTwoLaunches() throws {
+    func testSignedHelperStaysResidentAndRoutesSettingsAcrossTwoLaunches() async throws {
         let app = makeApp()
         defer { if app.isRunning { app.terminate() } }
         for _ in 0..<2 {
             try require(noGanchoProcesses(), "The disposable host must start without Gancho")
-            try app.launch()
+            try await app.launch()
             let owner = try ownedMainApplication(app: app)
             let helper = try waitForHelper(owner: owner, app: app)
             XCTAssertEqual(owner.activationPolicy, .accessory)
@@ -57,19 +57,20 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
-    func testSignedHelperExitsWhenItsExactOwnerIsKilled() throws {
+    func testSignedHelperExitsWhenItsExactOwnerIsKilled() async throws {
         try require(noGanchoProcesses(), "The disposable host must start without Gancho")
         let app = makeApp()
         defer { if app.isRunning { app.terminate() } }
-        try app.launch()
+        try await app.launch()
         let owner = try ownedMainApplication(app: app)
         let helper = try waitForHelper(owner: owner, app: app)
+        try verifyDuplicateHelperExits(helper: helper, owner: owner)
         XCTAssertTrue(owner.forceTerminate())
         XCTAssertTrue(waitUntil { owner.isTerminated })
         XCTAssertTrue(
             waitUntil { helper.isTerminated },
             "The signed helper watchdog must stop without its owner")
-        try app.launch()
+        try await app.launch()
         let restartedOwner = try ownedMainApplication(app: app)
         let restartedHelper = try waitForHelper(owner: restartedOwner, app: app)
         XCTAssertNotEqual(restartedOwner.processIdentifier, owner.processIdentifier)
@@ -80,20 +81,20 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
-    func testReturnDeliversExactlyOnceIntoAnotherApplication() throws {
-        try verifyPaste(usingReturn: true)
+    func testReturnDeliversExactlyOnceIntoAnotherApplication() async throws {
+        try await verifyPaste(usingReturn: true)
     }
 
     @MainActor
-    func testDoubleClickDeliversExactlyOnceIntoAnotherApplication() throws {
-        try verifyPaste(usingReturn: false)
+    func testDoubleClickDeliversExactlyOnceIntoAnotherApplication() async throws {
+        try await verifyPaste(usingReturn: false)
     }
 
 }
 
 extension SignedHandoffUITests {
     @MainActor
-    private func verifyPaste(usingReturn: Bool) throws {
+    private func verifyPaste(usingReturn: Bool) async throws {
         try require(noGanchoProcesses(), "The disposable host must start without Gancho")
         let (receiver, editor) = try launchReceiver()
         defer { receiver.terminate() }
@@ -106,7 +107,7 @@ extension SignedHandoffUITests {
                 waitUntil { noGanchoProcesses() },
                 "Test processes must finish before the next session")
         }
-        try app.launch()
+        try await app.launch()
         let owner = try ownedMainApplication(app: app)
         let helper = try waitForHelper(owner: owner, app: app)
         receiver.activate()
@@ -230,6 +231,31 @@ extension SignedHandoffUITests {
     }
 
     @MainActor
+    private func verifyDuplicateHelperExits(
+        helper: NSRunningApplication, owner: NSRunningApplication
+    ) throws {
+        let duplicate = Process()
+        duplicate.executableURL = try XCTUnwrap(helper.executableURL)
+        duplicate.environment = ProcessInfo.processInfo.environment.filter {
+            !$0.key.hasPrefix("DYLD_") && !$0.key.hasPrefix("XCTest")
+                && !$0.key.hasPrefix("XCInject")
+        }
+        duplicate.standardOutput = FileHandle.nullDevice
+        duplicate.standardError = FileHandle.nullDevice
+        try duplicate.run()
+        defer { if duplicate.isRunning { duplicate.terminate() } }
+        try require(waitUntil { !duplicate.isRunning }, "A duplicate signed helper must self-exit")
+        XCTAssertEqual(duplicate.terminationReason, .exit)
+        XCTAssertEqual(duplicate.terminationStatus, 0)
+        XCTAssertFalse(helper.isTerminated, "The original helper must retain its icon")
+        XCTAssertFalse(owner.isTerminated, "Discarding a duplicate must preserve the owner")
+        XCTAssertEqual(
+            NSWorkspace.shared.runningApplications.filter {
+                $0.executableURL?.standardizedFileURL == helper.executableURL?.standardizedFileURL
+            }.count, 1, "Exactly one helper must remain for this bundle")
+    }
+
+    @MainActor
     private func pressHelperCommand(_ command: String, helper: NSRunningApplication) throws {
         let root = AXUIElementCreateApplication(helper.processIdentifier)
         var status: AXUIElement?
@@ -247,9 +273,7 @@ extension SignedHandoffUITests {
                     value: "menu-bar-command-\(command)")
                 return item != nil
             }, "The real helper menu must expose the requested command")
-        try require(
-            AXUIElementPerformAction(try XCTUnwrap(item), kAXPressAction as CFString) == .success,
-            "The helper command must perform its native action")
+        try clickElement(try XCTUnwrap(item))
     }
 
     @MainActor
@@ -303,6 +327,12 @@ extension SignedHandoffUITests {
         let resolvedFrame = try XCTUnwrap(resolved)
         let point = CGPoint(x: resolvedFrame.midX, y: resolvedFrame.midY)
         let source = try XCTUnwrap(CGEventSource(stateID: .hidSystemState))
+        let move = try XCTUnwrap(
+            CGEvent(
+                mouseEventSource: source, mouseType: .mouseMoved,
+                mouseCursorPosition: point, mouseButton: .left))
+        move.post(tap: .cghidEventTap)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         let down = try XCTUnwrap(
             CGEvent(
                 mouseEventSource: source, mouseType: .leftMouseDown,

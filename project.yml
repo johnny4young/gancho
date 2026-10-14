@@ -345,7 +345,7 @@ targets:
       base:
         SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
         GENERATE_INFOPLIST_FILE: YES
-        TEST_TARGET_NAME: Gancho
+        TEST_TARGET_NAME: GanchoPasteReceiver
     sources:
       - path: Tests/GanchoSignedIntegrationUITests
       - path: Tests/GanchoUITests/GanchoUITestApplication.swift

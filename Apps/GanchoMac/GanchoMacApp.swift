@@ -4,6 +4,7 @@ import CoreSpotlight
 import GanchoDesign
 import GanchoKit
 import KeyboardShortcuts
+import OSLog
 import SwiftUI
 
 /// Menu-bar agent. The panel (⇧⌘V) is the primary surface; the status-item
@@ -186,10 +187,20 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func receiveMenuBarCommand(_ notification: Notification) {
+        let command = GanchoMenuBarCommand.command(forDistributedNotification: notification.name)
+        let token = notification.object as? String
+        #if DEBUG
+            let trace = Logger(subsystem: "com.johnny4young.gancho", category: "MenuBarCommands")
+            let name = command?.rawValue ?? "unknown"
+            let matches = token == GanchoRuntime.commandNonce
+            let ready = GanchoRuntime.model != nil
+            trace.notice("Received command \(name, privacy: .public)")
+            trace.notice(
+                "Session matches \(matches, privacy: .public); model ready \(ready, privacy: .public)"
+            )
+        #endif
         guard
-            let command = GanchoMenuBarCommand.command(
-                forDistributedNotification: notification.name),
-            let token = notification.object as? String,
+            let command, let token,
             token == GanchoRuntime.commandNonce,
             let model = GanchoRuntime.model
         else { return }
@@ -219,22 +230,19 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
         GanchoMenuBarHelperLauncher.launch()
 
         Task { @MainActor in
-            // Poll briefly for the helper (a local Developer ID spawn appears in
-            // well under a second; give launchd's RunAtLoad generous headroom).
-            for _ in 0..<14 {
-                if GanchoMenuBarHelperLauncher.isHelperRunning() {
-                    // The helper owns the icon — never paint a duplicate.
-                    monitorExternalHelper()
-                    return
-                }
-                try? await Task.sleep(for: .milliseconds(150))
-            }
-            // The helper may have appeared on the final interval — re-check once
-            // more so a slightly-slow spawn isn't reported as a failure.
-            if GanchoMenuBarHelperLauncher.isHelperRunning() {
+            if await waitForExternalHelper() {
                 monitorExternalHelper()
                 return
             }
+            guard !Task.isCancelled else { return }
+            // Registration can succeed without launchd starting the process.
+            // Reconsult the launcher: an enabled agent with no live helper now
+            // takes the direct-process path. A late launchd copy self-deduplicates.
+            if GanchoMenuBarHelperLauncher.launch(), await waitForExternalHelper() {
+                monitorExternalHelper()
+                return
+            }
+            guard !Task.isCancelled else { return }
             // The helper never came up: fall back to the AppKit-owned item so the
             // menu bar is never silently empty. Do not re-attach or re-log if a
             // duplicate launch callback arrives (the DiagnosticLog is capped).
@@ -244,6 +252,18 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
                 String(localized: "The menu-bar helper didn’t start; using the built-in icon."))
             monitorInProcessStatusItem(model: model)
         }
+    }
+
+    private func waitForExternalHelper() async -> Bool {
+        for _ in 0..<14 {
+            if GanchoMenuBarHelperLauncher.isHelperRunning() { return true }
+            do {
+                try await Task.sleep(for: .milliseconds(150))
+            } catch {
+                return false
+            }
+        }
+        return GanchoMenuBarHelperLauncher.isHelperRunning()
     }
 
     private func monitorExternalHelper() {

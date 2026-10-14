@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 import ServiceManagement
 
 /// Launches and stops the external menu-bar helper.
@@ -47,7 +48,14 @@ enum GanchoMenuBarHelperLauncher {
     static func launch() -> Bool {
         retireLegacyServices()
         let justLoaded = registerAgent()
-        switch launchPlan(justLoadedAgent: justLoaded, helperAlreadyRunning: isHelperRunning()) {
+        let running = isHelperRunning()
+        #if DEBUG
+            let trace = Logger(subsystem: "com.johnny4young.gancho", category: "MenuBarCommands")
+            trace.notice(
+                "Helper launch: agent loaded \(justLoaded, privacy: .public); already running \(running, privacy: .public)"
+            )
+        #endif
+        switch launchPlan(justLoadedAgent: justLoaded, helperAlreadyRunning: running) {
         case .helperAlreadyRunning, .trustLaunchd:
             return true
         case .launchProcess:
@@ -126,8 +134,16 @@ enum GanchoMenuBarHelperLauncher {
         process.executableURL = executableURL
         do {
             try process.run()
+            #if DEBUG
+                Logger(subsystem: "com.johnny4young.gancho", category: "MenuBarCommands")
+                    .notice("Direct helper spawn succeeded")
+            #endif
             return true
         } catch {
+            #if DEBUG
+                Logger(subsystem: "com.johnny4young.gancho", category: "MenuBarCommands")
+                    .notice("Direct helper spawn failed")
+            #endif
             // App Sandbox denies spawning a child process; the app then falls
             // back to its in-process status item (see GanchoAppDelegate).
             return false
