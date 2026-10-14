@@ -27,8 +27,9 @@ skips, or expected failures:
 
 Paste receipts require the expected synthetic content and self-write marker,
 one command-key down/up pair, foreground restoration, and no duplicate delivery
-during the quiet period. Receipts contain only counts and booleans; clipboard
-content is never logged or attached.
+during the quiet period. Receipt metadata contains only counts and booleans.
+Kept recordings show synthetic fixtures on disposable VMs, with no access to the
+maintainer's desktop or clipboard.
 
 ## Isolation and native input
 
