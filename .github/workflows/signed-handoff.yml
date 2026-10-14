@@ -17,6 +17,7 @@ on:
       - scripts/collect-ui-test-evidence.sh
       - scripts/prepare-hosted-handoff-permissions.py
       - scripts/sign-hosted-handoff.sh
+      - scripts/import-hosted-signing-certificate.sh
   pull_request:
     paths:
       - .github/workflows/signed-handoff.yml
@@ -32,6 +33,7 @@ on:
       - scripts/collect-ui-test-evidence.sh
       - scripts/prepare-hosted-handoff-permissions.py
       - scripts/sign-hosted-handoff.sh
+      - scripts/import-hosted-signing-certificate.sh
   workflow_dispatch:
     inputs:
       architecture:

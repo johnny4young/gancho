@@ -1,0 +1,102 @@
+name: Shortcut native acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/keyboard-shortcuts.yml
+      - project.yml
+      - Makefile
+      - Dependencies/Package.resolved
+      - Apps/GanchoMac/ShortcutRecorder.swift
+      - Tests/KeyboardShortcutsAcceptance/**
+      - scripts/test-keyboard-shortcuts-menu.sh
+      - scripts/import-hosted-signing-certificate.sh
+  pull_request:
+    paths:
+      - .github/workflows/keyboard-shortcuts.yml
+      - project.yml
+      - Makefile
+      - Dependencies/Package.resolved
+      - Apps/GanchoMac/ShortcutRecorder.swift
+      - Tests/KeyboardShortcutsAcceptance/**
+      - scripts/test-keyboard-shortcuts-menu.sh
+      - scripts/import-hosted-signing-certificate.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keyboard-shortcuts-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-acceptance:
+    name: Shortcut ${{ matrix.scope }} gate
+    # Fork PRs cannot access the signing certificate.
+    if: >-
+      github.repository == 'johnny4young/gancho' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    strategy:
+      fail-fast: false
+      matrix:
+        scope: [menu, recorder]
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Record disposable host and toolchain
+        run: |
+          test "$GITHUB_ACTIONS" = true
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$(id -un)" = runner
+          sw_vers
+          xcodebuild -version
+
+      - name: Fetch the upstream dependency history
+        run: |
+          brew install xcodegen
+          git clone --quiet https://github.com/sindresorhus/KeyboardShortcuts \
+            "$RUNNER_TEMP/KeyboardShortcuts"
+
+      - name: Import the signing certificate into a temporary keychain
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: bash scripts/import-hosted-signing-certificate.sh "$RUNNER_TEMP/gancho-shortcuts.keychain-db"
+
+      - name: Run the ${{ matrix.scope }} gate in a signed fixture
+        env:
+          SHORTCUT_ACCEPTANCE_SCOPE: ${{ matrix.scope }}
+          SHORTCUT_MENU_SIGN_IDENTITY: ${{ secrets.MACOS_CODE_SIGN_IDENTITY }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/shortcut-evidence"
+          KEYBOARDSHORTCUTS_CHECKOUT="$RUNNER_TEMP/KeyboardShortcuts" \
+            TMPDIR="$RUNNER_TEMP/shortcut-evidence" \
+            bash scripts/test-keyboard-shortcuts-menu.sh
+
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: shortcut-${{ matrix.scope }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/shortcut-evidence/*/manifest.json
+            ${{ runner.temp }}/shortcut-evidence/*/*.log
+            ${{ runner.temp }}/shortcut-evidence/*/*-summary.json
+            ${{ runner.temp }}/shortcut-evidence/*/*.xcresult
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove temporary signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/gancho-shortcuts.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/gancho-shortcuts.p12"
