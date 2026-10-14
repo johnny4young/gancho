@@ -56,6 +56,13 @@ final class SignedHandoffUITests: XCTestCase {
         XCTAssertTrue(
             waitUntil { helper.isTerminated },
             "The signed helper watchdog must stop without its owner")
+        app.launch()
+        let restartedOwner = try ownedMainApplication()
+        let restartedHelper = try waitForHelper(owner: restartedOwner)
+        XCTAssertNotEqual(restartedOwner.processIdentifier, owner.processIdentifier)
+        XCTAssertNotEqual(restartedHelper.processIdentifier, helper.processIdentifier)
+        app.terminate()
+        XCTAssertTrue(waitUntil { restartedHelper.isTerminated })
     }
 
     @MainActor
@@ -180,11 +187,13 @@ final class SignedHandoffUITests: XCTestCase {
     @MainActor
     private func pressHelperCommand(_ command: String, helper: NSRunningApplication) throws {
         let root = AXUIElementCreateApplication(helper.processIdentifier)
-        let status = try XCTUnwrap(
-            findElement(root, attribute: kAXRoleAttribute, value: kAXMenuBarItemRole))
+        var status: AXUIElement?
         try require(
-            AXUIElementPerformAction(status, kAXPressAction as CFString) == .success,
-            "The external helper's status item must open its menu")
+            waitUntil {
+                status = findElement(root, attribute: kAXRoleAttribute, value: kAXMenuBarItemRole)
+                return status != nil
+            }, "The exact helper must expose its status item")
+        try clickStatusItem(try XCTUnwrap(status))
         var item: AXUIElement?
         try require(
             waitUntil {
@@ -210,7 +219,7 @@ final class SignedHandoffUITests: XCTestCase {
             return element
         }
         var elements: [AXUIElement] = []
-        for relation in [kAXChildrenAttribute, kAXMenuBarAttribute, kAXExtrasMenuBarAttribute] {
+        for relation in [kAXExtrasMenuBarAttribute, kAXChildrenAttribute, kAXMenuBarAttribute] {
             var related: CFTypeRef?
             guard
                 AXUIElementCopyAttributeValue(element, relation as CFString, &related) == .success,
@@ -219,7 +228,7 @@ final class SignedHandoffUITests: XCTestCase {
             if let children = related as? [AXUIElement] {
                 elements += children
             } else if CFGetTypeID(related) == AXUIElementGetTypeID() {
-                elements.append(unsafeBitCast(related, to: AXUIElement.self))
+                elements.append(unsafeDowncast(related, to: AXUIElement.self))
             }
         }
         for child in elements {
@@ -229,6 +238,48 @@ final class SignedHandoffUITests: XCTestCase {
             }
         }
         return nil
+    }
+
+    @MainActor
+    private func clickStatusItem(_ element: AXUIElement) throws {
+        var position: CFTypeRef?
+        var size: CFTypeRef?
+        try require(
+            AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &position)
+                == .success
+                && AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &size)
+                    == .success,
+            "The helper icon must expose its native position and size")
+        let positionValue = try XCTUnwrap(position)
+        let sizeValue = try XCTUnwrap(size)
+        try require(
+            CFGetTypeID(positionValue) == AXValueGetTypeID()
+                && CFGetTypeID(sizeValue) == AXValueGetTypeID(), "The icon frame must use AX values"
+        )
+        var origin = CGPoint.zero
+        var dimensions = CGSize.zero
+        try require(
+            AXValueGetValue(unsafeDowncast(positionValue, to: AXValue.self), .cgPoint, &origin)
+                && AXValueGetValue(
+                    unsafeDowncast(sizeValue, to: AXValue.self), .cgSize, &dimensions),
+            "The helper icon frame must be readable")
+        let frame = CGRect(origin: origin, size: dimensions)
+        let point = CGPoint(x: frame.midX, y: frame.midY)
+        try require(
+            !frame.isEmpty && !frame.isInfinite
+                && CGDisplayBounds(CGMainDisplayID()).contains(point),
+            "The signed helper icon must be reachable on the active display")
+        let source = try XCTUnwrap(CGEventSource(stateID: .hidSystemState))
+        let down = try XCTUnwrap(
+            CGEvent(
+                mouseEventSource: source, mouseType: .leftMouseDown,
+                mouseCursorPosition: point, mouseButton: .left))
+        let up = try XCTUnwrap(
+            CGEvent(
+                mouseEventSource: source, mouseType: .leftMouseUp,
+                mouseCursorPosition: point, mouseButton: .left))
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
     }
 
     @MainActor
