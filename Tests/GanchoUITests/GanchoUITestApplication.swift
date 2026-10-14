@@ -6,29 +6,35 @@ import XCTest
 @MainActor
 final class GanchoUITestApplication: XCUIApplication {
     override func launch() {
-        if !launchArguments.contains("-use-temp-durable-store")
-            && !launchArguments.contains("-force-ephemeral-store")
+        launchArguments = Self.isolatedArguments(launchArguments)
+        super.launch()
+    }
+
+    static func isolatedArguments(_ original: [String]) -> [String] {
+        var arguments = original
+        if !arguments.contains("-use-temp-durable-store")
+            && !arguments.contains("-force-ephemeral-store")
         {
-            launchArguments.append("-use-temp-durable-store")
+            arguments.append("-use-temp-durable-store")
         }
-        if !launchArguments.contains("-ui-test-defaults-suite") {
-            launchArguments += [
+        if !arguments.contains("-ui-test-defaults-suite") {
+            arguments += [
                 "-ui-test-defaults-suite",
                 "com.johnny4young.gancho.uitests.isolated.\(UUID().uuidString)"
             ]
         }
-        if !launchArguments.contains("-isolate-ui-test-system-clipboard") {
-            launchArguments.append("-isolate-ui-test-system-clipboard")
+        if !arguments.contains("-isolate-ui-test-system-clipboard") {
+            arguments.append("-isolate-ui-test-system-clipboard")
         }
         // Keep general UI automation independent of real StoreKit entitlements
         // and their CloudKit enablement. Purchases have a separate test target.
-        if !launchArguments.contains("-force-free-tier") {
-            launchArguments.append("-force-free-tier")
+        if !arguments.contains("-force-free-tier") {
+            arguments.append("-force-free-tier")
         }
-        if !launchArguments.contains("-AppleLanguages") {
-            launchArguments += ["-AppleLanguages", "(en)"]
+        if !arguments.contains("-AppleLanguages") {
+            arguments += ["-AppleLanguages", "(en)"]
         }
-        super.launch()
+        return arguments
     }
 }
 

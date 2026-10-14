@@ -18,12 +18,12 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
-    func testSignedHelperStaysResidentAndRoutesSettingsAcrossTwoLaunches() throws {
+    func testSignedHelperStaysResidentAndRoutesSettingsAcrossTwoLaunches() async throws {
         let app = makeApp()
-        defer { if app.state != .notRunning { app.terminate() } }
+        defer { if app.isRunning { app.terminate() } }
         for _ in 0..<2 {
             try require(noGanchoProcesses(), "The disposable host must start without Gancho")
-            app.launch()
+            try await app.launch()
             let owner = try ownedMainApplication()
             let helper = try waitForHelper(owner: owner)
             XCTAssertEqual(owner.activationPolicy, .accessory)
@@ -44,7 +44,7 @@ final class SignedHandoffUITests: XCTestCase {
                 waitUntil {
                     window(in: root, title: "Settings") == nil
                 })
-            RunLoop.current.run(until: Date().addingTimeInterval(2))
+            pauseForDuplicateObservation()
             XCTAssertFalse(owner.isTerminated, "Closing Settings must keep the owner resident")
             XCTAssertFalse(
                 helper.isTerminated, "Closing Settings must keep the signed helper resident")
@@ -55,11 +55,11 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
-    func testSignedHelperExitsWhenItsExactOwnerIsKilled() throws {
+    func testSignedHelperExitsWhenItsExactOwnerIsKilled() async throws {
         try require(noGanchoProcesses(), "The disposable host must start without Gancho")
         let app = makeApp()
-        app.launch()
-        defer { if app.state != .notRunning { app.terminate() } }
+        defer { if app.isRunning { app.terminate() } }
+        try await app.launch()
         let owner = try ownedMainApplication()
         let helper = try waitForHelper(owner: owner)
         XCTAssertTrue(owner.forceTerminate())
@@ -67,7 +67,7 @@ final class SignedHandoffUITests: XCTestCase {
         XCTAssertTrue(
             waitUntil { helper.isTerminated },
             "The signed helper watchdog must stop without its owner")
-        app.launch()
+        try await app.launch()
         let restartedOwner = try ownedMainApplication()
         let restartedHelper = try waitForHelper(owner: restartedOwner)
         XCTAssertNotEqual(restartedOwner.processIdentifier, owner.processIdentifier)
@@ -77,30 +77,30 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
-    func testReturnDeliversExactlyOnceIntoAnotherApplication() throws {
-        try verifyPaste(usingReturn: true)
+    func testReturnDeliversExactlyOnceIntoAnotherApplication() async throws {
+        try await verifyPaste(usingReturn: true)
     }
 
     @MainActor
-    func testDoubleClickDeliversExactlyOnceIntoAnotherApplication() throws {
-        try verifyPaste(usingReturn: false)
+    func testDoubleClickDeliversExactlyOnceIntoAnotherApplication() async throws {
+        try await verifyPaste(usingReturn: false)
     }
 
     @MainActor
-    private func verifyPaste(usingReturn: Bool) throws {
+    private func verifyPaste(usingReturn: Bool) async throws {
         try require(noGanchoProcesses(), "The disposable host must start without Gancho")
         let (receiver, editor) = try launchReceiver()
         defer { receiver.terminate() }
 
         let app = makeApp()
         app.launchArguments.append("-seed-sample-clips")
-        app.launch()
         defer {
-            if app.state != .notRunning { app.terminate() }
+            if app.isRunning { app.terminate() }
             XCTAssertTrue(
                 waitUntil { noGanchoProcesses() },
                 "Test processes must finish before the next session")
         }
+        try await app.launch()
         let owner = try ownedMainApplication()
         let helper = try waitForHelper(owner: owner)
         receiver.activate()
@@ -142,7 +142,7 @@ final class SignedHandoffUITests: XCTestCase {
         try require(
             waitUntil(timeout: 10) { receipt.value as? String == expected },
             "The real receiver must report one matching, marked paste and one command down/up pair")
-        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        pauseForDuplicateObservation()
         XCTAssertTrue(
             receipt.value as? String == expected, "No delayed or duplicate paste may arrive")
         XCTAssertEqual(NSWorkspace.shared.frontmostApplication?.bundleIdentifier, receiverID)
@@ -164,8 +164,8 @@ final class SignedHandoffUITests: XCTestCase {
     }
 
     @MainActor
-    private func makeApp() -> GanchoUITestApplication {
-        let app = GanchoUITestApplication()
+    private func makeApp() -> SignedHandoffApplication {
+        let app = SignedHandoffApplication()
         app.launchArguments = [
             "-force-ephemeral-store", "-start-capture-paused", "-has-seen-welcome", "YES",
             "-telemetry-consent", "disabled", "-suppress-storage-notice-for-ui-test"
@@ -176,12 +176,18 @@ final class SignedHandoffUITests: XCTestCase {
     @MainActor
     private func ownedMainApplication() throws -> NSRunningApplication {
         let expected = try XCTUnwrap(ProcessInfo.processInfo.environment["GANCHO_SIGNED_APP"])
-        return try XCTUnwrap(
-            NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
-                $0.executableURL?.lastPathComponent == "Gancho"
-                    && $0.bundleURL?.standardizedFileURL
-                        == URL(fileURLWithPath: expected).standardizedFileURL
-            })
+        var owner: NSRunningApplication?
+        try require(
+            waitUntil {
+                owner = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+                    .first {
+                        $0.executableURL?.lastPathComponent == "Gancho"
+                            && $0.bundleURL?.standardizedFileURL
+                                == URL(fileURLWithPath: expected).standardizedFileURL
+                    }
+                return owner != nil
+            }, "The exact owner must finish its native accessory launch")
+        return try XCTUnwrap(owner)
     }
 
     @MainActor
@@ -399,6 +405,11 @@ final class SignedHandoffUITests: XCTestCase {
         let up = try XCTUnwrap(CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: false))
         down.post(tap: .cgSessionEventTap)
         up.post(tap: .cgSessionEventTap)
+    }
+
+    @MainActor
+    private func pauseForDuplicateObservation() {
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
     }
 
     @MainActor
