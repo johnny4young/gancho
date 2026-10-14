@@ -46,13 +46,13 @@ struct ClipExporterTests {
     @Test("csvEscape neutralizes formula-injection leads exactly")
     func csvEscapeFormulaInjection() {
         // A leading = + - @ (or tab/CR) is prefixed with a single apostrophe.
-        // With no other special character the field is NOT additionally quoted.
+        // A carriage return also requires CSV quoting.
         #expect(ClipExporter.csvEscape("=SUM(A1:A9)") == "'=SUM(A1:A9)")
         #expect(ClipExporter.csvEscape("+1") == "'+1")
         #expect(ClipExporter.csvEscape("-1") == "'-1")
         #expect(ClipExporter.csvEscape("@cmd") == "'@cmd")
         #expect(ClipExporter.csvEscape("\tlead") == "'\tlead")
-        #expect(ClipExporter.csvEscape("\rlead") == "'\rlead")
+        #expect(ClipExporter.csvEscape("\rlead") == "\"'\rlead\"")
         // Apostrophe prefix happens BEFORE the RFC-4180 quoting: a formula lead
         // that also contains a quote gets both.
         #expect(

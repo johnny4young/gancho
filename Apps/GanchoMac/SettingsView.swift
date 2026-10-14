@@ -169,7 +169,7 @@ private struct GeneralSettingsTab: View {
     var body: some View {
         @Bindable var model = model
         Form {
-            KeyboardShortcuts.Recorder("Panel shortcut:", name: .togglePanel) { shortcut in
+            ShortcutRecorder("Panel shortcut:", name: .togglePanel) { shortcut in
                 shortcutWarning = shortcut.flatMap {
                     ShortcutConflicts.conflict(with: "\($0)")
                 }
@@ -198,9 +198,9 @@ private struct GeneralSettingsTab: View {
                     }
                 }
 
-            KeyboardShortcuts.Recorder("Cyclic paste shortcut:", name: .cyclicPaste)
-            KeyboardShortcuts.Recorder("Paste from stack shortcut:", name: .pasteFromStack)
-            KeyboardShortcuts.Recorder("Copy screen text shortcut:", name: .copyScreenText)
+            ShortcutRecorder("Cyclic paste shortcut:", name: .cyclicPaste)
+            ShortcutRecorder("Paste from stack shortcut:", name: .pasteFromStack)
+            ShortcutRecorder("Copy screen text shortcut:", name: .copyScreenText)
 
             Picker("Panel position", selection: positionBinding) {
                 Text("Centered").tag(PanelPosition.centered)
@@ -530,7 +530,7 @@ private struct PrivacySettingsTab: View {
         @Bindable var model = model
         Form {
             Toggle("Private mode (pause capture)", isOn: $model.preferences.isPrivateModePaused)
-            KeyboardShortcuts.Recorder("Private mode shortcut:", name: .togglePrivateMode)
+            ShortcutRecorder("Private mode shortcut:", name: .togglePrivateMode)
             Toggle(
                 "Pause automatically while sharing the screen",
                 isOn: $model.autoPauseOnScreenShare)

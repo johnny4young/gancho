@@ -7,9 +7,23 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Update SQLCipher to 4.19.0 and Sparkle to 2.10.0. KeyboardShortcuts stays
+  at 3.0.1 because 3.1.0 repeats a shortcut pressed while a menu is open.
+
 ### Fixed
 
-- Refresh exact snippet keyword matches before pasting after a search invalidation, while preserving the selected row and loaded pages for an unchanged search.
+- Record a shortcut Gancho already uses again in Settings or onboarding,
+  instead of the recorder staying stuck waiting for input.
+
+- Import CSV records with CRLF line endings and preserve combining-mark text
+  and quoted newlines while retaining formula protection when exporting and
+  importing clips.
+
+- Refresh exact snippet keyword matches before pasting after a search
+  invalidation, while preserving the selected row and loaded pages for an
+  unchanged search.
 
 ## [0.10.0] - 2026-10-09
 
