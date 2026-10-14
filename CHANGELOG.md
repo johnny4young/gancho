@@ -7,6 +7,16 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Update SQLCipher to 4.19.0 and Sparkle to 2.10.0. KeyboardShortcuts stays
+  at 3.0.1 because 3.1.0 repeats a shortcut pressed while a menu is open.
+
+### Fixed
+
+- Record a shortcut Gancho already uses again in Settings or onboarding,
+  instead of the recorder staying stuck waiting for input.
+
 ## [0.10.0] - 2026-10-09
 
 ### Added
