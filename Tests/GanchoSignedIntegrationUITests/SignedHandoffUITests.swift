@@ -109,13 +109,7 @@ extension SignedHandoffUITests {
         try await app.launch()
         let owner = try ownedMainApplication(app: app)
         let helper = try waitForHelper(owner: owner)
-        receiver.activate()
-        try clickElement(editor)
-        try require(
-            waitUntil { isFocused(editor) }, "The receiver editor must regain keyboard focus")
-        try require(
-            NSWorkspace.shared.frontmostApplication?.bundleIdentifier == receiverID,
-            "The receiving application must own foreground focus before opening the panel")
+        try activateReceiver(editor: editor)
         try pressHelperCommand("openPanel", helper: helper)
         let root = AXUIElementCreateApplication(owner.processIdentifier)
         let panel = try waitForElement(
@@ -167,11 +161,7 @@ extension SignedHandoffUITests {
         try require(
             visibleEditor.waitForExistence(timeout: 5), "The synthetic receiver must be ready")
         try require(visibleEditor.isHittable, "The receiver editor must be reachable")
-        let running = try XCTUnwrap(
-            NSRunningApplication.runningApplications(withBundleIdentifier: receiverID).first {
-                $0.bundleURL?.standardizedFileURL
-                    == URL(fileURLWithPath: receiverPath).standardizedFileURL
-            })
+        let running = try receiverApplication()
         let root = AXUIElementCreateApplication(running.processIdentifier)
         let editor = try waitForElement(
             root, value: "paste-receiver-editor",
@@ -183,6 +173,35 @@ extension SignedHandoffUITests {
         try require(
             waitUntil { isFocused(editor) }, "The actual receiver editor must own keyboard focus")
         return (receiver, editor, receipt)
+    }
+
+    @MainActor
+    private func activateReceiver(editor: AXUIElement) throws {
+        let nativeReceiver = try receiverApplication()
+        try require(
+            nativeReceiver.activate(options: []), "Native receiver activation must be accepted")
+        try require(
+            waitUntil {
+                NSWorkspace.shared.frontmostApplication?.processIdentifier
+                    == nativeReceiver.processIdentifier
+            }, "The exact receiver process must become active")
+        try clickElement(editor)
+        try require(
+            waitUntil { isFocused(editor) }, "The receiver editor must regain keyboard focus")
+        try require(
+            NSWorkspace.shared.frontmostApplication?.bundleIdentifier == receiverID,
+            "The receiving application must own foreground focus before opening the panel")
+    }
+
+    @MainActor
+    private func receiverApplication() throws -> NSRunningApplication {
+        let receiverPath = try XCTUnwrap(
+            ProcessInfo.processInfo.environment["GANCHO_PASTE_RECEIVER_APP"])
+        return try XCTUnwrap(
+            NSRunningApplication.runningApplications(withBundleIdentifier: receiverID).first {
+                $0.bundleURL?.standardizedFileURL
+                    == URL(fileURLWithPath: receiverPath).standardizedFileURL
+            })
     }
 
     @MainActor
