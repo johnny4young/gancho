@@ -18,7 +18,7 @@ note() { printf '    %s\n' "$1"; }
 
 cleanup() {
 	if [ -n "$MOUNT_POINT" ]; then
-		hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
+		diskutil eject "$MOUNT_POINT" >/dev/null 2>&1 || true
 	fi
 	if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
 		rm -rf "$TEMP_DIR"
