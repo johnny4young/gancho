@@ -34,9 +34,10 @@ concurrency:
 jobs:
   native-acceptance:
     name: Shortcut ${{ matrix.scope }} gate
-    # Fork PRs cannot access the signing certificate.
+    # Fork and Dependabot PRs cannot access the signing certificate.
     if: >-
       github.repository == 'johnny4young/gancho' &&
+      github.actor != 'dependabot[bot]' &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name == github.repository)
     strategy:

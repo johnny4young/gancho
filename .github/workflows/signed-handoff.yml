@@ -10,6 +10,7 @@ on:
       - Dependencies/Package.resolved
       - Apps/GanchoMac/**
       - Apps/GanchoMenuBarHelper/**
+      - Apps/GanchoShared/**
       - Packages/GanchoKit/**
       - Tests/GanchoSignedIntegrationUITests/**
       - Tests/GanchoPasteReceiver/**
@@ -17,6 +18,7 @@ on:
       - scripts/collect-ui-test-evidence.sh
       - scripts/prepare-hosted-handoff-permissions.py
       - scripts/sign-hosted-handoff.sh
+      - scripts/fetch-sparkle.sh
       - scripts/import-hosted-signing-certificate.sh
   pull_request:
     paths:
@@ -26,6 +28,7 @@ on:
       - Dependencies/Package.resolved
       - Apps/GanchoMac/**
       - Apps/GanchoMenuBarHelper/**
+      - Apps/GanchoShared/**
       - Packages/GanchoKit/**
       - Tests/GanchoSignedIntegrationUITests/**
       - Tests/GanchoPasteReceiver/**
@@ -33,6 +36,7 @@ on:
       - scripts/collect-ui-test-evidence.sh
       - scripts/prepare-hosted-handoff-permissions.py
       - scripts/sign-hosted-handoff.sh
+      - scripts/fetch-sparkle.sh
       - scripts/import-hosted-signing-certificate.sh
   workflow_dispatch:
     inputs:
@@ -52,10 +56,11 @@ concurrency:
 jobs:
   signed-handoff:
     name: Signed handoff (${{ matrix.architecture }})
-    # Fork PRs cannot access the signing certificate. Their ordinary build and
+    # Fork and Dependabot PRs cannot access the signing certificate. Their ordinary build and
     # startup checks remain independent of this signed integration workflow.
     if: >-
       github.repository == 'johnny4young/gancho' &&
+      github.actor != 'dependabot[bot]' &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name == github.repository)
     strategy:

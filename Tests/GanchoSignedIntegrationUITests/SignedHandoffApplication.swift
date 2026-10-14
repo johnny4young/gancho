@@ -72,6 +72,10 @@ final class SignedHandoffApplication {
         while !application.isTerminated && Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
+        if !application.isTerminated {
+            application.forceTerminate()
+            RunLoop.current.run(until: Date().addingTimeInterval(1))
+        }
         XCTAssertTrue(application.isTerminated, "Cleanup must stop only the exact owner process")
     }
 }

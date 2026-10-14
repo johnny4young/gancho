@@ -41,3 +41,5 @@ for path in [products / 'Gancho.app', products / 'Gancho.app/Contents/MacOS/Ganc
                     'hardened_runtime': True})
 Path('build/signed-handoff-signatures.json').write_text(json.dumps(records, indent=2) + '\n')
 PY
+# Built test code runs next; it must not find an unlocked signing identity.
+security delete-keychain "$keychain"

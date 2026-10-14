@@ -22,7 +22,8 @@ final class SignedHandoffUITests: XCTestCase {
         let app = makeApp()
         defer { if app.isRunning { app.terminate() } }
         for _ in 0..<2 {
-            try require(noGanchoProcesses(), "The disposable host must start without Gancho")
+            try require(
+                waitUntil { noGanchoProcesses() }, "The disposable host must start without Gancho")
             try await app.launch()
             let owner = try ownedMainApplication(app: app)
             let helper = try waitForHelper(owner: owner)
@@ -32,7 +33,7 @@ final class SignedHandoffUITests: XCTestCase {
             var settingsWindow: AXUIElement?
             try require(
                 waitUntil(timeout: 10) {
-                    settingsWindow = window(in: root, title: "Settings")
+                    settingsWindow = windows(in: root, titled: "Settings")?.first
                     return settingsWindow != nil
                 }, "The helper must open the owner's real Settings window")
             let settings = try XCTUnwrap(settingsWindow)
@@ -42,7 +43,7 @@ final class SignedHandoffUITests: XCTestCase {
                 "Settings must close through its native close button")
             XCTAssertTrue(
                 waitUntil {
-                    window(in: root, title: "Settings") == nil
+                    windows(in: root, titled: "Settings")?.isEmpty == true
                 })
             observeQuietPeriod()
             XCTAssertFalse(owner.isTerminated, "Closing Settings must keep the owner resident")
@@ -58,7 +59,8 @@ final class SignedHandoffUITests: XCTestCase {
 
     @MainActor
     func testSignedHelperExitsWhenItsExactOwnerIsKilled() async throws {
-        try require(noGanchoProcesses(), "The disposable host must start without Gancho")
+        try require(
+            waitUntil { noGanchoProcesses() }, "The disposable host must start without Gancho")
         let app = makeApp()
         defer { if app.isRunning { app.terminate() } }
         try await app.launch()
@@ -94,7 +96,8 @@ final class SignedHandoffUITests: XCTestCase {
 extension SignedHandoffUITests {
     @MainActor
     private func verifyPaste(usingReturn: Bool) async throws {
-        try require(noGanchoProcesses(), "The disposable host must start without Gancho")
+        try require(
+            waitUntil { noGanchoProcesses() }, "The disposable host must start without Gancho")
         let (receiver, editor, receipt) = try launchReceiver()
         defer { receiver.terminate() }
 
@@ -370,15 +373,16 @@ extension SignedHandoffUITests {
         return CGRect(origin: origin, size: dimensions)
     }
 
+    /// Nil when the window list cannot be read, so a read failure never proves absence.
     @MainActor
-    private func window(in root: AXUIElement, title: String) -> AXUIElement? {
+    private func windows(in root: AXUIElement, titled title: String) -> [AXUIElement]? {
         var windows: CFTypeRef?
         guard
             AXUIElementCopyAttributeValue(root, kAXWindowsAttribute as CFString, &windows)
                 == .success,
             let windows = windows as? [AXUIElement]
         else { return nil }
-        return windows.first { candidate in
+        return windows.filter { candidate in
             var actualTitle: CFTypeRef?
             return AXUIElementCopyAttributeValue(
                 candidate, kAXTitleAttribute as CFString, &actualTitle) == .success
