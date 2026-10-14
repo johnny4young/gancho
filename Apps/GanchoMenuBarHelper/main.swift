@@ -1,7 +1,4 @@
 import AppKit
-import CryptoKit
-import Darwin
-import OSLog
 
 /// Paint-only menu-bar helper.
 ///
@@ -18,13 +15,8 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
     private var statusItem: NSStatusItem?
     private let menu = NSMenu()
     private var watchdog: Timer?
-    private var instanceLock: Int32?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard acquireInstanceLock() else {
-            NSApp.terminate(nil)
-            return
-        }
         NSApp.setActivationPolicy(.accessory)
         ProcessInfo.processInfo.disableAutomaticTermination(
             "Gancho keeps a resident menu-bar helper")
@@ -44,38 +36,6 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
         applyStatusPresentation()
         rebuildMenu()
         startWatchdog()
-    }
-
-    /// Keep the descriptor open until process exit. Never unlink a live lock:
-    /// a replacement inode would let a late launchd copy acquire another lock.
-    private func acquireInstanceLock() -> Bool {
-        if instanceLock != nil { return true }
-        guard
-            let support = FileManager.default.urls(
-                for: .applicationSupportDirectory, in: .userDomainMask
-            ).first
-        else { return false }
-        let directory = support.appendingPathComponent(
-            "com.johnny4young.gancho.helper-locks", isDirectory: true)
-        do {
-            try FileManager.default.createDirectory(
-                at: directory, withIntermediateDirectories: true)
-        } catch { return false }
-        guard
-            let executable = NSRunningApplication.current.executableURL?
-                .resolvingSymlinksInPath().path
-        else { return false }
-        let digest = SHA256.hash(data: Data(executable.utf8))
-            .map { String(format: "%02x", $0) }.joined()
-        let file = directory.appendingPathComponent(digest + ".lock")
-        let descriptor = Darwin.open(file.path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0o600)
-        guard descriptor >= 0 else { return false }
-        guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
-            Darwin.close(descriptor)
-            return false
-        }
-        instanceLock = descriptor
-        return true
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -199,11 +159,6 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
             let command = GanchoMenuBarCommand(rawValue: rawValue)
         else { return }
 
-        #if DEBUG
-            let trace = Logger(subsystem: "com.johnny4young.gancho", category: "MenuBarCommands")
-            let name = command.rawValue
-            trace.notice("Helper selected command \(name, privacy: .public)")
-        #endif
         if command == .quit {
             // The distributed command asks the main app to quit cleanly. But a
             // dropped notification (or a nonce mismatch) must NEVER strand it
@@ -216,10 +171,6 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
             requestMainAppTermination()
         } else {
             guard let token = GanchoMenuBarBridge.readNonce(), !token.isEmpty else { return }
-            #if DEBUG
-                trace.notice(
-                    "Helper has command session; posting \(name, privacy: .public)")
-            #endif
             command.postDistributed(token: token)
         }
     }

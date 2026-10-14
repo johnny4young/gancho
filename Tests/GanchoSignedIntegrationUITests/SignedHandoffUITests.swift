@@ -64,7 +64,6 @@ final class SignedHandoffUITests: XCTestCase {
         try await app.launch()
         let owner = try ownedMainApplication(app: app)
         let helper = try waitForHelper(owner: owner)
-        try verifyDuplicateHelperExits(helper: helper, owner: owner)
         XCTAssertTrue(owner.forceTerminate())
         XCTAssertTrue(waitUntil { owner.isTerminated })
         XCTAssertTrue(
@@ -220,31 +219,6 @@ extension SignedHandoffUITests {
                 return helper != nil
             }, "The signed helper must run from the exact app under test")
         return try XCTUnwrap(helper)
-    }
-
-    @MainActor
-    private func verifyDuplicateHelperExits(
-        helper: NSRunningApplication, owner: NSRunningApplication
-    ) throws {
-        let duplicate = Process()
-        duplicate.executableURL = try XCTUnwrap(helper.executableURL)
-        duplicate.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin"]
-        duplicate.standardOutput = FileHandle.nullDevice
-        duplicate.standardError = FileHandle.nullDevice
-        try duplicate.run()
-        defer { if duplicate.isRunning { duplicate.terminate() } }
-        try require(waitUntil { !duplicate.isRunning }, "A duplicate signed helper must self-exit")
-        XCTAssertEqual(duplicate.terminationReason, .exit)
-        XCTAssertEqual(duplicate.terminationStatus, 0)
-        XCTAssertFalse(helper.isTerminated, "The original helper must retain its icon")
-        XCTAssertFalse(owner.isTerminated, "Discarding a duplicate must preserve the owner")
-        XCTAssertTrue(
-            waitUntil {
-                NSWorkspace.shared.runningApplications.filter {
-                    $0.executableURL?.standardizedFileURL
-                        == helper.executableURL?.standardizedFileURL
-                }.count == 1
-            }, "Exactly one helper must remain for this bundle")
     }
 
     @MainActor

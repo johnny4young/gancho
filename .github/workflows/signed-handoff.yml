@@ -130,17 +130,6 @@ jobs:
             -resultBundlePath build/signed-handoff.xcresult \
             2>&1 | tee build/signed-handoff.log
 
-      - name: Preserve content-free command diagnostics
-        if: always()
-        run: |
-          test "$GITHUB_ACTIONS" = true
-          test "$RUNNER_ENVIRONMENT" = github-hosted
-          test "$(id -un)" = runner
-          mkdir -p build
-          /usr/bin/log show --last 20m --style json --info --debug \
-            --predicate 'subsystem == "com.johnny4young.gancho" AND category == "MenuBarCommands"' \
-            > build/menu-bar-command-trace.json
-
       - name: Require all four tests without skips
         if: always()
         run: |
@@ -165,7 +154,6 @@ jobs:
             build/signed-handoff.log
             build/signed-handoff-signatures.json
             build/signed-handoff-driver.json
-            build/menu-bar-command-trace.json
             build/signed-handoff.xcresult
             build/signed-handoff-evidence
           retention-days: 14
