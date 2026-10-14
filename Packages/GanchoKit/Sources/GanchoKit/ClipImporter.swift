@@ -176,6 +176,9 @@ public enum ClipImporter {
         var inQuotes = false
         var iterator = content.unicodeScalars.makeIterator()
         var pending: Unicode.Scalar?
+        // The header's terminator decides whether an unquoted CRLF ends a record:
+        // earlier exports wrote CRLF content unquoted between LF records.
+        var crlfRecords: Bool?
 
         func endField() {
             row.append(field)
@@ -208,8 +211,19 @@ public enum ClipImporter {
                 switch scalar {
                 case "\"": inQuotes = true
                 case ",": endField()
-                case "\n": endRow()
-                case "\r": break
+                case "\n":
+                    if crlfRecords == nil { crlfRecords = false }
+                    endRow()
+                case "\r":
+                    guard let next = iterator.next() else { break }
+                    if next != "\n" {
+                        pending = next
+                    } else if crlfRecords == false {
+                        field.unicodeScalars.append(contentsOf: ["\r", "\n"])
+                    } else {
+                        crlfRecords = true
+                        endRow()
+                    }
                 default: field.unicodeScalars.append(scalar)
                 }
             }

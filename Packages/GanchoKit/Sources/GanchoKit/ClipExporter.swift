@@ -54,12 +54,14 @@ enum ClipExporter {
     static func removingFormulaGuard(_ field: String) -> String {
         let scalars = field.unicodeScalars
         guard scalars.first == "'", let next = scalars.dropFirst().first,
-            formulaTriggers.unicodeScalars.contains(next) || next == "'"
+            guardedLeads.contains(next)
         else { return field }
         return String(scalars.dropFirst())
     }
 
-    private static let formulaTriggers = "=+-@\t\r"
+    // A leading apostrophe is guarded too, so the import can always tell
+    // the guard from text that genuinely starts with one.
+    private static let guardedLeads: Set<Unicode.Scalar> = ["=", "+", "-", "@", "\t", "\r", "'"]
 
     static func csvEscape(_ field: String) -> String {
         // Formula-injection guard (OWASP CSV injection): clipboard text is
@@ -68,11 +70,7 @@ enum ClipExporter {
         // in Excel/Numbers/Sheets. Neutralize with a leading apostrophe —
         // spreadsheets then render the field as literal text.
         var field = field
-        // A leading apostrophe is guarded too, so the import can always tell
-        // the guard from text that genuinely starts with one.
-        if let first = field.unicodeScalars.first,
-            formulaTriggers.unicodeScalars.contains(first) || first == "'"
-        {
+        if let first = field.unicodeScalars.first, guardedLeads.contains(first) {
             field = "'" + field
         }
         guard
@@ -82,13 +80,7 @@ enum ClipExporter {
         else {
             return field
         }
-        var quoted = "\""
-        for scalar in field.unicodeScalars {
-            if scalar == "\"" { quoted.append("\"") }
-            quoted.unicodeScalars.append(scalar)
-        }
-        quoted.append("\"")
-        return quoted
+        return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"", options: .literal) + "\""
     }
 }
 

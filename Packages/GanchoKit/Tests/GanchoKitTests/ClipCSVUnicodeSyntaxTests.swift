@@ -17,6 +17,16 @@ struct ClipCSVUnicodeSyntaxTests {
         #expect(document.unsupportedCount == 0)
     }
 
+    @Test("Earlier exports keep unquoted CRLF content between LF records")
+    func legacyExportUnquotedCRLF() throws {
+        let row = "synthetic-id,2026-01-01T00:00:00Z,text,,preview,hash,,false,first\r\nsecond,\n"
+        let document = try ClipImporter.readCSV(Data((ClipExporter.csvHeader + row).utf8))
+        let candidate = try #require(document.candidates.first)
+        #expect(document.candidates.count == 1)
+        #expect(Array(candidate.text.utf8) == Array("first\r\nsecond".utf8))
+        #expect(document.unsupportedCount == 0)
+    }
+
     @Test("Combining marks after delimiters belong to the following field")
     func delimiterBeforeCombiningMark() throws {
         let csv = "text,title\nalpha,\u{0301}beta\n"
