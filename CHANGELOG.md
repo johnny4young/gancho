@@ -21,6 +21,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   and quoted newlines while retaining formula protection when exporting and
   importing clips.
 
+- Refresh exact snippet keyword matches before pasting after a search
+  invalidation, while preserving the selected row and loaded pages for an
+  unchanged search.
+
 ## [0.10.0] - 2026-10-09
 
 ### Added

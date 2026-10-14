@@ -64,6 +64,8 @@ public struct PanelDateGroup: Identifiable, Sendable {
     private var isRefreshing = false
     private var loadMoreDeferred = false
     private var displayedContext: Context?
+    /// Retain context for selection and paging, but require a complete rows-and-snippet refresh.
+    @ObservationIgnored private var displayedSnapshotIsValid = false
     /// Paste bookkeeping is read only by key actions, never rendered, so it
     /// stays out of observation: every arrow key regenerates the interaction.
     @ObservationIgnored private var pasteRequestID: UUID?
@@ -88,6 +90,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
 
     private func invalidateRequests() {
         cancelPendingPaste()
+        displayedSnapshotIsValid = false
         let relatedIDs = meaning.relatedIDs
         meaning.invalidate()
         if !relatedIDs.isEmpty { results.removeAll { relatedIDs.contains($0.id) } }
@@ -230,7 +233,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     /// A paste may only consume rows loaded for the live query and filters.
-    public var hasCurrentResults: Bool { displayedContext == context }
+    public var hasCurrentResults: Bool { displayedSnapshotIsValid && displayedContext == context }
 
     /// Only identical repeated key actions coalesce. A different paste mode
     /// is a new intent even when the query and selection have not changed.
@@ -399,6 +402,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
         reachedEnd = page.reachedEnd
         snippetMatch = snippet
         displayedContext = requestedContext
+        displayedSnapshotIsValid = true
         if resetSelection { selectionModel.select(0, toggling: false, in: filtered) }
         rebuildGroups()
         startMeaning(
