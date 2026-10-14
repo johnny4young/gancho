@@ -14,11 +14,19 @@ concurrency:
 
 jobs:
   startup-settings:
-    name: Startup, onboarding and settings
-    runs-on: macos-26
+    name: Startup, onboarding and settings (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            xcode: "26.3"
+          - runner: macos-26
+            xcode: "26.6"
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     env:
-      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer
       HOMEBREW_NO_AUTO_UPDATE: "1"
       HOMEBREW_NO_INSTALL_CLEANUP: "1"
     steps:
@@ -90,7 +98,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: stability-smoke-${{ github.run_id }}
+          name: stability-smoke-${{ matrix.runner }}-${{ github.run_id }}
           path: |
             build/stability-smoke.log
             build/stability-smoke.xcresult
