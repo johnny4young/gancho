@@ -28,6 +28,10 @@ make test-shortcuts-recorder
 selects that same recorder gate. Neither target launches Gancho or runs its
 complete UI suite. Run only one native gate at a time on an unlocked desktop.
 
+`.github/workflows/keyboard-shortcuts.yml` runs both gates on separate
+disposable macOS runners, importing the repository's signing certificate into
+a temporary keychain that is deleted when the job ends.
+
 ## Menu event consumption
 
 The test opens a real `NSMenu` and sends one native

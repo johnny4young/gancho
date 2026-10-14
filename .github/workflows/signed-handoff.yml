@@ -1,0 +1,199 @@
+name: Signed helper and real paste
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/signed-handoff.yml
+      - project.yml
+      - Makefile
+      - Dependencies/Package.resolved
+      - Apps/GanchoMac/**
+      - Apps/GanchoMenuBarHelper/**
+      - Apps/GanchoShared/**
+      - Packages/GanchoKit/**
+      - Tests/GanchoSignedIntegrationUITests/**
+      - Tests/GanchoPasteReceiver/**
+      - Tests/GanchoUITests/GanchoUITestApplication.swift
+      - scripts/collect-ui-test-evidence.sh
+      - scripts/prepare-hosted-handoff-permissions.py
+      - scripts/sign-hosted-handoff.sh
+      - scripts/fetch-sparkle.sh
+      - scripts/import-hosted-signing-certificate.sh
+  pull_request:
+    paths:
+      - .github/workflows/signed-handoff.yml
+      - project.yml
+      - Makefile
+      - Dependencies/Package.resolved
+      - Apps/GanchoMac/**
+      - Apps/GanchoMenuBarHelper/**
+      - Apps/GanchoShared/**
+      - Packages/GanchoKit/**
+      - Tests/GanchoSignedIntegrationUITests/**
+      - Tests/GanchoPasteReceiver/**
+      - Tests/GanchoUITests/GanchoUITestApplication.swift
+      - scripts/collect-ui-test-evidence.sh
+      - scripts/prepare-hosted-handoff-permissions.py
+      - scripts/sign-hosted-handoff.sh
+      - scripts/fetch-sparkle.sh
+      - scripts/import-hosted-signing-certificate.sh
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: Native architectures to validate on disposable standard macOS runners
+        type: choice
+        default: both
+        options: [both, arm64, x86_64]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-handoff-${{ github.event.pull_request.number || github.ref }}-${{ inputs.architecture || 'both' }}
+  cancel-in-progress: true
+
+jobs:
+  signed-handoff:
+    name: Signed handoff (${{ matrix.architecture }})
+    # Fork and Dependabot PRs cannot access the signing certificate. Their ordinary build and
+    # startup checks remain independent of this signed integration workflow.
+    if: >-
+      github.repository == 'johnny4young/gancho' &&
+      github.actor != 'dependabot[bot]' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: ${{ fromJSON(inputs.architecture == 'arm64' && '["arm64"]' || inputs.architecture == 'x86_64' && '["x86_64"]' || '["arm64", "x86_64"]') }}
+    runs-on: ${{ matrix.architecture == 'x86_64' && 'macos-26-intel' || 'macos-26' }}
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Record disposable host and toolchain
+        run: |
+          test "$GITHUB_ACTIONS" = true
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$(id -un)" = runner
+          test "$(uname -m)" = '${{ matrix.architecture }}'
+          sw_vers
+          xcodebuild -version
+
+      - uses: actions/cache@v6
+        with:
+          path: build/xcode-packages
+          key: xcode-spm-${{ runner.os }}-${{ hashFiles('Dependencies/Package.resolved') }}
+
+      - name: Generate and check isolated test scheme
+        run: |
+          brew install xcodegen
+          make project
+          make dependency-check
+          python3 scripts/prepare-hosted-handoff-permissions.py --self-test
+          ./scripts/collect-ui-test-evidence.sh --self-test
+
+      - name: Build without running Gancho
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
+            -derivedDataPath build/signed-handoff \
+            -project Gancho.xcodeproj -scheme GanchoSignedIntegration \
+            -destination "platform=macOS,arch=$(uname -m)" build-for-testing \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            GANCHO_MAC_ENTITLEMENTS_PATH= GANCHO_PROVISIONING_PROFILE_SPECIFIER= \
+            ENABLE_HARDENED_RUNTIME=NO \
+            2>&1 | tee build/signed-handoff-build.log
+
+      - name: Verify the native driver can forward isolated launch arguments
+        run: |
+          python3 - <<'PY'
+          import json
+          import plistlib
+          import subprocess
+          from pathlib import Path
+          runner = Path('build/signed-handoff/Build/Products/Debug/GanchoSignedIntegrationUITests-Runner.app')
+          result = subprocess.run(
+              ['codesign', '--display', '--entitlements', '-', '--xml', str(runner)],
+              check=True, capture_output=True)
+          entitlements = plistlib.loads(result.stdout)
+          assert not entitlements.get('com.apple.security.app-sandbox', False), 'UI driver must forward actual launch arguments'
+          Path('build/signed-handoff-driver.json').write_text(
+              json.dumps({'native_driver_sandbox_disabled': True}) + '\n')
+          PY
+
+      - name: Sign sender and helper in a temporary keychain
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_CODE_SIGN_IDENTITY: ${{ secrets.MACOS_CODE_SIGN_IDENTITY }}
+          MACOS_SIGN_TEAM_ID: ${{ secrets.MACOS_SIGN_TEAM_ID }}
+        run: bash scripts/sign-hosted-handoff.sh
+
+      - name: Prepare real event permissions on this VM only
+        run: |
+          sudo -E /usr/bin/python3 scripts/prepare-hosted-handoff-permissions.py \
+            "$GITHUB_WORKSPACE/build/signed-handoff/Build/Products/Debug/Gancho.app" \
+            "$GITHUB_WORKSPACE/build/signed-handoff/Build/Products/Debug/GanchoSignedIntegrationUITests-Runner.app"
+
+      - name: Exercise signed helper and real cross-application paste
+        env:
+          TEST_RUNNER_GANCHO_DISPOSABLE_SIGNED_HOST: github-hosted
+          TEST_RUNNER_GANCHO_SIGNED_APP: ${{ github.workspace }}/build/signed-handoff/Build/Products/Debug/Gancho.app
+          TEST_RUNNER_GANCHO_PASTE_RECEIVER_APP: ${{ github.workspace }}/build/signed-handoff/Build/Products/Debug/GanchoPasteReceiver.app
+        run: |
+          set -o pipefail
+          xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
+            -derivedDataPath build/signed-handoff \
+            -project Gancho.xcodeproj -scheme GanchoSignedIntegration \
+            -destination "platform=macOS,arch=$(uname -m)" test-without-building \
+            -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 \
+            -resultBundlePath build/signed-handoff.xcresult \
+            2>&1 | tee build/signed-handoff.log
+
+      - name: Require all four tests without skips
+        if: always()
+        run: |
+          ./scripts/collect-ui-test-evidence.sh \
+            build/signed-handoff.xcresult "Signed helper and real paste" build/signed-handoff-evidence
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(Path('build/signed-handoff-evidence/summary.json').read_text())
+          assert summary['result'] == 'Passed', summary
+          assert summary['totalTestCount'] == summary['passedTests'] == 4, summary
+          assert summary['failedTests'] == summary['skippedTests'] == summary['expectedFailures'] == 0, summary
+          assert summary['devicesAndConfigurations'][0]['device']['architecture'] == '${{ matrix.architecture }}', summary
+          PY
+
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: signed-handoff-${{ matrix.architecture }}-${{ github.run_id }}
+          path: |
+            build/signed-handoff-build.log
+            build/signed-handoff.log
+            build/signed-handoff-signatures.json
+            build/signed-handoff-driver.json
+            build/signed-handoff.xcresult
+            build/signed-handoff-evidence
+          retention-days: 14
+
+      - name: Remove temporary signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/gancho-handoff.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/gancho-handoff.p12"
