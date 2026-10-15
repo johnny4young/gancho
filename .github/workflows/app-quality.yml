@@ -164,12 +164,13 @@ jobs:
       # launch and accessibility query. Pay that once on an unrelated case so
       # the measured run starts warm; this step never gates the job.
       - name: Warm the simulator with an unmeasured UI launch
-        timeout-minutes: 12
+        timeout-minutes: 8
         continue-on-error: true
         run: |
-          for attempt in 1 2 3; do
+          for attempt in 1 2; do
+            log="build/ios-warm-up-$attempt.log"
             started=$SECONDS
-            if xcodebuild -disableAutomaticPackageResolution \
+            xcodebuild -disableAutomaticPackageResolution \
               -clonedSourcePackagesDirPath build/xcode-packages \
               test-without-building -project Gancho.xcodeproj -scheme GanchoiOS \
               -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
@@ -179,13 +180,23 @@ jobs:
               -default-test-execution-time-allowance 120 \
               -maximum-test-execution-time-allowance 180 \
               -resultBundlePath "build/ios-warm-up-$attempt.xcresult" \
-              >> build/ios-warm-up.log 2>&1; then
+              > "$log" 2>&1 || true
+            # A passing case proves the launch warmed; zero matched tests does not.
+            if grep -qE "Test Case '.*' passed \(" "$log"; then
               echo "Warm-up attempt $attempt passed in $((SECONDS - started))s"
               exit 0
             fi
             echo "Warm-up attempt $attempt failed after $((SECONDS - started))s"
+            # Only a launch stall is worth another cold start.
+            grep -qE "exceeded execution time allowance|Failed to (launch|terminate)" "$log" || break
           done
           echo "::warning::The simulator warm-up never passed; the measured run may start cold"
+
+      - name: Stop anything the warm-up left running
+        run: |
+          for bundle in com.johnny4young.gancho com.johnny4young.gancho.GanchoiOSUITests.xctrunner; do
+            xcrun simctl terminate "$IOS_SIMULATOR_UDID" "$bundle" 2>/dev/null || true
+          done
 
       - name: Run both reuse interactions
         run: |
@@ -223,7 +234,8 @@ jobs:
           name: app-quality-ios-${{ github.run_id }}
           path: |
             build/ios-reuse-build.log
-            build/ios-warm-up.log
+            build/ios-warm-up-*.log
+            build/ios-warm-up-*.xcresult
             build/ios-reuse.log
             build/ios-reuse.xcresult
             build/ios-reuse-evidence
