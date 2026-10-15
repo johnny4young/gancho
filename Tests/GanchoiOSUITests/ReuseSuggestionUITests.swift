@@ -60,11 +60,13 @@ final class ReuseSuggestionUITests: XCTestCase {
         // Xcode's Simulator runner can occasionally launch without the requested
         // process arguments. Retry once rather than exercising production-style
         // storage or onboarding state with a missing synthetic fixture.
+        // Curation tests also run alone, before the separate consent suite.
         for _ in 0..<2 {
             app.terminate()
             app.launchArguments = [
                 "-skip-welcome-on-launch", "-use-temp-durable-store", "-seed-reuse-suggestion",
-                "-force-free-tier", "-AppleLanguages", "(en)"
+                "-force-free-tier", "-telemetry-consent", "disabled",
+                "-AppleLanguages", "(en)"
             ]
             app.launch()
             let row = app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
