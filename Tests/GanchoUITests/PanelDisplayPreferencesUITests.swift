@@ -61,6 +61,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         ]
 
         var app: XCUIApplication = GanchoUITestApplication()
+        defer { app.terminate() }
         app.launchArguments = settingsArguments + persistenceArguments
         app.launch()
         waitForAppToStart(app)
@@ -72,7 +73,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         XCTAssertEqual(panel.value as? String, "standard")
         let standardWidth = panel.frame.width
 
-        try SynthesizedInput.requireForeground(app)
+        try activateForInput(app)
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(
             waitUntil { !panel.exists }, "Escape must hide the panel before editing Settings")
@@ -106,13 +107,26 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         app.terminate()
         app = launchWithPanel(
             extraArguments: persistenceArguments + ["-preserve-ui-test-defaults"])
-        defer { app.terminate() }
         let relaunchedPanel = historyPanel(in: app)
         XCTAssertTrue(relaunchedPanel.waitForExistence(timeout: 5))
         XCTAssertEqual(relaunchedPanel.value as? String, "large")
         XCTAssertTrue(
             waitForPanelWidth(in: app) { abs($0 - largeWidth) <= 2 },
             "the chosen panel size must survive relaunch")
+    }
+
+    @MainActor
+    private func activateForInput(_ app: XCUIApplication) throws {
+        app.activate()
+        guard app.wait(for: .runningForeground, timeout: 5) else {
+            throw NSError(
+                domain: "PanelDisplayPreferences", code: 1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "The isolated app must be frontmost before sending panel input"
+                ])
+        }
+        try SynthesizedInput.requireForeground(app)
     }
 
     @MainActor
