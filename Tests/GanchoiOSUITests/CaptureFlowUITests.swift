@@ -221,7 +221,8 @@ final class CaptureFlowUITests: XCTestCase {
         // shared-inbox item ingested at activation would already show one.
         let note = app.descendants(matching: .any)["save-note"].firstMatch
         XCTAssertFalse(note.exists, "no status note may be on screen before the tap")
-        paste.tap()
+        // iOS 27 gives the system paste control no activation point; tap its center.
+        paste.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
         // The handoff runs `IOSAppModel.ingest(providers:)`: the status row
         // shows the `save-note` ("Saved") chip, a success-kind note, and the

@@ -14,7 +14,10 @@ final class ReuseSuggestionUITests: XCTestCase {
 
         let paste = app.descendants(matching: .any)["paste-control"].firstMatch
         XCTAssertTrue(paste.waitForExistence(timeout: 5))
-        XCTAssertTrue(paste.isHittable, "a curation suggestion must leave Paste accessible")
+        // `isHittable` needs an activation point, which iOS 27 omits for this system control.
+        XCTAssertTrue(
+            app.windows.firstMatch.frame.contains(paste.frame),
+            "a curation suggestion must leave Paste on screen")
         XCTAssertFalse(
             banner.frame.intersects(paste.frame), "the suggestion must sit above the native toolbar"
         )
