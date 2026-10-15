@@ -149,13 +149,50 @@ jobs:
           xcrun simctl boot "$simulator" 2>/dev/null || true
           xcrun simctl bootstatus "$simulator" -b
 
-      - name: Run both reuse interactions
+      - name: Build the app and UI test runner
         run: |
           mkdir -p build
           set -o pipefail
           xcodebuild -disableAutomaticPackageResolution \
             -clonedSourcePackagesDirPath build/xcode-packages \
-            test -project Gancho.xcodeproj -scheme GanchoiOS \
+            build-for-testing -project Gancho.xcodeproj -scheme GanchoiOS \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build/ios-reuse-build.log
+
+      # A fresh hosted simulator stalls for minutes on its first UI-test app
+      # launch and accessibility query. Pay that once on an unrelated case so
+      # the measured run starts warm; this step never gates the job.
+      - name: Warm the simulator with an unmeasured UI launch
+        timeout-minutes: 12
+        continue-on-error: true
+        run: |
+          for attempt in 1 2 3; do
+            started=$SECONDS
+            if xcodebuild -disableAutomaticPackageResolution \
+              -clonedSourcePackagesDirPath build/xcode-packages \
+              test-without-building -project Gancho.xcodeproj -scheme GanchoiOS \
+              -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
+              -only-testing:GanchoiOSUITests/SourceAppFilterUITests \
+              -parallel-testing-enabled NO \
+              -test-timeouts-enabled YES \
+              -default-test-execution-time-allowance 120 \
+              -maximum-test-execution-time-allowance 180 \
+              -resultBundlePath "build/ios-warm-up-$attempt.xcresult" \
+              >> build/ios-warm-up.log 2>&1; then
+              echo "Warm-up attempt $attempt passed in $((SECONDS - started))s"
+              exit 0
+            fi
+            echo "Warm-up attempt $attempt failed after $((SECONDS - started))s"
+          done
+          echo "::warning::The simulator warm-up never passed; the measured run may start cold"
+
+      - name: Run both reuse interactions
+        run: |
+          set -o pipefail
+          xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
+            test-without-building -project Gancho.xcodeproj -scheme GanchoiOS \
             -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
             -only-testing:GanchoiOSUITests/ReuseSuggestionUITests \
             -parallel-testing-enabled NO \
@@ -163,7 +200,6 @@ jobs:
             -default-test-execution-time-allowance 120 \
             -maximum-test-execution-time-allowance 180 \
             -resultBundlePath build/ios-reuse.xcresult \
-            CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee build/ios-reuse.log
 
       - name: Require two passing cases without skips
@@ -186,6 +222,8 @@ jobs:
         with:
           name: app-quality-ios-${{ github.run_id }}
           path: |
+            build/ios-reuse-build.log
+            build/ios-warm-up.log
             build/ios-reuse.log
             build/ios-reuse.xcresult
             build/ios-reuse-evidence
