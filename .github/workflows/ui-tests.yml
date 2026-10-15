@@ -189,6 +189,27 @@ jobs:
           xcrun simctl boot "$simulator" 2>/dev/null || true
           xcrun simctl bootstatus "$simulator" -b
 
+      - name: Build the app and UI test runner
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild -disableAutomaticPackageResolution \
+            build-for-testing -project Gancho.xcodeproj -scheme GanchoiOS \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
+            -enableCodeCoverage YES \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build/ios-ui-build.log
+
+      - name: Warm the simulator with an unmeasured UI launch
+        timeout-minutes: 8
+        continue-on-error: true
+        run: |
+          ./scripts/warm-ios-simulator.sh warm "$IOS_SIMULATOR_UDID" build \
+            -disableAutomaticPackageResolution
+
+      - name: Stop anything the warm-up left running
+        run: ./scripts/warm-ios-simulator.sh stop "$IOS_SIMULATOR_UDID"
+
       - name: Run iOS UI tests
         env:
           GANCHO_IOS_UI_SCOPE: ${{ inputs.scope || 'full' }}
@@ -213,12 +234,11 @@ jobs:
               ;;
           esac
           xcodebuild -disableAutomaticPackageResolution \
-            test -project Gancho.xcodeproj -scheme GanchoiOS \
+            test-without-building -project Gancho.xcodeproj -scheme GanchoiOS \
             -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
             "${test_arguments[@]}" \
             -enableCodeCoverage YES \
             -resultBundlePath build/ios-ui.xcresult \
-            CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee build/ios-ui.log
 
       - name: Collect iOS UI evidence
@@ -251,6 +271,9 @@ jobs:
           path: |
             build/ios-ui.xcresult
             build/ios-ui.log
+            build/ios-ui-build.log
+            build/ios-warm-up-*.log
+            build/ios-warm-up-*.xcresult
             build/ios-ui-evidence
           if-no-files-found: warn
           retention-days: 14
