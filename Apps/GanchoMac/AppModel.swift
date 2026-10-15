@@ -620,6 +620,7 @@ final class AppModel {
         let uiTestSeedTasks =
             seedUITestFixturesIfRequested()
             + (expiredSensitiveSeed.map { [$0, launchRetentionPass] } ?? [])
+        publishUITestFixtureReadiness(after: uiTestSeedTasks)
         // Post-launch maintenance, sequential at utility priority once the UI
         // is wired up: the cosmetic legacy-preview backfill (moved off the
         // synchronous store open — it scanned image rows on every launch),
@@ -1141,7 +1142,7 @@ final class AppModel {
         guard fullStore != nil else { return }
         let intendedTarget = currentReuseTargetBundleID()
         Task {
-            guard case .text(let body)? = try? await store.content(for: snippet.id) else { return }
+            guard let body = await snippetBody(for: snippet), !Task.isCancelled else { return }
             await pasteBackWorkflow.deliver(
                 .text(SnippetTemplate.fill(body, values: values)),
                 asPlainText: false,

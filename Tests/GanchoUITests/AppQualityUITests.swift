@@ -40,9 +40,8 @@ final class AppQualityUITests: XCTestCase {
             keep(window, name: "settings-\(section)-\(language)-\(appearance)")
             XCTAssertTrue(button.isSelected, "the current Settings section must expose selection")
         }
-        let close = try XCTUnwrap(
-            window.buttons.matching(NSPredicate(format: "subrole == 'AXCloseButton'"))
-                .allElementsBoundByIndex.first)
+        let close = window.buttons[XCUIIdentifierCloseWindow].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 3))
         close.click()
         XCTAssertTrue(window.waitForNonExistence(timeout: 5))
         GanchoUITestCommands.post("settings", token: token)
@@ -125,6 +124,7 @@ final class AppQualityUITests: XCTestCase {
         let cancel = sheet.buttons["Cancel"].firstMatch
         XCTAssertTrue(insert.isHittable)
         XCTAssertTrue(cancel.isHittable)
+        app.typeKey("g", modifierFlags: .command)
         keep(sheet, name: "snippet-many-fields-large-text")
         let fields = sheet.scrollViews["fill-fields-scroll"].firstMatch
         XCTAssertTrue(fields.waitForExistence(timeout: 3))
@@ -134,6 +134,9 @@ final class AppQualityUITests: XCTestCase {
         cancel.click()
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.dialogs["history-panel"].firstMatch.exists)
+        XCTAssertFalse(
+            app.descendants(matching: .any)["panel-gallery"].firstMatch.exists,
+            "panel commands must stay inactive while a sheet owns the keyboard")
     }
 
     @MainActor

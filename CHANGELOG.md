@@ -14,6 +14,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep Library scopes, counts, and snippets current after confirmed mutations;
+  preserve loaded pages and drafts, and offer recovery when reads fail.
+- Reject stale iOS pages and superseded previews, thumbnails, and snippet
+  templates; retain kind filters when secure storage falls back to memory.
+- Improve accent contrast, icon hit areas, and accessible Settings and board
+  actions; keep long-template actions and the iOS Paste toolbar reachable.
+- Preserve transparency in eight-digit color previews and bound long-text
+  preview work without splitting composed characters.
+
 - Record a shortcut Gancho already uses again in Settings or onboarding,
   instead of the recorder staying stuck waiting for input.
 

@@ -14,7 +14,7 @@ private let onePixelPNG = Data(
 /// The shared thumbnail cache both apps wrap: load gating (kind/sensitive/
 /// in-flight), idempotence, and the FIFO cap that keeps a long-lived session's
 /// memory bounded.
-@Suite("ClipThumbnailStore")
+@Suite("ClipThumbnailStore", .timeLimit(.minutes(1)))
 @MainActor
 struct ClipThumbnailStoreTests {
     @MainActor private final class ImageReadGate {
@@ -36,19 +36,68 @@ struct ClipThumbnailStoreTests {
         }
     }
 
-    @Test("A changed content hash reloads the thumbnail; title and usage changes do not")
+    @Test("A cancelled row releases unused work and cannot publish a late decode")
+    func cancelledConsumerReleasesRead() async {
+        let gate = ImageReadGate()
+        let store = ClipThumbnailStore(
+            maxCached: 2, maxPixel: 480, skipsSensitiveClips: true, decodePriority: nil,
+            imageData: { _ in await gate.read() })
+        let item = ClipItem(kind: .image)
+        let pending = Task { await store.ensureLoaded(item) }
+        await gate.waitUntilEntered()
+        pending.cancel()
+        let deadline = ContinuousClock.now + .seconds(5)
+        while store.pendingLoadCount > 0, ContinuousClock.now < deadline { await Task.yield() }
+        #expect(store.pendingLoadCount == 0)
+        gate.release()
+        await pending.value
+        #expect(store.cached(for: item.id) == nil)
+    }
+
+    @Test("One cancelled consumer cannot cancel another visible view's shared thumbnail")
+    func concurrentConsumersShareRead() async {
+        let gate = ImageReadGate()
+        let loads = LoadCounter()
+        let store = ClipThumbnailStore(
+            maxCached: 2, maxPixel: 480, skipsSensitiveClips: true, decodePriority: nil,
+            imageData: { _ in
+                loads.value += 1
+                return await gate.read()
+            })
+        let item = ClipItem(kind: .image)
+        let first = Task { await store.ensureLoaded(item) }
+        await gate.waitUntilEntered()
+        let second = Task { await store.ensureLoaded(item) }
+        let deadline = ContinuousClock.now + .seconds(5)
+        while store.pendingConsumerCount(for: item.id) < 2, ContinuousClock.now < deadline {
+            await Task.yield()
+        }
+        #expect(store.pendingConsumerCount(for: item.id) == 2)
+        first.cancel()
+        gate.release()
+        await first.value
+        await second.value
+        #expect(loads.value == 1)
+        #expect(store.cached(for: item.id) != nil)
+        #expect(store.pendingLoadCount == 0)
+    }
+
+    @Test("A changed content revision reloads the thumbnail; usage bookkeeping does not")
     func contentChangesInvalidateCachedImages() async {
         let loads = LoadCounter()
         let store = makeStore(loads: loads)
         var item = ClipItem(kind: .image, contentHash: "first")
         await store.ensureLoaded(item)
-        item.title = "New title"
         item.uses += 1
+        item.lastUsedAt = .now
         await store.ensureLoaded(item)
         #expect(loads.value == 1)
-        item.contentHash = "second"
+        item.updatedAt = item.updatedAt.addingTimeInterval(1)
         await store.ensureLoaded(item)
         #expect(loads.value == 2)
+        item.contentHash = "second"
+        await store.ensureLoaded(item)
+        #expect(loads.value == 3)
         #expect(store.cached(for: item.id) != nil)
     }
 

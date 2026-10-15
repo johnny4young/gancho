@@ -49,6 +49,7 @@ public final class ClipThumbnailStore {
         let version: ClipContentVersion
         let token: UUID
         let task: Task<(Data, ThumbnailAccent?)?, Never>
+        var consumers: Set<UUID> = []
     }
     @ObservationIgnored private let maxCached: Int
     @ObservationIgnored private let maxPixel: CGFloat
@@ -138,8 +139,17 @@ public final class ClipThumbnailStore {
             pending = PendingThumbnail(version: version, token: UUID(), task: task)
             loading[item.id] = pending
         }
-        let decodedThumbnail = await pending.task.value
-        guard loading[item.id]?.token == pending.token else { return }
+        let consumer = UUID()
+        loading[item.id]?.consumers.insert(consumer)
+        defer { releaseConsumer(consumer, id: item.id, token: pending.token) }
+        let decodedThumbnail = await withTaskCancellationHandler {
+            await pending.task.value
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.releaseConsumer(consumer, id: item.id, token: pending.token)
+            }
+        }
+        guard !Task.isCancelled, loading[item.id]?.token == pending.token else { return }
         loading[item.id] = nil
         guard let (thumbnail, accent) = decodedThumbnail else { return }
         #if canImport(AppKit)
@@ -168,6 +178,19 @@ public final class ClipThumbnailStore {
         versions[id] = nil
         cacheOrder.removeAll { $0 == id }
     }
+
+    /// Leaving the viewport cancels unused work, but one disappearing view
+    /// cannot cancel the decode another visible view is still awaiting.
+    private func releaseConsumer(_ consumer: UUID, id: UUID, token: UUID) {
+        guard loading[id]?.token == token else { return }
+        loading[id]?.consumers.remove(consumer)
+        if loading[id]?.consumers.isEmpty == true {
+            loading.removeValue(forKey: id)?.task.cancel()
+        }
+    }
+
+    var pendingLoadCount: Int { loading.count }
+    func pendingConsumerCount(for id: UUID) -> Int { loading[id]?.consumers.count ?? 0 }
 
     /// The thumbnail PNG plus its average colour, both Sendable, from one
     /// ImageIO decode.

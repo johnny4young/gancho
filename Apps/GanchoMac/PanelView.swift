@@ -167,7 +167,10 @@ struct PanelView: View {
             .keyboardShortcut("c", modifiers: [.command, .shift])
         }
         // A field being edited owns ⌘V and friends; these would act on the list behind it.
-        .disabled(peekIsEditingInline || showBoardPicker || showShortcuts)
+        .disabled(
+            peekIsEditingInline || showBoardPicker || showShortcuts
+                || presentedSheet != nil || boardSheet != nil || boardPendingDeletion != nil
+        )
         .opacity(0)
         .frame(width: 0, height: 0)
         .accessibilityHidden(true)
@@ -1375,7 +1378,9 @@ struct PanelView: View {
         pasteTask?.cancel()
     }
 
-    private func pasteSelected(plain: Bool, includingSnippet: Bool = false) {
+    private func pasteSelected(
+        plain: Bool, includingSnippet: Bool = false, expectedSnippet: ClipContentVersion? = nil
+    ) {
         guard !showShortcuts else { return }
         let key = PanelSearchModel.PasteRequestKey(
             interaction: search.pasteInteractionID, plain: plain,
@@ -1395,6 +1400,11 @@ struct PanelView: View {
                 includingSnippet: includingSnippet, requestID: request)
             guard let target, !Task.isCancelled
             else { return }
+            if let expectedSnippet {
+                guard target.isSnippet, ClipContentVersion(target.item) == expectedSnippet else {
+                    return
+                }
+            }
             if target.isSnippet {
                 await invokeSnippet(target.item)
             } else {
@@ -1512,7 +1522,8 @@ struct PanelView: View {
     /// the primary action when present.
     private func snippetBanner(_ snippet: ClipItem) -> some View {
         Button {
-            pasteSelected(plain: false, includingSnippet: true)
+            pasteSelected(
+                plain: false, includingSnippet: true, expectedSnippet: ClipContentVersion(snippet))
         } label: {
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 Image(systemName: "bolt.fill").panelFont(.caption)
@@ -1538,7 +1549,7 @@ struct PanelView: View {
     /// Invoke a snippet: fill its {fields} via a sheet if it's a template,
     /// otherwise paste straight away (incrementing its usage count).
     private func invokeSnippet(_ snippet: ClipItem) async {
-        guard case .text(let body)? = try? await model.store.content(for: snippet.id),
+        guard let body = await model.snippetBody(for: snippet),
             !Task.isCancelled
         else { return }
         let fields = SnippetTemplate.fields(in: body)

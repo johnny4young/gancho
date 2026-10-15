@@ -18,6 +18,20 @@ that complements the automated checks.
   System text styles are used broadly, but fixed-size labels and the panel text-size override mean
   this is not a guarantee that every element follows system Dynamic Type.
 - Accessibility identifiers are stable kebab-case and never localized.
+- Settings section buttons expose their selected state. Board-picker rows are
+  native buttons while the search field retains arrow navigation.
+- Compact icon actions share a labeled hit target, scaled with panel text on
+  macOS and sized for touch on iOS. Opaque custom accent fills resolve a black
+  or white foreground from their luminance instead of always forcing white.
+- Snippet-fill fields scroll independently from Insert and Cancel. Panel
+  commands are inactive while a dialog owns the keyboard. The iOS curation
+  suggestion reserves space above the history toolbar instead of covering it.
+
+The `app-quality.yml` hosted gate requires fifteen interface regressions with
+zero failures or skips, including English/light and Spanish/dark Settings,
+large panel text, gallery/list previews, live Library curation, draft-preserving
+navigation, and a twenty-field template with reachable actions. The iOS reuse
+test also checks that its suggestion does not intersect the Paste control.
 
 ## Validation limits
 

@@ -16,6 +16,7 @@ struct GeneralSettingsTab: View {
     @State private var translucentBackground = false
     @State private var panelSize: PanelSizePreset?
     @State private var shortcutWarning: String?
+    @State private var loginNote: String?
     @State private var transferNote: String?
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
 
@@ -37,19 +38,23 @@ struct GeneralSettingsTab: View {
                 .font(.callout)
             }
 
-            Toggle("Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, enabled in
-                    // SMAppService applies live; revert the toggle on failure.
-                    do {
-                        if enabled {
-                            try SMAppService.mainApp.register()
-                        } else {
-                            try SMAppService.mainApp.unregister()
-                        }
-                    } catch {
-                        launchAtLogin = SMAppService.mainApp.status == .enabled
-                    }
-                }
+            Toggle(
+                "Launch at login",
+                isOn: Binding(
+                    get: { launchAtLogin }, set: updateLaunchAtLogin)
+            )
+            .accessibilityIdentifier("launch-at-login-toggle")
+            .onAppear { launchAtLogin = SMAppService.mainApp.status == .enabled }
+            .onReceive(
+                NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            ) { _ in
+                launchAtLogin = SMAppService.mainApp.status == .enabled
+            }
+            if let loginNote {
+                Text(verbatim: loginNote)
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("launch-at-login-note")
+            }
 
             ShortcutRecorder("Cyclic paste shortcut:", name: .cyclicPaste)
             ShortcutRecorder("Paste from stack shortcut:", name: .pasteFromStack)
@@ -162,6 +167,28 @@ struct GeneralSettingsTab: View {
             set: { model.panel.position = $0 })
     }
 
+    /// Only a user write invokes ServiceManagement. Reconciling a failed write
+    /// must not trigger the opposite registration action through onChange.
+    private func updateLaunchAtLogin(_ enabled: Bool) {
+        loginNote = nil
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            loginNote = String(localized: "Launch at login couldn’t be updated. Try again.")
+        }
+        let status = SMAppService.mainApp.status
+        launchAtLogin = status == .enabled
+        if enabled, loginNote == nil, status == .requiresApproval {
+            loginNote = String(
+                localized:
+                    "Allow Gancho in Login Items in System Settings to enable automatic launch.")
+        }
+    }
+
     private var textSizeBinding: Binding<PanelTextSize> {
         Binding(
             get: { model.panel.textSize },
@@ -265,6 +292,7 @@ struct GeneralSettingsTab: View {
             return
         }
         model.apply(snapshot)
+        panelSize = PanelSizePreset.matching(model.panel.preferredContentSize)
         transferNote = String(localized: "Settings imported.")
     }
 }

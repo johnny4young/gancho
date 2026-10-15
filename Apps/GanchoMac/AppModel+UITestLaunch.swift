@@ -1,11 +1,28 @@
 import AppKit
 import Foundation
+import GanchoAppCore
 
 /// The launch-time UI-test hooks that open a window directly, kept out of the
 /// composition root beside the fixtures in `AppModel+UITestSeeds`. Each one
 /// independently requires its own `-open-*-on-launch` argument, so a normal
 /// launch runs none of them and presents whatever `LaunchPresentation` decided.
 extension AppModel {
+    /// A content-free setup boundary for the signed hosted harness. Real menu
+    /// actions still open the panel for the first time after the seeds finish.
+    func publishUITestFixtureReadiness(after seeds: [Task<Void, Never>]) {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-ui-test-wait-for-fixtures"),
+                StoreBootstrap.request() != .production,
+                let suite = Self.uiTestDefaultsSuiteName(),
+                let fixtureDefaults = UserDefaults(suiteName: suite)
+            else { return }
+            Task {
+                for seed in seeds { await seed.value }
+                fixtureDefaults.set(true, forKey: "ui-test-fixtures-ready")
+            }
+        #endif
+    }
+
     /// UI-test hook: deterministic panel access without the global hotkey.
     ///
     /// The panel opens from `didFinishLaunching` and again a beat later, because

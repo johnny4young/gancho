@@ -29,7 +29,7 @@ struct PanelStatusFooter: View {
             .help("Keyboard shortcuts (⌘/)")
         }
         .panelFont(.caption2)
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(.secondary)
         .padding(.top, GanchoTokens.Spacing.xxs)
         .padding(.horizontal, GanchoTokens.Spacing.xxs)
     }

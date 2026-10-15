@@ -81,7 +81,7 @@ extension LibraryView {
                     if snippets.isEmpty {
                         Text("No snippets yet")
                             .font(.caption)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                     }
                     ForEach(snippets) { snippet in
                         snippetRow(snippet).tag(LibrarySelection.snippet(snippet.id))
@@ -158,14 +158,8 @@ extension LibraryView {
                 badge.font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
             }
             Spacer()
-            Button(action: add) {
-                Image(systemName: "plus")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help(Text(addLabel))
-            .accessibilityLabel(Text(addLabel))
-            .accessibilityIdentifier(identifier)
+            IconActionButton(addLabel, systemImage: "plus", identifier: identifier, action: add)
+                .foregroundStyle(.secondary)
         }
     }
 

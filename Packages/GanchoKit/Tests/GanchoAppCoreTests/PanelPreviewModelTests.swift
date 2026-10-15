@@ -42,6 +42,29 @@ private actor SuspendedPanelPreviewContent {
 @MainActor
 @Suite("Panel preview model")
 struct PanelPreviewModelTests {
+    @Test(
+        "A persisted text edit invalidates the preview even though its deduplication hash stays unchanged"
+    )
+    func storedEditInvalidatesPreview() async throws {
+        let directory = URL.temporaryDirectory.appendingPathComponent(
+            "gancho-preview-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try GRDBClipboardStore(
+            directory: directory, passphrase: "synthetic-preview-passphrase")
+        let original = ClipItem(preview: "Synthetic original", contentHash: "deduplication-key")
+        _ = try await store.insert(original, content: .text("Synthetic original body"))
+        let model = PanelPreviewModel()
+        await model.load(original) { id in try await store.content(for: id) }
+        try await store.updateClipText(id: original.id, text: "Synthetic edited body")
+        let edited = try #require(try await store.item(id: original.id))
+        #expect(edited.contentHash == original.contentHash)
+        #expect(edited.updatedAt != original.updatedAt)
+        #expect(model.presentation(for: edited).text == edited.preview)
+        #expect(!model.presentation(for: edited).isTextEditable)
+        await model.load(edited) { id in try await store.content(for: id) }
+        #expect(model.presentation(for: edited).text == "Synthetic edited body")
+    }
+
     @Test("The same clip id cannot reuse text after its content or privacy classification changes")
     func sameIDWithNewContentFallsBackImmediately() async {
         var item = ClipItem(kind: .text, preview: "original preview", contentHash: "original")
