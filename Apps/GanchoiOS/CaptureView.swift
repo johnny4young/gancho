@@ -56,7 +56,6 @@ struct CaptureView: View {
                         }
                     }
                 }
-                .reuseSuggestionInset()
                 .searchable(text: $model.query, prompt: Text("Search your clipboard"))
                 .onChange(of: model.query) { _, _ in
                     askTask?.cancel()
@@ -92,6 +91,7 @@ struct CaptureView: View {
                 }
                 .refreshable { await model.forceSync() }
                 .accessibilityIdentifier("capture-screen")
+                .reuseSuggestionInset()
             }
         }
         .captureShell(activeSheet: $activeSheet) { clip in

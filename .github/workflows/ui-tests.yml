@@ -6,11 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: Full platform suites or ten repetitions of platform interaction regressions
+        description: Full platform suites, iOS only, or ten repetitions of interaction regressions
         type: choice
         default: full
         options:
           - full
+          - ios-full
           - interaction-stress
           - ios-interaction-stress
           - feature-stress
@@ -26,7 +27,7 @@ concurrency:
 
 jobs:
   macos-ui:
-    if: ${{ inputs.scope != 'ios-interaction-stress' }}
+    if: ${{ inputs.scope != 'ios-interaction-stress' && inputs.scope != 'ios-full' }}
     name: ${{ inputs.scope == 'feature-stress' && 'macOS feature stress (10x)' || inputs.scope == 'interaction-stress' && 'macOS interaction stress (10x)' || 'macOS UI tests' }}
     runs-on: macos-26
     # Ten rounds exceed the full suite's wall-clock allocation. Interaction
@@ -195,7 +196,7 @@ jobs:
           mkdir -p build
           set -o pipefail
           case "$GANCHO_IOS_UI_SCOPE" in
-            full)
+            full|ios-full)
               test_arguments=(-only-testing:GanchoiOSUITests)
               ;;
             feature-stress)

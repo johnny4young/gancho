@@ -107,3 +107,92 @@ jobs:
             build/app-quality.xcresult
             build/app-quality-evidence
           retention-days: 14
+
+  ios-reuse:
+    name: iOS suggestion accessibility and toolbar
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify disposable host and toolchain
+        run: |
+          test "$GITHUB_ACTIONS" = true
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$(id -un)" = runner
+          sw_vers
+          xcodebuild -version
+
+      - name: Cache resolved packages
+        uses: actions/cache@v6
+        with:
+          path: build/xcode-packages
+          key: xcode-spm-${{ runner.os }}-${{ hashFiles('Dependencies/Package.resolved') }}
+
+      - name: Generate project and verify dependency locks
+        run: |
+          brew install xcodegen
+          make project
+          make dependency-check
+
+      - name: Select available iPhone simulator
+        run: |
+          runtime=$(xcrun simctl list runtimes available -j \
+            | jq -r '[.runtimes[] | select(.platform == "iOS")] | sort_by(.version) | last | .identifier')
+          simulator=$(xcrun simctl list devices available -j \
+            | jq -r --arg runtime "$runtime" \
+              '.devices[$runtime] | map(select(.name | startswith("iPhone"))) | first | .udid')
+          if [[ -z "$runtime" || "$runtime" == "null" || \
+                -z "$simulator" || "$simulator" == "null" ]]; then
+            echo "::error::No available iOS iPhone simulator was found"
+            exit 1
+          fi
+          echo "IOS_SIMULATOR_UDID=$simulator" >> "$GITHUB_ENV"
+          xcrun simctl boot "$simulator" 2>/dev/null || true
+          xcrun simctl bootstatus "$simulator" -b
+
+      - name: Run both reuse interactions
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
+            test -project Gancho.xcodeproj -scheme GanchoiOS \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
+            -only-testing:GanchoiOSUITests/ReuseSuggestionUITests \
+            -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 \
+            -resultBundlePath build/ios-reuse.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build/ios-reuse.log
+
+      - name: Require two passing cases without skips
+        if: always()
+        run: |
+          ./scripts/collect-ui-test-evidence.sh \
+            build/ios-reuse.xcresult "iOS suggestion accessibility and toolbar" build/ios-reuse-evidence
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(Path('build/ios-reuse-evidence/summary.json').read_text())
+          assert summary['result'] == 'Passed', summary
+          assert summary['totalTestCount'] == summary['passedTests'] == 2, summary
+          assert summary['failedTests'] == summary['skippedTests'] == summary['expectedFailures'] == 0, summary
+          PY
+
+      - name: Preserve iOS evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-quality-ios-${{ github.run_id }}
+          path: |
+            build/ios-reuse.log
+            build/ios-reuse.xcresult
+            build/ios-reuse-evidence
+          retention-days: 14

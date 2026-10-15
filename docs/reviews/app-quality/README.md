@@ -88,7 +88,8 @@ All images are unmodified, inspected captures of synthetic fixtures or Settings
 on disposable GitHub hosts; no maintainer desktop or clipboard was captured.
 
 The pull-request interface gate requires fifteen passing cases and zero skips,
-including both Settings languages/appearances, panel text sizes, real Library
+with a separate two-case iOS reuse gate. The macOS cases include both Settings
+languages/appearances, panel text sizes, real Library
 curation, draft-preserving navigation and the long-template interaction.
 Package regressions cover suspended reads with explicit gates, a real encrypted
 throwaway store, privacy changes, shared thumbnail cancellation, filters and

@@ -31,7 +31,8 @@ The `app-quality.yml` hosted gate requires fifteen interface regressions with
 zero failures or skips, including English/light and Spanish/dark Settings,
 large panel text, gallery/list previews, live Library curation, draft-preserving
 navigation, and a twenty-field template with reachable actions. The iOS reuse
-test also checks that its suggestion does not intersect the Paste control.
+gate requires both reuse interactions to pass without skips and checks that
+its suggestion does not intersect the Paste control.
 
 ## Validation limits
 

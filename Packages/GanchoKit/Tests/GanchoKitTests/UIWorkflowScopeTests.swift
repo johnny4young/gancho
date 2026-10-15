@@ -10,7 +10,10 @@ struct UIWorkflowScopeTests {
             source.contains(
                 "timeout-minutes: ${{ (inputs.scope == 'interaction-stress' || "
                     + "inputs.scope == 'feature-stress') && 90 || 45 }}"))
-        #expect(source.contains("if: ${{ inputs.scope != 'ios-interaction-stress' }}"))
+        #expect(
+            source.contains(
+                "if: ${{ inputs.scope != 'ios-interaction-stress' && inputs.scope != 'ios-full' }}"
+            ))
         #expect(source.contains("if: ${{ inputs.scope != 'interaction-stress' }}"))
         #expect(source.contains("case \"$GANCHO_IOS_UI_SCOPE\" in"))
         #expect(source.contains("-only-testing:GanchoiOSUITests/OutboundPrivacyUITests"))
@@ -40,7 +43,8 @@ struct UIWorkflowScopeTests {
 
     @Test(
         arguments: [
-            "full", "interaction-stress", "ios-interaction-stress", "feature-stress", "",
+            "full", "ios-full", "interaction-stress", "ios-interaction-stress", "feature-stress",
+            "",
             "full; touch INJECTED", "-skip-testing:GanchoUITests"
         ], ["macos", "ios"])
     func routesOnlyKnownScopes(scope: String, platform: String) throws {
@@ -86,6 +90,9 @@ struct UIWorkflowScopeTests {
             #expect(exitStatus == 0)
             let target = platform == "macos" ? "GanchoUITests" : "GanchoiOSUITests"
             #expect(arguments == ["-only-testing:\(target)"])
+        case ("ios", "ios-full"):
+            #expect(exitStatus == 0)
+            #expect(arguments == ["-only-testing:GanchoiOSUITests"])
         case ("macos", "interaction-stress"):
             let suites = [
                 "PasteBackUITests", "ReuseSuggestionUITests", "ClipLargePreviewUITests",
