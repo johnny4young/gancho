@@ -21,7 +21,9 @@ extension LibraryView {
     /// A board's clips as a card grid, with the scope title, a live count, and
     /// the sync state — the design's main pane.
     private var boardDetail: some View {
-        VStack(spacing: 0) {
+        let clips = self.clips
+        let lastID = clips.last?.id
+        return VStack(spacing: 0) {
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 scopeTitle.font(.headline)
                 Text("\(clips.count) clips").foregroundStyle(.secondary)
@@ -64,7 +66,7 @@ extension LibraryView {
                         ForEach(clips) { clip in
                             clipCard(clip)
                                 .task {
-                                    if clip.id == clips.last?.id { await clipList.loadMore() }
+                                    if clip.id == lastID { await clipList.loadMore() }
                                 }
                         }
                     }

@@ -43,9 +43,12 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
 
     /// Loads one selected clip and applies its result only while that exact
     /// request remains current. Cancellation is checked before durable content
-    /// access and again before applying the result.
+    /// access and again before applying the result. `loadMetadata` re-reads the
+    /// persisted row afterwards, so an edit or protection change during the
+    /// read never publishes text under the selection's older revision.
     public func load(
         _ item: ClipItem?,
+        loadMetadata: (@Sendable (UUID) async throws -> ClipItem?)? = nil,
         loadContent: @Sendable (UUID) async throws -> ClipContent?
     ) async {
         loadGeneration &+= 1
@@ -69,6 +72,11 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
         guard !Task.isCancelled else { return }
 
         let payload = await loader.load(item, loadContent: loadContent)
+        if let loadMetadata {
+            guard let current = try? await loadMetadata(item.id),
+                ClipContentVersion(current) == ClipContentVersion(item)
+            else { return }
+        }
         guard
             !Task.isCancelled,
             loadGeneration == generation,

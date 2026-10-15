@@ -56,6 +56,7 @@ public final class ClipThumbnailStore {
     @ObservationIgnored private let skipsSensitiveClips: Bool
     @ObservationIgnored private let decodePriority: TaskPriority?
     @ObservationIgnored private let imageData: @MainActor (UUID) async -> Data?
+    @ObservationIgnored private let revision: (@MainActor (UUID) async -> ClipItem?)?
 
     /// - Parameters:
     ///   - maxCached: FIFO cap; an evicted-then-revisited row simply reloads
@@ -70,6 +71,8 @@ public final class ClipThumbnailStore {
     ///     passes false to stay behavior-identical.
     ///   - decodePriority: priority for the detached decode task; nil uses
     ///     the runtime default.
+    ///   - revision: when set, re-reads the persisted row after the decode so
+    ///     a clip edited, expired or newly protected during the read is dropped.
     ///   - imageData: reads a clip's raw image bytes (the `.binary` blob), or
     ///     nil when the clip isn't an image / can't be read.
     public init(
@@ -77,12 +80,14 @@ public final class ClipThumbnailStore {
         maxPixel: CGFloat,
         skipsSensitiveClips: Bool,
         decodePriority: TaskPriority?,
+        revision: (@MainActor (UUID) async -> ClipItem?)? = nil,
         imageData: @escaping @MainActor (UUID) async -> Data?
     ) {
         self.maxCached = maxCached
         self.maxPixel = maxPixel
         self.skipsSensitiveClips = skipsSensitiveClips
         self.decodePriority = decodePriority
+        self.revision = revision
         self.imageData = imageData
     }
 
@@ -124,19 +129,8 @@ public final class ClipThumbnailStore {
             pending = existing
         } else {
             invalidate(item.id)
-            let imageData = self.imageData
-            let maxPixel = self.maxPixel
-            let priority = decodePriority
-            let task = Task { @MainActor in
-                guard !Task.isCancelled, let data = await imageData(item.id),
-                    !Task.isCancelled
-                else { return Optional<(Data, ThumbnailAccent?)>.none }
-                let decoded = await Task.detached(priority: priority) {
-                    ClipThumbnailStore.decodeThumbnail(from: data, maxPixel: maxPixel)
-                }.value
-                return Task.isCancelled ? nil : decoded
-            }
-            pending = PendingThumbnail(version: version, token: UUID(), task: task)
+            pending = PendingThumbnail(
+                version: version, token: UUID(), task: loadTask(id: item.id, version: version))
             loading[item.id] = pending
         }
         let consumer = UUID()
@@ -171,8 +165,34 @@ public final class ClipThumbnailStore {
         }
     }
 
+    private func loadTask(
+        id: UUID, version: ClipContentVersion
+    ) -> Task<(Data, ThumbnailAccent?)?, Never> {
+        let imageData = self.imageData
+        let revision = self.revision
+        let requiresEligibility = skipsSensitiveClips
+        let maxPixel = self.maxPixel
+        let priority = decodePriority
+        return Task { @MainActor in
+            guard !Task.isCancelled, let data = await imageData(id), !Task.isCancelled
+            else { return nil }
+            let decoded = await Task.detached(priority: priority) {
+                ClipThumbnailStore.decodeThumbnail(from: data, maxPixel: maxPixel)
+            }.value
+            if let revision {
+                guard let current = await revision(id),
+                    ClipContentVersion(current) == version,
+                    !requiresEligibility || ClipSafeDelivery.isEligible(current)
+                else { return nil }
+            }
+            return Task.isCancelled ? nil : decoded
+        }
+    }
+
     private func invalidate(_ id: UUID) {
         loading.removeValue(forKey: id)?.task.cancel()
+        // Observation fires on every write; text rows must not redraw thumbnail readers.
+        guard cache[id] != nil || accents[id] != nil || versions[id] != nil else { return }
         cache[id] = nil
         accents[id] = nil
         versions[id] = nil

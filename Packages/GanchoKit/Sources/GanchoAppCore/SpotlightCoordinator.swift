@@ -53,9 +53,9 @@ public final class SpotlightCoordinator {
 
     /// Which coalesced changes make the curated Spotlight set stale. Snippets
     /// and pins ARE the donated set, so any `curation` change matters; a clip
-    /// edit or delete (`clips`) can change or remove a donated row. A
-    /// board-only burst never touches the curated domain, so it is skipped —
-    /// this predicate is the whole "react to the right mutations" rule.
+    /// edit or delete (`clips`) can change or remove a donated row. Board-only
+    /// and capture-only bursts never touch the curated domain, so they are
+    /// skipped — this predicate is the whole "react to the right mutations" rule.
     static func reactsTo(_ batch: StoreChangeBatch) -> Bool {
         batch.contains(.curation) || batch.contains(.clips)
     }

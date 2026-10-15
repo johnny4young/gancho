@@ -24,9 +24,9 @@ struct PanelStatusFooter: View {
             keyboardHint("paste", keys: ["return"])
             IconActionButton(
                 "Keyboard shortcuts", systemImage: "questionmark.circle",
-                identifier: "panel-shortcuts-button", action: showKeyboardShortcuts
+                identifier: "panel-shortcuts-button", help: "Keyboard shortcuts (⌘/)",
+                action: showKeyboardShortcuts
             )
-            .help("Keyboard shortcuts (⌘/)")
         }
         .panelFont(.caption2)
         .foregroundStyle(.secondary)

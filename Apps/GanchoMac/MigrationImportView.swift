@@ -198,6 +198,7 @@ struct MigrationImportView: View {
                     store: model.migrationStore,
                     syncEngine: model.syncController.engine)
                 await model.refreshRecents()
+                model.notifyStoreChanged(for: .clips)
                 phase = .complete(summary)
             } catch is CancellationError {
                 phase = .choose

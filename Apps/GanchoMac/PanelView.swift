@@ -418,9 +418,10 @@ struct PanelView: View {
                 try? await Task.sleep(for: .milliseconds(60))
                 guard !Task.isCancelled else { return }
                 let store = model.store
-                await preview.load(search.selectedItem) { id in
-                    try await store.content(for: id)
-                }
+                await preview.load(
+                    search.selectedItem,
+                    loadMetadata: { id in try await store.item(id: id) },
+                    loadContent: { id in try await store.content(for: id) })
             }
     }
 
@@ -1406,7 +1407,7 @@ struct PanelView: View {
                 }
             }
             if target.isSnippet {
-                await invokeSnippet(target.item)
+                await invokeSnippet(target.item, interaction: key.interaction)
             } else {
                 model.paste(target.item, asPlainText: plain)
             }
@@ -1548,9 +1549,9 @@ struct PanelView: View {
 
     /// Invoke a snippet: fill its {fields} via a sheet if it's a template,
     /// otherwise paste straight away (incrementing its usage count).
-    private func invokeSnippet(_ snippet: ClipItem) async {
+    private func invokeSnippet(_ snippet: ClipItem, interaction: UUID) async {
         guard let body = await model.snippetBody(for: snippet),
-            !Task.isCancelled
+            !Task.isCancelled, search.pasteInteractionID == interaction
         else { return }
         let fields = SnippetTemplate.fields(in: body)
         if fields.isEmpty {

@@ -1,6 +1,7 @@
 import Foundation
 import GanchoKit
 import SwiftUI
+import Synchronization
 import Testing
 
 @testable import GanchoDesign
@@ -52,6 +53,39 @@ struct ClipThumbnailStoreTests {
         gate.release()
         await pending.value
         #expect(store.cached(for: item.id) == nil)
+    }
+
+    @Test("A clip protected in storage during the read is not cached under its old revision")
+    func storageChangeDuringReadIsDropped() async {
+        let gate = ImageReadGate()
+        let item = ClipItem(kind: .image)
+        var persisted = item
+        let store = ClipThumbnailStore(
+            maxCached: 2, maxPixel: 480, skipsSensitiveClips: true, decodePriority: nil,
+            revision: { _ in persisted }, imageData: { _ in await gate.read() })
+        let pending = Task { await store.ensureLoaded(item) }
+        await gate.waitUntilEntered()
+        persisted.isSensitive = true
+        gate.release()
+        await pending.value
+        #expect(store.cached(for: item) == nil)
+        #expect(store.cached(for: item.id) == nil)
+    }
+
+    @Test("Text rows do not notify thumbnail readers when nothing is cached")
+    func nonImageRowsDoNotInvalidateObservers() async {
+        let store = makeStore()
+        let image = ClipItem(kind: .image)
+        await store.ensureLoaded(image)
+        let notified = Mutex(false)
+        withObservationTracking {
+            _ = store.cached(for: image)
+        } onChange: {
+            notified.withLock { $0 = true }
+        }
+        for _ in 0..<20 { await store.ensureLoaded(ClipItem(kind: .text)) }
+        #expect(!notified.withLock { $0 })
+        #expect(store.cached(for: image) != nil)
     }
 
     @Test("One cancelled consumer cannot cancel another visible view's shared thumbnail")

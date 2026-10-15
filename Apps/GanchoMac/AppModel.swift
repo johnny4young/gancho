@@ -374,6 +374,7 @@ final class AppModel {
         let libraryReader = self.fullStore
         self.libraryThumbnails = GanchoDesign.ClipThumbnailStore(
             maxCached: 64, maxPixel: 256, skipsSensitiveClips: true, decodePriority: .utility,
+            revision: { id in try? await libraryReader?.item(id: id) },
             imageData: { id in
                 guard let reader = libraryReader, let item = try? await reader.item(id: id),
                     item.kind == .image, !ClipSafePresentation.requiresMasking(item),
@@ -755,7 +756,7 @@ final class AppModel {
                 count: 1,
                 at: capture.capturedAt)
             await refreshRecents()
-            notifyStoreChanged(for: .clips)
+            notifyStoreChanged(for: .captured)
             enrich(outcome)
         }
     }
@@ -823,7 +824,7 @@ final class AppModel {
                         if freeAITitlesRemaining == 0 { showAITasteEndedNudge() }
                     }
                     await refreshRecents()
-                    notifyStoreChanged(for: .clips)
+                    notifyStoreChanged(for: .captured)
                 }
             }
         }
@@ -1362,6 +1363,7 @@ final class AppModel {
         Task {
             _ = try? await TierEnforcement(store: grdbForEngines).enforce(tier: newTier)
             await refreshRecents()
+            notifyStoreChanged(for: .clips)
         }
     }
 

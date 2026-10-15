@@ -135,13 +135,17 @@ thumbnails, and reviewed snippets. It includes `updatedAt`, because local text
 edits deliberately retain their deduplication hash, plus masking and expiry
 metadata. Usage bookkeeping does not advance the revision. Preview tasks follow
 this identity, and thumbnail consumers share a read/decode until the last visible
-consumer cancels. Old versions cannot overwrite a newer cached result.
+consumer cancels. Old versions cannot overwrite a newer cached result. The panel
+preview and the Library thumbnails re-read the persisted row after their
+asynchronous read, so an edit or protection change during it publishes nothing.
 
 `LibraryClipListModel` owns the Library's paged browse requests, cancellation,
 loaded-window preservation, and recoverable load failures. The SwiftUI window
 retains its independent snippet draft. Confirmed mutations publish content-free
 store-change events; the Library and Spotlight coalesce those events independently.
-Opening the cached Library also refreshes it. Snippet insertion uses
+Captures post a separate `captured` event that Spotlight ignores, because a new
+clip cannot change the curated set. A closed or minimized Library defers its
+refresh until it is shown again; opening the cached Library also refreshes it. Snippet insertion uses
 `SnippetBodyLoader` and the existing safe-delivery boundary to reject a changed
 template both before its fields are presented and before insertion.
 

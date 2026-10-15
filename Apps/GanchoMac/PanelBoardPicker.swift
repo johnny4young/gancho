@@ -17,7 +17,7 @@ struct PanelBoardPicker: View {
     @State private var memberIDs: Set<UUID> = []
     @State private var selection = 0
     @State private var isCreating = false
-    @State private var loadingMembership = true
+    @State private var membershipLoaded = false
     @State private var pendingBoardIDs: Set<UUID> = []
     @State private var membershipRequest = UUID()
     @FocusState private var fieldFocused: Bool
@@ -43,7 +43,7 @@ struct PanelBoardPicker: View {
             card
         }
         .transition(.opacity)
-        .task(id: items.map(\.id)) { await refreshMembership() }
+        .task(id: items.map(\.id)) { await refreshMembership(resetting: true) }
     }
 
     private var card: some View {
@@ -145,7 +145,7 @@ struct PanelBoardPicker: View {
         }
         .buttonStyle(.plain)
         .focusable(false)
-        .disabled(loadingMembership || pendingBoardIDs.contains(board.id))
+        .disabled(!membershipLoaded || pendingBoardIDs.contains(board.id))
         .accessibilityValue(isMember ? Text("Selected") : Text("Not selected"))
         .accessibilityIdentifier("board-picker-board-row")
     }
@@ -197,7 +197,7 @@ struct PanelBoardPicker: View {
     }
 
     private func toggle(_ board: Pinboard) {
-        guard !loadingMembership, pendingBoardIDs.insert(board.id).inserted else { return }
+        guard membershipLoaded, pendingBoardIDs.insert(board.id).inserted else { return }
         let member = memberIDs.contains(board.id)
         Task {
             defer { pendingBoardIDs.remove(board.id) }
@@ -206,14 +206,16 @@ struct PanelBoardPicker: View {
         }
     }
 
-    private func refreshMembership() async {
+    /// Only a new target locks every row; a refresh after a toggle keeps the
+    /// other rows usable, so fast ↩ presses on different boards all apply.
+    private func refreshMembership(resetting: Bool = false) async {
         let request = UUID()
         membershipRequest = request
-        loadingMembership = true
+        if resetting { membershipLoaded = false }
         let ids = await model.commonBoardMembership(for: items)
         guard !Task.isCancelled, membershipRequest == request else { return }
         memberIDs = ids
-        loadingMembership = false
+        membershipLoaded = true
     }
 
     private func createIfPossible() {

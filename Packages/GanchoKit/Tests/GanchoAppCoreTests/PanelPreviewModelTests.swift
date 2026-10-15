@@ -39,9 +39,37 @@ private actor SuspendedPanelPreviewContent {
     }
 }
 
+private actor PersistedPreviewMetadata {
+    var item: ClipItem
+    init(_ item: ClipItem) { self.item = item }
+    func protect() { item.isSensitive = true }
+}
+
 @MainActor
 @Suite("Panel preview model")
 struct PanelPreviewModelTests {
+    @Test("A row protected in storage during the read never publishes its text")
+    func storageProtectionDuringReadKeepsMetadata() async {
+        let item = ClipItem(kind: .text, preview: "safe preview", contentHash: "protected-later")
+        let persisted = PersistedPreviewMetadata(item)
+        let suspended = SuspendedPanelPreviewContent()
+        let model = PanelPreviewModel()
+
+        let load = Task { @MainActor in
+            await model.load(
+                item, loadMetadata: { _ in await persisted.item },
+                loadContent: { _ in await suspended.load() })
+        }
+        await suspended.waitUntilStarted()
+        await persisted.protect()
+        await suspended.resume(returning: .text("now-protected body"))
+        await load.value
+
+        let presentation = model.presentation(for: item)
+        #expect(presentation.text == "safe preview")
+        #expect(!presentation.isTextEditable)
+    }
+
     @Test(
         "A persisted text edit invalidates the preview even though its deduplication hash stays unchanged"
     )

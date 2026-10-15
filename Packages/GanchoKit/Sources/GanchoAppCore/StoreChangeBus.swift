@@ -10,6 +10,8 @@ import Synchronization
 public enum StoreChange: String, Sendable, Equatable, CaseIterable {
     /// A clip was inserted, edited, or deleted.
     case clips
+    /// A new clip arrived from capture; lists refresh, the curated set cannot change.
+    case captured
     /// A board was created, renamed, deleted, or its membership changed.
     case boards
     /// Curation changed: promote/demote to snippet, pin/unpin.

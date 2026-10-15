@@ -4,6 +4,7 @@ import SwiftUI
 /// hit area that scales alongside the panel's text instead of the glyph alone.
 public struct IconActionButton: View {
     let title: LocalizedStringKey
+    let help: LocalizedStringKey?
     let systemImage: String
     let identifier: String
     let role: ButtonRole?
@@ -12,9 +13,10 @@ public struct IconActionButton: View {
 
     public init(
         _ title: LocalizedStringKey, systemImage: String, identifier: String,
-        role: ButtonRole? = nil, action: @escaping () -> Void
+        help: LocalizedStringKey? = nil, role: ButtonRole? = nil, action: @escaping () -> Void
     ) {
         self.title = title
+        self.help = help
         self.systemImage = systemImage
         self.identifier = identifier
         self.role = role
@@ -29,7 +31,7 @@ public struct IconActionButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
-        .help(title)
+        .help(help ?? title)
         .accessibilityLabel(Text(title))
         .accessibilityIdentifier(identifier)
     }

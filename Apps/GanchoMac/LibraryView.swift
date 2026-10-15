@@ -26,6 +26,7 @@ struct LibraryView: View {
     @State var metadataGeneration = UUID()
     @State var metadataLoadFailed = false
     @State var loadGeneration = UUID()
+    @State private var refreshDeferred = false
 
     // Snippet editor state (the right pane when a snippet is selected).
     @State var editingSnippet: ClipItem?
@@ -60,10 +61,22 @@ struct LibraryView: View {
             await refreshAll()
             for await _ in StoreChangeCoalescer().batches(of: changes) {
                 guard !Task.isCancelled else { return }
+                guard model.libraryWindow.isVisible else {
+                    refreshDeferred = true
+                    continue
+                }
                 await refreshAll()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .ganchoLibraryDidShow)) { _ in
+            refreshDeferred = false
+            Task { await refreshAll() }
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSWindow.didDeminiaturizeNotification)
+        ) { notification in
+            guard refreshDeferred, model.libraryWindow.owns(notification.object) else { return }
+            refreshDeferred = false
             Task { await refreshAll() }
         }
         .onChange(of: model.savedFilters.rules) { _, _ in

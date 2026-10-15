@@ -7,6 +7,11 @@ import SwiftUI
 final class LibraryWindowController {
     private var window: NSWindow?
 
+    /// The cached window keeps its view alive while closed or minimized.
+    var isVisible: Bool { window?.isVisible == true }
+
+    func owns(_ object: Any?) -> Bool { window != nil && (object as? NSWindow) === window }
+
     func show(model: AppModel) {
         model.panel.hide()
         if window == nil {
