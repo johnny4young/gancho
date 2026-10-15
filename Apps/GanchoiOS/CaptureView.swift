@@ -194,10 +194,10 @@ struct CaptureView: View {
         Button {
             activeSheet = .peek(item)
         } label: {
-            ClipCard(item: item, thumbnail: model.thumbnails.cached(for: item.id))
+            ClipCard(item: item, thumbnail: model.thumbnails.cached(for: item))
         }
         .buttonStyle(.plain)
-        .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+        .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
         .onAppear { Task { await model.loadMoreIfNeeded(item) } }
         .clipRowActions(item, model: model) { activeSheet = .move(item) }
     }

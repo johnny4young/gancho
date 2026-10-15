@@ -42,6 +42,20 @@ private actor SuspendedPanelPreviewContent {
 @MainActor
 @Suite("Panel preview model")
 struct PanelPreviewModelTests {
+    @Test("The same clip id cannot reuse text after its content or privacy classification changes")
+    func sameIDWithNewContentFallsBackImmediately() async {
+        var item = ClipItem(kind: .text, preview: "original preview", contentHash: "original")
+        let model = PanelPreviewModel()
+        await model.load(item) { _ in .text("original body") }
+        item.contentHash = "edited"
+        item.preview = "edited preview"
+        #expect(model.presentation(for: item).text == "edited preview")
+        #expect(!model.presentation(for: item).isTextEditable)
+        item.isSensitive = true
+        #expect(model.presentation(for: item).text == ClipSafePresentation.masked)
+        #expect(!model.presentation(for: item).isTextEditable)
+    }
+
     @Test("Sensitive clips stay masked without reading durable content")
     func sensitiveClipFailsClosed() async {
         let item = ClipItem(

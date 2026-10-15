@@ -18,7 +18,7 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
 /// adds the panel-specific identity, cancellation, stale-result, and editability
 /// policy that does not belong in SwiftUI.
 @MainActor @Observable public final class PanelPreviewModel {
-    private var selectedItemID: UUID?
+    private var selectedVersion: ClipContentVersion?
     private var text = ""
     private var isTextEditable = false
 
@@ -33,7 +33,9 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
     /// render immediately after selection changes while the new task is still
     /// debouncing without exposing the previously selected clip.
     public func presentation(for item: ClipItem) -> PanelPreviewPresentation {
-        guard selectedItemID == item.id else {
+        guard !ClipSafePresentation.requiresMasking(item),
+            selectedVersion == ClipContentVersion(item)
+        else {
             return Self.metadataPresentation(for: item)
         }
         return PanelPreviewPresentation(text: text, isTextEditable: isTextEditable)
@@ -50,14 +52,14 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
         let generation = loadGeneration
 
         guard let item else {
-            selectedItemID = nil
+            selectedVersion = nil
             text = ""
             isTextEditable = false
             return
         }
 
         let metadata = Self.metadataPresentation(for: item)
-        selectedItemID = item.id
+        selectedVersion = ClipContentVersion(item)
         text = metadata.text
         isTextEditable = false
 
@@ -70,7 +72,7 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
         guard
             !Task.isCancelled,
             loadGeneration == generation,
-            selectedItemID == item.id
+            selectedVersion == ClipContentVersion(item)
         else { return }
 
         switch payload {

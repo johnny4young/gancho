@@ -36,9 +36,11 @@ struct LibraryClipCard: View {
         .background(.background.secondary, in: shape)
         .overlay(shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
         .contentShape(shape)
-        .task(id: masked) {
+        .task(id: masked ? nil : ClipContentVersion(clip)) {
+            finishedLoading = false
             guard !masked, clip.kind == .image else { return }
             await thumbnails.ensureLoaded(clip)
+            guard !Task.isCancelled else { return }
             finishedLoading = true
         }
         .accessibilityElement(children: .combine)
@@ -52,7 +54,7 @@ struct LibraryClipCard: View {
         if masked {
             Text(verbatim: ClipSafePresentation.masked).foregroundStyle(.secondary)
         } else if clip.kind == .image {
-            if let thumbnail = thumbnails.cached(for: clip.id) {
+            if let thumbnail = thumbnails.cached(for: clip) {
                 thumbnail.resizable().scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 5))

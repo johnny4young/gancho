@@ -251,7 +251,7 @@ struct ClipRowActions: ViewModifier {
     /// The image for image clips, otherwise the (masked-if-sensitive) text.
     @ViewBuilder private var preview: some View {
         if item.kind == .image, !ClipSafePresentation.requiresMasking(item),
-            let thumbnail = model.thumbnails.cached(for: item.id)
+            let thumbnail = model.thumbnails.cached(for: item)
         {
             thumbnail
                 .resizable()

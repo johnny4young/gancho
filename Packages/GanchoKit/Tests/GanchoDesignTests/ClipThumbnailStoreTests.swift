@@ -17,6 +17,66 @@ private let onePixelPNG = Data(
 @Suite("ClipThumbnailStore")
 @MainActor
 struct ClipThumbnailStoreTests {
+    @MainActor private final class ImageReadGate {
+        var continuation: CheckedContinuation<Data?, Never>?
+        var entered = false
+
+        func read() async -> Data? {
+            entered = true
+            return await withCheckedContinuation { continuation = $0 }
+        }
+
+        func waitUntilEntered() async {
+            while !entered { await Task.yield() }
+        }
+
+        func release() {
+            continuation?.resume(returning: onePixelPNG)
+            continuation = nil
+        }
+    }
+
+    @Test("A changed content hash reloads the thumbnail; title and usage changes do not")
+    func contentChangesInvalidateCachedImages() async {
+        let loads = LoadCounter()
+        let store = makeStore(loads: loads)
+        var item = ClipItem(kind: .image, contentHash: "first")
+        await store.ensureLoaded(item)
+        item.title = "New title"
+        item.uses += 1
+        await store.ensureLoaded(item)
+        #expect(loads.value == 1)
+        item.contentHash = "second"
+        await store.ensureLoaded(item)
+        #expect(loads.value == 2)
+        #expect(store.cached(for: item.id) != nil)
+    }
+
+    @Test("Protected metadata invalidates both a cached image and a suspended read")
+    func privacyChangeRejectsExistingAndLateImages() async {
+        let cachedStore = makeStore()
+        var item = ClipItem(kind: .image, contentHash: "image")
+        await cachedStore.ensureLoaded(item)
+        item.isSensitive = true
+        await cachedStore.ensureLoaded(item)
+        #expect(cachedStore.cached(for: item.id) == nil)
+        #expect(cachedStore.cachedAccent(for: item.id) == nil)
+
+        item.isSensitive = false
+        let gate = ImageReadGate()
+        let pendingStore = ClipThumbnailStore(
+            maxCached: 2, maxPixel: 480, skipsSensitiveClips: true, decodePriority: nil,
+            imageData: { _ in await gate.read() })
+        let original = item
+        let pending = Task { await pendingStore.ensureLoaded(original) }
+        await gate.waitUntilEntered()
+        item.isSensitive = true
+        await pendingStore.ensureLoaded(item)
+        gate.release()
+        await pending.value
+        #expect(pendingStore.cached(for: item.id) == nil)
+    }
+
     /// Counts `imageData` reads so tests can assert the load path short-circuits.
     @MainActor private final class LoadCounter {
         var value = 0

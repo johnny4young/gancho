@@ -412,7 +412,7 @@ struct PanelView: View {
             // Load the peek for the selected clip, keyed on its id and debounced:
             // arrowing fast cancels the in-flight load, so only the clip you land on
             // is read and rendered — keeps navigation responsive.
-            .task(id: search.selectedItem?.id) {
+            .task(id: search.selectedItem.map(ClipContentVersion.init)) {
                 try? await Task.sleep(for: .milliseconds(60))
                 guard !Task.isCancelled else { return }
                 let store = model.store
@@ -434,7 +434,7 @@ struct PanelView: View {
         if PanelAmbientTint.usesAccent(
             kind: selected.kind, isSensitive: selected.isSensitive,
             previewsHidden: model.preferences.isPrivateModePaused),
-            let accent = model.thumbnails.cachedAccent(for: selected.id)
+            let accent = model.thumbnails.cachedAccent(for: selected)
         {
             return accent.color
         }
@@ -1175,7 +1175,7 @@ struct PanelView: View {
             )
             // Load this image's thumbnail once it scrolls into view (LazyVStack
             // builds only visible rows — the view-level virtual scrolling).
-            .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+            .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
             // Pull the next page when this row is near the end (infinite scroll).
             .onAppear {
                 guard let index = search.visibleIndex(of: item.id) else { return }
@@ -1295,7 +1295,7 @@ struct PanelView: View {
                 item: item, isSelected: search.isSelected(item.id),
                 previewsHidden: model.preferences.isPrivateModePaused,
                 shortcutNumber: shortcutNumber,
-                thumbnail: model.thumbnails.cached(for: item.id),
+                thumbnail: model.thumbnails.cached(for: item),
                 // Only the anchor claims the gliding highlight: two rows sharing one
                 // matched id (a ⇧ range) would log and draw nothing.
                 selectionNamespace: selectionNamespace,

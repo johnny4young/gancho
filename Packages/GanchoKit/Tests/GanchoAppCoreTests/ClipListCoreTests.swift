@@ -211,6 +211,34 @@ struct ClipListCoreTests {
 
     // MARK: - The non-durable fallback
 
+    @Test(
+        "An in-memory kind filter scans beyond the first page and combines with text and app filters"
+    )
+    func fallbackHonorsKindFilters() async {
+        let source = RecordingSource()
+        source.isDurable = false
+        let matching = ClipItem(
+            kind: .image, preview: "alpha", sourceAppBundleID: "com.example.editor")
+        source.protocolItems =
+            (0..<ClipListCore.pageSize).map { _ in clip("alpha") } + [
+                matching,
+                ClipItem(kind: .image, preview: "beta", sourceAppBundleID: "com.example.editor"),
+                ClipItem(kind: .image, preview: "alpha", sourceAppBundleID: "com.example.browser")
+            ]
+        let core = ClipListCore(source: source, configuration: .iOSHistory)
+        let kindOnly = await core.firstPage(
+            query: "", boardID: nil, sourceAppBundleID: nil, kinds: [.image])
+        #expect(kindOnly.items.count == 3)
+        #expect(kindOnly.items.allSatisfy { $0.kind == .image })
+        #expect(kindOnly.reachedEnd)
+
+        let combined = await core.firstPage(
+            query: "alpha", boardID: nil, sourceAppBundleID: "com.example.editor", kinds: [.image])
+        #expect(combined.items.map(\.id) == [matching.id])
+        #expect(source.itemsCalls.allSatisfy { $0.limit == ClipListCore.clientFallbackLimit })
+        #expect(source.searchQueries.isEmpty)
+    }
+
     @Test("Without a durable store both shells scan a bounded slice and filter it")
     func clientSideFallbackIsBoundedAndFiltered() async {
         for configuration in [ClipListConfiguration.macOSPanel, .iOSHistory] {

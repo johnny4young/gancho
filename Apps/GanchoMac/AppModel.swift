@@ -136,6 +136,11 @@ final class AppModel {
     let paywallWindow = PaywallWindowController()
     let permissionWindow = PasteboardPermissionWindowController()
     let libraryWindow = LibraryWindowController()
+    @ObservationIgnored lazy var libraryClips = LibraryClipListModel {
+        [weak self] scope, offset, limit in
+        guard let self else { throw CancellationError() }
+        return try await fetchLibraryClips(scope: scope, offset: offset, limit: limit)
+    }
     let savedFilters: SavedFiltersController
     let settingsWindow = SettingsWindowController()
     let mcpAccessWindow = MCPAccessWindowController()
@@ -262,7 +267,7 @@ final class AppModel {
     var spotlightIndexing: Bool {
         didSet {
             defaults.set(spotlightIndexing, forKey: "spotlightIndexing")
-            refreshSpotlight()
+            notifyStoreChanged()
         }
     }
 
@@ -749,6 +754,7 @@ final class AppModel {
                 count: 1,
                 at: capture.capturedAt)
             await refreshRecents()
+            notifyStoreChanged(for: .clips)
             enrich(outcome)
         }
     }
@@ -816,6 +822,7 @@ final class AppModel {
                         if freeAITitlesRemaining == 0 { showAITasteEndedNudge() }
                     }
                     await refreshRecents()
+                    notifyStoreChanged(for: .clips)
                 }
             }
         }
@@ -1310,7 +1317,7 @@ final class AppModel {
                 reportDeletionFailure(outcome)
                 // After the COMMIT, not the intent — an undone delete must
                 // keep its Spotlight entry.
-                refreshSpotlight(for: .clips)
+                notifyStoreChanged(for: .clips)
             })
         toasts.show(
             GanchoToast(
@@ -1399,6 +1406,7 @@ final class AppModel {
             Task {
                 await refreshRecents()
                 await refreshBoards()
+                storeChanges.post(Set(StoreChange.allCases))
             }
         }
     }
@@ -1624,7 +1632,7 @@ final class AppModel {
         case .saved:
             await refreshRecents()
             // The donated title/preview may have just changed.
-            refreshSpotlight(for: .clips)
+            notifyStoreChanged(for: .clips)
             return true
         case .unchanged:
             return true
@@ -1650,7 +1658,7 @@ final class AppModel {
         case .saved:
             await refreshRecents()
             // The donated title/preview may have just changed.
-            refreshSpotlight(for: .clips)
+            notifyStoreChanged(for: .clips)
             return true
         case .unchanged:
             return true
@@ -1693,11 +1701,11 @@ final class AppModel {
             case .pinned:
                 toasts.show(GanchoToast(message: "Pinned"))
                 await refreshRecents()
-                refreshSpotlight()
+                notifyStoreChanged()
             case .unpinned:
                 toasts.show(GanchoToast(message: "Unpinned"))
                 await refreshRecents()
-                refreshSpotlight()
+                notifyStoreChanged()
             case .alreadyPinned, .alreadyUnpinned, .clipUnavailable:
                 // Reconcile a stale row snapshot without claiming a mutation.
                 await refreshRecents()
@@ -1721,7 +1729,7 @@ final class AppModel {
                 toasts.show(GanchoToast(message: "Saved as snippet"))
                 recordActivationMilestone(.firstSnippetCreated)
                 await refreshRecents()
-                refreshSpotlight()
+                notifyStoreChanged()
             case .freeLimitReached:
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
             case .clipUnavailable:
@@ -1733,13 +1741,10 @@ final class AppModel {
         }
     }
 
-    /// Re-donates the curated Library to Spotlight (or wipes the domain when
-    /// the toggle is off). Fire-and-forget at utility priority — a reconcile
-    /// recomputes the whole small curated set, so it never needs to know WHAT
-    /// changed and never rides a user interaction's critical path. Posting to
-    /// the bus (rather than reconciling inline) lets a burst — e.g. a
-    /// 50-clip batch delete — collapse into one reconcile.
-    func refreshSpotlight(for change: StoreChange = .curation) {
+    /// Publishes a content-free event after a durable mutation. The Library
+    /// refreshes its visible scope and Spotlight reconciles the curated set;
+    /// each subscriber coalesces bursts independently.
+    func notifyStoreChanged(for change: StoreChange = .curation) {
         storeChanges.post(change)
     }
 
@@ -1794,6 +1799,7 @@ final class AppModel {
                 return
             }
             await refreshRecents()
+            notifyStoreChanged(for: .boards)
         }
     }
 
@@ -1830,6 +1836,7 @@ final class AppModel {
             lastAssignedBoardID = boardID
         }
         if item != nil { await refreshRecents() }
+        if case .created = outcome { notifyStoreChanged(for: .boards) }
         return outcome
     }
 
@@ -1848,6 +1855,7 @@ final class AppModel {
             recordBoardFailure("Couldn’t rename the board.")
         }
         await refreshBoards()
+        if outcome == .changed { notifyStoreChanged(for: .boards) }
         return outcome == .changed
     }
 
@@ -1861,6 +1869,7 @@ final class AppModel {
             recordBoardFailure("Couldn’t update the board appearance.")
         }
         await refreshBoards()
+        if outcome == .changed { notifyStoreChanged(for: .boards) }
         return outcome != .failed
     }
 
@@ -1878,6 +1887,7 @@ final class AppModel {
         }
         await refreshBoards()
         await refreshRecents()
+        if outcome == .changed { notifyStoreChanged(for: .boards) }
         return outcome == .changed
     }
 
@@ -1925,6 +1935,7 @@ final class AppModel {
         }
         if member { lastAssignedBoardID = board.id }
         await refreshRecents()
+        notifyStoreChanged(for: .boards)
         return true
     }
 
@@ -2114,6 +2125,9 @@ final class AppModel {
         guard let grdbForEngines else { return }
         let changed = await RetentionPass(steps: .live(store: grdbForEngines, sync: syncController))
             .run(policy: policy, tier: { self.tier }, now: Date())
-        if changed { await refreshRecents() }
+        if changed {
+            await refreshRecents()
+            notifyStoreChanged(for: .clips)
+        }
     }
 }

@@ -38,5 +38,10 @@ final class LibraryWindowController {
         // The window is cached, so the view's `.task` runs once; presenting is
         // the retry the failed-load message promises.
         model.reloadSavedFilters()
+        NotificationCenter.default.post(name: .ganchoLibraryDidShow, object: window)
     }
+}
+
+extension Notification.Name {
+    static let ganchoLibraryDidShow = Notification.Name("gancho-library-did-show")
 }

@@ -42,7 +42,14 @@ public final class ClipThumbnailStore {
     private var cache: [UUID: Image] = [:]
     private var accents: [UUID: ThumbnailAccent] = [:]
     @ObservationIgnored private var cacheOrder: [UUID] = []
-    @ObservationIgnored private var loading: Set<UUID> = []
+    private var versions: [UUID: ClipContentVersion] = [:]
+    @ObservationIgnored private var loading: [UUID: PendingThumbnail] = [:]
+
+    private struct PendingThumbnail {
+        let version: ClipContentVersion
+        let token: UUID
+        let task: Task<(Data, ThumbnailAccent?)?, Never>
+    }
     @ObservationIgnored private let maxCached: Int
     @ObservationIgnored private let maxPixel: CGFloat
     @ObservationIgnored private let skipsSensitiveClips: Bool
@@ -85,24 +92,55 @@ public final class ClipThumbnailStore {
     /// The thumbnail's average colour, once it is loaded. Pure like `cached`.
     public func cachedAccent(for id: UUID) -> ThumbnailAccent? { accents[id] }
 
-    /// Decode + cache an image clip's thumbnail if not already done. Idempotent
-    /// and in-flight-deduplicated; drive it from a row's `.task` so only
-    /// visible image rows load.
-    public func ensureLoaded(_ item: ClipItem) async {
-        guard item.kind == .image, !(skipsSensitiveClips && item.isSensitive),
-            cache[item.id] == nil, !loading.contains(item.id)
-        else { return }
-        loading.insert(item.id)
-        defer { loading.remove(item.id) }
+    /// Content-bound reads prevent a changed or newly protected clip from
+    /// rendering a cached bitmap before its replacement task begins.
+    public func cached(for item: ClipItem) -> Image? {
+        guard !(skipsSensitiveClips && ClipSafePresentation.requiresMasking(item)),
+            versions[item.id] == ClipContentVersion(item)
+        else { return nil }
+        return cache[item.id]
+    }
 
-        guard let data = await imageData(item.id) else { return }
-        // Decode off the main actor; the detached task returns Sendable PNG
-        // `Data` (not a platform image) so this compiles under strict
-        // concurrency on both platforms.
-        let maxPixel = self.maxPixel
-        let decodedThumbnail = await Task.detached(priority: decodePriority) {
-            ClipThumbnailStore.decodeThumbnail(from: data, maxPixel: maxPixel)
-        }.value
+    public func cachedAccent(for item: ClipItem) -> ThumbnailAccent? {
+        guard cached(for: item) != nil else { return nil }
+        return accents[item.id]
+    }
+
+    /// All views requesting the same content await one read/decode. A changed
+    /// version invalidates the old request, whose late result cannot publish.
+    public func ensureLoaded(_ item: ClipItem) async {
+        guard !Task.isCancelled else { return }
+        guard item.kind == .image,
+            !(skipsSensitiveClips && ClipSafePresentation.requiresMasking(item))
+        else {
+            invalidate(item.id)
+            return
+        }
+        let version = ClipContentVersion(item)
+        if versions[item.id] == version, cache[item.id] != nil { return }
+        let pending: PendingThumbnail
+        if let existing = loading[item.id], existing.version == version {
+            pending = existing
+        } else {
+            invalidate(item.id)
+            let imageData = self.imageData
+            let maxPixel = self.maxPixel
+            let priority = decodePriority
+            let task = Task { @MainActor in
+                guard !Task.isCancelled, let data = await imageData(item.id),
+                    !Task.isCancelled
+                else { return Optional<(Data, ThumbnailAccent?)>.none }
+                let decoded = await Task.detached(priority: priority) {
+                    ClipThumbnailStore.decodeThumbnail(from: data, maxPixel: maxPixel)
+                }.value
+                return Task.isCancelled ? nil : decoded
+            }
+            pending = PendingThumbnail(version: version, token: UUID(), task: task)
+            loading[item.id] = pending
+        }
+        let decodedThumbnail = await pending.task.value
+        guard loading[item.id]?.token == pending.token else { return }
+        loading[item.id] = nil
         guard let (thumbnail, accent) = decodedThumbnail else { return }
         #if canImport(AppKit)
             guard let decoded = NSImage(data: thumbnail) else { return }
@@ -113,16 +151,22 @@ public final class ClipThumbnailStore {
         #endif
         cache[item.id] = image
         accents[item.id] = accent
-        // FIFO cap (mirrors the keyboard extension's pattern): evict the
-        // oldest entry so a long-lived session stays bounded.
+        versions[item.id] = version
         cacheOrder.append(item.id)
         if cacheOrder.count > maxCached {
             let evicted = cacheOrder.removeFirst()
-            if evicted != item.id {
-                cache[evicted] = nil
-                accents[evicted] = nil
-            }
+            cache[evicted] = nil
+            accents[evicted] = nil
+            versions[evicted] = nil
         }
+    }
+
+    private func invalidate(_ id: UUID) {
+        loading.removeValue(forKey: id)?.task.cancel()
+        cache[id] = nil
+        accents[id] = nil
+        versions[id] = nil
+        cacheOrder.removeAll { $0 == id }
     }
 
     /// The thumbnail PNG plus its average colour, both Sendable, from one

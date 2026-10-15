@@ -98,8 +98,7 @@ struct ClipPeek: View {
         let raw =
             ClipSafePresentation.requiresMasking(item)
             ? ClipSafePresentation.masked : presentedText
-        let limit = 4000
-        return raw.count > limit ? String(raw.prefix(limit)) + "\n…" : raw
+        return ClipTextPreview.truncated(raw, limit: 4_000)
     }
 
     var body: some View {
@@ -277,7 +276,7 @@ struct ClipPeek: View {
             isThinking = false
             translationFailed = false
         }
-        .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+        .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
         .task(id: item) {
             let membership = await model.boardMembership(for: item)
             guard !Task.isCancelled else { return }
@@ -458,7 +457,7 @@ extension ClipPeek {
 
     @ViewBuilder private var heroBody: some View {
         if item.kind == .image, !item.isSensitive,
-            let thumbnail = model.thumbnails.cached(for: item.id)
+            let thumbnail = model.thumbnails.cached(for: item)
         {
             thumbnail
                 .resizable()

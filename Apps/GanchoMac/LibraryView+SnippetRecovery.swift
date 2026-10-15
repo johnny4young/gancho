@@ -136,7 +136,7 @@ extension LibraryView {
             return false
         }
         if let refreshed = try? await store.snippets() { snippets = refreshed }
-        model.refreshSpotlight()
+        model.notifyStoreChanged()
         return true
     }
 
@@ -168,7 +168,7 @@ extension LibraryView {
                         body: prepared.text))
                 selection = destination ?? .snippet(recovered.id)
                 model.recordActivationMilestone(.firstSnippetCreated)
-                model.refreshSpotlight()
+                model.notifyStoreChanged()
             } catch SnippetDraftSaveError.freeLimitReached {
                 model.paywallWindow.show(trigger: .freeLimitReached, model: model)
             } catch SnippetDraftSaveError.protectedContent {
@@ -210,7 +210,7 @@ extension LibraryView {
                 draft = SnippetDraft()
                 selection = .allClips
                 await refreshAll()
-                model.refreshSpotlight()
+                model.notifyStoreChanged()
             } catch {
                 model.diagnostics.record(
                     String(localized: "Snippets"), String(localized: "Couldn’t save that snippet."))
@@ -251,7 +251,7 @@ extension LibraryView {
                 }
                 selection = .snippet(item.id)
                 model.recordActivationMilestone(.firstSnippetCreated)
-                model.refreshSpotlight()
+                model.notifyStoreChanged()
             } catch SnippetDraftSaveError.freeLimitReached {
                 model.paywallWindow.show(trigger: .freeLimitReached, model: model)
             } catch {
