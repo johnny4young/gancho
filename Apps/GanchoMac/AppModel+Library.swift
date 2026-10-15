@@ -8,11 +8,12 @@ extension AppModel {
             snippet,
             metadata: { id in try await reader.item(id: id) },
             content: { id in try await reader.content(for: id) })
-        if body == nil, !Task.isCancelled {
-            toasts.show(
-                GanchoToast(message: "Couldn’t insert this snippet. Open it again and try."))
-        }
+        if body == nil, !Task.isCancelled { reportSnippetUnavailable() }
         return body
+    }
+
+    func reportSnippetUnavailable() {
+        toasts.show(GanchoToast(message: "Couldn’t insert this snippet. Open it again and try."))
     }
 
     func fetchLibraryClips(

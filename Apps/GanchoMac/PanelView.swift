@@ -1403,6 +1403,7 @@ struct PanelView: View {
             else { return }
             if let expectedSnippet {
                 guard target.isSnippet, ClipContentVersion(target.item) == expectedSnippet else {
+                    model.reportSnippetUnavailable()
                     return
                 }
             }
