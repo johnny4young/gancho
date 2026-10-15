@@ -41,7 +41,7 @@ struct GeneralSettingsTab: View {
             Toggle(
                 "Launch at login",
                 isOn: Binding(
-                    get: { launchAtLogin }, set: updateLaunchAtLogin)
+                    get: { launchAtLogin }, set: { updateLaunchAtLogin($0) })
             )
             .accessibilityIdentifier("launch-at-login-toggle")
             .onAppear { launchAtLogin = SMAppService.mainApp.status == .enabled }
