@@ -32,11 +32,14 @@ extension LibraryView {
             .padding(GanchoTokens.Spacing.md)
 
             Divider()
-            if metadataLoadFailed {
+            if metadataLoadFailed, !clips.isEmpty {
                 libraryReadFailure { Task { await refreshAll() } }
             }
 
-            if clipList.failure == .invalidFilter {
+            if metadataLoadFailed, clips.isEmpty {
+                libraryReadFailure { Task { await refreshAll() } }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if clipList.failure == .invalidFilter {
                 Text(
                     "This filter needs editing: its board is missing or its expression is invalid."
                 )

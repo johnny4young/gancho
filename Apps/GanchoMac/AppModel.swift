@@ -1710,6 +1710,7 @@ final class AppModel {
             case .alreadyPinned, .alreadyUnpinned, .clipUnavailable:
                 // Reconcile a stale row snapshot without claiming a mutation.
                 await refreshRecents()
+                notifyStoreChanged()
             case .freeLimitReached:
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
             case .failed:
@@ -1735,6 +1736,7 @@ final class AppModel {
                 paywallWindow.show(trigger: .freeLimitReached, model: self)
             case .clipUnavailable:
                 await refreshRecents()
+                notifyStoreChanged()
             case .failed:
                 diagnostics.record(
                     String(localized: "Snippets"), String(localized: "Couldn’t save the snippet."))
@@ -1742,7 +1744,7 @@ final class AppModel {
         }
     }
 
-    /// Publishes a content-free event after a durable mutation. The Library
+    /// Publishes a content-free event after a mutation or authoritative reconciliation. The Library
     /// refreshes its visible scope and Spotlight reconciles the curated set;
     /// each subscriber coalesces bursts independently.
     func notifyStoreChanged(for change: StoreChange = .curation) {
