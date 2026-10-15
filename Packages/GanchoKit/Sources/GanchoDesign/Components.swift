@@ -367,7 +367,7 @@ public struct ClipCard: View {
                     .overlay {
                         Text(verbatim: monogram)
                             .panelFont(size: 16, .bold, design: .rounded)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(ContrastingForeground(on: tint))
                     }
             } else {
                 shape.fill(tint.opacity(0.16))
@@ -549,15 +549,12 @@ public struct SearchField: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("search-field")
             if !text.isEmpty {
-                Button {
+                IconActionButton(
+                    "Clear search", systemImage: "xmark.circle.fill", identifier: "search-clear"
+                ) {
                     text = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Clear search"))
-                .accessibilityIdentifier("search-clear")
+                .foregroundStyle(.secondary)
             }
         }
     }

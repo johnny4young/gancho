@@ -33,6 +33,7 @@ struct ReuseSuggestionBanner: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button(actionTitle, action: onAccept)
                 .buttonStyle(.borderedProminent)
+                .foregroundStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
                 .controlSize(.small)
                 .frame(minHeight: 44)
                 .accessibilityLabel(Text(actionAccessibilityLabel))
@@ -80,4 +81,31 @@ struct ReuseSuggestionBanner: View {
         case .snippet: "Save as snippet"
         }
     }
+}
+
+/// Reserve space inside the history column, above its native bottom toolbar.
+/// Applying this outside NavigationStack covers the search and Paste controls.
+private struct ReuseSuggestionInset: ViewModifier {
+    @Environment(IOSAppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if let suggestion = model.reuseSuggestion {
+                    ReuseSuggestionBanner(
+                        suggestion: suggestion,
+                        onAccept: { Task { await model.acceptReuseSuggestion() } },
+                        onDismiss: { model.dismissReuseSuggestion() }
+                    )
+                    .transition(
+                        reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(reduceMotion ? nil : .snappy, value: model.reuseSuggestion)
+    }
+}
+
+extension View {
+    func reuseSuggestionInset() -> some View { modifier(ReuseSuggestionInset()) }
 }

@@ -12,6 +12,13 @@ final class ReuseSuggestionUITests: XCTestCase {
         XCTAssertTrue(banner.waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["Used 3 times — save as a snippet?"].exists)
 
+        let paste = app.descendants(matching: .any)["paste-control"].firstMatch
+        XCTAssertTrue(paste.waitForExistence(timeout: 5))
+        XCTAssertTrue(paste.isHittable, "a curation suggestion must leave Paste accessible")
+        XCTAssertFalse(
+            banner.frame.intersects(paste.frame), "the suggestion must sit above the native toolbar"
+        )
+
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "iOS exact-third-use snippet suggestion"
         attachment.lifetime = .keepAlways

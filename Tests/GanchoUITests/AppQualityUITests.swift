@@ -108,7 +108,36 @@ final class AppQualityUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchPanel() throws -> (XCUIApplication, String) {
+    func testManySnippetFieldsKeepInsertAndCancelVisibleAtLargeText() throws {
+        let (app, _) = try launchPanel(extraArguments: [
+            "-seed-snippets", "-seed-many-snippet-fields", "-panel-text-size", "large"
+        ])
+        defer { app.terminate() }
+        let search = app.textFields["search-field"].firstMatch
+        search.click()
+        search.typeText("hi")
+        let insertBanner = app.buttons["snippet-insert-banner"].firstMatch
+        XCTAssertTrue(insertBanner.waitForExistence(timeout: 5))
+        insertBanner.click()
+        let sheet = app.sheets.firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        let insert = sheet.buttons["fill-insert"].firstMatch
+        let cancel = sheet.buttons["Cancel"].firstMatch
+        XCTAssertTrue(insert.isHittable)
+        XCTAssertTrue(cancel.isHittable)
+        keep(sheet, name: "snippet-many-fields-large-text")
+        let fields = sheet.scrollViews["fill-fields-scroll"].firstMatch
+        XCTAssertTrue(fields.waitForExistence(timeout: 3))
+        fields.scroll(byDeltaX: 0, deltaY: -1_000)
+        XCTAssertTrue(sheet.textFields["fill-field-field20"].firstMatch.isHittable)
+        XCTAssertTrue(insert.isHittable)
+        cancel.click()
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.dialogs["history-panel"].firstMatch.exists)
+    }
+
+    @MainActor
+    private func launchPanel(extraArguments: [String] = []) throws -> (XCUIApplication, String) {
         let app = GanchoUITestApplication()
         let token = UUID().uuidString
         app.launchArguments = [
@@ -117,6 +146,7 @@ final class AppQualityUITests: XCTestCase {
             "-opaque-panel-for-ui-test", "-place-panel-for-ui-test", "-place-library-for-ui-test",
             "-suppress-storage-notice-for-ui-test", "-command-nonce", token
         ]
+        app.launchArguments += extraArguments
         app.launch()
         app.activate()
         guard app.wait(for: .runningForeground, timeout: 5) else {

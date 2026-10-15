@@ -177,7 +177,10 @@ struct ClipDetailView: View {
                         ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
                     in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                 )
-                .foregroundStyle(primary ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+                .foregroundStyle(
+                    primary
+                        ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                        : AnyShapeStyle(.primary))
             Text(title).font(.caption).foregroundStyle(.secondary)
         }
     }

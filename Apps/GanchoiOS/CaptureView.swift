@@ -56,6 +56,7 @@ struct CaptureView: View {
                         }
                     }
                 }
+                .reuseSuggestionInset()
                 .searchable(text: $model.query, prompt: Text("Search your clipboard"))
                 .onChange(of: model.query) { _, _ in
                     askTask?.cancel()
@@ -300,7 +301,10 @@ struct CaptureView: View {
                 isActive ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
                 in: Capsule()
             )
-            .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+            .foregroundStyle(
+                isActive
+                    ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                    : AnyShapeStyle(.primary))
         }
         .buttonStyle(.plain)
     }
@@ -454,7 +458,7 @@ struct PasteControlView: UIViewRepresentable {
         config.cornerStyle = .capsule
         config.displayMode = .iconAndLabel
         config.baseBackgroundColor = UIColor(GanchoTokens.Palette.accent)
-        config.baseForegroundColor = .white
+        config.baseForegroundColor = .black
         let control = UIPasteControl(configuration: config)
         control.target = context.coordinator.target
         // The identifier and label assistive tech sees come from the SwiftUI

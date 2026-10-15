@@ -79,6 +79,7 @@ struct IPadSplitView: View {
                     selectedID = nil
                 }
             }
+            .reuseSuggestionInset()
             .searchable(text: $model.query, prompt: Text("Search your clipboard"))
             .searchFocused($searchFocused)
             .onChange(of: model.query) { _, _ in Task { await model.search() } }

@@ -183,7 +183,7 @@ public struct BoardIdentityEditor: View {
                     if selected {
                         Image(systemName: "checkmark")
                             .font(.caption.bold())
-                            .foregroundStyle(.white)
+                            .foregroundStyle(ContrastingForeground(on: color))
                             .shadow(radius: 1)
                     }
                 }

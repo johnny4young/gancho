@@ -177,6 +177,7 @@ struct PanelView: View {
         // Keep lifecycle, surface, search updates, and sheets in separate expressions
         // so the panel also type-checks with the stable macOS 15 toolchain.
         panelContent
+            .environment(\.panelTypeScale, PanelTextSize.resolved(panelTextSizeRaw).scale)
             // A capture must not swap the peek, an inline edit or the board picker's
             // target out from under the user once they leave the search field.
             .onChange(of: peekIsEditingInline) { _, editing in
@@ -236,7 +237,6 @@ struct PanelView: View {
     }
 
     @ViewBuilder private var panelSurface: some View {
-        let panelTextSize = PanelTextSize.resolved(panelTextSizeRaw)
         // ONE surface for list and peek. The peek opens BESIDE the list (not a
         // modal) and follows the selected clip, Quick-Look-style, but it is part
         // of the same panel: a hairline separates the panes, never a gap, and
@@ -295,7 +295,6 @@ struct PanelView: View {
         // outline to show through.
         .ignoresSafeArea()
         .frame(minWidth: 720, minHeight: 460)
-        .environment(\.panelTypeScale, panelTextSize.scale)
         .background {
             #if DEBUG
                 if CommandLine.arguments.contains("-opaque-panel-for-ui-test") {
@@ -929,7 +928,11 @@ struct PanelView: View {
                     .modifier(RailGlide(namespace: namespace))
             }
         }
-        .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+        .foregroundStyle(
+            isActive
+                ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                : AnyShapeStyle(.secondary)
+        )
         .overlay(railRing(isFocused))
         .contentShape(Capsule())
     }
@@ -1393,7 +1396,7 @@ struct PanelView: View {
             guard let target, !Task.isCancelled
             else { return }
             if target.isSnippet {
-                invokeSnippet(target.item)
+                await invokeSnippet(target.item)
             } else {
                 model.paste(target.item, asPlainText: plain)
             }
@@ -1509,7 +1512,7 @@ struct PanelView: View {
     /// the primary action when present.
     private func snippetBanner(_ snippet: ClipItem) -> some View {
         Button {
-            invokeSnippet(snippet)
+            pasteSelected(plain: false, includingSnippet: true)
         } label: {
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 Image(systemName: "bolt.fill").panelFont(.caption)
@@ -1534,19 +1537,16 @@ struct PanelView: View {
 
     /// Invoke a snippet: fill its {fields} via a sheet if it's a template,
     /// otherwise paste straight away (incrementing its usage count).
-    private func invokeSnippet(_ snippet: ClipItem) {
-        Task {
-            var body = ""
-            if case .text(let text)? = try? await model.store.content(for: snippet.id) {
-                body = text
-            }
-            let fields = SnippetTemplate.fields(in: body)
-            if fields.isEmpty {
-                model.pasteSnippet(snippet, values: [:])
-            } else {
-                presentedSheet = .snippet(
-                    SnippetFillRequest(snippet: snippet, body: body, fields: fields))
-            }
+    private func invokeSnippet(_ snippet: ClipItem) async {
+        guard case .text(let body)? = try? await model.store.content(for: snippet.id),
+            !Task.isCancelled
+        else { return }
+        let fields = SnippetTemplate.fields(in: body)
+        if fields.isEmpty {
+            model.pasteSnippet(snippet, values: [:])
+        } else {
+            presentedSheet = .snippet(
+                SnippetFillRequest(snippet: snippet, body: body, fields: fields))
         }
     }
 }

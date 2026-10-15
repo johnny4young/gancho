@@ -135,7 +135,11 @@ private struct SettingsSidebar: View {
             .padding(.horizontal, GanchoTokens.Spacing.sm)
             .padding(.vertical, GanchoTokens.Spacing.xs)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .foregroundStyle(isActive ? Color.white : Color.primary)
+            .foregroundStyle(
+                isActive
+                    ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                    : AnyShapeStyle(.primary)
+            )
             .background(
                 isActive ? GanchoTokens.Palette.accent : Color.clear,
                 in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)

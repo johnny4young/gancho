@@ -56,7 +56,7 @@ jobs:
       - name: Verify evidence collector
         run: ./scripts/collect-ui-test-evidence.sh --self-test
 
-      - name: Run fourteen isolated interface regressions
+      - name: Run fifteen isolated interface regressions
         env:
           TEST_RUNNER_GANCHO_UI_ADHOC_SIGNING: "1"
         run: |
@@ -83,7 +83,7 @@ jobs:
             ENABLE_HARDENED_RUNTIME=NO \
             2>&1 | tee build/app-quality.log
 
-      - name: Require fourteen passing tests without skips
+      - name: Require fifteen passing tests without skips
         if: always()
         run: |
           ./scripts/collect-ui-test-evidence.sh \
@@ -93,7 +93,7 @@ jobs:
           from pathlib import Path
           summary = json.loads(Path('build/app-quality-evidence/summary.json').read_text())
           assert summary['result'] == 'Passed', summary
-          assert summary['totalTestCount'] == summary['passedTests'] == 14, summary
+          assert summary['totalTestCount'] == summary['passedTests'] == 15, summary
           assert summary['failedTests'] == summary['skippedTests'] == summary['expectedFailures'] == 0, summary
           PY
 

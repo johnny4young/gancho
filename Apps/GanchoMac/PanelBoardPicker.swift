@@ -48,7 +48,15 @@ struct PanelBoardPicker: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            Text("Add to board").panelFont(.headline)
+            HStack {
+                Text("Add to board").panelFont(.headline)
+                Spacer(minLength: 0)
+                IconActionButton(
+                    "Close", systemImage: "xmark.circle.fill",
+                    identifier: "board-picker-close-button", action: onClose
+                )
+                .foregroundStyle(.secondary)
+            }
             TextField("Filter or new board name", text: $filter)
                 .accessibilityIdentifier("board-picker-filter")
                 .textFieldStyle(.roundedBorder)

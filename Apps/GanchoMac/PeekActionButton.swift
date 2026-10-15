@@ -84,7 +84,11 @@ struct PeekActionButton: View {
                         ? AnyShapeStyle(.quaternary.opacity(0.7))
                         : AnyShapeStyle(.clear), in: shape
         )
-        .foregroundStyle(isPrimary ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+        .foregroundStyle(
+            isPrimary
+                ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                : AnyShapeStyle(.primary)
+        )
         .overlay(
             shape.strokeBorder(
                 isFocused ? AnyShapeStyle(.primary) : AnyShapeStyle(.clear),
