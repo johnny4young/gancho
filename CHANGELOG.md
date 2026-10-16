@@ -9,6 +9,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep iCloud uploads moving when one clip's saved data can't be read on this
+  Mac. That clip is skipped and counted in Recent issues, instead of every
+  upload stopping behind it with a repeating sync error.
+
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.10.0 DMG.
   Physical-device acceptance remains pending; the published app, tag and

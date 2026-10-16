@@ -105,7 +105,7 @@ struct SyncOutboundWorkTests {
         let board = try await fixture.store.createPinboard(name: "synthetic board")
         try await fixture.store.assign(clipID: item.id, toBoard: board.id)
         let recordID = try fixture.record(item).recordID
-        let inFlight = try #require(try await fixture.work.prepare([recordID])[recordID])
+        let inFlight = try #require(try await fixture.work.prepare([recordID]).records[recordID])
         let uploadedAt = try #require(inFlight["updatedAt"] as? Date)
         #expect(ClipRecordMapper.boardIDs(from: inFlight) == [board.id])
 
@@ -116,7 +116,7 @@ struct SyncOutboundWorkTests {
         #expect(try await fixture.store.pendingUploadIDs() == [item.id])
         let newest = try #require(try await fixture.store.pendingUpload(id: item.id)?.item)
         #expect(newest.updatedAt > uploadedAt)
-        let replacement = try #require(try await fixture.work.prepare([recordID])[recordID])
+        let replacement = try #require(try await fixture.work.prepare([recordID]).records[recordID])
         #expect(ClipRecordMapper.boardIDs(from: replacement).isEmpty)
         try await fixture.work.acknowledge(replacement)
         #expect(try await fixture.store.pendingUploadIDs().isEmpty)
@@ -293,10 +293,10 @@ struct SyncOutboundWorkTests {
         defer { fixture.clean() }
         let item = try await fixture.insert()
         let recordID = try fixture.record(item).recordID
-        let records = try await fixture.work.prepare([recordID])
+        let records = try await fixture.work.prepare([recordID]).records
         #expect(records[recordID]?.encryptedValues["contentText"] as? String == "synthetic")
         try await fixture.store.deleteForSync(id: item.id)
-        #expect(try await fixture.work.prepare([recordID]).isEmpty)
+        #expect(try await fixture.work.prepare([recordID]).records.isEmpty)
         #expect(try await fixture.work.pending().clipDeletionRecordNames == [item.id.uuidString])
     }
 
@@ -438,6 +438,53 @@ extension SyncOutboundWorkTests {
         #expect(try await fixture.store.pendingDeletionRecordIDs() == [item.id.uuidString])
     }
 
+    @Test("An unreadable clip is skipped while the rest of its batch uploads")
+    func unreadableClipDoesNotBlockBatch() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let good = try await fixture.insert()
+        // Sealed under a key this store lacks, so reading its blob throws.
+        let sealing = GRDBClipboardStore(
+            writer: fixture.writer,
+            blobs: BlobStore(
+                directory: fixture.directory,
+                encryptionKeyData: BlobStore.encryptionKeyData(for: "synthetic")))
+        let unreadable = ClipItem(kind: .image, preview: "Image", contentHash: "synthetic-image")
+        try await sealing.insert(
+            unreadable, content: .binary(data: Data([1, 2, 3]), typeIdentifier: "public.png"))
+        let goodID = try fixture.record(good).recordID
+        let unreadableID = CKRecord.ID(
+            recordName: unreadable.id.uuidString, zoneID: fixture.work.clipZone)
+
+        let prepared = try await fixture.work.prepare([unreadableID, goodID])
+        #expect(prepared.records[goodID] != nil)
+        #expect(prepared.records[unreadableID] == nil)
+        #expect(prepared.unreadable == [unreadableID])
+        #expect(Set(try await fixture.store.pendingUploadIDs()) == [good.id, unreadable.id])
+
+        // Once the healthy backlog has drained, the lone row still must not fail the batch.
+        let alone = try await fixture.work.prepare([unreadableID])
+        #expect(alone.records.isEmpty)
+        #expect(alone.unreadable == [unreadableID])
+    }
+
+    @Test("A store failure still throws when the batch also holds a skippable ID")
+    func storeFailureInMixedBatchThrows() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let item = try await fixture.insert()
+        let id = try fixture.record(item).recordID
+        let malformed = CKRecord.ID(recordName: "not-a-uuid", zoneID: fixture.work.clipZone)
+        let empty = try await fixture.work.prepare([malformed])
+        #expect(empty.records.isEmpty)
+        #expect(empty.unreadable.isEmpty)
+
+        try await fixture.writer.write { db in try db.execute(sql: "DROP TABLE clip") }
+        await #expect(throws: (any Error).self) {
+            try await fixture.work.prepare([malformed, id])
+        }
+    }
+
     @Test("Corrupt local system fields fall back to a fresh record instead of blocking")
     func corruptFields() async throws {
         let fixture = try Fixture()
@@ -448,7 +495,7 @@ extension SyncOutboundWorkTests {
         try await fixture.store.markNeedsUpload(id: item.id)
         let id = try fixture.record(item).recordID
         let otherID = try fixture.record(other).recordID
-        let prepared = try await fixture.work.prepare([id, otherID])
+        let prepared = try await fixture.work.prepare([id, otherID]).records
         #expect(prepared[id] != nil)
         #expect(prepared[id]?.recordChangeTag == nil)
         #expect(prepared[otherID] != nil)
@@ -501,7 +548,7 @@ extension SyncOutboundWorkTests {
         #expect(try await fixture.store.boardIDs(forClip: item.id).isEmpty)
         #expect(try await fixture.store.pendingUploadIDs() == [item.id])
         let replacement = try #require(
-            try await fixture.work.prepare([server.recordID])[server.recordID])
+            try await fixture.work.prepare([server.recordID]).records[server.recordID])
         #expect(ClipRecordMapper.boardIDs(from: replacement).isEmpty)
     }
 
