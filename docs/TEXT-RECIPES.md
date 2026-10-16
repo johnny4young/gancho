@@ -1,7 +1,7 @@
 # Deterministic text recipes
 
-The core contract and macOS editor described here are unreleased. Existing
-Transform and Smart Paste entry points remain unchanged.
+The core contract and macOS editor described here are published in v0.10.0.
+Existing Transform and Smart Paste entry points remain unchanged.
 
 `TextActionCatalog` assigns stable version-1 descriptors to existing transforms,
 PII redaction, literal selected-context formatting and three whitespace operations.
@@ -26,7 +26,7 @@ this contract never edits clips, grants permissions, copies or pastes automatica
 Unit tests cover every existing transform, Unicode, CRLF, ordering, preservation,
 invalid versions and parameters, admission cancellation and byte-limit boundaries.
 
-## Local editor and reviewed delivery (unreleased)
+## Local editor and reviewed delivery
 
 In the macOS text peek, choose **Transform > Text recipes…**. Create, rename, edit,
 reorder or delete a definition, then review **Before** and **After** and explicitly
