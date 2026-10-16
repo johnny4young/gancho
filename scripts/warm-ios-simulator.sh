@@ -10,6 +10,7 @@ readonly APP_BUNDLES=(com.johnny4young.gancho com.johnny4young.gancho.GanchoiOSU
 usage() {
 	printf 'Usage: %s warm <simulator-udid> <output-directory> [xcodebuild-option...]\n' "$0" >&2
 	printf '       %s stop <simulator-udid>\n       %s --self-test\n' "$0" "$0" >&2
+	printf 'Run from the repository root. GANCHO_WARM_UP_TEST overrides the warm-up case.\n' >&2
 }
 
 xcodebuild_tool() {
@@ -106,7 +107,10 @@ EOF
 		state="$fixture_directory/$scenario"
 		mkdir -p "$state"
 		output="$(FAKE_STATE="$state" FAKE_SCENARIO="$scenario" XCODEBUILD="$fake_xcodebuild" \
-			"$0" warm fixture-udid "$state/build")"
+			"$0" warm fixture-udid "$state/build")" || {
+			printf '✗ %s: warm must never fail its caller\n' "$scenario" >&2
+			return 1
+		}
 		[[ "$(cat "$state/xcodebuild-calls")" == "$calls" ]] || {
 			printf '✗ %s: expected %s xcodebuild calls\n' "$scenario" "$calls" >&2
 			return 1
