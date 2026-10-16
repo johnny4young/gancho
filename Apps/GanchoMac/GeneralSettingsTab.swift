@@ -44,11 +44,11 @@ struct GeneralSettingsTab: View {
                     get: { launchAtLogin }, set: { updateLaunchAtLogin($0) })
             )
             .accessibilityIdentifier("launch-at-login-toggle")
-            .onAppear { launchAtLogin = SMAppService.mainApp.status == .enabled }
+            .onAppear { syncLaunchAtLogin() }
             .onReceive(
                 NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
             ) { _ in
-                launchAtLogin = SMAppService.mainApp.status == .enabled
+                syncLaunchAtLogin()
             }
             if let loginNote {
                 Text(verbatim: loginNote)
@@ -187,6 +187,12 @@ struct GeneralSettingsTab: View {
                 localized:
                     "Allow Gancho in Login Items in System Settings to enable automatic launch.")
         }
+    }
+
+    /// Approval happens in System Settings, so an enabled status retires any note.
+    private func syncLaunchAtLogin() {
+        launchAtLogin = SMAppService.mainApp.status == .enabled
+        if launchAtLogin { loginNote = nil }
     }
 
     private var textSizeBinding: Binding<PanelTextSize> {

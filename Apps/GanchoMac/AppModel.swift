@@ -1643,6 +1643,7 @@ final class AppModel {
             return false
         case .clipUnavailable:
             await refreshRecents()
+            notifyStoreChanged(for: .clips)
             return false
         case .failed:
             diagnostics.record(
@@ -1669,6 +1670,7 @@ final class AppModel {
             return false
         case .clipUnavailable:
             await refreshRecents()
+            notifyStoreChanged(for: .clips)
             return false
         case .failed:
             diagnostics.record(

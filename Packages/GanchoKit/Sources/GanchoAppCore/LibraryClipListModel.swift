@@ -23,10 +23,18 @@ public enum LibraryClipScope: Sendable, Equatable {
     @ObservationIgnored private let fetch: Fetch
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var failedPage = false
+    @ObservationIgnored private var reloadRequest: UUID?
+    /// The last visible card asks for a page once; one that arrives mid-refresh waits for it.
+    @ObservationIgnored private var pageAwaitingReload = false
 
     public init(fetch: @escaping Fetch) { self.fetch = fetch }
 
     public func cancel() {
+        supersede()
+        pageAwaitingReload = false
+    }
+
+    private func supersede() {
         generation = UUID()
         isLoading = false
     }
@@ -35,8 +43,11 @@ public enum LibraryClipScope: Sendable, Equatable {
         guard !Task.isCancelled else { return }
         let preserve = preservingWindow && scope == self.scope
         let count = preserve ? max(items.count, LibraryPager.pageSize) : LibraryPager.pageSize
-        cancel()
+        supersede()
         let request = generation
+        // Only a refresh of the visible scope can owe its last card a page.
+        reloadRequest = preserve ? request : nil
+        if !preserve { pageAwaitingReload = false }
         self.scope = scope
         failure = nil
         failedPage = false
@@ -50,10 +61,19 @@ public enum LibraryClipScope: Sendable, Equatable {
         }
         let outcome = await page(loaded: [], size: count, scope: scope)
         apply(outcome, request: request)
+        guard generation == request, pageAwaitingReload, !Task.isCancelled else { return }
+        pageAwaitingReload = false
+        guard failure == nil else { return }
+        isLoading = false
+        await loadMore()
     }
 
     public func loadMore() async {
-        guard !Task.isCancelled, !isLoading, !reachedEnd else { return }
+        guard !Task.isCancelled, !reachedEnd else { return }
+        guard !isLoading else {
+            if reloadRequest == generation { pageAwaitingReload = true }
+            return
+        }
         let request = UUID()
         generation = request
         isLoading = true

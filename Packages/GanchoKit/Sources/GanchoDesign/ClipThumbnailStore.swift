@@ -93,10 +93,10 @@ public final class ClipThumbnailStore {
 
     /// The cached thumbnail, if already loaded. Pure — never triggers a load,
     /// so it's safe to call from a view body.
-    public func cached(for id: UUID) -> Image? { cache[id] }
+    func cached(for id: UUID) -> Image? { cache[id] }
 
     /// The thumbnail's average colour, once it is loaded. Pure like `cached`.
-    public func cachedAccent(for id: UUID) -> ThumbnailAccent? { accents[id] }
+    func cachedAccent(for id: UUID) -> ThumbnailAccent? { accents[id] }
 
     /// Content-bound reads prevent a changed or newly protected clip from
     /// rendering a cached bitmap before its replacement task begins.

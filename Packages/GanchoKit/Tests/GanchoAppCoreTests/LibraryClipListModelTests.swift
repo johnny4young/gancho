@@ -39,6 +39,56 @@ struct LibraryClipListModelTests {
         #expect(!model.reachedEnd)
     }
 
+    @Test("A page requested during a live refresh loads once the refresh lands")
+    func pageRequestedDuringRefreshIsDeferred() async {
+        let source = Source()
+        let model = LibraryClipListModel(fetch: source.fetch)
+        await model.reload(.allClips)
+        let gate = SearchGate()
+        source.gate = gate
+        let refresh = Task { await model.reload(.allClips, preservingWindow: true) }
+        #expect(await gate.waitUntilEntered())
+        await model.loadMore()
+        await gate.release()
+        await refresh.value
+        #expect(model.items == Array(source.rows.prefix(200)))
+        #expect(!model.isLoading)
+    }
+
+    @Test("A page requested while the scope changes is dropped, not run for the new scope")
+    func scopeChangeDropsDeferredPage() async {
+        let source = Source()
+        let model = LibraryClipListModel(fetch: source.fetch)
+        await model.reload(.allClips)
+        let gate = SearchGate()
+        source.gate = gate
+        let board = Task { await model.reload(.board(UUID())) }
+        #expect(await gate.waitUntilEntered())
+        await model.loadMore()
+        await gate.release()
+        await board.value
+        #expect(model.items.count == LibraryPager.pageSize)
+        #expect(source.requests.count == 2)
+        #expect(!model.isLoading)
+    }
+
+    @Test("A failed refresh does not run the page requested during it")
+    func failedRefreshDropsDeferredPage() async {
+        let source = Source()
+        let model = LibraryClipListModel(fetch: source.fetch)
+        await model.reload(.allClips)
+        let gate = SearchGate()
+        source.gate = gate
+        source.error = CocoaError(.fileReadUnknown)
+        let refresh = Task { await model.reload(.allClips, preservingWindow: true) }
+        #expect(await gate.waitUntilEntered())
+        await model.loadMore()
+        await gate.release()
+        await refresh.value
+        #expect(model.failure == .unavailable)
+        #expect(source.requests.count == 2)
+    }
+
     @Test("Changing scope rejects a suspended page and preserves the newer loading indicator")
     func newScopeOwnsLoading() async {
         let source = Source()
