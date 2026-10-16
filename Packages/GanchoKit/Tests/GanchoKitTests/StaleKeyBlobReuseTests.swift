@@ -49,6 +49,22 @@ struct StaleKeyBlobReuseTests {
         #expect(try current.thumbnailData(for: hash) != nil)
     }
 
+    @Test("A payload too large to warm drops its stale thumbnail when re-sealed")
+    func largePayloadRebuildsStaleThumbnail() throws {
+        let dir = tempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        // ImageIO ignores bytes after IEND, so this stays a decodable PNG.
+        let large = tinyPNG + Data(count: BlobStore.thumbnailWarmMaxBytes)
+        let stale = BlobStore(directory: dir, encryptionKeyData: try freshKeyData())
+        let hash = try stale.write(large)
+        #expect(try stale.thumbnailData(for: hash) != nil)
+
+        let current = BlobStore(directory: dir, encryptionKeyData: try freshKeyData())
+        try current.write(large)
+
+        #expect(try current.thumbnailData(for: hash) != nil)
+    }
+
     @Test("A keyed store's own blob is neither flagged nor rewritten")
     func currentBlobIsKept() throws {
         let dir = tempDir()

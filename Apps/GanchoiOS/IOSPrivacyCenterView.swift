@@ -120,7 +120,7 @@ struct IOSPrivacyCenterView: View {
                     .accessibilityIdentifier("ios-unrecoverable-clips-count")
                     Text(
                         // swiftlint:disable:next line_length
-                        "They were sealed with an encryption key this iPhone no longer has, so their content can’t be opened here. They can’t be pasted or synced."
+                        "This iPhone’s encryption key can’t open their stored content, which may have been sealed by an earlier key or damaged. They can’t be pasted or synced."
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -232,9 +232,10 @@ struct IOSPrivacyCenterView: View {
     /// Every counter is a local query against the on-device store. No network.
     private func refresh() async {
         receipt = await model.privateActivityReceipt()
-        unrecoverable = await model.unrecoverableClipCount()
         guard let full = model.full else { return }
         synced = (try? await full.syncedCount()) ?? 0
         masked = (try? await full.sensitiveCount()) ?? 0
+        // Last: it opens every candidate blob, so the cheap counters land first.
+        unrecoverable = await model.unrecoverableClipCount()
     }
 }

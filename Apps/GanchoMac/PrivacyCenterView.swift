@@ -149,7 +149,7 @@ struct PrivacyCenterView: View {
                         .accessibilityIdentifier("unrecoverable-clips-count")
                         Text(
                             // swiftlint:disable:next line_length
-                            "They were sealed with an encryption key this Mac no longer has, so their content can’t be opened here. They can’t be pasted or synced."
+                            "This Mac’s encryption key can’t open their stored content, which may have been sealed by an earlier key or damaged. They can’t be pasted or synced."
                         )
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -335,13 +335,14 @@ struct PrivacyCenterView: View {
             synced = (try? await store.syncedCount()) ?? 0
             masked = (try? await store.sensitiveCount()) ?? 0
         }
-        unrecoverable = await model.unrecoverableClipCount()
         let recent = await model.recentMCPAccesses(limit: 50)
         mcpAccesses = recent
         let thisWeek = recent.filter { $0.occurredAt >= weekAgo }
         mcpCalls = thisWeek.count
         mcpResultsReturned = thisWeek.reduce(0) { $0 + $1.resultCount }
         mcpDenied = thisWeek.filter(\.wasDenied).count
+        // Last: it opens every candidate blob, so the cheap counters land first.
+        unrecoverable = await model.unrecoverableClipCount()
     }
 
     /// The trust headline: clipboard content never enters analytics, regardless

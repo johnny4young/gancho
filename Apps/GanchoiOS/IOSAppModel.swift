@@ -842,24 +842,16 @@ final class IOSAppModel {
         refreshSpotlight()
     }
 
-    /// How many clips no key on this iPhone can open. Zero when the scan fails.
+    /// How many clips without a sync record this iPhone's key can't open. Zero
+    /// when the scan fails.
     func unrecoverableClipCount() async -> Int {
         (try? await full?.unrecoverableLocalClipIDs().count) ?? 0
     }
 
-    /// Rescans before deleting: re-copying the same bytes heals a clip, and a
-    /// healed clip must not be removed on the strength of an earlier count.
-    /// Local only: an identity reset also clears system fields, so a flagged
-    /// row may still have a good iCloud copy that a later fetch restores.
     func removeUnrecoverableClips() async {
-        guard let ids = try? await full?.unrecoverableLocalClipIDs(), !ids.isEmpty
+        guard let full,
+            let outcome = await UnrecoverableClipRemoval().remove(scanner: full, store: store)
         else { return }
-        let outcome = await deletionWorkflow.delete(
-            ids: ids,
-            store: store,
-            syncStore: nil,
-            engine: syncController.engine,
-            syncEnabled: false)
         switch outcome {
         case .deleted:
             break

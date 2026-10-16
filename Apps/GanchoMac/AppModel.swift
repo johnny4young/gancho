@@ -955,24 +955,16 @@ final class AppModel {
         try? await fullStore?.clearPrivateActivityReceipt()
     }
 
-    /// How many clips no key on this Mac can open. Zero when the scan fails.
+    /// How many clips without a sync record this Mac's key can't open. Zero
+    /// when the scan fails.
     func unrecoverableClipCount() async -> Int {
         (try? await fullStore?.unrecoverableLocalClipIDs().count) ?? 0
     }
 
-    /// Rescans before deleting: re-copying the same bytes heals a clip, and a
-    /// healed clip must not be removed on the strength of an earlier count.
-    /// Local only: an identity reset also clears system fields, so a flagged
-    /// row may still have a good iCloud copy that a later fetch restores.
     func removeUnrecoverableClips() async {
-        guard let ids = try? await fullStore?.unrecoverableLocalClipIDs(), !ids.isEmpty
+        guard let fullStore,
+            let outcome = await UnrecoverableClipRemoval().remove(scanner: fullStore, store: store)
         else { return }
-        let outcome = await deletionWorkflow.delete(
-            ids: ids,
-            store: store,
-            syncStore: nil,
-            engine: syncController.engine,
-            syncEnabled: false)
         reportDeletionFailure(outcome)
         notifyStoreChanged(for: .clips)
     }

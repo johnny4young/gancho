@@ -65,6 +65,9 @@ public struct BlobStore: Sendable {
         // this store no longer has; reusing it would make the new row unreadable.
         if !opensWithCurrentKey(file) {
             try encodeForDisk(data).write(to: file, options: .atomic)
+            // Its cached thumbnail came from the same generation; payloads too
+            // large to warm below must rebuild it lazily rather than reuse it.
+            try? FileManager.default.removeItem(at: thumbnailURLIfCached(for: hash))
         }
         // Warm the thumbnail from the in-memory data so memory-tight readers
         // (the keyboard) never load the full blob just to build it. Large
@@ -191,8 +194,8 @@ public struct BlobStore: Sendable {
     }
 
     /// True only when the blob is on disk, sealed, and this store's key cannot
-    /// open it: bytes no retry recovers. A failed read or a keyless store, which
-    /// cannot judge, is not reported.
+    /// open it (another key, or a damaged envelope): bytes no retry recovers. A
+    /// failed read or a keyless store, which cannot judge, is not reported.
     func isSealedUnderAnotherKey(hash: String) -> Bool {
         guard let encryptionKeyData,
             let stored = try? Data(contentsOf: blobURL(for: hash)),

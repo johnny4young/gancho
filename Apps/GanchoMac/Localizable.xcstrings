@@ -10249,22 +10249,22 @@
         }
       }
     },
-    "They were sealed with an encryption key this Mac no longer has, so their content can’t be opened here. They can’t be pasted or synced.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se sellaron con una clave de cifrado que esta Mac ya no tiene, así que su contenido no se puede abrir aquí. No se pueden pegar ni sincronizar."
-          }
-        }
-      }
-    },
     "They’re removed from this device only; iCloud and your other devices aren’t touched.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Se eliminan solo de este dispositivo; iCloud y tus otros dispositivos no cambian."
+          }
+        }
+      }
+    },
+    "This Mac’s encryption key can’t open their stored content, which may have been sealed by an earlier key or damaged. They can’t be pasted or synced.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La clave de cifrado de esta Mac no puede abrir su contenido guardado, que quizá se selló con una clave anterior o se dañó. No se pueden pegar ni sincronizar."
           }
         }
       }
