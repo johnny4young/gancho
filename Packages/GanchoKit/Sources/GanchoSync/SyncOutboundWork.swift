@@ -4,6 +4,7 @@ import GanchoKit
 
 /// Store operations used by the real delegate, without manufacturing CloudKit
 /// event objects. A failed read is never an empty queue or a missing record.
+/// An unreadable row is reported as unreadable, never as absent.
 struct SyncOutboundWork: Sendable {
     let store: any SyncLocalStore
     let clipZone: CKRecordZone.ID
@@ -26,53 +27,75 @@ struct SyncOutboundWork: Sendable {
         return clips + deletions + boards + boardDeletions
     }
 
-    func prepare(_ ids: [CKRecord.ID]) async throws -> [CKRecord.ID: CKRecord] {
+    struct PreparedUploads {
+        var records: [CKRecord.ID: CKRecord] = [:]
+        /// Saves that could not be prepared; any local row behind one stays dirty.
+        var unreadable: Set<CKRecord.ID> = []
+    }
+
+    /// One unreadable row is skipped so it cannot hold back every later batch;
+    /// a batch in which every read fails is a store failure and throws.
+    func prepare(_ ids: [CKRecord.ID]) async throws -> PreparedUploads {
         var boards: [UUID: Pinboard] = [:]
         if ids.contains(where: { $0.zoneID == boardZone }) {
             for board in try await store.pendingBoardUploads() { boards[board.id] = board }
         }
-        var records: [CKRecord.ID: CKRecord] = [:]
+        var prepared = PreparedUploads()
+        var lastFailure: (any Error)?
         do {
             for recordID in ids {
                 try Task.checkCancellation()
-                guard let id = UUID(uuidString: recordID.recordName) else {
-                    throw SyncOutboundFailure.invalidRecord
+                do {
+                    guard let record = try await record(for: recordID, boards: boards) else {
+                        continue
+                    }
+                    prepared.records[recordID] = record
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    prepared.unreadable.insert(recordID)
+                    lastFailure = error
                 }
-                // Undecodable saved system fields fall back to a fresh record;
-                // the server's conflict reply then restores a valid change tag.
-                let record: CKRecord?
-                if recordID.zoneID == boardZone {
-                    guard let board = boards[id] else { continue }
-                    let fields = try await store.boardSystemFields(for: id)
-                    record =
-                        BoardRecordMapper.record(
-                            for: board, systemFields: fields, zoneID: boardZone)
-                        ?? BoardRecordMapper.record(
-                            for: board, systemFields: nil, zoneID: boardZone)
-                } else if recordID.zoneID == clipZone {
-                    guard let entry = try await store.pendingUpload(id: id) else { continue }
-                    let fields = try await store.systemFields(for: id)
-                    let membership = Array(try await store.boardIDs(forClip: id))
-                    record =
-                        ClipRecordMapper.record(
-                            for: entry.item, content: entry.content, systemFields: fields,
-                            zoneID: clipZone, maxAssetBytes: maxAssetBytes, boardIDs: membership)
-                        ?? ClipRecordMapper.record(
-                            for: entry.item, content: entry.content, systemFields: nil,
-                            zoneID: clipZone, maxAssetBytes: maxAssetBytes, boardIDs: membership)
-                } else {
-                    throw SyncOutboundFailure.invalidRecord
-                }
-                // Skipping one unbuildable record must not hold back the batch.
-                guard let record else { continue }
-                records[recordID] = record
             }
-            return records
+            if let lastFailure, prepared.unreadable.count == ids.count {
+                throw lastFailure
+            }
+            return prepared
         } catch {
             // No batch will consume these assets after a failed preparation.
-            for record in records.values { ClipRecordMapper.removeStagedAsset(for: record) }
+            for record in prepared.records.values {
+                ClipRecordMapper.removeStagedAsset(for: record)
+            }
             throw error
         }
+    }
+
+    private func record(
+        for recordID: CKRecord.ID, boards: [UUID: Pinboard]
+    ) async throws
+        -> CKRecord?
+    {
+        guard let id = UUID(uuidString: recordID.recordName) else {
+            throw SyncOutboundFailure.invalidRecord
+        }
+        // Undecodable saved system fields fall back to a fresh record;
+        // the server's conflict reply then restores a valid change tag.
+        if recordID.zoneID == boardZone {
+            guard let board = boards[id] else { return nil }
+            let fields = try await store.boardSystemFields(for: id)
+            return BoardRecordMapper.record(for: board, systemFields: fields, zoneID: boardZone)
+                ?? BoardRecordMapper.record(for: board, systemFields: nil, zoneID: boardZone)
+        }
+        guard recordID.zoneID == clipZone else { throw SyncOutboundFailure.invalidRecord }
+        guard let entry = try await store.pendingUpload(id: id) else { return nil }
+        let fields = try await store.systemFields(for: id)
+        let membership = Array(try await store.boardIDs(forClip: id))
+        return ClipRecordMapper.record(
+            for: entry.item, content: entry.content, systemFields: fields,
+            zoneID: clipZone, maxAssetBytes: maxAssetBytes, boardIDs: membership)
+            ?? ClipRecordMapper.record(
+                for: entry.item, content: entry.content, systemFields: nil,
+                zoneID: clipZone, maxAssetBytes: maxAssetBytes, boardIDs: membership)
     }
 
     func acknowledge(_ record: CKRecord) async throws {

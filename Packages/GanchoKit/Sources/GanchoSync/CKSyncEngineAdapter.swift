@@ -46,6 +46,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
     private var outboundFailures: Set<OutboundOperation> = []
     private var clipIntents: Set<UUID> = []
     private var boardIntents: Set<UUID> = []
+    private var reportedUnreadableUploads: Set<CKRecord.ID> = []
 
     private enum OutboundOperation: Hashable {
         case pending, preparation, reset
@@ -613,8 +614,11 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
             return id
         }
         let built: [CKRecord.ID: CKRecord]
+        let unreadable: Set<CKRecord.ID>
         do {
-            built = try await outbound.prepare(saveIDs)
+            let prepared = try await outbound.prepare(saveIDs)
+            built = prepared.records
+            unreadable = prepared.unreadable
             guard engine === syncEngine else {
                 for record in built.values { ClipRecordMapper.removeStagedAsset(for: record) }
                 return nil
@@ -626,7 +630,8 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         }
         // CKSyncEngine drops a save whose provider returns nil; the durable dirty
         // row re-enqueues it next cycle, so only the count is surfaced here.
-        let missing = saveIDs.count(where: { built[$0] == nil })
+        reportUnreadableUploads(unreadable)
+        let missing = saveIDs.count(where: { built[$0] == nil && !unreadable.contains($0) })
         if missing > 0 {
             diagnostics?.record(
                 "Sync",
@@ -636,6 +641,20 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
         return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: pendingChanges) {
             recordID in records.value[recordID]
         }
+    }
+
+    /// Each poll retries the same rows, so only a newly unreadable one is logged.
+    private func reportUnreadableUploads(_ unreadable: Set<CKRecord.ID>) {
+        guard !unreadable.isEmpty else {
+            reportedUnreadableUploads = []
+            return
+        }
+        guard !unreadable.isSubset(of: reportedUnreadableUploads) else { return }
+        reportedUnreadableUploads = unreadable
+        diagnostics?.record(
+            "Sync",
+            "\(unreadable.count) pending upload(s) could not be read locally and were skipped; the rest continue."
+        )
     }
 
     public func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
