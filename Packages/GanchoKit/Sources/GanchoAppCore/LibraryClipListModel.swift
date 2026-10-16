@@ -45,7 +45,8 @@ public enum LibraryClipScope: Sendable, Equatable {
         let count = preserve ? max(items.count, LibraryPager.pageSize) : LibraryPager.pageSize
         supersede()
         let request = generation
-        reloadRequest = request
+        // Only a refresh of the visible scope can owe its last card a page.
+        reloadRequest = preserve ? request : nil
         if !preserve { pageAwaitingReload = false }
         self.scope = scope
         failure = nil

@@ -10,15 +10,18 @@ final class ClipTitleEditingUITests: XCTestCase {
         row.tap()
         // At the medium detent a minimized software keyboard reappears on the
         // Save tap and expands the sheet mid-tap, so edit at the large detent.
-        let grabber = app.buttons["Sheet Grabber"].firstMatch
-        XCTAssertTrue(grabber.waitForExistence(timeout: 5))
-        grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .press(
-                forDuration: 0.1,
-                thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)))
-        let expanded = expectation(
-            for: NSPredicate(format: "value == %@", "Expanded"), evaluatedWith: grabber)
-        wait(for: [expanded], timeout: 5)
+        // iPad shows the detail in a split view, without a sheet.
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            let grabber = app.buttons["Sheet Grabber"].firstMatch
+            XCTAssertTrue(grabber.waitForExistence(timeout: 5))
+            grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(
+                    forDuration: 0.1,
+                    thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)))
+            let expanded = expectation(
+                for: NSPredicate(format: "value == %@", "Expanded"), evaluatedWith: grabber)
+            wait(for: [expanded], timeout: 5)
+        }
         let edit = app.buttons["detail-edit-title"].firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
         edit.tap()

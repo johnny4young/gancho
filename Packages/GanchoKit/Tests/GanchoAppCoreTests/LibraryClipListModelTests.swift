@@ -55,6 +55,23 @@ struct LibraryClipListModelTests {
         #expect(!model.isLoading)
     }
 
+    @Test("A page requested while the scope changes is dropped, not run for the new scope")
+    func scopeChangeDropsDeferredPage() async {
+        let source = Source()
+        let model = LibraryClipListModel(fetch: source.fetch)
+        await model.reload(.allClips)
+        let gate = SearchGate()
+        source.gate = gate
+        let board = Task { await model.reload(.board(UUID())) }
+        #expect(await gate.waitUntilEntered())
+        await model.loadMore()
+        await gate.release()
+        await board.value
+        #expect(model.items.count == LibraryPager.pageSize)
+        #expect(source.requests.count == 2)
+        #expect(!model.isLoading)
+    }
+
     @Test("A failed refresh does not run the page requested during it")
     func failedRefreshDropsDeferredPage() async {
         let source = Source()
