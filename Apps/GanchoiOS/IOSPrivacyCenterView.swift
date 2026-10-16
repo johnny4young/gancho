@@ -17,6 +17,8 @@ struct IOSPrivacyCenterView: View {
     @State private var masked = 0
     @State private var synced = 0
     @State private var confirmsReceiptClear = false
+    @State private var unrecoverable = 0
+    @State private var confirmsUnrecoverableRemoval = false
 
     var body: some View {
         Form {
@@ -107,6 +109,29 @@ struct IOSPrivacyCenterView: View {
                 LabeledContent("Items synchronized", value: "\(synced)")
             }
 
+            if unrecoverable > 0 {
+                Section("Unreadable clips") {
+                    Label {
+                        Text("\(unrecoverable) clips can’t be opened")
+                    } icon: {
+                        Image(systemName: "exclamationmark.lock")
+                            .foregroundStyle(GanchoTokens.Palette.warning)
+                    }
+                    .accessibilityIdentifier("ios-unrecoverable-clips-count")
+                    Text(
+                        // swiftlint:disable:next line_length
+                        "They were sealed with an encryption key this iPhone no longer has, so their content can’t be opened here. They can’t be pasted or synced."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    Button("Remove unreadable clips", role: .destructive) {
+                        confirmsUnrecoverableRemoval = true
+                    }
+                    .tint(GanchoTokens.Palette.danger)
+                    .accessibilityIdentifier("ios-remove-unrecoverable-clips-button")
+                }
+            }
+
             Section("Capture on iPhone") {
                 Text(
                     // swiftlint:disable:next line_length
@@ -189,11 +214,25 @@ struct IOSPrivacyCenterView: View {
         } message: {
             Text("This erases local activity totals. Your clips and settings stay unchanged.")
         }
+        .alert("Remove unreadable clips?", isPresented: $confirmsUnrecoverableRemoval) {
+            Button("Remove", role: .destructive) {
+                Task {
+                    await model.removeUnrecoverableClips()
+                    await refresh()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "They’re removed from this device only; iCloud and your other devices aren’t touched."
+            )
+        }
     }
 
     /// Every counter is a local query against the on-device store. No network.
     private func refresh() async {
         receipt = await model.privateActivityReceipt()
+        unrecoverable = await model.unrecoverableClipCount()
         guard let full = model.full else { return }
         synced = (try? await full.syncedCount()) ?? 0
         masked = (try? await full.sensitiveCount()) ?? 0

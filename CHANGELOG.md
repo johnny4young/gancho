@@ -14,6 +14,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Physical-device acceptance remains pending; the published app, tag and
   checksum are unchanged.
 
+- Re-seal a stored image or file when copying the same bytes again finds a
+  copy left under an encryption key from an earlier store reset, so the new
+  clip can be pasted and synced. Privacy Center now counts clips whose content
+  was lost that way and offers to remove them.
+
 ## [0.10.0] - 2026-10-15
 
 ### Added

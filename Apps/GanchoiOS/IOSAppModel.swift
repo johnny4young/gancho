@@ -842,6 +842,37 @@ final class IOSAppModel {
         refreshSpotlight()
     }
 
+    /// How many clips no key on this iPhone can open. Zero when the scan fails.
+    func unrecoverableClipCount() async -> Int {
+        (try? await full?.unrecoverableLocalClipIDs().count) ?? 0
+    }
+
+    /// Rescans before deleting: re-copying the same bytes heals a clip, and a
+    /// healed clip must not be removed on the strength of an earlier count.
+    /// Local only: an identity reset also clears system fields, so a flagged
+    /// row may still have a good iCloud copy that a later fetch restores.
+    func removeUnrecoverableClips() async {
+        guard let ids = try? await full?.unrecoverableLocalClipIDs(), !ids.isEmpty
+        else { return }
+        let outcome = await deletionWorkflow.delete(
+            ids: ids,
+            store: store,
+            syncStore: nil,
+            engine: syncController.engine,
+            syncEnabled: false)
+        switch outcome {
+        case .deleted:
+            break
+        case .partial, .failed:
+            diagnostics.record(
+                String(localized: "History"),
+                String(localized: "Couldn’t delete every clip — the ones that remain were kept."))
+        }
+        await search()
+        reloadWidgets()
+        refreshSpotlight()
+    }
+
     /// Re-donates the curated Library to Spotlight (or wipes the domain when
     /// the toggle is off). Fire-and-forget at utility priority — a reconcile
     /// recomputes the whole small curated set, so it never needs to know WHAT
