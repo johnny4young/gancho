@@ -9,13 +9,16 @@ struct SpotlightCoordinatorTests {
     /// Curation and clip changes stale the donated set; a board-only burst
     /// does not. This predicate is the whole "react to the right mutations"
     /// rule, so it is the thing worth pinning.
-    @Test("Reacts to curation and clips, ignores board-only bursts")
+    @Test("Reacts to curation and clips, ignores board-only and capture-only bursts")
     func reactsToTheRightChanges() {
         #expect(SpotlightCoordinator.reactsTo([.curation]))
         #expect(SpotlightCoordinator.reactsTo([.clips]))
         #expect(SpotlightCoordinator.reactsTo([.boards, .curation]))
         #expect(SpotlightCoordinator.reactsTo([.clips, .boards]))
         #expect(!SpotlightCoordinator.reactsTo([.boards]))
+        #expect(!SpotlightCoordinator.reactsTo([.captured]))
+        #expect(!SpotlightCoordinator.reactsTo([.captured, .boards]))
+        #expect(SpotlightCoordinator.reactsTo([.captured, .curation]))
         #expect(!SpotlightCoordinator.reactsTo([]))
     }
 

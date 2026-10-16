@@ -16,9 +16,7 @@ public enum ClipSafeDelivery {
     /// Same revision (`updatedAt`, which text edits bump without changing
     /// `contentHash`) and privacy metadata. Usage bookkeeping does not count.
     public static func isSameRevision(_ lhs: ClipItem, _ rhs: ClipItem) -> Bool {
-        lhs.id == rhs.id && lhs.kind == rhs.kind && lhs.isSensitive == rhs.isSensitive
-            && lhs.contentHash == rhs.contentHash && lhs.updatedAt == rhs.updatedAt
-            && lhs.expiresAt == rhs.expiresAt
+        ClipContentVersion(lhs) == ClipContentVersion(rhs)
     }
 
     /// Read metadata before touching the payload, then reject a changed,

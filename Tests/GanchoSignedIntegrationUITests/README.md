@@ -49,6 +49,12 @@ put the exact receiver PID in front with its editor focused. Application-control
 queries inspect windows and their descendants, avoiding unrelated system-menu
 inspection. An accessibility read failure cannot satisfy panel absence.
 
+Paste fixtures wait for a DEBUG-only, content-free readiness marker in their
+unique isolated preferences suite before exercising the helper. This keeps
+background seeding out of the first panel-open interaction. The helper still
+opens the real panel for the first time, and the driver still requires all
+three rows and the original paste, focus, timing, and no-repeat assertions.
+
 ## Evidence and related checks
 
 Artifacts retain the full result bundle, test summary, recordings, build/test logs,

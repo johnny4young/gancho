@@ -79,6 +79,7 @@ struct IPadSplitView: View {
                     selectedID = nil
                 }
             }
+            .reuseSuggestionInset()
             .searchable(text: $model.query, prompt: Text("Search your clipboard"))
             .searchFocused($searchFocused)
             .onChange(of: model.query) { _, _ in Task { await model.search() } }
@@ -120,9 +121,9 @@ struct IPadSplitView: View {
     }
 
     private func clipRow(_ item: ClipItem) -> some View {
-        ClipCard(item: item, thumbnail: model.thumbnails.cached(for: item.id))
+        ClipCard(item: item, thumbnail: model.thumbnails.cached(for: item))
             .tag(item.id)
-            .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+            .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
             .onAppear { Task { await model.loadMoreIfNeeded(item) } }
             .clipRowActions(item, model: model) { activeSheet = .move(item) }
     }

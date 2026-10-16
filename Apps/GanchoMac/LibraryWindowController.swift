@@ -7,6 +7,11 @@ import SwiftUI
 final class LibraryWindowController {
     private var window: NSWindow?
 
+    /// The cached window keeps its view alive while closed or minimized.
+    var isVisible: Bool { window?.isVisible == true }
+
+    func owns(_ object: Any?) -> Bool { window != nil && (object as? NSWindow) === window }
+
     func show(model: AppModel) {
         model.panel.hide()
         if window == nil {
@@ -38,5 +43,10 @@ final class LibraryWindowController {
         // The window is cached, so the view's `.task` runs once; presenting is
         // the retry the failed-load message promises.
         model.reloadSavedFilters()
+        NotificationCenter.default.post(name: .ganchoLibraryDidShow, object: window)
     }
+}
+
+extension Notification.Name {
+    static let ganchoLibraryDidShow = Notification.Name("gancho-library-did-show")
 }

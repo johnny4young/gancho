@@ -25,13 +25,35 @@ final class SignedHandoffApplication {
         configuration.activates = false
         configuration.createsNewApplicationInstance = true
         configuration.allowsRunningApplicationSubstitution = false
+        let waitsForFixtures = launchArguments.contains("-seed-sample-clips")
         let arguments = GanchoUITestApplication.isolatedArguments(
-            launchArguments + ["-command-nonce", commandNonce])
+            launchArguments + ["-command-nonce", commandNonce]
+                + (waitsForFixtures ? ["-ui-test-wait-for-fixtures"] : []))
         configuration.arguments = arguments
         application = try await NSWorkspace.shared.openApplication(
             at: URL(fileURLWithPath: path), configuration: configuration)
         XCTAssertEqual(application?.executableURL?.lastPathComponent, "Gancho")
         try verifyArguments(arguments, owner: XCTUnwrap(application))
+        if waitsForFixtures { try await waitForFixtures(arguments: arguments) }
+    }
+
+    private func waitForFixtures(arguments: [String]) async throws {
+        let index = try XCTUnwrap(arguments.firstIndex(of: "-ui-test-defaults-suite"))
+        let suite = arguments[index + 1]
+        XCTAssertTrue(suite.hasPrefix("com.johnny4young.gancho.uitests."))
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let deadline = ContinuousClock.now + .seconds(30)
+        while !defaults.bool(forKey: "ui-test-fixtures-ready"), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        guard defaults.bool(forKey: "ui-test-fixtures-ready") else {
+            throw NSError(
+                domain: "GanchoSignedIntegration", code: 1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "All isolated fixtures must finish before exercising the helper"
+                ])
+        }
     }
 
     private func verifyArguments(_ expected: [String], owner: NSRunningApplication) throws {

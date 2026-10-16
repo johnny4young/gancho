@@ -137,7 +137,7 @@ public enum ClipListShape {
         query: String, boardID: UUID?, sourceAppBundleID: String?,
         kinds: Set<ClipContentKind>? = nil
     ) async -> ClipListPage {
-        let filtersByKind = source.isDurable && kinds?.isEmpty == false
+        let filtersByKind = kinds?.isEmpty == false
         if query.isEmpty, sourceAppBundleID == nil, !filtersByKind {
             if let boardID, source.isDurable {
                 // A board pages like the recent list — a curated set is still
@@ -169,6 +169,7 @@ public enum ClipListShape {
         let filtered = all.filter {
             (query.isEmpty || $0.preview.localizedCaseInsensitiveContains(query))
                 && (sourceAppBundleID == nil || $0.sourceAppBundleID == sourceAppBundleID)
+                && (!filtersByKind || kinds?.contains($0.kind) == true)
         }
         return ClipListPage(items: ranked(filtered), reachedEnd: true)
     }

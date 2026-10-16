@@ -133,9 +133,18 @@ extension AppModel {
             CommandLine.arguments.contains("-use-temp-durable-store"),
             let fullStore
         else { return nil }
+        var greetingBody = "Hello {name}, thanks for writing."
+        #if DEBUG
+            if CommandLine.arguments.contains("-seed-many-snippet-fields"),
+                Self.uiTestDefaultsSuiteName() != nil
+            {
+                greetingBody = (1...20).map { "{field\($0)}" }.joined(separator: "\n")
+            }
+        #endif
+        let body = greetingBody
         return Task {
             for (title, keyword, body) in [
-                ("Seed greeting", "hi", "Hello {name}, thanks for writing."),
+                ("Seed greeting", "hi", body),
                 ("Seed sign-off", "bye", "Best regards,\nGancho")
             ] {
                 let item = ClipItem(

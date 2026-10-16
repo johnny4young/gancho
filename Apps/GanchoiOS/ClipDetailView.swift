@@ -177,7 +177,10 @@ struct ClipDetailView: View {
                         ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
                     in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                 )
-                .foregroundStyle(primary ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+                .foregroundStyle(
+                    primary
+                        ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                        : AnyShapeStyle(.primary))
             Text(title).font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -262,7 +265,7 @@ struct ClipDetailView: View {
                 editableText = nil
             }
         }
-        .task(id: item.id) { await model.detailImages.ensureLoaded(item) }
+        .task(id: ClipContentVersion(item)) { await model.detailImages.ensureLoaded(item) }
         .task(id: item.id) {
             await model.refreshBoards()
             boardIDs = await model.boardMembership(for: item)
@@ -287,8 +290,8 @@ struct ClipDetailView: View {
     @ViewBuilder private var contentSection: some View {
         Section {
             if item.kind == .image, !requiresMasking,
-                let thumbnail = model.detailImages.cached(for: item.id)
-                    ?? model.thumbnails.cached(for: item.id)
+                let thumbnail = model.detailImages.cached(for: item)
+                    ?? model.thumbnails.cached(for: item)
             {
                 thumbnail
                     .resizable()
@@ -317,7 +320,7 @@ struct ClipDetailView: View {
                 // is still available via Copy.
                 let fallback = requiresMasking ? ClipSafePresentation.masked : item.preview
                 let body = fullText.isEmpty ? fallback : fullText
-                Text(body.count > 8000 ? String(body.prefix(8000)) + "\n…" : body)
+                Text(ClipTextPreview.truncated(body, limit: 8_000))
                     .font(item.kind == .code ? .body.monospaced() : .body)
                     .textSelection(.enabled)
                 if requiresMasking {

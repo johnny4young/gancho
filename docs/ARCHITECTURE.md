@@ -130,6 +130,25 @@ and board appearance — binding to the owner's state and reaching the app model
 only through closures. `PanelView` retains navigation focus, pagination, row
 action effects, and the short preview debounce.
 
+`ClipContentVersion` is the shared in-memory revision key for text previews,
+thumbnails, and reviewed snippets. It includes `updatedAt`, because local text
+edits deliberately retain their deduplication hash, plus masking and expiry
+metadata. Usage bookkeeping does not advance the revision. Preview tasks follow
+this identity, and thumbnail consumers share a read/decode until the last visible
+consumer cancels. Old versions cannot overwrite a newer cached result. The panel
+preview and the Library thumbnails re-read the persisted row after their
+asynchronous read, so an edit or protection change during it publishes nothing.
+
+`LibraryClipListModel` owns the Library's paged browse requests, cancellation,
+loaded-window preservation, and recoverable load failures. The SwiftUI window
+retains its independent snippet draft. Confirmed mutations publish content-free
+store-change events; the Library and Spotlight coalesce those events independently.
+Captures post a separate `captured` event that Spotlight ignores, because a new
+clip cannot change the curated set. A closed or minimized Library defers its
+refresh until it is shown again; opening the cached Library also refreshes it. Snippet insertion uses
+`SnippetBodyLoader` and the existing safe-delivery boundary to reject a changed
+template both before its fields are presented and before insertion.
+
 `PasteBackWorkflow` is the one paste sequence every macOS entry point runs: a
 stored clip, a transform, a filled snippet, or a Smart Paste result. It hides
 the panel, gives focus a beat to return to the target app, posts the paste, and

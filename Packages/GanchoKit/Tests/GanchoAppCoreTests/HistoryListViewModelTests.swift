@@ -72,6 +72,68 @@ struct HistoryListViewModelTests {
         (0..<n).map { ClipItem(kind: kind, preview: "item \($0)") }
     }
 
+    @Test(
+        "A page from before a same-sized refresh cannot append stale rows or clear a newer spinner")
+    func refreshInvalidatesOldPageOwnership() async {
+        let source = FakeSource()
+        source.recent = items(150)
+        let model = HistoryListViewModel(source: source)
+        await model.search()
+        let oldGate = SearchGate()
+        source.holdNextRecentBrowse = oldGate
+        let oldPage = Task { await model.loadMoreIfNeeded(model.captures[85]) }
+        #expect(await oldGate.waitUntilEntered())
+
+        source.recent = items(150)
+        let freshIDs = source.recent.map(\.id)
+        await model.search()
+        let newGate = SearchGate()
+        source.holdNextRecentBrowse = newGate
+        let newPage = Task { await model.loadMoreIfNeeded(model.captures[85]) }
+        let entered = await newGate.waitUntilEntered()
+        #expect(entered, "a stale request must not block pagination of the refreshed list")
+        await oldGate.release()
+        await oldPage.value
+        #expect(model.captures.map(\.id) == Array(freshIDs.prefix(100)))
+        if entered { #expect(model.isLoadingMore) }
+        await newGate.release()
+        await newPage.value
+        #expect(model.captures.map(\.id) == freshIDs)
+        #expect(!model.isLoadingMore)
+    }
+
+    @Test("Changing filters invalidates a suspended search before the next search starts")
+    func filterChangeRejectsSuspendedSearch() async {
+        let source = FakeSource()
+        source.recent = items(30)
+        let model = HistoryListViewModel(source: source)
+        let gate = SearchGate()
+        source.holdNextRecentBrowse = gate
+        let pending = Task { await model.search() }
+        #expect(await gate.waitUntilEntered())
+        model.kindFilter = .image
+        await gate.release()
+        await pending.value
+        #expect(model.captures.isEmpty)
+    }
+
+    @Test("Cancelled pagination does not append rows")
+    func cancelledPageIsRejected() async {
+        let source = FakeSource()
+        source.recent = items(150)
+        let model = HistoryListViewModel(source: source)
+        await model.search()
+        let gate = SearchGate()
+        source.holdNextRecentBrowse = gate
+        let pending = Task { await model.loadMoreIfNeeded(model.captures[85]) }
+        #expect(await gate.waitUntilEntered())
+        pending.cancel()
+        await gate.release()
+        await pending.value
+        #expect(model.captures.count == 100)
+        #expect(!model.isLoadingMore)
+    }
+
     /// A paste starts two searches: the hint refresh before the insert and
     /// the reload after it. The one that queried first may answer last; its
     /// pre-insert page must not replace the newer list.

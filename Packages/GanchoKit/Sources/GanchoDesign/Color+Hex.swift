@@ -17,6 +17,7 @@ extension Color {
         self.init(
             red: Double((value >> (16 + shift)) & 0xFF) / 255,
             green: Double((value >> (8 + shift)) & 0xFF) / 255,
-            blue: Double((value >> shift) & 0xFF) / 255)
+            blue: Double((value >> shift) & 0xFF) / 255,
+            opacity: hex.count == 8 ? Double(value & 0xFF) / 255 : 1)
     }
 }

@@ -20,3 +20,10 @@ draft enters recovery instead of disappearing.
 
 Saving an edit applies the same classification: protected content stays in the
 editor with an inline notice and is never written or queued for sync.
+
+Template insertion is bound to the selected persisted revision. Changing or
+deleting the snippet while its fields are being filled rejects the insertion
+instead of substituting a different body. Reopen it and try again. Field editors
+scroll while Insert and Cancel remain visible, and the preview follows the
+panel's text-size preference. Cancelling or changing the search also cancels a
+pending template load.

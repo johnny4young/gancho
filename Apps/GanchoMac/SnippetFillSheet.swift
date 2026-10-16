@@ -23,6 +23,7 @@ struct SnippetFillSheet: View {
     let request: SnippetFillRequest
     let onInsert: ([String: String]) -> Void
     let onCancel: () -> Void
+    @Environment(\.panelTypeScale) private var typeScale
     @State private var values: [String: String] = [:]
     @FocusState private var focusedField: String?
 
@@ -33,30 +34,39 @@ struct SnippetFillSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
             VStack(alignment: .leading, spacing: 1) {
-                Text("Insert snippet").font(.caption).foregroundStyle(.secondary)
+                Text("Insert snippet").panelFont(.caption).foregroundStyle(.secondary)
                 Text(
                     verbatim: request.snippet.title.isEmpty
                         ? request.snippet.preview : request.snippet.title
                 )
-                .font(.headline).lineLimit(1)
+                .panelFont(.headline).lineLimit(1)
             }
 
-            ForEach(request.fields) { field in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: field.name)
-                        .font(.caption.monospaced()).foregroundStyle(.secondary)
-                    TextField(field.defaultValue ?? field.name, text: binding(for: field))
-                        .textFieldStyle(.roundedBorder)
-                        .focused($focusedField, equals: field.name)
-                        .accessibilityIdentifier("fill-field-\(field.name)")
+            ScrollView {
+                VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                    ForEach(request.fields) { field in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: field.name)
+                                .panelFont(.caption, design: .monospaced).foregroundStyle(
+                                    .secondary)
+                            TextField(field.defaultValue ?? field.name, text: binding(for: field))
+                                .textFieldStyle(.roundedBorder)
+                                .panelFont(.body)
+                                .focused($focusedField, equals: field.name)
+                                .accessibilityIdentifier("fill-field-\(field.name)")
+                        }
+                    }
+
                 }
             }
+            .frame(height: min(CGFloat(request.fields.count) * 56 * typeScale, 260 * typeScale))
+            .accessibilityIdentifier("fill-fields-scroll")
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Preview").font(.caption2).foregroundStyle(.secondary)
+                Text("Preview").panelFont(.caption2).foregroundStyle(.secondary)
                 ScrollView {
-                    Text(filled)
-                        .font(.body.monospaced())
+                    Text(ClipTextPreview.truncated(filled, limit: 4_000))
+                        .panelFont(.body, design: .monospaced)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
                 }
@@ -78,7 +88,8 @@ struct SnippetFillSheet: View {
             }
         }
         .padding(GanchoTokens.Spacing.lg)
-        .frame(width: 380)
+        .frame(width: 420)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("snippet-fill-sheet")
         .onAppear {
             for field in request.fields where field.defaultValue != nil {

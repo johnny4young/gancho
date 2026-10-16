@@ -199,6 +199,7 @@ extension AppModel {
                     detectSecrets: true, tier: tier, intelligence: intelligence),
                 store: store, syncEngine: syncController.engine)
             await refreshRecents()
+            notifyStoreChanged(for: .captured)
             return true
         } catch { return false }
     }

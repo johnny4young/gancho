@@ -1,6 +1,125 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Launch at login couldn’t be updated. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch at login couldn’t be updated. Try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar el inicio automático. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Allow Gancho in Login Items in System Settings to enable automatic launch.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow Gancho in Login Items in System Settings to enable automatic launch."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite Gancho en Ítems de inicio en Ajustes del Sistema para activar el inicio automático."
+          }
+        }
+      }
+    },
+    "Couldn’t insert this snippet. Open it again and try.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t insert this snippet. Open it again and try."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo insertar este snippet. Ábrelo de nuevo e inténtalo otra vez."
+          }
+        }
+      }
+    },
+    "Clips couldn’t be loaded. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clips couldn’t be loaded. Try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron cargar los clips. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "Copy something to start your history.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy something to start your history."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia algo para empezar tu historial."
+          }
+        }
+      }
+    },
+    "Loading clips…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading clips…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cargando clips…"
+          }
+        }
+      }
+    },
+    "Pin a clip from the history panel to keep it here.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pin a clip from the history panel to keep it here."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fija un clip desde el panel de historial para conservarlo aquí."
+          }
+        }
+      }
+    },
     "A support bundle couldn’t be saved.": {
       "localizations": {
         "es": {

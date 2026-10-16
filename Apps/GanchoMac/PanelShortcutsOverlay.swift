@@ -24,14 +24,13 @@ struct PanelShortcutsOverlay: View {
             HStack {
                 Text("Keyboard shortcuts").panelFont(.headline)
                 Spacer()
-                Button {
+                IconActionButton(
+                    "Close", systemImage: "xmark.circle.fill",
+                    identifier: "panel-shortcuts-close-button"
+                ) {
                     isPresented = false
-                } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close")
-                .accessibilityIdentifier("panel-shortcuts-close-button")
+                .foregroundStyle(.secondary)
             }
             shortcutLine(["↑", "↓"], "Move selection")
             shortcutLine(["⇧", "↑", "↓"], "Extend selection")

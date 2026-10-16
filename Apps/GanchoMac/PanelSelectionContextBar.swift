@@ -21,37 +21,23 @@ struct PanelSelectionContextBar: View {
                 .monospacedDigit()
                 .foregroundStyle(GanchoTokens.Palette.accent)
             Spacer(minLength: 0)
-            Button(action: copyCombined) {
-                Image(systemName: "doc.on.doc")
-            }
-            .help("Copy combined…")
-            .accessibilityLabel("Copy combined…")
-            .accessibilityIdentifier("selection-copy-combined-button")
-            Button(action: prepareAIContext) { Image(systemName: "text.document") }
-                .help("Prepare context for AI…")
-                .accessibilityLabel("Prepare context for AI…")
-                .accessibilityIdentifier("selection-ai-context-button")
-            Button(action: addToStack) {
-                Image(systemName: "square.stack.3d.up")
-            }
-            .help("Add to paste stack")
-            .accessibilityLabel("Add to paste stack")
-            .accessibilityIdentifier("selection-add-to-stack-button")
-
-            Button(action: addToBoard) {
-                Image(systemName: "square.stack")
-            }
-            .help("Add to board")
-            .accessibilityLabel("Add to board")
-            .accessibilityIdentifier("selection-add-to-board-button")
-
-            Button(role: .destructive, action: delete) {
-                Image(systemName: "trash")
-            }
-            .foregroundStyle(.red)
-            .help("Delete")
-            .accessibilityLabel("Delete")
-            .accessibilityIdentifier("selection-delete-button")
+            IconActionButton(
+                "Copy combined…", systemImage: "doc.on.doc",
+                identifier: "selection-copy-combined-button", action: copyCombined)
+            IconActionButton(
+                "Prepare context for AI…", systemImage: "text.document",
+                identifier: "selection-ai-context-button", action: prepareAIContext)
+            IconActionButton(
+                "Add to paste stack", systemImage: "square.stack.3d.up",
+                identifier: "selection-add-to-stack-button", action: addToStack)
+            IconActionButton(
+                "Add to board", systemImage: "square.stack",
+                identifier: "selection-add-to-board-button", action: addToBoard)
+            IconActionButton(
+                "Delete", systemImage: "trash", identifier: "selection-delete-button",
+                role: .destructive, action: delete
+            )
+            .foregroundStyle(GanchoTokens.Palette.danger)
 
             Divider().frame(height: 16)
             Button("Clear selection", action: clear)

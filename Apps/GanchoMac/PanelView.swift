@@ -167,7 +167,10 @@ struct PanelView: View {
             .keyboardShortcut("c", modifiers: [.command, .shift])
         }
         // A field being edited owns ⌘V and friends; these would act on the list behind it.
-        .disabled(peekIsEditingInline || showBoardPicker || showShortcuts)
+        .disabled(
+            peekIsEditingInline || showBoardPicker || showShortcuts
+                || presentedSheet != nil || boardSheet != nil || boardPendingDeletion != nil
+        )
         .opacity(0)
         .frame(width: 0, height: 0)
         .accessibilityHidden(true)
@@ -177,6 +180,7 @@ struct PanelView: View {
         // Keep lifecycle, surface, search updates, and sheets in separate expressions
         // so the panel also type-checks with the stable macOS 15 toolchain.
         panelContent
+            .environment(\.panelTypeScale, PanelTextSize.resolved(panelTextSizeRaw).scale)
             // A capture must not swap the peek, an inline edit or the board picker's
             // target out from under the user once they leave the search field.
             .onChange(of: peekIsEditingInline) { _, editing in
@@ -236,7 +240,6 @@ struct PanelView: View {
     }
 
     @ViewBuilder private var panelSurface: some View {
-        let panelTextSize = PanelTextSize.resolved(panelTextSizeRaw)
         // ONE surface for list and peek. The peek opens BESIDE the list (not a
         // modal) and follows the selected clip, Quick-Look-style, but it is part
         // of the same panel: a hairline separates the panes, never a gap, and
@@ -295,7 +298,6 @@ struct PanelView: View {
         // outline to show through.
         .ignoresSafeArea()
         .frame(minWidth: 720, minHeight: 460)
-        .environment(\.panelTypeScale, panelTextSize.scale)
         .background {
             #if DEBUG
                 if CommandLine.arguments.contains("-opaque-panel-for-ui-test") {
@@ -412,13 +414,14 @@ struct PanelView: View {
             // Load the peek for the selected clip, keyed on its id and debounced:
             // arrowing fast cancels the in-flight load, so only the clip you land on
             // is read and rendered — keeps navigation responsive.
-            .task(id: search.selectedItem?.id) {
+            .task(id: search.selectedItem.map(ClipContentVersion.init)) {
                 try? await Task.sleep(for: .milliseconds(60))
                 guard !Task.isCancelled else { return }
                 let store = model.store
-                await preview.load(search.selectedItem) { id in
-                    try await store.content(for: id)
-                }
+                await preview.load(
+                    search.selectedItem,
+                    loadMetadata: { id in try await store.item(id: id) },
+                    loadContent: { id in try await store.content(for: id) })
             }
     }
 
@@ -434,7 +437,7 @@ struct PanelView: View {
         if PanelAmbientTint.usesAccent(
             kind: selected.kind, isSensitive: selected.isSensitive,
             previewsHidden: model.preferences.isPrivateModePaused),
-            let accent = model.thumbnails.cachedAccent(for: selected.id)
+            let accent = model.thumbnails.cachedAccent(for: selected)
         {
             return accent.color
         }
@@ -929,7 +932,11 @@ struct PanelView: View {
                     .modifier(RailGlide(namespace: namespace))
             }
         }
-        .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+        .foregroundStyle(
+            isActive
+                ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                : AnyShapeStyle(.secondary)
+        )
         .overlay(railRing(isFocused))
         .contentShape(Capsule())
     }
@@ -1175,7 +1182,7 @@ struct PanelView: View {
             )
             // Load this image's thumbnail once it scrolls into view (LazyVStack
             // builds only visible rows — the view-level virtual scrolling).
-            .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+            .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
             // Pull the next page when this row is near the end (infinite scroll).
             .onAppear {
                 guard let index = search.visibleIndex(of: item.id) else { return }
@@ -1295,7 +1302,7 @@ struct PanelView: View {
                 item: item, isSelected: search.isSelected(item.id),
                 previewsHidden: model.preferences.isPrivateModePaused,
                 shortcutNumber: shortcutNumber,
-                thumbnail: model.thumbnails.cached(for: item.id),
+                thumbnail: model.thumbnails.cached(for: item),
                 // Only the anchor claims the gliding highlight: two rows sharing one
                 // matched id (a ⇧ range) would log and draw nothing.
                 selectionNamespace: selectionNamespace,
@@ -1372,7 +1379,9 @@ struct PanelView: View {
         pasteTask?.cancel()
     }
 
-    private func pasteSelected(plain: Bool, includingSnippet: Bool = false) {
+    private func pasteSelected(
+        plain: Bool, includingSnippet: Bool = false, expectedSnippet: ClipContentVersion? = nil
+    ) {
         guard !showShortcuts else { return }
         let key = PanelSearchModel.PasteRequestKey(
             interaction: search.pasteInteractionID, plain: plain,
@@ -1392,8 +1401,14 @@ struct PanelView: View {
                 includingSnippet: includingSnippet, requestID: request)
             guard let target, !Task.isCancelled
             else { return }
+            if let expectedSnippet {
+                guard target.isSnippet, ClipContentVersion(target.item) == expectedSnippet else {
+                    model.reportSnippetUnavailable()
+                    return
+                }
+            }
             if target.isSnippet {
-                invokeSnippet(target.item)
+                await invokeSnippet(target.item, interaction: key.interaction)
             } else {
                 model.paste(target.item, asPlainText: plain)
             }
@@ -1509,7 +1524,8 @@ struct PanelView: View {
     /// the primary action when present.
     private func snippetBanner(_ snippet: ClipItem) -> some View {
         Button {
-            invokeSnippet(snippet)
+            pasteSelected(
+                plain: false, includingSnippet: true, expectedSnippet: ClipContentVersion(snippet))
         } label: {
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 Image(systemName: "bolt.fill").panelFont(.caption)
@@ -1534,19 +1550,16 @@ struct PanelView: View {
 
     /// Invoke a snippet: fill its {fields} via a sheet if it's a template,
     /// otherwise paste straight away (incrementing its usage count).
-    private func invokeSnippet(_ snippet: ClipItem) {
-        Task {
-            var body = ""
-            if case .text(let text)? = try? await model.store.content(for: snippet.id) {
-                body = text
-            }
-            let fields = SnippetTemplate.fields(in: body)
-            if fields.isEmpty {
-                model.pasteSnippet(snippet, values: [:])
-            } else {
-                presentedSheet = .snippet(
-                    SnippetFillRequest(snippet: snippet, body: body, fields: fields))
-            }
+    private func invokeSnippet(_ snippet: ClipItem, interaction: UUID) async {
+        guard let body = await model.snippetBody(for: snippet),
+            !Task.isCancelled, search.pasteInteractionID == interaction
+        else { return }
+        let fields = SnippetTemplate.fields(in: body)
+        if fields.isEmpty {
+            model.pasteSnippet(snippet, values: [:])
+        } else {
+            presentedSheet = .snippet(
+                SnippetFillRequest(snippet: snippet, body: body, fields: fields))
         }
     }
 }

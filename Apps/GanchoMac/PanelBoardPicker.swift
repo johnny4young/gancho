@@ -17,6 +17,9 @@ struct PanelBoardPicker: View {
     @State private var memberIDs: Set<UUID> = []
     @State private var selection = 0
     @State private var isCreating = false
+    @State private var membershipLoaded = false
+    @State private var pendingBoardIDs: Set<UUID> = []
+    @State private var membershipRequest = UUID()
     @FocusState private var fieldFocused: Bool
 
     private var matches: [Pinboard] { BoardPickerFilter.matches(model.boards, query: filter) }
@@ -40,12 +43,20 @@ struct PanelBoardPicker: View {
             card
         }
         .transition(.opacity)
-        .task(id: items.map(\.id)) { memberIDs = await model.commonBoardMembership(for: items) }
+        .task(id: items.map(\.id)) { await refreshMembership(resetting: true) }
     }
 
     private var card: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-            Text("Add to board").panelFont(.headline)
+            HStack {
+                Text("Add to board").panelFont(.headline)
+                Spacer(minLength: 0)
+                IconActionButton(
+                    "Close", systemImage: "xmark.circle.fill",
+                    identifier: "board-picker-close-button", action: onClose
+                )
+                .foregroundStyle(.secondary)
+            }
             TextField("Filter or new board name", text: $filter)
                 .accessibilityIdentifier("board-picker-filter")
                 .textFieldStyle(.roundedBorder)
@@ -112,47 +123,57 @@ struct PanelBoardPicker: View {
 
     private func boardRow(_ board: Pinboard, index: Int) -> some View {
         let isMember = memberIDs.contains(board.id)
-        return HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: isMember ? "checkmark.circle.fill" : board.sfSymbol)
-                .foregroundStyle(isMember ? GanchoTokens.Palette.accent : Color.secondary)
-            board.displayTitle
-            Spacer(minLength: 0)
+        return Button {
+            toggle(board)
+        } label: {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                Image(systemName: isMember ? "checkmark.circle.fill" : board.sfSymbol)
+                    .foregroundStyle(isMember ? GanchoTokens.Palette.accent : Color.secondary)
+                board.displayTitle
+                Spacer(minLength: 0)
+            }
+            .panelFont(.callout)
+            .padding(.horizontal, GanchoTokens.Spacing.xs)
+            .padding(.vertical, 5)
+            .background(
+                index == selection
+                    ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.14))
+                    : AnyShapeStyle(.clear),
+                in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+            )
+            .contentShape(Rectangle())
         }
-        .panelFont(.callout)
-        .padding(.horizontal, GanchoTokens.Spacing.xs)
-        .padding(.vertical, 5)
-        .background(
-            index == selection
-                ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.14))
-                : AnyShapeStyle(.clear),
-            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture { toggle(board) }
-        .accessibilityElement(children: .combine)
+        .buttonStyle(.plain)
+        .focusable(false)
+        .disabled(!membershipLoaded || pendingBoardIDs.contains(board.id))
         .accessibilityValue(isMember ? Text("Selected") : Text("Not selected"))
         .accessibilityIdentifier("board-picker-board-row")
     }
 
     private func createRow(index: Int) -> some View {
-        HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: "plus.circle.fill").foregroundStyle(GanchoTokens.Palette.accent)
-            Text(isCreating ? "Creating board…" : "New board")
-            Text(verbatim: "“\(trimmedFilter)”").foregroundStyle(.secondary)
-            Spacer(minLength: 0)
+        Button {
+            createIfPossible()
+        } label: {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                Image(systemName: "plus.circle.fill").foregroundStyle(GanchoTokens.Palette.accent)
+                Text(isCreating ? "Creating board…" : "New board")
+                Text(verbatim: "“\(trimmedFilter)”").foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            .panelFont(.callout)
+            .padding(.horizontal, GanchoTokens.Spacing.xs)
+            .padding(.vertical, 5)
+            .background(
+                index == selection
+                    ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.14))
+                    : AnyShapeStyle(.clear),
+                in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
+            )
+            .contentShape(Rectangle())
         }
-        .panelFont(.callout)
-        .padding(.horizontal, GanchoTokens.Spacing.xs)
-        .padding(.vertical, 5)
-        .background(
-            index == selection
-                ? AnyShapeStyle(GanchoTokens.Palette.accent.opacity(0.14))
-                : AnyShapeStyle(.clear),
-            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture { createIfPossible() }
-        .accessibilityElement(children: .combine)
+        .buttonStyle(.plain)
+        .focusable(false)
+        .disabled(isCreating)
         .accessibilityIdentifier("board-picker-create-row")
     }
 
@@ -176,11 +197,25 @@ struct PanelBoardPicker: View {
     }
 
     private func toggle(_ board: Pinboard) {
+        guard membershipLoaded, pendingBoardIDs.insert(board.id).inserted else { return }
         let member = memberIDs.contains(board.id)
         Task {
+            defer { pendingBoardIDs.remove(board.id) }
             await model.setBoardMembership(items, board: board, member: !member)
-            memberIDs = await model.commonBoardMembership(for: items)
+            await refreshMembership()
         }
+    }
+
+    /// Only a new target locks every row; a refresh after a toggle keeps the
+    /// other rows usable, so fast ↩ presses on different boards all apply.
+    private func refreshMembership(resetting: Bool = false) async {
+        let request = UUID()
+        membershipRequest = request
+        if resetting { membershipLoaded = false }
+        let ids = await model.commonBoardMembership(for: items)
+        guard !Task.isCancelled, membershipRequest == request else { return }
+        memberIDs = ids
+        membershipLoaded = true
     }
 
     private func createIfPossible() {

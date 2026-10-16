@@ -2,9 +2,6 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-// Extracted from SettingsView.swift on the DenylistSettingsSection precedent:
-// the About tab is self-contained, and the settings file sits at the lint
-// file-length ceiling.
 /// The About screen: a centered app hero, a details card (version, author,
 /// license), and the project links — with a manual update check on the
 /// direct-download build. Scrolls so nothing is clipped in the short window.

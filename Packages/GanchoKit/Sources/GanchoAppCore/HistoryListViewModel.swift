@@ -22,15 +22,24 @@ public typealias HistoryListSource = ClipListSource
     }
     /// Date-grouped sections (Pinned + Today/Yesterday/…) for the recent view.
     public var sections: [ClipSectionGroup] = []
-    public var query = ""
+    public var query = "" {
+        didSet { if query != oldValue { invalidateRequests() } }
+    }
     public var kindFilter: ClipContentKind? {
-        didSet { rebuildVisible() }
+        didSet {
+            if kindFilter != oldValue { invalidateRequests() }
+            rebuildSections()
+        }
     }
     /// nil = "All clips"; otherwise the selected board.
-    public var selectedBoardID: UUID?
+    public var selectedBoardID: UUID? {
+        didSet { if selectedBoardID != oldValue { invalidateRequests() } }
+    }
     /// nil = all apps; otherwise the source bundle identifier intersected with
     /// text, type, and board filters.
-    public var selectedSourceAppBundleID: String?
+    public var selectedSourceAppBundleID: String? {
+        didSet { if selectedSourceAppBundleID != oldValue { invalidateRequests() } }
+    }
     public var sourceApps: [ClipSourceApp] = []
 
     var reachedEnd = false
@@ -87,9 +96,18 @@ public typealias HistoryListSource = ClipListSource
     /// list with a page taken BEFORE the clip existed and the fresh clip
     /// vanished until the next refresh.
     private var searchGeneration = 0
+    private var pageRequest: UUID?
+
+    /// Both searches and pages belong to one request generation. An old page
+    /// cannot append to a same-sized refresh or clear a newer page's spinner.
+    private func invalidateRequests() {
+        searchGeneration += 1
+        pageRequest = nil
+        isLoadingMore = false
+    }
 
     public func search() async {
-        searchGeneration += 1
+        invalidateRequests()
         let generation = searchGeneration
         // iOS pushes the kind filter into SQL; macOS narrows on the client
         // because its filter also feeds de-duplication and selection. That is
@@ -99,7 +117,7 @@ public typealias HistoryListSource = ClipListSource
             query: query, boardID: selectedBoardID,
             sourceAppBundleID: selectedSourceAppBundleID,
             kinds: kindFilter.map { [$0] })
-        guard generation == searchGeneration else { return }
+        guard generation == searchGeneration, !Task.isCancelled else { return }
         captures = page.items
         reachedEnd = page.reachedEnd
         rebuildSections()
@@ -111,8 +129,16 @@ public typealias HistoryListSource = ClipListSource
         guard isPaginatedView, !isLoadingMore, !reachedEnd,
             loadMoreTriggerIDs.contains(item.id)
         else { return }
+        let request = UUID()
+        let generation = searchGeneration
+        pageRequest = request
         isLoadingMore = true
-        defer { isLoadingMore = false }
+        defer {
+            if pageRequest == request {
+                pageRequest = nil
+                isLoadingMore = false
+            }
+        }
         let board = selectedBoardID
         let offset = captures.count
         let page = await core.nextPage(after: offset, boardID: board)
@@ -120,7 +146,9 @@ public typealias HistoryListSource = ClipListSource
         // or switched); only append if still extending the same list. The guard
         // stays here rather than in the core because it reads state only this
         // model has.
-        guard isPaginatedView, selectedBoardID == board, captures.count == offset else { return }
+        guard generation == searchGeneration, pageRequest == request, !Task.isCancelled,
+            isPaginatedView, selectedBoardID == board, captures.count == offset
+        else { return }
         captures.append(contentsOf: page.items)
         if page.reachedEnd { reachedEnd = true }
         rebuildSections()

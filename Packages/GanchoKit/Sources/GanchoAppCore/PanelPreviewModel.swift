@@ -18,7 +18,7 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
 /// adds the panel-specific identity, cancellation, stale-result, and editability
 /// policy that does not belong in SwiftUI.
 @MainActor @Observable public final class PanelPreviewModel {
-    private var selectedItemID: UUID?
+    private var selectedVersion: ClipContentVersion?
     private var text = ""
     private var isTextEditable = false
 
@@ -33,7 +33,9 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
     /// render immediately after selection changes while the new task is still
     /// debouncing without exposing the previously selected clip.
     public func presentation(for item: ClipItem) -> PanelPreviewPresentation {
-        guard selectedItemID == item.id else {
+        guard !ClipSafePresentation.requiresMasking(item),
+            selectedVersion == ClipContentVersion(item)
+        else {
             return Self.metadataPresentation(for: item)
         }
         return PanelPreviewPresentation(text: text, isTextEditable: isTextEditable)
@@ -41,23 +43,26 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
 
     /// Loads one selected clip and applies its result only while that exact
     /// request remains current. Cancellation is checked before durable content
-    /// access and again before applying the result.
+    /// access and again before applying the result. `loadMetadata` re-reads the
+    /// persisted row afterwards, so an edit or protection change during the
+    /// read never publishes text under the selection's older revision.
     public func load(
         _ item: ClipItem?,
+        loadMetadata: (@Sendable (UUID) async throws -> ClipItem?)? = nil,
         loadContent: @Sendable (UUID) async throws -> ClipContent?
     ) async {
         loadGeneration &+= 1
         let generation = loadGeneration
 
         guard let item else {
-            selectedItemID = nil
+            selectedVersion = nil
             text = ""
             isTextEditable = false
             return
         }
 
         let metadata = Self.metadataPresentation(for: item)
-        selectedItemID = item.id
+        selectedVersion = ClipContentVersion(item)
         text = metadata.text
         isTextEditable = false
 
@@ -67,10 +72,15 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
         guard !Task.isCancelled else { return }
 
         let payload = await loader.load(item, loadContent: loadContent)
+        if let loadMetadata {
+            guard let current = try? await loadMetadata(item.id),
+                ClipContentVersion(current) == ClipContentVersion(item)
+            else { return }
+        }
         guard
             !Task.isCancelled,
             loadGeneration == generation,
-            selectedItemID == item.id
+            selectedVersion == ClipContentVersion(item)
         else { return }
 
         switch payload {

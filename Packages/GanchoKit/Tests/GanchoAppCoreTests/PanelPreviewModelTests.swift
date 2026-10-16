@@ -39,9 +39,74 @@ private actor SuspendedPanelPreviewContent {
     }
 }
 
+private actor PersistedPreviewMetadata {
+    var item: ClipItem
+    init(_ item: ClipItem) { self.item = item }
+    func protect() { item.isSensitive = true }
+}
+
 @MainActor
 @Suite("Panel preview model")
 struct PanelPreviewModelTests {
+    @Test("A row protected in storage during the read never publishes its text")
+    func storageProtectionDuringReadKeepsMetadata() async {
+        let item = ClipItem(kind: .text, preview: "safe preview", contentHash: "protected-later")
+        let persisted = PersistedPreviewMetadata(item)
+        let suspended = SuspendedPanelPreviewContent()
+        let model = PanelPreviewModel()
+
+        let load = Task { @MainActor in
+            await model.load(
+                item, loadMetadata: { _ in await persisted.item },
+                loadContent: { _ in await suspended.load() })
+        }
+        await suspended.waitUntilStarted()
+        await persisted.protect()
+        await suspended.resume(returning: .text("now-protected body"))
+        await load.value
+
+        let presentation = model.presentation(for: item)
+        #expect(presentation.text == "safe preview")
+        #expect(!presentation.isTextEditable)
+    }
+
+    @Test(
+        "A persisted text edit invalidates the preview even though its deduplication hash stays unchanged"
+    )
+    func storedEditInvalidatesPreview() async throws {
+        let directory = URL.temporaryDirectory.appendingPathComponent(
+            "gancho-preview-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try GRDBClipboardStore(
+            directory: directory, passphrase: "synthetic-preview-passphrase")
+        let original = ClipItem(preview: "Synthetic original", contentHash: "deduplication-key")
+        _ = try await store.insert(original, content: .text("Synthetic original body"))
+        let model = PanelPreviewModel()
+        await model.load(original) { id in try await store.content(for: id) }
+        try await store.updateClipText(id: original.id, text: "Synthetic edited body")
+        let edited = try #require(try await store.item(id: original.id))
+        #expect(edited.contentHash == original.contentHash)
+        #expect(edited.updatedAt != original.updatedAt)
+        #expect(model.presentation(for: edited).text == edited.preview)
+        #expect(!model.presentation(for: edited).isTextEditable)
+        await model.load(edited) { id in try await store.content(for: id) }
+        #expect(model.presentation(for: edited).text == "Synthetic edited body")
+    }
+
+    @Test("The same clip id cannot reuse text after its content or privacy classification changes")
+    func sameIDWithNewContentFallsBackImmediately() async {
+        var item = ClipItem(kind: .text, preview: "original preview", contentHash: "original")
+        let model = PanelPreviewModel()
+        await model.load(item) { _ in .text("original body") }
+        item.contentHash = "edited"
+        item.preview = "edited preview"
+        #expect(model.presentation(for: item).text == "edited preview")
+        #expect(!model.presentation(for: item).isTextEditable)
+        item.isSensitive = true
+        #expect(model.presentation(for: item).text == ClipSafePresentation.masked)
+        #expect(!model.presentation(for: item).isTextEditable)
+    }
+
     @Test("Sensitive clips stay masked without reading durable content")
     func sensitiveClipFailsClosed() async {
         let item = ClipItem(

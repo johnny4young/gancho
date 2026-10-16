@@ -22,19 +22,14 @@ struct PanelStatusFooter: View {
             keyboardHint("navigate", keys: ["arrow.up", "arrow.down"])
             keyboardHint("actions", keys: ["arrow.right"])
             keyboardHint("paste", keys: ["return"])
-            Button(action: showKeyboardShortcuts) {
-                Image(systemName: "questionmark.circle")
-                    .panelFont(size: 11, .semibold)
-                    .frame(width: 20 * typeScale, height: 20 * typeScale)
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .help("Keyboard shortcuts (⌘/)")
-            .accessibilityLabel("Keyboard shortcuts")
-            .accessibilityIdentifier("panel-shortcuts-button")
+            IconActionButton(
+                "Keyboard shortcuts", systemImage: "questionmark.circle",
+                identifier: "panel-shortcuts-button", help: "Keyboard shortcuts (⌘/)",
+                action: showKeyboardShortcuts
+            )
         }
         .panelFont(.caption2)
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(.secondary)
         .padding(.top, GanchoTokens.Spacing.xxs)
         .padding(.horizontal, GanchoTokens.Spacing.xxs)
     }

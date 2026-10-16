@@ -91,6 +91,7 @@ struct CaptureView: View {
                 }
                 .refreshable { await model.forceSync() }
                 .accessibilityIdentifier("capture-screen")
+                .reuseSuggestionInset()
             }
         }
         .captureShell(activeSheet: $activeSheet) { clip in
@@ -194,10 +195,10 @@ struct CaptureView: View {
         Button {
             activeSheet = .peek(item)
         } label: {
-            ClipCard(item: item, thumbnail: model.thumbnails.cached(for: item.id))
+            ClipCard(item: item, thumbnail: model.thumbnails.cached(for: item))
         }
         .buttonStyle(.plain)
-        .task(id: item.id) { await model.thumbnails.ensureLoaded(item) }
+        .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
         .onAppear { Task { await model.loadMoreIfNeeded(item) } }
         .clipRowActions(item, model: model) { activeSheet = .move(item) }
     }
@@ -300,7 +301,10 @@ struct CaptureView: View {
                 isActive ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.quaternary),
                 in: Capsule()
             )
-            .foregroundStyle(isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+            .foregroundStyle(
+                isActive
+                    ? AnyShapeStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                    : AnyShapeStyle(.primary))
         }
         .buttonStyle(.plain)
     }
@@ -454,7 +458,7 @@ struct PasteControlView: UIViewRepresentable {
         config.cornerStyle = .capsule
         config.displayMode = .iconAndLabel
         config.baseBackgroundColor = UIColor(GanchoTokens.Palette.accent)
-        config.baseForegroundColor = .white
+        config.baseForegroundColor = .black
         let control = UIPasteControl(configuration: config)
         control.target = context.coordinator.target
         // The identifier and label assistive tech sees come from the SwiftUI
