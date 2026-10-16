@@ -7,37 +7,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- Update SQLCipher to 4.19.0 and Sparkle to 2.10.0. KeyboardShortcuts stays
-  at 3.0.1 because 3.1.0 repeats a shortcut pressed while a menu is open.
-
-### Fixed
-
-- Keep Library scopes, counts, and snippets current after confirmed mutations;
-  preserve loaded pages and drafts, and offer recovery when reads fail.
-- Reject stale iOS pages and superseded previews, thumbnails, and snippet
-  templates; retain kind filters when secure storage falls back to memory.
-- Improve accent contrast, icon hit areas, and accessible Settings and board
-  actions; keep long-template actions and the iOS Paste toolbar reachable.
-- Preserve transparency in eight-digit color previews and bound long-text
-  preview work without splitting composed characters.
-
-- Record a shortcut Gancho already uses again in Settings or onboarding,
-  instead of the recorder staying stuck waiting for input.
-
-- Import CSV records with CRLF line endings and preserve combining-mark text
-  and quoted newlines while retaining formula protection when exporting and
-  importing clips.
-
-- Refresh exact snippet keyword matches before pasting after a search
-  invalidation, while preserving the selected row and loaded pages for an
-  unchanged search.
-
-- Preserve queued iCloud deletions when an older upload conflict or automatic
-  retry finishes after the local deletion.
-
-## [0.10.0] - 2026-10-09
+## [0.10.0] - 2026-10-15
 
 ### Added
 
@@ -65,7 +35,48 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restore deleted default text recipes from the recipe editor without touching
   recipes you kept or edited.
 
+### Changed
+
+- Update SQLCipher to 4.19.0 and Sparkle to 2.10.0. KeyboardShortcuts stays
+  at 3.0.1 because 3.1.0 repeats a shortcut pressed while a menu is open.
+
 ### Fixed
+
+- Keep Library scopes, counts, and snippets current after confirmed mutations;
+  preserve loaded pages and drafts, and offer recovery when reads fail.
+
+- Reject stale iOS pages and superseded previews, thumbnails, and snippet
+  templates; retain kind filters when secure storage falls back to memory.
+
+- Improve accent contrast, icon hit areas, and accessible Settings and board
+  actions; keep long-template actions and the iOS Paste toolbar reachable.
+
+- Preserve transparency in eight-digit color previews and bound long-text
+  preview work without splitting composed characters.
+
+- Record a shortcut Gancho already uses again in Settings or onboarding,
+  instead of the recorder staying stuck waiting for input.
+
+- Import CSV records with CRLF line endings and preserve combining-mark text
+  and quoted newlines while retaining formula protection when exporting and
+  importing clips.
+
+- Refresh exact snippet keyword matches before pasting after a search
+  invalidation, while preserving the selected row and loaded pages for an
+  unchanged search.
+
+- Preserve queued iCloud deletions when an older upload conflict or automatic
+  retry finishes after the local deletion.
+
+- Scroll the history panel without redrawing every thumbnail, and copy without
+  re-indexing Spotlight or refreshing a closed Library each time.
+
+- Toggle several boards in a row with Return in the board picker, and keep the
+  ⌘/ shortcut hint in the footer's Keyboard shortcuts tooltip.
+
+- Never show a preview, thumbnail or snippet body that changed or became
+  protected while it was loading, and explain why a stale snippet suggestion
+  does not insert.
 
 - Keep a board you deleted gone while iCloud sync is still sending the
   deletion, instead of letting an incoming copy of the board, or a clip that
