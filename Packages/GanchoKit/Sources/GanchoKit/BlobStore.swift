@@ -61,14 +61,13 @@ public struct BlobStore: Sendable {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         let file = blobURL(for: hash)
-        // Re-encode only when the file is missing or a pre-encryption plaintext
-        // blob; an existing sealed (or key-less) blob is already correct. The
-        // check reads the header bytes, never the whole file.
-        let needsWrite =
-            !FileManager.default.fileExists(atPath: file.path)
-            || (encryptionKeyData != nil && !Self.isEncryptedFileOnDisk(file))
-        if needsWrite {
+        // A file left by an earlier store generation may be sealed under a key
+        // this store no longer has; reusing it would make the new row unreadable.
+        if !opensWithCurrentKey(file) {
             try encodeForDisk(data).write(to: file, options: .atomic)
+            // Its cached thumbnail came from the same generation; payloads too
+            // large to warm below must rebuild it lazily rather than reuse it.
+            try? FileManager.default.removeItem(at: thumbnailURLIfCached(for: hash))
         }
         // Warm the thumbnail from the in-memory data so memory-tight readers
         // (the keyboard) never load the full blob just to build it. Large
@@ -118,8 +117,7 @@ public struct BlobStore: Sendable {
     /// non-images or when the thumbnail is already cached.
     func cacheThumbnail(for hash: String, from data: Data) throws {
         let cached = thumbnailURLIfCached(for: hash)
-        guard !FileManager.default.fileExists(atPath: cached.path),
-            let thumbnail = Self.makeThumbnailData(from: data)
+        guard !opensWithCurrentKey(cached), let thumbnail = Self.makeThumbnailData(from: data)
         else { return }
         try FileManager.default.createDirectory(
             at: thumbnailDirectory, withIntermediateDirectories: true)
@@ -193,6 +191,28 @@ public struct BlobStore: Sendable {
         let modified = try? blobURL(for: name)
             .resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
         return modified.map { $0 < cutoff } ?? false
+    }
+
+    /// True only when the blob is on disk, sealed, and this store's key cannot
+    /// open it (another key, or a damaged envelope): bytes no retry recovers. A
+    /// failed read or a keyless store, which cannot judge, is not reported.
+    func isSealedUnderAnotherKey(hash: String) -> Bool {
+        guard let encryptionKeyData,
+            let stored = try? Data(contentsOf: blobURL(for: hash)),
+            SealedEnvelope.isSealed(stored)
+        else { return false }
+        return (try? SealedEnvelope.open(stored, key: encryptionKeyData)) == nil
+    }
+
+    /// Whether an existing file can be kept as is. With a key, that means sealed
+    /// and authenticated under it, so a plaintext or foreign-keyed file is rewritten.
+    private func opensWithCurrentKey(_ file: URL) -> Bool {
+        guard let encryptionKeyData else {
+            return FileManager.default.fileExists(atPath: file.path)
+        }
+        guard let stored = try? Data(contentsOf: file), SealedEnvelope.isSealed(stored)
+        else { return false }
+        return (try? SealedEnvelope.open(stored, key: encryptionKeyData)) != nil
     }
 
     private func blobURL(for hash: String) -> URL {

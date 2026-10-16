@@ -4049,6 +4049,116 @@
           }
         }
       }
+    },
+    "Unreadable clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clips ilegibles"
+          }
+        }
+      }
+    },
+    "%lld clips can’t be opened": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clip can’t be opened"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clips can’t be opened"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No se puede abrir %lld clip"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No se pueden abrir %lld clips"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Remove unreadable clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar clips ilegibles"
+          }
+        }
+      }
+    },
+    "Remove unreadable clips?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Eliminar los clips ilegibles?"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar"
+          }
+        }
+      }
+    },
+    "Couldn’t delete every clip — the ones that remain were kept.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron eliminar todos los clips; los que quedan se conservaron."
+          }
+        }
+      }
+    },
+    "They’re removed from this device only; iCloud and your other devices aren’t touched.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se eliminan solo de este dispositivo; iCloud y tus otros dispositivos no cambian."
+          }
+        }
+      }
+    },
+    "This iPhone’s encryption key can’t open their stored content, which may have been sealed by an earlier key or damaged. They can’t be pasted or synced.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La clave de cifrado de este iPhone no puede abrir su contenido guardado, que quizá se selló con una clave anterior o se dañó. No se pueden pegar ni sincronizar."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

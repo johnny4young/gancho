@@ -955,6 +955,20 @@ final class AppModel {
         try? await fullStore?.clearPrivateActivityReceipt()
     }
 
+    /// How many clips without a sync record this Mac's key can't open. Zero
+    /// when the scan fails.
+    func unrecoverableClipCount() async -> Int {
+        (try? await fullStore?.unrecoverableLocalClipIDs().count) ?? 0
+    }
+
+    func removeUnrecoverableClips() async {
+        guard let fullStore,
+            let outcome = await UnrecoverableClipRemoval().remove(scanner: fullStore, store: store)
+        else { return }
+        reportDeletionFailure(outcome)
+        notifyStoreChanged(for: .clips)
+    }
+
     func recordActivationMilestone(_ milestone: ActivationMilestone) {
         guard telemetryConsent != .disabled,
             let receipt = activationTracker.record(milestone)
