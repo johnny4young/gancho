@@ -16,35 +16,31 @@
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20·%20iOS%20·%20iPadOS-blue)
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
-**Status: public v0.9.1; in active development toward 1.0.**
-**Source version: v0.10.0 (unreleased).** The published v0.9.1 direct download
-requires macOS 15.4+ (build 18). Local history and manual OCR are Free; Pro
-activation through Lemon Squeezy is included. The on-device model tier requires
-macOS 26. The v0.10.0 source adds text recipes, off-by-default meaning
-suggestions, selected context for AI tools and translation with installed
-languages on macOS 26, opens a solid panel on the newest clip, keeps the open
-Library current, and hardens privacy, sync, contrast and keyboard handling; it
-is not yet a published build. See its
-[release notes](docs/releases/v0.10.0.md).
+**Status: public v0.10.0; in active development toward 1.0.**
+**Source version: v0.10.0.** The published direct download requires macOS 15.4+
+(build 19). Local history and manual OCR are Free; Pro activation through
+Lemon Squeezy is included. The on-device model tier requires macOS 26.
 
 ![The Gancho panel, solid by default, with a link peek and developer actions collapsed](site/assets/v0.10.0-release.png)
 
-*v0.10.0 candidate with synthetic fixtures; not evidence of a published release.*
+*v0.10.0 with synthetic fixtures: the panel opens solid on the newest clip, with developer actions behind More actions.*
 
-[Download v0.9.1](https://github.com/johnny4young/gancho/releases/tag/v0.9.1)
-for the redesigned Mac panel with a Text size preference that scales it — one toolbar, a peek with a hero card and an
-action dock, motion behind Reduce Motion, an optional ambient colour and a
-gallery behind ⌘G — with snippet drafts that survive Library refreshes, on top
-of protected outbound paths, free OCR from images or screen regions, visual
-Library cards, encrypted local saved filters and combined text copying. The signed, notarized DMG,
-checksum and signed Sparkle feed are published; Homebrew distributes the same
+[Download v0.10.0](https://github.com/johnny4young/gancho/releases/tag/v0.10.0)
+for text recipes, off-by-default meaning suggestions, selected context for AI
+tools and translation with installed languages on macOS 26, in a panel that
+opens solid on the newest clip and a Library that stays current while open —
+with privacy, sync, contrast and keyboard hardening across the app — on top of
+the redesigned panel with its adjustable text size, protected outbound paths,
+free OCR from images or screen regions, visual Library cards, encrypted local
+saved filters and combined text copying. The signed, notarized DMG, checksum
+and signed Sparkle feed are published; Homebrew distributes the same
 artifact and bundled CLI. iOS/iPadOS targets require iOS 26, but App Store and
 TestFlight distribution remain in preparation.
 
 **Validation boundary:** the signed two-Mac matrix, real Sequoia, VoiceOver and
 screen-capture permission/display acceptance remain pending after publication.
 Use disposable data and backups for those checks; green CI and artifact QA do
-not certify them. See the [release notes](docs/releases/v0.9.1.md),
+not certify them. See the [release notes](docs/releases/v0.10.0.md),
 [changelog](CHANGELOG.md), and [release requirements](docs/RELEASING.md).
 
 ## The redesigned panel
@@ -218,7 +214,7 @@ stay in reusable modules.
 
 - `CKSyncEngine` over the user's private iCloud database behind the `SyncEngine`
   boundary (clips, board membership, deletions) with a visible sync status. Earlier
-  development builds passed real-device smoke; the signed v0.9.1 matrix remains
+  development builds passed real-device smoke; the signed v0.10.0 matrix remains
   pending and must use the released bytes.
 - `gancho` CLI and a local, opt-in MCP server with expiring, revocable
   per-client grants, explicit board/time context, independent read/write

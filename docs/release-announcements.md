@@ -11,6 +11,79 @@ Gancho: a local-first, encrypted clipboard history and snippet library for
 Mac (iPhone and iPad apps in the repository, not distributed yet). Free and MIT
 licensed; Pro is a one-time direct purchase. Site: https://gancho.app.
 
+## v0.10.0 — 2026-10-16
+
+Reviewed ways to reuse what you copied: text recipes you preview before copying, off-by-default meaning suggestions, and a one-hour, read-only handoff of exactly the clips you pick to an AI tool.
+
+![The Gancho panel, solid by default, with a link peek and developer actions collapsed](https://gancho.app/assets/v0.10.0-release.png)
+
+### X / Bluesky — 254 characters
+
+Gancho 0.10.0 (macOS): text recipes you preview before copying, off-by-default meaning suggestions, and one-hour read-only AI access to only the clips you pick. Panel opens solid on your newest clip. Recipes stay on the Mac. Free, MIT. https://gancho.app
+
+### Hacker News
+
+**Title:** `Show HN: Gancho 0.10 – local-first Mac clipboard manager, now with reviewed text recipes`
+
+**Text:**
+
+Gancho is a clipboard history and snippet library for macOS. History is SQLCipher-encrypted on the Mac, there are no servers of ours, and sync is optional through your own private iCloud database. 0.10.0 is about reusing what you copied without giving up that boundary.
+
+The rule behind every new feature is that nothing runs on your clipboard without you seeing the result first. Text recipes chain up to eight deterministic steps (clean OCR text, dedupe lines, redact personal data) and show the output before anything reaches the pasteboard. Three presets ship; recipes are encrypted on the Mac, never synced, and deleted presets can be restored.
+
+Selected context for AI tools works the same way. You pick clips, review them as bounded Markdown, and either copy that or grant an MCP client read-only access to exactly those clips for one hour. If a clip changes after you reviewed it, the grant stops serving it instead of handing over the new text.
+
+Meaning suggestions are off by default. Turn on "By meaning" and a separate "Related by meaning" section appears under the normal results, which stay exactly as they were. The semantic index is on-device and built only with Pro; on Free the panel says the clips are not indexed instead of pretending. On macOS 26, Translate now uses Apple's on-device Translation framework for language pairs you already installed, even without Apple Intelligence.
+
+The panel also changed: solid by default (the glass is one setting away), every open starts on the newest clip with search focused, and developer actions sit behind More actions. The open Library now follows edits made in the panel. An app-wide review tightened privacy and sync: expired clips disappear everywhere at once, metadata-only MCP access can no longer search clip bodies, deletions made while sync was off stay deleted, and the CLI refuses to save or copy secrets unless asked.
+
+Limits, honestly: macOS 15.4+ and macOS only; the iPhone/iPad apps are in the repo with no distribution path yet. Recipes are not synced and not included in backups yet. The signed two-Mac sync matrix, real Sequoia and VoiceOver checks are still pending on the released bytes.
+
+MIT licensed. The DMG and the Homebrew cask ship the same notarized bytes.
+
+### Reddit (r/macapps, r/opensource)
+
+**Title:** `Gancho 0.10.0 — open-source Mac clipboard manager adds text recipes and reviewed AI context (local-first, encrypted)`
+
+**Text:**
+
+Gancho keeps your clipboard history encrypted on your Mac and never sends what you copy anywhere. 0.10.0 adds ways to reuse clips, each one reviewed before it does anything:
+
+- Text recipes: up to eight deterministic steps (clean OCR text, dedupe lines, redact personal data), previewed before copying. Encrypted on the Mac, never synced.
+- By meaning (off by default): a separate section of related clips under your search; normal results are unchanged. Needs the Pro on-device index.
+- Selected context for AI: reviewed, bounded Markdown, or read-only MCP access to exactly those clips for one hour.
+- Translation with languages already installed on macOS 26, no Apple Intelligence required.
+- The panel opens solid on your newest clip; developer actions sit behind More actions.
+- Privacy and sync hardening across the app, including a CLI that refuses to save or copy secrets unless asked.
+
+Limits: macOS 15.4+ only, recipes aren't in backups yet, and cross-device sync is still unverified on a two-Mac matrix. Free and MIT; Pro is a one-time purchase.
+
+### Platform notes
+
+> macOS only. Meaning suggestions need the Pro semantic index; installed-pair translation needs macOS 26. The two-Mac sync matrix, real Sequoia and VoiceOver checks have not been run on the released bytes.
+
+### Links
+
+- Release: https://github.com/johnny4young/gancho/releases/tag/v0.10.0
+- Site: https://gancho.app
+- `brew tap johnny4young/tap && brew install --cask gancho`
+- Direct download: signed, notarized DMG on the release page (macOS 15.4+)
+
+## v0.9.1 — 2026-09-29
+
+The panel's Text size preference now actually scales the panel; in 0.9.0 Small, Standard and Large looked the same.
+
+### X / Bluesky — 227 characters
+
+Gancho 0.9.1 (macOS): Settings › Panel › Text size now really scales the panel (in 0.9.0 it changed nothing), and two sync failures that used to pass silently now leave a content-free note in Recent problems. https://gancho.app
+
+### Links
+
+- Release: https://github.com/johnny4young/gancho/releases/tag/v0.9.1
+- Site: https://gancho.app
+- `brew tap johnny4young/tap && brew install --cask gancho`
+- Direct download: signed, notarized DMG on the release page (macOS 15.4+)
+
 ## v0.9.0 — 2026-09-28
 
 The Mac history panel was redesigned: one toolbar, rows that show what each clip is, a peek with a hero card and an action dock, and nothing new that reads, stores or sends anything.

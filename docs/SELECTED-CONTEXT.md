@@ -30,7 +30,7 @@ See [Anthropic's MCP guide](https://code.claude.com/docs/en/mcp) for client scop
 
 Local extraction and formatting do not call a cloud service. A connected external client may send the content to its own model/provider: review that client's privacy policy before granting access. Read-only access prevents Gancho mutations, not downstream copying by the authorized recipient.
 
-This documents the source implementation after v0.9.1; it is not a claim that this workflow is already available in that published release.
+This workflow is published in v0.10.0.
 
 Grant creation and app/CLI policy updates read the latest local configuration under a nonblocking interprocess lock; contention produces an explicit retryable error instead of blocking the app. A malformed configuration is not replaced by a new grant; existing revocations remain intact. Snapshot `save` remains a low-level initialization API, not the runtime mutation route.
 
