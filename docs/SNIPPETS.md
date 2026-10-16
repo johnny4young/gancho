@@ -11,7 +11,7 @@ Protected content cannot become a permanent snippet. No draft is written to
 temporary files or synchronized implicitly. Closing and reopening the cached
 Library keeps its working copy; quitting the app does not persist unsaved drafts.
 
-This describes source behavior added after v0.9.1, not the published v0.9.1 app.
+This behavior is published in v0.10.0.
 
 Creating or demoting a snippet also checks the captured editor identity and
 fields after suspended writes. A newer edit keeps its editor rather than being

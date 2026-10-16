@@ -1,7 +1,7 @@
 # Scoped hybrid retrieval
 
-Implemented after v0.9.1 and not yet in a published release. It covers the
-retrieval engine and the opt-in panel suggestions described below.
+Published in v0.10.0. It covers the retrieval engine and the opt-in panel
+suggestions described below.
 
 ## Retrieval and privacy
 
