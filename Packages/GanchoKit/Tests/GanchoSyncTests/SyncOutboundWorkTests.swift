@@ -461,8 +461,27 @@ extension SyncOutboundWorkTests {
         #expect(prepared.records[unreadableID] == nil)
         #expect(prepared.unreadable == [unreadableID])
         #expect(Set(try await fixture.store.pendingUploadIDs()) == [good.id, unreadable.id])
+
+        // Once the healthy backlog has drained, the lone row still must not fail the batch.
+        let alone = try await fixture.work.prepare([unreadableID])
+        #expect(alone.records.isEmpty)
+        #expect(alone.unreadable == [unreadableID])
+    }
+
+    @Test("A store failure still throws when the batch also holds a skippable ID")
+    func storeFailureInMixedBatchThrows() async throws {
+        let fixture = try Fixture()
+        defer { fixture.clean() }
+        let item = try await fixture.insert()
+        let id = try fixture.record(item).recordID
+        let malformed = CKRecord.ID(recordName: "not-a-uuid", zoneID: fixture.work.clipZone)
+        let empty = try await fixture.work.prepare([malformed])
+        #expect(empty.records.isEmpty)
+        #expect(empty.unreadable.isEmpty)
+
+        try await fixture.writer.write { db in try db.execute(sql: "DROP TABLE clip") }
         await #expect(throws: (any Error).self) {
-            try await fixture.work.prepare([unreadableID])
+            try await fixture.work.prepare([malformed, id])
         }
     }
 
