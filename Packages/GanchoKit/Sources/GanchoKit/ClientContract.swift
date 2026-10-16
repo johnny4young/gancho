@@ -403,6 +403,10 @@ public protocol StoreMaintaining: Sendable {
     /// Reclaims space after large deletes. Runs on the store's writer queue —
     /// never the main thread.
     func vacuum() async throws
+
+    /// Clips without sync system fields (never uploaded, or cleared by an identity
+    /// reset) whose payload this store's key cannot open. Opens each blob.
+    func unrecoverableLocalClipIDs() async throws -> [UUID]
 }
 
 // MARK: - Compositions

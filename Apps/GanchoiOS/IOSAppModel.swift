@@ -842,6 +842,29 @@ final class IOSAppModel {
         refreshSpotlight()
     }
 
+    /// How many clips without a sync record this iPhone's key can't open. Zero
+    /// when the scan fails.
+    func unrecoverableClipCount() async -> Int {
+        (try? await full?.unrecoverableLocalClipIDs().count) ?? 0
+    }
+
+    func removeUnrecoverableClips() async {
+        guard let full,
+            let outcome = await UnrecoverableClipRemoval().remove(scanner: full, store: store)
+        else { return }
+        switch outcome {
+        case .deleted:
+            break
+        case .partial, .failed:
+            diagnostics.record(
+                String(localized: "History"),
+                String(localized: "Couldn’t delete every clip — the ones that remain were kept."))
+        }
+        await search()
+        reloadWidgets()
+        refreshSpotlight()
+    }
+
     /// Re-donates the curated Library to Spotlight (or wipes the domain when
     /// the toggle is off). Fire-and-forget at utility priority — a reconcile
     /// recomputes the whole small curated set, so it never needs to know WHAT
