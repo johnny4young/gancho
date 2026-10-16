@@ -33,15 +33,14 @@ struct SyncOutboundWork: Sendable {
         var unreadable: Set<CKRecord.ID> = []
     }
 
-    /// One unreadable row is skipped so it cannot hold back every later batch;
-    /// a batch in which every read fails is a store failure and throws.
+    /// One unreadable row is skipped so it cannot hold back every later batch.
+    /// A failure the store itself reproduces is a store failure and throws.
     func prepare(_ ids: [CKRecord.ID]) async throws -> PreparedUploads {
         var boards: [UUID: Pinboard] = [:]
         if ids.contains(where: { $0.zoneID == boardZone }) {
             for board in try await store.pendingBoardUploads() { boards[board.id] = board }
         }
         var prepared = PreparedUploads()
-        var lastFailure: (any Error)?
         do {
             for recordID in ids {
                 try Task.checkCancellation()
@@ -53,12 +52,9 @@ struct SyncOutboundWork: Sendable {
                 } catch is CancellationError {
                     throw CancellationError()
                 } catch {
+                    _ = try await store.pendingUploadCount()
                     prepared.unreadable.insert(recordID)
-                    lastFailure = error
                 }
-            }
-            if let lastFailure, prepared.unreadable.count == ids.count {
-                throw lastFailure
             }
             return prepared
         } catch {
@@ -75,9 +71,8 @@ struct SyncOutboundWork: Sendable {
     ) async throws
         -> CKRecord?
     {
-        guard let id = UUID(uuidString: recordID.recordName) else {
-            throw SyncOutboundFailure.invalidRecord
-        }
+        // No local row can stand behind a malformed or foreign record ID.
+        guard let id = UUID(uuidString: recordID.recordName) else { return nil }
         // Undecodable saved system fields fall back to a fresh record;
         // the server's conflict reply then restores a valid change tag.
         if recordID.zoneID == boardZone {
@@ -86,7 +81,7 @@ struct SyncOutboundWork: Sendable {
             return BoardRecordMapper.record(for: board, systemFields: fields, zoneID: boardZone)
                 ?? BoardRecordMapper.record(for: board, systemFields: nil, zoneID: boardZone)
         }
-        guard recordID.zoneID == clipZone else { throw SyncOutboundFailure.invalidRecord }
+        guard recordID.zoneID == clipZone else { return nil }
         guard let entry = try await store.pendingUpload(id: id) else { return nil }
         let fields = try await store.systemFields(for: id)
         let membership = Array(try await store.boardIDs(forClip: id))

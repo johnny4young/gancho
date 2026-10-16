@@ -645,12 +645,8 @@ extension CKSyncEngineAdapter: CKSyncEngineDelegate {
 
     /// Each poll retries the same rows, so only a newly unreadable one is logged.
     private func reportUnreadableUploads(_ unreadable: Set<CKRecord.ID>) {
-        guard !unreadable.isEmpty else {
-            reportedUnreadableUploads = []
-            return
-        }
         guard !unreadable.isSubset(of: reportedUnreadableUploads) else { return }
-        reportedUnreadableUploads = unreadable
+        reportedUnreadableUploads.formUnion(unreadable)
         diagnostics?.record(
             "Sync",
             "\(unreadable.count) pending upload(s) could not be read locally and were skipped; the rest continue."
