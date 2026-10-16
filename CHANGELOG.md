@@ -7,6 +7,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-16
+
 ### Fixed
 
 - Keep iCloud uploads moving when one clip's saved data can't be read on this
@@ -17,6 +19,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   mirror and Homebrew cask metadata with the published v0.10.0 DMG.
   Physical-device acceptance remains pending; the published app, tag and
   checksum are unchanged.
+
+- Stop describing text recipes, selected context and meaning suggestions
+  (shipped in 0.10.0) and copying text from the screen (shipped in 0.8.3) as
+  unreleased in the documentation.
 
 ## [0.10.0] - 2026-10-15
 
