@@ -39,7 +39,7 @@ unanswered queries; top-K is retrieval, not an abstention or confidence guarante
 A synthetic corpus does not prove all real-world relevance; raw output and the
 toolchain used belong with the evaluation evidence, not in product claims.
 
-## Explicit panel suggestions (unreleased)
+## Explicit panel suggestions
 
 The macOS panel's **By meaning** action starts disabled. It adds a separate
 **Related by meaning** section after existing conventional results. Arrival never
