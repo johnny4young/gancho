@@ -971,10 +971,20 @@ final class AppModel {
         }
     }
 
-    /// Synced clips this Mac's key can't open that iCloud couldn't restore.
-    /// Zero when the scan fails.
+    /// Synced clips this Mac's key can't open that iCloud couldn't restore. A
+    /// failed scan reads as zero and is recorded in Recent issues.
     func unrecoverableSyncedClipCount() async -> Int {
-        (try? await fullStore?.unrecoverableSyncedClipIDs().count) ?? 0
+        guard let fullStore else { return 0 }
+        do {
+            return try await fullStore.unrecoverableSyncedClipIDs().count
+        } catch is CancellationError {
+            return 0
+        } catch {
+            diagnostics.record(
+                String(localized: "History"),
+                String(localized: "Couldn’t check for unreadable clips."))
+            return 0
+        }
     }
 
     func removeUnrecoverableClips() async {
