@@ -11,6 +11,21 @@ Gancho: a local-first, encrypted clipboard history and snippet library for
 Mac (iPhone and iPad apps in the repository, not distributed yet). Free and MIT
 licensed; Pro is a one-time direct purchase. Site: https://gancho.app.
 
+## v0.10.2 — 2026-10-16
+
+Clips whose stored image or file was left under an earlier encryption key are repaired, restored from iCloud, or counted and removable in the Privacy Center.
+
+### X / Bluesky — 246 characters
+
+Gancho 0.10.2 (macOS): images and files left encrypted under an earlier key are repaired when you copy them again or restored from iCloud; the Privacy Center counts the rest and can remove them from this device only. Free, MIT. https://gancho.app
+
+### Links
+
+- Release: https://github.com/johnny4young/gancho/releases/tag/v0.10.2
+- Site: https://gancho.app
+- `brew tap johnny4young/tap && brew install --cask gancho`
+- Direct download: signed, notarized DMG on the release page (macOS 15.4+)
+
 ## v0.10.1 — 2026-10-16
 
 One clip whose saved data can't be read on a Mac no longer stops every iCloud upload behind it.
