@@ -166,5 +166,118 @@ struct StaleKeyBlobReuseTests {
             #expect(try await store.unrecoverableLocalClipIDs().isEmpty)
             #expect(try await store.content(for: lost.id) == Self.content)
         }
+
+        /// The same clip as the server would send it back.
+        private static func serverCopy(
+            of item: ClipItem, updatedAt: Date, content: ClipContent?
+        ) -> RemoteClipChange {
+            RemoteClipChange(
+                item: ClipItem(
+                    id: item.id, createdAt: item.createdAt, updatedAt: updatedAt,
+                    kind: item.kind, preview: item.preview, contentHash: item.contentHash),
+                content: content, systemFields: Data([2]), boardIDs: [])
+        }
+
+        @Test("Synced clips under a lost key are counted apart from local ones")
+        func scanSeparatesSyncedClips() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let store = try GRDBClipboardStore(
+                directory: dir, passphrase: try KeychainPassphraseStore.generateKey())
+            let lost = try await store.insert(Self.imageItem, content: Self.content)
+            try await store.markUploaded(id: lost.id, systemFields: Data([1]))
+            try Self.sealUnderLostKey(in: dir)
+
+            #expect(try await store.unrecoverableSyncedClipIDs() == [lost.id])
+            #expect(try await store.unrecoverableLocalClipIDs().isEmpty)
+        }
+
+        @Test("The server copy heals a dirty synced clip even when the local row wins")
+        func serverCopyHealsDirtyClip() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let store = try GRDBClipboardStore(
+                directory: dir, passphrase: try KeychainPassphraseStore.generateKey())
+            let lost = try await store.insert(Self.imageItem, content: Self.content)
+            try await store.markUploaded(id: lost.id, systemFields: Data([1]))
+            try await store.markNeedsUpload(id: lost.id)
+            try Self.sealUnderLostKey(in: dir)
+            await #expect(throws: (any Error).self) { try await store.pendingUpload(id: lost.id) }
+
+            let summary = try await store.applyRemoteChanges(
+                clips: [
+                    Self.serverCopy(
+                        of: lost, updatedAt: lost.updatedAt.addingTimeInterval(-60),
+                        content: Self.content)
+                ],
+                boards: [], clipDeletions: [], boardDeletions: [])
+
+            #expect(summary.skippedAsStale == 1)
+            #expect(try await store.unrecoverableSyncedClipIDs().isEmpty)
+            #expect(try await store.pendingUpload(id: lost.id)?.content == Self.content)
+        }
+
+        @Test("Removing a synced clip locally leaves no tombstone to delete it in iCloud")
+        func localOnlyDeleteLeavesNoTombstone() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let store = try GRDBClipboardStore(
+                directory: dir, passphrase: try KeychainPassphraseStore.generateKey())
+            let lost = try await store.insert(Self.imageItem, content: Self.content)
+            try await store.markUploaded(id: lost.id, systemFields: Data([1]))
+
+            try await store.deleteLocalOnly(id: lost.id)
+
+            #expect(try await store.content(for: lost.id) == nil)
+            #expect(try await store.pendingDeletionRecordIDs().isEmpty)
+        }
+
+        @Test("A server copy without its payload leaves the clip unreadable")
+        func serverCopyWithoutPayloadDoesNotHeal() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let store = try GRDBClipboardStore(
+                directory: dir, passphrase: try KeychainPassphraseStore.generateKey())
+            let lost = try await store.insert(Self.imageItem, content: Self.content)
+            try await store.markUploaded(id: lost.id, systemFields: Data([1]))
+            try Self.sealUnderLostKey(in: dir)
+
+            _ = try await store.applyRemoteChanges(
+                clips: [
+                    Self.serverCopy(
+                        of: lost, updatedAt: lost.updatedAt.addingTimeInterval(60), content: nil)
+                ],
+                boards: [], clipDeletions: [], boardDeletions: [])
+
+            #expect(try await store.unrecoverableSyncedClipIDs() == [lost.id])
+        }
+
+        @Test("After the first synced scan, only the clips it found are rechecked")
+        func laterScansRecheckOnlyKnownClips() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let store = try GRDBClipboardStore(
+                directory: dir, passphrase: try KeychainPassphraseStore.generateKey())
+            let lost = try await store.insert(Self.imageItem, content: Self.content)
+            try await store.markUploaded(id: lost.id, systemFields: Data([1]))
+            try Self.sealUnderLostKey(in: dir)
+            #expect(try await store.unrecoverableSyncedClipIDs() == [lost.id])
+
+            _ = try await store.applyRemoteChanges(
+                clips: [
+                    Self.serverCopy(of: lost, updatedAt: lost.updatedAt, content: Self.content)
+                ],
+                boards: [], clipDeletions: [], boardDeletions: [])
+            #expect(try await store.unrecoverableSyncedClipIDs().isEmpty)
+
+            // No write path seals a new file under another key, so this
+            // simulated one is only seen once the scan record is gone.
+            try Self.sealUnderLostKey(in: dir)
+            #expect(try await store.unrecoverableSyncedClipIDs().isEmpty)
+            try FileManager.default.removeItem(
+                at: dir.appendingPathComponent("blobs")
+                    .appendingPathComponent(GRDBClipboardStore.syncedKeyCheckFile))
+            #expect(try await store.unrecoverableSyncedClipIDs() == [lost.id])
+        }
     #endif
 }

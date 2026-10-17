@@ -971,9 +971,15 @@ final class AppModel {
         }
     }
 
+    /// Synced clips this Mac's key can't open that iCloud couldn't restore.
+    /// Zero when the scan fails.
+    func unrecoverableSyncedClipCount() async -> Int {
+        (try? await fullStore?.unrecoverableSyncedClipIDs().count) ?? 0
+    }
+
     func removeUnrecoverableClips() async {
         guard let fullStore,
-            let outcome = await UnrecoverableClipRemoval().remove(scanner: fullStore, store: store)
+            let outcome = await UnrecoverableClipRemoval().remove(scanner: fullStore)
         else { return }
         reportDeletionFailure(outcome)
         await refreshRecents()

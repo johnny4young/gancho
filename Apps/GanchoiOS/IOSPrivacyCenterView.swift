@@ -18,6 +18,7 @@ struct IOSPrivacyCenterView: View {
     @State private var synced = 0
     @State private var confirmsReceiptClear = false
     @State private var unrecoverable = 0
+    @State private var unrecoverableSynced = 0
     @State private var confirmsUnrecoverableRemoval = false
 
     var body: some View {
@@ -109,21 +110,39 @@ struct IOSPrivacyCenterView: View {
                 LabeledContent("Items synchronized", value: "\(synced)")
             }
 
-            if unrecoverable > 0 {
+            if unrecoverable + unrecoverableSynced > 0 {
                 Section("Unreadable clips") {
-                    Label {
-                        Text("\(unrecoverable) clips can’t be opened")
-                    } icon: {
-                        Image(systemName: "exclamationmark.lock")
-                            .foregroundStyle(GanchoTokens.Palette.warning)
+                    if unrecoverable > 0 {
+                        Label {
+                            Text("\(unrecoverable) clips can’t be opened")
+                        } icon: {
+                            Image(systemName: "exclamationmark.lock")
+                                .foregroundStyle(GanchoTokens.Palette.warning)
+                        }
+                        .accessibilityIdentifier("ios-unrecoverable-clips-count")
                     }
-                    .accessibilityIdentifier("ios-unrecoverable-clips-count")
+                    if unrecoverableSynced > 0 {
+                        Label {
+                            Text("\(unrecoverableSynced) synced clips can’t be opened")
+                        } icon: {
+                            Image(systemName: "exclamationmark.icloud")
+                                .foregroundStyle(GanchoTokens.Palette.warning)
+                        }
+                        .accessibilityIdentifier("ios-unrecoverable-synced-clips-count")
+                    }
                     Text(
                         // swiftlint:disable:next line_length
                         "This iPhone’s encryption key can’t open their stored content, which may have been sealed by an earlier key or damaged. They can’t be pasted or synced."
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    if unrecoverableSynced > 0 {
+                        Text(
+                            "Synced clips are restored when sync starts, if iCloud still has a copy."
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    }
                     Button("Remove unreadable clips", role: .destructive) {
                         confirmsUnrecoverableRemoval = true
                     }
@@ -237,5 +256,6 @@ struct IOSPrivacyCenterView: View {
         masked = (try? await full.sensitiveCount()) ?? 0
         // Last: it opens every candidate blob, so the cheap counters land first.
         unrecoverable = await model.unrecoverableClipCount()
+        unrecoverableSynced = await model.unrecoverableSyncedClipCount()
     }
 }

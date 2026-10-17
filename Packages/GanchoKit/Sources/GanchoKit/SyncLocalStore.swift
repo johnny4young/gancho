@@ -124,6 +124,10 @@ public protocol SyncLocalStore: Sendable {
     /// flags the clip for re-upload.
     func setBoardMembership(clipID: UUID, boardIDs: Set<UUID>) async throws
 
+    /// Synced clips whose payload this store's key cannot open. Re-applying the
+    /// server copy rewrites the blob under the current key.
+    func unrecoverableSyncedClipIDs() async throws -> [UUID]
+
     // Board metadata sync — the board table's mirror of the clip methods above,
     // so a board's name/glyph propagate. Membership rides the clip record.
     func pendingBoardUploads() async throws -> [Pinboard]
@@ -141,6 +145,9 @@ public protocol SyncLocalStore: Sendable {
 }
 
 extension SyncLocalStore {
+    /// Stores without sealed blobs have nothing to restore.
+    public func unrecoverableSyncedClipIDs() async throws -> [UUID] { [] }
+
     /// Falls back to the per-record path.
     ///
     /// The batching is an optimization of HOW a page is written, not of what it

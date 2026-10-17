@@ -407,6 +407,14 @@ public protocol StoreMaintaining: Sendable {
     /// Clips without sync system fields (never uploaded, or cleared by an identity
     /// reset) whose payload this store's key cannot open. Opens each blob.
     func unrecoverableLocalClipIDs() async throws -> [UUID]
+
+    /// Synced clips whose payload this store's key cannot open; sync restores
+    /// the ones iCloud still has. Only the first scan opens every synced blob.
+    func unrecoverableSyncedClipIDs() async throws -> [UUID]
+
+    /// Deletes a clip from this device without a sync tombstone, so its iCloud
+    /// copy and other devices keep it.
+    func deleteLocalOnly(id: UUID) async throws
 }
 
 // MARK: - Compositions

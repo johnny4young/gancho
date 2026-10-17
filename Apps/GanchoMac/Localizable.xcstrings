@@ -10278,6 +10278,56 @@
           }
         }
       }
+    },
+    "%lld synced clips can’t be opened": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld synced clip can’t be opened"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld synced clips can’t be opened"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No se puede abrir %lld clip sincronizado"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No se pueden abrir %lld clips sincronizados"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Synced clips are restored when sync starts, if iCloud still has a copy.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los clips sincronizados se restauran cuando empieza la sincronización, si iCloud aún tiene una copia."
+          }
+        }
+      }
     }
   },
   "version": "1.1"
