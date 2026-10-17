@@ -7,6 +7,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-16
+
 ### Fixed
 
 - Align post-release documentation, the bilingual website, the Sparkle feed
@@ -24,6 +26,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   which rewrites the content under the current key. Privacy Center counts the
   synced clips iCloud could not restore separately, and removing unreadable
   clips no longer leaves a deletion that sync would carry to iCloud.
+
+- Check for unreadable clips once per store and afterwards recheck only the
+  clips that check found, instead of opening every stored image and file each
+  time the Privacy Center opens.
+
+- Refresh the Mac panel after removing unreadable clips, and record a failed
+  check for unreadable clips in Recent issues instead of showing none.
 
 ## [0.10.1] - 2026-10-16
 

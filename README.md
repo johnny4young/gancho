@@ -17,13 +17,17 @@
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
 **Status: public v0.10.1; in active development toward 1.0.**
-**Source version: v0.10.1.** The published direct download requires macOS 15.4+
-(build 20). Local history and manual OCR are Free; Pro activation through
-Lemon Squeezy is included. The on-device model tier requires macOS 26.
+**Source version: v0.10.2 (unreleased).** The published v0.10.1 direct download
+requires macOS 15.4+ (build 20). Local history and manual OCR are Free; Pro
+activation through Lemon Squeezy is included. The on-device model tier requires
+macOS 26. The v0.10.2 source repairs images and files left encrypted under an
+earlier key, restores affected synced clips from iCloud and counts the rest in
+the Privacy Center; it is not yet a published build. See its
+[release notes](docs/releases/v0.10.2.md).
 
-![The Gancho panel, solid by default, with a link peek and developer actions collapsed](site/assets/v0.10.1-release.png)
+![The Gancho panel, solid by default, with a link peek and developer actions collapsed](site/assets/v0.10.2-release.png)
 
-*v0.10.1 with synthetic fixtures: the panel is unchanged from v0.10.0 and opens solid on the newest clip.*
+*v0.10.2 candidate with synthetic fixtures; the panel is unchanged from v0.10.0 and this is not evidence of a published release.*
 
 [Download v0.10.1](https://github.com/johnny4young/gancho/releases/tag/v0.10.1)
 for iCloud sync that keeps going past a clip it can't read, text recipes,
