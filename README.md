@@ -16,21 +16,18 @@
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20·%20iOS%20·%20iPadOS-blue)
 ![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
 
-**Status: public v0.10.1; in active development toward 1.0.**
-**Source version: v0.10.2 (unreleased).** The published v0.10.1 direct download
-requires macOS 15.4+ (build 20). Local history and manual OCR are Free; Pro
-activation through Lemon Squeezy is included. The on-device model tier requires
-macOS 26. The v0.10.2 source repairs images and files left encrypted under an
-earlier key, restores affected synced clips from iCloud and counts the rest in
-the Privacy Center; it is not yet a published build. See its
-[release notes](docs/releases/v0.10.2.md).
+**Status: public v0.10.2; in active development toward 1.0.**
+**Source version: v0.10.2.** The published direct download requires macOS 15.4+
+(build 21). Local history and manual OCR are Free; Pro activation through
+Lemon Squeezy is included. The on-device model tier requires macOS 26.
 
 ![The Gancho panel, solid by default, with a link peek and developer actions collapsed](site/assets/v0.10.2-release.png)
 
-*v0.10.2 candidate with synthetic fixtures; the panel is unchanged from v0.10.0 and this is not evidence of a published release.*
+*v0.10.2 with synthetic fixtures: the panel is unchanged from v0.10.0 and opens solid on the newest clip.*
 
-[Download v0.10.1](https://github.com/johnny4young/gancho/releases/tag/v0.10.1)
-for iCloud sync that keeps going past a clip it can't read, text recipes,
+[Download v0.10.2](https://github.com/johnny4young/gancho/releases/tag/v0.10.2)
+for clips recovered after an encryption key change, iCloud sync that keeps
+going past a clip it can't read, text recipes,
 off-by-default meaning suggestions, selected context for AI tools and
 translation with installed languages on macOS 26, in a panel that
 opens solid on the newest clip and a Library that stays current while open —
@@ -45,7 +42,7 @@ TestFlight distribution remain in preparation.
 **Validation boundary:** the signed two-Mac matrix, real Sequoia, VoiceOver and
 screen-capture permission/display acceptance remain pending after publication.
 Use disposable data and backups for those checks; green CI and artifact QA do
-not certify them. See the [release notes](docs/releases/v0.10.1.md),
+not certify them. See the [release notes](docs/releases/v0.10.2.md),
 [changelog](CHANGELOG.md), and [release requirements](docs/RELEASING.md).
 
 ## The redesigned panel
@@ -219,7 +216,7 @@ stay in reusable modules.
 
 - `CKSyncEngine` over the user's private iCloud database behind the `SyncEngine`
   boundary (clips, board membership, deletions) with a visible sync status. Earlier
-  development builds passed real-device smoke; the signed v0.10.1 matrix remains
+  development builds passed real-device smoke; the signed v0.10.2 matrix remains
   pending and must use the released bytes.
 - `gancho` CLI and a local, opt-in MCP server with expiring, revocable
   per-client grants, explicit board/time context, independent read/write
