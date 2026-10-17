@@ -89,10 +89,10 @@ struct StaleKeyBlobReuseTests {
             kind: .image, preview: "Image", contentHash: ClipItem.hash(of: payload, kind: .image))
 
         /// Seals the clip's blob file under a key the store does not have.
-        private static func sealUnderLostKey(in dir: URL) throws {
+        private static func sealUnderLostKey(in dir: URL, data: Data = payload) throws {
             let blobs = dir.appendingPathComponent("blobs", isDirectory: true)
-            let hash = try BlobStore(directory: blobs).write(payload)
-            try SealedEnvelope.seal(payload, key: try freshKeyData())
+            let hash = try BlobStore(directory: blobs).write(data)
+            try SealedEnvelope.seal(data, key: try freshKeyData())
                 .write(to: blobs.appendingPathComponent(hash), options: .atomic)
         }
 
@@ -252,6 +252,35 @@ struct StaleKeyBlobReuseTests {
             #expect(try await store.unrecoverableSyncedClipIDs() == [lost.id])
         }
 
+        @Test("One scan record covers never-synced and synced clips")
+        func oneRecordCoversBothBuckets() async throws {
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let store = try GRDBClipboardStore(
+                directory: dir, passphrase: try KeychainPassphraseStore.generateKey())
+            let lost = try await store.insert(Self.imageItem, content: Self.content)
+            let later = try await store.insert(
+                ClipItem(
+                    kind: .image, preview: "Image",
+                    contentHash: ClipItem.hash(of: tinyPNG, kind: .image)),
+                content: .binary(data: tinyPNG, typeIdentifier: "public.png"))
+            try Self.sealUnderLostKey(in: dir)
+            #expect(try await store.unrecoverableLocalClipIDs() == [lost.id])
+
+            // Opening every blob again on each count is what the record avoids.
+            try Self.sealUnderLostKey(in: dir, data: tinyPNG)
+            #expect(try await store.unrecoverableLocalClipIDs() == [lost.id])
+
+            try await store.markUploaded(id: lost.id, systemFields: Data([1]))
+            #expect(try await store.unrecoverableSyncedClipIDs() == [lost.id])
+            #expect(try await store.unrecoverableLocalClipIDs().isEmpty)
+
+            try FileManager.default.removeItem(
+                at: dir.appendingPathComponent("blobs")
+                    .appendingPathComponent(GRDBClipboardStore.keyCheckFile))
+            #expect(try await store.unrecoverableLocalClipIDs() == [later.id])
+        }
+
         @Test("After the first synced scan, only the clips it found are rechecked")
         func laterScansRecheckOnlyKnownClips() async throws {
             let dir = tempDir()
@@ -276,7 +305,7 @@ struct StaleKeyBlobReuseTests {
             #expect(try await store.unrecoverableSyncedClipIDs().isEmpty)
             try FileManager.default.removeItem(
                 at: dir.appendingPathComponent("blobs")
-                    .appendingPathComponent(GRDBClipboardStore.syncedKeyCheckFile))
+                    .appendingPathComponent(GRDBClipboardStore.keyCheckFile))
             #expect(try await store.unrecoverableSyncedClipIDs() == [lost.id])
         }
     #endif
