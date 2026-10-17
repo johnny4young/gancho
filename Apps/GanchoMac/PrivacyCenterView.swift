@@ -14,6 +14,7 @@ struct PrivacyCenterView: View {
     @State private var synced = 0
     @State private var confirmsReceiptClear = false
     @State private var unrecoverable = 0
+    @State private var unrecoverableSynced = 0
     @State private var confirmsUnrecoverableRemoval = false
     @State private var mcpAccesses: [MCPAccessEvent] = []
     @State private var mcpCalls = 0
@@ -138,21 +139,39 @@ struct PrivacyCenterView: View {
                     }
                 }
 
-                if unrecoverable > 0 {
+                if unrecoverable + unrecoverableSynced > 0 {
                     Section("Unreadable clips") {
-                        Label {
-                            Text("\(unrecoverable) clips can’t be opened")
-                        } icon: {
-                            Image(systemName: "exclamationmark.lock")
-                                .foregroundStyle(GanchoTokens.Palette.warning)
+                        if unrecoverable > 0 {
+                            Label {
+                                Text("\(unrecoverable) clips can’t be opened")
+                            } icon: {
+                                Image(systemName: "exclamationmark.lock")
+                                    .foregroundStyle(GanchoTokens.Palette.warning)
+                            }
+                            .accessibilityIdentifier("unrecoverable-clips-count")
                         }
-                        .accessibilityIdentifier("unrecoverable-clips-count")
+                        if unrecoverableSynced > 0 {
+                            Label {
+                                Text("\(unrecoverableSynced) synced clips can’t be opened")
+                            } icon: {
+                                Image(systemName: "exclamationmark.icloud")
+                                    .foregroundStyle(GanchoTokens.Palette.warning)
+                            }
+                            .accessibilityIdentifier("unrecoverable-synced-clips-count")
+                        }
                         Text(
                             // swiftlint:disable:next line_length
                             "This Mac’s encryption key can’t open their stored content, which may have been sealed by an earlier key or damaged. They can’t be pasted or synced."
                         )
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                        if unrecoverableSynced > 0 {
+                            Text(
+                                "Synced clips are restored when sync starts, if iCloud still has a copy."
+                            )
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        }
                         Button("Remove unreadable clips", role: .destructive) {
                             confirmsUnrecoverableRemoval = true
                         }
@@ -343,6 +362,7 @@ struct PrivacyCenterView: View {
         mcpDenied = thisWeek.filter(\.wasDenied).count
         // Last: it opens every candidate blob, so the cheap counters land first.
         unrecoverable = await model.unrecoverableClipCount()
+        unrecoverableSynced = await model.unrecoverableSyncedClipCount()
     }
 
     /// The trust headline: clipboard content never enters analytics, regardless

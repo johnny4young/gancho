@@ -14,6 +14,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   clip can be pasted and synced. Privacy Center now counts clips whose content
   was lost that way and offers to remove them.
 
+- Restore synced clips whose stored content was sealed under an earlier
+  encryption key: when sync starts, Gancho fetches their iCloud copy again,
+  which rewrites the content under the current key. Privacy Center counts the
+  synced clips iCloud could not restore separately, and removing unreadable
+  clips no longer leaves a deletion that sync would carry to iCloud.
+
 ## [0.10.1] - 2026-10-16
 
 ### Fixed

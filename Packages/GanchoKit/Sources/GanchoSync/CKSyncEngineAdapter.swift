@@ -47,6 +47,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
     private var clipIntents: Set<UUID> = []
     private var boardIntents: Set<UUID> = []
     private var reportedUnreadableUploads: Set<CKRecord.ID> = []
+    private var restoredUnreadableClips = false
 
     private enum OutboundOperation: Hashable {
         case pending, preparation, reset
@@ -89,6 +90,11 @@ public actor CKSyncEngineAdapter: SyncEngine {
     /// (upserts are idempotent), just less efficient.
     private let pollStateStore: SyncStateStore?
 
+    /// Fetches records by id for the unreadable-clip repair; nil uses the
+    /// private database. Injected by tests, which never reach CloudKit.
+    private let fetchRecords:
+        (@Sendable ([CKRecord.ID]) async throws -> [CKRecord.ID: Result<CKRecord, any Error>])?
+
     private let stateEncoder = PropertyListEncoder()
     private let stateDecoder = PropertyListDecoder()
 
@@ -99,7 +105,10 @@ public actor CKSyncEngineAdapter: SyncEngine {
         maxAssetBytes: Int = ClipRecordMapper.defaultMaxAssetBytes,
         onStatus: (@Sendable (SyncStatus) -> Void)? = nil,
         diagnostics: DiagnosticLog? = nil,
-        pollStateStore: SyncStateStore? = nil
+        pollStateStore: SyncStateStore? = nil,
+        fetchRecords: (
+            @Sendable ([CKRecord.ID]) async throws -> [CKRecord.ID: Result<CKRecord, any Error>]
+        )? = nil
     ) {
         self.store = store
         self.containerIdentifier = containerIdentifier
@@ -108,6 +117,7 @@ public actor CKSyncEngineAdapter: SyncEngine {
         self.onStatus = onStatus
         self.diagnostics = diagnostics
         self.pollStateStore = pollStateStore
+        self.fetchRecords = fetchRecords
     }
 
     // MARK: - SyncEngine boundary
@@ -157,6 +167,9 @@ public actor CKSyncEngineAdapter: SyncEngine {
                 scheduleReceiveRecovery(after: error)
                 receiveError = error
             }
+            guard generation == receiveGeneration else { throw CancellationError() }
+            // Before the re-enqueue below, so a restored dirty clip uploads this cycle.
+            await restoreUnreadableSyncedClips(afterReceiveFailure: receiveError != nil)
             guard generation == receiveGeneration else { throw CancellationError() }
             // Polling may have discovered a deleted zone without any push.
             // Its durable reset must also become engine work in this cycle.
@@ -588,6 +601,48 @@ extension CKSyncEngineAdapter {
         engine.state.remove(pendingRecordZoneChanges: stale)
     }
 
+}
+
+// MARK: - Unreadable clip restore
+
+extension CKSyncEngineAdapter {
+    /// Once per process when it gets an answer; a failure retries on the next start.
+    func restoreUnreadableSyncedClips(afterReceiveFailure: Bool = false) async {
+        guard !afterReceiveFailure, !restoredUnreadableClips,
+            loadPollTokens().identityResetZones == nil
+        else { return }
+        let generation = receiveGeneration
+        let containerIdentifier = containerIdentifier
+        let repair = SyncUnreadableRepair(
+            zoneID: zoneID,
+            unreadable: { [store] in try await store.unrecoverableSyncedClipIDs() },
+            fetch: fetchRecords ?? { ids in
+                try await CKContainer(identifier: containerIdentifier)
+                    .privateCloudDatabase.records(for: ids)
+            },
+            apply: { [weak self] records in
+                guard let self else { throw CancellationError() }
+                try await self.applyRestored(records, generation: generation)
+            })
+        do {
+            let outcome = try await repair.run()
+            restoredUnreadableClips = true
+            guard let outcome else { return }
+            diagnostics?.record(
+                "Sync",
+                "Restored \(outcome.restored) unreadable clip(s) from iCloud; "
+                    + "\(outcome.remaining) still can't be opened.")
+        } catch is CancellationError {
+        } catch {
+            diagnostics?.record(
+                "Sync", "Unreadable clips could not be restored from iCloud; retrying next start.")
+        }
+    }
+
+    private func applyRestored(_ records: [CKRecord], generation: Int) async throws {
+        guard generation == receiveGeneration else { throw CancellationError() }
+        try await applyFetched(records: records, deletions: [], retainingApplyFailures: false)
+    }
 }
 
 // MARK: - CKSyncEngineDelegate

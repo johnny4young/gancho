@@ -8,12 +8,19 @@ private enum FakeScanError: Error { case failure }
 
 private actor RemovalStoreSpy: ClipboardStore, ClipMutating, StoreMaintaining {
     private let scan: Result<[UUID], FakeScanError>
+    private let syncedScan: [UUID]
     private(set) var plainDeletes: [UUID] = []
     private(set) var syncDeletes: [UUID] = []
+    private(set) var localOnlyDeletes: [UUID] = []
 
-    init(scan: Result<[UUID], FakeScanError>) { self.scan = scan }
+    init(scan: Result<[UUID], FakeScanError>, syncedScan: [UUID] = []) {
+        self.scan = scan
+        self.syncedScan = syncedScan
+    }
 
     func unrecoverableLocalClipIDs() async throws -> [UUID] { try scan.get() }
+    func unrecoverableSyncedClipIDs() async throws -> [UUID] { syncedScan }
+    func deleteLocalOnly(id: UUID) async throws { localOnlyDeletes.append(id) }
     func delete(id: UUID) async throws { plainDeletes.append(id) }
     func deleteForSync(id: UUID, now _: Date) async throws { syncDeletes.append(id) }
 
@@ -36,15 +43,17 @@ private actor RemovalStoreSpy: ClipboardStore, ClipMutating, StoreMaintaining {
 
 @Suite("Unrecoverable clip removal — this device only")
 struct UnrecoverableClipRemovalTests {
-    @Test("Flagged clips are deleted locally and never tombstoned for sync")
+    @Test("Flagged clips, synced ones too, are deleted locally and never tombstoned")
     func removesLocallyWithoutTombstones() async {
         let ids = [UUID(), UUID()]
-        let store = RemovalStoreSpy(scan: .success(ids))
+        let synced = [UUID()]
+        let store = RemovalStoreSpy(scan: .success(ids), syncedScan: synced)
 
-        let outcome = await UnrecoverableClipRemoval().remove(scanner: store, store: store)
+        let outcome = await UnrecoverableClipRemoval().remove(scanner: store)
 
         #expect(outcome == .deleted(propagated: false))
-        #expect(await store.plainDeletes == ids)
+        #expect(await store.localOnlyDeletes == ids + synced)
+        #expect(await store.plainDeletes.isEmpty)
         #expect(await store.syncDeletes.isEmpty)
     }
 
@@ -52,9 +61,9 @@ struct UnrecoverableClipRemovalTests {
     func failedScanDeletesNothing() async {
         let store = RemovalStoreSpy(scan: .failure(.failure))
 
-        let outcome = await UnrecoverableClipRemoval().remove(scanner: store, store: store)
+        let outcome = await UnrecoverableClipRemoval().remove(scanner: store)
 
         #expect(outcome == nil)
-        #expect(await store.plainDeletes.isEmpty)
+        #expect(await store.localOnlyDeletes.isEmpty)
     }
 }
