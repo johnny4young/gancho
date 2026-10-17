@@ -10,13 +10,13 @@
 <meta property="og:title" content="gancho — your clipboard, everywhere" />
 <meta property="og:description" content="A private-by-design clipboard history and snippet library for Mac, iPhone, and iPad. Local-first, encrypted, on-device AI." />
 <meta property="og:url" content="https://gancho.app/" />
-<meta property="og:image" content="https://gancho.app/assets/v0.10.1-release.png" />
+<meta property="og:image" content="https://gancho.app/assets/v0.10.2-release.png" />
 <meta property="og:image:width" content="1080" />
 <meta property="og:image:height" content="675" />
-<meta property="og:image:alt" content="Gancho v0.10.1 on macOS" />
+<meta property="og:image:alt" content="Gancho v0.10.2 development preview on macOS" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="https://gancho.app/assets/v0.10.1-release.png" />
-<meta name="twitter:image:alt" content="Gancho v0.10.1 on macOS" />
+<meta name="twitter:image" content="https://gancho.app/assets/v0.10.2-release.png" />
+<meta name="twitter:image:alt" content="Gancho v0.10.2 development preview on macOS" />
 <link rel="icon" href="assets/gancho-mark.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="styles.css" />
 <style>
@@ -526,19 +526,19 @@
 <section class="band band-tint" id="latest-release">
   <div class="wrap release-grid">
     <div class="release-copy">
-      <span class="kicker" data-i18n="rel.kicker">Disponible · v0.10.1</span>
-      <h2 class="h2" data-i18n="rel.title">El sync de iCloud que no se atasca.</h2>
-      <p class="lede" data-i18n="rel.lede">La descarga v0.10.1 evita que un solo clip ilegible en tu Mac detenga todas las subidas a iCloud con un error de sync que se repite. La matriz entre dispositivos, Sequoia y accesibilidad real sigue pendiente.</p>
+      <span class="kicker" data-i18n="rel.kicker">En preparación · v0.10.2</span>
+      <h2 class="h2" data-i18n="rel.title">Próxima versión: clips recuperados tras un cambio de llave.</h2>
+      <p class="lede" data-i18n="rel.lede">v0.10.2 repara las imágenes y archivos que quedaron cifrados con una llave anterior, restaura desde iCloud los clips sincronizados afectados y cuenta el resto en el Centro de privacidad. La descarga actual sigue siendo v0.10.1.</p>
       <ul class="release-list">
-        <li data-i18n="rel.1"><b>Las subidas siguen:</b> un clip cuyos datos locales no se pueden leer se salta y queda pendiente; el resto se sincroniza.</li>
-        <li data-i18n="rel.2"><b>Problemas recientes lo cuenta:</b> un aviso sin contenido dice cuántos clips se saltaron, una vez, sin repetirse en cada sondeo.</li>
-        <li data-i18n="rel.3"><b>Lo demás no cambia:</b> el panel, las recetas y la privacidad de 0.10.0 siguen igual.</li>
+        <li data-i18n="rel.1"><b>Copiar de nuevo repara el archivo:</b> si guardas los mismos bytes otra vez, Gancho los vuelve a cifrar con la llave actual.</li>
+        <li data-i18n="rel.2"><b>iCloud restaura lo sincronizado:</b> al iniciar el sync, Gancho baja de nuevo la copia de iCloud de esos clips.</li>
+        <li data-i18n="rel.3"><b>Lo que queda, a la vista:</b> el Centro de privacidad cuenta los clips que no se pueden abrir y te deja quitarlos solo de este dispositivo.</li>
       </ul>
-      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/releases/tag/v0.10.1" data-i18n="rel.cta">Ver notas y descargar v0.10.1</a>
+      <a class="btn btn-ghost" href="https://github.com/johnny4young/gancho/blob/main/CHANGELOG.md" data-i18n="rel.cta">Ver todo lo que incluye 0.10.2</a>
     </div>
     <figure class="release-shot">
-      <img src="assets/v0.10.1-release.png" width="1080" height="675" loading="lazy" decoding="async" alt="Panel sólido de Gancho con el peek de un enlace / Solid Gancho panel with a link peek" />
-      <figcaption data-i18n="rel.caption">v0.10.1 en macOS con datos sintéticos; el panel no cambia respecto de 0.10.0 y no sustituye las pruebas del DMG publicado.</figcaption>
+      <img src="assets/v0.10.2-release.png" width="1080" height="675" loading="lazy" decoding="async" alt="Panel sólido de Gancho con el peek de un enlace / Solid Gancho panel with a link peek" />
+      <figcaption data-i18n="rel.caption">Vista previa del candidato macOS v0.10.2 con fixtures sintéticos; el panel no cambia respecto de 0.10.0 y no es evidencia de una release publicada.</figcaption>
     </figure>
   </div>
 </section>
@@ -549,20 +549,20 @@
     <div class="sec-head">
       <span class="kicker" data-i18n="evo.kicker">Evolución reciente</span>
       <h2 class="h2" data-i18n="evo.title">Cada versión amplía lo que Gancho puede recordar por ti.</h2>
-      <p class="lede" data-i18n="evo.lede">Las nuevas formas de reutilizar de 0.10.0, sobre el panel legible a tu tamaño desde 0.9.1, son la base que 0.10.1 mantiene sincronizada.</p>
+      <p class="lede" data-i18n="evo.lede">Las nuevas formas de reutilizar de 0.10.0 y el sync que ya no se atasca desde 0.10.1 son la base que 0.10.2 recupera tras un cambio de llave.</p>
     </div>
     <div class="evolution-grid">
+      <article class="milestone-card">
+        <div class="milestone-meta"><span class="milestone-version">0.10.1</span><span class="milestone-date">16 Oct 2026</span></div>
+        <h3 data-i18n="evo.v0101.t">El sync de iCloud que no se atasca.</h3>
+        <p data-i18n="evo.v0101.p">Un clip ilegible en tu Mac ya no detiene todas las subidas: se salta, queda pendiente y Problemas recientes lo cuenta.</p>
+        <a class="milestone-link" href="#release-0-10-1" data-i18n="evo.v0101.cta">Ver notas de 0.10.1 →</a>
+      </article>
       <article class="milestone-card">
         <div class="milestone-meta"><span class="milestone-version">0.10.0</span><span class="milestone-date">16 Oct 2026</span></div>
         <h3 data-i18n="evo.v0100.t">Reutiliza más, con menos estorbo.</h3>
         <p data-i18n="evo.v0100.p">Recetas de texto, sugerencias por significado, contexto seleccionado para IA, traducción con idiomas instalados y un panel sólido que abre en tu clip más nuevo.</p>
         <a class="milestone-link" href="#release-0-10-0" data-i18n="evo.v0100.cta">Ver notas de 0.10.0 →</a>
-      </article>
-      <article class="milestone-card">
-        <div class="milestone-meta"><span class="milestone-version">0.9.1</span><span class="milestone-date">29 Sep 2026</span></div>
-        <h3 data-i18n="evo.v091.t">El tamaño de texto del panel, de verdad.</h3>
-        <p data-i18n="evo.v091.p">Ajustes › General › Panel › Tamaño del texto cambia de verdad el panel, y dos fallos de sync dejan rastro sin contenido en Problemas recientes.</p>
-        <a class="milestone-link" href="#release-0-9-1" data-i18n="evo.v091.cta">Ver notas de 0.9.1 →</a>
       </article>
     </div>
   </div>
@@ -1015,6 +1015,10 @@
       <p class="lede" data-i18n="log.lede">Explora cada versión, de la más reciente a la primera. Abre solo el hito que quieras conocer; sus metadatos y artefactos se verifican juntos en CI.</p>
     </div>
     <div class="log">
+      <details class="release-detail" id="release-0-10-1">
+        <summary><span class="log-meta"><span class="ver">0.10.1</span><span class="dt">16 Oct 2026</span></span><span class="release-summary-title" data-i18n="evo.v0101.t">El sync de iCloud que no se atasca.</span><svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+        <div class="log-body"><ul><li data-i18n="evo.v0101.p">Un clip ilegible en tu Mac ya no detiene todas las subidas: se salta, queda pendiente y Problemas recientes lo cuenta.</li><li><a href="https://github.com/johnny4young/gancho/releases/tag/v0.10.1" data-i18n="evo.v0101.cta">Ver notas de 0.10.1 →</a></li></ul></div>
+      </details>
       <details class="release-detail" id="release-0-10-0">
         <summary><span class="log-meta"><span class="ver">0.10.0</span><span class="dt">16 Oct 2026</span></span><span class="release-summary-title" data-i18n="evo.v0100.t">Reutiliza más, con menos estorbo.</span><svg class="release-chevron i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
         <div class="log-body"><ul><li data-i18n="evo.v0100.p">Recetas de texto, sugerencias por significado, contexto seleccionado para IA, traducción con idiomas instalados y un panel sólido que abre en tu clip más nuevo.</li><li><a href="https://github.com/johnny4young/gancho/releases/tag/v0.10.0" data-i18n="evo.v0100.cta">Ver notas de 0.10.0 →</a></li></ul></div>
@@ -1236,13 +1240,13 @@
       "panel.search": "Search your clipboard…", "panel.foot": "Local · encrypted on this Mac",
       "clip.code.t": "useEffect cleanup", "clip.secret.t": "OpenAI API key", "clip.url.t": "Privacy policy", "clip.color.t": "Brand green", "clip.image.t": "Launch mark", "clip.image.p": "PNG · 248 KB · 1640×1024 · encrypted",
       "trust.1": "Local-first", "trust.2": "Encrypted on device", "trust.3": "No middle servers", "trust.4": "No content telemetry",
-      "rel.kicker": "Available now · v0.10.1", "rel.title": "iCloud sync that doesn't get stuck.",
-      "rel.lede": "The v0.10.1 download stops a single unreadable clip on your Mac from halting every iCloud upload with a repeating sync error. Cross-device, Sequoia and real accessibility acceptance remain pending.",
-      "rel.1": "<b>Uploads keep moving:</b> a clip whose local data can't be read is skipped and stays pending; everything else syncs.",
-      "rel.2": "<b>Recent issues counts it:</b> a content-free note says how many clips were skipped, once, instead of on every poll.",
-      "rel.3": "<b>Nothing else changes:</b> the panel, recipes and privacy of 0.10.0 stay the same.",
-      "rel.cta": "Read notes and download v0.10.1",
-      "rel.caption": "v0.10.1 on macOS with synthetic data; the panel is unchanged from 0.10.0 and this is not a substitute for testing the published DMG.",
+      "rel.kicker": "In preparation · v0.10.2", "rel.title": "Next release: clips recovered after a key change.",
+      "rel.lede": "v0.10.2 repairs images and files left encrypted under an earlier key, restores affected synced clips from iCloud and counts the rest in the Privacy Center. The current download remains v0.10.1.",
+      "rel.1": "<b>Copying again repairs the file:</b> saving the same bytes again re-encrypts them under the current key.",
+      "rel.2": "<b>iCloud restores synced clips:</b> when sync starts, Gancho fetches the iCloud copy of those clips again.",
+      "rel.3": "<b>What's left, in view:</b> the Privacy Center counts clips that can't be opened and lets you remove them from this device only.",
+      "rel.cta": "See everything in 0.10.2",
+      "rel.caption": "Preview of the macOS v0.10.2 candidate with synthetic fixtures; the panel is unchanged from 0.10.0 and this is not evidence of a published release.",
       "shots.kicker": "What it looks like", "shots.title": "Real app screens, with synthetic data.",
       "shots.lede": "Captured from the app's UI tests: only Gancho's own window, and only sample content.",
       "shots.1": "Free manual OCR: the image's text appears beside it, ready to copy, open or translate.",
@@ -1254,6 +1258,9 @@
       "shots.n1": "A link's host and path set large, parsed on your Mac without fetching anything; Paste, Plain, Pin and Board in the dock.",
       "shots.n2": "⌘G shows the history as cards; the arrows move by row and by column.",
       "shots.n3": "Optional ambient colour: a faint wash of the selected image's own colour, off by default.",
+      "evo.v0101.t": "iCloud sync that doesn't get stuck.",
+      "evo.v0101.p": "One unreadable clip on your Mac no longer stops every upload: it is skipped, stays pending and Recent issues counts it.",
+      "evo.v0101.cta": "Read 0.10.1 release notes →",
       "evo.v0100.t": "Reuse more, with less in the way.",
       "evo.v0100.p": "Text recipes, meaning suggestions, selected context for AI, translation with installed languages and a solid panel that opens on your newest clip.",
       "evo.v0100.cta": "Read 0.10.0 release notes →",
@@ -1276,7 +1283,7 @@
       "evo.v081.p": "A Pro purchase survives transient StoreKit gaps, with more predictable CloudKit recovery.",
       "evo.v081.cta": "Read 0.8.1 release notes →",
       "evo.kicker": "Recent evolution", "evo.title": "Every release expands what Gancho can remember for you.",
-      "evo.lede": "The new ways to reuse of 0.10.0, on the panel readable at your size since 0.9.1, are the base that 0.10.1 keeps in sync.",
+      "evo.lede": "The new ways to reuse of 0.10.0 and the sync that no longer gets stuck since 0.10.1 are the base that 0.10.2 recovers after a key change.",
       "priv.kicker": "Privacy invariants", "priv.title": "It earns your trust before it earns your convenience.",
       "priv.lede": "gancho treats what you copy as private data. It observes metadata first, vetoes sensitive pasteboards before reading them, and keeps logs and diagnostics content-free.",
       "priv.c1.t": "Veto before read", "priv.c1.p": "Password-manager, transient, concealed, and auto-generated types are rejected before gancho reads a payload.", "priv.c1.tag": "Sensitive → skipped",
