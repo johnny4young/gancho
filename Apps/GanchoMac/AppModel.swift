@@ -955,10 +955,20 @@ final class AppModel {
         try? await fullStore?.clearPrivateActivityReceipt()
     }
 
-    /// How many clips without a sync record this Mac's key can't open. Zero
-    /// when the scan fails.
+    /// How many clips without a sync record this Mac's key can't open. A failed
+    /// scan reads as zero and is recorded in Recent issues.
     func unrecoverableClipCount() async -> Int {
-        (try? await fullStore?.unrecoverableLocalClipIDs().count) ?? 0
+        guard let fullStore else { return 0 }
+        do {
+            return try await fullStore.unrecoverableLocalClipIDs().count
+        } catch is CancellationError {
+            return 0
+        } catch {
+            diagnostics.record(
+                String(localized: "History"),
+                String(localized: "Couldn’t check for unreadable clips."))
+            return 0
+        }
     }
 
     func removeUnrecoverableClips() async {
@@ -966,6 +976,7 @@ final class AppModel {
             let outcome = await UnrecoverableClipRemoval().remove(scanner: fullStore, store: store)
         else { return }
         reportDeletionFailure(outcome)
+        await refreshRecents()
         notifyStoreChanged(for: .clips)
     }
 
