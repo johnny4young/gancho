@@ -842,10 +842,20 @@ final class IOSAppModel {
         refreshSpotlight()
     }
 
-    /// How many clips without a sync record this iPhone's key can't open. Zero
-    /// when the scan fails.
+    /// How many clips without a sync record this iPhone's key can't open. A
+    /// failed scan reads as zero and is recorded in Recent issues.
     func unrecoverableClipCount() async -> Int {
-        (try? await full?.unrecoverableLocalClipIDs().count) ?? 0
+        guard let full else { return 0 }
+        do {
+            return try await full.unrecoverableLocalClipIDs().count
+        } catch is CancellationError {
+            return 0
+        } catch {
+            diagnostics.record(
+                String(localized: "History"),
+                String(localized: "Couldn’t check for unreadable clips."))
+            return 0
+        }
     }
 
     /// Synced clips this iPhone's key can't open that iCloud couldn't restore.

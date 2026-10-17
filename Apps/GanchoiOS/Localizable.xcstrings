@@ -4130,6 +4130,16 @@
         }
       }
     },
+    "Couldn’t check for unreadable clips.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar si hay clips ilegibles."
+          }
+        }
+      }
+    },
     "Couldn’t delete every clip — the ones that remain were kept.": {
       "localizations": {
         "es": {
