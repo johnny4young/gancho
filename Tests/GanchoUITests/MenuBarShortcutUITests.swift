@@ -28,6 +28,5 @@ final class MenuBarShortcutUITests: XCTestCase {
         XCTAssertTrue(openPanel.waitForExistence(timeout: 3))
         let optionCommand = NSEvent.ModifierFlags([.command, .option]).rawValue
         XCTAssertEqual(openPanel.value as? String, "menu-shortcut:v:\(optionCommand)")
-        app.typeKey(.escape, modifierFlags: [])
     }
 }

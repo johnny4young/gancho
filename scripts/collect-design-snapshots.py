@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Copy `design-snapshot-<name>` attachments out of an exported xcresult."""
 import json
+import re
 import pathlib
 import shutil
 import sys
@@ -16,6 +17,8 @@ for test in json.loads((exported / "manifest.json").read_text()):
             continue
         # xcresulttool appends "_<index>_<uuid>.<ext>" to the attachment name.
         stem = name[len(PREFIX):].rsplit("_", 2)[0]
+        if not re.fullmatch(r"[A-Za-z0-9-]+", stem):
+            sys.exit(f"refusing unsafe snapshot name: {stem!r}")
         shutil.copyfile(exported / item["exportedFileName"], output / f"{stem}.png")
         count += 1
 print(f"✓ collected {count} design snapshot(s) into {output}")

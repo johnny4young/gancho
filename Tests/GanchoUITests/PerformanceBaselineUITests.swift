@@ -20,12 +20,18 @@ final class PerformanceBaselineUITests: XCTestCase {
         let (app, token) = launch()
         defer { app.terminate() }
         let panel = app.descendants(matching: .any)["history-panel"].firstMatch
+        let search = app.textFields["search-field"].firstMatch
         let options = XCTMeasureOptions()
         options.iterationCount = 10
         measure(metrics: [metric("panel-to-first-frame")], options: options) {
             GanchoUITestCommands.post("openPanel", token: token)
             XCTAssertTrue(panel.waitForExistence(timeout: 5))
-            app.typeKey(.escape, modifierFlags: [])
+            // The panel is non-activating, so the app is never "frontmost";
+            // keys go only to a search field that holds keyboard focus.
+            guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
+                return XCTFail("search field never took keyboard focus")
+            }
+            search.typeKey(.escape, modifierFlags: [])
             XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
         }
     }
@@ -35,13 +41,17 @@ final class PerformanceBaselineUITests: XCTestCase {
         defer { app.terminate() }
         let panel = app.descendants(matching: .any)["history-panel"].firstMatch
         let rows = app.descendants(matching: .any).matching(identifier: "clip-row")
+        let search = app.textFields["search-field"].firstMatch
         let options = XCTMeasureOptions()
         options.iterationCount = 10
         measure(metrics: [metric("paste-dispatch")], options: options) {
             GanchoUITestCommands.post("openPanel", token: token)
             XCTAssertTrue(panel.waitForExistence(timeout: 5))
             XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
-            app.typeKey(.return, modifierFlags: [])
+            guard SynthesizedInput.waitForKeyboardFocus(search, timeout: 5) else {
+                return XCTFail("search field never took keyboard focus")
+            }
+            search.typeKey(.return, modifierFlags: [])
             XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
         }
     }

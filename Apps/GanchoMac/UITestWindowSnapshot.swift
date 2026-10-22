@@ -17,24 +17,25 @@ import AppKit
             _ = DistributedNotificationCenter.default().addObserver(
                 forName: request, object: nil, queue: .main
             ) { note in
-                // "<window title>|<file name>"; the name is a bare slug.
+                // "<token>|<window title>|<file name>". The token is the render
+                // directory's name, unique per run, so no other process can ask.
                 guard let object = note.object as? String else { return }
                 MainActor.assumeIsolated { capture(object, into: directory) }
             }
         }
 
         private static func capture(_ object: String, into directory: URL) {
-            let parts = object.split(separator: "|", maxSplits: 1).map(String.init)
-            guard parts.count == 2,
-                parts[1].allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }),
-                let window = NSApp.windows.first(where: { $0.isVisible && $0.title == parts[0] }),
+            let parts = object.split(separator: "|", maxSplits: 2).map(String.init)
+            guard parts.count == 3, parts[0] == directory.lastPathComponent,
+                parts[2].allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }),
+                let window = NSApp.windows.first(where: { $0.isVisible && $0.title == parts[1] }),
                 let view = window.contentView?.superview ?? window.contentView,
                 let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)
             else { return }
             view.cacheDisplay(in: view.bounds, to: rep)
             guard let data = rep.representation(using: .png, properties: [:]) else { return }
             try? data.write(
-                to: directory.appendingPathComponent("\(parts[1]).png"), options: .atomic)
+                to: directory.appendingPathComponent("\(parts[2]).png"), options: .atomic)
         }
     }
 #endif

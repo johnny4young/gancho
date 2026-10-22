@@ -46,7 +46,8 @@ enum DesignSnapshot {
         try? FileManager.default.removeItem(at: file)
         DistributedNotificationCenter.default().postNotificationName(
             Notification.Name("com.johnny4young.gancho.ui-test.window-snapshot"),
-            object: "\(title)|\(name)", userInfo: nil, options: [.deliverImmediately])
+            object: "\(directory.lastPathComponent)|\(title)|\(name)", userInfo: nil,
+            options: [.deliverImmediately])
         let deadline = Date().addingTimeInterval(5)
         while !FileManager.default.fileExists(atPath: file.path), Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
