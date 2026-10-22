@@ -86,9 +86,11 @@ struct RecentClipsView: View {
 
     private var header: some View {
         HStack(spacing: 5) {
-            Image(systemName: "paperclip")
-                .font(.caption.bold())
+            Image("GanchoMarkTemplate")
+                .resizable()
+                .frame(width: 12, height: 12)
                 .foregroundStyle(.tint)
+                .accessibilityHidden(true)
             Text("Recent clips")
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
