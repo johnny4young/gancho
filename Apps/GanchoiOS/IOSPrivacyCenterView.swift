@@ -117,7 +117,7 @@ struct IOSPrivacyCenterView: View {
                             Text("\(unrecoverable) clips can’t be opened")
                         } icon: {
                             Image(systemName: "exclamationmark.lock")
-                                .foregroundStyle(GanchoTokens.Palette.warning)
+                                .foregroundStyle(GanchoTokens.Palette.warningInk)
                         }
                         .accessibilityIdentifier("ios-unrecoverable-clips-count")
                     }
@@ -126,7 +126,7 @@ struct IOSPrivacyCenterView: View {
                             Text("\(unrecoverableSynced) synced clips can’t be opened")
                         } icon: {
                             Image(systemName: "exclamationmark.icloud")
-                                .foregroundStyle(GanchoTokens.Palette.warning)
+                                .foregroundStyle(GanchoTokens.Palette.warningInk)
                         }
                         .accessibilityIdentifier("ios-unrecoverable-synced-clips-count")
                     }

@@ -71,7 +71,7 @@ struct PanelCaptureNoticeView: View {
     var body: some View {
         let tint = self.tint
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: symbol).foregroundStyle(tint)
+            Image(systemName: symbol).foregroundStyle(ReadableInk(base: tint))
             VStack(alignment: .leading, spacing: 0) {
                 Text(title).panelFont(.caption, .semibold)
                 Text(detail).panelFont(.caption2).foregroundStyle(.secondary)
