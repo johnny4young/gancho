@@ -41,9 +41,11 @@ final class PanelProvenanceUITests: XCTestCase {
         // Sync is off in UI tests, so the chip says nothing rather than guess.
         XCTAssertFalse(header.descendants(matching: .any)["peek-sync-state"].firstMatch.exists)
         XCTAssertTrue(app.staticTexts["preview-title"].firstMatch.exists)
-        let decoded = app.descendants(matching: .any)["peek-link-decoded"].firstMatch
+        let decoded = app.staticTexts["peek-link-decoded"].firstMatch
         XCTAssertTrue(decoded.exists)
-        XCTAssertTrue(decoded.label.contains("/a/b?q=a&b"), decoded.label)
+        // Selectable text reports its string as the value on macOS.
+        let reading = decoded.label.isEmpty ? decoded.value as? String ?? "" : decoded.label
+        XCTAssertTrue(reading.contains("/a/b?q=a&b"), reading)
     }
 
     @MainActor

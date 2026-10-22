@@ -284,7 +284,9 @@ struct ClipPeek: View {
         }
         .task(id: item.id) { await loadSuggestedBoard() }
         .task(id: PeekSyncStateKey(id: item.id, status: model.syncStatus)) {
-            let state = await model.uploadState(for: item)
+            // A masked clip never shows the chip, so it is not looked up.
+            var state: PeekSyncState?
+            if !hidesPreview { state = await model.uploadState(for: item) }
             guard !Task.isCancelled else { return }
             syncState = state
         }
