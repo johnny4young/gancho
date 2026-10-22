@@ -116,19 +116,20 @@ final class DesignV4SnapshotUITests: XCTestCase {
         defer { app.terminate() }
         _ = app.wait(for: .runningForeground, timeout: 8)
         GanchoUITestCommands.post("wrapped", token: token)
-        let deadline = Date().addingTimeInterval(10)
-        while !FileManager.default.fileExists(atPath: output.path), Date() < deadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-        }
-        let image = try XCTUnwrap(NSImage(contentsOf: output), "Wrapped PNG was not written")
+        let image = try XCTUnwrap(
+            DesignSnapshot.waitForImage(at: output), "Wrapped PNG was not written")
         try DesignSnapshot.save(image, named: "wrapped-card")
     }
 
-    private func stableArguments(_ appearance: String) -> [String] {
+    /// Keyboard UI mode 2 is full keyboard access, so focus rings are drawn.
+    private func stableArguments(
+        _ appearance: String, keyboardUIMode: String = "2"
+    )
+        -> [String]
+    {
         [
             "-use-temp-durable-store", "-start-capture-paused", "-appearance", appearance,
-            // Full keyboard access, so the focus ring the fix moves is drawn.
-            "-AppleKeyboardUIMode", "2",
+            "-AppleKeyboardUIMode", keyboardUIMode,
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)",
             "-ui-test-snapshot-dir", renders.path

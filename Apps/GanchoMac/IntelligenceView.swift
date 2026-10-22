@@ -29,7 +29,7 @@ struct IntelligenceView: View {
                 title: "Tier 0 · Rules", sub: "<5 ms · always on"),
             .init(
                 symbol: "sparkles", tint: GanchoTokens.Palette.accent,
-                title: "Tier 1 · Apple Intelligence", sub: "Titles · fallback-safe"),
+                title: "Tier 1 · Apple Intelligence", sub: "Titles · fallback‑safe"),
             .init(
                 symbol: "lock", tint: GanchoTokens.Palette.kindTint(for: .secret),
                 title: "Sensitive check", sub: "Mask + expire"),

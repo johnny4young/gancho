@@ -34,6 +34,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private weak var model: AppModel?
     private var statusItem: NSStatusItem?
     private let menu = NSMenu()
+    private var pausedPanelShortcut = false
 
     /// Whether the in-process fallback item is currently painting.
     var isAttached: Bool { statusItem != nil }
@@ -91,6 +92,24 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         rebuildMenu()
+        updateStatusPresentation()
+    }
+
+    /// Open panel carries the global panel shortcut; while the menu tracks, a
+    /// hotkey press would be buffered and toggle the panel again on close.
+    func menuWillOpen(_ menu: NSMenu) {
+        if KeyboardShortcuts.isEnabled(for: .togglePanel) {
+            KeyboardShortcuts.disable(.togglePanel)
+            pausedPanelShortcut = true
+        }
+        updateStatusPresentation()
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        if pausedPanelShortcut {
+            KeyboardShortcuts.enable(.togglePanel)
+            pausedPanelShortcut = false
+        }
         updateStatusPresentation()
     }
 

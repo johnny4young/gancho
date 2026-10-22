@@ -27,6 +27,21 @@ import Testing
         }
     }
 
+    static let baselines = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .appendingPathComponent("__Snapshots__/DesignSnapshotTests")
+
+    /// A baseline whose surface is no longer captured would never be compared.
+    @Test(.enabled(if: !names.isEmpty, "no captures; run make test-snapshots"))
+    func everyBaselineHasACapture() {
+        let files =
+            (try? FileManager.default.contentsOfDirectory(atPath: Self.baselines.path)) ?? []
+        let orphans = files.filter { $0.hasPrefix("screen.") && $0.hasSuffix(".png") }
+            .map { String($0.dropFirst("screen.".count).dropLast(4)) }
+            .filter { !Self.names.contains($0) }
+        #expect(orphans.isEmpty, "baselines without a capture: \(orphans)")
+    }
+
     @Test(.enabled(if: !names.isEmpty, "no captures; run make test-snapshots"), arguments: names)
     func matchesBaseline(_ name: String) throws {
         let url = Self.captures.appendingPathComponent("\(name).png")

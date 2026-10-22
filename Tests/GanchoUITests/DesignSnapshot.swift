@@ -48,11 +48,16 @@ enum DesignSnapshot {
             Notification.Name("com.johnny4young.gancho.ui-test.window-snapshot"),
             object: "\(directory.lastPathComponent)|\(title)|\(name)", userInfo: nil,
             options: [.deliverImmediately])
-        let deadline = Date().addingTimeInterval(5)
+        return try XCTUnwrap(waitForImage(at: file), "the app did not render \(title)")
+    }
+
+    /// Polls for a PNG the app writes asynchronously.
+    static func waitForImage(at file: URL, timeout: TimeInterval = 10) -> NSImage? {
+        let deadline = Date().addingTimeInterval(timeout)
         while !FileManager.default.fileExists(atPath: file.path), Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
-        return try XCTUnwrap(NSImage(contentsOf: file), "the app did not render \(title)")
+        return NSImage(contentsOf: file)
     }
 
     /// Crops an image to a rect in points from its top-left corner.

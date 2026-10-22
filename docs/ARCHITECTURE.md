@@ -544,8 +544,8 @@ becomes a planned workstream after an explicit product decision.
 - `make build` must pass for macOS; `make build-ios` must pass when shared or
   iOS code changes.
 - Swift Testing is the unit-test framework. XCTest is reserved for UI tests.
-- `make test-snapshots` captures real app surfaces (`DesignV4SnapshotUITests`,
-  skipped unless `GANCHO_SNAPSHOTS=1`) and compares them with
+- `make test-snapshots` captures real app surfaces (`make capture-snapshots`,
+  `DesignV4SnapshotUITests`, skipped unless `GANCHO_SNAPSHOTS=1`) and compares them with
   swift-snapshot-testing in the standalone `Tests/DesignSnapshots` package,
   whose baselines live in its `__Snapshots__`. Windows are rendered by the app
   itself (`-ui-test-snapshot-dir`, DEBUG only, `cacheDisplay`), never captured
