@@ -95,6 +95,78 @@ final class DesignV4SnapshotUITests: XCTestCase {
             named: "onboarding-step1-\(appearance)")
     }
 
+    // MARK: Panel — dock states, chips, selection wash and the opaque surface.
+
+    @MainActor func testPanelLinkPeekLight() throws {
+        try panel(appearance: "light")
+    }
+
+    @MainActor func testPanelLinkPeekDark() throws {
+        try panel(appearance: "dark")
+    }
+
+    @MainActor private func panel(appearance: String) throws {
+        let app = GanchoUITestApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+            "-seed-visual-library", "-seed-peek-link", "-force-free-tier",
+            "-start-capture-paused", "-suppress-paused-notice-for-ui-test",
+            "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
+            "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
+            "-appearance", appearance, "-ui-test-snapshot-dir", renders.path,
+            "-ui-test-defaults-suite",
+            "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        let row = app.descendants(matching: .any).matching(identifier: "clip-row")
+            .matching(NSPredicate(format: "label CONTAINS %@", "example.com")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 8))
+        row.click()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["peek-dock"].firstMatch.waitForExistence(timeout: 5))
+        // Let the selection and peek animations settle.
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        try DesignSnapshot.save(
+            DesignSnapshot.renderWindow(titled: "Gancho", named: "panel", in: renders),
+            named: "panel-link-peek-\(appearance)")
+    }
+
+    // MARK: Settings › Privacy and Privacy Center — neutral buttons, dark ink hero.
+
+    @MainActor func testSettingsPrivacyLight() throws {
+        let app = try launchSettingsWindow(extraArguments: stableArguments("light"))
+        defer { app.terminate() }
+        let privacy = app.windows["Settings"].buttons["settings-tab-privacy"].firstMatch
+        XCTAssertTrue(privacy.waitForExistence(timeout: 3))
+        privacy.click()
+        try DesignSnapshot.save(
+            DesignSnapshot.renderWindow(titled: "Settings", named: "settings", in: renders),
+            named: "settings-privacy-light")
+    }
+
+    @MainActor func testPrivacyCenterLight() throws {
+        try privacyCenter(appearance: "light")
+    }
+
+    @MainActor func testPrivacyCenterDark() throws {
+        try privacyCenter(appearance: "dark")
+    }
+
+    @MainActor private func privacyCenter(appearance: String) throws {
+        let token = UUID().uuidString
+        let app = try launchSettingsWindow(
+            extraArguments: stableArguments(appearance) + ["-command-nonce", token])
+        defer { app.terminate() }
+        GanchoUITestCommands.post("privacyCenter", token: token)
+        XCTAssertTrue(app.windows["Privacy Center"].firstMatch.waitForExistence(timeout: 5))
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        try DesignSnapshot.save(
+            DesignSnapshot.renderWindow(
+                titled: "Privacy Center", named: "privacy-center", in: renders),
+            named: "privacy-center-\(appearance)")
+    }
+
     // The status menu is not captured: it is drawn by the system with vibrancy
     // over whatever sits behind it. MenuBarShortcutUITests checks its shortcut.
 
