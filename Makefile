@@ -22,6 +22,9 @@ IOS_DEVICE ?=
 TEST_UI_SIGNING_FLAGS ?= CODE_SIGNING_ALLOWED=YES
 MAC_UI_RESULT_BUNDLE ?= build/macos-ui-tests.xcresult
 IOS_UI_RESULT_BUNDLE ?= build/ios-ui-tests.xcresult
+SNAPSHOT_RESULT_BUNDLE ?= build/macos-snapshot-tests.xcresult
+# all = re-record every baseline; missing (default) records only new ones.
+SNAPSHOT_RECORD ?= missing
 UI_EVIDENCE_DIR ?= build/ui-test-evidence
 # The direct-download build flavor. Empty by default; the release DMG lane sets
 # GANCHO_COMPILATION_CONDITIONS=GANCHO_DIRECT_DOWNLOAD. Exported so XcodeGen
@@ -37,7 +40,7 @@ export DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 endif
 endif
 
-.PHONY: help project fetch-sparkle resolve-dependencies dependency-check build build-signed build-ios install-ios test test-storekit coverage coverage-check test-ui test-ui-ios test-shortcuts-menu test-shortcuts-recorder ui-evidence bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
+.PHONY: help project fetch-sparkle resolve-dependencies dependency-check build build-signed build-ios install-ios test test-storekit coverage coverage-check test-ui test-snapshots record-snapshots bench-ui test-ui-ios test-shortcuts-menu test-shortcuts-recorder ui-evidence bench format lint swiftlint warnings-check release-check package-macos package-dmg appcast qa-release site-check hooks clean open
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-12s %s\n", $$1, $$2}'
@@ -130,6 +133,25 @@ test-ui: project ## Run the XCUITest smoke suite (drives the real app; signed ru
 	xcodebuild $(XCODE_PACKAGE_FLAGS) test -project Gancho.xcodeproj -scheme $(SCHEME_MAC) \
 		-only-testing:GanchoUITests -resultBundlePath $(MAC_UI_RESULT_BUNDLE) \
 		$(TEST_UI_SIGNING_FLAGS)
+
+test-snapshots: project ## Capture real app surfaces, then compare them with swift-snapshot-testing (Retina Mac, local only)
+	mkdir -p build
+	rm -rf build/design-snapshots $(SNAPSHOT_RESULT_BUNDLE)
+	TEST_RUNNER_GANCHO_SNAPSHOTS=1 xcodebuild $(XCODE_PACKAGE_FLAGS) test -project Gancho.xcodeproj \
+		-scheme $(SCHEME_MAC) -only-testing:GanchoUITests/DesignV4SnapshotUITests \
+		-resultBundlePath $(SNAPSHOT_RESULT_BUNDLE) $(TEST_UI_SIGNING_FLAGS)
+	GANCHO_SNAPSHOT_RECORD=$(SNAPSHOT_RECORD) swift test $(SWIFT_PACKAGE_FLAGS) \
+		--package-path Tests/DesignSnapshots
+
+record-snapshots: ## Re-record every image snapshot baseline
+	$(MAKE) test-snapshots SNAPSHOT_RECORD=all
+
+bench-ui: project ## Panel-open and paste-dispatch signpost baselines on the real app (local only)
+	mkdir -p build
+	rm -rf build/macos-perf-tests.xcresult
+	TEST_RUNNER_GANCHO_PERF=1 xcodebuild $(XCODE_PACKAGE_FLAGS) test -project Gancho.xcodeproj \
+		-scheme $(SCHEME_MAC) -only-testing:GanchoUITests/PerformanceBaselineUITests \
+		-resultBundlePath build/macos-perf-tests.xcresult $(TEST_UI_SIGNING_FLAGS)
 
 ui-evidence: ## Export kept screenshots and attachments from the macOS UI result bundle
 	./scripts/export-xcresult-attachments.sh $(MAC_UI_RESULT_BUNDLE) $(UI_EVIDENCE_DIR)

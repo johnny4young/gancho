@@ -17,6 +17,7 @@ included:
 
 excluded:
   - .build
+  - Tests/DesignSnapshots/.build
   - Gancho.xcodeproj
   - dist
   - Vendor
