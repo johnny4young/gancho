@@ -33,9 +33,8 @@ struct ReuseSuggestionBanner: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button(actionTitle, action: onAccept)
                 .ganchoButtonStyle(.primary)
-                .foregroundStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
                 .controlSize(.small)
-                .frame(minHeight: 44)
+                .frame(minHeight: GanchoTokens.HitTarget.touch)
                 .accessibilityLabel(Text(actionAccessibilityLabel))
                 .accessibilityIdentifier("reuse-suggestion-action")
             Button(action: onDismiss) {
@@ -43,7 +42,7 @@ struct ReuseSuggestionBanner: View {
                     .foregroundStyle(.tertiary)
             }
             .buttonStyle(.plain)
-            .frame(width: 44, height: 44)
+            .frame(width: GanchoTokens.HitTarget.touch, height: GanchoTokens.HitTarget.touch)
             .accessibilityLabel(Text("Dismiss"))
             .accessibilityIdentifier("reuse-suggestion-dismiss")
         }

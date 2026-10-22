@@ -1,8 +1,7 @@
 import CoreGraphics
 
 /// Design tokens shared by every platform UI. Components consume token names,
-/// never bare numbers — see docs/ARCHITECTURE.md and the future
-/// DESIGN-SYSTEM.md.
+/// never bare numbers — see "Design tokens" in docs/ARCHITECTURE.md.
 public enum GanchoTokens {
     public enum Spacing {
         public static let xxs: CGFloat = 4

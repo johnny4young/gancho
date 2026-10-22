@@ -76,7 +76,9 @@ struct PasteboardStatusRow: View {
             Image(systemName: "info.circle")
                 .foregroundStyle(.tertiary)
                 // A 44 pt target at every text size, not just the glyph.
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(
+                    minWidth: GanchoTokens.HitTarget.touch, minHeight: GanchoTokens.HitTarget.touch
+                )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

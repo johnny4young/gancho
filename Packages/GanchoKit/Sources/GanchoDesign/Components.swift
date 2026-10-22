@@ -136,7 +136,7 @@ public struct ClipLinkParts: Equatable, Sendable {
 }
 
 extension GanchoTokens.Palette {
-    /// Clip-kind family colours (the design's `tokens/colors.css`): the tint
+    /// Clip-kind family colours: the tint
     /// behind a row's icon tile and the filter-rail dots.
     public static func kindTint(for kind: ClipContentKind) -> Color {
         switch kind {

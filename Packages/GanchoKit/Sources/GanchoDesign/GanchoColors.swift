@@ -187,7 +187,7 @@ extension GanchoTokens {
 
 extension GanchoTokens {
     /// Token colors for `GanchoSyntax`. The dark values are the design editor's
-    /// palette (`docs/design/ui_kits/macos/snippet-editor.html`); the light
+    /// palette; the light
     /// values are darker, legible variants of the same hues, so highlighting
     /// honours the app's Light/Dark choice — the code editor is an elevated
     /// surface, not a fixed-dark panel.
