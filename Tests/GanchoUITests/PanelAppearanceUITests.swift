@@ -47,6 +47,10 @@ final class PanelAppearanceUITests: XCTestCase {
         }
         let landscape = rows.matching(NSPredicate(format: "NOT (label CONTAINS %@)", "•••"))
             .firstMatch
+        // The image reads as its pixel size and format; the masked one stays a mask.
+        XCTAssertTrue(landscape.label.contains("600 × 300 · PNG"), landscape.label)
+        let masked = rows.matching(NSPredicate(format: "label CONTAINS %@", "•••")).firstMatch
+        XCTAssertFalse(masked.label.contains("×"), masked.label)
         landscape.click()
         let title = app.staticTexts["preview-title"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 5))

@@ -4219,6 +4219,16 @@
           }
         }
       }
+    },
+    "Image · %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagen · %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

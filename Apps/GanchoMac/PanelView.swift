@@ -74,6 +74,8 @@ struct PanelView: View {
     @State private var preview: PanelPreviewModel
     /// Non-nil when the keyboard moved up into the filter/board rails.
     @State private var railFocus: RailFocus?
+    @State private var scopeCounts = PanelScopeCounts()
+    @State private var panelOpenCount = 0
     @State private var boardSheet: BoardSheet?
     @State private var boardNameField = ""
     /// The board a destructive "Delete board" is awaiting confirmation on.
@@ -113,6 +115,8 @@ struct PanelView: View {
     @AppStorage private var translucentBackground: Bool
     @AppStorage private var peekShowsMoreActions: Bool
     @AppStorage private var panelLayoutRaw: String
+    /// When the first paste-back landed; nil until then.
+    @AppStorage private var firstPasteBackAt: Double?
     /// What the gallery currently fits; 1 while the list is showing.
     @State private var galleryColumns = 2
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -134,6 +138,7 @@ struct PanelView: View {
             wrappedValue: false, "peek-shows-more-actions", store: displayDefaults)
         _panelLayoutRaw = AppStorage(
             wrappedValue: PanelLayout.list.rawValue, PanelLayout.storageKey, store: displayDefaults)
+        _firstPasteBackAt = AppStorage(PanelFirstRunStage.pasteBackKey, store: displayDefaults)
     }
 
     /// Zero-size buttons that claim command-level shortcuts. The search
@@ -217,6 +222,7 @@ struct PanelView: View {
                 guard let window = notification.object as? NSWindow,
                     model.panel.isPanelWindow(window)
                 else { return }
+                panelOpenCount &+= 1
                 // Every open starts from the newest clip with the search field
                 // focused, whatever rail or row the previous session ended on.
                 // The interval closes on the next turn, after this frame commits.
@@ -272,6 +278,16 @@ struct PanelView: View {
                         .id(selected.id)
                     }
                     .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
+                    // Only behind the peek: the list stays on the neutral surface.
+                    .background {
+                        ambientWash
+                            .animation(
+                                GanchoMotion.smooth(reduceMotion: reduceMotion), value: ambientTint)
+                    }
+                } else if showsFirstRunStage {
+                    Divider()
+                    PanelFirstRunStageView()
+                        .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
                 }
             }
             statusFooter
@@ -284,12 +300,6 @@ struct PanelView: View {
         .overlay { boardPickerOverlay }
         .overlay { telemetryConsentPrompt }
         .overlay(alignment: .top) { uiTestMultiFileDropTarget }
-        // Between the content and the glass, so the wash reads through the
-        // rows without tinting the glass itself.
-        .background {
-            ambientWash
-                .animation(GanchoMotion.smooth(reduceMotion: reduceMotion), value: ambientTint)
-        }
         .clipShape(RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
         .ganchoSurface(radius: GanchoTokens.Radius.lg, level: .panel)
         .environment(\.ganchoOpaqueSurfaces, !translucentBackground)
@@ -425,14 +435,28 @@ struct PanelView: View {
             }
     }
 
+    /// The three-key lesson fills the peek column of a first-run panel.
+    private var showsFirstRunStage: Bool {
+        PanelFirstRunStage.isShown(
+            // The stored total, not just the list: rows still loading must not
+            // flash the lesson over a non-empty history.
+            historyEmpty: scopeCounts.total == 0 && search.filtered.isEmpty,
+            narrowed: !search.query.isEmpty || search.hasActiveFilter,
+            hasPastedBack: firstPasteBackAt != nil)
+    }
+
     /// The colour the ambient wash takes: an image's average, otherwise the
-    /// kind's tint; nil when the wash is off or legibility settings veto it.
+    /// kind's tint; nil when the wash is off, legibility settings veto it, or
+    /// the clip is masked.
     private var ambientTint: Color? {
         guard
             PanelAmbientTint.isShown(
                 enabled: ambientTintEnabled, reduceTransparency: reduceTransparency,
                 increasedContrast: contrast == .increased),
-            let selected = search.selectedItem
+            let selected = search.selectedItem,
+            PanelAmbientTint.washes(
+                masked: ClipSafePresentation.requiresMasking(selected),
+                privateMode: model.preferences.isPrivateModePaused)
         else { return nil }
         if PanelAmbientTint.usesAccent(
             kind: selected.kind, isSensitive: selected.isSensitive,
@@ -444,8 +468,8 @@ struct PanelView: View {
         return GanchoTokens.Palette.kindTint(for: selected.kind)
     }
 
-    /// A soft field of the tint, heavier at the corners the eye lands on
-    /// last, so the rows stay on neutral glass.
+    /// A soft field of the tint behind the peek, heaviest at its top-left
+    /// corner, where it peaks at the token opacity.
     @ViewBuilder private var ambientWash: some View {
         if let tint = ambientTint {
             MeshGradient(
@@ -706,6 +730,7 @@ struct PanelView: View {
                         search.selectedBoardID = nil
                         search.selectedSourceAppBundleID = nil
                     },
+                    importHistory: { presentedSheet = .importHistory },
                     onUserScroll: { search.endNewestFollow() },
                     row: { item in clipRow(item: item) })
             }
@@ -964,7 +989,8 @@ struct PanelView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: GanchoTokens.Spacing.xxs) {
                     railChip(
-                        Text("All clips"), isActive: search.selectedBoardID == nil,
+                        scopeTitle(Text("All clips"), count: scopeCounts.total),
+                        isActive: search.selectedBoardID == nil,
                         isFocused: railFocus == .boards(0), identifier: "board-all",
                         namespace: boardRailNamespace
                     ) {
@@ -1000,6 +1026,15 @@ struct PanelView: View {
                 GanchoMotion.quick(reduceMotion: reduceMotion),
                 value: search.selectedBoardID
             )
+            .task(
+                id: PanelScopeCountsKey(
+                    boardIDs: model.boards.map(\.id), newest: model.recentItems.first?.id,
+                    recentCount: model.recentItems.count, opened: panelOpenCount)
+            ) {
+                let counts = await model.scopeCounts()
+                guard !Task.isCancelled else { return }
+                scopeCounts = counts
+            }
             .onChange(of: railFocus) { _, focused in
                 guard case .boards(let index) = focused else { return }
                 if index == 0 {
@@ -1013,14 +1048,22 @@ struct PanelView: View {
 
     private static let allClipsRailID = "board-all"
 
+    /// A scope's name with its clip total (`All clips · 128`); the bare name
+    /// until the count loads.
+    private func scopeTitle(_ title: Text, count: Int?) -> Text {
+        guard let count else { return title }
+        return Text("\(title) · \(count)")
+    }
+
     private func boardChip(_ board: Pinboard, index: Int) -> some View {
         let isActive = search.selectedBoardID == board.id
-        let title = board.displayTitle
+        let title = scopeTitle(board.displayTitle, count: scopeCounts.boards[board.id])
         return Button {
             search.selectedBoardID = board.id
         } label: {
             railChipLabel(
-                title, isActive: isActive, isFocused: railFocus == .boards(index + 1),
+                isActive ? title : board.displayTitle, isActive: isActive,
+                isFocused: railFocus == .boards(index + 1),
                 showsTitle: isActive || !board.isSystem, namespace: boardRailNamespace
             ) {
                 if isActive {
@@ -1227,6 +1270,8 @@ struct PanelView: View {
                 SavedFilterEditor(rule: rule, boards: model.boards) {
                     await model.savedFilters.save($0)
                 })
+        case .importHistory:
+            AnyView(MigrationImportView().environment(model))
         case .snippet, .boardAppearance:
             AnyView(EmptyView())
         }

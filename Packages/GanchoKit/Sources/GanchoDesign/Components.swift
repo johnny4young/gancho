@@ -121,6 +121,9 @@ public struct TypeBadge: View {
 public struct ClipLinkParts: Equatable, Sendable {
     public let host: String
     public let text: String
+    /// The path and query with percent escapes decoded, or nil when decoding
+    /// changes nothing (the URL line already says it).
+    public let decoded: String?
 
     public init?(text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -132,6 +135,12 @@ public struct ClipLinkParts: Equatable, Sendable {
         host = rawHost.lowercased().hasPrefix("www.") ? String(rawHost.dropFirst(4)) : rawHost
         guard !host.isEmpty else { return nil }
         self.text = trimmed
+        let components = URLComponents(string: trimmed)
+        let raw =
+            (components?.percentEncodedPath ?? "")
+            + (components?.percentEncodedQuery.map { "?\($0)" } ?? "")
+        let readable = raw.removingPercentEncoding
+        decoded = readable == raw ? nil : readable
     }
 }
 
@@ -283,6 +292,11 @@ public struct ClipCard: View {
             Text(verbatim: "•••").panelFont(.callout)
         } else if item.kind == .code {
             Text(highlightedPreview).panelFont(.callout, design: .monospaced)
+        } else if item.kind == .image, let info = item.imageInfo {
+            // Untitled: "Image · 1200 × 800 · PNG"; titled: "PNG · 1200 × 800".
+            let detail = info.rowDetail(titled: !item.title.isEmpty)
+            (item.title.isEmpty ? Text("Image · \(detail)") : Text(verbatim: detail))
+                .panelFont(item.title.isEmpty ? .body : .callout)
         } else {
             Text(ByteSize.humanizedPreview(item.preview))
                 .panelFont(item.title.isEmpty ? .body : .callout)
@@ -327,7 +341,7 @@ public struct ClipCard: View {
                                 Text(expiresAt, style: .timer)
                             }
                             .panelFont(.caption2, digits: true)
-                            .foregroundStyle(GanchoTokens.Palette.warning)
+                            .foregroundStyle(GanchoTokens.Palette.warningInk)
                             .accessibilityLabel(Text("Expires soon"))
                         }
                     }
@@ -481,7 +495,10 @@ extension Text {
     /// The row's VoiceOver phrase — kind, then the preview or the mask — so the
     /// list row and the gallery card read identically.
     public static func clipRowDescription(for item: ClipItem, masked: Bool) -> Text {
-        let preview = masked ? "•••" : ByteSize.humanizedPreview(item.preview)
+        let preview =
+            masked
+            ? "•••"
+            : item.imageInfo?.rowDetail(titled: false) ?? ByteSize.humanizedPreview(item.preview)
         return Text("\(Text(LocalizedStringKey(item.kind.rawValue))), \(preview)")
     }
 }

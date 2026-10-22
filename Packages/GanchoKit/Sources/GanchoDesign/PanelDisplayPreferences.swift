@@ -55,9 +55,8 @@ public enum PanelTranslucency {
     }
 }
 
-/// The optional ambient wash behind the panel: a faint field of the selected
-/// clip's colour under the list and the peek. Off by default; Settings owns
-/// the toggle.
+/// The optional ambient wash behind the peek: a faint field of the selected
+/// clip's colour. Off by default; Settings owns the toggle.
 public enum PanelAmbientTint {
     public static let storageKey = "panel-ambient-tint"
 
@@ -69,10 +68,16 @@ public enum PanelAmbientTint {
         enabled && !reduceTransparency && !increasedContrast
     }
 
-    /// Wash strength per appearance: dark glass carries a little more colour
-    /// before it reads as a tint.
+    /// The wash's peak strength: 7 % in dark, 10 % in light, where a tint
+    /// needs a little more colour to register on a pale surface.
     nonisolated public static func opacity(dark: Bool) -> Double {
-        dark ? 0.22 : 0.14
+        dark ? 0.07 : 0.10
+    }
+
+    /// A masked clip or Private Mode gets no wash at all: even the kind's
+    /// tint would mark what the mask hides.
+    nonisolated public static func washes(masked: Bool, privateMode: Bool) -> Bool {
+        !masked && !privateMode
     }
 
     /// Whether the wash may take an image's own colour. Only while that image

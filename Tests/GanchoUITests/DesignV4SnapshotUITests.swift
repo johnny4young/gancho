@@ -114,7 +114,19 @@ final class DesignV4SnapshotUITests: XCTestCase {
         try panel(appearance: "light", textSize: "large")
     }
 
-    @MainActor private func panel(appearance: String, textSize: String = "standard") throws {
+    /// GC-23 and GC-V5-3: the wash sits behind the peek only, and the image
+    /// row reads as its size and format.
+    @MainActor func testPanelAmbientImageLight() throws {
+        try panel(appearance: "light", ambient: true)
+    }
+
+    @MainActor func testPanelAmbientImageDark() throws {
+        try panel(appearance: "dark", ambient: true)
+    }
+
+    @MainActor private func panel(
+        appearance: String, textSize: String = "standard", ambient: Bool = false
+    ) throws {
         let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
@@ -123,13 +135,19 @@ final class DesignV4SnapshotUITests: XCTestCase {
             "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
             "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
             "-appearance", appearance, "-panel-text-size", textSize,
+            "-panel-ambient-tint", ambient ? "YES" : "NO",
             "-ui-test-snapshot-dir", renders.path, "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)"
         ]
         app.launch()
         defer { app.terminate() }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row")
-            .matching(NSPredicate(format: "label CONTAINS %@", "example.com")).firstMatch
+            .matching(
+                ambient
+                    ? NSPredicate(
+                        format: "label BEGINSWITH %@ AND NOT (label CONTAINS %@)", "image,", "•••")
+                    : NSPredicate(format: "label CONTAINS %@", "example.com")
+            ).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 8))
         row.click()
         XCTAssertTrue(
@@ -138,8 +156,42 @@ final class DesignV4SnapshotUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         try DesignSnapshot.save(
             DesignSnapshot.renderWindow(titled: "Gancho", named: "panel", in: renders),
-            named: textSize == "standard"
-                ? "panel-link-peek-\(appearance)" : "panel-link-peek-\(textSize)-text")
+            named: ambient
+                ? "panel-ambient-image-\(appearance)"
+                : textSize == "standard"
+                    ? "panel-link-peek-\(appearance)" : "panel-link-peek-\(textSize)-text")
+    }
+
+    // MARK: GC-05 — the empty panel teaches the three keys.
+
+    @MainActor func testPanelFirstRunLight() throws {
+        try firstRunPanel(appearance: "light")
+    }
+
+    @MainActor func testPanelFirstRunDark() throws {
+        try firstRunPanel(appearance: "dark")
+    }
+
+    @MainActor private func firstRunPanel(appearance: String) throws {
+        let app = GanchoUITestApplication()
+        app.launchArguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+            "-force-free-tier", "-start-capture-paused", "-suppress-paused-notice-for-ui-test",
+            "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
+            "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
+            "-appearance", appearance, "-ui-test-snapshot-dir", renders.path,
+            "-ui-test-defaults-suite",
+            "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)"
+        ]
+        app.launch()
+        defer { app.terminate() }
+        XCTAssertTrue(
+            app.descendants(matching: .any)["panel-first-run-stage"].firstMatch
+                .waitForExistence(timeout: 15))
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        try DesignSnapshot.save(
+            DesignSnapshot.renderWindow(titled: "Gancho", named: "panel", in: renders),
+            named: "panel-first-run-\(appearance)")
     }
 
     // MARK: Settings › Privacy and Privacy Center — neutral buttons, dark ink hero.

@@ -10328,6 +10328,136 @@
           }
         }
       }
+    },
+    "Expires in %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caduca en %@"
+          }
+        }
+      }
+    },
+    "decoded · %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "decodificado · %@"
+          }
+        }
+      }
+    },
+    "%@ · %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld"
+          }
+        }
+      }
+    },
+    "Image · %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagen · %@"
+          }
+        }
+      }
+    },
+    "Import from Maccy or CSV…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importar desde Maccy o CSV…"
+          }
+        }
+      }
+    },
+    "The whole loop, three keys": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo el ciclo, tres teclas"
+          }
+        }
+      }
+    },
+    "Open the panel from anywhere": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre el panel desde cualquier lugar"
+          }
+        }
+      }
+    },
+    "or click the hook in the menu bar": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "o haz clic en el gancho de la barra de menú"
+          }
+        }
+      }
+    },
+    "Click the hook in the menu bar": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz clic en el gancho de la barra de menú"
+          }
+        }
+      }
+    },
+    "Pick a clip, or just type to search": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige un clip o escribe para buscar"
+          }
+        }
+      }
+    },
+    "⌘1–9 jumps straight to a row": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘1–9 salta directo a una fila"
+          }
+        }
+      }
+    },
+    "Paste where you were typing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega donde estabas escribiendo"
+          }
+        }
+      }
+    },
+    "⌥⏎ pastes plain text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌥⏎ pega texto sin formato"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

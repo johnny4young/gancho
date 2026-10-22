@@ -32,9 +32,16 @@ struct PanelAmbientTintTests {
         #expect(!PanelAmbientTint.usesAccent(kind: .url, isSensitive: false, previewsHidden: false))
     }
 
-    @Test("The wash stays faint in both appearances")
+    @Test("The wash peaks at 10 % in light and 7 % in dark")
     func strength() {
-        #expect(PanelAmbientTint.opacity(dark: false) < PanelAmbientTint.opacity(dark: true))
-        #expect(PanelAmbientTint.opacity(dark: true) <= 0.25)
+        #expect(PanelAmbientTint.opacity(dark: false) == 0.10)
+        #expect(PanelAmbientTint.opacity(dark: true) == 0.07)
+    }
+
+    @Test("Masked clips and Private Mode get no wash")
+    func maskVeto() {
+        #expect(PanelAmbientTint.washes(masked: false, privateMode: false))
+        #expect(!PanelAmbientTint.washes(masked: true, privateMode: false))
+        #expect(!PanelAmbientTint.washes(masked: false, privateMode: true))
     }
 }

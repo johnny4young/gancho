@@ -18,6 +18,14 @@ struct ClipLinkPartsTests {
         #expect(!parts.host.hasPrefix("www."))
     }
 
+    @Test("Escaped paths and queries offer a decoded reading; plain ones do not")
+    func decoded() {
+        let escaped = ClipLinkParts(text: "https://www.example.com:8443/a%2Fb?q=a%26b#section-2")
+        #expect(escaped?.decoded == "/a/b?q=a&b")
+        #expect(ClipLinkParts(text: "https://example.com/docs?lang=es")?.decoded == nil)
+        #expect(ClipLinkParts(text: "https://example.com")?.decoded == nil)
+    }
+
     @Test("Host prefixes are case insensitive")
     func host() {
         #expect(ClipLinkParts(text: "https://WWW.example.com")?.host == "example.com")

@@ -33,6 +33,7 @@ struct ClipPeek: View {
     @State var actionResult: String?
     @Binding private var showsMoreActions: Bool
     @State private var boardIDs: Set<UUID> = []
+    @State private var syncState: PeekSyncState?
     /// Smart Paste can run the on-device model — show a spinner while it thinks.
     @State var translationTargets: [TranslationDestination] = []
     @State var translationFailed = false
@@ -129,7 +130,6 @@ struct ClipPeek: View {
                                     copiedLine: $ocrCopiedLine,
                                     revealSecret: $ocrRevealSecret, isEditing: $isEditingOCR)
                             }
-                            insightStrip
                             if canTransform || canSmartPaste {
                                 ViewThatFits(in: .horizontal) {
                                     HStack(spacing: GanchoTokens.Spacing.xxs) { transformButtons }
@@ -283,6 +283,11 @@ struct ClipPeek: View {
             boardIDs = membership
         }
         .task(id: item.id) { await loadSuggestedBoard() }
+        .task(id: PeekSyncStateKey(id: item.id, status: model.syncStatus)) {
+            let state = await model.uploadState(for: item)
+            guard !Task.isCancelled else { return }
+            syncState = state
+        }
     }
 
     /// "Add to Dev?" — the one-tap board suggestion. Accepting files the clip;
@@ -314,11 +319,21 @@ struct ClipPeek: View {
         .accessibilityIdentifier("board-suggestion")
     }
 
-    /// The header doubles as the peek's drag-out handle (the text body keeps
-    /// its selection gestures, so the drag lives on the title row instead).
+    /// Provenance first, then the title on its own row.
     private var header: some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+            PeekProvenanceHeader(
+                item: item,
+                boards: Array(model.boards.filter { boardIDs.contains($0.id) }.prefix(3)),
+                syncState: syncState, masksProvenance: hidesPreview)
+            titleRow
+        }
+    }
+
+    /// The title row doubles as the peek's drag-out handle (the text body
+    /// keeps its selection gestures).
+    private var titleRow: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            TypeBadge(kind: item.kind, style: .pill)
             if hidesPreview {
                 Text(verbatim: ClipSafePresentation.masked)
                     .panelFont(.headline)
@@ -357,63 +372,6 @@ struct ClipPeek: View {
         }
         .clipDragSource(item)
     }
-
-    /// Source app · relative time · expiry, then the boards this clip is in.
-    @ViewBuilder private var insightStrip: some View {
-        HStack(spacing: GanchoTokens.Spacing.md) {
-            if let bundleID = item.sourceAppBundleID {
-                Label {
-                    Text(SourceApp.displayName(forBundleID: bundleID))
-                } icon: {
-                    if let icon = SourceApp.icon(forBundleID: bundleID) {
-                        Image(nsImage: icon).resizable().frame(width: 13, height: 13)
-                    } else {
-                        Image(systemName: "app.dashed")
-                    }
-                }
-                .accessibilityIdentifier("peek-source-app")
-            }
-            Label {
-                Text(item.createdAt, style: .relative)
-            } icon: {
-                Image(systemName: "clock")
-            }
-            if let expiresAt = item.expiresAt {
-                Label {
-                    Text(expiresAt, style: .relative)
-                } icon: {
-                    Image(systemName: "hourglass")
-                }
-                .foregroundStyle(
-                    expiresAt.timeIntervalSinceNow < 600
-                        ? AnyShapeStyle(GanchoTokens.Palette.warning) : AnyShapeStyle(.secondary))
-            }
-        }
-        .panelFont(.caption)
-        .foregroundStyle(.secondary)
-        .labelStyle(.titleAndIcon)
-        .lineLimit(1)
-        FlowLayout(spacing: GanchoTokens.Spacing.xxs) {
-            ForEach(model.boards.filter { boardIDs.contains($0.id) }.prefix(3)) { board in
-                HStack(spacing: 3) {
-                    BoardIdentityMark(board: board, size: 11)
-                    board.displayTitle
-                }
-                .panelFont(.subheadline, .medium)
-                .lineLimit(1)
-                .help(board.displayTitle)
-                .accessibilityIdentifier("peek-board-\(board.id.uuidString)")
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(.quaternary, in: Capsule())
-                .accessibilityElement(children: .combine)
-            }
-        }
-        .panelFont(.caption)
-        .foregroundStyle(.secondary)
-        .labelStyle(.titleAndIcon)
-        .lineLimit(1)
-    }
 }
 
 // MARK: - Hero
@@ -434,11 +392,16 @@ extension ClipPeek {
         .padding(GanchoTokens.Spacing.sm)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .background {
-            shape.fill(.quaternary.opacity(0.35))
-            shape.fill(
-                RadialGradient(
-                    colors: [tint.opacity(0.2), .clear], center: .topLeading,
-                    startRadius: 0, endRadius: 360))
+            // A 4 pt stripe in the kind's tint marks the kind before reading it.
+            ZStack(alignment: .leading) {
+                shape.fill(.quaternary.opacity(0.35))
+                shape.fill(
+                    RadialGradient(
+                        colors: [tint.opacity(0.2), .clear], center: .topLeading,
+                        startRadius: 0, endRadius: 360))
+                tint.frame(width: 4)
+            }
+            .clipShape(shape)
         }
         .overlay(
             shape.strokeBorder(.separator.opacity(0.6), lineWidth: GanchoTokens.Stroke.hairline)
@@ -528,6 +491,18 @@ extension ClipPeek {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("peek-link-url")
+            if let decoded = parts.decoded {
+                Text("decoded · \(decoded)")
+                    .panelFont(.subheadline, .semibold, design: .monospaced)
+                    .foregroundStyle(Color.primary.opacity(0.8))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.horizontal, 7)
+                    .frame(minHeight: 22)
+                    .background(Color.primary.opacity(0.07), in: Capsule())
+                    .padding(.top, GanchoTokens.Spacing.xxs)
+                    .accessibilityIdentifier("peek-link-decoded")
+            }
         }
         .textSelection(.enabled)
         .accessibilityElement(children: .contain)
