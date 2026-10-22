@@ -268,16 +268,28 @@ extension SignedHandoffUITests {
                 status = findElement(root, attribute: kAXRoleAttribute, value: kAXMenuBarItemRole)
                 return status != nil
             }, "The exact helper must expose its status item")
-        try clickElement(try XCTUnwrap(status))
+        // Pressed, not clicked: a click sent while a new status item slides in
+        // or its menu opens lands on the wallpaper and activates Finder.
+        try press(try XCTUnwrap(status), "The helper status item must accept a press")
         var item: AXUIElement?
         try require(
             waitUntil {
                 item = findElement(
                     root, attribute: kAXIdentifierAttribute,
                     value: "menu-bar-command-\(command)")
-                return item != nil
-            }, "The real helper menu must expose the requested command")
-        try clickElement(try XCTUnwrap(item))
+                // A closed menu still exposes its items, with an empty frame.
+                return item.flatMap { frame(of: $0) }.map { !$0.isEmpty } ?? false
+            }, "The real helper menu must open and expose the requested command")
+        try press(try XCTUnwrap(item), "The requested helper command must accept a press")
+    }
+
+    /// A press whose reply arrives after the menu it opens starts tracking
+    /// reports `cannotComplete`; callers assert the effect instead.
+    @MainActor
+    private func press(_ element: AXUIElement, _ message: String) throws {
+        AXUIElementSetMessagingTimeout(element, 2)
+        let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
+        try require(result == .success || result == .cannotComplete, "\(message): \(result)")
     }
 
     @MainActor
