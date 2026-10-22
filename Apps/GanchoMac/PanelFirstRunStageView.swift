@@ -61,6 +61,10 @@ struct PanelFirstRunStageView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, GanchoTokens.Spacing.xs)
         .ganchoSurface(radius: GanchoTokens.Radius.md)
+        .overlay(
+            RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+                .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline)
+        )
         .accessibilityElement(children: .combine)
     }
 }

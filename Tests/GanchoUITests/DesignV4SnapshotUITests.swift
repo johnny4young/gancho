@@ -180,6 +180,9 @@ final class DesignV4SnapshotUITests: XCTestCase {
             "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
             "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
             "-appearance", appearance, "-ui-test-snapshot-dir", renders.path,
+            // Pin the default ⇧⌘V so the baseline ignores this Mac's recorded
+            // shortcut; quoted so the argument domain keeps it a string.
+            "-KeyboardShortcuts_toggle-panel", #""{\"carbonKeyCode\":9,\"carbonModifiers\":768}""#,
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)"
         ]
