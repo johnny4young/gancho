@@ -38,9 +38,9 @@ public struct IconActionButton: View {
 
     private var targetSize: CGFloat {
         #if os(macOS)
-            28 * typeScale
+            GanchoTokens.HitTarget.control * typeScale
         #else
-            44
+            GanchoTokens.HitTarget.touch
         #endif
     }
 }

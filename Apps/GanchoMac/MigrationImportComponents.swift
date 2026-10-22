@@ -134,10 +134,10 @@ struct MigrationImportReview: View {
                 Spacer()
                 Text("Dry run complete")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(GanchoTokens.Palette.brandText)
                     .padding(.horizontal, GanchoTokens.Spacing.sm)
                     .padding(.vertical, GanchoTokens.Spacing.xxs)
-                    .background(.green.opacity(0.12), in: Capsule())
+                    .background(GanchoTokens.Palette.brandTint, in: Capsule())
             }
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 statistic(
@@ -176,7 +176,7 @@ struct MigrationImportReview: View {
     ) -> some View {
         VStack(spacing: GanchoTokens.Spacing.xxs) {
             Image(systemName: symbol)
-                .foregroundStyle(tint)
+                .foregroundStyle(ReadableInk(base: tint))
                 .accessibilityHidden(true)
             Text(verbatim: "\(value)")
                 .font(.title2.bold().monospacedDigit())
@@ -198,7 +198,7 @@ struct MigrationImportCompletion: View {
         VStack(spacing: GanchoTokens.Spacing.md) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(.green)
+                .foregroundStyle(GanchoTokens.Palette.brandText)
                 .accessibilityHidden(true)
             Text("Memory ready")
                 .font(.title2.bold())

@@ -28,6 +28,23 @@ public enum GanchoTokens {
         public static let focus: CGFloat = 2
     }
 
+    /// Minimum hit targets: touch controls and the menu-bar call to action,
+    /// macOS buttons and toolbar icons at 13 pt type, and list rows.
+    public enum HitTarget {
+        public static let touch: CGFloat = 44
+        public static let control: CGFloat = 28
+        public static let row: CGFloat = 24
+
+        /// A button's minimum height on the current platform.
+        public static var button: CGFloat {
+            #if os(iOS)
+                touch
+            #else
+                control
+            #endif
+        }
+    }
+
     /// Opaque surface levels: the panel, cards on it, controls on cards.
     public enum SurfaceLevel: Sendable { case panel, card, control }
 

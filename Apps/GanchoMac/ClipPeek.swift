@@ -713,6 +713,7 @@ extension ClipPeek {
                 .padding(.vertical, GanchoTokens.Spacing.xxs)
         }
         .menuStyle(.borderlessButton)
+        .ganchoInkTint()
         .sheet(item: $recipeRequest) { request in
             TextRecipeReview(clipID: request.clipID).environment(model)
         }

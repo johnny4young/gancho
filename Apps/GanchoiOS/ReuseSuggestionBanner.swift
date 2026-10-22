@@ -102,7 +102,8 @@ private struct ReuseSuggestionInset: ViewModifier {
                         reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .animation(reduceMotion ? nil : .snappy, value: model.reuseSuggestion)
+            .animation(
+                GanchoMotion.smooth(reduceMotion: reduceMotion), value: model.reuseSuggestion)
     }
 }
 

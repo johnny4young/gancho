@@ -50,6 +50,18 @@ extension View {
     public func ganchoTextButton() -> some View {
         buttonStyle(.borderless).foregroundStyle(GanchoTokens.Palette.accentInk)
     }
+
+    /// Tints a control that paints its own label in the accent (a borderless
+    /// menu, a button-style toggle) with the readable ink instead.
+    public func ganchoInkTint() -> some View { modifier(InkTint()) }
+}
+
+private struct InkTint: ViewModifier {
+    @Environment(\.self) private var environment
+
+    func body(content: Content) -> some View {
+        content.tint(Color(GanchoTokens.Palette.accentInk.resolve(in: environment)))
+    }
 }
 
 private struct GanchoButtonBody: View {
@@ -63,11 +75,6 @@ private struct GanchoButtonBody: View {
     @Environment(\.ganchoDrawsFocusRing) private var drawsFocusRing
     @State private var isHovering = false
 
-    #if os(iOS)
-        private let minHeight: CGFloat = 44
-    #else
-        private let minHeight: CGFloat = 28
-    #endif
     private let radius = GanchoTokens.Radius.md
 
     var body: some View {
@@ -76,7 +83,7 @@ private struct GanchoButtonBody: View {
             .fontWeight(.semibold)
             .lineLimit(1)
             .padding(.horizontal, GanchoTokens.Spacing.sm)
-            .frame(minHeight: minHeight)
+            .frame(minHeight: GanchoTokens.HitTarget.button)
             .foregroundStyle(ink(on: fill))
             .background(fill ?? .clear, in: shape)
             .overlay {

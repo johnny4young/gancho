@@ -76,6 +76,7 @@ extension ClipPeek {
                 .padding(.vertical, GanchoTokens.Spacing.xxs)
         }
         .menuStyle(.borderlessButton)
+        .ganchoInkTint()
         .fixedSize()
         .ganchoSurface(radius: GanchoTokens.Radius.md)
         .disabled(isThinking)
