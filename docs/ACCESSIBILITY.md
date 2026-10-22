@@ -18,7 +18,8 @@ that complements the automated checks.
   System text styles are used broadly, but fixed-size labels and the panel text-size override mean
   this is not a guarantee that every element follows system Dynamic Type.
 - Accessibility identifiers are stable kebab-case and never localized.
-- Settings section buttons expose their selected state. Board-picker rows are
+- Settings section buttons expose their selected state, and keyboard focus
+  follows the selected section, so only one row ever shows a focus ring. Board-picker rows are
   native buttons while the search field retains arrow navigation.
 - Compact icon actions share a labeled hit target, scaled with panel text on
   macOS and sized for touch on iOS. Opaque custom accent fills resolve a black

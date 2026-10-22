@@ -34,6 +34,12 @@ Gancho has two dependency roots and therefore two canonical locks:
 - `Dependencies/Package.resolved` records the app-wide Xcode graph: every
   GanchoKit dependency plus the project-level `KeyboardShortcuts` package.
 
+`swift-snapshot-testing` lives outside both graphs, in the standalone test
+package `Tests/DesignSnapshots` with its own `Package.resolved`. UI test
+bundles cannot load Swift Testing, which the library imports, so the UI suite
+only captures PNGs and this package compares them. Dependabot watches only
+`Packages/GanchoKit`, so the library is bumped by hand.
+
 The generated `Gancho.xcodeproj` remains ignored. XcodeGen's post-generation
 hook copies the app lock to the workspace location Xcode expects; never edit
 that generated copy. `make dependency-check` proves shared dependencies resolve

@@ -7,8 +7,19 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The welcome window, the Recent clips widget and the Wrapped card show the
+  Gancho mark instead of a generic paperclip symbol.
+
 ### Fixed
 
+- The menu-bar menu shows the panel shortcut you recorded (or none) instead
+  of always showing ⇧⌘V.
+- Choosing a Settings section moves keyboard focus with it, so the first row
+  no longer keeps its focus ring while another row is selected.
+- All five stages of the Intelligence pipeline fit inside the window, and the
+  Smart paste row shows its icon again.
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.10.2 DMG.
   Physical-device acceptance remains pending; the published app, tag and

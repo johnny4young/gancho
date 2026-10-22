@@ -371,6 +371,7 @@ final class GanchoMenuBarStatusPublisher {
     private weak var model: AppModel?
     private var timer: Timer?
     private var lastStatus: MonitorStatus?
+    private var lastPanelShortcut: MenuBarKeyEquivalent??
 
     func start(model: AppModel) {
         self.model = model
@@ -390,7 +391,19 @@ final class GanchoMenuBarStatusPublisher {
         GanchoMenuBarBridge.writeTitles(titles)
     }
 
+    /// The helper cannot read KeyboardShortcuts, so the recorded panel shortcut
+    /// (or its absence) crosses the bridge and the 1s poll picks up re-records.
+    private func publishPanelShortcut() {
+        let shortcut = KeyboardShortcuts.getShortcut(for: .togglePanel).flatMap {
+            MenuBarKeyEquivalent(key: $0.nsMenuItemKeyEquivalent, modifiers: $0.modifiers)
+        }
+        guard lastPanelShortcut != .some(shortcut) else { return }
+        lastPanelShortcut = .some(shortcut)
+        GanchoMenuBarBridge.writePanelShortcut(shortcut)
+    }
+
     @objc func publishNow() {
+        publishPanelShortcut()
         guard let model, model.monitorStatus != lastStatus else { return }
         lastStatus = model.monitorStatus
         let presentation = StatusItemPresentation(status: model.monitorStatus)

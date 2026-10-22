@@ -544,6 +544,15 @@ becomes a planned workstream after an explicit product decision.
 - `make build` must pass for macOS; `make build-ios` must pass when shared or
   iOS code changes.
 - Swift Testing is the unit-test framework. XCTest is reserved for UI tests.
+- `make test-snapshots` captures real app surfaces (`make capture-snapshots`,
+  `DesignV4SnapshotUITests`, skipped unless `GANCHO_SNAPSHOTS=1`) and compares them with
+  swift-snapshot-testing in the standalone `Tests/DesignSnapshots` package,
+  whose baselines live in its `__Snapshots__`. Windows are rendered by the app
+  itself (`-ui-test-snapshot-dir`, DEBUG only, `cacheDisplay`), never captured
+  as a screen region, so a covering window can never end up in an image; the
+  render omits material vibrancy. Baselines are recorded on a Retina Mac, so
+  neither step runs on the hosted runner; `make record-snapshots` re-records
+  them after an intended change.
 - Public symbols in engine-room targets require documentation comments that
   explain constraints and rationale.
 - User-facing strings go through a String Catalog with English and Spanish from
@@ -598,8 +607,10 @@ or values, enforced by `SignpostHygieneTests`):
 | `capture-to-insert` | < 250 ms | ingest accepted → durable insert, both platforms (sync enqueue excluded) |
 
 Baselines are collected from real warm runs, not asserted in CI (device- and
-thermal-dependent). `-measure-panel` prints the panel first-frame wall-clock so
-a manual/UI run collects samples; the opt-in `GANCHO_PERF=1` harness holds the
+thermal-dependent). `make bench-ui` measures `panel-to-first-frame` and
+`paste-dispatch` on the real app through `XCTOSSignpostMetric` (paste goes to
+a discarding sink, so no ⌘V reaches another app). `-measure-panel` prints the
+panel first-frame wall-clock so a manual run collects samples; the opt-in `GANCHO_PERF=1` harness holds the
 scale budgets (FTS, semantic retrieval, board paging). Instruments/energy
 traces (30-min idle CPU, repeated-round RSS) are reference-Mac evidence.
 

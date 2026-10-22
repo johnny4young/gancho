@@ -55,9 +55,10 @@ struct OnboardingView: View {
     /// so "copy something" genuinely makes it appear right here.
     private var valueStep: some View {
         VStack(spacing: GanchoTokens.Spacing.md) {
-            Image(systemName: "paperclip")
-                .font(.system(size: 44))
-                .foregroundStyle(.tint)
+            Image("GanchoMark")
+                .resizable()
+                .frame(width: 44, height: 44)
+                .accessibilityHidden(true)
             Text("Everything you copy, safe and searchable")
                 .font(.title2.bold())
             Text("Try it now: copy any text — it appears below instantly.")

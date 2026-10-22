@@ -98,6 +98,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
 
 private struct SettingsSidebar: View {
     @Binding var selection: SettingsTab
+    @FocusState private var focusedTab: SettingsTab?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -105,6 +106,11 @@ private struct SettingsSidebar: View {
                 sidebarRow(tab)
             }
             Spacer(minLength: 0)
+        }
+        // A click does not move AppKit keyboard focus onto a plain button, so
+        // the first row kept its ring while another row was selected.
+        .onChange(of: selection) { _, newValue in
+            if focusedTab != nil { focusedTab = newValue }
         }
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         // The window's title bar is transparent and content-sized, so the
@@ -122,6 +128,7 @@ private struct SettingsSidebar: View {
         let isActive = tab == selection
         return Button {
             selection = tab
+            focusedTab = tab
         } label: {
             Label {
                 Text(tab.titleKey)
@@ -148,6 +155,7 @@ private struct SettingsSidebar: View {
                 RoundedRectangle(cornerRadius: GanchoTokens.Radius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
+        .focused($focusedTab, equals: tab)
         .accessibilityAddTraits(isActive ? .isSelected : [])
         .accessibilityIdentifier("settings-tab-\(tab.rawValue)")
     }

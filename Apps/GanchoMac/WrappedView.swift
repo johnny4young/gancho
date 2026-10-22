@@ -11,9 +11,11 @@ struct WrappedView: View {
 
     var body: some View {
         VStack(spacing: GanchoTokens.Spacing.md) {
-            Image(systemName: "paperclip")
-                .font(.system(size: 36))
-                .foregroundStyle(.tint)
+            Image("GanchoMarkBare")
+                .resizable()
+                .frame(width: 36, height: 36)
+                .foregroundStyle(GanchoTokens.Palette.brandGreen)
+                .accessibilityHidden(true)
             Text("My Clipboard, Wrapped")
                 .font(.title.bold())
             Text(verbatim: "\(stats.totalCaptured)")
@@ -74,9 +76,23 @@ enum WrappedExporter {
         let renderer = ImageRenderer(content: WrappedView(stats: stats))
         renderer.scale = 2
         guard let image = renderer.cgImage else { return }
+        #if DEBUG
+            if let index = CommandLine.arguments.firstIndex(of: "-ui-test-wrapped-output"),
+                CommandLine.arguments.indices.contains(index + 1)
+            {
+                let url = URL(fileURLWithPath: CommandLine.arguments[index + 1])
+                write(image, to: url)
+                return
+            }
+        #endif
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "gancho-wrapped.png"
-        guard panel.runModal() == .OK, let url = panel.url,
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        write(image, to: url)
+    }
+
+    private static func write(_ image: CGImage, to url: URL) {
+        guard
             let destination = CGImageDestinationCreateWithURL(
                 url as CFURL, "public.png" as CFString, 1, nil)
         else { return }

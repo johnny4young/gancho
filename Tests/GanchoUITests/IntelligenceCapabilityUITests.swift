@@ -36,4 +36,33 @@ final class IntelligenceCapabilityUITests: XCTestCase {
             noticeText.contains("macOS 26"),
             "the Sequoia notice must name the real requirement, got: \(noticeText)")
     }
+
+    @MainActor
+    func testPipelineFitsInsideTheWindow() throws {
+        let app = try launchSettingsWindow(extraArguments: [
+            "-use-temp-durable-store", "-start-capture-paused",
+            "-ui-test-defaults-suite",
+            "com.johnny4young.gancho.uitests.intelligence-pipeline"
+        ])
+        defer { app.terminate() }
+
+        let captureTab = app.buttons["settings-tab-capture"].firstMatch
+        XCTAssertTrue(captureTab.waitForExistence(timeout: 3))
+        captureTab.click()
+        let openIntelligence = app.buttons["open-intelligence"].firstMatch
+        XCTAssertTrue(openIntelligence.waitForExistence(timeout: 3))
+        openIntelligence.click()
+
+        let intelligence = app.windows["Intelligence"].firstMatch
+        XCTAssertTrue(intelligence.waitForExistence(timeout: 5))
+        let window = intelligence.frame
+        for index in 0..<5 {
+            let stage = intelligence.descendants(matching: .any)
+                .matching(identifier: "intelligence-stage-\(index)").firstMatch
+            XCTAssertTrue(stage.waitForExistence(timeout: 3), "stage \(index) missing")
+            XCTAssertTrue(
+                window.contains(stage.frame),
+                "stage \(index) at \(stage.frame) must sit inside the window \(window)")
+        }
+    }
 }
