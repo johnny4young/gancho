@@ -7,6 +7,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The peek header shows where a clip came from (app, age, boards), when it
+  expires, and whether it has reached iCloud ("Synced" or "Waiting to sync").
+- The active board chip shows how many clips it holds ("All clips · 128");
+  every board shows its count in its tooltip.
+- Image rows say what the image is: "Image · 1200 × 800 · PNG", or the format
+  and size under a title.
+- An empty panel offers to import from Maccy or a CSV and shows the three keys
+  that make the whole loop, until your first paste.
+
 ### Changed
 
 - The welcome window, the Recent clips widget and the Wrapped card show the
@@ -21,9 +32,18 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Filter, type and board chips use a larger 11 pt label.
 - With Reduce Motion on, previews and banners fade in 100 ms instead of sliding
   or scaling.
+- The peek's title sits on its own row under the provenance header; the
+  separate details strip and the "Content" label are gone, and links with
+  escaped characters show a decoded reading.
+- The optional ambient colour now sits only behind the peek, at a fainter
+  10 % (light) / 7 % (dark), and never appears for masked clips or in Private
+  Mode.
 
 ### Fixed
 
+- Warning text and status icons (expiry countdowns, denied requests, sync and
+  capture status) are readable on light surfaces instead of pale amber or
+  green.
 - The menu-bar menu shows the panel shortcut you recorded (or none) instead
   of always showing ⇧⌘V.
 - Choosing a Settings section moves keyboard focus with it, so the first row
