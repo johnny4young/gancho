@@ -291,7 +291,7 @@ struct PanelView: View {
                 .animation(GanchoMotion.smooth(reduceMotion: reduceMotion), value: ambientTint)
         }
         .clipShape(RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous))
-        .ganchoSurface(radius: GanchoTokens.Radius.lg)
+        .ganchoSurface(radius: GanchoTokens.Radius.lg, level: .panel)
         .environment(\.ganchoOpaqueSurfaces, !translucentBackground)
         // The glass IS the panel: it fills the window edge to edge, title-bar
         // band included, so there is no transparent ring for AppKit's window
@@ -306,7 +306,7 @@ struct PanelView: View {
             #endif
         }
         .background { commandShortcutButtons }
-        .animation(.snappy(duration: 0.12), value: showShortcuts)
+        .animation(GanchoMotion.smooth(reduceMotion: reduceMotion), value: showShortcuts)
     }
 
     private var panelSearchContent: some View {
@@ -540,7 +540,7 @@ struct PanelView: View {
             .padding(GanchoTokens.Spacing.lg)
             .frame(width: 440)
             .ganchoSurface(radius: GanchoTokens.Radius.lg)
-            .shadow(radius: 18, y: 8)
+            .ganchoElevation(.overlay, cornerRadius: GanchoTokens.Radius.lg)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("telemetry-consent-prompt")
             .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -842,7 +842,7 @@ struct PanelView: View {
             ) {
                 if let bundleID = selectedBundleID, let icon = SourceApp.icon(forBundleID: bundleID)
                 {
-                    Image(nsImage: icon).resizable().frame(width: 12, height: 12)
+                    Image(nsImage: icon).resizable().frame(width: 13, height: 13)
                 } else {
                     Image(systemName: "app.dashed")
                 }
@@ -915,11 +915,11 @@ struct PanelView: View {
     ) -> some View {
         HStack(spacing: 5) {
             icon()
-                .panelFont(.caption, .semibold)
-                .frame(width: 12, height: 12)
+                .panelFont(.subheadline, .semibold)
+                .frame(width: 13, height: 13)
             if showsTitle {
                 // Truncate rather than widen the fixed-size toolbar; `.help` has the full name.
-                title.panelFont(.caption, isActive ? .semibold : .medium).lineLimit(1)
+                title.panelFont(.subheadline, isActive ? .semibold : .medium).lineLimit(1)
                     .frame(maxWidth: 120)
             }
         }
@@ -941,13 +941,15 @@ struct PanelView: View {
         .contentShape(Capsule())
     }
 
-    /// The keyboard-focus ring for a rail chip (filters + boards). A 1.5pt
-    /// primary outline reads on both the quaternary and accent-filled chips,
-    /// distinct from the accent fill that marks the *active* one.
+    /// The keyboard-focus ring for a rail chip (filters + boards): 2 pt in the
+    /// accent ink, 2 pt outside the chip, so it never reads as the active fill.
     private func railRing(_ focused: Bool) -> some View {
         Capsule()
-            .strokeBorder(
-                focused ? AnyShapeStyle(.primary) : AnyShapeStyle(.clear), lineWidth: 1.5)
+            .stroke(
+                focused ? AnyShapeStyle(GanchoTokens.Palette.accentInk) : AnyShapeStyle(.clear),
+                lineWidth: GanchoTokens.Stroke.focus
+            )
+            .padding(-GanchoTokens.Stroke.focus * 1.5)
     }
 
     /// The boards: All clips · Favorites · user boards · New board. System
@@ -985,7 +987,8 @@ struct PanelView: View {
                     .accessibilityLabel(Text("New board…"))
                     .accessibilityIdentifier("board-new")
                 }
-                .padding(.vertical, 1)
+                // Room for the focus ring outside the chips.
+                .padding(GanchoTokens.Stroke.focus * 2)
                 .contentShape(Rectangle())
             }
             .accessibilityIdentifier("board-rail")

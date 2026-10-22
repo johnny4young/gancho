@@ -64,7 +64,7 @@ private struct ZoomableImageView: View {
                     .onEnded { _ in lastScale = scale }
             )
             .onTapGesture(count: 2) {
-                withAnimation(.snappy) {
+                withAnimation(GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion)) {
                     scale = scale > 1 ? 1 : 2.5
                     lastScale = scale
                 }

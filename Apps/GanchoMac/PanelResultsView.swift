@@ -167,7 +167,7 @@ struct PanelResultsView<RowContent: View>: View {
     private func clipCount(_ count: Int) -> some View {
         Text("\(count) clips")
             .contentTransition(.numericText(value: Double(count)))
-            .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: count)
+            .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: count)
     }
 
     private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {

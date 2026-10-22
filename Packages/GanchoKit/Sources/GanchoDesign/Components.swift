@@ -105,8 +105,8 @@ public struct TypeBadge: View {
         case .pill:
             let tint = GanchoTokens.Palette.kindTint(for: kind)
             label
-                .panelFont(.caption, .semibold)
-                .foregroundStyle(tint)
+                .panelFont(.subheadline, .semibold)
+                .foregroundStyle(ReadableInk(base: tint))
                 .padding(.horizontal, GanchoTokens.Spacing.xs)
                 .padding(.vertical, 3)
                 .background(tint.opacity(0.14), in: Capsule())

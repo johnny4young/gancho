@@ -26,6 +26,12 @@ struct PasteStackStrip: View {
                     Text("\(model.pasteStackEntries.count)")
                         .panelFont(.caption2, .semibold)
                         .monospacedDigit()
+                        .contentTransition(
+                            .numericText(value: Double(model.pasteStackEntries.count))
+                        )
+                        .animation(
+                            GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion),
+                            value: model.pasteStackEntries.count)
                     ForEach(model.pasteStackEntries.prefix(3)) { entry in
                         Image(systemName: entry.clip.kind.symbolName)
                             .panelFont(size: 9)

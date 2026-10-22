@@ -35,10 +35,14 @@ enum PeekImageText {
         let text = session.lines[index].text
         Task {
             guard await model.copyManualText(text) else { return }
-            withAnimation { copiedLine.wrappedValue = index }
+            withAnimation(GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion)) {
+                copiedLine.wrappedValue = index
+            }
             try? await Task.sleep(for: .seconds(1.2))
             if copiedLine.wrappedValue == index {
-                withAnimation { copiedLine.wrappedValue = nil }
+                withAnimation(GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion)) {
+                    copiedLine.wrappedValue = nil
+                }
             }
         }
     }
@@ -392,7 +396,9 @@ struct PeekImageTextSection: View {
 
     private func copyAll() async {
         guard await model.copyManualText(session.text) else { return }
-        withAnimation { copiedAll = true }
+        withAnimation(GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion)) {
+            copiedAll = true
+        }
     }
 
     @discardableResult
@@ -496,7 +502,9 @@ extension PeekImageTextSection {
                     ) {
                         Task {
                             guard await model.copyManualText(text) else { return }
-                            withAnimation { translationCopied = true }
+                            withAnimation(
+                                GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion)
+                            ) { translationCopied = true }
                         }
                     }
                     ActionButton(

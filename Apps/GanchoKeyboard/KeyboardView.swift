@@ -8,6 +8,7 @@ import SwiftUI
 /// image to the pasteboard) into the active field.
 struct KeyboardView: View {
     @ObservedObject var model: KeyboardModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -47,9 +48,9 @@ struct KeyboardView: View {
             }
         }
         .padding(10)
-        .animation(.easeInOut(duration: 0.15), value: model.note != nil)
-        .animation(.snappy(duration: 0.22), value: model.expanded)
-        .animation(.snappy(duration: 0.22), value: model.entries)
+        .animation(GanchoMotion.smooth(reduceMotion: reduceMotion), value: model.note != nil)
+        .animation(GanchoMotion.smooth(reduceMotion: reduceMotion), value: model.expanded)
+        .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: model.entries)
     }
 
     // MARK: - Board filter (expanded mode)
@@ -362,9 +363,12 @@ struct KeyboardView: View {
 struct PressableScale: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.93 : 1)
+            .scaleEffect(
+                configuration.isPressed
+                    ? GanchoMotion.pressScale(reduceMotion: GanchoMotion.systemReducesMotion) : 1
+            )
             .opacity(configuration.isPressed ? 0.65 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(GanchoMotion.press, value: configuration.isPressed)
     }
 }
 

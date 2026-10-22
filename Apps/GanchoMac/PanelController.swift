@@ -399,7 +399,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             if CommandLine.arguments.contains("-opaque-panel-for-ui-test") { translucent = false }
         #endif
         panel.isOpaque = !translucent
-        panel.backgroundColor = translucent ? .clear : .windowBackgroundColor
+        panel.backgroundColor =
+            translucent ? .clear : NSColor(GanchoTokens.Palette.surface(.panel))
         // Glass carries its own depth (a shadow reads as a dark hairline around
         // it); a solid panel needs the shadow to separate from the windows below.
         panel.hasShadow = !translucent

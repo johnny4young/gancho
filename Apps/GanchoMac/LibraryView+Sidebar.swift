@@ -117,6 +117,10 @@ extension LibraryView {
             if count > 0 {
                 Text(verbatim: "\(count)")
                     .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                    .contentTransition(.numericText(value: Double(count)))
+                    .animation(
+                        GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion),
+                        value: count)
             }
         }
         .tag(selectionValue)

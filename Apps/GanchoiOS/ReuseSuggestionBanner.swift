@@ -52,7 +52,7 @@ struct ReuseSuggestionBanner: View {
             .regularMaterial,
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )
-        .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+        .ganchoElevation(.raised)
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .padding(.bottom, GanchoTokens.Spacing.xxs)
         .accessibilityElement(children: .contain)
