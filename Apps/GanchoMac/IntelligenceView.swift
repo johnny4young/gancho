@@ -86,7 +86,7 @@ struct IntelligenceView: View {
                         "On-device OCR reads text out of image clips and adds it to the full-text index, so a screenshot is findable by the words inside it.",
                         isOn: $model.intelligence.searchableScreenshots)
                     toggleRow(
-                        "pencil.and.sparkles", GanchoTokens.Palette.accent, "Smart paste",
+                        "wand.and.sparkles", GanchoTokens.Palette.accent, "Smart paste",
                         // swiftlint:disable:next line_length
                         "Rewrite a clip before pasting — summarize, fix grammar, change tone, pull key points, or redact PII. Model-backed rewrites use Apple Intelligence on-device; deterministic redaction needs no model.",
                         isOn: $model.intelligence.smartPaste)
@@ -169,29 +169,36 @@ struct IntelligenceView: View {
         .accessibilityIdentifier("intelligence-capability-notice")
     }
 
+    /// Five flexible columns instead of fixed 92 pt nodes in a scroll view,
+    /// which pushed the last stage past the 520 pt window edge.
     private var pipeline: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: GanchoTokens.Spacing.xs) {
-                ForEach(Array(stages.enumerated()), id: \.offset) { index, stage in
-                    VStack(spacing: 5) {
-                        Image(systemName: stage.symbol)
-                            .font(.system(size: 17))
-                            .foregroundStyle(stage.tint)
-                            .frame(width: 38, height: 38)
-                            .background(stage.tint.opacity(0.13), in: .rect(cornerRadius: 11))
-                        Text(stage.title).font(.caption2.weight(.semibold)).multilineTextAlignment(
-                            .center)
-                        Text(stage.sub).font(.system(size: 9)).foregroundStyle(.tertiary)
-                    }
-                    .frame(width: 92)
-                    if index < stages.count - 1 {
-                        Image(systemName: "chevron.right")
-                            .font(.caption2).foregroundStyle(.tertiary)
-                    }
+        HStack(spacing: GanchoTokens.Spacing.xxs) {
+            ForEach(Array(stages.enumerated()), id: \.offset) { index, stage in
+                VStack(spacing: 5) {
+                    Image(systemName: stage.symbol)
+                        .font(.system(size: 17))
+                        .foregroundStyle(stage.tint)
+                        .frame(width: 38, height: 38)
+                        .background(stage.tint.opacity(0.13), in: .rect(cornerRadius: 11))
+                    Text(stage.title).font(.caption2.weight(.semibold))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(stage.sub).font(.system(size: 9)).foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .top)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("intelligence-stage-\(index)")
+                if index < stages.count - 1 {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
                 }
             }
-            .padding(.horizontal, GanchoTokens.Spacing.xxs)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("intelligence-pipeline")
     }
 
     private func featureRow(
