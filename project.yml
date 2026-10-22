@@ -226,6 +226,7 @@ targets:
           - "com.johnny4young.gancho.menubar-helper.agent.plist"
       - path: Apps/GanchoMac/GanchoMenuBarCommand.swift
       - path: Apps/GanchoMac/GanchoMenuBarBridge.swift
+      - path: Apps/GanchoMac/MenuBarKeyEquivalent.swift
 
   GanchoiOS:
     type: application
@@ -332,6 +333,8 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
     sources:
       - path: Tests/GanchoUITests
+      # A pure value type, unit-tested here without launching the app.
+      - path: Apps/GanchoMac/MenuBarKeyEquivalent.swift
     dependencies:
       - target: Gancho
 

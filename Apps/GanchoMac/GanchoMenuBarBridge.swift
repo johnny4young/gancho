@@ -8,8 +8,8 @@ import Foundation
 /// either way reachable by both processes without bespoke IPC. It carries ONLY
 /// non-clipboard data: the current status presentation (a content-free icon
 /// identifier + a localized accessibility label), the localized menu titles,
-/// the per-launch command nonce, and a single "last copied" preview for the
-/// menu's recent row. That preview is the ONLY clip-derived value that crosses:
+/// the per-launch command nonce, the recorded panel shortcut, and a single
+/// "last copied" preview for the menu's recent row. That preview is the ONLY clip-derived value that crosses:
 /// it is already masked for sensitive clips, and private mode omits it entirely.
 /// Full clip content and the history never leave the main app process.
 enum GanchoMenuBarBridge {
@@ -23,6 +23,7 @@ enum GanchoMenuBarBridge {
         static let lastCopiedPreview = "menu-bar.last-copied.preview"
         static let lastCopiedLabel = "menu-bar.last-copied.label"
         static let lastCopiedAt = "menu-bar.last-copied.at"
+        static let panelShortcut = "menu-bar.panel-shortcut"
     }
 
     private static var defaults: UserDefaults? { UserDefaults(suiteName: appGroupSuite) }
@@ -53,6 +54,20 @@ enum GanchoMenuBarBridge {
 
     static func readTitles() -> [String: String] {
         defaults?.dictionary(forKey: Key.titles) as? [String: String] ?? [:]
+    }
+
+    // MARK: Panel shortcut — the recorded toggle-panel shortcut, or none.
+
+    static func writePanelShortcut(_ shortcut: MenuBarKeyEquivalent?) {
+        if let shortcut {
+            defaults?.set(shortcut.bridgeValue, forKey: Key.panelShortcut)
+        } else {
+            defaults?.removeObject(forKey: Key.panelShortcut)
+        }
+    }
+
+    static func readPanelShortcut() -> MenuBarKeyEquivalent? {
+        MenuBarKeyEquivalent(bridgeValue: defaults?.dictionary(forKey: Key.panelShortcut))
     }
 
     // MARK: Command nonce — the app writes it and validates inbound commands

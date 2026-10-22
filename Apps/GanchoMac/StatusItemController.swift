@@ -1,6 +1,7 @@
 import AppKit
 import ClipboardCore
 import GanchoKit
+import KeyboardShortcuts
 import Observation
 
 /// Owns Gancho's in-process AppKit status-item fallback.
@@ -216,6 +217,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             keyEquivalent: command.keyEquivalent)
         item.target = self
         item.keyEquivalentModifierMask = command.modifiers
+        if command == .openPanel {
+            item.setShortcut(for: .togglePanel)
+            #if DEBUG
+                if CommandLine.arguments.contains("-diagnose-menu-shortcut-for-ui-test") {
+                    item.setAccessibilityValue(
+                        "menu-shortcut:\(item.keyEquivalent):\(item.keyEquivalentModifierMask.rawValue)"
+                    )
+                }
+            #endif
+        }
         item.representedObject = command.rawValue
         item.state = state
         // The menu sets `autoenablesItems = false`, so an item that cannot act

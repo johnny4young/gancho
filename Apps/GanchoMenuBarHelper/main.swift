@@ -70,6 +70,9 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
                     keyEquivalent: command.keyEquivalent)
                 item.target = self
                 item.keyEquivalentModifierMask = command.modifiers
+                if command == .openPanel {
+                    GanchoMenuBarBridge.readPanelShortcut()?.apply(to: item)
+                }
                 item.representedObject = command.rawValue
                 item.image = NSImage(
                     systemSymbolName: command.iconSymbol, accessibilityDescription: nil)

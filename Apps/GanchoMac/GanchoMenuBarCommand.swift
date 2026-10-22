@@ -130,25 +130,23 @@ enum GanchoMenuBarCommand: String, CaseIterable {
         }
     }
 
+    /// Fixed key equivalents only. Open panel shows the user's recorded panel
+    /// shortcut instead, applied by each menu from KeyboardShortcuts or the bridge.
     var keyEquivalent: String {
         switch self {
-        case .openPanel: "v"
         case .settings: ","
         case .quit: "q"
-        case .copyScreenText, .library, .toggleCapture, .togglePrivateMode, .ignoreNextCopy,
-            .welcome,
-            .privacyCenter, .wrapped, .fixClipboardAccess:
+        case .openPanel, .copyScreenText, .library, .toggleCapture, .togglePrivateMode,
+            .ignoreNextCopy, .welcome, .privacyCenter, .wrapped, .fixClipboardAccess:
             ""
         }
     }
 
     var modifiers: NSEvent.ModifierFlags {
         switch self {
-        case .openPanel: [.command, .shift]
         case .settings, .quit: [.command]
-        case .copyScreenText, .library, .toggleCapture, .togglePrivateMode, .ignoreNextCopy,
-            .welcome,
-            .privacyCenter, .wrapped, .fixClipboardAccess:
+        case .openPanel, .copyScreenText, .library, .toggleCapture, .togglePrivateMode,
+            .ignoreNextCopy, .welcome, .privacyCenter, .wrapped, .fixClipboardAccess:
             []
         }
     }
