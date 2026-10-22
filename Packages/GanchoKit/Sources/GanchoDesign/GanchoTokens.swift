@@ -24,13 +24,50 @@ public enum GanchoTokens {
 
     public enum Stroke {
         public static let hairline: CGFloat = 1
-        public static let focus: CGFloat = 1.5
+        /// The focus ring's width; it also sits this far outside the control.
+        public static let focus: CGFloat = 2
     }
 
-    public enum FontSize {
-        public static let caption: CGFloat = 11
-        public static let body: CGFloat = 13
-        public static let title: CGFloat = 15
-        public static let largeTitle: CGFloat = 22
+    /// Opaque surface levels: the panel, cards on it, controls on cards.
+    public enum SurfaceLevel: Sendable { case panel, card, control }
+
+    /// Four shadow steps; type sizes come from the system text styles behind
+    /// `PanelTextStyle` (22 / 15 / 13 / 12 / 11 on the Mac), not from tokens.
+    public enum Elevation: Sendable, CaseIterable {
+        /// Window, sidebar and rows: hairline only.
+        case flat
+        /// Cards.
+        case card
+        /// Hover and floating banners.
+        case raised
+        /// Menus, overlays and the panel.
+        case overlay
+
+        public var radius: CGFloat {
+            switch self {
+            case .flat: 0
+            case .card: 1
+            case .raised: 10
+            case .overlay: 20
+            }
+        }
+
+        public var y: CGFloat {
+            switch self {
+            case .flat: 0
+            case .card: 1
+            case .raised: 8
+            case .overlay: 18
+            }
+        }
+
+        public var opacity: Double {
+            switch self {
+            case .flat: 0
+            case .card: 0.05
+            case .raised: 0.08
+            case .overlay: 0.16
+            }
+        }
     }
 }
