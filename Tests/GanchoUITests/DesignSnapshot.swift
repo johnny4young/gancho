@@ -17,7 +17,7 @@ enum DesignSnapshot {
             "image snapshots run only via make test-snapshots")
     }
 
-    static func save(_ image: NSImage, named name: String) throws {
+    @MainActor static func save(_ image: NSImage, named name: String) throws {
         let cgImage = try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
         let data = try XCTUnwrap(
             NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:]))
