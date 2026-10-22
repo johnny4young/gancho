@@ -680,6 +680,10 @@ final class AppModel {
         reloadSavedFilters()
         coordinator.start(subscribingTo: storeChanges)
 
+        #if DEBUG
+            UITestWindowSnapshot.installIfRequested()
+        #endif
+
         // What a launch opens is one decision (`LaunchPresentation`), taken here
         // and presented by the shell. The UI-test hooks that open a window
         // directly live in `AppModel+UITestLaunch`.

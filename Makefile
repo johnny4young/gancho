@@ -140,11 +140,14 @@ test-snapshots: project ## Capture real app surfaces, then compare them with swi
 	TEST_RUNNER_GANCHO_SNAPSHOTS=1 xcodebuild $(XCODE_PACKAGE_FLAGS) test -project Gancho.xcodeproj \
 		-scheme $(SCHEME_MAC) -only-testing:GanchoUITests/DesignV4SnapshotUITests \
 		-resultBundlePath $(SNAPSHOT_RESULT_BUNDLE) $(TEST_UI_SIGNING_FLAGS)
+	./scripts/export-xcresult-attachments.sh $(SNAPSHOT_RESULT_BUNDLE) build/design-snapshot-attachments
+	python3 -I scripts/collect-design-snapshots.py build/design-snapshot-attachments build/design-snapshots
 	GANCHO_SNAPSHOT_RECORD=$(SNAPSHOT_RECORD) swift test $(SWIFT_PACKAGE_FLAGS) \
 		--package-path Tests/DesignSnapshots
 
-record-snapshots: ## Re-record every image snapshot baseline
-	$(MAKE) test-snapshots SNAPSHOT_RECORD=all
+record-snapshots: ## Re-record every image snapshot baseline, then verify against it
+	-$(MAKE) test-snapshots SNAPSHOT_RECORD=all
+	swift test $(SWIFT_PACKAGE_FLAGS) --package-path Tests/DesignSnapshots
 
 bench-ui: project ## Panel-open and paste-dispatch signpost baselines on the real app (local only)
 	mkdir -p build

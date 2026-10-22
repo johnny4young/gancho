@@ -3,11 +3,19 @@ import XCTest
 
 /// Image baselines for the surfaces the design v4 phases change. Each test
 /// pins the store, tier, language, appearance and capture state so the only
-/// moving part is the UI under test.
+/// moving part is the UI under test. Windows are rendered by the app itself
+/// (`-ui-test-snapshot-dir`), so a capture never contains another app's window.
 final class DesignV4SnapshotUITests: XCTestCase {
+    private var renders: URL!
+
     override func setUpWithError() throws {
         try DesignSnapshot.skipUnlessEnabled()
         continueAfterFailure = true
+        renders = try DesignSnapshot.makeRenderDirectory()
+    }
+
+    override func tearDownWithError() throws {
+        if let renders { try? FileManager.default.removeItem(at: renders) }
     }
 
     // MARK: Settings sidebar — the focus ring follows the clicked row.
@@ -23,13 +31,14 @@ final class DesignV4SnapshotUITests: XCTestCase {
     @MainActor private func settingsSidebar(appearance: String) throws {
         let app = try launchSettingsWindow(extraArguments: stableArguments(appearance))
         defer { app.terminate() }
-        let window = app.windows["Settings"].firstMatch
-        let capture = window.buttons["settings-tab-capture"].firstMatch
+        let capture = app.windows["Settings"].buttons["settings-tab-capture"].firstMatch
         XCTAssertTrue(capture.waitForExistence(timeout: 3))
         capture.click()
         XCTAssertTrue(capture.isSelected)
+        let window = try DesignSnapshot.renderWindow(
+            titled: "Settings", named: "settings-\(appearance)", in: renders)
         try DesignSnapshot.save(
-            DesignSnapshot.image(of: window, crop: CGRect(x: 0, y: 0, width: 210, height: 330)),
+            DesignSnapshot.crop(window, to: CGRect(x: 0, y: 0, width: 210, height: 330)),
             named: "settings-sidebar-\(appearance)")
     }
 
@@ -51,10 +60,11 @@ final class DesignV4SnapshotUITests: XCTestCase {
         let open = app.buttons["open-intelligence"].firstMatch
         XCTAssertTrue(open.waitForExistence(timeout: 3))
         open.click()
-        let window = app.windows["Intelligence"].firstMatch
-        XCTAssertTrue(window.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.windows["Intelligence"].firstMatch.waitForExistence(timeout: 5))
         try DesignSnapshot.save(
-            DesignSnapshot.image(of: window), named: "intelligence-\(appearance)")
+            DesignSnapshot.renderWindow(
+                titled: "Intelligence", named: "intelligence", in: renders),
+            named: "intelligence-\(appearance)")
     }
 
     // MARK: Onboarding — the brand mark heads the first step.
@@ -74,48 +84,24 @@ final class DesignV4SnapshotUITests: XCTestCase {
             "-force-ephemeral-store", "-start-capture-paused",
             "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.\(UUID().uuidString)",
             "-telemetry-consent", "notAsked", "-AppleLanguages", "(en)",
-            "-appearance", appearance
+            "-appearance", appearance, "-ui-test-snapshot-dir", renders.path
         ]
         app.launch()
         defer { app.terminate() }
-        let next = app.buttons["onboarding-continue"].firstMatch
-        XCTAssertTrue(next.waitForExistence(timeout: 8))
-        let window = app.windows.containing(.button, identifier: "onboarding-continue").firstMatch
+        XCTAssertTrue(app.buttons["onboarding-continue"].firstMatch.waitForExistence(timeout: 8))
         try DesignSnapshot.save(
-            DesignSnapshot.image(of: window), named: "onboarding-step1-\(appearance)")
+            DesignSnapshot.renderWindow(
+                titled: "Welcome to Gancho", named: "onboarding", in: renders),
+            named: "onboarding-step1-\(appearance)")
     }
 
-    // MARK: Status menu — Open panel shows the recorded panel shortcut.
-
-    @MainActor func testStatusMenuWithRecordedShortcut() throws {
-        let app = GanchoUITestApplication()
-        app.launchArguments = [
-            "-open-panel-on-launch", "-use-in-process-status-item",
-            "-force-ephemeral-store", "-start-capture-paused", "-AppleLanguages", "(en)",
-            "-appearance", "light",
-            "-KeyboardShortcuts_toggle-panel",
-            #""{\"carbonKeyCode\":9,\"carbonModifiers\":2304}""#
-        ]
-        app.launch()
-        defer { app.terminate() }
-        _ = app.wait(for: .runningForeground, timeout: 5)
-        let statusItem = app.statusItems.firstMatch
-        guard statusItem.waitForExistence(timeout: 5), statusItem.isHittable else {
-            throw XCTSkip("status item not hittable on this display/Space")
-        }
-        statusItem.click()
-        let menu = app.menus.firstMatch
-        XCTAssertTrue(menu.waitForExistence(timeout: 3))
-        try DesignSnapshot.save(DesignSnapshot.image(of: menu), named: "status-menu")
-        app.typeKey(.escape, modifierFlags: [])
-    }
+    // The status menu is not captured: it is drawn by the system with vibrancy
+    // over whatever sits behind it. MenuBarShortcutUITests checks its shortcut.
 
     // MARK: Wrapped — the exported card carries the brand mark.
 
     @MainActor func testWrappedCard() throws {
-        let output = FileManager.default.temporaryDirectory
-            .appendingPathComponent("gancho-wrapped-\(UUID().uuidString).png")
-        defer { try? FileManager.default.removeItem(at: output) }
+        let output = renders.appendingPathComponent("wrapped.png")
         let token = UUID().uuidString
         let app = GanchoUITestApplication()
         app.launchArguments = [
@@ -144,7 +130,8 @@ final class DesignV4SnapshotUITests: XCTestCase {
             // Full keyboard access, so the focus ring the fix moves is drawn.
             "-AppleKeyboardUIMode", "2",
             "-ui-test-defaults-suite",
-            "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)"
+            "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)",
+            "-ui-test-snapshot-dir", renders.path
         ]
     }
 }

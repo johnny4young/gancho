@@ -3,7 +3,7 @@ import SnapshotTesting
 import Testing
 
 /// One check per PNG captured by the UI suite, against
-/// `__Snapshots__/DesignSnapshotTests/matchesBaseline.<name>.png`.
+/// `__Snapshots__/DesignSnapshotTests/screen.<name>.png`.
 /// `GANCHO_SNAPSHOT_RECORD=all` re-records every baseline.
 @Suite struct DesignSnapshotTests {
     static let captures = URL(fileURLWithPath: #filePath)
@@ -34,7 +34,8 @@ import Testing
         withSnapshotTesting(record: Self.record) {
             // Perceptual tolerance absorbs anti-aliasing, not layout changes.
             assertSnapshot(
-                of: image, as: .image(precision: 0.99, perceptualPrecision: 0.98), named: name)
+                of: image, as: .image(precision: 0.99, perceptualPrecision: 0.98), named: name,
+                testName: "screen")
         }
     }
 }
