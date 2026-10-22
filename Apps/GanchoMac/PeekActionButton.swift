@@ -132,6 +132,7 @@ private struct PeekActionFillBody<Label: View>: View {
     @ViewBuilder let label: Label
     @Environment(\.self) private var environment
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let fill = fillColor
@@ -141,14 +142,19 @@ private struct PeekActionFillBody<Label: View>: View {
                 style.isPrimary
                     ? AnyShapeStyle(ContrastingForeground(on: fill)) : AnyShapeStyle(.primary)
             )
-            .padding(style.isFocused ? GanchoTokens.Stroke.focus * 2 : 0)
+            .padding(style.isFocused ? GanchoTokens.Stroke.focus * 1.5 : 0)
             .overlay {
                 if style.isFocused {
                     style.shape.stroke(
                         GanchoTokens.Palette.accentInk, lineWidth: GanchoTokens.Stroke.focus)
                 }
             }
-            .padding(style.isFocused ? -GanchoTokens.Stroke.focus * 2 : 0)
+            .padding(style.isFocused ? -GanchoTokens.Stroke.focus * 1.5 : 0)
+            .scaleEffect(
+                style.isPrimary && isPressed
+                    ? GanchoMotion.pressScale(reduceMotion: reduceMotion) : 1
+            )
+            .animation(GanchoMotion.press, value: isPressed)
     }
 
     private var step: Double {

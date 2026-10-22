@@ -98,7 +98,9 @@ private struct ReuseSuggestionInset: ViewModifier {
                         onDismiss: { model.dismissReuseSuggestion() }
                     )
                     .transition(
-                        reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                        GanchoMotion.travel(
+                            .move(edge: .bottom).combined(with: .opacity),
+                            reduceMotion: reduceMotion))
                 }
             }
             .animation(

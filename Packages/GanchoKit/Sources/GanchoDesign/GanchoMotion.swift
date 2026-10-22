@@ -64,6 +64,21 @@ public enum GanchoMotion {
         !reduceMotion
     }
 
+    /// Whether arriving content may travel (move or scale); the pure half of
+    /// `travel`.
+    nonisolated public static func usesTravel(reduceMotion: Bool) -> Bool {
+        !reduceMotion
+    }
+
+    /// Content that arrives with `insertion` and leaves on the `leave` curve;
+    /// a plain fade under Reduce Motion.
+    @MainActor public static func travel(
+        _ insertion: AnyTransition, reduceMotion: Bool
+    ) -> AnyTransition {
+        usesTravel(reduceMotion: reduceMotion)
+            ? .asymmetric(insertion: insertion, removal: insertion.animation(leave)) : .opacity
+    }
+
     /// A content swap: blur-replace normally, a plain swap under Reduce Motion.
     /// Main-actor because SwiftUI's transition initializers are.
     @MainActor public static func replace(reduceMotion: Bool) -> AnyTransition {

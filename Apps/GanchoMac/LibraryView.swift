@@ -14,6 +14,7 @@ import SwiftUI
 /// creation, not browsing.
 struct LibraryView: View {
     @Environment(AppModel.self) var model
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     /// What the sidebar has selected; `nil` is treated as "All clips".
     @State var selection: LibrarySelection? = .allClips

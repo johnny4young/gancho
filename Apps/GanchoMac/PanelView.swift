@@ -543,7 +543,9 @@ struct PanelView: View {
             .ganchoElevation(.overlay, cornerRadius: GanchoTokens.Radius.lg)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("telemetry-consent-prompt")
-            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            .transition(
+                GanchoMotion.travel(
+                    .opacity.combined(with: .scale(scale: 0.96)), reduceMotion: reduceMotion))
         }
     }
 
@@ -802,7 +804,9 @@ struct PanelView: View {
                 delete: { model.delete(search.selectedItems) },
                 clear: { search.clearSelection() }
             )
-            .transition(.opacity.combined(with: .move(edge: .top)))
+            .transition(
+                GanchoMotion.travel(
+                    .opacity.combined(with: .move(edge: .top)), reduceMotion: reduceMotion))
         }
     }
 

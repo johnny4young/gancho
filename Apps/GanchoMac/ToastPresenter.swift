@@ -61,7 +61,7 @@ private struct ToastView: View {
     var body: some View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             Image(systemName: toast.style.symbol)
-                .foregroundStyle(toast.style.tint)
+                .foregroundStyle(ReadableInk(base: toast.style.tint))
                 .accessibilityHidden(true)
             Text(toast.message)
                 .font(.body.weight(.medium))

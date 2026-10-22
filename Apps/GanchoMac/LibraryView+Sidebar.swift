@@ -119,7 +119,7 @@ extension LibraryView {
                     .font(.caption).monospacedDigit().foregroundStyle(.secondary)
                     .contentTransition(.numericText(value: Double(count)))
                     .animation(
-                        GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion),
+                        GanchoMotion.quick(reduceMotion: reduceMotion),
                         value: count)
             }
         }

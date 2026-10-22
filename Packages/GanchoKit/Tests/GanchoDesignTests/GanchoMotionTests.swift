@@ -12,6 +12,7 @@ struct GanchoMotionTests {
         #expect(GanchoMotion.leave(reduceMotion: false) == GanchoMotion.leave)
         #expect(GanchoMotion.pressScale(reduceMotion: false) == GanchoMotion.pressScale)
         #expect(GanchoMotion.usesBlurReplace(reduceMotion: false))
+        #expect(GanchoMotion.usesTravel(reduceMotion: false))
     }
 
     @Test("Reduce Motion: settle is instant, arrive and leave fade, no blur, no press scale")
@@ -21,6 +22,7 @@ struct GanchoMotionTests {
         #expect(GanchoMotion.leave(reduceMotion: true) == GanchoMotion.fade)
         #expect(GanchoMotion.pressScale(reduceMotion: true) == 1)
         #expect(!GanchoMotion.usesBlurReplace(reduceMotion: true))
+        #expect(!GanchoMotion.usesTravel(reduceMotion: true))
     }
 
     @Test("Press shrinks a little, never collapses")

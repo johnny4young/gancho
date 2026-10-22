@@ -145,14 +145,27 @@ final class DesignV4SnapshotUITests: XCTestCase {
     // MARK: Settings › Privacy and Privacy Center — neutral buttons, dark ink hero.
 
     @MainActor func testSettingsPrivacyLight() throws {
-        let app = try launchSettingsWindow(extraArguments: stableArguments("light"))
+        try settingsPrivacy(appearance: "light")
+    }
+
+    @MainActor func testSettingsPrivacyDark() throws {
+        try settingsPrivacy(appearance: "dark")
+    }
+
+    @MainActor private func settingsPrivacy(appearance: String) throws {
+        let app = try launchSettingsWindow(extraArguments: stableArguments(appearance))
         defer { app.terminate() }
         let privacy = app.windows["Settings"].buttons["settings-tab-privacy"].firstMatch
         XCTAssertTrue(privacy.waitForExistence(timeout: 3))
         privacy.click()
+        XCTAssertTrue(
+            app.windows["Settings"].descendants(matching: .any)["spotlight-indexing-toggle"]
+                .firstMatch.waitForExistence(timeout: 5))
+        // Let the tab switch and the focus ring settle.
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
         try DesignSnapshot.save(
             DesignSnapshot.renderWindow(titled: "Settings", named: "settings", in: renders),
-            named: "settings-privacy-light")
+            named: "settings-privacy-\(appearance)")
     }
 
     @MainActor func testPrivacyCenterLight() throws {

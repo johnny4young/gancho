@@ -14,6 +14,7 @@ import SwiftUI
 /// identity and "remove this one" removes exactly one.
 struct PasteStackStrip: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showQueue = false
 
     var body: some View {
@@ -30,7 +31,7 @@ struct PasteStackStrip: View {
                             .numericText(value: Double(model.pasteStackEntries.count))
                         )
                         .animation(
-                            GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion),
+                            GanchoMotion.quick(reduceMotion: reduceMotion),
                             value: model.pasteStackEntries.count)
                     ForEach(model.pasteStackEntries.prefix(3)) { entry in
                         Image(systemName: entry.clip.kind.symbolName)

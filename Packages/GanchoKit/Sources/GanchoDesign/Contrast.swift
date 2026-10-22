@@ -38,6 +38,20 @@ public enum Contrast {
         return candidate
     }
 
+    /// `top` drawn over an opaque `bottom`, blended in display space as the
+    /// compositor does.
+    public static func composited(
+        _ top: Color.Resolved, over bottom: Color.Resolved
+    )
+        -> Color.Resolved
+    {
+        let alpha = top.opacity
+        func mix(_ upper: Float, _ lower: Float) -> Float { upper * alpha + lower * (1 - alpha) }
+        return Color.Resolved(
+            colorSpace: .sRGB, red: mix(top.red, bottom.red), green: mix(top.green, bottom.green),
+            blue: mix(top.blue, bottom.blue))
+    }
+
     /// The hover/pressed step of a fill: HSL lightness moves `fraction` of the
     /// way toward black (`lighter == false`) or white, in display space, so
     /// the hue survives and any accent gets the same rule.

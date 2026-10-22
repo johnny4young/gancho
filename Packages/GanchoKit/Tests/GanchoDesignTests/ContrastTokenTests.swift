@@ -22,7 +22,6 @@ struct ContrastTokenTests {
 
     @Test("Brand ink stays AA on the green fill at rest, hover and pressed", arguments: appearances)
     func brandInkOnEveryFillState(scheme: ColorScheme) {
-        let environment = environment(scheme)
         let fill = GanchoTokens.ColorPair.brand.resolved(scheme)
         let ink = GanchoTokens.ColorPair.ink.resolved(scheme)
         let lighter = scheme == .dark
@@ -128,5 +127,28 @@ struct ContrastTokenTests {
         #expect(Contrast.luminance(darker) < Contrast.luminance(brand))
         #expect(Contrast.luminance(lighter) > Contrast.luminance(brand))
         #expect(darker.green > darker.red && darker.green > darker.blue)
+    }
+
+    @Test("A translucent fill composites over its backdrop")
+    func compositing() {
+        let environment = environment(.light)
+        var white = resolved(0xFFFFFF, environment)
+        white.opacity = 0.5
+        let mixed = Contrast.composited(white, over: resolved(0x000000, environment))
+        #expect(abs(mixed.red - 0.5) < 0.001 && mixed.opacity == 1)
+    }
+
+    @Test("Accent text re-adjusted on its hover tint over a dark card reaches AA")
+    func inkOnHoverTint() {
+        let environment = environment(.dark)
+        let card = resolved(0x2C2C2E, environment)
+        let blue = resolved(0x0A84FF, environment)
+        var tint = blue
+        tint.opacity = 0.22
+        let backdrop = Contrast.composited(tint, over: card)
+        let ink = Contrast.adjusted(blue, against: card)
+        #expect(Contrast.ratio(ink, backdrop) < Contrast.text)
+        #expect(
+            Contrast.ratio(Contrast.adjusted(ink, against: backdrop), backdrop) >= Contrast.text)
     }
 }

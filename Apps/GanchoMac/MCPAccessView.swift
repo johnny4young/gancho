@@ -241,8 +241,9 @@ struct MCPAccessView: View {
             } icon: {
                 Image(systemName: event.wasDenied ? "minus.circle" : "checkmark.circle")
                     .foregroundStyle(
-                        event.wasDenied
-                            ? GanchoTokens.Palette.warning : GanchoTokens.Palette.success)
+                        ReadableInk(
+                            base: event.wasDenied
+                                ? GanchoTokens.Palette.warning : GanchoTokens.Palette.success))
             }
         }
     }

@@ -103,8 +103,9 @@ struct OnboardingView: View {
             Image(systemName: accessibilityGranted ? "checkmark.seal.fill" : "hand.raised")
                 .font(.system(size: 44))
                 .foregroundStyle(
-                    accessibilityGranted
-                        ? GanchoTokens.Palette.success : GanchoTokens.Palette.warning)
+                    ReadableInk(
+                        base: accessibilityGranted
+                            ? GanchoTokens.Palette.success : GanchoTokens.Palette.warning))
             Text("One permission for instant pasting")
                 .font(.title2.bold())
             Text(
@@ -143,7 +144,7 @@ struct OnboardingView: View {
         VStack(spacing: GanchoTokens.Spacing.md) {
             Image(systemName: "keyboard")
                 .font(.system(size: 44))
-                .foregroundStyle(.tint)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
             Text("Your clipboard, one shortcut away")
                 .font(.title2.bold())
             ShortcutRecorder("Panel shortcut:", name: .togglePanel)

@@ -27,7 +27,9 @@ struct ProInfoView: View {
                         systemName: model.tier == .pro ? "checkmark.seal.fill" : "seal"
                     )
                     .foregroundStyle(
-                        model.tier == .pro ? GanchoTokens.Palette.success : Color.secondary)
+                        model.tier == .pro
+                            ? AnyShapeStyle(GanchoTokens.Palette.brandText)
+                            : AnyShapeStyle(.secondary))
                     Text(
                         model.tier == .pro
                             ? "You’re on Gancho Pro" : "You’re on the free plan"

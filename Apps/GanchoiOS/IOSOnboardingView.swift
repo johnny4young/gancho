@@ -22,7 +22,7 @@ struct IOSOnboardingView: View {
                     VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
                         Image(systemName: "doc.on.clipboard.fill")
                             .font(.system(size: 44))
-                            .foregroundStyle(.tint)
+                            .foregroundStyle(GanchoTokens.Palette.accentInk)
                         Text("Everything you copy, saved and searchable")
                             .font(.title2.bold())
                         Text(

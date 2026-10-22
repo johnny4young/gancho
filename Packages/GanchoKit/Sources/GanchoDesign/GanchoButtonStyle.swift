@@ -73,6 +73,7 @@ private struct GanchoButtonBody: View {
     @Environment(\.isFocused) private var isFocused
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.ganchoDrawsFocusRing) private var drawsFocusRing
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
 
     private let radius = GanchoTokens.Radius.md
@@ -105,8 +106,15 @@ private struct GanchoButtonBody: View {
             #if os(macOS)
                 .onHover { isHovering = $0 }
             #endif
-            .animation(GanchoMotion.quick, value: isHovering)
-            .animation(GanchoMotion.quick, value: configuration.isPressed)
+            .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: isHovering)
+            .animation(
+                GanchoMotion.quick(reduceMotion: reduceMotion), value: configuration.isPressed
+            )
+            .scaleEffect(
+                role == .primary && configuration.isPressed
+                    ? GanchoMotion.pressScale(reduceMotion: reduceMotion) : 1
+            )
+            .animation(GanchoMotion.press, value: configuration.isPressed)
     }
 
     private var shape: RoundedRectangle {
@@ -130,10 +138,7 @@ private struct GanchoButtonBody: View {
         case .primary:
             return stepped(GanchoTokens.Palette.accent)
         case .secondary:
-            let base: Color =
-                colorScheme == .dark
-                ? Color(.sRGB, red: 0x3A / 255, green: 0x3A / 255, blue: 0x3C / 255) : .white
-            return stepped(base)
+            return stepped(GanchoTokens.Palette.surface(.control))
         case .tertiary:
             guard step > 0 else { return nil }
             return stepped(Color(GanchoTokens.Palette.accentTint.resolve(in: environment)))
@@ -150,9 +155,21 @@ private struct GanchoButtonBody: View {
         switch role {
         case .primary: AnyShapeStyle(ContrastingForeground(on: fill ?? .clear))
         case .secondary, .neutral: AnyShapeStyle(.primary)
-        case .tertiary: AnyShapeStyle(GanchoTokens.Palette.accentInk)
+        case .tertiary: tertiaryInk(on: fill)
         case .destructive: AnyShapeStyle(GanchoTokens.Palette.danger)
         }
+    }
+
+    /// Accent text, re-darkened (or lightened) against the hover tint as it
+    /// lands on the card surface, where a system accent's ink can drop below
+    /// 4.5:1.
+    private func tertiaryInk(on fill: Color?) -> AnyShapeStyle {
+        guard let fill else { return AnyShapeStyle(GanchoTokens.Palette.accentInk) }
+        let backdrop = Contrast.composited(
+            fill.resolve(in: environment),
+            over: GanchoTokens.Palette.surface(.card).resolve(in: environment))
+        let ink = GanchoTokens.Palette.accentInk.resolve(in: environment)
+        return AnyShapeStyle(Color(Contrast.adjusted(ink, against: backdrop)))
     }
 
     private var ringColor: AnyShapeStyle {

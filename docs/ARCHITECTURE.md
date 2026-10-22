@@ -258,10 +258,12 @@ never write a hex value, a shadow or an animation curve of their own.
   and control levels (hex dark surfaces only on the opaque panel; the
   translucent panel keeps its glass). `ganchoElevation` draws a shadow in light
   mode and a top highlight in dark mode, where shadows do not read.
-- **Motion** goes through `GanchoMotion` (`quick`, `smooth`, `leave`, `press`).
+- **Motion** goes through `GanchoMotion` (`quick`, `smooth`, `leave`, `press`,
+  and `travel` for content that moves in and leaves on the `leave` curve).
   Under Reduce Motion, settle animations are instant, arrive and leave become a
-  100 ms fade and presses do not scale. `MotionTokenGuardTests` fails the build
-  if an app view writes a literal curve.
+  100 ms fade and presses do not scale. `DesignTokenGuardTests` fails the build
+  on a literal curve, a raw token that skips its `reduceMotion:` function, a
+  literal shadow, or the accent or success green used as a foreground.
 
 ## Platform contracts
 

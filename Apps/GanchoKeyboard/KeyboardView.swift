@@ -378,7 +378,7 @@ private struct FullAccessPrompt: View {
         VStack(spacing: 8) {
             Image(systemName: "lock.shield")
                 .font(.largeTitle)
-                .foregroundStyle(.tint)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
             Text("Full Access needed")
                 .font(.headline)
             Text(
