@@ -71,9 +71,8 @@ private struct ToastView: View {
                     action.handler()
                     onDismiss()
                 }
-                .buttonStyle(.borderless)
+                .ganchoTextButton()
                 .accessibilityIdentifier(action.accessibilityIdentifier)
-                .foregroundStyle(GanchoTokens.Palette.accent)
             }
         }
         .padding(.horizontal, GanchoTokens.Spacing.md)

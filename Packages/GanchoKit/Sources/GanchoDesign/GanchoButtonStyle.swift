@@ -22,15 +22,33 @@ public struct GanchoButtonStyle: ButtonStyle {
     public init(_ role: GanchoButtonRole) { self.role = role }
 
     public func makeBody(configuration: Configuration) -> some View {
-        GanchoButtonBody(role: role, configuration: configuration)
+        // A destructive button stays destructive under a container-wide style.
+        GanchoButtonBody(
+            role: configuration.role == .destructive ? .destructive : role,
+            configuration: configuration)
     }
 }
 
 extension View {
-    /// Applies the shared button style and replaces the system focus effect
-    /// with the style's own ring.
+    /// Applies the shared button style to one control and replaces the system
+    /// focus effect with the style's own ring. Applied to a container instead
+    /// (`.buttonStyle(GanchoButtonStyle(.secondary))`), the system ring stays.
     public func ganchoButtonStyle(_ role: GanchoButtonRole) -> some View {
-        buttonStyle(GanchoButtonStyle(role)).focusEffectDisabled()
+        buttonStyle(GanchoButtonStyle(role))
+            .environment(\.ganchoDrawsFocusRing, true)
+            .focusEffectDisabled()
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var ganchoDrawsFocusRing = false
+}
+
+extension View {
+    /// A borderless text or icon button in the accent, readable as text
+    /// (a borderless button otherwise inherits the 2.2:1 brand-green tint).
+    public func ganchoTextButton() -> some View {
+        buttonStyle(.borderless).foregroundStyle(GanchoTokens.Palette.accentInk)
     }
 }
 
@@ -42,6 +60,7 @@ private struct GanchoButtonBody: View {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.isFocused) private var isFocused
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.ganchoDrawsFocusRing) private var drawsFocusRing
     @State private var isHovering = false
 
     #if os(iOS)
@@ -68,7 +87,7 @@ private struct GanchoButtonBody: View {
             }
             .shadow(color: shadowColor(fill), radius: 6, y: 4)
             .overlay {
-                if isFocused {
+                if drawsFocusRing, isFocused {
                     RoundedRectangle(cornerRadius: radius + 4, style: .continuous)
                         .strokeBorder(ringColor, lineWidth: GanchoTokens.Stroke.focus)
                         .padding(-(GanchoTokens.Stroke.focus * 2))

@@ -225,7 +225,7 @@ private struct PanelResultsEmptyState: View {
         Group {
             Image(systemName: "doc.on.clipboard.fill")
                 .panelFont(size: 28, .medium)
-                .foregroundStyle(.white)
+                .foregroundStyle(GanchoTokens.Palette.brandInk)
                 .frame(width: 64, height: 64)
                 .background(
                     GanchoTokens.Palette.success.gradient,
@@ -272,7 +272,7 @@ private struct PanelResultsEmptyState: View {
                 // real button clears the type/board/source filter narrowing
                 // the list.
                 Button("Clear filters", action: clearFilters)
-                    .buttonStyle(.borderless)
+                    .ganchoTextButton()
                     .padding(.top, GanchoTokens.Spacing.xxs)
                     .accessibilityIdentifier("clear-filters")
             } else {

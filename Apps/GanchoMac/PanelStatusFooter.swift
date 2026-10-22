@@ -79,7 +79,7 @@ struct PanelCaptureNoticeView: View {
             Spacer(minLength: 0)
             if let action = notice.action {
                 Button(actionTitle(action)) { perform(action) }
-                    .buttonStyle(.borderless)
+                    .ganchoTextButton()
                     .panelFont(.caption, .medium)
             }
         }

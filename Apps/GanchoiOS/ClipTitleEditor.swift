@@ -33,7 +33,7 @@ struct ClipTitleEditor: View {
                         .accessibilityIdentifier("detail-cancel-title")
                     Spacer()
                     Button("Save") { save() }
-                        .buttonStyle(.borderedProminent)
+                        .ganchoButtonStyle(.primary)
                         .disabled(isSaving)
                         .accessibilityIdentifier("detail-save-title")
                 }

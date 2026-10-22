@@ -179,7 +179,7 @@ struct IPadSplitView: View {
                 }
                 Spacer()
                 if isActive {
-                    Image(systemName: "checkmark").foregroundStyle(.tint)
+                    Image(systemName: "checkmark").foregroundStyle(GanchoTokens.Palette.accentInk)
                 }
             }
         }
@@ -206,7 +206,9 @@ struct IPadSplitView: View {
                 if let sourceApp {
                     Text(verbatim: "\(sourceApp.clipCount)").foregroundStyle(.secondary)
                 }
-                if selected { Image(systemName: "checkmark").foregroundStyle(.tint) }
+                if selected {
+                    Image(systemName: "checkmark").foregroundStyle(GanchoTokens.Palette.accentInk)
+                }
             }
         }
         .buttonStyle(.plain)

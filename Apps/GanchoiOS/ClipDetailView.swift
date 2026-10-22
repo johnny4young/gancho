@@ -367,7 +367,7 @@ struct ClipDetailView: View {
         if let board = suggestedBoard {
             Section {
                 HStack(spacing: GanchoTokens.Spacing.xs) {
-                    Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.accent)
+                    Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.accentInk)
                     Text("Add to \(board.name)?").lineLimit(1)
                     Spacer(minLength: 0)
                     Button("Add") {
@@ -378,7 +378,7 @@ struct ClipDetailView: View {
                             suggestedBoard = nil
                         }
                     }
-                    .buttonStyle(.borderless)
+                    .ganchoTextButton()
                     Button {
                         suggestedBoard = nil
                     } label: {

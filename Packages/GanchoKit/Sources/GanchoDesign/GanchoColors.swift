@@ -304,15 +304,24 @@ public struct AccentInk: ShapeStyle {
         if GanchoTokens.Palette.accentIsBrand {
             return GanchoTokens.ColorPair.text.resolved(environment.colorScheme)
         }
+        return ReadableInk(base: GanchoTokens.Palette.accent).resolve(in: environment)
+    }
+}
+
+/// Any hue as text: darkened (light) or lightened (dark) until it reaches
+/// 4.5:1 on the surfaces text sits on, keeping its hue.
+public struct ReadableInk: ShapeStyle {
+    let base: Color
+
+    public init(base: Color) { self.base = base }
+
+    public func resolve(in environment: EnvironmentValues) -> Color.Resolved {
         let dark = environment.colorScheme == .dark
         // The darkest light surface and lightest dark surface text sits on.
-        let surface =
-            dark
-            ? Color(.sRGB, red: 0x2C / 255, green: 0x2C / 255, blue: 0x2E / 255)
-            : Color(.sRGB, red: 0xF2 / 255, green: 0xF2 / 255, blue: 0xF3 / 255)
-        return Contrast.adjusted(
-            GanchoTokens.Palette.accent.resolve(in: environment),
-            against: surface.resolve(in: environment))
+        let surface = Color.Resolved(
+            colorSpace: .sRGB, red: dark ? 0x2C / 255 : 0xE6 / 255,
+            green: dark ? 0x2C / 255 : 0xE6 / 255, blue: dark ? 0x2E / 255 : 0xE8 / 255)
+        return Contrast.adjusted(base.resolve(in: environment), against: surface)
     }
 }
 

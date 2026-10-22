@@ -76,6 +76,7 @@ struct ManualOCRReview: View {
                         .accessibilityIdentifier("ocr-review-save")
                     Button("Copy text") { run(save: false) }
                         .keyboardShortcut(.defaultAction)
+                        .ganchoButtonStyle(.primary)
                         .accessibilityIdentifier("ocr-review-copy")
                 }
             }

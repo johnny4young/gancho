@@ -43,7 +43,7 @@ struct ClipTextEditor: View {
                 Spacer(minLength: 0)
                 if !isEditing {
                     Button("Edit", systemImage: "pencil") { beginEditing() }
-                        .buttonStyle(.borderless)
+                        .ganchoTextButton()
                         .accessibilityLabel(Text("Edit content"))
                         .accessibilityIdentifier("preview-edit-content")
                 }
@@ -101,7 +101,7 @@ struct ClipTextEditor: View {
                     .disabled(isSaving)
                     .accessibilityIdentifier("preview-cancel-content")
                 Button("Save") { save() }
-                    .buttonStyle(.borderedProminent)
+                    .ganchoButtonStyle(.primary)
                     .disabled(isSaving || isBlank)
                     .accessibilityIdentifier("preview-save-content")
             }

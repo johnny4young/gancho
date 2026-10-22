@@ -47,7 +47,7 @@ struct MoveToBoardSheet: View {
                                 Spacer()
                                 if memberIDs.contains(board.id) {
                                     Image(systemName: "checkmark")
-                                        .foregroundStyle(GanchoTokens.Palette.accent)
+                                        .foregroundStyle(GanchoTokens.Palette.accentInk)
                                         .fontWeight(.semibold)
                                 }
                             }
@@ -64,7 +64,7 @@ struct MoveToBoardSheet: View {
                             .submitLabel(.done)
                             .onSubmit(createAndFile)
                         if !newBoardName.trimmingCharacters(in: .whitespaces).isEmpty {
-                            Button("Add", action: createAndFile).buttonStyle(.borderless)
+                            Button("Add", action: createAndFile).ganchoTextButton()
                         }
                     }
                 }

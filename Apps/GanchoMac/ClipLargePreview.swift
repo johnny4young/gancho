@@ -34,7 +34,7 @@ struct ClipLargePreview: View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             Image(systemName: item.kind.symbolName)
                 .font(.title2)
-                .foregroundStyle(GanchoTokens.Palette.accent)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
                 .frame(width: 36, height: 36)
                 .background(
                     GanchoTokens.Palette.accent.opacity(0.12),
@@ -66,7 +66,7 @@ struct ClipLargePreview: View {
             }
             Button("Close", systemImage: "xmark") { onClose() }
                 .labelStyle(.iconOnly)
-                .buttonStyle(.borderless)
+                .ganchoTextButton()
                 .keyboardShortcut(.cancelAction)
                 .accessibilityIdentifier("large-preview-close")
         }
@@ -152,7 +152,7 @@ struct ClipLargePreview: View {
                 ForEach(Array(paths.enumerated()), id: \.offset) { _, path in
                     HStack(spacing: GanchoTokens.Spacing.sm) {
                         Image(systemName: "doc")
-                            .foregroundStyle(GanchoTokens.Palette.accent)
+                            .foregroundStyle(GanchoTokens.Palette.accentInk)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(verbatim: URL(fileURLWithPath: path).lastPathComponent)
                                 .font(.body.weight(.medium))

@@ -41,6 +41,7 @@ struct OnboardingView: View {
                     }
                 }
                 .keyboardShortcut(.defaultAction)
+                .ganchoButtonStyle(.primary)
                 .accessibilityIdentifier("onboarding-continue")
             }
         }
@@ -84,7 +85,7 @@ struct OnboardingView: View {
                     "Your first clips get smart AI titles, free and on-device.",
                     systemImage: "sparkles"
                 )
-                .foregroundStyle(.tint)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
                 Spacer(minLength: 0)
                 Button("Import clipboard history…", systemImage: "arrow.down.doc") {
                     showMigrationImporter = true
@@ -115,7 +116,7 @@ struct OnboardingView: View {
 
             if accessibilityGranted {
                 Label("Permission granted", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(GanchoTokens.Palette.success)
+                    .foregroundStyle(GanchoTokens.Palette.brandText)
             } else {
                 ActionButton(
                     "Open System Settings", systemImage: "gear",

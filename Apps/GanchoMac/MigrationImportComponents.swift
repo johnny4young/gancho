@@ -7,7 +7,7 @@ struct MigrationImportHeader: View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             Image(systemName: "arrow.down.doc.fill")
                 .font(.title2)
-                .foregroundStyle(GanchoTokens.Palette.accent)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
                 .frame(width: 38, height: 38)
                 .background(
                     GanchoTokens.Palette.accent.opacity(0.12),
@@ -74,7 +74,7 @@ struct MigrationImportSourceChoice: View {
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
                 Image(systemName: symbol)
                     .font(.title2)
-                    .foregroundStyle(GanchoTokens.Palette.accent)
+                    .foregroundStyle(GanchoTokens.Palette.accentInk)
                     .accessibilityHidden(true)
                 Text(title)
                     .font(.headline)

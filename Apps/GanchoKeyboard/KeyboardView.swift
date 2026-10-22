@@ -35,7 +35,7 @@ struct KeyboardView: View {
                     Image(systemName: "checkmark.circle.fill")
                 }
                 .font(.caption2)
-                .foregroundStyle(.tint)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .transition(.opacity)
             }
@@ -145,7 +145,7 @@ struct KeyboardView: View {
             .contentShape(.rect)
         }
         .buttonStyle(PressableScale())
-        .foregroundStyle(.tint)
+        .foregroundStyle(GanchoTokens.Palette.accentInk)
         .accessibilityLabel("Save clipboard")
     }
 

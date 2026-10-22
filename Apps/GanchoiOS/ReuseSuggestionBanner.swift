@@ -26,13 +26,13 @@ struct ReuseSuggestionBanner: View {
     var body: some View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             Image(systemName: "sparkles")
-                .foregroundStyle(GanchoTokens.Palette.accent)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
                 .accessibilityHidden(true)
             message
                 .font(.subheadline.weight(.medium))
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button(actionTitle, action: onAccept)
-                .buttonStyle(.borderedProminent)
+                .ganchoButtonStyle(.primary)
                 .foregroundStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
                 .controlSize(.small)
                 .frame(minHeight: 44)

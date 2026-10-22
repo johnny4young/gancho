@@ -80,7 +80,7 @@ struct IOSOnboardingView: View {
         HStack(alignment: .top, spacing: GanchoTokens.Spacing.sm) {
             Image(systemName: symbol)
                 .font(.title3)
-                .foregroundStyle(.tint)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline.weight(.semibold))

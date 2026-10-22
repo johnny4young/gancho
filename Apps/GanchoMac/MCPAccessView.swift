@@ -34,6 +34,7 @@ struct MCPAccessView: View {
             .formStyle(.grouped)
         }
         .padding(GanchoTokens.Spacing.md)
+        .buttonStyle(GanchoButtonStyle(.secondary))
         .frame(width: 620, height: 720)
         .sheet(isPresented: $presentsNewGrant) {
             NewMCPGrantView(boards: model.boards) { draft in
@@ -134,7 +135,7 @@ struct MCPAccessView: View {
                     .font(.footnote)
             } icon: {
                 Image(systemName: "bolt.shield.fill")
-                    .foregroundStyle(GanchoTokens.Palette.success)
+                    .foregroundStyle(GanchoTokens.Palette.brandText)
             }
         } header: {
             Text("Privacy boundary")
@@ -254,7 +255,7 @@ struct MCPAccessView: View {
             Text(enabled ? "On" : "Off")
         }
         .font(.caption.weight(.semibold))
-        .foregroundStyle(enabled ? GanchoTokens.Palette.success : Color.secondary)
+        .foregroundStyle(enabled ? GanchoTokens.Palette.brandText : Color.secondary)
     }
 
     private var activeGrantCount: Int {
@@ -427,6 +428,7 @@ private struct NewMCPGrantView: View {
                             expiresAt: Date().addingTimeInterval(duration.interval)))
                 }
                 .keyboardShortcut(.defaultAction)
+                .ganchoButtonStyle(.primary)
                 .disabled(trimmedClientName.isEmpty || board == nil)
                 .accessibilityIdentifier("mcp-create-grant-button")
             }

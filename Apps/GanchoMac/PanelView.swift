@@ -484,7 +484,7 @@ struct PanelView: View {
                     )
                     .panelFont(.caption, .semibold)
                 }
-                .foregroundStyle(GanchoTokens.Palette.accent)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
                 .frame(width: 180, height: 76)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
                 .overlay {

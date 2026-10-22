@@ -289,14 +289,14 @@ struct ClipPeek: View {
     /// the ✕ dismisses it. Auto-board never files silently.
     private func suggestionChip(_ board: Pinboard) -> some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.accent)
+            Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.accentInk)
             Text("Add to \(board.name)?").panelFont(.caption, .medium).lineLimit(1)
             Spacer(minLength: 0)
             Button("Add") {
                 model.assignWithUndo(item, toBoard: board)
                 suggestedBoard = nil
             }
-            .buttonStyle(.borderless)
+            .ganchoTextButton()
             Button {
                 suggestedBoard = nil
             } label: {
@@ -330,12 +330,12 @@ struct ClipPeek: View {
                     .onSubmit { saveTitle() }
                     .accessibilityIdentifier("preview-title-field")
                 Button("Save") { saveTitle() }
-                    .buttonStyle(.borderless)
+                    .ganchoTextButton()
                     .disabled(isSavingTitle)
                     .accessibilityIdentifier("preview-save-title")
                 Button("Cancel") { cancelTitleEditing() }
                     .keyboardShortcut(.cancelAction)
-                    .buttonStyle(.borderless)
+                    .ganchoTextButton()
                     .disabled(isSavingTitle)
                     .accessibilityIdentifier("preview-cancel-title")
             } else {
@@ -349,7 +349,7 @@ struct ClipPeek: View {
                 } label: {
                     Image(systemName: "pencil")
                 }
-                .buttonStyle(.borderless)
+                .ganchoTextButton()
                 .accessibilityLabel(Text("Edit title"))
                 .accessibilityIdentifier("preview-edit-title")
             }

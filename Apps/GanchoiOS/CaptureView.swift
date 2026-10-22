@@ -129,7 +129,7 @@ struct CaptureView: View {
             } label: {
                 Label("Ask gancho", systemImage: "sparkles")
                     .font(.callout.weight(.medium))
-                    .foregroundStyle(GanchoTokens.Palette.accent)
+                    .foregroundStyle(GanchoTokens.Palette.accentInk)
             }
             .accessibilityIdentifier("ask-clipboard")
         }
@@ -406,7 +406,7 @@ struct CaptureView: View {
                     Spacer(minLength: GanchoTokens.Spacing.sm)
                     Button("Retry") { model.syncNow() }
                         .font(.footnote)
-                        .buttonStyle(.borderless)
+                        .ganchoTextButton()
                         .accessibilityIdentifier("sync-retry")
                 }
             }

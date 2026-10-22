@@ -86,6 +86,24 @@ struct ContrastTokenTests {
         }
     }
 
+    @Test(
+        "Status hues become readable ink on their washes",
+        arguments: [0xFF9F0A, 0xFF3B30, 0x34C759, 0x007AFF])
+    func readableInkOnWashes(hex: Int) {
+        for scheme in Self.appearances {
+            let environment = environment(scheme)
+            let ink = ReadableInk(
+                base: Color(
+                    .sRGB, red: Double((hex >> 16) & 0xFF) / 255,
+                    green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
+            ).resolve(in: environment)
+            let surfaces = scheme == .dark ? [0x1C1C1E, 0x2C2C2E] : [0xFFFFFF, 0xE6E6E8]
+            for surface in surfaces {
+                #expect(Contrast.ratio(ink, resolved(surface, environment)) >= Contrast.text)
+            }
+        }
+    }
+
     @Test("A colour that already passes is left untouched")
     func passingColourIsUnchanged() {
         let environment = environment(.light)

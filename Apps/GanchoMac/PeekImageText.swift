@@ -214,7 +214,7 @@ struct PeekImageTextSection: View {
                 ProgressView().controlSize(.mini)
                 Text("Recognizing text…")
                 Button("Cancel") { session.cancel() }
-                    .buttonStyle(.borderless)
+                    .ganchoTextButton()
                     .accessibilityIdentifier("peek-ocr-cancel")
             }
             .panelFont(.caption)
@@ -223,7 +223,7 @@ struct PeekImageTextSection: View {
             .ready where copiedAll:
             Label("Copied to clipboard", systemImage: "checkmark.circle.fill")
                 .panelFont(.caption)
-                .foregroundStyle(GanchoTokens.Palette.success)
+                .foregroundStyle(GanchoTokens.Palette.brandText)
                 // ONE element whose label is the text: an id on the Label alone
                 // propagates to the icon child, and a test's firstMatch lands there.
                 .accessibilityElement(children: .ignore)
@@ -277,7 +277,7 @@ struct PeekImageTextSection: View {
                     if copiedLine == index {
                         Label("Line copied", systemImage: "checkmark")
                             .panelFont(.caption)
-                            .foregroundStyle(GanchoTokens.Palette.success)
+                            .foregroundStyle(GanchoTokens.Palette.brandText)
                             .transition(.opacity)
                     }
                 }
@@ -472,7 +472,7 @@ extension PeekImageTextSection {
                     if translationCopied {
                         Label("Copied to clipboard", systemImage: "checkmark.circle.fill")
                             .panelFont(.caption)
-                            .foregroundStyle(GanchoTokens.Palette.success)
+                            .foregroundStyle(GanchoTokens.Palette.brandText)
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel(Text("Copied to clipboard"))
                             .accessibilityIdentifier("peek-ocr-translation-status")
