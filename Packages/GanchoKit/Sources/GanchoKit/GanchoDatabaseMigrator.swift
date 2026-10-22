@@ -31,6 +31,7 @@ enum GanchoDatabaseMigrator {
         case inboxReceiptClip = "v24-inbox-receipt-clip"
         case textRecipes = "v25-text-recipes"
         case embeddingCleanup = "v26-embedding-cleanup"
+        case imageSize = "v27-image-size"
     }
 
     static var identifiers: [String] {
@@ -85,6 +86,14 @@ enum GanchoDatabaseMigrator {
                     CREATE TRIGGER clip_embedding_follows_clip AFTER DELETE ON clip
                     BEGIN DELETE FROM clip_embedding WHERE clipID = OLD.id; END
                     """)
+        }
+        migrator.registerMigration(Identifier.imageSize.rawValue) { db in
+            // Local display metadata for image rows; older rows are filled by
+            // `backfillImageSizes()`.
+            try db.alter(table: "clip") { table in
+                table.add(column: "imageWidth", .integer)
+                table.add(column: "imageHeight", .integer)
+            }
         }
         return migrator
     }

@@ -30,12 +30,13 @@ struct DesignTokenGuardTests {
         #expect(offenders.isEmpty, "use ganchoElevation: \(offenders)")
     }
 
-    /// The accent and status greens fail 4.5:1 as text on light surfaces, also
-    /// inside a ternary. Widgets are skipped: the system renders their tint.
+    /// The accent, success and warning hues fail 4.5:1 as text on light
+    /// surfaces, also inside a ternary. Widgets are skipped: the system renders
+    /// their tint.
     @Test func appsUseReadableGreenInk() throws {
         let pattern =
             #"foreground(Style|Color)\((?![^)]*?(ReadableInk|ContrastingForeground)\()"#
-            + #"[^)]*?(GanchoTokens\.Palette\.(accent|success)\b"#
+            + #"[^)]*?(GanchoTokens\.Palette\.(accent|success|warning)\b"#
             + #"|(?<![\w)])\.(accentColor|tint|green)\b)"#
         let offenders = try Self.matches(of: pattern, excluding: ["GanchoWidgets"])
         #expect(offenders.isEmpty, "use accentInk, brandText or ReadableInk: \(offenders)")

@@ -448,12 +448,13 @@ extension GRDBClipboardStore: SyncLocalStore {
             case .binary:
                 try db.execute(
                     sql: """
-                        UPDATE clip SET contentBlobHash = ?, contentTypeIdentifier = ?
+                        UPDATE clip SET contentBlobHash = ?, contentTypeIdentifier = ?,
+                            imageWidth = ?, imageHeight = ?
                         WHERE id = ?
                         """,
                     arguments: [
                         finalRow.contentBlobHash, finalRow.contentTypeIdentifier,
-                        item.id.uuidString
+                        finalRow.imageWidth, finalRow.imageHeight, item.id.uuidString
                     ])
             case nil:
                 break

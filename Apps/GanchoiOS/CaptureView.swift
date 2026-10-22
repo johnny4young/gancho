@@ -397,7 +397,7 @@ struct CaptureView: View {
                     text
                 } icon: {
                     // "Synced" reads green (a state); paused/failed warn — like macOS.
-                    Image(systemName: symbol).foregroundStyle(tint)
+                    Image(systemName: symbol).foregroundStyle(ReadableInk(base: tint))
                 }
                 .font(.footnote)
                 .foregroundStyle(.secondary)

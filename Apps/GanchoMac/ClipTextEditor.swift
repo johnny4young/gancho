@@ -37,9 +37,6 @@ struct ClipTextEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             HStack {
-                Text("Content")
-                    .panelFont(.caption, .semibold)
-                    .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 if !isEditing {
                     Button("Edit", systemImage: "pencil") { beginEditing() }

@@ -30,6 +30,9 @@ that complements the automated checks.
   `ContrastTokenTests` proves each pair, including hover and pressed fills.
 - **Focus**: Gancho buttons, dock actions and filter chips draw a 2 pt ring in
   the accent ink outside the control, distinct from the selected fill.
+- Image rows announce their size and format ("image, 1200 × 800 · PNG");
+  masked rows still read only as a mask. The active board chip's label carries
+  its clip count, and the first-run lesson reads each shortcut with its keys.
 - Snippet-fill fields scroll independently from Insert and Cancel. Panel
   commands are inactive while a dialog owns the keyboard. The iOS curation
   suggestion reserves space above the history toolbar instead of covering it.

@@ -19,7 +19,7 @@ struct SyncStatusView: View {
                 Label {
                     headlineText
                 } icon: {
-                    Image(systemName: symbol).foregroundStyle(tint)
+                    Image(systemName: symbol).foregroundStyle(ReadableInk(base: tint))
                 }
                 .panelFont(.footnote)
                 if showsSuggestion, let suggestion {

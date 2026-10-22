@@ -42,7 +42,8 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord, Sendable {
         Column("kind"), Column("title"), Column("preview"), Column("contentHash"),
         Column("sourceAppBundleID"), Column("sourceDeviceName"), Column("isPinned"),
         Column("isSensitive"), Column("expiresAt"), Column("tags"), Column("isArchived"),
-        Column("isSnippet"), Column("keyword"), Column("uses")
+        Column("isSnippet"), Column("keyword"), Column("uses"),
+        Column("contentTypeIdentifier"), Column("imageWidth"), Column("imageHeight")
     ]
 
     /// The same projection for raw SQL, qualified so it can sit beside a join.
@@ -70,6 +71,8 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord, Sendable {
     var isSnippet: Bool = false
     var keyword: String?
     var uses: Int = 0
+    var imageWidth: Int?
+    var imageHeight: Int?
 
     init(item: ClipItem) {
         id = item.id.uuidString
@@ -93,6 +96,8 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord, Sendable {
         contentTypeIdentifier = nil
         keyword = item.keyword
         uses = item.uses
+        imageWidth = item.imageInfo?.width
+        imageHeight = item.imageInfo?.height
     }
 
     var item: ClipItem {
@@ -112,7 +117,16 @@ struct ClipRow: Codable, FetchableRecord, PersistableRecord, Sendable {
             expiresAt: expiresAt,
             tags: (try? Self.tagsDecoder.decode([String].self, from: Data(tags.utf8))) ?? [],
             keyword: keyword,
-            uses: uses
+            uses: uses,
+            imageInfo: imageInfo
         )
+    }
+
+    private var imageInfo: ClipImageInfo? {
+        guard kind == ClipContentKind.image.rawValue, let imageWidth, let imageHeight,
+            imageWidth > 0, imageHeight > 0
+        else { return nil }
+        return ClipImageInfo(
+            width: imageWidth, height: imageHeight, typeIdentifier: contentTypeIdentifier)
     }
 }

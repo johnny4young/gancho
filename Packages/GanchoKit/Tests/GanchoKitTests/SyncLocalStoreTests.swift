@@ -45,6 +45,21 @@ struct SyncLocalStoreTests {
         #expect(try await store.pendingUploads().map(\.item.id) == [item.id])
     }
 
+    @Test("Upload state follows insert, upload and edit without reading content")
+    func uploadStateForThePeek() async throws {
+        let store = try makeStore()
+        let item = ClipItem(preview: "v1", contentHash: "h")
+        try await store.insert(item, content: .text("v1"))
+        #expect(try await store.isAwaitingUpload(id: item.id))
+
+        try await store.markUploaded(id: item.id, systemFields: Data([4]))
+        #expect(try await store.isAwaitingUpload(id: item.id) == false)
+
+        try await store.markNeedsUpload(id: item.id)
+        #expect(try await store.isAwaitingUpload(id: item.id))
+        #expect(try await store.isAwaitingUpload(id: UUID()) == false)
+    }
+
     @Test("Remote upsert applies a newer remote, ignores an older one")
     func remoteUpsertLastWriterWins() async throws {
         let store = try makeStore()

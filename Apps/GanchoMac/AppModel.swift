@@ -657,6 +657,13 @@ final class AppModel {
                 MaintenanceStep("legacy-preview-backfill") {
                     try? await grdb.backfillLegacyPreviews()
                 },
+                MaintenanceStep("image-size-backfill") { [weak self] in
+                    var settled = 0
+                    while let batch = try? await grdb.backfillImageSizes(), batch > 0 {
+                        settled += batch
+                    }
+                    if settled > 0 { await self?.refreshRecents() }
+                },
                 MaintenanceStep("embedding-refresh", isEnabled: intelligence.semanticSearch) {
                     await EmbeddingRefreshService().run(store: grdb)
                 },
@@ -921,10 +928,6 @@ final class AppModel {
             if outcome == .pasted, asPlainText {
                 toasts.show(GanchoToast(message: "Pasted as plain text"))
             }
-            // Activation metric (local, content-free): first paste-back ever.
-            if defaults.object(forKey: "first-pasteback-at") == nil {
-                defaults.set(Date().timeIntervalSince1970, forKey: "first-pasteback-at")
-            }
             defaults.set(
                 defaults.integer(forKey: "pasteback-count") + 1, forKey: "pasteback-count")
             if let suggestion = await reuseController.recordPaste(of: item),
@@ -1018,6 +1021,10 @@ final class AppModel {
     ) async {
         let count = itemCount ?? items.count
         guard count > 0 else { return }
+        // Local and content-free: the first paste-back ever, by any route.
+        if method.isPasteBack, defaults.object(forKey: PanelFirstRunStage.pasteBackKey) == nil {
+            defaults.set(Date().timeIntervalSince1970, forKey: PanelFirstRunStage.pasteBackKey)
+        }
         try? await fullStore?.recordPrivateReuse(
             targetAppBundleID: targetBundleID, itemCount: count, at: .now)
         recordActivationMilestone(.firstSuccessfulReuse)
@@ -1947,6 +1954,24 @@ final class AppModel {
     func boardMembership(for item: ClipItem) async -> Set<UUID> {
         guard let fullStore else { return [] }
         return (try? await fullStore.boardIDs(forClip: item.id)) ?? []
+    }
+
+    /// Totals for the panel's scope chips; nil counts while the store can't answer.
+    func scopeCounts() async -> PanelScopeCounts {
+        guard let fullStore else { return PanelScopeCounts() }
+        let byBoard = (try? await fullStore.visibleCountsByBoard()) ?? [:]
+        var counts = PanelScopeCounts(total: try? await fullStore.count())
+        for board in boards { counts.boards[board.id] = byBoard[board.id] ?? 0 }
+        return counts
+    }
+
+    /// The peek's sync chip: nil while sync is off or the store can't answer,
+    /// otherwise whether the clip still has to reach iCloud.
+    func uploadState(for item: ClipItem) async -> PeekSyncState? {
+        guard syncController.isEnabled, let fullStore,
+            let awaiting = try? await fullStore.isAwaitingUpload(id: item.id)
+        else { return nil }
+        return awaiting ? .waiting : .synced
     }
 
     /// Boards shared by every selected clip. The picker uses this intersection

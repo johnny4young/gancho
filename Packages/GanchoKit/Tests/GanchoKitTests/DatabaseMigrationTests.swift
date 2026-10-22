@@ -40,9 +40,10 @@ struct DatabaseMigrationTests {
                 "v22-saved-filters",
                 "v23-inbox-receipts",
                 "v24-inbox-receipt-clip", "v25-text-recipes",
-                "v26-embedding-cleanup"
+                "v26-embedding-cleanup",
+                "v27-image-size"
             ])
-        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 26)
+        #expect(Set(GanchoDatabaseMigrator.identifiers).count == 27)
     }
 
     @Test(
@@ -67,6 +68,11 @@ struct DatabaseMigrationTests {
             try String.fetchAll(db, sql: "SELECT name FROM pragma_table_info('clip_app_stats')")
         }
         #expect(receiptColumns.contains("sensitiveItemsExpired"))
+        let clipColumns = try await store.writer.read { db in
+            try String.fetchAll(db, sql: "SELECT name FROM pragma_table_info('clip')")
+        }
+        #expect(clipColumns.contains("imageWidth") && clipColumns.contains("imageHeight"))
+        #expect(item.imageInfo == nil)
     }
 
     /// A store carrying enough rows AND statistics for the planner to make a

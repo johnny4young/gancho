@@ -52,6 +52,10 @@ extension GRDBClipboardStore {
         case .binary(let data, let typeIdentifier):
             row.contentBlobHash = try blobsForMaintenance.write(data)
             row.contentTypeIdentifier = typeIdentifier
+            if item.kind == .image, let size = ClipImageInfo.pixelSize(of: data) {
+                row.imageWidth = size.width
+                row.imageHeight = size.height
+            }
         case .fileReferences(let paths):
             row.contentText = paths.joined(separator: "\n")
             row.contentTypeIdentifier = "public.file-url"

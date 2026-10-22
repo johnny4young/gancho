@@ -27,6 +27,8 @@ struct PanelResultsView<RowContent: View>: View {
     let columns: Int
     let onColumnsChange: (Int) -> Void
     let clearFilters: () -> Void
+    /// Opens the history importer from the first-run empty state.
+    var importHistory: () -> Void = {}
     /// A user-driven scroll, as opposed to the list following the selection.
     var onUserScroll: () -> Void = {}
     /// Builds one row. `PanelView` owns row effects (selection, drag, context
@@ -40,7 +42,8 @@ struct PanelResultsView<RowContent: View>: View {
                 query: query,
                 hasActiveFilter: hasActiveFilter,
                 firstRunHint: firstRunHint,
-                clearFilters: clearFilters)
+                clearFilters: clearFilters,
+                importHistory: importHistory)
         } else {
             if !isGroupedView || layout == .gallery { recentHeader }
             ScrollViewReader { proxy in
@@ -195,6 +198,7 @@ private struct PanelResultsEmptyState: View {
     let hasActiveFilter: Bool
     let firstRunHint: LocalizedStringKey
     let clearFilters: () -> Void
+    let importHistory: () -> Void
 
     /// The list is empty because the user narrowed it — not because history is
     /// empty. A type, board, or source filter can be active with no query at
@@ -214,9 +218,8 @@ private struct PanelResultsEmptyState: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, GanchoTokens.Spacing.lg)
-        // `.combine` flattens children into one element, which would swallow
-        // the Clear filters button; contain only when that button is present.
-        .accessibilityElement(children: hasActiveFilter ? .contain : .combine)
+        // `.combine` would swallow the Import and Clear filters buttons.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(
             isNarrowed ? "panel-empty-noresults" : "panel-empty-firstrun")
     }
@@ -246,6 +249,12 @@ private struct PanelResultsEmptyState: View {
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .padding(.top, GanchoTokens.Spacing.xxs)
+            Button(
+                "Import from Maccy or CSV…", systemImage: "arrow.down.doc", action: importHistory
+            )
+            .ganchoButtonStyle(.secondary)
+            .padding(.top, GanchoTokens.Spacing.xs)
+            .accessibilityIdentifier("panel-empty-import-button")
         }
     }
 

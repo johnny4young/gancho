@@ -59,7 +59,7 @@ struct EmbeddingLifecycleTests {
         let store = try makeStore(migrated: false)
         try store.migrate(upTo: GanchoDatabaseMigrator.Identifier.textRecipes.rawValue)
         let kept = ClipItem(preview: "kept", contentHash: "k")
-        try await store.insert(kept, content: .text("kept"))
+        try await LegacySchemaSeed.insertText(kept, into: store)
         try await store.saveEmbedding(clipID: kept.id, vector: [1, 0])
         try await store.saveEmbedding(clipID: UUID(), vector: [0, 1])
 

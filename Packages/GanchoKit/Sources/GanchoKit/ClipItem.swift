@@ -32,6 +32,15 @@ public struct ClipItem: Identifiable, Codable, Equatable, Sendable {
     public var keyword: String?
     /// How many times a snippet has been inserted (usage stat); 0 otherwise.
     public var uses: Int
+    /// Pixel size and format for image clips. Left out of the encoded form so
+    /// the CLI's JSON keeps its shape.
+    public var imageInfo: ClipImageInfo?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, createdAt, updatedAt, lastUsedAt, kind, title, preview, contentHash
+        case sourceAppBundleID, sourceDeviceName, isPinned, isSensitive, expiresAt, tags
+        case keyword, uses
+    }
 
     public init(
         id: UUID = UUID(),
@@ -49,7 +58,8 @@ public struct ClipItem: Identifiable, Codable, Equatable, Sendable {
         expiresAt: Date? = nil,
         tags: [String] = [],
         keyword: String? = nil,
-        uses: Int = 0
+        uses: Int = 0,
+        imageInfo: ClipImageInfo? = nil
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -67,6 +77,7 @@ public struct ClipItem: Identifiable, Codable, Equatable, Sendable {
         self.tags = tags
         self.keyword = keyword
         self.uses = uses
+        self.imageInfo = imageInfo
     }
 
     /// Dedupe key for a piece of content. Stable across devices so sync

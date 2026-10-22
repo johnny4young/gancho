@@ -58,6 +58,9 @@ extension GanchoTokens {
         /// darkened (light) / lightened (dark) until it reaches 4.5:1.
         public static var accentInk: AccentInk { AccentInk() }
 
+        /// Warning amber as text or a status glyph; the raw amber is 2.2:1 on white.
+        public static var warningInk: ReadableInk { ReadableInk(base: warning) }
+
         /// The quiet fill that pairs with `accentInk`.
         public static var accentTint: AccentTint { AccentTint() }
 
