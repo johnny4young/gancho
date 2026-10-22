@@ -105,7 +105,16 @@ final class DesignV4SnapshotUITests: XCTestCase {
         try panel(appearance: "dark")
     }
 
-    @MainActor private func panel(appearance: String) throws {
+    /// The 11 pt chips at the two other Text size steps (9.9 and 12.65 pt).
+    @MainActor func testPanelLinkPeekSmallText() throws {
+        try panel(appearance: "light", textSize: "small")
+    }
+
+    @MainActor func testPanelLinkPeekLargeText() throws {
+        try panel(appearance: "light", textSize: "large")
+    }
+
+    @MainActor private func panel(appearance: String, textSize: String = "standard") throws {
         let app = GanchoUITestApplication()
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
@@ -113,8 +122,8 @@ final class DesignV4SnapshotUITests: XCTestCase {
             "-start-capture-paused", "-suppress-paused-notice-for-ui-test",
             "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
             "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
-            "-appearance", appearance, "-ui-test-snapshot-dir", renders.path,
-            "-ui-test-defaults-suite",
+            "-appearance", appearance, "-panel-text-size", textSize,
+            "-ui-test-snapshot-dir", renders.path, "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)"
         ]
         app.launch()
@@ -129,7 +138,8 @@ final class DesignV4SnapshotUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         try DesignSnapshot.save(
             DesignSnapshot.renderWindow(titled: "Gancho", named: "panel", in: renders),
-            named: "panel-link-peek-\(appearance)")
+            named: textSize == "standard"
+                ? "panel-link-peek-\(appearance)" : "panel-link-peek-\(textSize)-text")
     }
 
     // MARK: Settings › Privacy and Privacy Center — neutral buttons, dark ink hero.
