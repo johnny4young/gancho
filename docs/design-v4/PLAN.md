@@ -40,7 +40,7 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
 Live sources match the expected numbers exactly. Maybe: GC-V4-22, with owner note "no entiendo la utilidad de esto, pero siento que no es necesario". Skip: GC-V4-20.
 
 By type: UI 29 · bug 6 · feature 31 · system 7.  
-By status: blocked 60 · not implemented 1 · pending 11 · pending decision 1.
+By status: blocked 59 · done 8 · not implemented 1 · pending 4 · pending decision 1.
 
 ## Plan table
 
@@ -48,12 +48,12 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 
 | ID | Type | Pick | Owner note | Board(s) | What changes | Code files | Exists vs new | Deps | How verified | Phase | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| B-GC-01 | bug | n/a (bug log) | — | MenuBarDark | Open panel menu item shows the recorded panel shortcut (or none); menu rebuilds on change, in helper and fallback | GanchoMenuBarCommand.swift:135,:147; GlobalShortcuts.swift:10-19; StatusItemController.swift:207-227; GanchoMenuBarHelper/main.swift:64-79; GanchoMenuBarBridge.swift | Recorder + setShortcut(for:) exist; bridge key + encoder for the helper are new | GC-V5-1 | Unit: shortcut encoder round-trip; UI: record ⌥⌘V → menu shows ⌥⌘V (-use-in-process-status-item) | 1 | pending |
+| B-GC-01 | bug | n/a (bug log) | — | MenuBarDark | Open panel menu item shows the recorded panel shortcut (or none); menu rebuilds on change, in helper and fallback | GanchoMenuBarCommand.swift:135,:147; GlobalShortcuts.swift:10-19; StatusItemController.swift:207-227; GanchoMenuBarHelper/main.swift:64-79; GanchoMenuBarBridge.swift | Recorder + setShortcut(for:) exist; bridge key + encoder for the helper are new | GC-V5-1 | Unit: shortcut encoder round-trip; UI: record ⌥⌘V → menu shows ⌥⌘V (-use-in-process-status-item) | 1 | done — a3750fa; MenuBarShortcutUITests + MenuBarKeyEquivalentTests |
 | B-GC-02 | bug | n/a (bug log) | — | Settings, Panel | Accent green used as text ink replaced by a derived accent-ink ≥4.5:1 at every call site | GanchoColors.swift:68-79 (:72 system branch, :73 brand); ~20 call sites listed in specs/V4_Gancho_Settings.md | Accent + luminance helper exist; accentInk token + sweep new | GC-V5-2, SY-V4-3 | Unit: contrast ≥4.5 for brand + every system accent, light/dark; grep gate for accent-as-text; snapshots | 2 | pending |
 | B-GC-03 | bug | n/a (bug log) | — | Settings | Privacy Center hero passes AA (dark ink on the gradient) | PrivacyCenterView.swift:374,:382,:386-388 | Hero exists; ink change new | GC-V5-2 | Snapshot light/dark; contrast unit test | 2 | blocked: Q42 |
-| B-GC-04 | bug | n/a (bug log) | — | Panel | Log entry is a misdiagnosis: the '...' row is a masked sensitive image (seed isSensitive), not an untitled image. Close or reframe under GC-V5-3 | Components.swift:155,:198,:244-245,:386-387; AppModel+UITestSeeds.swift:230-232 | Code works as designed | GC-V5-3 | — | 1 | blocked: Q10 |
-| B-GC-05 | bug | n/a (bug log) | — | Settings | Focus ring only on the keyboard-focused sidebar row; selection is the only fill | SettingsView.swift:121-153 | @FocusState + focusEffectDisabled + custom ring new | GC-V5-4 | UI: AppQualityUITests select Capture → only one row ringed; keyboard focus still visible | 1 | pending |
-| B-GC-06 | bug | n/a (bug log) | — | Settings | Intelligence pipeline fits 520 pt (or wraps); Smart paste gets an icon | IntelligenceView.swift:89,:132,:172-195 | Small edits | GC-V5-5 | Unit: SF Symbol resolves; UI: IntelligenceCapabilityUITests node 5 hittable; snapshot | 1 | pending |
+| B-GC-04 | bug | n/a (bug log) | — | Panel | Log entry is a misdiagnosis: the '...' row is a masked sensitive image (seed isSensitive), not an untitled image. Close or reframe under GC-V5-3 | Components.swift:155,:198,:244-245,:386-387; AppModel+UITestSeeds.swift:230-232 | Code works as designed | GC-V5-3 | — | 1 | done — closed as misdiagnosis (Q10 default); masked rows stay masked |
+| B-GC-05 | bug | n/a (bug log) | — | Settings | Focus ring only on the keyboard-focused sidebar row; selection is the only fill | SettingsView.swift:121-153 | @FocusState + focusEffectDisabled + custom ring new | GC-V5-4 | UI: AppQualityUITests select Capture → only one row ringed; keyboard focus still visible | 1 | done — a2c887b; AppQualityUITests + snapshot settings-sidebar |
+| B-GC-06 | bug | n/a (bug log) | — | Settings | Intelligence pipeline fits 520 pt (or wraps); Smart paste gets an icon | IntelligenceView.swift:89,:132,:172-195 | Small edits | GC-V5-5 | Unit: SF Symbol resolves; UI: IntelligenceCapabilityUITests node 5 hittable; snapshot | 1 | done — 9c2a429; testPipelineFitsInsideTheWindow + snapshot intelligence |
 | SY-V4-3 | system | pick | — | System Components (+ all v4 boards) | Dark ink on brand-green fills, green-text token, tint, danger #D70015 light | GanchoColors.swift:21-42; ContrastingForeground.swift:19; PeekActionButton.swift:89; PanelView.swift:937; SettingsView.swift:140; prominent/.defaultAction buttons (8 sites); PrivacyCenterView.swift:382 | Brand/warning same; ink is black today; ink/green-text/tint tokens new; danger differs | GC-V5-2, B-GC-02/03, GC-04 | Unit: ContrastingForegroundTests ≥4.5 per state light/dark; snapshots | 2 | pending |
 | SY-V4-6 | system | pick | — | System Components | Shared hover / pressed / disabled / focus rule (focus 2 pt gap + 2 pt ring in control hue) | new ButtonStyles in GanchoDesign; GanchoTokens.swift:27 (Stroke.focus 1.5→2); PeekActionButton.swift:59-120; PanelView.swift:930-954 | Hover washes + 1.5 pt ring exist; pressed, gap ring, derived steps new | SY-V4-3, B-GC-05 | Unit: step function; UI: focus ring visible on Tab; snapshots per state | 2 | blocked: Q5 |
 | SY-V4-7 | system | pick | — | System Components | Elevation scale e0–e3 tokens; 1 px inset highlight in dark; replace ad-hoc shadows | new GanchoTokens.Elevation; PanelView.swift:543; PanelShortcutsOverlay.swift:63; ReuseSuggestionBanner.swift:55; PanelController.swift:405 | Radii/hairline same; shadow tokens new | GC-04 | Snapshots light/dark; source-scan for literal shadows | 2 | blocked: Q8 |
@@ -78,7 +78,7 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 | GC-23 | UI | pick | — | MenuBarDark | Ambient wash only behind the peek; 7 % dark / 10 % light; 220 ms; none for secrets / private mode | PanelDisplayPreferences.swift:61-87; PanelView.swift:288-292,:430-468; PanelAmbientTintTests.swift:36-39 | Toggle, a11y veto, fade exist; peek-only placement, opacities, secret veto new; existing test asserts the opposite opacity order | — | Unit: veto + opacities (update test); snapshot list untinted | 3 | blocked: Q35 |
 | GC-24 | feature | pick | — | MenuBarDark | Status item menu as a mini-panel: header 'state · N clips · App in front', 5 recents with tiles, ⌘1–5, ⌥ pastes plain, masked secrets, paste-stack row | StatusItemController.swift:147-205; GanchoMenuBarHelper/main.swift:46-81; GanchoMenuBarCommand.swift:62-67; AppModel.swift:69,:899,:1303 | Recents exist only in in-process fallback; production helper is content-free | GC-10, GC-V4-2, GC-V4-3, GC-07, GC-V5-1, GC-25 | Unit: pure menu builder; UI with -use-in-process-status-item | 6 | blocked: Q33 |
 | GC-25 | feature | pick | — | Novel, MenuBarDark, Panel | Hook keeps its shape + one state badge; ⌥-click pause, ⌥⇧-click ignore next; screen share hides previews with a banner naming the app + Show anyway | GanchoMenuBarCommand.swift:187-260; StatusItemController.swift:68,:247-269; GanchoMenuBarHelper/main.swift:32; ScreenShareDetector.swift; MacPasteboardMonitor.swift:92; PanelView.swift:439 | State source + template exist; badges, modifier clicks, sharing app name, preview hiding new | GC-V5-1, GC-24, GC-10, GC-07 | Unit: state→badge; image render test; UI with DEBUG share flag | 6 | blocked: Q34 |
-| GC-V5-1 | UI | pick | — | MenuBarDark | Menu shows the real panel shortcut (fix of B-GC-01) | see B-GC-01 | see B-GC-01 | — | see B-GC-01 | 1 | pending |
+| GC-V5-1 | UI | pick | — | MenuBarDark | Menu shows the real panel shortcut (fix of B-GC-01) | see B-GC-01 | see B-GC-01 | — | see B-GC-01 | 1 | done — a3750fa |
 | GC-V4-5 | feature | pick | — | Library | Toolbar search (⌘F), Grid/List toggle, visible New board button | LibraryWindowController.swift:18-26; LibraryView.swift:50; LibraryClipListModel.swift; AppModel+Library.swift:19; ClipSearch.swift | Search engine + New-board flow exist; toolbar, query in list model, List layout new | GC-V4-13, GC-V4-6 | Unit: LibraryClipListModel query; UI: VisualLibraryUITests search; snapshot | 8 | blocked: Q37 |
 | GC-V4-6 | feature | pick | — | Library | Cards with kind tile, host headline, board + sync chips, masked secret with expiry, meta line, hover Copy/Pin/Board, date groups | LibraryClipCard.swift; LibraryView+Browsing.swift:59-179; Components.swift; DateBucket.swift | Tile, monogram, countdown, date buckets exist; card layout, membership read, sync chip new | GC-V4-13, GC-V5-3, GC-V4-23, GC-09 | Unit: grouping/formatters; UI hover actions; privacy: masked card; snapshot | 8 | blocked: Q12, Q13, Q37 |
 | GC-V4-7 | UI | pick | — | Library | Sidebar: saved-filter glyph + count, snippet keyword keycap, two-limit Pro meter from code constants | LibraryView+Sidebar.swift:50-219; BoardIdentityEditor.swift:7-37; UserTier.swift; Pinboards.swift:50-51; SnippetLibrary.swift:7 | Marks, badges, pressure() exist; filter count query, keycap, meter new | GC-28 | Unit: meter fraction from constants; UI sidebar; snapshot | 8 | blocked: Q38 |
@@ -87,8 +87,8 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 | GC-20 | feature | pick | — | Novel2, Settings | Stepped retention control with secret cap + 'Forget recent clips' (5/15/60 min, count first, undoable) | RetentionPolicy.swift:6-46; RetentionSettingsTab.swift; RetentionEngine.swift:25-65; DeletionCoordinator.swift:131 | Windows 24h…never + batch delete with undo exist; 30m/1h/8h, delete-by-time, preview count new | GC-17, GC-21, GC-09, GC-07 | Unit: policy decode (migration of stored windows), purge; UI | 9 | blocked: Q39 |
 | GC-21 | UI | pick | — | Settings, iPhoneFlows | Privacy Center opens with a 'Verify' group (Mac + iPhone) | PrivacyCenterView.swift:26-320; IOSPrivacyCenterView.swift:26-260; SyncEngine.swift:6-13 | Force sync, dates, last-read, MCP counts exist; Verify action, encryption-state flag new | GC-V5-2, GC-V4-12 | UI: PrivateActivityReceiptUITests + PrivacyCenterUITests order; snapshot | 9 | blocked: Q40 |
 | GC-V5-2 | system | pick | — | Settings | Accent text and Privacy hero pass AA (fixes B-GC-02, B-GC-03) | see B-GC-02/03 | see B-GC-02/03 | SY-V4-3 | see B-GC-02/03 | 2 | blocked: Q42 (hero only) |
-| GC-V5-4 | UI | pick | — | Settings | Settings sidebar ring follows the selection (fix of B-GC-05) | see B-GC-05 | see B-GC-05 | — | see B-GC-05 | 1 | pending |
-| GC-V5-5 | UI | pick | — | Settings | Intelligence pipeline fits its window (fix of B-GC-06) | see B-GC-06 | see B-GC-06 | — | see B-GC-06 | 1 | pending |
+| GC-V5-4 | UI | pick | — | Settings | Settings sidebar ring follows the selection (fix of B-GC-05) | see B-GC-05 | see B-GC-05 | — | see B-GC-05 | 1 | done — a2c887b |
+| GC-V5-5 | UI | pick | — | Settings | Intelligence pipeline fits its window (fix of B-GC-06) | see B-GC-06 | see B-GC-06 | — | see B-GC-06 | 1 | done — 9c2a429 |
 | GC-26 | UI | pick | — | iPhone | Pasteboard row becomes a status card: kind tile, 'Sensed, not read…', ↓Paste pointer, 'Saved · Open' for 4 s | PasteboardStatusRow.swift:47-146; CaptureShell.swift:301-312; IOSAppModel.swift:44,:48,:1045-1186; IntentionalPasteboardSource.swift | Hints + Saved state exist; card, Open (keep saved id), 4 s window new | GC-36, GC-V4-17 | Unit: hint→tile; UI: IntentionalCaptureUITests/CaptureFlowUITests; snapshot | 11 | blocked: Q45 |
 | GC-V4-8 | UI | pick | — | iPhone | Counts on active rail chip + section headers; device glyph + name on rows from another device | CaptureView.swift:44-57,:206-310; IOSAppModel.swift:429-438; Components.swift (ClipCard sourceTimeLine); ClipItem.swift:24 | sourceDeviceName stored + synced; headers, device line new | GC-28, GC-V4-11 | Unit: show-device predicate + counts; UI seeded foreign device; snapshot | 11 | blocked: Q46 |
 | GC-V4-9 | UI | pick | — | iPhone | Secret rows show title, stored masked tail, source/time, orange expiry pill; widgets/lock screen unchanged | Components.swift (ClipCard previewsHidden split); SensitiveDataDetector.swift:258-289 | Mask + expiresAt exist; flag split, pill new | GC-09 | Unit: ClipCardPrivacyTests/ExpiryTests; WidgetClips still '•••'; snapshot | 11 | blocked: Q13 |
@@ -120,7 +120,7 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 | GC-V6-6 | feature | pick | — | Novel2 | Agent reads you can see: menu-bar dot + HUD with Revoke, client + scope on ledger rows, 'Exposed to agents' board badge | MCPAccessStore.swift:58; MCPToolRunner.swift:362; GanchoCLI.swift:48; GanchoMenuBarHelper/main.swift:117; IntegrationsSettingsTab.swift | Client on ledger exists; content-free cross-process notification, dot, HUD, badge new | GC-25, GC-24, GC-21 | Unit: payload is content-free; runner; UI | 22 | blocked: Q65 |
 | GC-V6-7 | feature | pick | — | Novel2 | Suggested snippets (Keep/Never/Dismiss) + smart placeholders {clipboard offset=1}, {date +2d}, {cursor}, \| trim / \| uppercase | SnippetLibrary.swift:7-10,:236; SnippetTemplate.swift; SnippetFillSheet.swift; LibraryView+SnippetEditor.swift | One-shot suggestion + {field} exist; state table, grammar, use log new | GC-V4-7, GC-V6-1 | Unit: parser + state; UI; migration of existing placeholders | 23 | blocked: Q66 |
 | GC-V6-8 | feature | pick | — | Novel2, iPhoneSurfaces | iPhone: Up next in the keyboard, capture state in Control Center, Live Activity stack position | KeyboardModel.swift; KeyboardClips.swift:5; SaveClipboardControl.swift; ClipActivity.swift:10; ClipActivityController.swift | Keyboard, control, Live Activity exist; shared Up next id, toggle control, fields new | GC-V6-1, GC-10, GC-09, GC-V4-19, GC-V4-17 | Unit: payloads; UI make test-ui-ios | 24 | blocked: Q67 |
-| GC-V7-1 | UI | pick | — | Brand (+ Onboarding, MenuBarDark, iPhoneSurfaces) | Keep current icon; replace SF 'paperclip' with the brand mark at OnboardingView.swift:58 (tile), RecentClipsWidget.swift:89 (bare template 12 pt), WrappedView.swift:14 (bare mark, brandGreen); add Mac GanchoMark.imageset; byte-parity check of SVG copies | OnboardingView.swift:58; RecentClipsWidget.swift:89; WrappedView.swift:14; Apps/GanchoMac/Assets.xcassets (new GanchoMark.imageset); Resources/Brand/*.svg | 13-step list verified; all assets exist except Mac imageset; menu-bar template already = SVG | — | Unit: SVG copies byte-identical; grep no 'paperclip'; snapshots of the three spots | 1 | pending (sizes/ink: Q11) |
+| GC-V7-1 | UI | pick | — | Brand (+ Onboarding, MenuBarDark, iPhoneSurfaces) | Keep current icon; replace SF 'paperclip' with the brand mark at OnboardingView.swift:58 (tile), RecentClipsWidget.swift:89 (bare template 12 pt), WrappedView.swift:14 (bare mark, brandGreen); add Mac GanchoMark.imageset; byte-parity check of SVG copies | OnboardingView.swift:58; RecentClipsWidget.swift:89; WrappedView.swift:14; Apps/GanchoMac/Assets.xcassets (new GanchoMark.imageset); Resources/Brand/*.svg | 13-step list verified; all assets exist except Mac imageset; menu-bar template already = SVG | — | Unit: SVG copies byte-identical; grep no 'paperclip'; snapshots of the three spots | 1 | done — c470fdf; BrandAssetParityTests + snapshots onboarding/wrapped (widget: build only) |
 
 ## Completeness check
 
@@ -220,7 +220,7 @@ Run on 2026-10-21 against the text of all 17 Gancho v4 boards plus V4_System_Com
 
 ## Feasibility summary
 
-- **Ready now (no question blocks them):** B-GC-01, B-GC-02, B-GC-05, B-GC-06, SY-V4-3, GC-V4-4, GC-V5-6, GC-V5-1, GC-V5-4, GC-V5-5, GC-V7-1.
+- **Ready now (no question blocks them):** B-GC-02, SY-V4-3, GC-V4-4, GC-V5-6.
 - **Everything else** is blocked on at least one owner question (below). The specs say exactly which part exists and which is new.
 - **Claims on the boards or in the catalog that the code contradicts.** Recorded so nobody builds on them:
   - B-GC-04 is a masked sensitive image, not an untitled one.
@@ -317,10 +317,12 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 
 ### Bugs and brand
 
-- **Q10 ★ B-GC-04 and GC-V5-3.** B-GC-04 is a masked sensitive image, so the bug is wrong as logged. Should it be closed, and should GC-V5-3 apply only to non-sensitive untitled images?
+- **Q10 — PARTLY RESOLVED 2026-10-21 (owner accepted the default):** B-GC-04 is closed as a misdiagnosis, and masked rows stay masked. The dimensions and format part stays open for Phase 3. Recommendation: store width, height and format at capture.
+  - Original question: B-GC-04 and GC-V5-3. B-GC-04 is a masked sensitive image, so the bug is wrong as logged. Should it be closed, and should GC-V5-3 apply only to non-sensitive untitled images?
   - Dimensions: store width, height and format at capture (a migration), or compute them lazily from the blob?
   - Format: "Image · 1200 × 800 · PNG", or a title plus "PNG · 1200 × 800"?
-- **Q11 Brand details.**
+- **Q11 — RESOLVED 2026-10-21 (owner accepted the defaults):** onboarding tile 44 pt, widget mark tinted with `.tint`. The optional rows (iOS dark/tinted icon, README logo) are not done.
+  - Original question: brand details.
   - Onboarding tile size (the board says 44–56 pt).
   - Widget mark ink: `#1D1D1F` as drawn, or `.tint`?
   - Do the optional rows (iOS dark/tinted icon, README logo)?
@@ -471,6 +473,10 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 
 ## Gaps found while planning (to resolve in the phase noted)
 
+- **Found in Phase 1, resolved there:** UI test bundles cannot link swift-snapshot-testing, because it imports Swift Testing. Comparison moved to the standalone `Tests/DesignSnapshots` package.
+- **Found in Phase 1, resolved there:** element screenshots copy a screen region, so a window covering the app ended up in the image. Captures are now rendered by the app itself with `cacheDisplay`; nothing from the screen is ever captured.
+- **Found in Phase 1, not caused by it:** `PanelUITests.testMenuBarAgentStaysResidentOnPlainLaunch` fails on this Mac with a helper Launch Constraint Violation, and `testMenuBarStatusItemOpensSettingsWindow` fails too. Both fail identically on `main` (control run), so this is environmental helper signing.
+
 - 8-digit hex parser mismatch, `DevActions.swift:551` → Phase 5.
 - "Expires soon" label is missing from the string catalogs (LocalizationTests coverage of package sources) → Phase 1 or 11.
 - `GanchoColors.swift` cites `docs/design/tokens/colors.css`, which does not exist → Phase 2.
@@ -519,7 +525,10 @@ Measured before and after each phase that touches these paths, with the same met
 - **Search:** `make bench`. It covers FTS over 100k clips: cold 150 ms, warm p95 50 ms.
 - **Paste:** the `paste-dispatch` signpost.
 
-The Phase 1 harness records the baseline. Every later summary reports before and after numbers; no regression is accepted.
+The Phase 1 harness records the baseline. Baseline on 2026-10-21, after Phase 1 (Phase 1 does not touch these paths), Retina MacBook, Debug build, 10 iterations each:
+
+- `panel-to-first-frame`: average 93 ms, relative standard deviation 17.6 %.
+- `paste-dispatch`: average 95 ms, relative standard deviation 4.0 %. This includes the fixed 80 ms focus-return wait. Every later summary reports before and after numbers; no regression is accepted.
 
 ## Process per phase
 
