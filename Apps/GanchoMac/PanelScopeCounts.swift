@@ -1,7 +1,7 @@
 import Foundation
 
 /// Clip totals behind the panel's scope chips: every visible clip, and each
-/// board's members (the same counts the Library shows).
+/// board's visible members, counted like the panel's own list.
 struct PanelScopeCounts: Equatable {
     var total: Int?
     var boards: [UUID: Int] = [:]

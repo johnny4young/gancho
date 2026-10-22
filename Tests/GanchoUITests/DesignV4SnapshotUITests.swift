@@ -114,7 +114,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
         try panel(appearance: "light", textSize: "large")
     }
 
-    /// GC-23 and GC-V5-3: the wash sits behind the peek only, and the image
+    /// The wash sits behind the peek only, and the image
     /// row reads as its size and format.
     @MainActor func testPanelAmbientImageLight() throws {
         try panel(appearance: "light", ambient: true)
@@ -162,7 +162,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
                     ? "panel-link-peek-\(appearance)" : "panel-link-peek-\(textSize)-text")
     }
 
-    // MARK: GC-05 — the empty panel teaches the three keys.
+    // MARK: The empty panel teaches the three keys.
 
     @MainActor func testPanelFirstRunLight() throws {
         try firstRunPanel(appearance: "light")

@@ -66,6 +66,27 @@ struct ClipImageInfoTests {
         #expect(try await store.recentForBrowse(offset: 0, limit: 5).first?.imageInfo?.width == 30)
     }
 
+    @Test("A synced-in image and a newer remote copy carry their own size")
+    func remoteImages() async throws {
+        let store = try makeStore()
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let item = ClipItem(updatedAt: base, kind: .image, preview: "Image", contentHash: "r")
+        _ = try await store.applyRemoteUpsert(
+            item,
+            content: .binary(data: try png(width: 10, height: 6), typeIdentifier: "public.png"),
+            systemFields: Data([1]))
+        #expect(try await store.item(id: item.id)?.imageInfo?.width == 10)
+
+        var newer = item
+        newer.updatedAt = base.addingTimeInterval(60)
+        _ = try await store.applyRemoteUpsert(
+            newer,
+            content: .binary(data: try png(width: 20, height: 15), typeIdentifier: "public.png"),
+            systemFields: Data([2]))
+        let updated = try #require(try await store.item(id: item.id)?.imageInfo)
+        #expect(updated.width == 20 && updated.height == 15)
+    }
+
     @Test("Older rows are filled once; unreadable images are settled at 0 × 0")
     func backfill() async throws {
         let store = try makeStore()

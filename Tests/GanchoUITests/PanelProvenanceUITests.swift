@@ -6,7 +6,7 @@ final class PanelProvenanceUITests: XCTestCase {
     private static let seededClips = 5
 
     @MainActor
-    private func launch(seeded: Bool) -> XCUIApplication {
+    private func launch(seeded: Bool, extra: [String] = []) -> XCUIApplication {
         let app = GanchoUITestApplication()
         app.launchArguments =
             [
@@ -16,7 +16,7 @@ final class PanelProvenanceUITests: XCTestCase {
                 "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
                 "-ui-test-defaults-suite",
                 "com.johnny4young.gancho.uitests.provenance.\(UUID().uuidString)"
-            ] + (seeded ? ["-seed-visual-library", "-seed-peek-link"] : [])
+            ] + (seeded ? ["-seed-visual-library", "-seed-peek-link"] : []) + extra
         app.launch()
         return app
     }
@@ -85,5 +85,15 @@ final class PanelProvenanceUITests: XCTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["migration-import-sheet"].firstMatch
                 .waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testLessonStaysGoneOnceAPasteHasLanded() throws {
+        // A real number in the argument domain, as the paste-back stamp stores.
+        let app = launch(seeded: false, extra: ["-first-pasteback-at", "<real>1</real>"])
+        defer { app.terminate() }
+        XCTAssertTrue(
+            app.buttons["panel-empty-import-button"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertFalse(app.descendants(matching: .any)["panel-first-run-stage"].firstMatch.exists)
     }
 }

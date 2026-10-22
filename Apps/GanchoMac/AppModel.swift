@@ -1959,10 +1959,9 @@ final class AppModel {
     /// Totals for the panel's scope chips; nil counts while the store can't answer.
     func scopeCounts() async -> PanelScopeCounts {
         guard let fullStore else { return PanelScopeCounts() }
+        let byBoard = (try? await fullStore.visibleCountsByBoard()) ?? [:]
         var counts = PanelScopeCounts(total: try? await fullStore.count())
-        for board in boards {
-            counts.boards[board.id] = try? await fullStore.count(inBoard: board.id)
-        }
+        for board in boards { counts.boards[board.id] = byBoard[board.id] ?? 0 }
         return counts
     }
 

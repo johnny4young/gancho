@@ -74,20 +74,10 @@ public enum PanelAmbientTint {
         dark ? 0.07 : 0.10
     }
 
-    /// A masked clip or Private Mode gets no wash at all: even the kind's
-    /// tint would mark what the mask hides.
+    /// A masked clip or Private Mode gets no wash at all: an image's own
+    /// colour, or even the kind's tint, would hint at what the mask hides.
     nonisolated public static func washes(masked: Bool, privateMode: Bool) -> Bool {
         !masked && !privateMode
-    }
-
-    /// Whether the wash may take an image's own colour. Only while that image
-    /// is actually shown: a sensitive image or Private Mode masks the preview,
-    /// and a content-derived colour would hint at what the mask hides. The
-    /// kind's tint is the fallback either way.
-    nonisolated public static func usesAccent(
-        kind: ClipContentKind, isSensitive: Bool, previewsHidden: Bool
-    ) -> Bool {
-        kind == .image && !isSensitive && !previewsHidden
     }
 }
 

@@ -458,11 +458,8 @@ struct PanelView: View {
                 masked: ClipSafePresentation.requiresMasking(selected),
                 privateMode: model.preferences.isPrivateModePaused)
         else { return nil }
-        if PanelAmbientTint.usesAccent(
-            kind: selected.kind, isSensitive: selected.isSensitive,
-            previewsHidden: model.preferences.isPrivateModePaused),
-            let accent = model.thumbnails.cachedAccent(for: selected)
-        {
+        // Past the mask veto, an image may lend its own colour.
+        if selected.kind == .image, let accent = model.thumbnails.cachedAccent(for: selected) {
             return accent.color
         }
         return GanchoTokens.Palette.kindTint(for: selected.kind)

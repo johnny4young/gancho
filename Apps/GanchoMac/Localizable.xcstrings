@@ -10458,6 +10458,16 @@
           }
         }
       }
+    },
+    "%@ ago": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hace %@"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

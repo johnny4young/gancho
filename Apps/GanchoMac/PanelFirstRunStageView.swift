@@ -6,13 +6,17 @@ import SwiftUI
 /// The peek column of an empty first-run panel: the whole loop in three keys.
 /// The open-panel keys are the recorded shortcut, never a hard-coded one.
 struct PanelFirstRunStageView: View {
+    /// Re-read whenever defaults change, so a shortcut recorded while the
+    /// lesson is open shows at once.
+    @State private var shortcut = KeyboardShortcuts.getShortcut(for: .togglePanel)
+
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             Text("The whole loop, three keys")
                 .panelFont(.caption, .bold)
                 .textCase(.uppercase)
                 .foregroundStyle(.secondary)
-            if let shortcut = KeyboardShortcuts.getShortcut(for: .togglePanel) {
+            if let shortcut {
                 keyCard(
                     PanelFirstRunStage.keycaps(for: shortcut.description),
                     title: "Open the panel from anywhere",
@@ -30,6 +34,10 @@ struct PanelFirstRunStageView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("panel-first-run-stage")
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) {
+            _ in
+            shortcut = KeyboardShortcuts.getShortcut(for: .togglePanel)
+        }
     }
 
     private func keyCard(

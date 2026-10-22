@@ -345,7 +345,11 @@ struct ClipSearchTests {
         }
         #expect(schema?.contains("prefix='2 3 4'") == true)
         #expect(try await indexOrder() == legacyOrder)
-        let found = try await store.search(ClipSearchQuery(text: "quart")).map(\.id)
-        #expect(Set(found) == Set(items.map(\.id)))
+        // The store ranks by the rebuilt index: the doubled term leads. The other
+        // two tie on bm25, so only the top hit has a fixed place.
+        let found = try await store.search(ClipSearchQuery(text: "quart")).map(\.id.uuidString)
+        #expect(found.first == legacyOrder.first)
+        #expect(found.first == items[1].id.uuidString)
+        #expect(Set(found) == Set(items.map(\.id.uuidString)))
     }
 }
