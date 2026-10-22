@@ -119,6 +119,8 @@ final class MigrationImportUITests: XCTestCase {
 
     @MainActor
     private func keepMigrationRender(in app: XCUIApplication, named name: String) throws {
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 3))
         try keepRender(of: "@sheet", in: app, named: name)
     }

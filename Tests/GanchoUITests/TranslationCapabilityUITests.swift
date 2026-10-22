@@ -75,7 +75,8 @@ final class TranslationCapabilityUITests: XCTestCase {
         ).firstMatch
         let found = result.waitForExistence(timeout: 5)
         if !found, panel.exists {
-            try keepRender(
+            // Diagnostic only: a failed render must not hide the assertion below.
+            try? keepRender(
                 of: "history-panel", in: app, named: "Translation result missing — synthetic")
         }
         XCTAssertTrue(found)

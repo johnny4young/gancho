@@ -11,14 +11,15 @@ extension XCTestCase {
     @MainActor
     func keepRender(of window: String, in app: XCUIApplication, named name: String) throws {
         let arguments = app.launchArguments
-        let index = try XCTUnwrap(
-            arguments.firstIndex(of: "-ui-test-snapshot-dir"),
-            "launch with GanchoUITestApplication to keep rendered evidence")
-        let directory = URL(fileURLWithPath: arguments[index + 1], isDirectory: true)
-        let file = UUID().uuidString
-        _ = try DesignSnapshot.renderWindow(titled: window, named: file, in: directory)
-        let png = directory.appendingPathComponent("\(file).png")
-        defer { try? FileManager.default.removeItem(at: png) }
+        let path = try XCTUnwrap(
+            arguments.firstIndex(of: "-ui-test-snapshot-dir").flatMap {
+                arguments.dropFirst($0 + 1).first
+            }, "launch with GanchoUITestApplication to keep rendered evidence")
+        let directory = URL(fileURLWithPath: path, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let png = try DesignSnapshot.requestRender(
+            of: window, named: UUID().uuidString, in: directory)
         let attachment = XCTAttachment(
             data: try Data(contentsOf: png), uniformTypeIdentifier: "public.png")
         attachment.name = name

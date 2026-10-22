@@ -159,6 +159,8 @@ final class MCPAccessUITests: XCTestCase {
 
     @MainActor
     private func keepMCPRender(in app: XCUIApplication, named name: String) throws {
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         XCTAssertTrue(app.windows["MCP Access"].firstMatch.waitForExistence(timeout: 3))
         try keepRender(of: "MCP Access", in: app, named: name)
     }
