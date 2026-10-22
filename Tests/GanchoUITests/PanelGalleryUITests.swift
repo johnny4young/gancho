@@ -60,11 +60,7 @@ final class PanelGalleryUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [rowShrunk], timeout: 3), .completed)
         XCTAssertEqual(rows.allElementsBoundByIndex.filter(\.isSelected).count, 1)
 
-        let panel = app.dialogs["history-panel"].firstMatch
-        let evidence = XCTAttachment(screenshot: panel.screenshot())
-        evidence.name = "History panel — gallery"
-        evidence.lifetime = .keepAlways
-        add(evidence)
+        try keepRender(of: "history-panel", in: app, named: "History panel — gallery")
 
         app.terminate()
         app = GanchoUITestApplication()

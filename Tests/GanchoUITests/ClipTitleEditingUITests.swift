@@ -29,10 +29,6 @@ final class ClipTitleEditingUITests: XCTestCase {
         app.buttons["preview-save-title"].firstMatch.click()
 
         XCTAssertTrue(app.staticTexts["Team standup"].waitForExistence(timeout: 5))
-        let attachment = XCTAttachment(
-            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
-        attachment.name = "macOS inline clip title editing"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "history-panel", in: app, named: "macOS inline clip title editing")
     }
 }

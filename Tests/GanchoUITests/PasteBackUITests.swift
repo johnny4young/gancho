@@ -86,10 +86,7 @@ final class PasteBackUITests: XCTestCase {
 
         let toastPanel = app.descendants(matching: .any)["gancho-toast-panel"].firstMatch
         XCTAssertTrue(toastPanel.exists)
-        let attachment = XCTAttachment(screenshot: toastPanel.screenshot())
-        attachment.name = "macOS copy-only paste notice"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "gancho-toast-panel", in: app, named: "macOS copy-only paste notice")
     }
 
     @MainActor

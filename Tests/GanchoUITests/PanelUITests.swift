@@ -351,10 +351,7 @@ final class PanelUITests: XCTestCase {
         XCTAssertTrue(
             card.waitForExistence(timeout: 3), "the ? button must open the keyboard cheat-sheet")
 
-        let screenshot = XCTAttachment(screenshot: card.screenshot())
-        screenshot.name = "panel-keyboard-shortcuts"
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
+        try keepRender(of: "history-panel", in: app, named: "panel-keyboard-shortcuts")
 
         let closeButton = app.buttons["panel-shortcuts-close-button"].firstMatch
         XCTAssertTrue(closeButton.waitForExistence(timeout: 3))

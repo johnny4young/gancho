@@ -72,11 +72,8 @@ final class CombinedTextUITests: XCTestCase {
         XCTAssertTrue(copy.waitForHittable(timeout: 5))
         XCTAssertTrue(copy.isEnabled)
         if customSeparator { try verifyCustomSeparator(in: app, preview: preview, copy: copy) }
-        let attachment = XCTAttachment(
-            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
-        attachment.name = "Combined text review — synthetic source clips"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(
+            of: "history-panel", in: app, named: "Combined text review — synthetic source clips")
         copy.click()
         XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
         XCTAssertEqual(rows.count, count)

@@ -19,7 +19,7 @@ final class MCPAccessUITests: XCTestCase {
             waitForLabelOrValue("Revoked", of: "mcp-client-state-local-scripts", in: app))
         XCTAssertTrue(waitForLabelOrValue("1 active", of: "mcp-active-client-count", in: app))
 
-        attach(windowScreenshot(in: app), named: "macOS MCP client grants")
+        try keepMCPRender(in: app, named: "macOS MCP client grants")
 
         let revoke = app.buttons["mcp-revoke-client-claude-desktop"].firstMatch
         XCTAssertTrue(revoke.waitForExistence(timeout: 3))
@@ -41,7 +41,7 @@ final class MCPAccessUITests: XCTestCase {
             app.buttons["mcp-copy-command-claude-desktop"].firstMatch
                 .waitForNonexistence(timeout: 5),
             "the active-only copy command remained exposed after revocation")
-        attach(windowScreenshot(in: app), named: "macOS MCP live revoke")
+        try keepMCPRender(in: app, named: "macOS MCP live revoke")
     }
 
     @MainActor
@@ -158,18 +158,8 @@ final class MCPAccessUITests: XCTestCase {
     }
 
     @MainActor
-    private func windowScreenshot(in app: XCUIApplication) -> XCUIScreenshot {
-        app.activate()
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        let window = app.windows["MCP Access"].firstMatch
-        XCTAssertTrue(window.waitForExistence(timeout: 3))
-        return window.screenshot()
-    }
-
-    private func attach(_ screenshot: XCUIScreenshot, named name: String) {
-        let attachment = XCTAttachment(screenshot: screenshot)
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
+    private func keepMCPRender(in app: XCUIApplication, named name: String) throws {
+        XCTAssertTrue(app.windows["MCP Access"].firstMatch.waitForExistence(timeout: 3))
+        try keepRender(of: "MCP Access", in: app, named: name)
     }
 }

@@ -29,9 +29,6 @@ final class SettingsPrivacyUITests: XCTestCase {
             "the vertical Privacy form must be exposed as a scroll view")
         privacySettings.scroll(byDeltaX: 0, deltaY: -140)
 
-        let attachment = XCTAttachment(screenshot: privacySettings.screenshot())
-        attachment.name = "settings-spotlight-indexing"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "Settings", in: app, named: "settings-spotlight-indexing")
     }
 }

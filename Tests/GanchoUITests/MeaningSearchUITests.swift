@@ -36,11 +36,9 @@ final class MeaningSearchUITests: XCTestCase {
         let heading = app.descendants(matching: .any)["meaning-related-heading"].firstMatch
         XCTAssertTrue(heading.waitForExistence(timeout: 5))
         XCTAssertTrue(rows.firstMatch.exists)
-        let attachment = XCTAttachment(
-            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
-        attachment.name = "Meaning search synthetic routing — \(language) — \(appearance)"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(
+            of: "history-panel", in: app,
+            named: "Meaning search synthetic routing — \(language) — \(appearance)")
         toggle.click()
         XCTAssertTrue(heading.waitForNonExistence(timeout: 5))
     }

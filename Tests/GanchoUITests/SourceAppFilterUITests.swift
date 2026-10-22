@@ -62,11 +62,7 @@ final class SourceAppFilterUITests: XCTestCase {
             XCTWaiter.wait(for: [xcodeDisappeared], timeout: 5), .completed,
             "the Safari filter must remove Xcode rows after the async search refresh")
 
-        let attachment = XCTAttachment(
-            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
-        attachment.name = "macOS source-app filter — Safari"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "history-panel", in: app, named: "macOS source-app filter — Safari")
     }
 
     @MainActor

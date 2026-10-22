@@ -37,7 +37,8 @@ final class AppQualityUITests: XCTestCase {
             let button = window.buttons["settings-tab-\(section)"].firstMatch
             XCTAssertTrue(button.waitForExistence(timeout: 3))
             button.click()
-            keep(window, name: "settings-\(section)-\(language)-\(appearance)")
+            try keepRender(
+                of: window.title, in: app, named: "settings-\(section)-\(language)-\(appearance)")
             XCTAssertTrue(button.isSelected, "the current Settings section must expose selection")
         }
         let close = window.buttons[XCUIIdentifierCloseWindow].firstMatch
@@ -56,7 +57,7 @@ final class AppQualityUITests: XCTestCase {
         app.typeKey("b", modifierFlags: .command)
         let picker = app.descendants(matching: .any)["board-picker"].firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
-        keep(app.dialogs["history-panel"].firstMatch, name: "panel-board-picker")
+        try keepRender(of: "history-panel", in: app, named: "panel-board-picker")
         let board = picker.buttons["board-picker-board-row"].firstMatch
         XCTAssertTrue(
             board.waitForExistence(timeout: 3),
@@ -91,7 +92,7 @@ final class AppQualityUITests: XCTestCase {
         XCTAssertTrue(library.waitForExistence(timeout: 5))
         let empty = library.staticTexts["No snippets yet"].firstMatch
         XCTAssertTrue(empty.waitForExistence(timeout: 5))
-        keep(library, name: "library-before-panel-curation")
+        try keepRender(of: "Library", in: app, named: "library-before-panel-curation")
         GanchoUITestCommands.post("openPanel", token: token)
         let row = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(NSPredicate(format: "label CONTAINS %@", "let greeting")).firstMatch
@@ -103,7 +104,7 @@ final class AppQualityUITests: XCTestCase {
             "a confirmed panel mutation must refresh the open Library")
         GanchoUITestCommands.post("library", token: token)
         XCTAssertTrue(library.waitForExistence(timeout: 5))
-        keep(library, name: "library-after-panel-curation")
+        try keepRender(of: "Library", in: app, named: "library-after-panel-curation")
     }
 
     @MainActor
@@ -125,7 +126,7 @@ final class AppQualityUITests: XCTestCase {
         XCTAssertTrue(insert.isHittable)
         XCTAssertTrue(cancel.isHittable)
         app.typeKey("g", modifierFlags: .command)
-        keep(sheet, name: "snippet-many-fields-large-text")
+        try keepRender(of: "@sheet", in: app, named: "snippet-many-fields-large-text")
         let fields = sheet.scrollViews["fill-fields-scroll"].firstMatch
         XCTAssertTrue(fields.waitForExistence(timeout: 3))
         fields.scroll(byDeltaX: 0, deltaY: -1_000)
@@ -161,13 +162,5 @@ final class AppQualityUITests: XCTestCase {
             app.descendants(matching: .any).matching(identifier: "clip-row")
                 .element(boundBy: 3).waitForExistence(timeout: 15))
         return (app, token)
-    }
-
-    @MainActor
-    private func keep(_ window: XCUIElement, name: String) {
-        let attachment = XCTAttachment(screenshot: window.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 }

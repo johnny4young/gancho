@@ -75,7 +75,8 @@ final class TranslationCapabilityUITests: XCTestCase {
         ).firstMatch
         let found = result.waitForExistence(timeout: 5)
         if !found, panel.exists {
-            attachPanelScreenshot(panel, name: "Translation result missing — synthetic")
+            try keepRender(
+                of: "history-panel", in: app, named: "Translation result missing — synthetic")
         }
         XCTAssertTrue(found)
         XCTAssertTrue(
@@ -83,18 +84,10 @@ final class TranslationCapabilityUITests: XCTestCase {
                 || (result.value as? String)?.contains("Traducción sintética") == true)
         XCTAssertEqual(panel.frame.width, originalFrame.width, accuracy: 1)
         XCTAssertEqual(panel.frame.height, originalFrame.height, accuracy: 1)
-        attachPanelScreenshot(
-            panel,
-            name:
+        try keepRender(
+            of: "history-panel", in: app,
+            named:
                 "Installed translation — synthetic — \(language) — \(extraArguments.joined(separator: " "))"
         )
-    }
-
-    @MainActor
-    private func attachPanelScreenshot(_ panel: XCUIElement, name: String) {
-        let attachment = XCTAttachment(screenshot: panel.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 }

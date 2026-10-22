@@ -218,11 +218,7 @@ final class PanelReproUITests: XCTestCase {
             "one drag must publish both file URLs as separate pasteboard items")
         XCTAssertTrue(search.exists, "the panel must remain open after the drop")
 
-        let attachment = XCTAttachment(
-            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
-        attachment.name = "panel-multi-file-drag-pasteboard"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "history-panel", in: app, named: "panel-multi-file-drag-pasteboard")
     }
 
     /// The AppKit drag responder must not capture macOS's Control-click
@@ -259,11 +255,6 @@ final class PanelReproUITests: XCTestCase {
         XCTAssertTrue(
             delete.waitForExistence(timeout: 3),
             "Control-click must reach the row context menu instead of the drag bridge")
-        let attachment = XCTAttachment(
-            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
-        attachment.name = "panel-multi-file-control-click-menu"
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 
     /// Seeds a throwaway durable store with three PINNED clips plus four
@@ -391,11 +382,7 @@ final class PanelReproUITests: XCTestCase {
             stack.label.contains("3"),
             "batch enqueue must add all three selected clips in one action")
 
-        let attachment = XCTAttachment(
-            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
-        attachment.name = "panel-batch-context-actions"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "history-panel", in: app, named: "panel-batch-context-actions")
 
         let beforeDelete = rows.count
         let delete = app.buttons["selection-delete-button"].firstMatch

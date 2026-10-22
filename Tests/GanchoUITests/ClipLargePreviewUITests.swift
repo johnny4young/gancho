@@ -37,10 +37,7 @@ final class ClipLargePreviewUITests: XCTestCase {
             content.value as? String,
             "Yesterday: fixed search\nToday: improve editing\nBlockers: none")
 
-        let attachment = XCTAttachment(screenshot: preview.screenshot())
-        attachment.name = "macOS Command-Y large preview"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "large-preview-window", in: app, named: "macOS Command-Y large preview")
 
         app.typeKey("y", modifierFlags: .command)
         XCTAssertTrue(content.waitForNonExistence(timeout: 5))

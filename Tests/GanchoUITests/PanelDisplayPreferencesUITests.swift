@@ -36,10 +36,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 15))
         let panel = app.dialogs["history-panel"].firstMatch
         if panel.exists {
-            let evidence = XCTAttachment(screenshot: panel.screenshot())
-            evidence.name = "panel-text-size-\(textSize)"
-            evidence.lifetime = .keepAlways
-            add(evidence)
+            try keepRender(of: "history-panel", in: app, named: "panel-text-size-\(textSize)")
         }
         return row.frame.height
     }
@@ -99,10 +96,7 @@ final class PanelDisplayPreferencesUITests: XCTestCase {
             app.descendants(matching: .any)["capture-notice"].firstMatch.exists,
             "the synthetic screenshot flow must not render an expected storage warning")
 
-        let screenshot = XCTAttachment(screenshot: panel.screenshot())
-        screenshot.name = "panel-large-text"
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
+        try keepRender(of: "history-panel", in: app, named: "panel-large-text")
 
         app.terminate()
         app = launchWithPanel(

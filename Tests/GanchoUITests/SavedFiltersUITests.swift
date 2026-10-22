@@ -48,10 +48,7 @@ final class SavedFiltersUITests: XCTestCase {
         let updated = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value == %@", "Renamed notes"), object: renamed)
         XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 5), .completed)
-        let attachment = XCTAttachment(screenshot: library.screenshot())
-        attachment.name = "Saved filter — synthetic query"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "Library", in: app, named: "Saved filter — synthetic query")
         renamed.rightClick()
         app.menuItems["Delete filter"].click()
         XCTAssertTrue(renamed.waitForNonExistence(timeout: 5))
