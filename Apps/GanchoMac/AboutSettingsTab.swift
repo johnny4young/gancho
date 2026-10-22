@@ -101,7 +101,7 @@ struct AboutSettingsTab: View {
         Link(destination: url) {
             HStack(spacing: GanchoTokens.Spacing.sm) {
                 Image(systemName: systemImage)
-                    .foregroundStyle(GanchoTokens.Palette.accent)
+                    .foregroundStyle(GanchoTokens.Palette.accentInk)
                     .frame(width: 18)
                 Text(title)
                 Spacer(minLength: 0)

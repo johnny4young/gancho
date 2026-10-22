@@ -23,7 +23,13 @@ that complements the automated checks.
   native buttons while the search field retains arrow navigation.
 - Compact icon actions share a labeled hit target, scaled with panel text on
   macOS and sized for touch on iOS. Opaque custom accent fills resolve a black
-  or white foreground from their luminance instead of always forcing white.
+  or white foreground from their luminance instead of always forcing white;
+  the brand green takes its dark ink.
+- **Contrast**: accent and status text reach WCAG AA (4.5:1) on every surface
+  it sits on in light and dark mode, whatever accent colour the system uses;
+  `ContrastTokenTests` proves each pair, including hover and pressed fills.
+- **Focus**: Gancho buttons, dock actions and filter chips draw a 2 pt ring in
+  the accent ink outside the control, distinct from the selected fill.
 - Snippet-fill fields scroll independently from Insert and Cancel. Panel
   commands are inactive while a dialog owns the keyboard. The iOS curation
   suggestion reserves space above the history toolbar instead of covering it.
@@ -39,9 +45,9 @@ its suggestion does not intersect the Paste control.
 
 Accessibility-tree assertions do not establish that every control is usable
 with VoiceOver. Run the manual flow below on the identified release candidate.
-Panel transitions honor Reduce Motion through `GanchoMotion`
-(`quick`/`smooth`/`replace(reduceMotion:)`); repeating progress symbols still
-animate. Include Reduce Motion,
+Transitions honor Reduce Motion through `GanchoMotion`: settle animations
+become instant, arrivals and departures a 100 ms fade, and pressed buttons stop
+scaling; repeating progress symbols still animate. Include Reduce Motion,
 larger text, contrast, small windows, Library cards and saved filters in manual
 acceptance. Space toggles a focused filter chip; in the search field it types a
 space rather than opening a preview.

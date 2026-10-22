@@ -61,7 +61,7 @@ private struct ToastView: View {
     var body: some View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             Image(systemName: toast.style.symbol)
-                .foregroundStyle(toast.style.tint)
+                .foregroundStyle(ReadableInk(base: toast.style.tint))
                 .accessibilityHidden(true)
             Text(toast.message)
                 .font(.body.weight(.medium))
@@ -71,9 +71,8 @@ private struct ToastView: View {
                     action.handler()
                     onDismiss()
                 }
-                .buttonStyle(.borderless)
+                .ganchoTextButton()
                 .accessibilityIdentifier(action.accessibilityIdentifier)
-                .foregroundStyle(GanchoTokens.Palette.accent)
             }
         }
         .padding(.horizontal, GanchoTokens.Spacing.md)

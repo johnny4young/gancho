@@ -234,6 +234,37 @@ competition between separate single/double SwiftUI recognizers. Native
 regression coverage exercises paste, drag, context menus, range selection and
 gallery switching; seed readiness is a separate boundary.
 
+### Design tokens
+
+`GanchoDesign` owns colour, type, spacing, elevation and motion; app views
+never write a hex value, a shadow or an animation curve of their own.
+
+- **Contrast is computed, not picked.** `Contrast` holds the WCAG maths.
+  Green text uses `accentInk` (the brand text pair, or the user's accent
+  darkened or lightened until it reaches 4.5:1 on the darkest surface it sits
+  on); text on a green fill uses `ContrastingForeground`, which picks the dark
+  brand ink on brand green and black or white elsewhere. Controls that paint
+  their own label in the tint (borderless menus, button toggles) take
+  `ganchoInkTint()`.
+- **Fixed brand colours are byte pairs** (`GanchoTokens.ColorPair`), resolved
+  per colour scheme without AppKit. Resolving a dynamic `NSColor` inside
+  `ShapeStyle.resolve` off the main thread blocks on the main actor and hangs
+  `swift test`, so contrast tests and the ink rule work on `Color.Resolved`.
+- **Buttons have roles** (`GanchoButtonStyle`: primary, secondary, tertiary,
+  neutral, destructive). Hover and pressed step the fill's lightness by 8 % and
+  16 % (`ButtonStates`, `Contrast.stepped`); keyboard focus draws a 2 pt ring in
+  the accent ink outside the control.
+- **Surfaces and elevation**: `ganchoSurface(level:)` gives the panel, card
+  and control levels (hex dark surfaces only on the opaque panel; the
+  translucent panel keeps its glass). `ganchoElevation` draws a shadow in light
+  mode and a top highlight in dark mode, where shadows do not read.
+- **Motion** goes through `GanchoMotion` (`quick`, `smooth`, `leave`, `press`,
+  and `travel` for content that moves in and leaves on the `leave` curve).
+  Under Reduce Motion, settle animations are instant, arrive and leave become a
+  100 ms fade and presses do not scale. `DesignTokenGuardTests` fails the build
+  on a literal curve, a raw token that skips its `reduceMotion:` function, a
+  literal shadow, or the accent or success green used as a foreground.
+
 ## Platform contracts
 
 | Platform family | What is allowed | What is forbidden |

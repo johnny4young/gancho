@@ -19,7 +19,7 @@ struct PanelSelectionContextBar: View {
             Label("\(selectionCount) clips", systemImage: "checkmark.circle.fill")
                 .panelFont(.caption, .semibold)
                 .monospacedDigit()
-                .foregroundStyle(GanchoTokens.Palette.accent)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
             Spacer(minLength: 0)
             IconActionButton(
                 "Copy combined…", systemImage: "doc.on.doc",

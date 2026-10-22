@@ -128,7 +128,10 @@ struct PanelBoardPicker: View {
         } label: {
             HStack(spacing: GanchoTokens.Spacing.xs) {
                 Image(systemName: isMember ? "checkmark.circle.fill" : board.sfSymbol)
-                    .foregroundStyle(isMember ? GanchoTokens.Palette.accent : Color.secondary)
+                    .foregroundStyle(
+                        isMember
+                            ? AnyShapeStyle(GanchoTokens.Palette.accentInk)
+                            : AnyShapeStyle(.secondary))
                 board.displayTitle
                 Spacer(minLength: 0)
             }
@@ -155,7 +158,8 @@ struct PanelBoardPicker: View {
             createIfPossible()
         } label: {
             HStack(spacing: GanchoTokens.Spacing.xs) {
-                Image(systemName: "plus.circle.fill").foregroundStyle(GanchoTokens.Palette.accent)
+                Image(systemName: "plus.circle.fill").foregroundStyle(
+                    GanchoTokens.Palette.accentInk)
                 Text(isCreating ? "Creating board…" : "New board")
                 Text(verbatim: "“\(trimmedFilter)”").foregroundStyle(.secondary)
                 Spacer(minLength: 0)

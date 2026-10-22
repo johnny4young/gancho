@@ -72,6 +72,7 @@ struct TextRecipeReview: View {
                 Button("Run recipe") { run() }.disabled(!valid || input == nil || operation != nil)
                     .accessibilityIdentifier("text-recipe-run")
                 Button("Copy result") { copy() }.keyboardShortcut(.defaultAction)
+                    .ganchoButtonStyle(.primary)
                     .disabled(result == nil || operation != nil)
                     .accessibilityIdentifier("text-recipe-copy")
             }

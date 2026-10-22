@@ -1,3 +1,4 @@
+import GanchoDesign
 import GanchoKit
 import SwiftUI
 
@@ -84,6 +85,7 @@ struct SavedFilterEditor: View {
                 }
                 .disabled(working || invalid || rule.kinds?.isEmpty == true)
                 .keyboardShortcut(.defaultAction)
+                .ganchoButtonStyle(.primary)
                 .accessibilityIdentifier("filter-confirm")
             }
         }.padding(20).frame(width: 420)

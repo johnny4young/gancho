@@ -41,6 +41,7 @@ struct OnboardingView: View {
                     }
                 }
                 .keyboardShortcut(.defaultAction)
+                .ganchoButtonStyle(.primary)
                 .accessibilityIdentifier("onboarding-continue")
             }
         }
@@ -84,7 +85,7 @@ struct OnboardingView: View {
                     "Your first clips get smart AI titles, free and on-device.",
                     systemImage: "sparkles"
                 )
-                .foregroundStyle(.tint)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
                 Spacer(minLength: 0)
                 Button("Import clipboard history…", systemImage: "arrow.down.doc") {
                     showMigrationImporter = true
@@ -102,8 +103,9 @@ struct OnboardingView: View {
             Image(systemName: accessibilityGranted ? "checkmark.seal.fill" : "hand.raised")
                 .font(.system(size: 44))
                 .foregroundStyle(
-                    accessibilityGranted
-                        ? GanchoTokens.Palette.success : GanchoTokens.Palette.warning)
+                    ReadableInk(
+                        base: accessibilityGranted
+                            ? GanchoTokens.Palette.success : GanchoTokens.Palette.warning))
             Text("One permission for instant pasting")
                 .font(.title2.bold())
             Text(
@@ -115,7 +117,7 @@ struct OnboardingView: View {
 
             if accessibilityGranted {
                 Label("Permission granted", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(GanchoTokens.Palette.success)
+                    .foregroundStyle(GanchoTokens.Palette.brandText)
             } else {
                 ActionButton(
                     "Open System Settings", systemImage: "gear",
@@ -142,7 +144,7 @@ struct OnboardingView: View {
         VStack(spacing: GanchoTokens.Spacing.md) {
             Image(systemName: "keyboard")
                 .font(.system(size: 44))
-                .foregroundStyle(.tint)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
             Text("Your clipboard, one shortcut away")
                 .font(.title2.bold())
             ShortcutRecorder("Panel shortcut:", name: .togglePanel)

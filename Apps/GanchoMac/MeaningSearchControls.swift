@@ -8,6 +8,7 @@ struct MeaningSearchControls: View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
             Toggle("By meaning", isOn: $search.meaningEnabled)
                 .toggleStyle(.button)
+                .ganchoInkTint()
                 .accessibilityIdentifier("meaning-search-toggle")
             if search.meaningEnabled {
                 if search.meaning.status == .loading { ProgressView().controlSize(.mini) }

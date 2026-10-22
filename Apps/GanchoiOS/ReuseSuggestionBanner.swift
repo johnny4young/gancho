@@ -26,16 +26,15 @@ struct ReuseSuggestionBanner: View {
     var body: some View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             Image(systemName: "sparkles")
-                .foregroundStyle(GanchoTokens.Palette.accent)
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
                 .accessibilityHidden(true)
             message
                 .font(.subheadline.weight(.medium))
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button(actionTitle, action: onAccept)
-                .buttonStyle(.borderedProminent)
-                .foregroundStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                .ganchoButtonStyle(.primary)
                 .controlSize(.small)
-                .frame(minHeight: 44)
+                .frame(minHeight: GanchoTokens.HitTarget.touch)
                 .accessibilityLabel(Text(actionAccessibilityLabel))
                 .accessibilityIdentifier("reuse-suggestion-action")
             Button(action: onDismiss) {
@@ -43,7 +42,7 @@ struct ReuseSuggestionBanner: View {
                     .foregroundStyle(.tertiary)
             }
             .buttonStyle(.plain)
-            .frame(width: 44, height: 44)
+            .frame(width: GanchoTokens.HitTarget.touch, height: GanchoTokens.HitTarget.touch)
             .accessibilityLabel(Text("Dismiss"))
             .accessibilityIdentifier("reuse-suggestion-dismiss")
         }
@@ -52,7 +51,7 @@ struct ReuseSuggestionBanner: View {
             .regularMaterial,
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )
-        .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+        .ganchoElevation(.raised)
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .padding(.bottom, GanchoTokens.Spacing.xxs)
         .accessibilityElement(children: .contain)
@@ -99,10 +98,13 @@ private struct ReuseSuggestionInset: ViewModifier {
                         onDismiss: { model.dismissReuseSuggestion() }
                     )
                     .transition(
-                        reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                        GanchoMotion.travel(
+                            .move(edge: .bottom).combined(with: .opacity),
+                            reduceMotion: reduceMotion))
                 }
             }
-            .animation(reduceMotion ? nil : .snappy, value: model.reuseSuggestion)
+            .animation(
+                GanchoMotion.smooth(reduceMotion: reduceMotion), value: model.reuseSuggestion)
     }
 }
 

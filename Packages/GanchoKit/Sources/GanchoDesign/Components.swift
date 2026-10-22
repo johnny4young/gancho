@@ -11,6 +11,7 @@ public struct GanchoSurface: ViewModifier {
     @Environment(\.ganchoOpaqueSurfaces) private var opaqueSurfaces
 
     let shape: RoundedRectangle
+    var level: GanchoTokens.SurfaceLevel = .card
 
     public func body(content: Content) -> some View {
         // Increased contrast ALSO opts out of glass: translucency is the
@@ -22,7 +23,7 @@ public struct GanchoSurface: ViewModifier {
         {
             content.glassEffect(.regular, in: shape)
         } else {
-            content.background(.background.secondary, in: shape)
+            content.background(GanchoTokens.Palette.surface(level), in: shape)
         }
     }
 }
@@ -33,10 +34,46 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Standard Gancho glass card surface.
-    public func ganchoSurface(radius: CGFloat = GanchoTokens.Radius.card) -> some View {
+    /// Standard Gancho glass card surface; `level` picks the opaque fallback.
+    public func ganchoSurface(
+        radius: CGFloat = GanchoTokens.Radius.card,
+        level: GanchoTokens.SurfaceLevel = .card
+    ) -> some View {
         modifier(
-            GanchoSurface(shape: RoundedRectangle(cornerRadius: radius, style: .continuous)))
+            GanchoSurface(
+                shape: RoundedRectangle(cornerRadius: radius, style: .continuous), level: level))
+    }
+
+    /// One of the four shadow steps. Dark appearance casts no shadow and gets
+    /// a 1 pt top highlight instead, so raised layers still separate.
+    public func ganchoElevation(
+        _ elevation: GanchoTokens.Elevation, cornerRadius: CGFloat = GanchoTokens.Radius.md
+    ) -> some View {
+        modifier(ElevationModifier(elevation: elevation, cornerRadius: cornerRadius))
+    }
+}
+
+private struct ElevationModifier: ViewModifier {
+    let elevation: GanchoTokens.Elevation
+    let cornerRadius: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        if colorScheme == .dark {
+            content.overlay {
+                if elevation != .flat {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [.white.opacity(0.12), .clear], startPoint: .top,
+                                endPoint: .center),
+                            lineWidth: GanchoTokens.Stroke.hairline)
+                }
+            }
+        } else {
+            content.shadow(
+                color: .black.opacity(elevation.opacity), radius: elevation.radius, y: elevation.y)
+        }
     }
 }
 
@@ -68,8 +105,8 @@ public struct TypeBadge: View {
         case .pill:
             let tint = GanchoTokens.Palette.kindTint(for: kind)
             label
-                .panelFont(.caption, .semibold)
-                .foregroundStyle(tint)
+                .panelFont(.subheadline, .semibold)
+                .foregroundStyle(ReadableInk(base: tint))
                 .padding(.horizontal, GanchoTokens.Spacing.xs)
                 .padding(.vertical, 3)
                 .background(tint.opacity(0.14), in: Capsule())
@@ -99,7 +136,7 @@ public struct ClipLinkParts: Equatable, Sendable {
 }
 
 extension GanchoTokens.Palette {
-    /// Clip-kind family colours (the design's `tokens/colors.css`): the tint
+    /// Clip-kind family colours: the tint
     /// behind a row's icon tile and the filter-rail dots.
     public static func kindTint(for kind: ClipContentKind) -> Color {
         switch kind {
@@ -143,6 +180,7 @@ public struct ClipCard: View {
     private var tileSize: CGFloat { baseTileSize * typeScale }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.listIsScrolling) private var listIsScrolling
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
 
     public init(
@@ -327,7 +365,9 @@ public struct ClipCard: View {
         if isSelected {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                    .fill(GanchoTokens.Palette.accent.opacity(0.12))
+                    .fill(
+                        GanchoTokens.Palette.accent.opacity(
+                            GanchoTokens.Palette.selectionWashOpacity(colorScheme)))
                 RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                     .fill(GanchoTokens.Palette.accent)
                     .frame(width: 3)

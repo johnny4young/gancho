@@ -83,7 +83,7 @@ struct SnippetFillSheet: View {
                     .keyboardShortcut(.cancelAction)
                 Button("Insert") { onInsert(values) }
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
+                    .ganchoButtonStyle(.primary)
                     .accessibilityIdentifier("fill-insert")
             }
         }

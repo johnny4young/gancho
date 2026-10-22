@@ -27,6 +27,8 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        // Form buttons are neutral; only a dialog's default action is filled.
+        .buttonStyle(GanchoButtonStyle(.secondary))
         .frame(width: 760, height: 500)
         // A container, not a plain group: SwiftUI otherwise writes this
         // identifier onto every descendant (the sidebar buttons lost their

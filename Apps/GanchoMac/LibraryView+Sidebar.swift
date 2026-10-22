@@ -67,7 +67,7 @@ extension LibraryView {
                         Text("Saved filters couldn’t be loaded.")
                             .font(.caption)
                         Button("Retry") { model.reloadSavedFilters() }
-                            .buttonStyle(.link)
+                            .ganchoTextButton()
                             .font(.caption)
                             .accessibilityIdentifier("saved-filters-retry")
                     } else if model.savedFilters.legacyImportFailed {
@@ -117,6 +117,10 @@ extension LibraryView {
             if count > 0 {
                 Text(verbatim: "\(count)")
                     .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                    .contentTransition(.numericText(value: Double(count)))
+                    .animation(
+                        GanchoMotion.quick(reduceMotion: reduceMotion),
+                        value: count)
             }
         }
         .tag(selectionValue)
@@ -199,7 +203,7 @@ extension LibraryView {
             } label: {
                 HStack(spacing: GanchoTokens.Spacing.xs) {
                     Image(systemName: "star.fill")
-                        .foregroundStyle(GanchoTokens.Palette.accent)
+                        .foregroundStyle(GanchoTokens.Palette.accentInk)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(verbatim: "gancho Pro").font(.caption.weight(.semibold))
                         Text(proFooterSubtitle)

@@ -35,10 +35,14 @@ enum PeekImageText {
         let text = session.lines[index].text
         Task {
             guard await model.copyManualText(text) else { return }
-            withAnimation { copiedLine.wrappedValue = index }
+            withAnimation(GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion)) {
+                copiedLine.wrappedValue = index
+            }
             try? await Task.sleep(for: .seconds(1.2))
             if copiedLine.wrappedValue == index {
-                withAnimation { copiedLine.wrappedValue = nil }
+                withAnimation(GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion)) {
+                    copiedLine.wrappedValue = nil
+                }
             }
         }
     }
@@ -214,7 +218,7 @@ struct PeekImageTextSection: View {
                 ProgressView().controlSize(.mini)
                 Text("Recognizing text…")
                 Button("Cancel") { session.cancel() }
-                    .buttonStyle(.borderless)
+                    .ganchoTextButton()
                     .accessibilityIdentifier("peek-ocr-cancel")
             }
             .panelFont(.caption)
@@ -223,7 +227,7 @@ struct PeekImageTextSection: View {
             .ready where copiedAll:
             Label("Copied to clipboard", systemImage: "checkmark.circle.fill")
                 .panelFont(.caption)
-                .foregroundStyle(GanchoTokens.Palette.success)
+                .foregroundStyle(GanchoTokens.Palette.brandText)
                 // ONE element whose label is the text: an id on the Label alone
                 // propagates to the icon child, and a test's firstMatch lands there.
                 .accessibilityElement(children: .ignore)
@@ -277,7 +281,7 @@ struct PeekImageTextSection: View {
                     if copiedLine == index {
                         Label("Line copied", systemImage: "checkmark")
                             .panelFont(.caption)
-                            .foregroundStyle(GanchoTokens.Palette.success)
+                            .foregroundStyle(GanchoTokens.Palette.brandText)
                             .transition(.opacity)
                     }
                 }
@@ -392,7 +396,9 @@ struct PeekImageTextSection: View {
 
     private func copyAll() async {
         guard await model.copyManualText(session.text) else { return }
-        withAnimation { copiedAll = true }
+        withAnimation(GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion)) {
+            copiedAll = true
+        }
     }
 
     @discardableResult
@@ -472,7 +478,7 @@ extension PeekImageTextSection {
                     if translationCopied {
                         Label("Copied to clipboard", systemImage: "checkmark.circle.fill")
                             .panelFont(.caption)
-                            .foregroundStyle(GanchoTokens.Palette.success)
+                            .foregroundStyle(GanchoTokens.Palette.brandText)
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel(Text("Copied to clipboard"))
                             .accessibilityIdentifier("peek-ocr-translation-status")
@@ -496,7 +502,9 @@ extension PeekImageTextSection {
                     ) {
                         Task {
                             guard await model.copyManualText(text) else { return }
-                            withAnimation { translationCopied = true }
+                            withAnimation(
+                                GanchoMotion.quick(reduceMotion: GanchoMotion.systemReducesMotion)
+                            ) { translationCopied = true }
                         }
                     }
                     ActionButton(

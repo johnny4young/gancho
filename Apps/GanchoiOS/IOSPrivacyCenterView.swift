@@ -38,7 +38,7 @@ struct IOSPrivacyCenterView: View {
                         .font(.footnote)
                         .opacity(0.9)
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(GanchoTokens.Palette.brandInk)
                 .padding(.vertical, GanchoTokens.Spacing.xs)
                 .listRowBackground(Rectangle().fill(GanchoTokens.Palette.success.gradient))
             }

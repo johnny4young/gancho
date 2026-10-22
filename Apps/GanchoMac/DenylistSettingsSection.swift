@@ -175,7 +175,9 @@ struct DenylistSettingsSection: View {
         } label: {
             // The whole row toggles, not just the chevron.
             Button {
-                withAnimation(.easeOut(duration: 0.15)) { showsBuiltInExclusions.toggle() }
+                withAnimation(GanchoMotion.smooth(reduceMotion: GanchoMotion.systemReducesMotion)) {
+                    showsBuiltInExclusions.toggle()
+                }
             } label: {
                 HStack {
                     Text("Built-in exclusions")

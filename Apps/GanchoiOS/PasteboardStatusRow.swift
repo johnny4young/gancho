@@ -76,7 +76,9 @@ struct PasteboardStatusRow: View {
             Image(systemName: "info.circle")
                 .foregroundStyle(.tertiary)
                 // A 44 pt target at every text size, not just the glyph.
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(
+                    minWidth: GanchoTokens.HitTarget.touch, minHeight: GanchoTokens.HitTarget.touch
+                )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -91,7 +93,7 @@ struct PasteboardStatusRow: View {
                 .fixedSize(horizontal: false, vertical: true)
             } icon: {
                 Image(systemName: "checkmark.shield.fill")
-                    .foregroundStyle(GanchoTokens.Palette.accent)
+                    .foregroundStyle(GanchoTokens.Palette.accentInk)
             }
             .padding(GanchoTokens.Spacing.md)
             .frame(width: 300)
@@ -111,7 +113,7 @@ struct PasteboardStatusRow: View {
         }
         .font(.caption2.weight(.semibold))
         .labelStyle(.titleAndIcon)
-        .foregroundStyle(tint)
+        .foregroundStyle(ReadableInk(base: tint))
         // ONE element, labelled by its text. Left to SwiftUI, the identifier
         // and value land on the symbol child, whose label is the symbol's own
         // ("Selected" for a checkmark): VoiceOver would read the icon, and a

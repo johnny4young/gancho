@@ -85,6 +85,7 @@ struct SelectedContextReview: View {
                     .accessibilityIdentifier("ai-context-cancel-button")
                 Spacer()
                 Button("Copy Markdown") { deliver(asGrant: false) }.keyboardShortcut(.defaultAction)
+                    .ganchoButtonStyle(.primary)
                     .disabled(loading || prepared == nil || operation != nil)
                     .accessibilityIdentifier("ai-context-copy-button")
             }

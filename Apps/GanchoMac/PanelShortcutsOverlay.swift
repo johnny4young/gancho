@@ -60,7 +60,7 @@ struct PanelShortcutsOverlay: View {
             RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
                 .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline)
         )
-        .shadow(radius: 20, y: 8)
+        .ganchoElevation(.overlay, cornerRadius: GanchoTokens.Radius.lg)
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("panel-shortcuts")

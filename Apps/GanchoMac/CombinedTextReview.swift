@@ -1,6 +1,7 @@
 import AppKit
 import ClipboardCore
 import GanchoAppCore
+import GanchoDesign
 import GanchoKit
 import SwiftUI
 
@@ -77,6 +78,7 @@ struct CombinedTextReview: View {
                     .accessibilityIdentifier("combined-text-cancel")
                 Spacer()
                 Button("Copy") { copy() }.keyboardShortcut(.defaultAction)
+                    .ganchoButtonStyle(.primary)
                     .disabled(loading || combined == nil || copyTask != nil)
                     .accessibilityIdentifier("combined-text-copy")
             }

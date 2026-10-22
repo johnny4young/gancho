@@ -113,7 +113,7 @@ struct IOSIntelligenceView: View {
                     .font(.footnote)
                 } icon: {
                     Image(systemName: "lock.shield")
-                        .foregroundStyle(GanchoTokens.Palette.success)
+                        .foregroundStyle(GanchoTokens.Palette.brandText)
                 }
             }
         }
@@ -161,10 +161,10 @@ struct IOSIntelligenceView: View {
                 if alwaysOn {
                     Text("Always on")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(GanchoTokens.Palette.success)
+                        .foregroundStyle(GanchoTokens.Palette.brandText)
                         .padding(.horizontal, GanchoTokens.Spacing.xs)
                         .padding(.vertical, 2)
-                        .background(GanchoTokens.Palette.success.opacity(0.12), in: Capsule())
+                        .background(GanchoTokens.Palette.brandTint, in: Capsule())
                 }
             }
             Text(description).font(.caption).foregroundStyle(.secondary)

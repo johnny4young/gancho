@@ -11,6 +11,16 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The welcome window, the Recent clips widget and the Wrapped card show the
   Gancho mark instead of a generic paperclip symbol.
+- Green text, links and status labels are darker in light mode and lighter in
+  dark mode so they stay readable on every surface; text on green buttons is
+  dark instead of white.
+- Buttons share one look per role, with consistent hover, pressed, disabled and
+  keyboard-focus states; destructive actions read in red.
+- The opaque panel uses true dark surfaces in dark mode, with a subtle top edge
+  instead of a shadow.
+- Filter, type and board chips use a larger 11 pt label.
+- With Reduce Motion on, previews and banners fade in 100 ms instead of sliding
+  or scaling.
 
 ### Fixed
 

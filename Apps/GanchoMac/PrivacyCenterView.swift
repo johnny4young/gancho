@@ -80,7 +80,6 @@ struct PrivacyCenterView: View {
                     Button("Clear activity receipt", role: .destructive) {
                         confirmsReceiptClear = true
                     }
-                    .tint(GanchoTokens.Palette.danger)
                     .accessibilityIdentifier("clear-private-receipt-button")
                 } header: {
                     Text("Private activity receipt")
@@ -175,7 +174,6 @@ struct PrivacyCenterView: View {
                         Button("Remove unreadable clips", role: .destructive) {
                             confirmsUnrecoverableRemoval = true
                         }
-                        .tint(GanchoTokens.Palette.danger)
                         .accessibilityIdentifier("remove-unrecoverable-clips-button")
                     }
                 }
@@ -319,6 +317,7 @@ struct PrivacyCenterView: View {
             .formStyle(.grouped)
         }
         .padding(GanchoTokens.Spacing.md)
+        .buttonStyle(GanchoButtonStyle(.secondary))
         .frame(width: 480, height: 620)
         .accessibilityIdentifier("privacy-center")
         .task { await refresh() }
@@ -371,7 +370,6 @@ struct PrivacyCenterView: View {
         HStack(spacing: GanchoTokens.Spacing.md) {
             Image(systemName: "lock.shield.fill")
                 .font(.largeTitle)
-                .foregroundStyle(.white)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: "0").font(.system(size: 30, weight: .bold))
                 Text("clipboard-content analytics requests").font(.headline)
@@ -379,9 +377,10 @@ struct PrivacyCenterView: View {
                     .font(.caption)
                     .opacity(0.9)
             }
-            .foregroundStyle(.white)
             Spacer(minLength: 0)
         }
+        // Dark ink on the green: white on it was 1.9:1.
+        .foregroundStyle(GanchoTokens.Palette.brandInk)
         .padding(GanchoTokens.Spacing.md)
         .background(
             GanchoTokens.Palette.success.gradient,

@@ -165,7 +165,7 @@ struct ClipPeek: View {
                         let chipStart = chipStartIndex
                         guard index >= chipStart, chipActions.indices.contains(index - chipStart)
                         else { return }
-                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
+                        withAnimation(GanchoMotion.quick(reduceMotion: reduceMotion)) {
                             proxy.scrollTo(chipActions[index - chipStart].id, anchor: .center)
                         }
                     }
@@ -289,14 +289,14 @@ struct ClipPeek: View {
     /// the ✕ dismisses it. Auto-board never files silently.
     private func suggestionChip(_ board: Pinboard) -> some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.accent)
-            Text("Add to \(board.name)?").panelFont(.caption, .medium).lineLimit(1)
+            Image(systemName: "sparkles").foregroundStyle(GanchoTokens.Palette.accentInk)
+            Text("Add to \(board.name)?").panelFont(.subheadline, .medium).lineLimit(1)
             Spacer(minLength: 0)
             Button("Add") {
                 model.assignWithUndo(item, toBoard: board)
                 suggestedBoard = nil
             }
-            .buttonStyle(.borderless)
+            .ganchoTextButton()
             Button {
                 suggestedBoard = nil
             } label: {
@@ -330,12 +330,12 @@ struct ClipPeek: View {
                     .onSubmit { saveTitle() }
                     .accessibilityIdentifier("preview-title-field")
                 Button("Save") { saveTitle() }
-                    .buttonStyle(.borderless)
+                    .ganchoTextButton()
                     .disabled(isSavingTitle)
                     .accessibilityIdentifier("preview-save-title")
                 Button("Cancel") { cancelTitleEditing() }
                     .keyboardShortcut(.cancelAction)
-                    .buttonStyle(.borderless)
+                    .ganchoTextButton()
                     .disabled(isSavingTitle)
                     .accessibilityIdentifier("preview-cancel-title")
             } else {
@@ -349,7 +349,7 @@ struct ClipPeek: View {
                 } label: {
                     Image(systemName: "pencil")
                 }
-                .buttonStyle(.borderless)
+                .ganchoTextButton()
                 .accessibilityLabel(Text("Edit title"))
                 .accessibilityIdentifier("preview-edit-title")
             }
@@ -396,10 +396,10 @@ struct ClipPeek: View {
         FlowLayout(spacing: GanchoTokens.Spacing.xxs) {
             ForEach(model.boards.filter { boardIDs.contains($0.id) }.prefix(3)) { board in
                 HStack(spacing: 3) {
-                    BoardIdentityMark(board: board, size: 10)
+                    BoardIdentityMark(board: board, size: 11)
                     board.displayTitle
                 }
-                .panelFont(.caption2, .medium)
+                .panelFont(.subheadline, .medium)
                 .lineLimit(1)
                 .help(board.displayTitle)
                 .accessibilityIdentifier("peek-board-\(board.id.uuidString)")
@@ -713,6 +713,7 @@ extension ClipPeek {
                 .padding(.vertical, GanchoTokens.Spacing.xxs)
         }
         .menuStyle(.borderlessButton)
+        .ganchoInkTint()
         .sheet(item: $recipeRequest) { request in
             TextRecipeReview(clipID: request.clipID).environment(model)
         }

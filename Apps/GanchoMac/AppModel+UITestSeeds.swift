@@ -224,22 +224,27 @@ extension AppModel {
                     await refreshRecents()
                     return
                 }
+                // Seconds apart, so the order holds against the concurrent link seed.
+                let now = Date()
                 for item in [
                     ClipItem(
-                        kind: .image, title: "Synthetic landscape", contentHash: "library-image"),
+                        createdAt: now.addingTimeInterval(-3), kind: .image,
+                        title: "Synthetic landscape", contentHash: "library-image"),
                     ClipItem(
-                        kind: .image, title: "Hidden fixture title",
-                        contentHash: "library-protected", isSensitive: true)
+                        createdAt: now.addingTimeInterval(-4), kind: .image,
+                        title: "Hidden fixture title", contentHash: "library-protected",
+                        isSensitive: true)
                 ] {
                     _ = try? await fullStore.insert(
                         item, content: .binary(data: data, typeIdentifier: "public.png"))
                 }
                 let color = ClipItem(
-                    kind: .color, title: "Ocean", preview: "#008080", contentHash: "library-color")
+                    createdAt: now.addingTimeInterval(-1), kind: .color, title: "Ocean",
+                    preview: "#008080", contentHash: "library-color")
                 _ = try? await fullStore.insert(color, content: .text("#008080"))
                 let code = ClipItem(
-                    kind: .code, title: "Example", preview: "let greeting = \"Hello\"",
-                    contentHash: "library-code")
+                    createdAt: now, kind: .code, title: "Example",
+                    preview: "let greeting = \"Hello\"", contentHash: "library-code")
                 _ = try? await fullStore.insert(code, content: .text(code.preview))
                 await refreshRecents()
             }
@@ -255,8 +260,10 @@ extension AppModel {
             else { return nil }
             return Task {
                 let url = "https://www.example.com:8443/a%2Fb?q=a%26b#section-2"
+                // Between the visual-library seed's Ocean and landscape rows.
                 let item = ClipItem(
-                    kind: .url, title: "Synthetic link", preview: url, contentHash: "peek-link")
+                    createdAt: Date().addingTimeInterval(-2), kind: .url, title: "Synthetic link",
+                    preview: url, contentHash: "peek-link")
                 _ = try? await fullStore.insert(item, content: .text(url))
                 await refreshRecents()
             }

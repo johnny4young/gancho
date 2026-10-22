@@ -97,7 +97,7 @@ struct MigrationImportView: View {
                     .accessibilityIdentifier("migration-cancel")
                 Spacer()
                 Button("Import") { execute(plan) }
-                    .buttonStyle(.borderedProminent)
+                    .ganchoButtonStyle(.primary)
                     .disabled(plan.preview.readyCount == 0)
                     .accessibilityIdentifier("migration-confirm")
             case .complete:
@@ -105,7 +105,7 @@ struct MigrationImportView: View {
                     .accessibilityIdentifier("migration-reset")
                 Spacer()
                 Button("Done") { dismiss() }
-                    .buttonStyle(.borderedProminent)
+                    .ganchoButtonStyle(.primary)
                     .accessibilityIdentifier("migration-done")
             case .failed:
                 Button("Back") { phase = .choose }
