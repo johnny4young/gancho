@@ -342,7 +342,12 @@ sync layer whose failure modes are visible.
 Store shape:
 
 - `clip` metadata table: id, kind, timestamps, source app/device, sensitivity,
-  retention, pin state, content hash, and sync state.
+  retention, pin state, content hash, and sync state. Image rows also carry
+  their pixel size (v27), read from the image header when the bytes are stored
+  and never synced: each device reads its own copy, and
+  `backfillImageSizes()` fills older or received rows after launch. The peek
+  reads a clip's upload state through `UploadStateProviding`, a metadata-only
+  query that never opens the payload.
 - content-addressed disk blobs for payload bytes and rich representations,
   encrypted in iCloud via `encryptedValues` on sync; the local database is
   whole-database encrypted with SQLCipher (see "Encryption at rest" below).

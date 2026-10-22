@@ -25,6 +25,7 @@ struct PanelSheetPresentations: ViewModifier {
         case combinedText(CombinedTextSelection)
         case aiContext(CombinedTextSelection)
         case savedFilter(SmartCollectionRule)
+        case importHistory
 
         var id: String {
             switch self {
@@ -33,6 +34,7 @@ struct PanelSheetPresentations: ViewModifier {
             case .combinedText(let selection): "combined-\(selection.id.uuidString)"
             case .aiContext(let selection): "ai-context-\(selection.id.uuidString)"
             case .savedFilter(let rule): "saved-filter-\(rule.id.uuidString)"
+            case .importHistory: "import-history"
             }
         }
     }
@@ -84,7 +86,7 @@ struct PanelSheetPresentations: ViewModifier {
                     BoardIdentityEditor(board: board) { colorHex, emoji in
                         await updateBoardIdentity(board, colorHex, emoji)
                     }
-                case .combinedText, .aiContext, .savedFilter:
+                case .combinedText, .aiContext, .savedFilter, .importHistory:
                     reviewSheet(sheet)
                 }
             }

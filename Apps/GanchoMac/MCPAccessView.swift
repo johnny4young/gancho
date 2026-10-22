@@ -228,7 +228,7 @@ struct MCPAccessView: View {
                     if let denial = event.denialReason {
                         Text(verbatim: denial.rawValue)
                             .font(.caption2)
-                            .foregroundStyle(GanchoTokens.Palette.warning)
+                            .foregroundStyle(GanchoTokens.Palette.warningInk)
                     } else if event.resultCount > 0 {
                         Text(
                             event.resultCount == 1
@@ -274,7 +274,7 @@ struct MCPAccessView: View {
             }
         return Text(presentation.0)
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(presentation.1)
+            .foregroundStyle(ReadableInk(base: presentation.1))
             .padding(.horizontal, GanchoTokens.Spacing.xs)
             .padding(.vertical, 2)
             .background(presentation.1.opacity(0.12), in: Capsule())
@@ -286,7 +286,7 @@ struct MCPAccessView: View {
             .font(.caption2.weight(.medium))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .foregroundStyle(tint)
+            .foregroundStyle(ReadableInk(base: tint))
             .background(tint.opacity(0.1), in: Capsule())
     }
 

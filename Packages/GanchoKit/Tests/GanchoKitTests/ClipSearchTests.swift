@@ -320,9 +320,21 @@ struct ClipSearchTests {
             ClipItem(preview: "quarterly review", contentHash: "prefix-migration-3")
         ]
         for item in items {
-            try await store.insert(item, content: .text(item.preview))
+            try await LegacySchemaSeed.insertText(item, into: store)
         }
-        let legacyOrder = try await store.search(ClipSearchQuery(text: "quart")).map(\.id)
+        // Ranked straight from the index: the store's projection already reads
+        // columns a v17 table does not have.
+        func indexOrder() async throws -> [String] {
+            try await store.writer.read { db in
+                try String.fetchAll(
+                    db,
+                    sql: """
+                        SELECT clip.id FROM clip JOIN clip_fts ON clip_fts.rowid = clip.rowid
+                        WHERE clip_fts MATCH 'quart*' ORDER BY bm25(clip_fts), clip.id
+                        """)
+            }
+        }
+        let legacyOrder = try await indexOrder()
 
         try store.migrate()
 
@@ -332,8 +344,12 @@ struct ClipSearchTests {
                 sql: "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'clip_fts'")
         }
         #expect(schema?.contains("prefix='2 3 4'") == true)
-        let optimizedOrder = try await store.search(ClipSearchQuery(text: "quart")).map(\.id)
-        #expect(optimizedOrder == legacyOrder)
-        #expect(Set(optimizedOrder) == Set(items.map(\.id)))
+        #expect(try await indexOrder() == legacyOrder)
+        // The store ranks by the rebuilt index: the doubled term leads. The other
+        // two tie on bm25, so only the top hit has a fixed place.
+        let found = try await store.search(ClipSearchQuery(text: "quart")).map(\.id.uuidString)
+        #expect(found.first == legacyOrder.first)
+        #expect(found.first == items[1].id.uuidString)
+        #expect(Set(found) == Set(items.map(\.id.uuidString)))
     }
 }

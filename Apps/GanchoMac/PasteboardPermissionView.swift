@@ -32,7 +32,7 @@ struct PasteboardPermissionView: View {
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
             case .ask:
                 Image(systemName: "questionmark.circle")
-                    .font(.system(size: 44)).foregroundStyle(GanchoTokens.Palette.warning)
+                    .font(.system(size: 44)).foregroundStyle(GanchoTokens.Palette.warningInk)
                 Text("macOS will ask before Gancho reads")
                     .font(.title2.bold())
                 Text(

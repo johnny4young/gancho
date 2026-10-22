@@ -145,7 +145,7 @@ struct PrivacyCenterView: View {
                                 Text("\(unrecoverable) clips can’t be opened")
                             } icon: {
                                 Image(systemName: "exclamationmark.lock")
-                                    .foregroundStyle(GanchoTokens.Palette.warning)
+                                    .foregroundStyle(GanchoTokens.Palette.warningInk)
                             }
                             .accessibilityIdentifier("unrecoverable-clips-count")
                         }
@@ -154,7 +154,7 @@ struct PrivacyCenterView: View {
                                 Text("\(unrecoverableSynced) synced clips can’t be opened")
                             } icon: {
                                 Image(systemName: "exclamationmark.icloud")
-                                    .foregroundStyle(GanchoTokens.Palette.warning)
+                                    .foregroundStyle(GanchoTokens.Palette.warningInk)
                             }
                             .accessibilityIdentifier("unrecoverable-synced-clips-count")
                         }
@@ -207,7 +207,7 @@ struct PrivacyCenterView: View {
                                     if event.wasDenied {
                                         Text("Denied")
                                             .font(.caption)
-                                            .foregroundStyle(GanchoTokens.Palette.warning)
+                                            .foregroundStyle(GanchoTokens.Palette.warningInk)
                                     }
                                     Text(event.occurredAt, style: .time)
                                 }
