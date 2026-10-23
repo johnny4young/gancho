@@ -32,29 +32,11 @@ struct PanelShortcutsOverlay: View {
                 }
                 .foregroundStyle(.secondary)
             }
-            shortcutLine(["↑", "↓"], "Move selection")
-            shortcutLine(["⇧", "↑", "↓"], "Extend selection")
-            shortcutLine(["⌘"], "Click to select several clips")
-            shortcutLine(["→"], "Open actions")
-            shortcutLine(["←"], "Back to list")
-            shortcutLine(["⏎"], "Paste")
-            shortcutLine(["⌥", "⏎"], "Paste without formatting")
-            shortcutLine(["⌘", "1–9"], "Paste that numbered clip")
-            shortcutLine(["⌘", "P"], "Pin or unpin")
-            shortcutLine(["⌘", "S"], "Save as snippet")
-            shortcutLine(["⇧", "⌘", "S"], "Save search as a filter")
-            shortcutLine(["⇥"], "Complete a filter (app:, type:, board:…)")
-            shortcutLine(["⌫"], "Delete (in actions)")
-            shortcutLine(["⌘", "B"], "Add to board")
-            shortcutLine(["⇧", "⌘", "B"], "Add to last board")
-            shortcutLine(["⌥", "⌘", "⏎"], "Add to paste stack")
-            shortcutLine(["⌘", "Y"], "Preview")
-            shortcutLine(["⌘", "G"], "List or gallery")
-            shortcutLine(["⇧", "⌘", "C"], "Copy text from image")
-            shortcutLine(["⌘", "↑"], "Recall recent searches")
-            shortcutLine(["⌘", "A"], "Select all in search")
-            shortcutLine(["esc"], "Close")
-            shortcutLine(["⌘", "/"], "Show this list")
+            // A short panel scrolls the list; the header and its Close stay put.
+            ViewThatFits(in: .vertical) {
+                shortcutRows
+                ScrollView { shortcutRows }.scrollBounceBehavior(.basedOnSize)
+            }
         }
         .padding(GanchoTokens.Spacing.md)
         .frame(width: 320)
@@ -67,6 +49,35 @@ struct PanelShortcutsOverlay: View {
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("panel-shortcuts")
+        .padding(.vertical, GanchoTokens.Spacing.md)
+    }
+
+    private var shortcutRows: some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+            shortcutLine(["↑", "↓"], "Move selection")
+            shortcutLine(["⇧", "↑", "↓"], "Extend selection")
+            shortcutLine(["⌘"], "Click to select several clips")
+            shortcutLine(["→"], "Open actions")
+            shortcutLine(["←"], "Back to list")
+            shortcutLine(["⏎"], "Paste")
+            shortcutLine(["⌥", "⏎"], "Paste without formatting")
+            shortcutLine(["⌘", "1–9"], "Paste that numbered clip")
+            shortcutLine(["⌘", "P"], "Pin or unpin")
+            shortcutLine(["⌘", "S"], "Save as snippet")
+            shortcutLine(["⇧", "⌘", "S"], "Save search as a filter")
+            shortcutLine(["⇥"], "Complete a filter")
+            shortcutLine(["⌫"], "Delete (in actions)")
+            shortcutLine(["⌘", "B"], "Add to board")
+            shortcutLine(["⇧", "⌘", "B"], "Add to last board")
+            shortcutLine(["⌥", "⌘", "⏎"], "Add to paste stack")
+            shortcutLine(["⌘", "Y"], "Preview")
+            shortcutLine(["⌘", "G"], "List or gallery")
+            shortcutLine(["⇧", "⌘", "C"], "Copy text from image")
+            shortcutLine(["⌘", "↑"], "Recall recent searches")
+            shortcutLine(["⌘", "A"], "Select all in search")
+            shortcutLine(["esc"], "Close")
+            shortcutLine(["⌘", "/"], "Show this list")
+        }
     }
 
     private func shortcutLine(_ caps: [String], _ label: LocalizedStringKey) -> some View {

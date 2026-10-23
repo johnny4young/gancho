@@ -10969,12 +10969,12 @@
         }
       }
     },
-    "Complete a filter (app:, type:, board:…)": {
+    "Complete a filter": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Completar un filtro (app:, type:, board:…)"
+            "value": "Completar un filtro"
           }
         }
       }

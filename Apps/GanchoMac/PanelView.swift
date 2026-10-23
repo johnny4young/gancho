@@ -613,8 +613,11 @@ struct PanelView: View {
                         && !model.preferences.isPrivateModePaused)
             }
             .focused($focus, equals: .search)
-            .onKeyPress(.tab, phases: .down) { _ in
-                search.complete(with: tokenParser) ? .handled : .ignored
+            .onKeyPress(.tab, phases: .down) { press in
+                // ⇧Tab keeps moving focus backwards.
+                guard press.modifiers.isDisjoint(with: [.shift, .command, .option, .control])
+                else { return .ignored }
+                return search.complete(with: tokenParser) ? .handled : .ignored
             }
             .onKeyPress(.downArrow, phases: [.down, .repeat]) { press in
                 if railFocus == nil, press.modifiers.contains(.shift),

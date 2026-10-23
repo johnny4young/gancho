@@ -152,7 +152,7 @@
         }
 
         /// Counts one copy made while Private Mode is on. The monitor reports
-        /// it from the change count alone; nothing about it is read.
+        /// it from the change count and the type list; its content is never read.
         public func notePrivateModeCopy() {
             guard preferences.isPrivateModePaused else { return }
             preferences.privateModeSkippedCopies += 1

@@ -20,7 +20,7 @@ public struct CapturePreferences: Sendable, Equatable, Codable {
     /// When Private Mode turns itself off; nil means it stays on until the user turns it off.
     public var privateModeEndsAt: Date?
     /// Copies made during the current Private Mode, counted from the change
-    /// count alone: their content is never read.
+    /// count and the type list only: their content is never read.
     public var privateModeSkippedCopies: Int
 
     public init(
