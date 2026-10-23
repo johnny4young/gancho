@@ -80,6 +80,8 @@ struct PanelView: View {
     @State private var panelOpenCount = 0
     /// The `device:` token's choices, read when the panel opens.
     @State private var deviceNames: [String] = []
+    /// The other modes and scopes, counted, while the query matches nothing.
+    @State private var alternatives: [PanelAlternativeResult] = []
     /// Re-read when defaults change, so a newly recorded shortcut shows at once.
     @State private var privateModeShortcut = KeyboardShortcuts.getShortcut(
         for: .togglePrivateMode)?.description
@@ -302,6 +304,12 @@ struct PanelView: View {
                     Divider()
                     PanelFirstRunStageView()
                         .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
+                } else if let best = bestAlternative {
+                    Divider()
+                    PanelAlternativeStage(
+                        result: best, previewsHidden: model.preferences.isPrivateModePaused
+                    )
+                    .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
                 }
             }
             statusFooter
@@ -341,6 +349,7 @@ struct PanelView: View {
             }
             .task { await model.refreshBoards() }
             .task { await refreshDeviceNames() }
+            .task(id: alternativesKey) { await probeAlternatives() }
             .onDisappear {
                 search.cancelMeaningSearch()
                 cancelPendingPaste()
@@ -613,6 +622,13 @@ struct PanelView: View {
                 {
                     return extendSelection(by: 1)
                 }
+                // ↓ from an empty result takes the best alternative.
+                if press.modifiers.isDisjoint(with: [.command, .shift, .option, .control]),
+                    railFocus == nil, let best = bestAlternative
+                {
+                    search.apply(best.alternative)
+                    return .handled
+                }
                 return press.modifiers.contains(.command)
                     ? recallSearch(.newer) : handleNav(.down)
             }
@@ -766,6 +782,9 @@ struct PanelView: View {
                     groups: search.groups,
                     items: search.filtered,
                     searchMode: search.searchMode,
+                    alternatives: alternatives,
+                    scopeName: selectedBoardName,
+                    applyAlternative: { search.apply($0) },
                     isPrivateMode: model.preferences.isPrivateModePaused,
                     selectedID: search.selectedItem?.id,
                     layout: layout,
@@ -838,6 +857,7 @@ struct PanelView: View {
                 runtimeStatus: model.monitorStatus.panelCaptureRuntimeStatus,
                 frontApp: model.pasteTarget.appName),
             privateModeShortcut: privateModeShortcut,
+            alternativeHint: bestAlternative?.alternative.footerHint,
             showKeyboardShortcuts: { toggleKeyboardShortcuts() }
         )
         .onReceive(
@@ -1396,6 +1416,41 @@ struct PanelView: View {
                 if case .value(_, let candidate) = $0 { candidate.title } else { nil }
             }.joined(separator: " · ")
         }
+    }
+
+    private var bestAlternative: PanelAlternativeResult? {
+        search.filtered.isEmpty ? PanelAlternativeResult.best(of: alternatives) : nil
+    }
+
+    private var selectedBoardName: String? {
+        guard let board = model.boards.first(where: { $0.id == search.selectedBoardID }) else {
+            return nil
+        }
+        return board.isSystem ? String(localized: "Favorites") : board.name
+    }
+
+    private var alternativesKey: PanelAlternativesKey {
+        PanelAlternativesKey(
+            query: search.query, mode: search.searchMode, boardID: search.selectedBoardID,
+            kind: search.kindFilter, app: search.selectedSourceAppBundleID,
+            device: search.deviceName, before: search.createdBefore,
+            isEmpty: search.filtered.isEmpty,
+            meaningIsLoading: search.meaning.status == .loading)
+    }
+
+    /// Debounced like a keystroke: only a query that stays empty is probed.
+    private func probeAlternatives() async {
+        alternatives = []
+        guard search.filtered.isEmpty, !search.query.isEmpty,
+            search.meaning.status != .loading
+        else { return }
+        try? await Task.sleep(for: .milliseconds(150))
+        guard !Task.isCancelled else { return }
+        let found = await search.probeAlternatives(
+            meaningAvailable: model.intelligence.semanticSearch
+                && !model.preferences.isPrivateModePaused)
+        guard !Task.isCancelled else { return }
+        alternatives = found
     }
 
     private func refreshDeviceNames() async {

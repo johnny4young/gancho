@@ -82,4 +82,30 @@ final class SearchTokensUITests: XCTestCase {
             app.textFields["filter-name-field"].firstMatch.waitForExistence(timeout: 5),
             "⇧⌘S opens the saved-filter sheet")
     }
+
+    @MainActor
+    func testNoResultsOffersTheOtherModesAndDownArrowTakesTheBest() throws {
+        let app = launch()
+        defer { app.terminate() }
+        let field = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        app.buttons["search-mode-exact"].firstMatch.click()
+        try typeTextReliably("source alp", into: field, in: app)
+        XCTAssertTrue(waitForRows(0, in: app), "an exact phrase needs whole words")
+
+        let fuzzy = app.buttons["no-results-alt-fuzzy"].firstMatch
+        XCTAssertTrue(fuzzy.waitForExistence(timeout: 5))
+        XCTAssertTrue(fuzzy.isSelected, "the most results is highlighted")
+        XCTAssertTrue(app.buttons["no-results-alt-regex"].firstMatch.exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["no-results-stage"].firstMatch.exists,
+            "the peek previews the best alternative")
+
+        field.typeKey(.downArrow, modifierFlags: [])
+        XCTAssertTrue(waitForRows(1, in: app), "↓ applies the best alternative")
+        let selected = ["exact", "fuzzy", "regex", "meaning"].filter {
+            app.buttons["search-mode-\($0)"].firstMatch.isSelected
+        }
+        XCTAssertEqual(selected, ["fuzzy"])
+    }
 }

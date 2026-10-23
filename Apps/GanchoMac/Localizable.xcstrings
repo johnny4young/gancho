@@ -10798,6 +10798,166 @@
           }
         }
       }
+    },
+    "All boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos los tableros"
+          }
+        }
+      }
+    },
+    "use fuzzy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usar aproximada"
+          }
+        }
+      }
+    },
+    "use exact": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usar exacta"
+          }
+        }
+      }
+    },
+    "use regex": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usar regex"
+          }
+        }
+      }
+    },
+    "use meaning": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usar significado"
+          }
+        }
+      }
+    },
+    "use all boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usar todos los tableros"
+          }
+        }
+      }
+    },
+    "exact match": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "coincidencia exacta"
+          }
+        }
+      }
+    },
+    "fuzzy match": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "coincidencia aproximada"
+          }
+        }
+      }
+    },
+    "regex match": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "coincidencia regex"
+          }
+        }
+      }
+    },
+    "by meaning": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "por significado"
+          }
+        }
+      }
+    },
+    "No clips for “%@” in %@, %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay clips para “%@” en %@, %@."
+          }
+        }
+      }
+    },
+    "No clips for “%@”, %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay clips para “%@”, %@."
+          }
+        }
+      }
+    },
+    "%lld results, press ↓ to use them": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld result, press ↓ to use it"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld results, press ↓ to use them"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld resultado, pulsa ↓ para usarlo"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld resultados, pulsa ↓ para usarlos"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "version": "1.1"

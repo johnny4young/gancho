@@ -148,7 +148,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// one-keystroke insert banner above the list.
     public var snippetMatch: ClipItem?
 
-    private let source: any PanelSearchSource
+    let source: any PanelSearchSource
     private let core: ClipListCore
     private let selectionModel = PanelSelectionModel()
 

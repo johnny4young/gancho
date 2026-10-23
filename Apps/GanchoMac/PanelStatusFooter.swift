@@ -12,6 +12,8 @@ struct PanelStatusFooter: View {
     let chip: PanelCaptureChip
     /// The recorded Private Mode shortcut; with none there is no "off" hint.
     let privateModeShortcut: String?
+    /// "↓ use fuzzy" while a query matches nothing and an alternative does.
+    var alternativeHint: LocalizedStringKey?
     let showKeyboardShortcuts: () -> Void
     @Environment(\.panelTypeScale) private var typeScale
 
@@ -21,6 +23,9 @@ struct PanelStatusFooter: View {
             SyncStatusView(status: syncStatus)
             PasteStackStrip()
             Spacer(minLength: 0)
+            if let alternativeHint {
+                keyboardHint(alternativeHint, keys: ["arrow.down"])
+            }
             if case .privateMode = chip, let privateModeShortcut {
                 keyboardHint(
                     "off", textKeys: PanelFirstRunStage.keycaps(for: privateModeShortcut))
