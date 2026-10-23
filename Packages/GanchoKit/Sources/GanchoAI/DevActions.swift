@@ -236,15 +236,14 @@ public enum DevActions {
     }
 
     static func convertColor(_ text: String) throws -> String {
-        guard let rgb = parseColor(text) else {
+        guard let color = ColorValue.parse(text) else {
             throw ActionError.notApplicable("not a parseable color")
         }
-        let (red, green, blue) = rgb
-        let (hue, saturation, lightness) = rgbToHSL(red: red, green: green, blue: blue)
         return """
-            hex: #\(String(format: "%02X%02X%02X", red, green, blue))
-            rgb: rgb(\(red), \(green), \(blue))
-            hsl: hsl(\(hue), \(saturation)%, \(lightness)%)
+            hex: \(color.hex)
+            rgb: \(color.rgb)
+            hsl: \(color.hsl)
+            swift: \(color.swift)
             """
     }
 
@@ -541,92 +540,5 @@ public enum DevActions {
                 withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
         else { return nil }
         return String(data: pretty, encoding: .utf8)
-    }
-
-    /// Accepts #hex (3/6/8), rgb()/rgba(), hsl()/hsla().
-    private static func parseColor(_ text: String) -> (Int, Int, Int)? {
-        let trimmed = text.trimmingCharacters(in: .whitespaces).lowercased()
-        if trimmed.hasPrefix("#") {
-            var hex = String(trimmed.dropFirst())
-            if hex.count == 3 { hex = hex.map { "\($0)\($0)" }.joined() }
-            if hex.count == 8 { hex = String(hex.dropFirst(2)) }
-            guard hex.count == 6, let value = UInt32(hex, radix: 16) else { return nil }
-            return (Int((value >> 16) & 0xFF), Int((value >> 8) & 0xFF), Int(value & 0xFF))
-        }
-        guard let open = trimmed.firstIndex(of: "("), trimmed.hasSuffix(")") else { return nil }
-        let function = String(trimmed[..<open])
-        let body = trimmed[trimmed.index(after: open)..<trimmed.index(before: trimmed.endIndex)]
-        let parts = body.split(separator: ",").map {
-            $0.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "%", with: "")
-        }
-        guard parts.count >= 3 else { return nil }
-        switch function {
-        case "rgb", "rgba":
-            guard
-                let red = Int(parts[0]),
-                let green = Int(parts[1]),
-                let blue = Int(parts[2]),
-                (0...255).contains(red),
-                (0...255).contains(green),
-                (0...255).contains(blue)
-            else { return nil }
-            return (red, green, blue)
-        case "hsl", "hsla":
-            guard
-                let hue = Double(parts[0]),
-                let saturation = Double(parts[1]),
-                let lightness = Double(parts[2])
-            else { return nil }
-            return hslToRGB(hue: hue, saturation: saturation / 100, lightness: lightness / 100)
-        default:
-            return nil
-        }
-    }
-
-    private static func hslToRGB(
-        hue: Double, saturation: Double, lightness: Double
-    ) -> (Int, Int, Int) {
-        let chroma = (1 - abs(2 * lightness - 1)) * saturation
-        let huePrime = hue.truncatingRemainder(dividingBy: 360) / 60
-        let secondary = chroma * (1 - abs(huePrime.truncatingRemainder(dividingBy: 2) - 1))
-        let (redComponent, greenComponent, blueComponent): (Double, Double, Double) =
-            switch Int(huePrime) {
-            case 0: (chroma, secondary, 0)
-            case 1: (secondary, chroma, 0)
-            case 2: (0, chroma, secondary)
-            case 3: (0, secondary, chroma)
-            case 4: (secondary, 0, chroma)
-            default: (chroma, 0, secondary)
-            }
-        let match = lightness - chroma / 2
-        return (
-            Int(((redComponent + match) * 255).rounded()),
-            Int(((greenComponent + match) * 255).rounded()),
-            Int(((blueComponent + match) * 255).rounded())
-        )
-    }
-
-    private static func rgbToHSL(red: Int, green: Int, blue: Int) -> (Int, Int, Int) {
-        let redDecimal = Double(red) / 255
-        let greenDecimal = Double(green) / 255
-        let blueDecimal = Double(blue) / 255
-        let maxValue = max(redDecimal, greenDecimal, blueDecimal)
-        let minValue = min(redDecimal, greenDecimal, blueDecimal)
-        let delta = maxValue - minValue
-        let lightness = (maxValue + minValue) / 2
-        guard delta > 0 else { return (0, 0, Int((lightness * 100).rounded())) }
-        let saturation = delta / (1 - abs(2 * lightness - 1))
-        var hue: Double =
-            switch maxValue {
-            case redDecimal:
-                ((greenDecimal - blueDecimal) / delta).truncatingRemainder(dividingBy: 6)
-            case greenDecimal: (blueDecimal - redDecimal) / delta + 2
-            default: (redDecimal - greenDecimal) / delta + 4
-            }
-        hue *= 60
-        if hue < 0 { hue += 360 }
-        return (
-            Int(hue.rounded()), Int((saturation * 100).rounded()), Int((lightness * 100).rounded())
-        )
     }
 }

@@ -1,3 +1,4 @@
+import GanchoKit
 import SwiftUI
 
 extension Color {
@@ -19,5 +20,15 @@ extension Color {
             green: Double((value >> (8 + shift)) & 0xFF) / 255,
             blue: Double((value >> shift) & 0xFF) / 255,
             opacity: hex.count == 8 ? Double(value & 0xFF) / 255 : 1)
+    }
+}
+
+extension Color.Resolved {
+    /// The sRGB colour a colour clip names.
+    public init(_ value: ColorValue) {
+        let unit = value.unit
+        self.init(
+            colorSpace: .sRGB, red: Float(unit.red), green: Float(unit.green),
+            blue: Float(unit.blue), opacity: Float(unit.alpha))
     }
 }
