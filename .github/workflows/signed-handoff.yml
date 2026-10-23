@@ -159,22 +159,32 @@ jobs:
             -ui-test-defaults-suite "$suite" -isolate-ui-test-system-clipboard \
             -force-free-tier -AppleLanguages "(en)"
           ready=0
-          for _ in $(seq 1 1800); do
+          # Wall-clock deadline: each `defaults read` spawns a process, so an
+          # iteration count would stretch well past 180 s on a slow runner.
+          while [ $(( $(date +%s) - start )) -lt 180 ]; do
             if [ "$(defaults read "$suite" ui-test-fixtures-ready 2>/dev/null)" = 1 ]; then
               ready=1
               break
             fi
             sleep 0.1
           done
-          echo "First launch reported its fixtures after $(( $(date +%s) - start )) s"
+          if [ "$ready" = 1 ]; then
+            echo "First launch reported its fixtures after $(( $(date +%s) - start )) s"
+          fi
+          running() { pgrep -x Gancho >/dev/null || pgrep -x GanchoMenuBarHelper >/dev/null; }
           pkill -x Gancho || true
           pkill -x GanchoMenuBarHelper || true
           for _ in $(seq 1 100); do
-            pgrep -x Gancho >/dev/null || pgrep -x GanchoMenuBarHelper >/dev/null || break
+            running || break
             sleep 0.1
           done
+          if running; then
+            pkill -9 -x Gancho || true
+            pkill -9 -x GanchoMenuBarHelper || true
+            sleep 1
+          fi
           defaults delete "$suite" 2>/dev/null || true
-          if pgrep -x Gancho >/dev/null || pgrep -x GanchoMenuBarHelper >/dev/null; then
+          if running; then
             echo "::error::A Gancho process outlived the warm-up launch"
             exit 1
           fi
