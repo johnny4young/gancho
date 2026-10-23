@@ -243,11 +243,9 @@ struct IntelligenceView: View {
             ForEach(Array(secrets.enumerated()), id: \.offset) { _, secret in
                 Text(secret)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(GanchoTokens.Palette.kindTint(for: .secret))
                     .padding(.horizontal, GanchoTokens.Spacing.xs)
                     .padding(.vertical, 3)
-                    .background(
-                        GanchoTokens.Palette.kindTint(for: .secret).opacity(0.1), in: Capsule())
+                    .ganchoTintedPill(GanchoTokens.Palette.kindTint(for: .secret), wash: 0.1)
             }
         }
     }

@@ -88,6 +88,8 @@ public struct TypeBadge: View {
     let kind: ClipContentKind
     let style: Style
 
+    nonisolated static let washOpacity = 0.14
+
     public init(kind: ClipContentKind, style: Style = .plain) {
         self.kind = kind
         self.style = style
@@ -106,10 +108,9 @@ public struct TypeBadge: View {
             let tint = GanchoTokens.Palette.kindTint(for: kind)
             label
                 .panelFont(.subheadline, .semibold)
-                .foregroundStyle(ReadableInk(base: tint))
                 .padding(.horizontal, GanchoTokens.Spacing.xs)
                 .padding(.vertical, 3)
-                .background(tint.opacity(0.14), in: Capsule())
+                .ganchoTintedPill(tint, wash: Self.washOpacity)
                 .accessibilityIdentifier("type-badge")
         }
     }

@@ -194,12 +194,12 @@ extension LibraryView {
         do {
             let nextBoards = try await model.fullStore?.pinboards() ?? []
             let nextSnippets = try await model.fullStore?.snippets() ?? []
-            let nextAllCount = try await model.store.count()
+            let scope = try await model.fullStore?.scopeCounts(excluding: [])
+            var nextAllCount = scope?.total ?? 0
+            if scope == nil { nextAllCount = try await model.store.count() }
             let nextPinnedCount = try await model.fullStore?.pinnedCount() ?? 0
             var counts: [UUID: Int] = [:]
-            for board in nextBoards {
-                counts[board.id] = try await model.fullStore?.count(inBoard: board.id) ?? 0
-            }
+            for board in nextBoards { counts[board.id] = scope?.boards[board.id] ?? 0 }
             guard metadataGeneration == request, !Task.isCancelled else { return }
             boards = nextBoards
             snippets = nextSnippets

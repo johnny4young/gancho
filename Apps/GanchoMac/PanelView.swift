@@ -75,6 +75,7 @@ struct PanelView: View {
     /// Non-nil when the keyboard moved up into the filter/board rails.
     @State private var railFocus: RailFocus?
     @State private var scopeCounts = PanelScopeCounts()
+    @State private var storeRevision = 0
     @State private var panelOpenCount = 0
     @State private var boardSheet: BoardSheet?
     @State private var boardNameField = ""
@@ -1026,11 +1027,20 @@ struct PanelView: View {
             .task(
                 id: PanelScopeCountsKey(
                     boardIDs: model.boards.map(\.id), newest: model.recentItems.first?.id,
-                    recentCount: model.recentItems.count, opened: panelOpenCount)
+                    recentCount: model.recentItems.count, storeRevision: storeRevision,
+                    pendingDeletions: model.pendingDeletionIDs, opened: panelOpenCount)
             ) {
                 let counts = await model.scopeCounts()
                 guard !Task.isCancelled else { return }
                 scopeCounts = counts
+            }
+            .task {
+                let changes = model.storeChanges.subscribe()
+                // A capture already moves `newest`, so it would recount twice.
+                for await batch in StoreChangeCoalescer().batches(of: changes)
+                where batch != [.captured] {
+                    storeRevision &+= 1
+                }
             }
             .onChange(of: railFocus) { _, focused in
                 guard case .boards(let index) = focused else { return }

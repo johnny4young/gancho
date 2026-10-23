@@ -229,17 +229,25 @@ extension GRDBClipboardStore {
                     sql: "id IN (SELECT clipID FROM clip_board WHERE boardID = ?)",
                     arguments: [boardID.uuidString]
                 )
+                .filter(Column("isArchived") == false)
+                .filter(sql: Self.unexpiredPredicate, arguments: [Date.now])
                 .order(Column("isPinned").desc, Column("updatedAt").desc, Column("id"))
                 .limit(limit, offset: offset)
                 .fetchAll(db).map(\.item)
         }
     }
 
+    /// Counted with the same visibility as `items(inBoard:)`.
     public func count(inBoard boardID: UUID) async throws -> Int {
         try await writer.read { db in
             try Int.fetchOne(
-                db, sql: "SELECT COUNT(*) FROM clip_board WHERE boardID = ?",
-                arguments: [boardID.uuidString]) ?? 0
+                db,
+                sql: """
+                    SELECT COUNT(*) FROM clip_board JOIN clip ON clip.id = clip_board.clipID
+                    WHERE clip_board.boardID = ? AND clip.isArchived = 0
+                      AND \(Self.unexpiredPredicate)
+                    """,
+                arguments: [boardID.uuidString, Date.now]) ?? 0
         }
     }
 

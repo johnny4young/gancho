@@ -42,6 +42,14 @@ struct DesignTokenGuardTests {
         #expect(offenders.isEmpty, "use accentInk, brandText or ReadableInk: \(offenders)")
     }
 
+    /// A hand-built pill keeps the raw hue as text, below 4.5:1 on its own wash.
+    @Test func appsBuildTintedPillsWithTheToken() throws {
+        let offenders = try Self.matches(
+            of: #"\.background\(\s*GanchoTokens\.Palette\.\w+(\(for: [^)]*\))?\.opacity\("#
+                + #"[^)]*\),\s*in: Capsule\(\)"#)
+        #expect(offenders.isEmpty, "use ganchoTintedPill: \(offenders)")
+    }
+
     private static func matches(
         of pattern: String,
         in root: URL = LocalizationTests.repoRoot.appendingPathComponent("Apps"),

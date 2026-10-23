@@ -1,3 +1,4 @@
+import GanchoKit
 import SwiftUI
 import Testing
 
@@ -99,6 +100,35 @@ struct ContrastTokenTests {
             let surfaces = scheme == .dark ? [0x1C1C1E, 0x2C2C2E] : [0xFFFFFF, 0xE6E6E8]
             for surface in surfaces {
                 #expect(Contrast.ratio(ink, resolved(surface, environment)) >= Contrast.text)
+            }
+        }
+    }
+
+    @MainActor
+    @Test(
+        "Kind and status pills stay AA on their own tinted wash",
+        arguments: [0.1, 0.12, TypeBadge.washOpacity, 0.15])
+    func readableInkOnTintedWash(wash: Double) {
+        let hues =
+            ClipContentKind.allCases.map(GanchoTokens.Palette.kindTint(for:))
+            + [
+                GanchoTokens.Palette.success, GanchoTokens.Palette.warning,
+                GanchoTokens.Palette.danger
+            ]
+        for scheme in Self.appearances {
+            let environment = environment(scheme)
+            let surfaces = scheme == .dark ? [0x1C1C1E, 0x2C2C2E] : [0xFFFFFF, 0xECECEC, 0xE6E6E8]
+            for hue in hues {
+                let base = hue.resolve(in: environment)
+                let ink = ReadableInk(base: hue, onWash: wash).resolve(in: environment)
+                var fill = base
+                fill.opacity = base.opacity * Float(wash)
+                for surface in surfaces {
+                    let backdrop = Contrast.composited(fill, over: resolved(surface, environment))
+                    #expect(
+                        Contrast.ratio(ink, backdrop) >= Contrast.text,
+                        "\(base) at \(wash) on \(String(surface, radix: 16)) \(scheme)")
+                }
             }
         }
     }
