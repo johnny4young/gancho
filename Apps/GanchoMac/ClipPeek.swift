@@ -67,6 +67,7 @@ struct ClipPeek: View {
     @State private var ocrCopiedLine: Int?
     @State private var ocrRevealSecret = false
     @State private var isEditingOCR = false
+    @State private var isPickingColor = false
 
     init(
         item: ClipItem, text: String, isTextEditable: Bool,
@@ -205,6 +206,8 @@ struct ClipPeek: View {
             guard !isInlineEditing else { return .ignored }
             if press.modifiers.contains(.option), !press.modifiers.contains(.command) {
                 model.paste(item, asPlainText: true)
+            } else if press.modifiers.contains(.shift), let convert = convertAction {
+                convert.run()
             } else {
                 runFocusedAction()
             }
@@ -227,9 +230,19 @@ struct ClipPeek: View {
             guard !isInlineEditing else { return }
             model.delete(item)
         }
+        .onKeyPress(characters: CharacterSet(charactersIn: "iI"), phases: .down) { press in
+            guard !isInlineEditing, press.modifiers.isEmpty, canPickColor else { return .ignored }
+            isPickingColor.toggle()
+            return .handled
+        }
         .onKeyPress(.escape) {
             guard !isInlineEditing else { return .ignored }
-            model.panel.hide()
+            // esc puts the eyedropper down before it hides the panel.
+            if isPickingColor {
+                isPickingColor = false
+            } else {
+                model.panel.hide()
+            }
             return .handled
         }
         .onChange(of: focus.wrappedValue) { _, newValue in
@@ -394,7 +407,12 @@ extension ClipPeek {
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
         return VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             if let parts = linkParts, !isEditingText {
-                linkHero(parts)
+                PeekLinkHero(parts: parts)
+            }
+            if let color = colorValue, !isEditingText {
+                PeekColorHero(color: color) { value, label in
+                    model.copyColorFormat(value, label: label)
+                }
             }
             heroBody
         }
@@ -427,34 +445,25 @@ extension ClipPeek {
         return ClipLinkParts(text: presentedText)
     }
 
+    private var colorValue: ColorValue? {
+        guard item.kind == .color, !ClipSafePresentation.requiresMasking(item) else { return nil }
+        return ColorValue.parse(presentedText)
+    }
+
     @ViewBuilder private var heroBody: some View {
         if item.kind == .image, !item.isSensitive,
             let thumbnail = model.thumbnails.cached(for: item)
         {
-            thumbnail
-                .resizable()
-                .scaledToFit()
-                // Live Text, Gancho style: recognized lines become regions on the
-                // thumbnail. The overlay sits BEFORE the frame so it takes the
-                // image's fitted size, which is what the normalized boxes map to.
-                .overlay {
-                    PeekImageTextRegions(
-                        item: item, hoveredLine: $ocrHoveredLine, copiedLine: $ocrCopiedLine,
-                        revealSecret: $ocrRevealSecret)
-                }
-                .frame(maxWidth: .infinity, maxHeight: 240)
-                .clipShape(
-                    RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                )
-                // Dragging the preview itself hands the full-resolution image
-                // (not the thumbnail) to the drop target.
-                .clipDragSource(item)
+            PeekImageStage(
+                item: item, thumbnail: thumbnail, hoveredLine: $ocrHoveredLine,
+                copiedLine: $ocrCopiedLine, revealSecret: $ocrRevealSecret,
+                isPickingColor: $isPickingColor)
         } else if isTextEditable {
             ClipTextEditor(
                 text: $presentedText, kind: item.kind,
-                // The link hero already shows the URL; the editor keeps only
-                // its Edit affordance until editing starts.
-                readViewHidden: linkParts != nil,
+                // The link and colour heroes already show the text; the editor
+                // keeps only its Edit affordance until editing starts.
+                readViewHidden: linkParts != nil || colorValue != nil,
                 onEditingChanged: { editing in
                     isEditingText = editing
                     focus.wrappedValue = editing ? nil : .peek
@@ -464,18 +473,6 @@ extension ClipPeek {
                 }
             )
             .id(item.id)
-        } else if item.kind == .color, !item.isSensitive,
-            let color = Color(hexString: presentedText)
-        {
-            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-                RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                    .fill(color)
-                    .frame(height: 72)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                            .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-                Text(presentedText).panelFont(.body, design: .monospaced).textSelection(.enabled)
-            }
         } else {
             ScrollView {
                 Text(highlighted)
@@ -485,37 +482,6 @@ extension ClipPeek {
             }
             .frame(maxHeight: 200)
         }
-    }
-
-    /// Host set large, original URL underneath (including scheme, port and fragment). No remote fetch: the
-    /// copied URL never leaves the Mac to be rendered.
-    private func linkHero(_ parts: ClipLinkParts) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(verbatim: parts.host)
-                .panelFont(size: 24, .bold, design: .rounded)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(verbatim: parts.text)
-                .panelFont(.callout, design: .monospaced)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier("peek-link-url")
-            if let decoded = parts.decoded {
-                Text("decoded · \(decoded)")
-                    .panelFont(.subheadline, .semibold, design: .monospaced)
-                    .foregroundStyle(Color.primary.opacity(0.8))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 7)
-                    .frame(minHeight: 22)
-                    .background(Color.primary.opacity(0.07), in: Capsule())
-                    .padding(.top, GanchoTokens.Spacing.xxs)
-                    .accessibilityIdentifier("peek-link-decoded")
-            }
-        }
-        .textSelection(.enabled)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("peek-link-hero")
     }
 }
 
@@ -779,6 +745,7 @@ extension ClipPeek {
                 model.paste(item, asPlainText: true)
             }
         ]
+        if let convertAction { actions.append(convertAction) }
         // APPENDED, never inserted at 0: `actionIndex` resets to 0 whenever peek
         // takes focus and Return runs `navActions[actionIndex]`, so position 0 IS
         // the default keyboard action. Putting OCR there would silently turn
@@ -811,13 +778,32 @@ extension ClipPeek {
         }
     }
 
+    /// A colour clip's Convert, a dock action with ⇧⏎; its formats open in the result box.
+    private var convertAction: PeekAction? {
+        guard item.kind == .color, !hidesPreview else { return nil }
+        return PeekAction(
+            id: "preview-convert", title: "Convert", symbol: "arrow.triangle.2.circlepath",
+            shortcut: "⇧⏎"
+        ) {
+            actionResult = try? DevActions.run(.convertColor, on: presentedText)
+        }
+    }
+
+    private var canPickColor: Bool {
+        item.kind == .image && !hidesPreview && model.thumbnails.cached(for: item) != nil
+    }
+
     /// Only the expanded Dev Actions take keyboard positions after the dock.
     private var chipActions: [PeekAction] { showsMoreActions ? devActions : [] }
 
     /// The per-kind Dev Actions, never for a masked or hidden preview.
     private var devActions: [PeekAction] {
         guard !hidesPreview else { return [] }
-        return DevActions.actions(for: item.kind).map { action in
+        // A colour clip's Convert lives in the dock, not behind More actions.
+        let actions = DevActions.actions(for: item.kind).filter {
+            item.kind != .color || $0.id != .convertColor
+        }
+        return actions.map { action in
             PeekAction(
                 id: "dev-action-\(action.id.rawValue)",
                 title: LocalizedStringKey(action.title), symbol: "wand.and.sparkles"

@@ -861,6 +861,10 @@ struct PanelView: View {
                 frontApp: model.pasteTarget.appName),
             privateModeShortcut: privateModeShortcut,
             alternativeHint: bestAlternative?.alternative.footerHint,
+            offersEyedropper: search.selectedItem.map {
+                $0.kind == .image && !ClipSafePresentation.requiresMasking($0)
+                    && !model.preferences.isPrivateModePaused
+            } ?? false,
             showKeyboardShortcuts: { toggleKeyboardShortcuts() }
         )
         .onReceive(

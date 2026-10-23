@@ -69,14 +69,15 @@ struct ClipThumbnailAccentTests {
                 == nil)
     }
 
-    @Test("The decode returns the PNG and the accent together")
+    @Test("The decode returns the PNG, the accent and the dominant colours together")
     func decode() throws {
         let png = try #require(
             ClipThumbnailStore.thumbnailPNGData(
                 from: pngData(solidImage(red: 1, green: 0, blue: 0)), maxPixel: 4))
         let decoded = try #require(ClipThumbnailStore.decodeThumbnail(from: png, maxPixel: 4))
-        #expect(!decoded.0.isEmpty)
-        #expect(decoded.1?.red ?? 0 > 0.9)
+        #expect(!decoded.png.isEmpty)
+        #expect(decoded.accent?.red ?? 0 > 0.9)
+        #expect(decoded.palette.map(\.red) == [255])
     }
 
     private func pngData(_ image: CGImage) -> Data {

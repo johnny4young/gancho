@@ -36,11 +36,19 @@ public struct ThumbnailAccent: Sendable, Equatable {
     public var color: Color { Color(.sRGB, red: red, green: green, blue: blue) }
 }
 
+/// One decode's output, crossing from the detached task to the main actor.
+struct DecodedThumbnail: Sendable {
+    let png: Data
+    let accent: ThumbnailAccent?
+    let palette: [ColorValue]
+}
+
 @Observable
 @MainActor
 public final class ClipThumbnailStore {
     private var cache: [UUID: Image] = [:]
     private var accents: [UUID: ThumbnailAccent] = [:]
+    private var palettes: [UUID: [ColorValue]] = [:]
     @ObservationIgnored private var cacheOrder: [UUID] = []
     private var versions: [UUID: ClipContentVersion] = [:]
     @ObservationIgnored private var loading: [UUID: PendingThumbnail] = [:]
@@ -48,7 +56,7 @@ public final class ClipThumbnailStore {
     private struct PendingThumbnail {
         let version: ClipContentVersion
         let token: UUID
-        let task: Task<(Data, ThumbnailAccent?)?, Never>
+        let task: Task<DecodedThumbnail?, Never>
         var consumers: Set<UUID> = []
     }
     @ObservationIgnored private let maxCached: Int
@@ -112,6 +120,12 @@ public final class ClipThumbnailStore {
         return accents[item.id]
     }
 
+    /// The thumbnail's dominant colours, most common first, once it is loaded.
+    public func cachedPalette(for item: ClipItem) -> [ColorValue] {
+        guard cached(for: item) != nil else { return [] }
+        return palettes[item.id] ?? []
+    }
+
     /// All views requesting the same content await one read/decode. A changed
     /// version invalidates the old request, whose late result cannot publish.
     public func ensureLoaded(_ item: ClipItem) async {
@@ -145,29 +159,31 @@ public final class ClipThumbnailStore {
         }
         guard !Task.isCancelled, loading[item.id]?.token == pending.token else { return }
         loading[item.id] = nil
-        guard let (thumbnail, accent) = decodedThumbnail else { return }
+        guard let decodedThumbnail else { return }
         #if canImport(AppKit)
-            guard let decoded = NSImage(data: thumbnail) else { return }
+            guard let decoded = NSImage(data: decodedThumbnail.png) else { return }
             let image = Image(nsImage: decoded)
         #else
-            guard let decoded = UIImage(data: thumbnail) else { return }
+            guard let decoded = UIImage(data: decodedThumbnail.png) else { return }
             let image = Image(uiImage: decoded)
         #endif
         cache[item.id] = image
-        accents[item.id] = accent
+        accents[item.id] = decodedThumbnail.accent
+        palettes[item.id] = decodedThumbnail.palette
         versions[item.id] = version
         cacheOrder.append(item.id)
         if cacheOrder.count > maxCached {
             let evicted = cacheOrder.removeFirst()
             cache[evicted] = nil
             accents[evicted] = nil
+            palettes[evicted] = nil
             versions[evicted] = nil
         }
     }
 
     private func loadTask(
         id: UUID, version: ClipContentVersion
-    ) -> Task<(Data, ThumbnailAccent?)?, Never> {
+    ) -> Task<DecodedThumbnail?, Never> {
         let imageData = self.imageData
         let revision = self.revision
         let requiresEligibility = skipsSensitiveClips
@@ -195,6 +211,7 @@ public final class ClipThumbnailStore {
         guard cache[id] != nil || accents[id] != nil || versions[id] != nil else { return }
         cache[id] = nil
         accents[id] = nil
+        palettes[id] = nil
         versions[id] = nil
         cacheOrder.removeAll { $0 == id }
     }
@@ -212,15 +229,17 @@ public final class ClipThumbnailStore {
     var pendingLoadCount: Int { loading.count }
     func pendingConsumerCount(for id: UUID) -> Int { loading[id]?.consumers.count ?? 0 }
 
-    /// The thumbnail PNG plus its average colour, both Sendable, from one
-    /// ImageIO decode.
+    /// The thumbnail PNG with its average and dominant colours, all Sendable,
+    /// from one ImageIO decode.
     nonisolated static func decodeThumbnail(
         from data: Data, maxPixel: CGFloat
-    ) -> (Data, ThumbnailAccent?)? {
+    ) -> DecodedThumbnail? {
         guard let cgImage = thumbnailImage(from: data, maxPixel: maxPixel),
             let png = pngData(from: cgImage)
         else { return nil }
-        return (png, averageColor(of: cgImage))
+        return DecodedThumbnail(
+            png: png, accent: averageColor(of: cgImage),
+            palette: ImageColors.dominant(in: cgImage))
     }
 
     /// Draws the thumbnail into a small grid and averages it, alpha-weighted.

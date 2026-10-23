@@ -14,6 +14,8 @@ struct PanelStatusFooter: View {
     let privateModeShortcut: String?
     /// "↓ use fuzzy" while a query matches nothing and an alternative does.
     var alternativeHint: LocalizedStringKey?
+    /// "I eyedropper" while the selected clip is a visible image.
+    var offersEyedropper = false
     let showKeyboardShortcuts: () -> Void
     @Environment(\.panelTypeScale) private var typeScale
 
@@ -25,6 +27,9 @@ struct PanelStatusFooter: View {
             Spacer(minLength: 0)
             if let alternativeHint {
                 keyboardHint(alternativeHint, keys: ["arrow.down"])
+            }
+            if offersEyedropper {
+                keyboardHint("eyedropper", textKeys: ["I"])
             }
             if case .privateMode = chip, let privateModeShortcut {
                 keyboardHint(
