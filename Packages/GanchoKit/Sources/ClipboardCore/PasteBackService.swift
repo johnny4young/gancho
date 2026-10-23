@@ -58,6 +58,9 @@
             self.isAccessibilityTrusted = isAccessibilityTrusted
         }
 
+        /// Whether a paste posts ⌘V, or degrades to copy-only.
+        public var canPostPaste: Bool { isAccessibilityTrusted() }
+
         /// Writes the clip and pastes it into the frontmost app.
         /// - Parameters:
         ///   - asPlainText: ⌥Enter path — strips rich representations.

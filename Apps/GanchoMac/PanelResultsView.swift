@@ -20,6 +20,8 @@ struct PanelResultsView<RowContent: View>: View {
     let groups: [PanelDateGroup]
     let items: [ClipItem]
     var relatedIDs: Set<UUID> = []
+    /// Private Mode lists everything under one "Before private mode" header.
+    var isPrivateMode = false
     let selectedID: UUID?
     /// List rows, or a grid of cards `columns` wide; the grid reports the
     /// column count it fits so keyboard moves match what is on screen.
@@ -45,16 +47,16 @@ struct PanelResultsView<RowContent: View>: View {
                 clearFilters: clearFilters,
                 importHistory: importHistory)
         } else {
-            if !isGroupedView || layout == .gallery { recentHeader }
+            if !showsSections || layout == .gallery { recentHeader }
             ScrollViewReader { proxy in
                 ScrollView {
                     switch layout {
                     case .list:
                         LazyVStack(
                             spacing: GanchoTokens.Spacing.xxs,
-                            pinnedViews: isGroupedView ? [.sectionHeaders] : []
+                            pinnedViews: showsSections ? [.sectionHeaders] : []
                         ) {
-                            if isGroupedView {
+                            if showsSections {
                                 groupedRows
                             } else {
                                 flatRows
@@ -96,10 +98,14 @@ struct PanelResultsView<RowContent: View>: View {
         }
     }
 
+    private var showsSections: Bool { isGroupedView && !isPrivateMode }
+
     private var recentHeader: some View {
         HStack {
             if !query.isEmpty {
                 Text("Results")
+            } else if isPrivateMode {
+                Text("Before private mode")
             } else if hasActiveFilter {
                 Text("Filtered")
             } else {

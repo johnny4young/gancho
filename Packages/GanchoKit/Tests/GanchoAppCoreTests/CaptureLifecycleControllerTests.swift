@@ -1,5 +1,6 @@
 #if os(macOS)
     import ClipboardCore
+    import Foundation
     import Testing
 
     @testable import GanchoAppCore
@@ -38,6 +39,8 @@
         var savedAutoPauseValues: [Bool] = []
         var screenShareIsActive = false
         var privateModeEngagedCount = 0
+        var now = Date(timeIntervalSince1970: 1_000_000)
+        var privateModeDuration: TimeInterval? = 3_600
     }
 
     @Suite("Capture lifecycle controller — macOS monitor ownership")
@@ -55,7 +58,98 @@
                 screenShareIsActive: { recorder.screenShareIsActive },
                 onPreferencesChanged: { recorder.savedPreferences.append($0) },
                 onPrivateModeEngaged: { recorder.privateModeEngagedCount += 1 },
-                onAutoPauseChanged: { recorder.savedAutoPauseValues.append($0) })
+                onAutoPauseChanged: { recorder.savedAutoPauseValues.append($0) },
+                now: { recorder.now },
+                privateModeDuration: { recorder.privateModeDuration })
+        }
+
+        @Test("Turning Private Mode on stamps its start and deadline; off clears them")
+        func privateModeStamps() {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            let controller = makeController(monitor: monitor, recorder: recorder)
+
+            controller.togglePrivateMode()
+            #expect(controller.preferences.privateModeStartedAt == recorder.now)
+            #expect(
+                controller.preferences.privateModeEndsAt
+                    == recorder.now.addingTimeInterval(3_600))
+            #expect(monitor.preferences == controller.preferences)
+            #expect(recorder.savedPreferences.last == controller.preferences)
+
+            controller.togglePrivateMode()
+            #expect(controller.preferences.privateModeStartedAt == nil)
+            #expect(controller.preferences.privateModeEndsAt == nil)
+        }
+
+        @Test("Until I turn it off leaves no deadline, so the timer never ends it")
+        func privateModeWithoutDeadline() {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            recorder.privateModeDuration = nil
+            let controller = makeController(monitor: monitor, recorder: recorder)
+
+            controller.togglePrivateMode()
+            #expect(controller.preferences.privateModeEndsAt == nil)
+            recorder.now = recorder.now.addingTimeInterval(86_400 * 30)
+            controller.refreshStatus()
+            #expect(controller.preferences.isPrivateModePaused)
+        }
+
+        @Test("The status timer ends Private Mode at its deadline, not before")
+        func privateModeAutoOff() {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            let controller = makeController(monitor: monitor, recorder: recorder)
+            controller.togglePrivateMode()
+
+            recorder.now = recorder.now.addingTimeInterval(3_599)
+            controller.refreshStatus()
+            #expect(controller.preferences.isPrivateModePaused)
+
+            recorder.now = recorder.now.addingTimeInterval(1)
+            controller.refreshStatus()
+            #expect(!controller.preferences.isPrivateModePaused)
+            #expect(!monitor.preferences.isPrivateModePaused)
+            #expect(controller.preferences.privateModeEndsAt == nil)
+        }
+
+        @Test(
+            "A deadline that passed while the app was closed ends Private Mode before capture starts"
+        )
+        func privateModeDeadlineSurvivesRelaunch() {
+            let recorder = CaptureLifecycleRecorder()
+            let stored = CapturePreferences(
+                isPrivateModePaused: true,
+                privateModeStartedAt: recorder.now.addingTimeInterval(-7_200),
+                privateModeEndsAt: recorder.now.addingTimeInterval(-3_600))
+            let monitor = CaptureMonitorSpy(preferences: stored)
+            let controller = makeController(monitor: monitor, recorder: recorder)
+            #expect(controller.preferences.isPrivateModePaused, "loading alone changes nothing")
+
+            controller.activate()
+            #expect(!controller.preferences.isPrivateModePaused)
+            #expect(!monitor.preferences.isPrivateModePaused)
+            controller.deactivate()
+        }
+
+        @Test("Copies are counted only while Private Mode is on, and reset on the next one")
+        func privateModeCopyCount() {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            let controller = makeController(monitor: monitor, recorder: recorder)
+
+            controller.notePrivateModeCopy()
+            #expect(controller.preferences.privateModeSkippedCopies == 0)
+
+            controller.togglePrivateMode()
+            controller.notePrivateModeCopy()
+            controller.notePrivateModeCopy()
+            #expect(controller.preferences.privateModeSkippedCopies == 2)
+
+            controller.togglePrivateMode()
+            controller.togglePrivateMode()
+            #expect(controller.preferences.privateModeSkippedCopies == 0)
         }
 
         @Test("Activation starts capture and mirrors monitor status")

@@ -107,13 +107,13 @@ struct ContrastTokenTests {
     @MainActor
     @Test(
         "Kind and status pills stay AA on their own tinted wash",
-        arguments: [0.1, 0.12, TypeBadge.washOpacity, 0.15])
+        arguments: [0.1, 0.12, TypeBadge.washOpacity, 0.15, 0.16])
     func readableInkOnTintedWash(wash: Double) {
         let hues =
             ClipContentKind.allCases.map(GanchoTokens.Palette.kindTint(for:))
             + [
                 GanchoTokens.Palette.success, GanchoTokens.Palette.warning,
-                GanchoTokens.Palette.danger
+                GanchoTokens.Palette.danger, GanchoTokens.Palette.indigo
             ]
         for scheme in Self.appearances {
             let environment = environment(scheme)

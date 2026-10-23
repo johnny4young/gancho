@@ -5,6 +5,7 @@ import GanchoAI
 import GanchoAppCore
 import GanchoDesign
 import GanchoKit
+import KeyboardShortcuts
 import SwiftUI
 
 // PanelView remains the main keyboard/navigation owner while stable
@@ -77,6 +78,9 @@ struct PanelView: View {
     @State private var scopeCounts = PanelScopeCounts()
     @State private var storeRevision = 0
     @State private var panelOpenCount = 0
+    /// Re-read when defaults change, so a newly recorded shortcut shows at once.
+    @State private var privateModeShortcut = KeyboardShortcuts.getShortcut(
+        for: .togglePrivateMode)?.description
     @State private var boardSheet: BoardSheet?
     @State private var boardNameField = ""
     /// The board a destructive "Delete board" is awaiting confirmation on.
@@ -199,6 +203,7 @@ struct PanelView: View {
                 // Lazily built panels (UI tests) reach their first frame here; a
                 // prewarmed panel closes the interval from the show notification.
                 model.panel.notePanelDidAppear()
+                model.refreshPasteTarget()
                 search.followNewestClip()
                 // Defer one runloop: on the FIRST open the field editor isn't
                 // ready when onAppear fires, so an immediate focus is dropped
@@ -216,6 +221,10 @@ struct PanelView: View {
                 // remainder of an inline edit into the search field.
                 focus = .search
             }
+            .onReceive(
+                NSWorkspace.shared.notificationCenter.publisher(
+                    for: NSWorkspace.didActivateApplicationNotification)
+            ) { _ in model.refreshPasteTarget() }
             // Posted by the controller only on a hidden → shown transition, so a
             // panel that merely regains key keeps the user's place.
             .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidShow)) {
@@ -224,6 +233,7 @@ struct PanelView: View {
                     model.panel.isPanelWindow(window)
                 else { return }
                 panelOpenCount &+= 1
+                model.refreshPasteTarget()
                 // Every open starts from the newest clip with the search field
                 // focused, whatever rail or row the previous session ended on.
                 // The interval closes on the next turn, after this frame commits.
@@ -696,7 +706,9 @@ struct PanelView: View {
                 selectionContextBar
 
                 if let notice = capturePresentation.notice {
-                    PanelCaptureNoticeView(notice: notice, perform: handleCaptureAction)
+                    PanelCaptureNoticeView(
+                        notice: notice, preferences: model.preferences,
+                        privateModeShortcut: privateModeShortcut, perform: handleCaptureAction)
                 }
 
                 if let snippetMatch = search.snippetMatch {
@@ -719,6 +731,7 @@ struct PanelView: View {
                     groups: search.groups,
                     items: search.filtered,
                     relatedIDs: search.meaning.relatedIDs,
+                    isPrivateMode: model.preferences.isPrivateModePaused,
                     selectedID: search.selectedItem?.id,
                     layout: layout,
                     columns: galleryColumns,
@@ -784,8 +797,20 @@ struct PanelView: View {
     private var statusFooter: some View {
         PanelStatusFooter(
             syncStatus: model.syncStatus,
-            capture: capturePresentation,
-            showKeyboardShortcuts: { toggleKeyboardShortcuts() })
+            chip: PanelCaptureChip.resolve(
+                privateModeEnabled: model.preferences.isPrivateModePaused,
+                privateModeEndsAt: model.preferences.privateModeEndsAt,
+                runtimeStatus: model.monitorStatus.panelCaptureRuntimeStatus,
+                frontApp: model.pasteTarget.appName),
+            privateModeShortcut: privateModeShortcut,
+            showKeyboardShortcuts: { toggleKeyboardShortcuts() }
+        )
+        .onReceive(
+            NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+        ) { _ in
+            privateModeShortcut =
+                KeyboardShortcuts.getShortcut(for: .togglePrivateMode)?.description
+        }
     }
 
     /// The type filters: All / Links / Code / Colors / Images / Secrets as

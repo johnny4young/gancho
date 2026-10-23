@@ -10468,6 +10468,256 @@
           }
         }
       }
+    },
+    "Paste into %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar en %@"
+          }
+        }
+      }
+    },
+    "Capturing · %@ in front": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturando · %@ al frente"
+          }
+        }
+      }
+    },
+    "Private mode · %lld min left": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Private mode · %lld min left"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Private mode · %lld min left"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Modo privado · queda %lld min"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Modo privado · quedan %lld min"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Paused · screen sharing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa · compartiendo pantalla"
+          }
+        }
+      }
+    },
+    "Paused · screen locked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa · pantalla bloqueada"
+          }
+        }
+      }
+    },
+    "Access denied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso denegado"
+          }
+        }
+      }
+    },
+    "off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "apagar"
+          }
+        }
+      }
+    },
+    "Private Mode is on · since %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El Modo privado está activo · desde las %@"
+          }
+        }
+      }
+    },
+    "%lld copies skipped, none read": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copy skipped, none read"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copies skipped, none read"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copia omitida, ninguna leída"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copias omitidas, ninguna leída"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "turns off at %@ or when you say so": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "se apaga a las %@ o cuando tú digas"
+          }
+        }
+      }
+    },
+    "stays on until you turn it off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sigue activo hasta que lo apagues"
+          }
+        }
+      }
+    },
+    "Turn off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apagar"
+          }
+        }
+      }
+    },
+    "Before private mode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antes del modo privado"
+          }
+        }
+      }
+    },
+    "Previews hidden while Private Mode is on.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las vistas previas se ocultan mientras el Modo privado está activo."
+          }
+        }
+      }
+    },
+    "Pasting still works; only new copies are skipped.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar sigue funcionando; solo se omiten las copias nuevas."
+          }
+        }
+      }
+    },
+    "Turn Private mode off after": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apagar el Modo privado después de"
+          }
+        }
+      }
+    },
+    "15 minutes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 minutos"
+          }
+        }
+      }
+    },
+    "2 hours": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 horas"
+          }
+        }
+      }
+    },
+    "Until I turn it off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hasta que lo apague"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

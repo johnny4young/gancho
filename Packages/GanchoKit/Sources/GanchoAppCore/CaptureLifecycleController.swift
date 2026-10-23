@@ -34,6 +34,14 @@
 
         public var preferences: CapturePreferences {
             didSet {
+                // The observed property re-enters `didSet` on the stamp below;
+                // the outer call finishes the work once.
+                guard !isStamping else { return }
+                if preferences.isPrivateModePaused != oldValue.isPrivateModePaused {
+                    isStamping = true
+                    preferences = stamped(preferences)
+                    isStamping = false
+                }
                 monitor.preferences = preferences
                 onPreferencesChanged(preferences)
                 // The TRANSITION, not the current value: every Settings toggle
@@ -59,6 +67,10 @@
         /// save and is the wrong place for it.
         @ObservationIgnored private let onPrivateModeEngaged: @MainActor () -> Void
         @ObservationIgnored private let onAutoPauseChanged: @MainActor (Bool) -> Void
+        @ObservationIgnored private var isStamping = false
+        @ObservationIgnored private let now: @MainActor () -> Date
+        /// How long a new Private Mode lasts; nil keeps it on until turned off.
+        @ObservationIgnored private let privateModeDuration: @MainActor () -> TimeInterval?
         @ObservationIgnored private var statusTimer: Timer?
         @ObservationIgnored private var screenShareTimer: Timer?
 
@@ -69,7 +81,9 @@
             screenShareIsActive: @escaping @MainActor () -> Bool,
             onPreferencesChanged: @escaping @MainActor (CapturePreferences) -> Void = { _ in },
             onPrivateModeEngaged: @escaping @MainActor () -> Void = {},
-            onAutoPauseChanged: @escaping @MainActor (Bool) -> Void = { _ in }
+            onAutoPauseChanged: @escaping @MainActor (Bool) -> Void = { _ in },
+            now: @escaping @MainActor () -> Date = { Date() },
+            privateModeDuration: @escaping @MainActor () -> TimeInterval? = { 3_600 }
         ) {
             self.monitor = monitor
             self.preferences = preferences
@@ -78,6 +92,8 @@
             self.onPreferencesChanged = onPreferencesChanged
             self.onPrivateModeEngaged = onPrivateModeEngaged
             self.onAutoPauseChanged = onAutoPauseChanged
+            self.now = now
+            self.privateModeDuration = privateModeDuration
             status = monitor.status
             monitor.preferences = preferences
         }
@@ -87,6 +103,9 @@
         /// waits for its first three-second tick, preserving launch timing.
         public func activate() {
             invalidateTimers()
+            // A deadline that passed while the app was closed ends Private Mode
+            // before the first capture turn.
+            expirePrivateModeIfDue()
             monitor.start()
             refreshStatus()
             statusTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) {
@@ -132,9 +151,39 @@
             monitor.ignoreNextCopy()
         }
 
+        /// Counts one copy made while Private Mode is on. The monitor reports
+        /// it from the change count alone; nothing about it is read.
+        public func notePrivateModeCopy() {
+            guard preferences.isPrivateModePaused else { return }
+            preferences.privateModeSkippedCopies += 1
+        }
+
+        /// Turns Private Mode off once its deadline passes. Runs on the status
+        /// timer, so it fires within half a second of the deadline.
+        func expirePrivateModeIfDue() {
+            guard preferences.isPrivateModePaused, let end = preferences.privateModeEndsAt,
+                now() >= end
+            else { return }
+            preferences.isPrivateModePaused = false
+        }
+
+        /// A Private Mode that just turned on starts its clock and count; one
+        /// that turned off forgets them.
+        private func stamped(_ preferences: CapturePreferences) -> CapturePreferences {
+            var stamped = preferences
+            let engaged = preferences.isPrivateModePaused
+            let start = now()
+            stamped.privateModeStartedAt = engaged ? start : nil
+            stamped.privateModeEndsAt =
+                engaged ? privateModeDuration().map { start.addingTimeInterval($0) } : nil
+            stamped.privateModeSkippedCopies = 0
+            return stamped
+        }
+
         /// Internal so headless tests can drive the timer turn without waiting
         /// on a wall clock; production reaches it only through the timer.
         func refreshStatus() {
+            expirePrivateModeIfDue()
             let current = monitor.status
             if status != current { status = current }
         }

@@ -41,6 +41,10 @@ extension GanchoTokens {
         public static let danger = dynamic(
             light: (0xD7, 0x00, 0x15), dark: (0xFF, 0x69, 0x61))
 
+        /// Indigo: Private Mode (never read as a pause or a failure) and search filter tokens.
+        public static let indigo = dynamic(
+            light: (0x5E, 0x5C, 0xE6), dark: (0x5E, 0x5C, 0xE6))
+
         // MARK: Ink and text derived from the brand green
 
         /// Text and glyphs on a brand-green fill (6.8:1 light, 8.5:1 dark).

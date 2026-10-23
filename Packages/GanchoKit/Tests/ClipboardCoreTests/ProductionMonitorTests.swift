@@ -77,6 +77,35 @@
             #expect(captures.map(\.textRepresentation) == ["after private"])
         }
 
+        @Test("Private mode counts each copy without reading it, and skips its own paste-backs")
+        func privateModeCountsCopiesUnread() {
+            let pasteboard = FakePasteboard()
+            let monitor = makeMonitor(pasteboard: pasteboard)
+            var counted = 0
+            monitor.onPrivateModeCopy = { counted += 1 }
+            monitor.preferences.isPrivateModePaused = true
+            _ = monitor.tick()
+            #expect(counted == 0, "entering private mode is not a copy")
+
+            pasteboard.write(.text("one"), types: ["public.utf8-plain-text"])
+            _ = monitor.tick()
+            _ = monitor.tick()
+            pasteboard.write(.text("two"), types: ["public.utf8-plain-text"])
+            _ = monitor.tick()
+            pasteboard.write(
+                .text("pasted back"),
+                types: ["public.utf8-plain-text", MacPasteboardMonitor.selfWriteMarker.rawValue])
+            _ = monitor.tick()
+
+            #expect(counted == 2)
+            #expect(pasteboard.readCalls == 0)
+
+            monitor.preferences.isPrivateModePaused = false
+            pasteboard.write(.text("three"), types: ["public.utf8-plain-text"])
+            _ = monitor.tick()
+            #expect(counted == 2, "capturing again stops the private count")
+        }
+
         @Test("Screen-lock pause also discards what landed while locked")
         func lockDiscardsPausedCopies() async {
             let pasteboard = FakePasteboard()

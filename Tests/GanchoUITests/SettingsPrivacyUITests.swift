@@ -31,4 +31,26 @@ final class SettingsPrivacyUITests: XCTestCase {
 
         try keepRender(of: "Settings", in: app, named: "settings-spotlight-indexing")
     }
+
+    @MainActor
+    func testPrivateModeAutoOffDefaultsToOneHour() throws {
+        let app = try launchSettingsWindow(extraArguments: [
+            "-use-temp-durable-store", "-start-capture-paused",
+            "-ui-test-defaults-suite",
+            "com.johnny4young.gancho.uitests.settings-auto-off.\(UUID().uuidString)"
+        ])
+        defer { app.terminate() }
+        let privacyTab = app.buttons["settings-tab-privacy"].firstMatch
+        XCTAssertTrue(privacyTab.waitForExistence(timeout: 3))
+        privacyTab.click()
+
+        let picker = app.popUpButtons["private-mode-auto-off-picker"].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 3))
+        XCTAssertEqual(picker.value as? String, "1 hour")
+        picker.click()
+        let never = app.menuItems["Until I turn it off"].firstMatch
+        XCTAssertTrue(never.waitForExistence(timeout: 3))
+        never.click()
+        XCTAssertEqual(picker.value as? String, "Until I turn it off")
+    }
 }

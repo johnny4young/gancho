@@ -48,6 +48,10 @@
         /// Reason + time only — never content (Privacy Center counters).
         public var onIgnore: ((CaptureIgnoreReason) -> Void)?
 
+        /// Fires once per copy made while Private Mode is on, seen from the
+        /// change count and the type list only; the content is never read.
+        public var onPrivateModeCopy: (() -> Void)?
+
         /// Scheduling knobs; replaceable in tests and Settings experiments.
         public var policy: AdaptivePollingPolicy
 
@@ -166,6 +170,7 @@
 
             if preferences.isPrivateModePaused {
                 status = .pausedByUser
+                notePrivateModeCopy()
                 wasPaused = true
                 return policy.interval(for: .paused)
             }
@@ -243,6 +248,15 @@
         /// Awaits the in-flight content read, if any. Internal for tests.
         func drainPendingRead() async {
             await pendingRead?.value
+        }
+
+        /// Metadata only: a changed count, minus Gancho's own paste-backs.
+        private func notePrivateModeCopy() {
+            let count = reader.currentChangeCount()
+            guard count != lastChangeCount else { return }
+            lastChangeCount = count
+            guard !reader.currentTypes().contains(Self.selfWriteMarker.rawValue) else { return }
+            onPrivateModeCopy?()
         }
 
         /// Forgets pasteboard changes that happened while capture was paused

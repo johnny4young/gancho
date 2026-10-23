@@ -264,6 +264,11 @@ final class AppModel {
 
     /// Curated-Library Spotlight donation (snippets + pins only — never raw
     /// history). Turning it off wipes Gancho's Spotlight domain immediately.
+    /// How long a new Private Mode lasts before capture resumes by itself.
+    var privateModeAutoOff: PrivateModeAutoOff {
+        didSet { defaults.set(privateModeAutoOff.rawValue, forKey: PrivateModeAutoOff.defaultsKey) }
+    }
+
     var spotlightIndexing: Bool {
         didSet {
             defaults.set(spotlightIndexing, forKey: "spotlightIndexing")
@@ -408,6 +413,7 @@ final class AppModel {
         #endif
         intelligence = IntelligencePreferences.load(from: appDefaults)
         spotlightIndexing = appDefaults.object(forKey: "spotlightIndexing") as? Bool ?? true
+        privateModeAutoOff = PrivateModeAutoOff.load(from: appDefaults)
         retentionPolicy = RetentionPolicy.load(from: appDefaults)
         appearance =
             AppearancePreference(rawValue: appDefaults.string(forKey: "appearance") ?? "")
@@ -487,10 +493,14 @@ final class AppModel {
             },
             onAutoPauseChanged: {
                 appDefaults.set($0, forKey: "auto-pause-screen-share")
-            })
+            },
+            privateModeDuration: { PrivateModeAutoOff.load(from: appDefaults).duration })
         monitor.denylist = SourceAppDenylist.load(from: appDefaults)
         monitor.onCapture = { [weak self] capture in
             self?.ingest(capture)
+        }
+        monitor.onPrivateModeCopy = { [weak self] in
+            self?.captureLifecycle.notePrivateModeCopy()
         }
         monitor.onIgnore = { [weak self] reason in
             guard let self else { return }
@@ -1035,6 +1045,26 @@ final class AppModel {
             .successfulReuse(
                 method: method, batchSize: .init(count: count), ageBucket: ageBucket))
         requestTelemetryConsentAfterFirstValue()
+    }
+
+    /// Where a paste lands, kept current while the panel is up so the dock
+    /// and the footer can name it.
+    private(set) var pasteTarget = PanelPasteTarget()
+
+    func refreshPasteTarget() {
+        var name = currentReuseTargetBundleID().flatMap { _ in
+            NSWorkspace.shared.frontmostApplication?.localizedName
+        }
+        #if DEBUG
+            // UI tests activate Gancho itself, so fixtures name a target.
+            if let index = CommandLine.arguments.firstIndex(of: "-ui-test-paste-target"),
+                CommandLine.arguments.indices.contains(index + 1)
+            {
+                name = CommandLine.arguments[index + 1]
+            }
+        #endif
+        let next = PanelPasteTarget(appName: name, canPostPaste: pasteBack.canPostPaste)
+        if pasteTarget != next { pasteTarget = next }
     }
 
     /// The production panel is nonactivating, so the OS frontmost application
