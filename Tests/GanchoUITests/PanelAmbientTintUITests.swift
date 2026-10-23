@@ -50,10 +50,7 @@ final class PanelAmbientTintUITests: XCTestCase {
         XCTAssertTrue(app.textFields["search-field"].firstMatch.exists)
         // The first row is selected on open; a click would hand key focus back
         // and forth with the Settings window and can hide the panel.
-        let evidence = XCTAttachment(screenshot: panel.screenshot())
-        evidence.name = "History panel — ambient colour on"
-        evidence.lifetime = .keepAlways
-        add(evidence)
+        try keepRender(of: "history-panel", in: app, named: "History panel — ambient colour on")
 
         app.terminate()
         app = GanchoUITestApplication()

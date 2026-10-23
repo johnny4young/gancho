@@ -42,10 +42,7 @@ final class MigrationImportUITests: XCTestCase {
         XCTAssertEqual(value(of: "migration-unsupported-count", in: app), "2")
         XCTAssertEqual(value(of: "migration-protected-count", in: app), "1")
 
-        let attachment = XCTAttachment(screenshot: migrationScreenshot(in: app))
-        attachment.name = "macOS guided migration dry-run preview"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepMigrationRender(in: app, named: "macOS guided migration dry-run preview")
 
         app.buttons["migration-cancel"].firstMatch.click()
         XCTAssertTrue(
@@ -67,10 +64,7 @@ final class MigrationImportUITests: XCTestCase {
         XCTAssertEqual(value(of: "migration-skipped-count", in: app), "1")
         XCTAssertEqual(value(of: "migration-imported-protected-count", in: app), "1")
 
-        let attachment = XCTAttachment(screenshot: migrationScreenshot(in: app))
-        attachment.name = "macOS guided migration completion"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepMigrationRender(in: app, named: "macOS guided migration completion")
     }
 
     @MainActor
@@ -124,11 +118,10 @@ final class MigrationImportUITests: XCTestCase {
     }
 
     @MainActor
-    private func migrationScreenshot(in app: XCUIApplication) -> XCUIScreenshot {
+    private func keepMigrationRender(in app: XCUIApplication, named name: String) throws {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        let sheet = app.sheets.firstMatch
-        XCTAssertTrue(sheet.waitForExistence(timeout: 3))
-        return sheet.screenshot()
+        XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 3))
+        try keepRender(of: "@sheet", in: app, named: name)
     }
 }

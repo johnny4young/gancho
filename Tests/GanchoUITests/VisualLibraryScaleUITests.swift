@@ -60,10 +60,9 @@ final class VisualLibraryScaleUITests: XCTestCase {
         XCTAssertTrue(
             waitForPreview(in: first), "Returning after cache eviction must reload the preview")
         XCTAssertTrue(waitForCount([2_000], in: count))
-        let attachment = XCTAttachment(screenshot: library.screenshot())
-        attachment.name = "Visual Library — 2000 synthetic images after scrolling back"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(
+            of: "Library", in: app,
+            named: "Visual Library — 2000 synthetic images after scrolling back")
     }
 
     @MainActor

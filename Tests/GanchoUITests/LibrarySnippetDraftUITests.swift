@@ -10,14 +10,6 @@ final class LibrarySnippetDraftUITests: XCTestCase {
     }
 
     @MainActor
-    private func keepCapture(_ window: XCUIElement, name: String) {
-        let attachment = XCTAttachment(screenshot: window.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-    }
-
-    @MainActor
     func testRemovedSnippetKeepsDraftUntilExplicitRecovery() throws {
         try verifyRecovery(language: "en", appearance: "light")
     }
@@ -48,8 +40,9 @@ final class LibrarySnippetDraftUITests: XCTestCase {
             library.buttons["snippet-recover-button"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(waitForValue(of: editor, containing: "synthetic recovered draft"))
         XCTAssertFalse(library.buttons["snippet-save"].firstMatch.isEnabled)
-        keepCapture(
-            library, name: "Snippet recovery — synthetic draft — \(language) — \(appearance)")
+        try keepRender(
+            of: library.title, in: app,
+            named: "Snippet recovery — synthetic draft — \(language) — \(appearance)")
 
         library.staticTexts["Seed sign-off"].firstMatch.click()
         let cancel = app.buttons["snippet-resolution-cancel-button"].firstMatch

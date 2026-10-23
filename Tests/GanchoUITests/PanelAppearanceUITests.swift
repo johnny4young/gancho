@@ -108,7 +108,8 @@ final class PanelAppearanceUITests: XCTestCase {
         verifyDock(in: app)
 
         XCTAssertTrue(panel.exists)
-        attachPanel(panel)
+        try keepRender(
+            of: "history-panel", in: app, named: "History panel — toolbar, rows and peek")
         try verifyBoardKeyboardScroll(in: app)
     }
 
@@ -147,14 +148,6 @@ final class PanelAppearanceUITests: XCTestCase {
                 "\(identifier) must be a dock action")
         }
 
-    }
-
-    @MainActor
-    private func attachPanel(_ panel: XCUIElement) {
-        let screenshot = XCTAttachment(screenshot: panel.screenshot())
-        screenshot.name = "History panel — toolbar, rows and peek"
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
     }
 
     @MainActor

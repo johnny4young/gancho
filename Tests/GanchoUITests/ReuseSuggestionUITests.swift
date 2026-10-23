@@ -35,10 +35,8 @@ final class ReuseSuggestionUITests: XCTestCase {
 
         let toastPanel = app.descendants(matching: .any)["gancho-toast-panel"].firstMatch
         XCTAssertTrue(toastPanel.exists)
-        let attachment = XCTAttachment(screenshot: toastPanel.screenshot())
-        attachment.name = "macOS exact-third-use snippet suggestion"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(
+            of: "gancho-toast-panel", in: app, named: "macOS exact-third-use snippet suggestion")
 
         let action = app.buttons["reuse-suggestion-action"].firstMatch
         XCTAssertTrue(action.waitForExistence(timeout: 2))

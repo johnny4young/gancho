@@ -1,8 +1,8 @@
 import XCTest
 
-/// Privacy-facing Settings coverage and release-safe visual evidence. Screenshots
-/// stay scoped to Gancho's opaque Settings window so unrelated desktop content
-/// never enters a kept test attachment.
+/// Privacy-facing Settings coverage and release-safe visual evidence. The app
+/// renders its own Settings window, so unrelated desktop content never enters
+/// a kept test attachment.
 final class SettingsPrivacyUITests: XCTestCase {
     @MainActor
     func testSpotlightIndexingExplainsThePrivacyBoundaryAndCapturesEvidence() throws {
@@ -29,9 +29,6 @@ final class SettingsPrivacyUITests: XCTestCase {
             "the vertical Privacy form must be exposed as a scroll view")
         privacySettings.scroll(byDeltaX: 0, deltaY: -140)
 
-        let attachment = XCTAttachment(screenshot: privacySettings.screenshot())
-        attachment.name = "settings-spotlight-indexing"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "Settings", in: app, named: "settings-spotlight-indexing")
     }
 }

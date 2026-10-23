@@ -20,11 +20,9 @@ final class ScreenOCRUITests: XCTestCase {
         XCTAssertFalse(editor.exists, "Masked text must not enter the accessibility tree")
         XCTAssertFalse(app.buttons["ocr-review-copy"].exists)
         XCTAssertFalse(app.buttons["ocr-review-save"].exists)
-        let masked = XCTAttachment(
-            screenshot: app.windows["Review recognized text"].firstMatch.screenshot())
-        masked.name = "Screen OCR — sensitive review before reveal"
-        masked.lifetime = .keepAlways
-        add(masked)
+        try keepRender(
+            of: "Review recognized text", in: app,
+            named: "Screen OCR — sensitive review before reveal")
         reveal.click()
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         XCTAssertEqual(editor.value as? String, "card 4242 4242 4242 4242")

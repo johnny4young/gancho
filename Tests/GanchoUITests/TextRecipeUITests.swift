@@ -19,11 +19,8 @@ final class TextRecipeUITests: XCTestCase {
         let enabled = NSPredicate(format: "enabled == true")
         expectation(for: enabled, evaluatedWith: copy)
         waitForExpectations(timeout: 5)
-        let attachment = XCTAttachment(
-            screenshot: app.sheets.firstMatch.screenshot())
-        attachment.name = "Recipe review — synthetic — \(language) — \(appearance)"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(
+            of: "@sheet", in: app, named: "Recipe review — synthetic — \(language) — \(appearance)")
         try verifyEightSteps(app, label: "\(language) — \(appearance)")
         app.buttons["text-recipe-cancel"].firstMatch.click()
         XCTAssertTrue(run.waitForNonExistence(timeout: 5))
@@ -46,10 +43,9 @@ final class TextRecipeUITests: XCTestCase {
         expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: copy)
         waitForExpectations(timeout: 5)
         assertPinnedControls(app)
-        let attachment = XCTAttachment(screenshot: app.sheets.firstMatch.screenshot())
-        attachment.name = "Eight-step recipe with pinned controls — synthetic — \(label)"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(
+            of: "@sheet", in: app,
+            named: "Eight-step recipe with pinned controls — synthetic — \(label)")
     }
 
     @MainActor
@@ -125,10 +121,8 @@ final class TextRecipeUITests: XCTestCase {
         let copy = app.buttons["text-recipe-copy"].firstMatch
         XCTAssertTrue(copy.isEnabled)
         assertPinnedControls(app)
-        let attachment = XCTAttachment(screenshot: app.sheets.firstMatch.screenshot())
-        attachment.name = "Recipe transformation before explicit copy — synthetic"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(
+            of: "@sheet", in: app, named: "Recipe transformation before explicit copy — synthetic")
         copy.click()
         XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
         XCTAssertEqual(rows.count, originalCount)

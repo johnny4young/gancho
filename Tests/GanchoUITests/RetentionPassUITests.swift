@@ -40,10 +40,7 @@ final class RetentionPassUITests: XCTestCase {
             XCTWaiter().wait(for: [counted], timeout: 5), .completed,
             "exactly the one seeded secret must have expired through the launch pass")
 
-        // Element-scoped: the counted value, never the rest of the desktop.
-        let attachment = XCTAttachment(screenshot: expired.screenshot())
-        attachment.name = "macOS receipt after the launch retention pass"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(
+            of: "Privacy Center", in: app, named: "macOS receipt after the launch retention pass")
     }
 }
