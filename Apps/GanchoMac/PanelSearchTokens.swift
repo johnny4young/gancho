@@ -4,7 +4,7 @@ import GanchoKit
 import SwiftUI
 
 extension PanelSearchMode {
-    var title: LocalizedStringKey {
+    var title: LocalizedStringResource {
         switch self {
         case .exact: "Exact"
         case .fuzzy: "Fuzzy"

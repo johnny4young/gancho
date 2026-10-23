@@ -237,10 +237,10 @@ final class DesignV4SnapshotUITests: XCTestCase {
             break
         case .tokens:
             // Chips for app and type, then a key prefix that opens the popover.
-            // Typed straight in: the field keeps only the "b" the chips leave.
+            // Typed straight in: the field keeps only the "be" the chips leave.
             try SynthesizedInput.requireForeground(app)
             field.click()
-            field.typeText("app:xcode type:code b")
+            field.typeText("app:xcode type:code be")
         case .noResults:
             // Fuzzy finds nothing for a pattern only a regex reads.
             try typeTextReliably("sour.e", into: field, in: app)

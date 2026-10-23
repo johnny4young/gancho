@@ -17,7 +17,7 @@ struct PanelAlternativesKey: Equatable {
 }
 
 extension PanelSearchAlternative {
-    var title: LocalizedStringKey {
+    var title: LocalizedStringResource {
         switch self {
         case .mode(let mode): mode.title
         case .allBoards: "All boards"
@@ -38,16 +38,6 @@ extension PanelSearchAlternative {
         switch self {
         case .mode(let mode): "no-results-alt-\(mode.rawValue)"
         case .allBoards: "no-results-alt-all-boards"
-        }
-    }
-
-    var localizedTitle: String {
-        switch self {
-        case .mode(.exact): String(localized: "Exact")
-        case .mode(.fuzzy): String(localized: "Fuzzy")
-        case .mode(.regex): String(localized: "Regex")
-        case .mode(.meaning): String(localized: "Meaning")
-        case .allBoards: String(localized: "All boards")
         }
     }
 }
@@ -108,7 +98,8 @@ struct PanelAlternativeList: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(
-                    Text(verbatim: "\(result.alternative.localizedTitle), \(result.total)")
+                    Text(
+                        verbatim: "\(String(localized: result.alternative.title)), \(result.total)")
                 )
                 .accessibilityAddTraits(isBest ? .isSelected : [])
                 .accessibilityIdentifier(result.alternative.identifier)
@@ -126,7 +117,7 @@ struct PanelAlternativeStage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
             Text(
-                verbatim: result.alternative.localizedTitle + " · "
+                verbatim: String(localized: result.alternative.title) + " · "
                     + String(localized: "\(result.total) results, press ↓ to use them")
             )
             .panelFont(.caption, .bold)

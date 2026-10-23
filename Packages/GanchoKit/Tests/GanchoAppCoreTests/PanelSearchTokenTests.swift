@@ -102,4 +102,29 @@ struct PanelSearchTokenTests {
         #expect(rule.deviceName == "MacBook Pro")
         #expect(rule.createdBefore == cutoff)
     }
+
+    @Test func clearFiltersAlsoClearsTokenFilters() {
+        let model = PanelSearchModel(source: TokenSource())
+        model.apply(.device("MacBook Pro"))
+        model.apply(.before(Date(timeIntervalSince1970: 0)))
+        model.apply(.type(.code))
+        model.apply(.app(bundleID: "com.apple.dt.Xcode"))
+        model.selectedBoardID = UUID()
+        model.pinnedOnly = true
+        model.clearFilters()
+        #expect(!model.hasActiveFilter)
+        #expect(model.deviceName == nil && model.createdBefore == nil)
+    }
+
+    @Test func losingMeaningFallsBackToFuzzy() {
+        let model = PanelSearchModel(source: TokenSource())
+        model.searchMode = .meaning
+        model.meaningAvailabilityChanged(true)
+        #expect(model.searchMode == .meaning)
+        model.meaningAvailabilityChanged(false)
+        #expect(model.searchMode == .fuzzy)
+        model.searchMode = .regex
+        model.meaningAvailabilityChanged(false)
+        #expect(model.searchMode == .regex, "other modes are left alone")
+    }
 }

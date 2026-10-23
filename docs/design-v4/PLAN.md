@@ -43,6 +43,7 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
    - Q25: auto-off after 15 min, 30 min, 1 h (default) or 2 h, or until turned off; "none read" is a fixed promise a test enforces.
    - Q24: "Older than 30 days" is dropped; the most results wins, ties Fuzzy > Meaning > All boards > Regex (Exact after Fuzzy); all zero highlights nothing.
    - Q63: ⌘S stays Save as snippet and ⇧⌘S saves the filter; #tag is dropped; Meaning is a fourth, exclusive mode.
+   - Review round, same day: filter keys are offered from the second letter, and a new auto-off choice applies to the Private Mode already on (its deadline moves to start + the new duration).
 8. Cross-app rules from the owner's threads:
    - Only propose what beats the current UI; code wins over v2 boards and site screenshots.
    - Each piece of data appears once per screen.

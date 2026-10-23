@@ -114,6 +114,30 @@
             #expect(controller.preferences.privateModeEndsAt == nil)
         }
 
+        @Test("A new auto-off choice moves the current deadline from its start")
+        func privateModeDurationChangeAppliesNow() {
+            let monitor = CaptureMonitorSpy()
+            let recorder = CaptureLifecycleRecorder()
+            recorder.privateModeDuration = nil
+            let controller = makeController(monitor: monitor, recorder: recorder)
+            controller.togglePrivateMode()
+            let start = recorder.now
+            #expect(controller.preferences.privateModeEndsAt == nil)
+
+            recorder.now = start.addingTimeInterval(600)
+            recorder.privateModeDuration = 900
+            controller.privateModeDurationChanged()
+            #expect(controller.preferences.privateModeEndsAt == start.addingTimeInterval(900))
+            #expect(controller.preferences.isPrivateModePaused)
+
+            recorder.privateModeDuration = 300
+            controller.privateModeDurationChanged()
+            #expect(!controller.preferences.isPrivateModePaused, "a deadline already past ends it")
+
+            controller.privateModeDurationChanged()
+            #expect(!controller.preferences.isPrivateModePaused, "off stays off")
+        }
+
         @Test(
             "A deadline that passed while the app was closed ends Private Mode before capture starts"
         )

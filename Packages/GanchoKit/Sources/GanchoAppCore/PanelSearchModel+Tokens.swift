@@ -13,6 +13,22 @@ extension PanelSearchModel {
         }
     }
 
+    /// Clears every filter that narrows the list, tokens included.
+    public func clearFilters() {
+        kindFilter = .all
+        selectedBoardID = nil
+        selectedSourceAppBundleID = nil
+        pinnedOnly = false
+        deviceName = nil
+        createdBefore = nil
+    }
+
+    /// Meaning hides while semantic search is off or Private Mode is on; a
+    /// panel left in it would answer every query with nothing.
+    public func meaningAvailabilityChanged(_ available: Bool) {
+        if !available, searchMode == .meaning { searchMode = .fuzzy }
+    }
+
     /// Sets the filter a token resolved to.
     public func apply(_ filter: SearchTokenFilter) {
         switch filter {

@@ -62,7 +62,9 @@ struct SearchTokensTests {
     @Test("Tab completes a key prefix, then a value for that key")
     func completions() {
         #expect(parser.completions(for: "greeting ty") == [.key(.type)])
-        #expect(parser.completions(for: "b") == [.key(.board), .key(.before)])
+        #expect(parser.completions(for: "b").isEmpty, "one letter starts too many words")
+        #expect(parser.completions(for: "bo") == [.key(.board)])
+        #expect(parser.completions(for: "x be") == [.key(.before)])
         #expect(
             parser.completions(for: "x app:sa")
                 == [.value(.app, SearchTokenCandidate(title: "Safari", value: "com.apple.Safari"))])

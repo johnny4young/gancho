@@ -158,6 +158,17 @@
             preferences.privateModeSkippedCopies += 1
         }
 
+        /// A new auto-off choice applies to the Private Mode already on: the
+        /// deadline moves to its start plus the new duration.
+        public func privateModeDurationChanged() {
+            guard preferences.isPrivateModePaused, let start = preferences.privateModeStartedAt
+            else { return }
+            preferences.privateModeEndsAt = privateModeDuration().map {
+                start.addingTimeInterval($0)
+            }
+            expirePrivateModeIfDue()
+        }
+
         /// Turns Private Mode off once its deadline passes. Runs on the status
         /// timer, so it fires within half a second of the deadline.
         func expirePrivateModeIfDue() {

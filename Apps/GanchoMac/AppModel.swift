@@ -266,7 +266,10 @@ final class AppModel {
     /// history). Turning it off wipes Gancho's Spotlight domain immediately.
     /// How long a new Private Mode lasts before capture resumes by itself.
     var privateModeAutoOff: PrivateModeAutoOff {
-        didSet { defaults.set(privateModeAutoOff.rawValue, forKey: PrivateModeAutoOff.defaultsKey) }
+        didSet {
+            defaults.set(privateModeAutoOff.rawValue, forKey: PrivateModeAutoOff.defaultsKey)
+            captureLifecycle.privateModeDurationChanged()
+        }
     }
 
     var spotlightIndexing: Bool {

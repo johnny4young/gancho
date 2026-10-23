@@ -73,6 +73,8 @@ public struct SearchTokenParser: Sendable {
             let partial = String(word[word.index(after: colon)...])
             return matches(partial, for: key).map { .value(key, $0) }
         }
+        // One letter starts too many ordinary words to offer keys on.
+        guard word.count >= 2 else { return [] }
         return SearchTokenKey.allCases.filter { $0.rawValue.hasPrefix(word) }.map { .key($0) }
     }
 

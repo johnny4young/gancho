@@ -8,13 +8,14 @@ extension GRDBClipboardStore {
     /// An entirely empty request preserves the historical `search("") == []`
     /// behavior instead of turning search into a second unfiltered list API.
     func filterOnlySearch(_ query: ClipSearchQuery, limit: Int) async throws -> [ClipItem] {
-        let hasFilter =
+        // Split so the type checker stays within its time limit on older toolchains.
+        let narrowsByValue: Bool =
             query.kinds?.isEmpty == false || query.sourceAppBundleID != nil
-            || query.dateRange != nil || query.createdBefore != nil || query.deviceName != nil
-            || query.boardID != nil
-            || query.pinnedOnly || query.markedOnly || query.includedIDs != nil
-            || query.excludesSensitive
-        guard hasFilter else { return [] }
+            || query.boardID != nil || query.includedIDs != nil
+        let narrowsByTime: Bool =
+            query.dateRange != nil || query.createdBefore != nil || query.deviceName != nil
+        let narrowsByFlag: Bool = query.pinnedOnly || query.markedOnly || query.excludesSensitive
+        guard narrowsByValue || narrowsByTime || narrowsByFlag else { return [] }
 
         return try await writer.read { db in
             var sql = "SELECT \(ClipRow.metadataSelectionSQL) FROM clip WHERE clip.isArchived = 0"

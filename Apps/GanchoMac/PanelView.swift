@@ -80,8 +80,10 @@ struct PanelView: View {
     @State private var panelOpenCount = 0
     /// The `device:` token's choices, read when the panel opens.
     @State private var deviceNames: [String] = []
-    /// The other modes and scopes, counted, while the query matches nothing.
+    /// The other modes and scopes, counted, while the query matches nothing,
+    /// with the query they answer so a stale probe never shows for a new one.
     @State private var alternatives: [PanelAlternativeResult] = []
+    @State private var alternativesKeyFound: PanelAlternativesKey?
     /// Re-read when defaults change, so a newly recorded shortcut shows at once.
     @State private var privateModeShortcut = KeyboardShortcuts.getShortcut(
         for: .togglePrivateMode)?.description
@@ -355,13 +357,15 @@ struct PanelView: View {
                 cancelPendingPaste()
             }
             .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
-            .onChange(of: model.preferences.isPrivateModePaused) { _, _ in
+            .onChange(of: model.preferences.isPrivateModePaused) { _, paused in
+                search.meaningAvailabilityChanged(!paused && model.intelligence.semanticSearch)
                 search.cancelMeaningSearch()
                 Task { await search.refresh() }
             }
             .onChange(of: model.intelligence.semanticSearch) { _, enabled in
                 search.cancelMeaningSearch()
-                if !enabled { search.meaningEnabled = false }
+                search.meaningAvailabilityChanged(
+                    enabled && !model.preferences.isPrivateModePaused)
                 Task { await search.refresh() }
             }
             .onChange(of: search.mode) { _, _ in Task { await search.refresh() } }
@@ -785,7 +789,7 @@ struct PanelView: View {
                     groups: search.groups,
                     items: search.filtered,
                     searchMode: search.searchMode,
-                    alternatives: alternatives,
+                    alternatives: currentAlternatives,
                     scopeName: selectedBoardName,
                     applyAlternative: { search.apply($0) },
                     isPrivateMode: model.preferences.isPrivateModePaused,
@@ -793,11 +797,7 @@ struct PanelView: View {
                     layout: layout,
                     columns: galleryColumns,
                     onColumnsChange: { galleryColumns = $0 },
-                    clearFilters: {
-                        search.kindFilter = .all
-                        search.selectedBoardID = nil
-                        search.selectedSourceAppBundleID = nil
-                    },
+                    clearFilters: { search.clearFilters() },
                     importHistory: { presentedSheet = .importHistory },
                     onUserScroll: { search.endNewestFollow() },
                     row: { item in clipRow(item: item) })
@@ -1421,8 +1421,12 @@ struct PanelView: View {
         }
     }
 
+    private var currentAlternatives: [PanelAlternativeResult] {
+        alternativesKeyFound == alternativesKey ? alternatives : []
+    }
+
     private var bestAlternative: PanelAlternativeResult? {
-        search.filtered.isEmpty ? PanelAlternativeResult.best(of: alternatives) : nil
+        search.filtered.isEmpty ? PanelAlternativeResult.best(of: currentAlternatives) : nil
     }
 
     private var selectedBoardName: String? {
@@ -1443,6 +1447,7 @@ struct PanelView: View {
 
     /// Debounced like a keystroke: only a query that stays empty is probed.
     private func probeAlternatives() async {
+        let key = alternativesKey
         alternatives = []
         guard search.filtered.isEmpty, !search.query.isEmpty,
             search.meaning.status != .loading
@@ -1454,6 +1459,7 @@ struct PanelView: View {
                 && !model.preferences.isPrivateModePaused)
         guard !Task.isCancelled else { return }
         alternatives = found
+        alternativesKeyFound = key
     }
 
     private func refreshDeviceNames() async {
