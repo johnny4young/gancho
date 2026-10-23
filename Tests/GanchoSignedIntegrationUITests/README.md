@@ -68,7 +68,7 @@ and signature/driver metadata for 14 days. Certificate files, keychains, and app
 binaries are not uploaded. Temporary signing material is removed on success or
 failure. These are integration checks, not notarization or release publication.
 
-The separate `stability-smoke.yml` workflow requires nine startup, onboarding,
+The separate `stability-smoke.yml` workflow requires ten startup, onboarding,
 Settings, and migration regressions on each of macOS 15/Xcode 26.3 and
 macOS 26/Xcode 26.6. Both workflows run on PRs and relevant `main` updates.
 KeyboardShortcuts remains pinned to the unmodified 3.0.1 release.
