@@ -435,6 +435,10 @@ struct PerformanceHarnessTests {
             clipIDs: fixtures.map(\.item.id), boardID: board.id, member: true)
         print("perf: board membership seeded \(boardScale) in \(ContinuousClock.now - seedStart)")
 
+        // Expired sensitive fixtures are members the board no longer lists.
+        let visible = try await store.count(inBoard: board.id)
+        #expect(visible > boardScale * 9 / 10)
+
         // The page a user sees on opening the board — the interactive path.
         let firstStart = ContinuousClock.now
         let firstPage = try await store.items(inBoard: board.id, limit: 100)
@@ -446,10 +450,10 @@ struct PerformanceHarnessTests {
         // A deep page (the worst OFFSET) must not degrade past the same budget.
         let deepStart = ContinuousClock.now
         let deepPage = try await store.items(
-            inBoard: board.id, offset: boardScale - 50, limit: 100)
+            inBoard: board.id, offset: visible - 50, limit: 100)
         let deepCost = ContinuousClock.now - deepStart
         #expect(deepPage.count == 50)
-        print("perf: board deep page (offset \(boardScale - 50)): \(deepCost)")
+        print("perf: board deep page (offset \(visible - 50)): \(deepCost)")
         #expect(deepCost < pageBudget)
     }
 
