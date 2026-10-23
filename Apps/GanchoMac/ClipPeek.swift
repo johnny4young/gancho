@@ -473,7 +473,7 @@ extension ClipPeek {
                 }
             )
             .id(item.id)
-        } else {
+        } else if linkParts == nil, colorValue == nil {
             ScrollView {
                 Text(highlighted)
                     .panelFont(.body, design: item.kind == .code ? .monospaced : .default)

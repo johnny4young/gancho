@@ -62,6 +62,11 @@ struct PeekImageStage: View {
             .accessibilityIdentifier("peek-pick-color")
         }
         .panelFont(.caption)
+        .padding(GanchoTokens.Spacing.xxs)
+        // The controls sit over arbitrary pixels; a near-opaque backing keeps them legible.
+        .background(
+            .background.opacity(0.92), in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+        )
         .padding(GanchoTokens.Spacing.xs)
     }
 

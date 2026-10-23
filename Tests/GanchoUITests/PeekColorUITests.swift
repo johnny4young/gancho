@@ -46,8 +46,12 @@ final class PeekColorUITests: XCTestCase {
         let app = launch()
         defer { app.terminate() }
         _ = select("color, #008080", in: app)
-        let hero = app.descendants(matching: .any)["peek-color-hero"].firstMatch
-        XCTAssertTrue(hero.waitForExistence(timeout: 5))
+        // The colour hero is the peek hero's only child, so SwiftUI folds its
+        // container into `peek-hero`; its rows are looked up there.
+        let hero = app.descendants(matching: .any)["peek-hero"].firstMatch
+        XCTAssertTrue(
+            hero.descendants(matching: .any)["peek-color-format-hex"].firstMatch
+                .waitForExistence(timeout: 5))
         for (key, value) in [
             ("hex", "#008080"), ("rgb", "rgb(0, 128, 128)"), ("hsl", "hsl(180, 100%, 25%)"),
             ("swift", "Color(red: 0, green: 0.502, blue: 0.502)")
@@ -57,6 +61,10 @@ final class PeekColorUITests: XCTestCase {
             let shown = row.staticTexts.allElementsBoundByIndex.map(text(of:))
             XCTAssertTrue(shown.contains(value), "\(key): \(shown)")
         }
+        let hexTexts = hero.staticTexts.allElementsBoundByIndex.map(text(of:)).filter {
+            $0 == "#008080"
+        }
+        XCTAssertEqual(hexTexts.count, 1, "the hero replaces the plain text body")
         let light = hero.descendants(matching: .any)["peek-color-contrast-light"].firstMatch
         let dark = hero.descendants(matching: .any)["peek-color-contrast-dark"].firstMatch
         let lightTexts = light.staticTexts.allElementsBoundByIndex.map(text(of:))

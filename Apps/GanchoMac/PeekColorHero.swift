@@ -20,20 +20,22 @@ struct PeekColorHero: View {
                 formatRow("RGB", key: "rgb", value: color.rgb)
                 formatRow("HSL", key: "hsl", value: color.hsl)
                 formatRow("Swift", key: "swift", value: color.swift)
-                HStack(spacing: 6) {
-                    contrastCard(on: Self.white, title: "on white", id: "light")
-                        .environment(\.colorScheme, .light)
-                    contrastCard(
-                        on: Self.darkSurface, title: "on \(Self.darkSurface.hex)", id: "dark"
-                    )
-                    .environment(\.colorScheme, .dark)
+                // Side by side when both titles fit on one line, stacked otherwise.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) { contrastCards }
+                    VStack(spacing: 6) { contrastCards }
                 }
                 .padding(.top, 6)
             }
             .padding(EdgeInsets(top: 8, leading: 12, bottom: 10, trailing: 12))
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("peek-color-hero")
+    }
+
+    @ViewBuilder private var contrastCards: some View {
+        contrastCard(on: Self.white, title: "on white", id: "light")
+            .environment(\.colorScheme, .light)
+        contrastCard(on: Self.darkSurface, title: "on \(Self.darkSurface.hex)", id: "dark")
+            .environment(\.colorScheme, .dark)
     }
 
     private var swatch: some View {
@@ -103,6 +105,8 @@ struct PeekColorHero: View {
                 Text(verbatim: Contrast.label(ratio)).monospacedDigit()
             }
             .panelFont(size: 11)
+            .lineLimit(1)
+            .fixedSize()
             Spacer(minLength: 0)
             gradeTag(Contrast.grade(ratio))
         }
