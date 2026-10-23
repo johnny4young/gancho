@@ -42,6 +42,9 @@ struct ColorValueTests {
         #expect(ColorValue.parse("hsl(0, 120%, 50%)") == nil)
         #expect(ColorValue.parse("#12345") == nil)
         #expect(ColorValue.parse("teal") == nil)
+        #expect(ColorValue.parse("hsl(nan, 50%, 50%)") == nil, "a non-finite hue must not trap")
+        #expect(ColorValue.parse("hsl(inf, 50%, 50%)") == nil)
+        #expect(ColorValue.parse("hsla(-inf, 0%, 0%, 1)") == nil)
     }
 
     @Test("Whole channels drop their decimals in the Swift line")

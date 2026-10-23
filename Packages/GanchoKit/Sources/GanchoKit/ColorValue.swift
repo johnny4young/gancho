@@ -37,7 +37,8 @@ public struct ColorValue: Sendable, Equatable {
             guard channels.count == 3, channels.allSatisfy((0...255).contains) else { return nil }
             return ColorValue(red: channels[0], green: channels[1], blue: channels[2], alpha: alpha)
         case "hsl", "hsla":
-            guard let hue = Double(parts[0]), let saturation = Double(parts[1]),
+            // `Double` reads "nan" and "inf"; a non-finite hue would trap in `Int(_:)`.
+            guard let hue = Double(parts[0]), hue.isFinite, let saturation = Double(parts[1]),
                 let lightness = Double(parts[2]), (0...100).contains(saturation),
                 (0...100).contains(lightness)
             else { return nil }

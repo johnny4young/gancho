@@ -90,4 +90,16 @@ struct ImageColorsTests {
         #expect(ImageColors.color(atPixel: CGPoint(x: 0, y: 63), in: data) == blue)
         #expect(ImageColors.color(atPixel: CGPoint(x: 7, y: 0), in: data) == nil, "outside")
     }
+
+    @Test("An image past the sampling cap is read from a capped decode")
+    func cappedDecode() throws {
+        // A 64 × 64 image of two halves, sampled from a 4 × 4 decode.
+        let data = png(bands([(32, blue), (32, orange)]))
+        let left = try #require(
+            ImageColors.color(atPixel: CGPoint(x: 8, y: 8), in: data, maximumSide: 4))
+        let right = try #require(
+            ImageColors.color(atPixel: CGPoint(x: 56, y: 8), in: data, maximumSide: 4))
+        #expect(close(left, blue))
+        #expect(close(right, orange))
+    }
 }

@@ -76,9 +76,19 @@ public enum ImageColors {
         ClipImageInfo.pixelSize(of: data).map { CGSize(width: $0.width, height: $0.height) }
     }
 
-    /// The exact colour of one pixel of the full-resolution, upright image.
-    nonisolated public static func color(atPixel pixel: CGPoint, in data: Data) -> ColorValue? {
-        guard let size = orientedSize(of: data),
+    /// Images are decoded at most this many pixels per side to sample them.
+    nonisolated public static let maximumSampledSide: CGFloat = 8_192
+
+    /// The exact colour of one pixel of the upright image. An image larger than
+    /// `maximumSampledSide` is sampled from a capped decode, so a huge clip
+    /// can't exhaust memory; its pixel maps there proportionally.
+    nonisolated public static func color(
+        atPixel pixel: CGPoint, in data: Data, maximumSide: CGFloat = maximumSampledSide
+    ) -> ColorValue? {
+        guard let size = orientedSize(of: data) else { return nil }
+        let side = min(max(size.width, size.height), maximumSide)
+        let scale = side / max(size.width, size.height)
+        guard
             let source = CGImageSourceCreateWithData(
                 data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
             let upright = CGImageSourceCreateThumbnailAtIndex(
@@ -86,10 +96,12 @@ public enum ImageColors {
                 [
                     kCGImageSourceCreateThumbnailFromImageAlways: true,
                     kCGImageSourceCreateThumbnailWithTransform: true,
-                    kCGImageSourceThumbnailMaxPixelSize: max(size.width, size.height)
+                    kCGImageSourceThumbnailMaxPixelSize: side
                 ] as CFDictionary),
             let single = upright.cropping(
-                to: CGRect(x: pixel.x, y: pixel.y, width: 1, height: 1)),
+                to: CGRect(
+                    x: (pixel.x * scale).rounded(.down), y: (pixel.y * scale).rounded(.down),
+                    width: 1, height: 1)),
             let space = CGColorSpace(name: CGColorSpace.sRGB)
         else { return nil }
         var rgba = [UInt8](repeating: 0, count: 4)
