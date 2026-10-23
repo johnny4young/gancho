@@ -1,31 +1,51 @@
 import Foundation
 import GRDB
 
+/// Visible clips overall and per board, read from one snapshot.
+public struct ScopeCountSnapshot: Sendable, Equatable {
+    public var total: Int
+    /// Keyed by board id; a board with no visible member is absent.
+    public var boards: [UUID: Int]
+}
+
 /// Clip totals for the panel's scope chips, counted with the same visibility
 /// rules as the panel's own list (no archived or expired clips).
 public protocol ScopeCountProviding: Sendable {
-    /// Visible clips per board, keyed by board id; a board with none is absent.
-    func visibleCountsByBoard() async throws -> [UUID: Int]
+    /// Leaves out `excluded`, rows the caller already hides (pending deletes).
+    func scopeCounts(excluding excluded: Set<UUID>) async throws -> ScopeCountSnapshot
 }
 
 extension GRDBClipboardStore: ScopeCountProviding {
-    public func visibleCountsByBoard() async throws -> [UUID: Int] {
-        try await writer.read { db in
+    public func scopeCounts(excluding excluded: Set<UUID>) async throws -> ScopeCountSnapshot {
+        let skipped = excluded.map(\.uuidString)
+        var visible = "clip.isArchived = 0 AND \(Self.unexpiredPredicate)"
+        if !skipped.isEmpty {
+            let placeholders = Array(repeating: "?", count: skipped.count).joined(separator: ",")
+            visible += " AND clip.id NOT IN (\(placeholders))"
+        }
+        let now = Date.now
+        return try await writer.read { [visible] db in
+            var arguments: StatementArguments = [now]
+            arguments += StatementArguments(skipped)
+            let total =
+                try Int.fetchOne(
+                    db, sql: "SELECT COUNT(*) FROM clip WHERE \(visible)", arguments: arguments)
+                ?? 0
             let rows = try Row.fetchAll(
                 db,
                 sql: """
                     SELECT clip_board.boardID AS boardID, COUNT(*) AS total
                     FROM clip_board JOIN clip ON clip.id = clip_board.clipID
-                    WHERE clip.isArchived = 0 AND \(Self.unexpiredPredicate)
+                    WHERE \(visible)
                     GROUP BY clip_board.boardID
                     """,
-                arguments: [Date.now])
-            var counts: [UUID: Int] = [:]
+                arguments: arguments)
+            var boards: [UUID: Int] = [:]
             for row in rows {
                 guard let id = UUID(uuidString: row["boardID"]) else { continue }
-                counts[id] = row["total"]
+                boards[id] = row["total"]
             }
-            return counts
+            return ScopeCountSnapshot(total: total, boards: boards)
         }
     }
 }

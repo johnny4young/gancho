@@ -274,7 +274,7 @@ struct MCPAccessView: View {
             }
         return Text(presentation.0)
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(ReadableInk(base: presentation.1))
+            .foregroundStyle(ReadableInk(base: presentation.1, onWash: 0.12))
             .padding(.horizontal, GanchoTokens.Spacing.xs)
             .padding(.vertical, 2)
             .background(presentation.1.opacity(0.12), in: Capsule())
@@ -286,7 +286,7 @@ struct MCPAccessView: View {
             .font(.caption2.weight(.medium))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .foregroundStyle(ReadableInk(base: tint))
+            .foregroundStyle(ReadableInk(base: tint, onWash: 0.1))
             .background(tint.opacity(0.1), in: Capsule())
     }
 

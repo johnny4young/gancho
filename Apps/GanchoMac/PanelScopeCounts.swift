@@ -7,10 +7,14 @@ struct PanelScopeCounts: Equatable {
     var boards: [UUID: Int] = [:]
 }
 
-/// Recounts when the boards change, a clip arrives or goes, or the panel opens.
+/// Recounts when the boards change, a clip arrives or goes, the store reports
+/// a change (a committed delete, board membership), a delete is pending or
+/// undone, or the panel opens.
 struct PanelScopeCountsKey: Equatable {
     let boardIDs: [UUID]
     let newest: UUID?
     let recentCount: Int
+    let storeRevision: Int
+    let pendingDeletions: Set<UUID>
     let opened: Int
 }

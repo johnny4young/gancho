@@ -315,8 +315,13 @@ public struct AccentInk: ShapeStyle {
 /// 4.5:1 on the surfaces text sits on, keeping its hue.
 public struct ReadableInk: ShapeStyle {
     let base: Color
+    let wash: Double
 
-    public init(base: Color) { self.base = base }
+    /// `wash` is the opacity of `base` filled behind the text (a tinted pill).
+    public init(base: Color, onWash wash: Double = 0) {
+        self.base = base
+        self.wash = wash
+    }
 
     public func resolve(in environment: EnvironmentValues) -> Color.Resolved {
         let dark = environment.colorScheme == .dark
@@ -324,7 +329,11 @@ public struct ReadableInk: ShapeStyle {
         let surface = Color.Resolved(
             colorSpace: .sRGB, red: dark ? 0x2C / 255 : 0xE6 / 255,
             green: dark ? 0x2C / 255 : 0xE6 / 255, blue: dark ? 0x2E / 255 : 0xE8 / 255)
-        return Contrast.adjusted(base.resolve(in: environment), against: surface)
+        let ink = base.resolve(in: environment)
+        guard wash > 0 else { return Contrast.adjusted(ink, against: surface) }
+        var fill = ink
+        fill.opacity = ink.opacity * Float(wash)
+        return Contrast.adjusted(ink, against: Contrast.composited(fill, over: surface))
     }
 }
 
