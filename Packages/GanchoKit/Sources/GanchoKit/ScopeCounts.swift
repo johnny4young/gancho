@@ -17,16 +17,15 @@ public protocol ScopeCountProviding: Sendable {
 
 extension GRDBClipboardStore: ScopeCountProviding {
     public func scopeCounts(excluding excluded: Set<UUID>) async throws -> ScopeCountSnapshot {
-        let skipped = excluded.map(\.uuidString)
         var visible = "clip.isArchived = 0 AND \(Self.unexpiredPredicate)"
-        if !skipped.isEmpty {
-            let placeholders = Array(repeating: "?", count: skipped.count).joined(separator: ",")
-            visible += " AND clip.id NOT IN (\(placeholders))"
+        var arguments: StatementArguments = [Date.now]
+        if !excluded.isEmpty {
+            // One bound JSON array, so a bulk delete never hits SQLite's variable limit.
+            let ids = excluded.map { "\"\($0.uuidString)\"" }.joined(separator: ",")
+            visible += " AND clip.id NOT IN (SELECT value FROM json_each(?))"
+            arguments += ["[\(ids)]"]
         }
-        let now = Date.now
-        return try await writer.read { [visible] db in
-            var arguments: StatementArguments = [now]
-            arguments += StatementArguments(skipped)
+        return try await writer.read { [visible, arguments] db in
             let total =
                 try Int.fetchOne(
                     db, sql: "SELECT COUNT(*) FROM clip WHERE \(visible)", arguments: arguments)

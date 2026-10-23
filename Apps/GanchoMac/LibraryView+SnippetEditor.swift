@@ -127,10 +127,7 @@ extension LibraryView {
                         .font(.caption.monospaced())
                         .padding(.horizontal, GanchoTokens.Spacing.xs)
                         .padding(.vertical, 2)
-                        .background(
-                            GanchoTokens.Palette.kindTint(for: .code).opacity(0.15), in: Capsule()
-                        )
-                        .foregroundStyle(GanchoTokens.Palette.kindTint(for: .code))
+                        .ganchoTintedPill(GanchoTokens.Palette.kindTint(for: .code), wash: 0.15)
                 }
             }
         }

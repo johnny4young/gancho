@@ -1036,7 +1036,9 @@ struct PanelView: View {
             }
             .task {
                 let changes = model.storeChanges.subscribe()
-                for await _ in StoreChangeCoalescer().batches(of: changes) {
+                // A capture already moves `newest`, so it would recount twice.
+                for await batch in StoreChangeCoalescer().batches(of: changes)
+                where batch != [.captured] {
                     storeRevision &+= 1
                 }
             }

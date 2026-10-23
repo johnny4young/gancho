@@ -67,4 +67,17 @@ struct ScopeCountsTests {
         #expect(hiding.total == 1)
         #expect(hiding.boards[work.id] == 1)
     }
+
+    @Test("A bulk delete beyond SQLite's variable limit still counts")
+    func excludesMoreIDsThanSQLiteBinds() async throws {
+        let store = try makeStore()
+        let kept = ClipItem(preview: "kept", contentHash: "k")
+        let pending = ClipItem(preview: "pending", contentHash: "p")
+        for item in [kept, pending] {
+            try await store.insert(item, content: .text(item.preview))
+        }
+        let excluded = Set((0..<120_000).map { _ in UUID() }).union([pending.id])
+        let counts = try await store.scopeCounts(excluding: excluded)
+        #expect(counts.total == 1)
+    }
 }

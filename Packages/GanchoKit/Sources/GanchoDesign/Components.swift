@@ -108,10 +108,9 @@ public struct TypeBadge: View {
             let tint = GanchoTokens.Palette.kindTint(for: kind)
             label
                 .panelFont(.subheadline, .semibold)
-                .foregroundStyle(ReadableInk(base: tint, onWash: Self.washOpacity))
                 .padding(.horizontal, GanchoTokens.Spacing.xs)
                 .padding(.vertical, 3)
-                .background(tint.opacity(Self.washOpacity), in: Capsule())
+                .ganchoTintedPill(tint, wash: Self.washOpacity)
                 .accessibilityIdentifier("type-badge")
         }
     }

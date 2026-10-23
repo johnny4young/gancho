@@ -337,6 +337,15 @@ public struct ReadableInk: ShapeStyle {
     }
 }
 
+extension View {
+    /// Text on a capsule of its own hue; the ink is adjusted against the wash
+    /// it is drawn on, so the two can never disagree.
+    public func ganchoTintedPill(_ tint: Color, wash: Double) -> some View {
+        foregroundStyle(ReadableInk(base: tint, onWash: wash))
+            .background(tint.opacity(wash), in: Capsule())
+    }
+}
+
 /// The quiet fill behind `AccentInk` text.
 public struct AccentTint: ShapeStyle {
     public func resolve(in environment: EnvironmentValues) -> Color.Resolved {

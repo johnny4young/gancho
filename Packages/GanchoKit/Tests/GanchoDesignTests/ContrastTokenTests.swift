@@ -1,3 +1,4 @@
+import GanchoKit
 import SwiftUI
 import Testing
 
@@ -103,23 +104,31 @@ struct ContrastTokenTests {
         }
     }
 
+    @MainActor
     @Test(
         "Kind and status pills stay AA on their own tinted wash",
-        arguments: [0x32ADE6, 0x5856D6, 0xFF9F0A, 0x007AFF, 0x5AC8FA, 0xFF3B30, 0x8E8E93, 0x34C759])
-    func readableInkOnTintedWash(hex: Int) {
+        arguments: [0.1, 0.12, TypeBadge.washOpacity, 0.15])
+    func readableInkOnTintedWash(wash: Double) {
+        let hues =
+            ClipContentKind.allCases.map(GanchoTokens.Palette.kindTint(for:))
+            + [
+                GanchoTokens.Palette.success, GanchoTokens.Palette.warning,
+                GanchoTokens.Palette.danger
+            ]
         for scheme in Self.appearances {
             let environment = environment(scheme)
-            let base = resolved(hex, environment)
-            let ink = ReadableInk(base: Color(base), onWash: TypeBadge.washOpacity)
-                .resolve(in: environment)
-            var wash = base
-            wash.opacity = Float(TypeBadge.washOpacity)
             let surfaces = scheme == .dark ? [0x1C1C1E, 0x2C2C2E] : [0xFFFFFF, 0xECECEC, 0xE6E6E8]
-            for surface in surfaces {
-                let backdrop = Contrast.composited(wash, over: resolved(surface, environment))
-                #expect(
-                    Contrast.ratio(ink, backdrop) >= Contrast.text,
-                    "\(String(hex, radix: 16)) on \(String(surface, radix: 16)) \(scheme)")
+            for hue in hues {
+                let base = hue.resolve(in: environment)
+                let ink = ReadableInk(base: hue, onWash: wash).resolve(in: environment)
+                var fill = base
+                fill.opacity = base.opacity * Float(wash)
+                for surface in surfaces {
+                    let backdrop = Contrast.composited(fill, over: resolved(surface, environment))
+                    #expect(
+                        Contrast.ratio(ink, backdrop) >= Contrast.text,
+                        "\(base) at \(wash) on \(String(surface, radix: 16)) \(scheme)")
+                }
             }
         }
     }

@@ -74,6 +74,57 @@ final class PanelProvenanceUITests: XCTestCase {
     }
 
     @MainActor
+    private func waitForLabel(_ label: String, of element: XCUIElement) -> Bool {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", label), object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: 10) == .completed
+    }
+
+    @MainActor
+    func testScopeChipFollowsADeleteAndItsUndo() throws {
+        let app = launch(seeded: true)
+        defer { app.terminate() }
+        let all = app.buttons["board-all"].firstMatch
+        XCTAssertTrue(all.waitForExistence(timeout: 15))
+        XCTAssertTrue(waitForLabel("All clips · \(Self.seededClips)", of: all), all.label)
+
+        let link = row("example.com", in: app)
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        link.rightClick()
+        let delete = app.menuItems["Delete"].firstMatch
+        XCTAssertTrue(delete.waitForExistence(timeout: 3))
+        delete.click()
+        XCTAssertTrue(waitForLabel("All clips · \(Self.seededClips - 1)", of: all), all.label)
+
+        let undo = app.buttons["toast-undo"].firstMatch
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        undo.click()
+        XCTAssertTrue(waitForLabel("All clips · \(Self.seededClips)", of: all), all.label)
+    }
+
+    @MainActor
+    func testBoardChipCountsAClipAddedToIt() throws {
+        let app = launch(seeded: true, extra: ["-seed-sample-boards"])
+        defer { app.terminate() }
+        let board = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "Seed board 1 ·")
+        ).firstMatch
+        XCTAssertTrue(board.waitForExistence(timeout: 15))
+        XCTAssertTrue(waitForLabel("Seed board 1 · 0", of: board), board.label)
+
+        let link = row("example.com", in: app)
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        link.rightClick()
+        let menu = app.menuItems["Add to board"].firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 3))
+        menu.hover()
+        let target = app.menuItems["Seed board 1"].firstMatch
+        XCTAssertTrue(target.waitForExistence(timeout: 3))
+        target.click()
+        XCTAssertTrue(waitForLabel("Seed board 1 · 1", of: board), board.label)
+    }
+
+    @MainActor
     func testEmptyPanelTeachesThreeKeysAndOffersTheImporter() throws {
         let app = launch(seeded: false)
         defer { app.terminate() }

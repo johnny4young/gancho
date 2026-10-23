@@ -55,8 +55,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A board's list, its chip count and its Library count agree: archived and
   expired clips no longer appear in the board while being left out of its
   count.
-- Type and status pills keep their text at 4.5:1 contrast on their own tinted
-  background.
+- Type, status, detected-secret and snippet-field pills keep their text at
+  4.5:1 contrast on their own tinted background.
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.10.2 DMG.
   Physical-device acceptance remains pending; the published app, tag and
