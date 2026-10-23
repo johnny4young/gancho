@@ -17,7 +17,7 @@ enum DesignSnapshot {
             "image snapshots run only via make test-snapshots")
     }
 
-    static func save(_ image: NSImage, named name: String) throws {
+    @MainActor static func save(_ image: NSImage, named name: String) throws {
         let cgImage = try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
         let data = try XCTUnwrap(
             NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:]))
@@ -42,22 +42,38 @@ enum DesignSnapshot {
     ) throws
         -> NSImage
     {
+        let file = try requestRender(of: title, named: name, in: directory)
+        return try XCTUnwrap(NSImage(contentsOf: file), "the app did not render \(title)")
+    }
+
+    /// Asks the app to render its window `window` (a title, an accessibility
+    /// identifier or `@sheet`) and returns the PNG once it is written.
+    static func requestRender(
+        of window: String, named name: String, in directory: URL
+    ) throws
+        -> URL
+    {
         let file = directory.appendingPathComponent("\(name).png")
         try? FileManager.default.removeItem(at: file)
         DistributedNotificationCenter.default().postNotificationName(
             Notification.Name("com.johnny4young.gancho.ui-test.window-snapshot"),
-            object: "\(directory.lastPathComponent)|\(title)|\(name)", userInfo: nil,
+            object: "\(directory.lastPathComponent)|\(window)|\(name)", userInfo: nil,
             options: [.deliverImmediately])
-        return try XCTUnwrap(waitForImage(at: file), "the app did not render \(title)")
+        return try XCTUnwrap(
+            waitForFile(at: file) ? file : nil, "the app did not render \(window)")
     }
 
     /// Polls for a PNG the app writes asynchronously.
     static func waitForImage(at file: URL, timeout: TimeInterval = 10) -> NSImage? {
+        waitForFile(at: file, timeout: timeout) ? NSImage(contentsOf: file) : nil
+    }
+
+    private static func waitForFile(at file: URL, timeout: TimeInterval = 10) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while !FileManager.default.fileExists(atPath: file.path), Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
-        return NSImage(contentsOf: file)
+        return FileManager.default.fileExists(atPath: file.path)
     }
 
     /// Crops an image to a rect in points from its top-left corner.

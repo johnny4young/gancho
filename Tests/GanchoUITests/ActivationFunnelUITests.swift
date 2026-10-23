@@ -6,7 +6,7 @@ import XCTest
 /// actual searchable panel instead of ending on instructional prose.
 final class ActivationFunnelUITests: XCTestCase {
     @MainActor
-    func testOnboardingHandsOffToRealPanel() {
+    func testOnboardingHandsOffToRealPanel() throws {
         let app = GanchoUITestApplication()
         app.launchArguments = [
             "-regular-activation-for-ui-tests", "-use-in-process-status-item",
@@ -62,10 +62,8 @@ final class ActivationFunnelUITests: XCTestCase {
         continueButton.click()
         XCTAssertTrue(copyFallback.waitForExistence(timeout: 5))
 
-        let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
-        attachment.name = "macOS activation onboarding handoff"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(
+            of: "Welcome to Gancho", in: app, named: "macOS activation onboarding handoff")
 
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))

@@ -41,7 +41,7 @@ final class ManualOCRUITests: XCTestCase {
             1, "one link in the image, one chip")
         link.click()
         XCTAssertTrue(firstLine.exists, "opening a link must not dismiss the section")
-        attachPanel(app, named: "Manual OCR — English dark peek")
+        try keepRender(of: "history-panel", in: app, named: "Manual OCR — English dark peek")
     }
 
     @MainActor
@@ -57,7 +57,8 @@ final class ManualOCRUITests: XCTestCase {
         let editor = app.textViews["peek-ocr-editor"].firstMatch
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         try typeTextReliably("Texto editado: canción y café", into: editor, in: app)
-        attachPanel(app, named: "Manual OCR — Spanish light inline editor")
+        try keepRender(
+            of: "history-panel", in: app, named: "Manual OCR — Spanish light inline editor")
         app.buttons["peek-ocr-editor-cancel"].click()
         XCTAssertTrue(editor.waitForNonExistence(timeout: 5))
         XCTAssertEqual(rows(in: app).count, 1, "Cancelling an edit must not save a clip")
@@ -128,20 +129,5 @@ final class ManualOCRUITests: XCTestCase {
         let extract = app.menuItems["image-copy-text"].firstMatch
         XCTAssertTrue(extract.waitForExistence(timeout: 3))
         extract.click()
-    }
-
-    /// The panel is a floating NSPanel on the ACTIVE display, so a screen
-    /// capture could show an unrelated desktop; capture the panel element only.
-    @MainActor
-    private func attachPanel(_ app: XCUIApplication, named name: String) {
-        guard
-            let panel = app.children(matching: .any).allElementsBoundByIndex.first(where: {
-                $0.exists && $0.frame.width > 200 && $0.frame.height > 200
-            })
-        else { return }
-        let attachment = XCTAttachment(screenshot: panel.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 }

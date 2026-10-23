@@ -39,10 +39,9 @@ final class VisualLibraryUITests: XCTestCase {
         let loaded = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label CONTAINS %@", "Image preview"), object: imageCard)
         XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 5), .completed)
-        let screenshot = XCTAttachment(screenshot: library.screenshot())
-        screenshot.name = "Visual Library — synthetic image, color, code and protected clip"
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
+        try keepRender(
+            of: "Library", in: app,
+            named: "Visual Library — synthetic image, color, code and protected clip")
         try SynthesizedInput.requireForeground(app)
         imageCard.rightClick()
         XCTAssertTrue(app.menuItems["Add to board"].firstMatch.exists)

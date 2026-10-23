@@ -29,7 +29,7 @@ final class PeekDockUITests: XCTestCase {
         XCTAssertTrue(app.buttons["preview-cancel-content"].firstMatch.isHittable)
         XCTAssertTrue(panel.frame.contains(dock.frame), "Editing must not push the dock offscreen")
         app.buttons["preview-cancel-content"].firstMatch.click()
-        attachPanel(panel, name: "Compact peek — complete URL and dock")
+        try keepRender(of: "history-panel", in: app, named: "Compact peek — complete URL and dock")
     }
 
     @MainActor
@@ -90,7 +90,7 @@ final class PeekDockUITests: XCTestCase {
         ).firstMatch
         XCTAssertTrue(
             chip.waitForExistence(timeout: 5), "The selected clip must refresh its boards")
-        attachPanel(app.dialogs["history-panel"].firstMatch, name: "Peek — live board membership")
+        try keepRender(of: "history-panel", in: app, named: "Peek — live board membership")
     }
 
     @MainActor
@@ -140,7 +140,7 @@ final class PeekDockUITests: XCTestCase {
         let panel = app.dialogs["history-panel"].firstMatch
         XCTAssertTrue(
             panel.frame.contains(app.descendants(matching: .any)["peek-dock"].firstMatch.frame))
-        attachPanel(panel, name: "Compact peek — code preview and dock")
+        try keepRender(of: "history-panel", in: app, named: "Compact peek — code preview and dock")
     }
 
     @MainActor
@@ -195,7 +195,8 @@ final class PeekDockUITests: XCTestCase {
         ] {
             XCTAssertTrue(dock.buttons[id].firstMatch.isHittable)
         }
-        attachPanel(panel, name: "Compact dark peek — image and five-action dock")
+        try keepRender(
+            of: "history-panel", in: app, named: "Compact dark peek — image and five-action dock")
     }
 
     @MainActor
@@ -237,13 +238,5 @@ final class PeekDockUITests: XCTestCase {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         return app
-    }
-
-    @MainActor
-    private func attachPanel(_ panel: XCUIElement, name: String) {
-        let attachment = XCTAttachment(screenshot: panel.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 }

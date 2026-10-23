@@ -50,11 +50,9 @@ final class SelectedContextUITests: XCTestCase {
         let move = app.buttons["text-selection-move-down-button"].firstMatch
         XCTAssertTrue(move.isEnabled)
         move.click()
-        let attachment = XCTAttachment(
-            screenshot: app.sheets.firstMatch.screenshot())
-        attachment.name = "Selected context review — synthetic clips — \(language) — \(appearance)"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(
+            of: "@sheet", in: app,
+            named: "Selected context review — synthetic clips — \(language) — \(appearance)")
         if asGrant {
             try verifyGrant(in: app, preview: preview, originalCount: count)
             return

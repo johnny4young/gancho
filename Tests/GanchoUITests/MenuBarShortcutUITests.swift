@@ -62,7 +62,7 @@ final class MenuBarShortcutUITests: XCTestCase {
             "panel hotkey stays paused after the menu closed: \(registration(of: statusItem))")
     }
 
-    private func registration(of statusItem: XCUIElement) -> String {
+    @MainActor private func registration(of statusItem: XCUIElement) -> String {
         statusItem.value as? String ?? ""
     }
 }

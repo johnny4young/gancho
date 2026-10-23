@@ -34,10 +34,7 @@ final class PrivateActivityReceiptUITests: XCTestCase {
             app.descendants(matching: .any)["private-receipt-app-1-row"].firstMatch
                 .waitForExistence(timeout: 3))
 
-        let attachment = XCTAttachment(screenshot: app.windows["Privacy Center"].screenshot())
-        attachment.name = "macOS private activity receipt"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "Privacy Center", in: app, named: "macOS private activity receipt")
 
         let clear = app.buttons["clear-private-receipt-button"].firstMatch
         XCTAssertTrue(clear.waitForExistence(timeout: 3))

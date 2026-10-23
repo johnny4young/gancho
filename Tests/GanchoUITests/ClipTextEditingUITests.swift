@@ -59,10 +59,6 @@ final class ClipTextEditingUITests: XCTestCase {
                 format: "identifier == 'clip-row' AND label CONTAINS %@", finalText)
         ).firstMatch
         XCTAssertTrue(saved.waitForExistence(timeout: 5))
-        let attachment = XCTAttachment(
-            screenshot: app.dialogs["history-panel"].firstMatch.screenshot())
-        attachment.name = "macOS explicit clip text editing"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "history-panel", in: app, named: "macOS explicit clip text editing")
     }
 }

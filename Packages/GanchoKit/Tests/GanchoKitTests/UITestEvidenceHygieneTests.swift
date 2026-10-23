@@ -1,9 +1,9 @@
 import Foundation
 import Testing
 
-@Suite("Native UI evidence stays scoped to Gancho components")
+@Suite("Native UI evidence is rendered by Gancho, never copied from the screen")
 struct UITestEvidenceHygieneTests {
-    @Test("Manual attachments never capture the whole desktop or application surface")
+    @Test("Attachments never copy a screen region")
     func scopedAttachments() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
@@ -24,28 +24,24 @@ struct UITestEvidenceHygieneTests {
                 source.range(of: #"\bXCUIScreen\b"#, options: .regularExpression) == nil,
                 "Use a scoped component in \(file.lastPathComponent)")
             #expect(
-                applicationScreenshot(in: source) == nil,
-                "An application screenshot may contain other apps in \(file.lastPathComponent)")
+                screenCopy(in: source) == nil,
+                "Use keepRender: a screenshot may contain other apps in \(file.lastPathComponent)")
         }
     }
 
-    @Test("Application screenshots are found under any receiver name")
-    func applicationScreenshotDetection() {
+    @Test("Screen copies are found on any element or receiver")
+    func screenCopyDetection() {
+        #expect(screenCopy(in: "add(XCTAttachment(screenshot: app.screenshot()))") != nil)
+        #expect(screenCopy(in: "_ = XCUIApplication().screenshot()") != nil)
+        #expect(screenCopy(in: "_ = app.dialogs[\"history-panel\"].screenshot()") != nil)
+        #expect(screenCopy(in: "let shot = XCTAttachment(\n    screenshot: shot)") != nil)
         #expect(
-            applicationScreenshot(in: "add(XCTAttachment(screenshot: app.screenshot()))") != nil)
-        #expect(
-            applicationScreenshot(in: "let gancho = XCUIApplication()\n_ = gancho.screenshot()")
-                != nil)
-        #expect(applicationScreenshot(in: "_ = XCUIApplication().screenshot()") != nil)
-        #expect(applicationScreenshot(in: "_ = app.dialogs[\"history-panel\"].screenshot()") == nil)
+            screenCopy(in: "try keepRender(of: \"history-panel\", in: app, named: name)") == nil)
     }
 
-    /// Receivers are `app` plus every name bound to `XCUIApplication(...)` in the file.
-    private func applicationScreenshot(in source: String) -> Range<String.Index>? {
-        var receivers = ["app", #"XCUIApplication\([^)]*\)"#]
-        let binding = #/(?:let|var)\s+(\w+)\s*(?::\s*XCUIApplication\s*)?=\s*XCUIApplication\(/#
-        receivers += source.matches(of: binding).map { String($0.1) }
-        let pattern = #"\b(?:"# + receivers.joined(separator: "|") + #")\s*\.screenshot\(\)"#
-        return source.range(of: pattern, options: .regularExpression)
+    /// An element screenshot is still a copy of the screen region under it.
+    private func screenCopy(in source: String) -> Range<String.Index>? {
+        source.range(
+            of: #"\.screenshot\(\)|XCTAttachment\(\s*screenshot:"#, options: .regularExpression)
     }
 }

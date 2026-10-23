@@ -1,4 +1,3 @@
-import AppKit
 import XCTest
 
 /// The panel screens the README and website show, captured from the real app
@@ -7,16 +6,6 @@ import XCTest
 /// panel window, so nothing else on screen can end up in a marketing image.
 /// `make ui-evidence` exports the attachments after `make test-ui`.
 final class ProductScreensUITests: XCTestCase {
-    private var renders: URL!
-
-    override func setUpWithError() throws {
-        renders = try DesignSnapshot.makeRenderDirectory()
-    }
-
-    override func tearDownWithError() throws {
-        if let renders { try? FileManager.default.removeItem(at: renders) }
-    }
-
     @MainActor
     private func launch(_ extra: [String]) -> XCUIApplication {
         let app = GanchoUITestApplication()
@@ -28,8 +17,7 @@ final class ProductScreensUITests: XCTestCase {
                 "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
                 "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
                 "-ui-test-defaults-suite",
-                "com.johnny4young.gancho.uitests.screens.\(UUID().uuidString)",
-                "-ui-test-snapshot-dir", renders.path
+                "com.johnny4young.gancho.uitests.screens.\(UUID().uuidString)"
             ] + extra
         app.launch()
         app.activate()
@@ -59,14 +47,7 @@ final class ProductScreensUITests: XCTestCase {
     @MainActor
     private func keep(_ app: XCUIApplication, _ name: String) throws {
         XCTAssertTrue(app.dialogs["history-panel"].firstMatch.exists)
-        let image = try DesignSnapshot.renderWindow(titled: "Gancho", named: name, in: renders)
-        let cgImage = try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
-        let data = try XCTUnwrap(
-            NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:]))
-        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.png")
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        try keepRender(of: "history-panel", in: app, named: name)
     }
 
     @MainActor

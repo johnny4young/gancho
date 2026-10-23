@@ -7,6 +7,13 @@ import XCTest
 final class GanchoUITestApplication: XCUIApplication {
     override func launch() {
         launchArguments = Self.isolatedArguments(launchArguments)
+        // Evidence is rendered by the app itself, never copied from the screen;
+        // `keepRender` creates this directory only while it renders.
+        if !launchArguments.contains("-ui-test-snapshot-dir") {
+            let renders = FileManager.default.temporaryDirectory
+                .appendingPathComponent("gancho-evidence-\(UUID().uuidString)", isDirectory: true)
+            launchArguments += ["-ui-test-snapshot-dir", renders.path]
+        }
         super.launch()
     }
 
