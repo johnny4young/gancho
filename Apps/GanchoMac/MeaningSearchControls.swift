@@ -2,22 +2,17 @@ import GanchoAppCore
 import GanchoDesign
 import SwiftUI
 
+/// What the Meaning mode is doing; the field's mode control turns it on.
 struct MeaningSearchControls: View {
-    @Bindable var search: PanelSearchModel
+    let search: PanelSearchModel
     var body: some View {
         HStack(spacing: GanchoTokens.Spacing.xs) {
-            Toggle("By meaning", isOn: $search.meaningEnabled)
-                .toggleStyle(.button)
-                .ganchoInkTint()
-                .accessibilityIdentifier("meaning-search-toggle")
-            if search.meaningEnabled {
-                if search.meaning.status == .loading { ProgressView().controlSize(.mini) }
-                if let statusLabel {
-                    Text(statusLabel)
-                        .panelFont(.caption)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("meaning-search-status")
-                }
+            if search.meaning.status == .loading { ProgressView().controlSize(.mini) }
+            if let statusLabel {
+                Text(statusLabel)
+                    .panelFont(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("meaning-search-status")
             }
             Spacer(minLength: 0)
         }
@@ -27,7 +22,7 @@ struct MeaningSearchControls: View {
         switch search.meaning.status {
         case .idle:
             // Navigation cancels a pending request; the query is already there.
-            search.query.isEmpty ? "Enter a search; regex uses conventional results only." : nil
+            search.query.isEmpty ? "Type a search to find clips by meaning." : nil
         case .loading: "Finding related clips…"
         case .ready: "Related suggestions may include weak matches."
         case .incomplete: "Some clips are not indexed; conventional search remains complete."

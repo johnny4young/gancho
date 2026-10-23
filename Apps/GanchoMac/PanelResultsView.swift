@@ -19,7 +19,7 @@ struct PanelResultsView<RowContent: View>: View {
     let isGroupedView: Bool
     let groups: [PanelDateGroup]
     let items: [ClipItem]
-    var relatedIDs: Set<UUID> = []
+    var searchMode: PanelSearchMode = .fuzzy
     /// Private Mode lists everything under one "Before private mode" header.
     var isPrivateMode = false
     let selectedID: UUID?
@@ -103,7 +103,12 @@ struct PanelResultsView<RowContent: View>: View {
     private var recentHeader: some View {
         HStack {
             if !query.isEmpty {
-                Text("Results")
+                // The status the field's mode control sets: "Results · Exact".
+                HStack(spacing: 0) {
+                    Text("Results")
+                    Text(verbatim: " · ")
+                    Text(searchMode.title)
+                }
             } else if isPrivateMode {
                 Text("Before private mode")
             } else if hasActiveFilter {
@@ -112,7 +117,7 @@ struct PanelResultsView<RowContent: View>: View {
                 Text("Recent")
             }
             Spacer()
-            clipCount(items.count { !relatedIDs.contains($0.id) })
+            clipCount(items.count)
         }
         .panelFont(.caption2, .semibold)
         .foregroundStyle(.tertiary)
@@ -132,19 +137,8 @@ struct PanelResultsView<RowContent: View>: View {
         }
     }
 
-    @ViewBuilder private var flatRows: some View {
-        ForEach(items.filter { !relatedIDs.contains($0.id) }) { item in row(item) }
-        if !relatedIDs.isEmpty {
-            Section {
-                ForEach(items.filter { relatedIDs.contains($0.id) }) { item in row(item) }
-            } header: {
-                Text("Related by meaning")
-                    .panelFont(.caption, .semibold)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("meaning-related-heading")
-            }
-        }
+    private var flatRows: some View {
+        ForEach(items) { item in row(item) }
     }
 
     /// A sticky section header — "Pinned" (with a pin glyph) or a semantic date

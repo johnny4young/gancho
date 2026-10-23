@@ -78,6 +78,8 @@ struct PanelView: View {
     @State private var scopeCounts = PanelScopeCounts()
     @State private var storeRevision = 0
     @State private var panelOpenCount = 0
+    /// The `device:` token's choices, read when the panel opens.
+    @State private var deviceNames: [String] = []
     /// Re-read when defaults change, so a newly recorded shortcut shows at once.
     @State private var privateModeShortcut = KeyboardShortcuts.getShortcut(
         for: .togglePrivateMode)?.description
@@ -234,6 +236,7 @@ struct PanelView: View {
                 else { return }
                 panelOpenCount &+= 1
                 model.refreshPasteTarget()
+                Task { await refreshDeviceNames() }
                 // Every open starts from the newest clip with the search field
                 // focused, whatever rail or row the previous session ended on.
                 // The interval closes on the next turn, after this frame commits.
@@ -337,6 +340,7 @@ struct PanelView: View {
                 await search.refresh()
             }
             .task { await model.refreshBoards() }
+            .task { await refreshDeviceNames() }
             .onDisappear {
                 search.cancelMeaningSearch()
                 cancelPendingPaste()
@@ -351,7 +355,11 @@ struct PanelView: View {
                 if !enabled { search.meaningEnabled = false }
                 Task { await search.refresh() }
             }
+            .onChange(of: search.mode) { _, _ in Task { await search.refresh() } }
+            .onChange(of: search.deviceName) { _, _ in Task { await search.refresh() } }
+            .onChange(of: search.createdBefore) { _, _ in Task { await search.refresh() } }
             .onChange(of: search.query) { _, newValue in
+                if newValue.last?.isWhitespace == true { search.commitTokens(with: tokenParser) }
                 // A new query invalidates a previous answer and drops rail focus
                 // (you're typing in the search field again).
                 askTask?.cancel()
@@ -587,116 +595,141 @@ struct PanelView: View {
     private var listColumn: some View {
         @Bindable var search = search
         return VStack(spacing: 0) {
-            SearchField("Search your clipboard", text: $search.query, style: .bare)
-                .focused($focus, equals: .search)
-                .onKeyPress(.downArrow, phases: [.down, .repeat]) { press in
-                    if railFocus == nil, press.modifiers.contains(.shift),
-                        !press.modifiers.contains(.command)
-                    {
-                        return extendSelection(by: 1)
-                    }
-                    return press.modifiers.contains(.command)
-                        ? recallSearch(.newer) : handleNav(.down)
+            SearchField("Search your clipboard", text: $search.query, style: .bare) {
+                SearchTokenChips(search: search)
+            } trailing: {
+                SearchModeControl(
+                    search: search,
+                    showsMeaning: model.intelligence.semanticSearch
+                        && !model.preferences.isPrivateModePaused)
+            }
+            .focused($focus, equals: .search)
+            .onKeyPress(.tab, phases: .down) { _ in
+                search.complete(with: tokenParser) ? .handled : .ignored
+            }
+            .onKeyPress(.downArrow, phases: [.down, .repeat]) { press in
+                if railFocus == nil, press.modifiers.contains(.shift),
+                    !press.modifiers.contains(.command)
+                {
+                    return extendSelection(by: 1)
                 }
-                .onKeyPress(.upArrow, phases: [.down, .repeat]) { press in
-                    // Plain ↑↓ navigate the list (and must keep key-repeat);
-                    // ⌘↑/⌘↓ cycle recent searches, shell-style.
-                    if railFocus == nil, press.modifiers.contains(.shift),
-                        !press.modifiers.contains(.command)
-                    {
-                        return extendSelection(by: -1)
-                    }
-                    return press.modifiers.contains(.command)
-                        ? recallSearch(.older) : handleNav(.up)
+                return press.modifiers.contains(.command)
+                    ? recallSearch(.newer) : handleNav(.down)
+            }
+            .onKeyPress(.upArrow, phases: [.down, .repeat]) { press in
+                // Plain ↑↓ navigate the list (and must keep key-repeat);
+                // ⌘↑/⌘↓ cycle recent searches, shell-style.
+                if railFocus == nil, press.modifiers.contains(.shift),
+                    !press.modifiers.contains(.command)
+                {
+                    return extendSelection(by: -1)
                 }
-                .onKeyPress(.leftArrow) { handleNav(.left) }
-                .onKeyPress(.rightArrow) { handleNav(.right) }
-                .onKeyPress(.space, phases: .down) { _ in
-                    // In a rail, Space toggles the focused chip (and won't type a
-                    // space); in the list it falls through to the search field.
-                    guard railFocus != nil else { return .ignored }
-                    return handleNav(.toggle)
-                }
-                .onKeyPress(.return, phases: .down) { press in
-                    if showShortcuts { return .handled }
-                    // In a rail, Enter toggles the focused chip. ⌥⌘Return enqueues
-                    // the selection onto the paste stack. Otherwise an exact
-                    // keyword match takes Enter (you typed the snippet shortcut on
-                    // purpose); else Enter pastes the selection (⌥Return = plain).
-                    if railFocus != nil { return handleNav(.toggle) }
-                    // ⌥⌘Return with a selection queues it (never from stale rows);
-                    // with none it falls through to the snippet/plain paste below.
-                    if press.modifiers.contains(.command), press.modifiers.contains(.option),
-                        !search.selectedItems.isEmpty
-                    {
-                        if search.hasCurrentResults { model.pushToStack(search.selectedItems) }
-                        return .handled
-                    }
-                    pasteSelected(
-                        plain: press.modifiers.contains(.option), includingSnippet: true)
+                return press.modifiers.contains(.command)
+                    ? recallSearch(.older) : handleNav(.up)
+            }
+            .onKeyPress(.leftArrow) { handleNav(.left) }
+            .onKeyPress(.rightArrow) { handleNav(.right) }
+            .onKeyPress(.space, phases: .down) { _ in
+                // In a rail, Space toggles the focused chip (and won't type a
+                // space); in the list it falls through to the search field.
+                guard railFocus != nil else { return .ignored }
+                return handleNav(.toggle)
+            }
+            .onKeyPress(.return, phases: .down) { press in
+                if showShortcuts { return .handled }
+                // In a rail, Enter toggles the focused chip. ⌥⌘Return enqueues
+                // the selection onto the paste stack. Otherwise an exact
+                // keyword match takes Enter (you typed the snippet shortcut on
+                // purpose); else Enter pastes the selection (⌥Return = plain).
+                if railFocus != nil { return handleNav(.toggle) }
+                // ⌥⌘Return with a selection queues it (never from stale rows);
+                // with none it falls through to the snippet/plain paste below.
+                if press.modifiers.contains(.command), press.modifiers.contains(.option),
+                    !search.selectedItems.isEmpty
+                {
+                    if search.hasCurrentResults { model.pushToStack(search.selectedItems) }
                     return .handled
                 }
-                .onKeyPress(.escape) {
-                    // The cheat-sheet intercepts esc first; otherwise esc hides
-                    // the panel.
-                    if showShortcuts {
-                        showShortcuts = false
-                        return .handled
-                    }
-                    model.panel.hide()
+                pasteSelected(
+                    plain: press.modifiers.contains(.option), includingSnippet: true)
+                return .handled
+            }
+            .onKeyPress(.escape) {
+                // The cheat-sheet intercepts esc first; otherwise esc hides
+                // the panel.
+                if showShortcuts {
+                    showShortcuts = false
                     return .handled
                 }
-                .onKeyPress(characters: CharacterSet(charactersIn: "/"), phases: .down) { press in
-                    // ⌘/ — the universal "show me the shortcuts" gesture.
-                    guard press.modifiers.contains(.command) else { return .ignored }
-                    toggleKeyboardShortcuts()
+                model.panel.hide()
+                return .handled
+            }
+            .onKeyPress(characters: CharacterSet(charactersIn: "/"), phases: .down) { press in
+                // ⌘/ — the universal "show me the shortcuts" gesture.
+                guard press.modifiers.contains(.command) else { return .ignored }
+                toggleKeyboardShortcuts()
+                return .handled
+            }
+            .onKeyPress(characters: CharacterSet(charactersIn: "a"), phases: .down) { press in
+                // ⌘A select-all: a menu-bar agent has no Edit menu to bind it,
+                // so route selectAll: down the responder chain to the field.
+                guard press.modifiers.contains(.command) else { return .ignored }
+                NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+                return .handled
+            }
+            .onKeyPress(characters: .decimalDigits, phases: .down) { press in
+                guard !showShortcuts, press.modifiers.contains(.command),
+                    let digit = Int(press.characters), (1...9).contains(digit),
+                    search.hasCurrentResults, search.filtered.indices.contains(digit - 1)
+                else { return .ignored }
+                model.paste(search.filtered[digit - 1])
+                return .handled
+            }
+            .onKeyPress(characters: CharacterSet(charactersIn: "p"), phases: .down) { press in
+                guard !showShortcuts, press.modifiers.contains(.command),
+                    let item = search.selectedItem
+                else { return .ignored }
+                search.endNewestFollow()
+                model.togglePin(item)
+                return .handled
+            }
+            .onKeyPress(characters: CharacterSet(charactersIn: "sS"), phases: .down) { press in
+                guard !showShortcuts, press.modifiers.contains(.command) else {
+                    return .ignored
+                }
+                // ⇧⌘S saves the field's mode and filters; ⌘S keeps making a snippet.
+                if press.modifiers.contains(.shift) {
+                    guard model.fullStore != nil else { return .ignored }
+                    presentedSheet = .savedFilter(search.savedRule(named: ""))
                     return .handled
                 }
-                .onKeyPress(characters: CharacterSet(charactersIn: "a"), phases: .down) { press in
-                    // ⌘A select-all: a menu-bar agent has no Edit menu to bind it,
-                    // so route selectAll: down the responder chain to the field.
-                    guard press.modifiers.contains(.command) else { return .ignored }
-                    NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
-                    return .handled
+                guard let item = search.selectedItem else { return .ignored }
+                search.endNewestFollow()
+                model.promoteToSnippet(item)
+                return .handled
+            }
+            .onKeyPress(characters: CharacterSet(charactersIn: "bB"), phases: .down) { press in
+                // ⌘B opens the board picker for the selection; ⇧⌘B repeats
+                // the last board (curate many clips into one board fast).
+                guard !showShortcuts, press.modifiers.contains(.command),
+                    !search.selectedItems.isEmpty
+                else { return .ignored }
+                search.endNewestFollow()
+                if press.modifiers.contains(.shift) {
+                    model.assignToLastBoard(search.selectedItems)
+                } else {
+                    presentBoardPicker()
                 }
-                .onKeyPress(characters: .decimalDigits, phases: .down) { press in
-                    guard !showShortcuts, press.modifiers.contains(.command),
-                        let digit = Int(press.characters), (1...9).contains(digit),
-                        search.hasCurrentResults, search.filtered.indices.contains(digit - 1)
-                    else { return .ignored }
-                    model.paste(search.filtered[digit - 1])
-                    return .handled
+                return .handled
+            }
+            .overlay(alignment: .topLeading) {
+                if focus == .search, !tokenCompletions.isEmpty {
+                    SearchTokenPopover(completions: tokenCompletions, hint: tokenHint)
+                        .padding(.leading, GanchoTokens.Spacing.sm)
+                        .offset(y: 44)
                 }
-                .onKeyPress(characters: CharacterSet(charactersIn: "p"), phases: .down) { press in
-                    guard !showShortcuts, press.modifiers.contains(.command),
-                        let item = search.selectedItem
-                    else { return .ignored }
-                    search.endNewestFollow()
-                    model.togglePin(item)
-                    return .handled
-                }
-                .onKeyPress(characters: CharacterSet(charactersIn: "s"), phases: .down) { press in
-                    guard !showShortcuts, press.modifiers.contains(.command),
-                        let item = search.selectedItem
-                    else { return .ignored }
-                    search.endNewestFollow()
-                    model.promoteToSnippet(item)
-                    return .handled
-                }
-                .onKeyPress(characters: CharacterSet(charactersIn: "bB"), phases: .down) { press in
-                    // ⌘B opens the board picker for the selection; ⇧⌘B repeats
-                    // the last board (curate many clips into one board fast).
-                    guard !showShortcuts, press.modifiers.contains(.command),
-                        !search.selectedItems.isEmpty
-                    else { return .ignored }
-                    search.endNewestFollow()
-                    if press.modifiers.contains(.shift) {
-                        model.assignToLastBoard(search.selectedItems)
-                    } else {
-                        presentBoardPicker()
-                    }
-                    return .handled
-                }
+            }
+            .zIndex(1)
 
             Divider()
             panelToolbar
@@ -719,7 +752,9 @@ struct PanelView: View {
                     askRow
                 }
 
-                if model.intelligence.semanticSearch, !model.preferences.isPrivateModePaused {
+                if search.searchMode == .meaning, model.intelligence.semanticSearch,
+                    !model.preferences.isPrivateModePaused
+                {
                     MeaningSearchControls(search: search)
                 }
 
@@ -730,7 +765,7 @@ struct PanelView: View {
                     isGroupedView: search.isGroupedView,
                     groups: search.groups,
                     items: search.filtered,
-                    relatedIDs: search.meaning.relatedIDs,
+                    searchMode: search.searchMode,
                     isPrivateMode: model.preferences.isPrivateModePaused,
                     selectedID: search.selectedItem?.id,
                     layout: layout,
@@ -1324,6 +1359,47 @@ struct PanelView: View {
             }
             .transition(.opacity)
         }
+    }
+
+    // MARK: - Filter tokens
+
+    private var tokenParser: SearchTokenParser {
+        let apps = search.sourceApps.map {
+            SearchTokenCandidate(
+                title: SourceApp.displayName(forBundleID: $0.bundleID), value: $0.bundleID)
+        }
+        let boards = model.boards.filter { !$0.isSystem }.map {
+            SearchTokenCandidate(title: $0.name, value: $0.id.uuidString)
+        }
+        let devices = deviceNames.map { SearchTokenCandidate(title: $0, value: $0) }
+        return SearchTokenParser(candidates: { key in
+            switch key {
+            case .app: apps
+            case .board: boards
+            case .device: devices
+            case .type, .before: []
+            }
+        })
+    }
+
+    private var tokenCompletions: [SearchTokenCompletion] {
+        tokenParser.completions(for: search.query)
+    }
+
+    /// The choices a key offers, shown next to it in the popover.
+    private func tokenHint(_ key: SearchTokenKey) -> String {
+        switch key {
+        case .before: String(localized: "today · 7d · a date")
+        case .type: SearchTokenParser.typeCandidates.map(\.title).joined(separator: " · ")
+        default:
+            tokenParser.completions(for: key.spelling).prefix(3).compactMap {
+                if case .value(_, let candidate) = $0 { candidate.title } else { nil }
+            }.joined(separator: " · ")
+        }
+    }
+
+    private func refreshDeviceNames() async {
+        deviceNames = (try? await model.fullStore?.deviceNames(limit: 8)) ?? []
     }
 
     // MARK: - Capture notice

@@ -49,7 +49,12 @@ import Testing
     func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
         Array(sourceApps.prefix(limit))
     }
-    func snippet(matchingKeyword keyword: String) async -> ClipItem? { snippets[keyword] }
+    /// Runs inside the snippet lookup, the one await Meaning still makes.
+    var onSnippet: (() -> Void)?
+    func snippet(matchingKeyword keyword: String) async -> ClipItem? {
+        onSnippet?()
+        return snippets[keyword]
+    }
     /// How many times the model asked. The visible list is read once per row
     /// by the macOS row builder, so a per-read filter shows up here as a
     /// multiple of the row count.
@@ -91,26 +96,34 @@ struct PanelSearchModelTests {
         #expect(source.deletionPendingCalls == 0)
     }
 
-    @Test func relatedArrivalPreservesConventionalOrderAndSelectedUUID() async {
+    @Test func meaningListsOnlyTheRelatedClips() async {
         let source = FakeSource()
         source.searchResults = items(2)
         let related = ClipItem(preview: "Related synthetic clip")
         source.related = [source.searchResults[0], related]
         let model = PanelSearchModel(source: source)
         model.query = "synthetic"
-        model.meaningEnabled = true
+        model.searchMode = .meaning
         await model.refresh()
-        let literalIDs = model.results.map(\.id)
-        let selectedID = model.selectedItem?.id
+        #expect(source.lastSearchQuery == nil, "Meaning runs no conventional search")
         for _ in 0..<10_000 {
             if model.meaning.status == .ready { break }
             await Task.yield()
         }
         #expect(model.meaning.status == .ready)
-        #expect(Array(model.results.prefix(literalIDs.count)).map(\.id) == literalIDs)
-        #expect(model.meaning.relatedIDs == [related.id])
-        #expect(model.selectedItem?.id == selectedID)
-        #expect(model.results.count == literalIDs.count + 1)
+        #expect(model.results.map(\.id) == [source.searchResults[0].id, related.id])
+        #expect(source.lastRelatedQuery?.mode == .fuzzy)
+    }
+
+    @Test func modesMapOntoTheStoreModeAndMeaning() {
+        let model = PanelSearchModel(source: FakeSource())
+        #expect(model.searchMode == .fuzzy)
+        model.searchMode = .regex
+        #expect(model.mode == .regex && !model.meaningEnabled)
+        model.searchMode = .meaning
+        #expect(model.meaningEnabled && model.mode == .fuzzy, "a regex has no meaning to embed")
+        model.searchMode = .exact
+        #expect(model.mode == .exact && !model.meaningEnabled)
     }
 
     @Test func relatedArrivalDoesNotInventASelectionWhenLiteralResultsAreEmpty() async {
@@ -541,11 +554,11 @@ extension PanelSearchModelTests {
         model.query = "synthetic"
         model.results = [literal]
         model.meaningEnabled = true
-        source.onSearch = {
+        source.onSnippet = {
             if navigate { model.select(0) } else { model.cancelMeaningSearch() }
         }
         await model.refresh()
-        #expect(model.results.map(\.id) == [literal.id])
+        #expect(model.results.isEmpty, "Meaning shows no conventional rows")
         #expect(model.meaning.status == .idle)
         await Task.yield()
         #expect(source.lastRelatedQuery == nil)

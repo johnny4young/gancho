@@ -52,6 +52,15 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public var pinnedOnly = false {
         didSet { if oldValue != pinnedOnly { invalidateRequests() } }
     }
+    /// The `device:` token: clips copied on this device only.
+    public var deviceName: String? {
+        didSet { if oldValue != deviceName { invalidateRequests() } }
+    }
+    /// The `before:` token: clips created before this instant only.
+    public var createdBefore: Date? {
+        didSet { if oldValue != createdBefore { invalidateRequests() } }
+    }
+
     private var meaningIntent = UUID()
     private func invalidateMeaningIntent() {
         cancelPendingPaste()
@@ -80,12 +89,17 @@ public struct PanelDateGroup: Identifiable, Sendable {
         let pinnedOnly: Bool
         let boardID: UUID?
         let sourceApp: String?
+        let deviceName: String?
+        let createdBefore: Date?
+        let meaningOnly: Bool
     }
 
     private var context: Context {
         Context(
             query: query, mode: mode, kind: kindFilter, pinnedOnly: pinnedOnly,
-            boardID: selectedBoardID, sourceApp: selectedSourceAppBundleID)
+            boardID: selectedBoardID, sourceApp: selectedSourceAppBundleID,
+            deviceName: deviceName, createdBefore: createdBefore,
+            meaningOnly: meaningEnabled && !query.isEmpty)
     }
 
     private func invalidateRequests() {
@@ -296,13 +310,16 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// "Clear filters" affordance.
     public var hasActiveFilter: Bool {
         kindFilter != .all || selectedBoardID != nil || selectedSourceAppBundleID != nil
-            || pinnedOnly
+            || pinnedOnly || hasTokenOnlyFilter
     }
+
+    /// Filters only tokens set; they bypass the grouped, paginated browse.
+    private var hasTokenOnlyFilter: Bool { deviceName != nil || createdBefore != nil }
 
     /// The recent list is showing — the only date-grouped view. Boards
     /// paginate too but render flat; a query is a bounded ranked set.
     public var isGroupedView: Bool {
-        kindFilter == .all && !pinnedOnly
+        kindFilter == .all && !pinnedOnly && !hasTokenOnlyFilter
             && ClipListShape.isGrouped(
                 query: query, boardID: selectedBoardID,
                 sourceAppBundleID: selectedSourceAppBundleID)
@@ -311,7 +328,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// The list appends pages on scroll: the recent browse or a board view.
     /// A query or source-app filter is a bounded top-N set and never appends.
     private var isPaginatedView: Bool {
-        kindFilter == .all && !pinnedOnly
+        kindFilter == .all && !pinnedOnly && !hasTokenOnlyFilter
             && ClipListShape.isPaginated(query: query, sourceAppBundleID: selectedSourceAppBundleID)
     }
 
@@ -371,7 +388,10 @@ public struct PanelDateGroup: Identifiable, Sendable {
         let requestedContext = context
         defer { if refreshID == request { isRefreshing = false } }
         let page: ClipListPage
-        if kindFilter != .all || pinnedOnly || mode != .fuzzy {
+        if requestedContext.meaningOnly {
+            // Meaning is its own mode: the related clips arrive from `startMeaning`.
+            page = ClipListPage(items: [], reachedEnd: true)
+        } else if kindFilter != .all || pinnedOnly || mode != .fuzzy || hasTokenOnlyFilter {
             let rule = savedRule(named: "")
             if source.isDurable {
                 let items = await source.search(rule.query, limit: query.isEmpty ? 500 : 100)
@@ -473,7 +493,8 @@ public struct PanelDateGroup: Identifiable, Sendable {
             kinds: kindFilter == .all
                 ? nil : Set(ClipContentKind.allCases.filter(kindFilter.matches)),
             sourceAppBundleID: selectedSourceAppBundleID, textContains: query,
-            pinnedOnly: pinnedOnly, boardID: selectedBoardID, searchMode: mode)
+            pinnedOnly: pinnedOnly, boardID: selectedBoardID, searchMode: mode,
+            deviceName: deviceName, createdBefore: createdBefore)
     }
 
     /// Append the next page when the displayed cursor/scroll nears the end. Safe

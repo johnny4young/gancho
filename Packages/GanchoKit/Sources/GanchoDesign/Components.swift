@@ -555,7 +555,7 @@ public struct ActionButton: View {
 
 /// Search field with the panel's type-to-search contract: focused state is
 /// owned by the caller; every keystroke updates the binding immediately.
-public struct SearchField: View {
+public struct SearchField<Leading: View, Trailing: View>: View {
     /// `.card` sits on its own glass surface (a standalone control); `.bare`
     /// is the panel header — larger type, no surface of its own, because a
     /// glass control inside a glass panel reads as nested material.
@@ -566,11 +566,20 @@ public struct SearchField: View {
     let promptKey: LocalizedStringKey
     let style: Style
     @Binding var text: String
+    /// Sits between the magnifier and the text: filter chips.
+    let leading: Leading
+    /// Sits after the clear button: a mode control.
+    let trailing: Trailing
 
-    public init(_ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card) {
+    public init(
+        _ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card,
+        @ViewBuilder leading: () -> Leading, @ViewBuilder trailing: () -> Trailing
+    ) {
         self.promptKey = promptKey
         self._text = text
         self.style = style
+        self.leading = leading()
+        self.trailing = trailing()
     }
 
     public var body: some View {
@@ -593,6 +602,7 @@ public struct SearchField: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 16, alignment: .center)
                 .accessibilityHidden(true)
+            leading
             TextField(promptKey, text: $text)
                 .textFieldStyle(.plain)
                 .autocorrectionDisabled()
@@ -614,6 +624,15 @@ public struct SearchField: View {
                 }
                 .foregroundStyle(.secondary)
             }
+            trailing
         }
+    }
+}
+
+extension SearchField where Leading == EmptyView, Trailing == EmptyView {
+    public init(_ promptKey: LocalizedStringKey, text: Binding<String>, style: Style = .card) {
+        self.init(
+            promptKey, text: text, style: style, leading: { EmptyView() },
+            trailing: { EmptyView() })
     }
 }

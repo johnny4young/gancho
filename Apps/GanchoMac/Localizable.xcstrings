@@ -10718,6 +10718,86 @@
           }
         }
       }
+    },
+    "Exact": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exacta"
+          }
+        }
+      }
+    },
+    "Fuzzy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aproximada"
+          }
+        }
+      }
+    },
+    "Regex": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regex"
+          }
+        }
+      }
+    },
+    "Meaning": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Significado"
+          }
+        }
+      }
+    },
+    "Remove filter": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar filtro"
+          }
+        }
+      }
+    },
+    "Add a filter · Tab": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir un filtro · Tab"
+          }
+        }
+      }
+    },
+    "today · 7d · a date": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hoy · 7d · una fecha"
+          }
+        }
+      }
+    },
+    "Type a search to find clips by meaning.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe una búsqueda para encontrar clips por significado."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

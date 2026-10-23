@@ -10,7 +10,8 @@ extension GRDBClipboardStore {
     func filterOnlySearch(_ query: ClipSearchQuery, limit: Int) async throws -> [ClipItem] {
         let hasFilter =
             query.kinds?.isEmpty == false || query.sourceAppBundleID != nil
-            || query.dateRange != nil || query.boardID != nil
+            || query.dateRange != nil || query.createdBefore != nil || query.deviceName != nil
+            || query.boardID != nil
             || query.pinnedOnly || query.markedOnly || query.includedIDs != nil
             || query.excludesSensitive
         guard hasFilter else { return [] }
@@ -24,6 +25,25 @@ extension GRDBClipboardStore {
             return try ClipRow.fetchAll(
                 db, sql: sql, arguments: StatementArguments(arguments)
             ).map(\.item)
+        }
+    }
+
+    /// Device names on visible clips, most recent first: the `device:` token's
+    /// choices. Names only, never content.
+    public func deviceNames(limit: Int = 8) async throws -> [String] {
+        guard limit > 0 else { return [] }
+        return try await writer.read { db in
+            try String.fetchAll(
+                db,
+                sql: """
+                    SELECT sourceDeviceName FROM clip
+                    WHERE isArchived = 0 AND sourceDeviceName IS NOT NULL
+                      AND TRIM(sourceDeviceName) <> ''
+                    GROUP BY sourceDeviceName
+                    ORDER BY MAX(createdAt) DESC, sourceDeviceName ASC
+                    LIMIT ?
+                    """,
+                arguments: [limit])
         }
     }
 
