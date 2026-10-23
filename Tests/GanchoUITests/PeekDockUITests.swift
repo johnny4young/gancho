@@ -156,7 +156,10 @@ final class PeekDockUITests: XCTestCase {
         let url = app.staticTexts["peek-link-url"].firstMatch
         XCTAssertTrue(url.waitForExistence(timeout: 5))
         GanchoUITestCommands.post("togglePrivateMode", token: nonce)
-        XCTAssertTrue(app.staticTexts["peek-masked"].firstMatch.waitForExistence(timeout: 5))
+        let hero = app.descendants(matching: .any)["peek-private-mode"].firstMatch
+        XCTAssertTrue(hero.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.staticTexts["Pasting still works; only new copies are skipped."].firstMatch.exists)
         XCTAssertFalse(url.exists)
         let title = app.staticTexts["preview-title"].firstMatch
         XCTAssertFalse(title.label.contains("Synthetic link"))

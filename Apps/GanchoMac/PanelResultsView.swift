@@ -19,7 +19,14 @@ struct PanelResultsView<RowContent: View>: View {
     let isGroupedView: Bool
     let groups: [PanelDateGroup]
     let items: [ClipItem]
-    var relatedIDs: Set<UUID> = []
+    var searchMode: PanelSearchMode = .fuzzy
+    /// The other modes and scopes, counted, when nothing matches.
+    var alternatives: [PanelAlternativeResult] = []
+    /// The selected board's name, for the no-results line.
+    var scopeName: String?
+    var applyAlternative: (PanelSearchAlternative) -> Void = { _ in }
+    /// Private Mode lists everything under one "Before private mode" header.
+    var isPrivateMode = false
     let selectedID: UUID?
     /// List rows, or a grid of cards `columns` wide; the grid reports the
     /// column count it fits so keyboard moves match what is on screen.
@@ -42,19 +49,23 @@ struct PanelResultsView<RowContent: View>: View {
                 query: query,
                 hasActiveFilter: hasActiveFilter,
                 firstRunHint: firstRunHint,
+                searchMode: searchMode,
+                scopeName: scopeName,
+                alternatives: alternatives,
+                applyAlternative: applyAlternative,
                 clearFilters: clearFilters,
                 importHistory: importHistory)
         } else {
-            if !isGroupedView || layout == .gallery { recentHeader }
+            if !showsSections || layout == .gallery { recentHeader }
             ScrollViewReader { proxy in
                 ScrollView {
                     switch layout {
                     case .list:
                         LazyVStack(
                             spacing: GanchoTokens.Spacing.xxs,
-                            pinnedViews: isGroupedView ? [.sectionHeaders] : []
+                            pinnedViews: showsSections ? [.sectionHeaders] : []
                         ) {
-                            if isGroupedView {
+                            if showsSections {
                                 groupedRows
                             } else {
                                 flatRows
@@ -96,17 +107,26 @@ struct PanelResultsView<RowContent: View>: View {
         }
     }
 
+    private var showsSections: Bool { isGroupedView && !isPrivateMode }
+
     private var recentHeader: some View {
         HStack {
             if !query.isEmpty {
-                Text("Results")
+                // The status the field's mode control sets: "Results · Exact".
+                HStack(spacing: 0) {
+                    Text("Results")
+                    Text(verbatim: " · ")
+                    Text(searchMode.title)
+                }
+            } else if isPrivateMode {
+                Text("Before private mode")
             } else if hasActiveFilter {
                 Text("Filtered")
             } else {
                 Text("Recent")
             }
             Spacer()
-            clipCount(items.count { !relatedIDs.contains($0.id) })
+            clipCount(items.count)
         }
         .panelFont(.caption2, .semibold)
         .foregroundStyle(.tertiary)
@@ -126,19 +146,8 @@ struct PanelResultsView<RowContent: View>: View {
         }
     }
 
-    @ViewBuilder private var flatRows: some View {
-        ForEach(items.filter { !relatedIDs.contains($0.id) }) { item in row(item) }
-        if !relatedIDs.isEmpty {
-            Section {
-                ForEach(items.filter { relatedIDs.contains($0.id) }) { item in row(item) }
-            } header: {
-                Text("Related by meaning")
-                    .panelFont(.caption, .semibold)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("meaning-related-heading")
-            }
-        }
+    private var flatRows: some View {
+        ForEach(items) { item in row(item) }
     }
 
     /// A sticky section header — "Pinned" (with a pin glyph) or a semantic date
@@ -197,6 +206,10 @@ private struct PanelResultsEmptyState: View {
     let query: String
     let hasActiveFilter: Bool
     let firstRunHint: LocalizedStringKey
+    let searchMode: PanelSearchMode
+    let scopeName: String?
+    let alternatives: [PanelAlternativeResult]
+    let applyAlternative: (PanelSearchAlternative) -> Void
     let clearFilters: () -> Void
     let importHistory: () -> Void
 
@@ -276,6 +289,9 @@ private struct PanelResultsEmptyState: View {
                 .panelFont(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+            if !alternatives.isEmpty {
+                PanelAlternativeList(results: alternatives, apply: applyAlternative)
+            }
             if hasActiveFilter {
                 // esc hides the panel, so a "press esc" hint would be wrong; a
                 // real button clears the type/board/source filter narrowing
@@ -284,7 +300,7 @@ private struct PanelResultsEmptyState: View {
                     .ganchoTextButton()
                     .padding(.top, GanchoTokens.Spacing.xxs)
                     .accessibilityIdentifier("clear-filters")
-            } else {
+            } else if PanelAlternativeResult.best(of: alternatives) == nil {
                 Text("Try another word.")
                     .panelFont(.caption)
                     .foregroundStyle(.tertiary)
@@ -296,6 +312,10 @@ private struct PanelResultsEmptyState: View {
     /// A filter alone can empty the list, and quoting an empty query back at
     /// the user ("No clips for “”.") would read as a bug.
     private var detail: LocalizedStringKey {
-        query.isEmpty ? "No clips match this filter." : "No clips for “\(query)”."
+        if query.isEmpty { return "No clips match this filter." }
+        if let scopeName {
+            return "No clips for “\(query)” in \(scopeName), \(searchMode.matchPhrase)."
+        }
+        return "No clips for “\(query)”, \(searchMode.matchPhrase)."
     }
 }

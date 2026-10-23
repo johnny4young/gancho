@@ -61,7 +61,7 @@ struct PanelPasteFreshnessRegressionTests {
         #expect(model.snippetMatch?.id == source.snippet.id)
     }
 
-    @Test func meaningToggleRefreshPreservesTheConventionalCursor() async {
+    @Test func switchingToMeaningDropsTheConventionalRowsBeforeEnter() async {
         let source = PasteFreshnessSource()
         let selected = ClipItem(preview: "Synthetic selected result")
         source.additionalResults = [selected]
@@ -70,12 +70,11 @@ struct PanelPasteFreshnessRegressionTests {
         await model.refresh()
         model.select(1)
 
-        model.meaningEnabled = true
+        model.searchMode = .meaning
         let target = await model.resolvePasteTarget(includingSnippet: true)
 
         #expect(target?.item.id == source.snippet.id)
-        #expect(model.selectedItem?.id == selected.id)
-        #expect(model.selectedIndex == 1)
+        #expect(!model.results.contains { $0.id == selected.id })
     }
 
     @Test func disablingMeaningDropsRelatedRowsBeforeEnter() async {

@@ -14,11 +14,16 @@ public struct SmartCollectionRule: Sendable, Equatable, Codable, Identifiable {
     public var pinnedOnly: Bool
     public var boardID: UUID?
     public var searchMode: ClipSearchQuery.Mode?
+    /// Set by the panel's `device:` token.
+    public var deviceName: String?
+    /// Set by the panel's `before:` token.
+    public var createdBefore: Date?
 
     public init(
         id: UUID = UUID(), name: String, kinds: Set<ClipContentKind>? = nil,
         sourceAppBundleID: String? = nil, textContains: String? = nil, pinnedOnly: Bool = false,
-        boardID: UUID? = nil, searchMode: ClipSearchQuery.Mode? = nil
+        boardID: UUID? = nil, searchMode: ClipSearchQuery.Mode? = nil, deviceName: String? = nil,
+        createdBefore: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -28,12 +33,15 @@ public struct SmartCollectionRule: Sendable, Equatable, Codable, Identifiable {
         self.pinnedOnly = pinnedOnly
         self.boardID = boardID
         self.searchMode = searchMode
+        self.deviceName = deviceName
+        self.createdBefore = createdBefore
     }
 
     public var query: ClipSearchQuery {
         ClipSearchQuery(
             text: textContains ?? "", mode: searchMode ?? .fuzzy, kinds: kinds,
-            sourceAppBundleID: sourceAppBundleID, boardID: boardID, pinnedOnly: pinnedOnly)
+            sourceAppBundleID: sourceAppBundleID, createdBefore: createdBefore,
+            deviceName: deviceName, boardID: boardID, pinnedOnly: pinnedOnly)
     }
 
     private static func words(in text: String) -> [String] {
@@ -51,6 +59,8 @@ public struct SmartCollectionRule: Sendable, Equatable, Codable, Identifiable {
         if let kinds, !kinds.contains(item.kind) { return false }
         if let sourceAppBundleID, item.sourceAppBundleID != sourceAppBundleID { return false }
         if pinnedOnly, !item.isPinned { return false }
+        if let deviceName, item.sourceDeviceName != deviceName { return false }
+        if let createdBefore, item.createdAt >= createdBefore { return false }
         let text = (textContains ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return true }
         let preview = item.preview

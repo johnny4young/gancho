@@ -9,16 +9,27 @@ import SwiftUI
 /// navigation and action owner.
 struct PanelStatusFooter: View {
     let syncStatus: SyncStatus
-    let capture: PanelCapturePresentation
+    let chip: PanelCaptureChip
+    /// The recorded Private Mode shortcut; with none there is no "off" hint.
+    let privateModeShortcut: String?
+    /// "↓ use fuzzy" while a query matches nothing and an alternative does.
+    var alternativeHint: LocalizedStringKey?
     let showKeyboardShortcuts: () -> Void
     @Environment(\.panelTypeScale) private var typeScale
 
     var body: some View {
         HStack(spacing: GanchoTokens.Spacing.md) {
+            PanelCaptureChipView(chip: chip)
             SyncStatusView(status: syncStatus)
-            captureIndicator
             PasteStackStrip()
             Spacer(minLength: 0)
+            if let alternativeHint {
+                keyboardHint(alternativeHint, keys: ["arrow.down"])
+            }
+            if case .privateMode = chip, let privateModeShortcut {
+                keyboardHint(
+                    "off", textKeys: PanelFirstRunStage.keycaps(for: privateModeShortcut))
+            }
             keyboardHint("navigate", keys: ["arrow.up", "arrow.down"])
             keyboardHint("actions", keys: ["arrow.right"])
             keyboardHint("paste", keys: ["return"])
@@ -34,18 +45,18 @@ struct PanelStatusFooter: View {
         .padding(.horizontal, GanchoTokens.Spacing.xxs)
     }
 
-    private var captureIndicator: some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(capture.isCapturing ? GanchoTokens.Palette.success : Color.secondary)
-                .frame(width: 6, height: 6)
-            Text(capture.isCapturing ? "Capturing" : "Paused")
+    private func keyboardHint(_ label: LocalizedStringKey, textKeys: [String]) -> some View {
+        HStack(spacing: GanchoTokens.Spacing.xxs) {
+            ForEach(Array(textKeys.enumerated()), id: \.offset) { _, key in
+                Text(verbatim: key)
+                    .panelFont(size: 9, .bold)
+                    .frame(minWidth: 17 * typeScale, minHeight: 16 * typeScale)
+                    .background(
+                        .quaternary,
+                        in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            }
+            Text(label)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            capture.isCapturing ? Text("Capturing") : Text("Capture paused")
-        )
-        .accessibilityIdentifier("capture-indicator")
     }
 
     private func keyboardHint(_ label: LocalizedStringKey, keys: [String]) -> some View {
@@ -63,21 +74,95 @@ struct PanelStatusFooter: View {
     }
 }
 
+/// The footer's capture state: a colour, its cause and, while a Private Mode
+/// countdown runs, the minutes left.
+struct PanelCaptureChipView: View {
+    let chip: PanelCaptureChip
+    @Environment(\.panelTypeScale) private var typeScale
+
+    var body: some View {
+        if case .privateMode(.some) = chip {
+            // Mounted only while a countdown runs.
+            TimelineView(.periodic(from: .now, by: 15)) { context in
+                pill(now: context.date)
+            }
+        } else {
+            pill(now: .now)
+        }
+    }
+
+    private func pill(now: Date) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(tint).frame(width: 7 * typeScale, height: 7 * typeScale)
+            Text(title(now: now)).panelFont(.caption2, .bold).lineLimit(1)
+        }
+        .padding(.horizontal, GanchoTokens.Spacing.xs)
+        .frame(height: 20 * typeScale)
+        .ganchoTintedPill(tint, wash: wash)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(spokenTitle(now: now)))
+        .accessibilityIdentifier("capture-indicator")
+    }
+
+    private func title(now: Date) -> LocalizedStringKey {
+        switch chip {
+        case .capturing(let app?): "Capturing · \(app) in front"
+        case .capturing: "Capturing"
+        case .privateMode(let end?):
+            "Private mode · \(PanelCaptureChip.minutesLeft(until: end, now: now)) min left"
+        case .privateMode: "Private mode"
+        case .paused(.screenShare): "Paused · screen sharing"
+        case .paused(.screenLock): "Paused · screen locked"
+        case .paused(.user): "Paused"
+        case .denied: "Access denied"
+        }
+    }
+
+    /// A bare "Paused" reads ambiguously out of context.
+    private func spokenTitle(now: Date) -> LocalizedStringKey {
+        chip == .paused(.user) ? "Capture paused" : title(now: now)
+    }
+
+    private var tint: Color {
+        switch chip {
+        case .capturing: GanchoTokens.Palette.success
+        case .privateMode: GanchoTokens.Palette.indigo
+        case .paused: GanchoTokens.Palette.warning
+        case .denied: GanchoTokens.Palette.danger
+        }
+    }
+
+    private var wash: Double {
+        if case .privateMode = chip { 0.14 } else { 0.16 }
+    }
+}
+
 /// Renders the one policy-selected reason capture is interrupted.
 struct PanelCaptureNoticeView: View {
     let notice: PanelCaptureNotice
+    /// Private Mode's start, deadline and skipped count.
+    let preferences: CapturePreferences
+    let privateModeShortcut: String?
     let perform: (PanelCaptureAction) -> Void
 
     var body: some View {
         let tint = self.tint
         HStack(spacing: GanchoTokens.Spacing.xs) {
             Image(systemName: symbol).foregroundStyle(ReadableInk(base: tint))
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 0) {
-                Text(title).panelFont(.caption, .semibold)
-                Text(detail).panelFont(.caption2).foregroundStyle(.secondary)
+                titleText.panelFont(.caption, .semibold)
+                    .foregroundStyle(
+                        notice == .privateMode
+                            ? AnyShapeStyle(ReadableInk(base: tint, onWash: 0.12))
+                            : AnyShapeStyle(.primary))
+                detailText.panelFont(.caption2).foregroundStyle(.secondary)
             }
+            .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-            if let action = notice.action {
+            if notice == .privateMode {
+                turnOffButton
+            } else if let action = notice.action {
                 Button(actionTitle(action)) { perform(action) }
                     .ganchoTextButton()
                     .panelFont(.caption, .medium)
@@ -90,6 +175,7 @@ struct PanelCaptureNoticeView: View {
             in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
         )
         .padding(.horizontal, GanchoTokens.Spacing.xxs)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("capture-notice")
     }
 
@@ -105,35 +191,80 @@ struct PanelCaptureNoticeView: View {
 
     private var tint: Color {
         switch notice {
-        case .privateMode, .screenShare, .paused: GanchoTokens.Palette.warning
+        case .privateMode: GanchoTokens.Palette.indigo
+        case .screenShare, .paused: GanchoTokens.Palette.warning
         case .denied, .storageEphemeral: GanchoTokens.Palette.danger
         }
     }
 
-    private var title: LocalizedStringKey {
+    private var titleText: Text {
         switch notice {
-        case .storageEphemeral: "History isn't being saved"
-        case .privateMode: "Private Mode is on"
-        case .denied: "Clipboard access is off"
-        case .screenShare: "Paused while screen sharing"
-        case .paused: "Capture is paused"
+        case .storageEphemeral: Text("History isn't being saved")
+        case .privateMode:
+            if let start = preferences.privateModeStartedAt {
+                Text("Private Mode is on · since \(Self.clock(start))")
+            } else {
+                Text("Private Mode is on")
+            }
+        case .denied: Text("Clipboard access is off")
+        case .screenShare: Text("Paused while screen sharing")
+        case .paused: Text("Capture is paused")
         }
     }
 
-    private var detail: LocalizedStringKey {
+    private var detailText: Text {
         switch notice {
         case .storageEphemeral:
-            "Gancho couldn't open its secure storage — clips vanish when you quit."
-        case .privateMode: "New copies aren't being saved."
-        case .denied: "Gancho can't see what you copy."
-        case .screenShare: "Capture resumes when you stop sharing."
-        case .paused: "Resume capture to save new copies."
+            Text("Gancho couldn't open its secure storage — clips vanish when you quit.")
+        case .privateMode:
+            Text(
+                verbatim: String(
+                    localized: "\(preferences.privateModeSkippedCopies) copies skipped, none read")
+                    + " · " + privateModeEnd)
+        case .denied: Text("Gancho can't see what you copy.")
+        case .screenShare: Text("Capture resumes when you stop sharing.")
+        case .paused: Text("Resume capture to save new copies.")
         }
+    }
+
+    private var privateModeEnd: String {
+        if let end = preferences.privateModeEndsAt {
+            String(localized: "turns off at \(Self.clock(end)) or when you say so")
+        } else {
+            String(localized: "stays on until you turn it off")
+        }
+    }
+
+    /// Filled indigo, the one saturated control in the banner.
+    private var turnOffButton: some View {
+        Button {
+            perform(.resumePrivateMode)
+        } label: {
+            HStack(spacing: GanchoTokens.Spacing.xxs) {
+                Text("Turn off")
+                if let privateModeShortcut {
+                    Text(verbatim: privateModeShortcut).opacity(0.85)
+                }
+            }
+            .panelFont(.caption2, .bold)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 9)
+            .frame(height: 22)
+            .background(GanchoTokens.Palette.indigo, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("private-mode-turn-off")
+    }
+
+    private static func clock(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
     }
 
     private func actionTitle(_ action: PanelCaptureAction) -> LocalizedStringKey {
         switch action {
-        case .resumePrivateMode, .resumeCapture: "Resume"
+        case .resumePrivateMode: "Turn off"
+        case .resumeCapture: "Resume"
         case .openPermissionSettings: "Fix"
         }
     }

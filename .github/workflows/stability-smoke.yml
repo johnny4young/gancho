@@ -58,7 +58,7 @@ jobs:
       - name: Verify evidence collector
         run: ./scripts/collect-ui-test-evidence.sh --self-test
 
-      - name: Run nine isolated application regressions
+      - name: Run ten isolated application regressions
         env:
           TEST_RUNNER_GANCHO_UI_ADHOC_SIGNING: "1"
         run: |
@@ -85,7 +85,7 @@ jobs:
             ENABLE_HARDENED_RUNTIME=NO \
             2>&1 | tee build/stability-smoke.log
 
-      - name: Require nine passing tests without skips
+      - name: Require ten passing tests without skips
         if: always()
         run: |
           ./scripts/collect-ui-test-evidence.sh \
@@ -95,7 +95,7 @@ jobs:
           from pathlib import Path
           summary = json.loads(Path('build/stability-smoke-evidence/summary.json').read_text())
           assert summary['result'] == 'Passed', summary
-          assert summary['totalTestCount'] == summary['passedTests'] == 9, summary
+          assert summary['totalTestCount'] == summary['passedTests'] == 10, summary
           assert summary['failedTests'] == summary['skippedTests'] == summary['expectedFailures'] == 0, summary
           PY
 

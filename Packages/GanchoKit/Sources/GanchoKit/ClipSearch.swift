@@ -21,6 +21,10 @@ public struct ClipSearchQuery: Sendable, Equatable {
     public var sourceAppBundleID: String?
     /// Restrict by creation date.
     public var dateRange: ClosedRange<Date>?
+    /// Restrict to clips created strictly before this instant.
+    public var createdBefore: Date?
+    /// Restrict to clips copied on this device (its stored name).
+    public var deviceName: String?
     /// Restrict to clips that belong to this board (nil = any board).
     public var boardID: UUID?
     /// Restrict to pinned clips, independently of board membership.
@@ -42,6 +46,8 @@ public struct ClipSearchQuery: Sendable, Equatable {
         kinds: Set<ClipContentKind>? = nil,
         sourceAppBundleID: String? = nil,
         dateRange: ClosedRange<Date>? = nil,
+        createdBefore: Date? = nil,
+        deviceName: String? = nil,
         boardID: UUID? = nil,
         markedOnly: Bool = false,
         pinnedOnly: Bool = false,
@@ -54,6 +60,8 @@ public struct ClipSearchQuery: Sendable, Equatable {
         self.kinds = kinds
         self.sourceAppBundleID = sourceAppBundleID
         self.dateRange = dateRange
+        self.createdBefore = createdBefore
+        self.deviceName = deviceName
         self.boardID = boardID
         self.pinnedOnly = pinnedOnly
         self.markedOnly = markedOnly

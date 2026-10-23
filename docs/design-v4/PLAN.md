@@ -37,7 +37,14 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
    - Q23 (default): the pins win; the "By meaning" row goes with GC-V4-1.
    - Q35: 7 % / 10 % is the wash's visible peak; the test is inverted.
    - Q26: "Shown once…" is an annotation and is not shipped.
-7. Cross-app rules from the owner's threads:
+7. Answers given on 2026-10-23 to the Phase 4 questions (all the recommended option):
+   - Q20: the dock reads "Paste into <App>" with a target, "Paste" with none, "Copy" without Accessibility; the footer names the app only when there is one.
+   - Q18 (Private Mode only): no default ⌥⌘P; the button and footer show the recorded shortcut, or "Turn off" with no hint.
+   - Q25: auto-off after 15 min, 30 min, 1 h (default) or 2 h, or until turned off; "none read" is a fixed promise a test enforces.
+   - Q24: "Older than 30 days" is dropped; the most results wins, ties Fuzzy > Meaning > All boards > Regex (Exact after Fuzzy); all zero highlights nothing.
+   - Q63: ⌘S stays Save as snippet and ⇧⌘S saves the filter; #tag is dropped; Meaning is a fourth, exclusive mode.
+   - Review round, same day: filter keys are offered from the second letter, and a new auto-off choice applies to the Private Mode already on (its deadline moves to start + the new duration).
+8. Cross-app rules from the owner's threads:
    - Only propose what beats the current UI; code wins over v2 boards and site screenshots.
    - Each piece of data appears once per screen.
    - Canvas annotations are not UI.
@@ -54,7 +61,7 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
 Live sources match the expected numbers exactly. Maybe: GC-V4-22, with owner note "no entiendo la utilidad de esto, pero siento que no es necesario". Skip: GC-V4-20.
 
 By type: UI 29 · bug 6 · feature 31 · system 7.  
-By status: blocked 46 · done 24 · not implemented 1 · pending 1 · pending decision 1.
+By status: blocked 42 · done 29 · not implemented 1 · pending decision 1.
 
 ## Plan table
 
@@ -73,16 +80,16 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 | SY-V4-7 | system | pick | — | System Components | Elevation scale e0–e3 tokens; 1 px inset highlight in dark; replace ad-hoc shadows | new GanchoTokens.Elevation; PanelView.swift:543; PanelShortcutsOverlay.swift:63; ReuseSuggestionBanner.swift:55; PanelController.swift:405 | Radii/hairline same; shadow tokens new | GC-04 | Snapshots light/dark; source-scan for literal shadows | 2 | done — cc193f5, 4efbece, 85c3dac (Q8: wash + 3 pt bar, no lift); DesignTokenGuardTests shadow gate + snapshots |
 | SY-V4-8 | system | pick | — | System Components, PanelStates | One saturated control per surface; secondary = surface + hairline; destructive filled only in confirmations | PanelView.swift:930-939; SettingsView.swift:137-145; PrivacyCenterView.swift:83,:178 | ContrastingForeground exists; secondary/tertiary/destructive styles new | SY-V4-3, SY-V4-6 | Per-surface audit checklist in PR; snapshots | 2 | done — c5acf25 (Q7: green active chip stays); per-surface audit in the PR + snapshots |
 | SY-V4-9 | system | pick | — | System Components | Cross-app vocabulary: keycap inside primary button, hit targets 44/30/28/24, one command field, type/radius table incl. 12 pt step | PeekActionButton.swift:72-74; Components.swift:500-561; PanelView.swift:556; GanchoTokens.swift:30-35 | Radii same; FontSize tokens unused; 12 pt, keycap, ⌘F hint new | B-GC-01 | UI: peek-dock keycaps; unit: hit-target sizes; snapshot | 2 | done — 4efbece, 85c3dac, 7718cf5 (Q9: keep placeholder, no key on destructive); dock keys stay under the verbs per the Panel board; HitTargetTests |
-| GC-V4-1 | feature | pick | — | Novel2, Panel | Search modes inside the field (Exact/Fuzzy/Regex/Meaning) + filter tokens app: type: board: device: before: #tag with Tab completion; save as filter | PanelSearchModel.swift:41-130; ClipSearch.swift:6; SmartCollections.swift:8; PanelView.swift:556; MeaningSearchControls.swift:9 | Modes, dates, filters exist; parser, device/tag filters new | GC-08, GC-V4-3, GC-V4-10 | Unit: parser + query plan; perf: 100k search budget; UI | 4 | blocked: Q63 |
+| GC-V4-1 | feature | pick | — | Novel2, Panel | Search modes inside the field (Exact/Fuzzy/Regex/Meaning) + filter tokens app: type: board: device: before: #tag with Tab completion; save as filter | PanelSearchModel.swift:41-130; ClipSearch.swift:6; SmartCollections.swift:8; PanelView.swift:556; MeaningSearchControls.swift:9 | Modes, dates, filters exist; parser, device/tag filters new | GC-08, GC-V4-3, GC-V4-10 | Unit: parser + query plan; perf: 100k search budget; UI | 4 | done — b915b49 (Q63: ⌘S stays Save as snippet, ⇧⌘S saves the filter; #tag dropped; Meaning is an exclusive mode; a board token selects the rail, no chip); SearchTokensTests + PanelSearchTokenTests + DeviceAndDateFilterTests + SearchTokensUITests + MeaningSearchUITests + snapshots panel-search-tokens |
 | GC-01 | UI | pick | — | Panel | Peek header carries source app, age, boards, sync chip; insight strip + hero 'Content' label removed; caption 'title written on-device' | ClipPeek.swift:280-284,:319-359,:362-416; AppModel.swift:1943 | App/age/boards exist; per-clip sync state and title-provenance flag new | GC-V5-6, GC-09 | UI: peek-source-app / peek-board-* ids; snapshot vs board | 3 | done — 5e6da43, bc4c9f6 (Q19: upload-state chip, no caption, expiry chip in header; Q22: stripe + decoded chip only; Q23: pins win); PanelProvenanceUITests + UploadStateProviding tests + snapshots |
-| GC-V4-2 | feature | pick | — | Panel | Dock primary reads 'Paste into <App>'; footer chip names the frontmost app | ClipPeek.swift:781-817; PeekActionButton.swift:59-98; AppModel.swift:1033-1037; PasteBackWorkflow.swift:79-99 | Target bundle id read at paste; observable target while panel shown new | GC-V4-4 | Unit: label resolver (target / none / no Accessibility); UI: PeekDockUITests | 4 | blocked: Q20 |
+| GC-V4-2 | feature | pick | — | Panel | Dock primary reads 'Paste into <App>'; footer chip names the frontmost app | ClipPeek.swift:781-817; PeekActionButton.swift:59-98; AppModel.swift:1033-1037; PasteBackWorkflow.swift:79-99 | Target bundle id read at paste; observable target while panel shown new | GC-V4-4 | Unit: label resolver (target / none / no Accessibility); UI: PeekDockUITests | 4 | done — 6385cf1 (Q20: 'Paste into <App>', 'Paste' with no target, 'Copy' without Accessibility); PanelCaptureChipTests + PanelBehaviourUITests + snapshots panel-link-peek |
 | GC-V4-3 | UI | pick | — | Panel | Active scope chip shows count ('All clips · 128'); per-board count in hover help; app chip icon | PanelView.swift:911-942,:956-1031 | Colour dots, app icon, count()/count(inBoard:) exist; count cache new | GC-V5-6 | UI: board-all label; unit: count cache invalidation | 3 | done — bc4c9f6 (Q21: board total); PanelProvenanceUITests.testActiveScopeChipShowsTheBoardTotal |
-| GC-V4-4 | UI | pick | — | Panel | Footer capture chip with colour + cause (green capturing, amber paused, indigo private, red denied) | PanelStatusFooter.swift:37-49,:106-111; PanelCapturePresentation.swift:46-78; StatusItemController.swift:247-269 | Causes + precedence exist; variants, indigo token new | GC-V4-2, GC-07, GC-25, B-GC-02 | Unit: state→chip mapping; UI: PanelUITests footer states | 4 | pending |
+| GC-V4-4 | UI | pick | — | Panel | Footer capture chip with colour + cause (green capturing, amber paused, indigo private, red denied) | PanelStatusFooter.swift:37-49,:106-111; PanelCapturePresentation.swift:46-78; StatusItemController.swift:247-269 | Causes + precedence exist; variants, indigo token new | GC-V4-2, GC-07, GC-25, B-GC-02 | Unit: state→chip mapping; UI: PanelUITests footer states | 4 | done — 6385cf1 (one pill per state and cause; storage trouble stays in the banner because an in-memory store still captures; undrawn copy 'Paused · screen locked' and 'Paused'); PanelCaptureChipTests + PanelBehaviourUITests + PanelUITests |
 | GC-V5-3 | UI | pick | — | Panel | Untitled (non-sensitive) image rows say what they are | Components.swift:198-250; ClipItemFactory.swift:36-41; ByteSize.swift:15-18 | Size + type stored; pixel dimensions NOT stored (catalog claim wrong) | B-GC-04 | Unit: formatter; UI: PanelAppearanceUITests image filter; snapshot | 3 | done — 5e6da43, bc4c9f6, 1f70b67 (Q10: stored at capture, v27, lazy backfill, not synced; masked rows stay masked); ClipImageInfoTests + PanelAppearanceUITests + snapshot panel-ambient-image |
 | GC-V5-6 | UI | pick | — | Panel | Chip text 10→11 pt (Small 9.9 / Large 12.65), height 20→22, glyph 12→13; footer, ⌘N badges, section headers, stack counters stay 10 pt (10 consequences in spec §5) | PanelView.swift:837-849,:916-927,:977-981; Components.swift:68-75; PeekActionButton.swift:100-104; ClipPeek.swift:293,:402; PanelTypography.swift | Style swaps only (iOS already 11 pt) | — | UI: PanelAppearanceUITests compact Spanish; PanelDisplayPreferencesUITests; snapshots ×3 text sizes | 2 | done — 4efbece, 1015741; snapshots panel-link-peek standard/small/large text + PanelAppearance/PanelDisplayPreferences UI |
 | GC-05 | UI | pick | — | PanelStates | Empty panel: 'Import from Maccy or CSV…' button + three-key teaching card shown until the first paste | PanelResultsView.swift:193-292; PanelView.swift:1281; MigrationImportView.swift; GlobalShortcuts.swift:9 | Copy + importer exist; card + own 'first paste done' flag new | GC-V4-4, GC-V5-1 | Unit: show/hide rule; UI: card disappears after a paste; snapshot | 3 | done — bc4c9f6, 1f70b67 (Q26: 'Shown once…' is an annotation; footer wording stays with GC-V4-4); PanelFirstRunStageTests + PanelProvenanceUITests + snapshots panel-first-run |
-| GC-07 | feature | pick | — | PanelStates, Settings | Private Mode in indigo: since HH:MM, N copies skipped (content never read), auto-off + minutes-left footer, 'Turn off' button, Settings → Privacy auto-off picker | PanelStatusFooter.swift:66-140; PanelCapturePresentation.swift; CapturePreferences.swift:17; CaptureLifecycleController.swift; MacPasteboardMonitor.swift:167; PrivateActivityReceipt.swift; PrivacySettingsTab.swift | Toggle, masking, receipt exist; timestamps, scheduler, picker, indigo token, change counter (changeCount only) new | GC-V4-4, GC-17, SY-V4-8 | Unit: clock-injected auto-off; counter never reads content; UI + snapshot | 4 | blocked: Q18, Q25 |
-| GC-08 | feature | pick | — | PanelStates | No results runs the query in other modes/scopes, shows counts as buttons (best highlighted), previews it, ↓ applies | PanelResultsView.swift:262-291; PanelSearchModel.swift:297,:361-418; ClipSearch.swift:7-14; GRDBClipboardStore.swift:340 | Modes, Meaning, Clear filters exist; cancellable count probe + rows + ↓ new | GC-V4-1, GC-V4-3 | Unit: probe with fake source, cancellation; UI: ↓ applies; perf: probe within search budget | 4 | blocked: Q24 |
+| GC-07 | feature | pick | — | PanelStates, Settings | Private Mode in indigo: since HH:MM, N copies skipped (content never read), auto-off + minutes-left footer, 'Turn off' button, Settings → Privacy auto-off picker | PanelStatusFooter.swift:66-140; PanelCapturePresentation.swift; CapturePreferences.swift:17; CaptureLifecycleController.swift; MacPasteboardMonitor.swift:167; PrivateActivityReceipt.swift; PrivacySettingsTab.swift | Toggle, masking, receipt exist; timestamps, scheduler, picker, indigo token, change counter (changeCount only) new | GC-V4-4, GC-17, SY-V4-8 | Unit: clock-injected auto-off; counter never reads content; UI + snapshot | 4 | done — 6385cf1 (Q18: no default ⌥⌘P, the recorded shortcut or none; Q25: 15 min / 30 min / 1 h / 2 h / until off, default 1 h, 'none read' is a fixed promise); CaptureLifecycleControllerTests + ProductionMonitorTests + CapturePreferencesTests + PanelBehaviourUITests + SettingsPrivacyUITests + snapshots panel-private-mode, settings-privacy |
+| GC-08 | feature | pick | — | PanelStates | No results runs the query in other modes/scopes, shows counts as buttons (best highlighted), previews it, ↓ applies | PanelResultsView.swift:262-291; PanelSearchModel.swift:297,:361-418; ClipSearch.swift:7-14; GRDBClipboardStore.swift:340 | Modes, Meaning, Clear filters exist; cancellable count probe + rows + ↓ new | GC-V4-1, GC-V4-3 | Unit: probe with fake source, cancellation; UI: ↓ applies; perf: probe within search budget | 4 | done — af7a8b5 (Q24: 'Older than 30 days' dropped; the most results wins, ties Fuzzy > Exact > Meaning > All boards > Regex); PanelSearchAlternativesTests + SearchTokensUITests + snapshots panel-no-results |
 | GC-09 | feature | pick | — | Novel, PanelStates, Panel | Secrets masked everywhere; Mac peek countdown + lifetime bar + reveal + keep longer + delete now; never in widgets/keyboard/Spotlight/MCP | ClipPeek.swift:89-101,:381-390; Components.swift:162-293; RetentionEngine.swift:55-70; WidgetClips.swift:11; KeyboardClips.swift:16; MCPToolRunner.swift:116; LibrarySpotlightService.swift:60; SyncLocalStore.swift:208-221 | Keyboard/MCP/Spotlight exclude; widgets mask; iOS reveal exists; Mac reveal, keep, delete, bar new | GC-25, GC-20, GC-V4-9 | Unit: lifetime cap, reveal timer; privacy: no secret in widget/keyboard/MCP; UI; snapshot | 14 | blocked: Q12-Q16 |
 | GC-10 | feature | pick | — | Novel, PanelStates, Panel, MenuBarDark | Paste stack with a visible cursor (3/5), done items kept, floating strip, next/skip/back/reset, ends after idle | PasteStack.swift:15; AppModel.swift:1303-1335; GlobalShortcuts.swift:17; PasteStackStrip.swift; PanelSelectionContextBar.swift | FIFO consuming queue exists; cursor model, strip, bridge field, hotkeys new | GC-25, GC-24, GC-V6-8 | Unit: cursor model; UI select → ⌥⌘⏎ → queue; snapshot | 15 | blocked: Q18, Q61 |
 | GC-12 | feature | pick | — | Novel2, PanelStates | Describe the change: on-device prompt → Was/Will paste diff, chips (Fix grammar…), coaching; hidden without Apple Intelligence (#available macOS 26) | SmartPasteService.swift:15-46,:184; IntelligenceCapability.swift; ClipPeek+SmartPaste.swift | Fixed rewrites + gate exist; prompt path, diff, coaching new | GC-11, GC-V5-5 | Unit: word diff, fake engine; UI: hidden on simulated macOS 15 | 16 | blocked: Q27, Q31 |
@@ -234,7 +241,7 @@ Run on 2026-10-21 against the text of all 17 Gancho v4 boards plus V4_System_Com
 
 ## Feasibility summary
 
-- **Ready now (no question blocks them):** GC-V4-4.
+- **Ready now (no question blocks them):** .
 - **Everything else** is blocked on at least one owner question (below). The specs say exactly which part exists and which is new.
 - **Claims on the boards or in the catalog that the code contradicts.** Recorded so nobody builds on them:
   - B-GC-04 is a masked sensitive image, not an untitled one.
@@ -354,7 +361,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 
 ### Shortcuts
 
-- **Q18 Default shortcuts.** The boards draw these, but code has no such defaults:
+- **Q18 Default shortcuts — Private Mode RESOLVED 2026-10-23: no default, the recorded shortcut or none.** The rest stays open for the phases that own them. The boards draw these, but code has no such defaults:
   - Private mode ⌥⌘P.
   - Paste stack ⌥⌘V, which collides with your panel shortcut ⌥⌘V.
   - Copy text from screen ⇧⌘2 (the code default is ⌃⌥T).
@@ -366,12 +373,12 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 ### Panel, Peek, Menu bar, Motion
 
 - **Q19 — RESOLVED 2026-10-22: upload-state chip, no caption, expiry chip in the header.** GC-01. What does "Synced · Mac + iPhone" mean per clip? There is no per-clip device list, only `needsUpload`. Also: store a "title written on-device" flag, or drop that caption? And where does the expiry label go?
-- **Q20 GC-V4-2.** What does the dock label say with no target app, or without Accessibility (copy only)?
+- **Q20 — RESOLVED 2026-10-23: Paste into <App> / Paste / Copy.** GC-V4-2. What does the dock label say with no target app, or without Accessibility (copy only)?
 - **Q21 — RESOLVED 2026-10-22: the board's total.** GC-V4-3. Should the count be the scope total or the filtered result count?
 - **Q22 — RESOLVED 2026-10-22 for the hero: stripe + decoded chip only (footer hints stay with GC-V4-4).** Unassigned panel changes. The 4 pt kind stripe, the URL part chips and the new footer hints have no ID. Implement them under GC-01/GC-V4-4, or skip them?
 - **Q23 — RESOLVED 2026-10-22 (default): the pins win.** Panel pins vs "kept" strip. The pins remove the insight strip and "By meaning", but the "kept" strip keeps them. Do the pins win?
-- **Q24 GC-08.** What does "Older than 30 days" count? The panel has no date filter, and free archiving is 365 days. Is "best" the highest count or a fixed order?
-- **Q25 GC-07.** What are the auto-off options and the default? Is "0 read" a real counter or a fixed promise?
+- **Q24 — RESOLVED 2026-10-23: dropped; most results wins.** GC-08. What does "Older than 30 days" count? The panel has no date filter, and free archiving is 365 days. Is "best" the highest count or a fixed order?
+- **Q25 — RESOLVED 2026-10-23: 15/30/60/120 min or until off, default 1 h; "none read" is a fixed promise.** GC-07. What are the auto-off options and the default? Is "0 read" a real counter or a fixed promise?
 - **Q26 — RESOLVED 2026-10-22: an annotation, not shipped.** GC-05. Is "Shown once. It leaves after your first paste…" UI copy or an annotation?
 - **Q27 GC-12 keys.**
   - Esc = Discard clashes with esc hiding the panel.
@@ -472,7 +479,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
   - Mac only?
   - Accept files dragged from Finder?
   - A thin drop window at the top edge, rather than a global drag monitor?
-- **Q63 GC-V4-1.**
+- **Q63 — RESOLVED 2026-10-23: ⇧⌘S saves the filter, no #tag, Meaning exclusive.** GC-V4-1.
   - ⌘S is already "promote to snippet".
   - Keep `#tag`? There is no tag feature.
   - Is Meaning exclusive or additive?
@@ -500,7 +507,9 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 - 8-digit hex parser mismatch, `DevActions.swift:551` → Phase 5.
 - "Expires soon" label is missing from the string catalogs (LocalizationTests coverage of package sources) → Phase 1 or 11.
 - **Resolved in Phase 2:** `GanchoTokens`, `Components` and `GanchoColors` cited design files that do not exist (`docs/design/tokens/colors.css`, a snippet-editor kit, DESIGN-SYSTEM.md); the comments now point at "Design tokens" in docs/ARCHITECTURE.md or name no file.
-- No ⌫ / ⌘. key bindings, although Archive marks them shipped → Phase 4.
+- **Resolved in Phase 4:** no ⌫ / ⌘. key bindings, although Archive marks them shipped. ⌫ now deletes the clip from the peek's actions, with Undo; the search field keeps ⌫ for its text. ⌘. stays unbound: it is the system Cancel and closes the panel like esc, so More actions stays on ↓ and Enter.
+- **Found in Phase 4, kept on purpose:** `app:` and `type:` chips repeat the filter rail's active chip, as the board draws both; a `board:` token selects the board rail instead of adding a chip, because the rail already shows the scope. Chips are removed with their ×, as the spec's checks list; ⌫ in an empty field is not drawn and is not bound.
+- **Found in Phase 4, resolved there:** the capture banner's accessibility id landed on its first text and hid the rest; the banner now keeps its children (`.contain`), and its icon is hidden from VoiceOver.
 - Board drawing mismatches where code wins: Archive header 27 vs 26 shipped, iPhone "New" vs "New board…", denylist sample apps that are built-ins, and others. Recorded in the specs; no change.
 
 ## Review skills per phase

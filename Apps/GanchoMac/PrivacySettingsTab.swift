@@ -1,7 +1,20 @@
 import AppKit
+import ClipboardCore
 import GanchoDesign
 import GanchoKit
 import SwiftUI
+
+extension PrivateModeAutoOff {
+    var title: LocalizedStringKey {
+        switch self {
+        case .fifteenMinutes: "15 minutes"
+        case .thirtyMinutes: "30 minutes"
+        case .oneHour: "1 hour"
+        case .twoHours: "2 hours"
+        case .never: "Until I turn it off"
+        }
+    }
+}
 
 struct PrivacySettingsTab: View {
     @Environment(AppModel.self) private var model
@@ -13,6 +26,12 @@ struct PrivacySettingsTab: View {
         @Bindable var model = model
         Form {
             Toggle("Private mode (pause capture)", isOn: $model.preferences.isPrivateModePaused)
+            Picker("Turn Private mode off after", selection: $model.privateModeAutoOff) {
+                ForEach(PrivateModeAutoOff.allCases) { option in
+                    Text(option.title).tag(option)
+                }
+            }
+            .accessibilityIdentifier("private-mode-auto-off-picker")
             ShortcutRecorder("Private mode shortcut:", name: .togglePrivateMode)
             Toggle(
                 "Pause automatically while sharing the screen",

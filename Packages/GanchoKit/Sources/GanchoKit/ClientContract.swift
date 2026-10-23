@@ -107,6 +107,8 @@ public protocol SourceAppProviding: Sendable {
     /// Recent apps represented in visible history, ordered by their newest
     /// capture. Returns bundle IDs and aggregate counts only — never content.
     func recentSourceApps(limit: Int) async throws -> [ClipSourceApp]
+    /// Device names on visible clips, most recent first; names only.
+    func deviceNames(limit: Int) async throws -> [String]
 }
 
 // MARK: - Mutating

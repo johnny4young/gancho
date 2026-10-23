@@ -22,6 +22,14 @@ extension GRDBClipboardStore {
             arguments.append(range.lowerBound)
             arguments.append(range.upperBound)
         }
+        if let before = query.createdBefore {
+            sql += " AND clip.createdAt < ?"
+            arguments.append(before)
+        }
+        if let device = query.deviceName {
+            sql += " AND clip.sourceDeviceName = ?"
+            arguments.append(device)
+        }
         if let boardID = query.boardID {
             sql += " AND clip.id IN (SELECT clipID FROM clip_board WHERE boardID = ?)"
             arguments.append(boardID.uuidString)

@@ -10468,6 +10468,526 @@
           }
         }
       }
+    },
+    "Paste into %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar en %@"
+          }
+        }
+      }
+    },
+    "Capturing · %@ in front": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capturando · %@ al frente"
+          }
+        }
+      }
+    },
+    "Private mode · %lld min left": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Private mode · %lld min left"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Private mode · %lld min left"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Modo privado · queda %lld min"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Modo privado · quedan %lld min"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Paused · screen sharing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa · compartiendo pantalla"
+          }
+        }
+      }
+    },
+    "Paused · screen locked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa · pantalla bloqueada"
+          }
+        }
+      }
+    },
+    "Access denied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso denegado"
+          }
+        }
+      }
+    },
+    "off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "apagar"
+          }
+        }
+      }
+    },
+    "Private Mode is on · since %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El Modo privado está activo · desde las %@"
+          }
+        }
+      }
+    },
+    "%lld copies skipped, none read": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copy skipped, none read"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copies skipped, none read"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copia omitida, ninguna leída"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld copias omitidas, ninguna leída"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "turns off at %@ or when you say so": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "se apaga a las %@ o cuando tú digas"
+          }
+        }
+      }
+    },
+    "stays on until you turn it off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sigue activo hasta que lo apagues"
+          }
+        }
+      }
+    },
+    "Turn off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apagar"
+          }
+        }
+      }
+    },
+    "Before private mode": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antes del modo privado"
+          }
+        }
+      }
+    },
+    "Previews hidden while Private Mode is on.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las vistas previas se ocultan mientras el Modo privado está activo."
+          }
+        }
+      }
+    },
+    "Pasting still works; only new copies are skipped.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar sigue funcionando; solo se omiten las copias nuevas."
+          }
+        }
+      }
+    },
+    "Turn Private mode off after": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apagar el Modo privado después de"
+          }
+        }
+      }
+    },
+    "15 minutes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 minutos"
+          }
+        }
+      }
+    },
+    "2 hours": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 horas"
+          }
+        }
+      }
+    },
+    "Until I turn it off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hasta que lo apague"
+          }
+        }
+      }
+    },
+    "Exact": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exacta"
+          }
+        }
+      }
+    },
+    "Fuzzy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aproximada"
+          }
+        }
+      }
+    },
+    "Regex": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regex"
+          }
+        }
+      }
+    },
+    "Meaning": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Significado"
+          }
+        }
+      }
+    },
+    "Remove filter": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar filtro"
+          }
+        }
+      }
+    },
+    "Add a filter · Tab": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir un filtro · Tab"
+          }
+        }
+      }
+    },
+    "today · 7d · a date": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hoy · 7d · una fecha"
+          }
+        }
+      }
+    },
+    "Type a search to find clips by meaning.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe una búsqueda para encontrar clips por significado."
+          }
+        }
+      }
+    },
+    "All boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos los tableros"
+          }
+        }
+      }
+    },
+    "use fuzzy": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usar aproximada"
+          }
+        }
+      }
+    },
+    "use exact": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usar exacta"
+          }
+        }
+      }
+    },
+    "use regex": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usar regex"
+          }
+        }
+      }
+    },
+    "use meaning": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usar significado"
+          }
+        }
+      }
+    },
+    "use all boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usar todos los tableros"
+          }
+        }
+      }
+    },
+    "exact match": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "coincidencia exacta"
+          }
+        }
+      }
+    },
+    "fuzzy match": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "coincidencia aproximada"
+          }
+        }
+      }
+    },
+    "regex match": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "coincidencia regex"
+          }
+        }
+      }
+    },
+    "by meaning": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "por significado"
+          }
+        }
+      }
+    },
+    "No clips for “%@” in %@, %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay clips para “%@” en %@, %@."
+          }
+        }
+      }
+    },
+    "No clips for “%@”, %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay clips para “%@”, %@."
+          }
+        }
+      }
+    },
+    "%lld results, press ↓ to use them": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld result, press ↓ to use it"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld results, press ↓ to use them"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld resultado, pulsa ↓ para usarlo"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld resultados, pulsa ↓ para usarlos"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Save search as a filter": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar la búsqueda como filtro"
+          }
+        }
+      }
+    },
+    "Complete a filter": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completar un filtro"
+          }
+        }
+      }
+    },
+    "Delete (in actions)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar (en acciones)"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

@@ -110,7 +110,9 @@ struct ClipPeek: View {
                     .panelFont(.caption)
                     .foregroundStyle(GanchoTokens.Palette.danger)
             }
-            if hidesPreview {
+            if model.preferences.isPrivateModePaused {
+                PeekPrivateModeNotice()
+            } else if hidesPreview {
                 Text(verbatim: ClipSafePresentation.masked)
                     .panelFont(.body)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -219,6 +221,11 @@ struct ClipPeek: View {
                 addToBoard()
             }
             return .handled
+        }
+        // ⌫ arrives as the system Delete command; the undo toast takes it back.
+        .onDeleteCommand {
+            guard !isInlineEditing else { return }
+            model.delete(item)
         }
         .onKeyPress(.escape) {
             guard !isInlineEditing else { return .ignored }
@@ -759,7 +766,9 @@ extension ClipPeek {
     private var dockActions: [PeekAction] {
         var actions: [PeekAction] = [
             PeekAction(
-                id: "preview-paste", title: "Paste", symbol: "doc.on.clipboard", shortcut: "⏎"
+                id: "preview-paste", title: pasteTitle,
+                symbol: model.pasteTarget.label == .copy ? "doc.on.doc" : "doc.on.clipboard",
+                shortcut: "⏎"
             ) {
                 model.paste(item)
             },
@@ -792,6 +801,14 @@ extension ClipPeek {
                 shortcut: "⌘B"
             ) { addToBoard() })
         return actions
+    }
+
+    private var pasteTitle: LocalizedStringKey {
+        switch model.pasteTarget.label {
+        case .pasteInto(let app): "Paste into \(app)"
+        case .paste: "Paste"
+        case .copy: "Copy"
+        }
     }
 
     /// Only the expanded Dev Actions take keyboard positions after the dock.
