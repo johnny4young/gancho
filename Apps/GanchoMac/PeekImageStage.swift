@@ -15,6 +15,7 @@ struct PeekImageStage: View {
     @Binding var isPickingColor: Bool
     @Environment(AppModel.self) private var model
     @State private var showsRegions = true
+    @State private var pushedCrosshair = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
@@ -79,8 +80,15 @@ struct PeekImageStage: View {
                     pick(at: location, in: geometry.size)
                 }
                 .onHover { inside in
+                    guard inside != pushedCrosshair else { return }
+                    pushedCrosshair = inside
                     if inside { NSCursor.crosshair.push() } else { NSCursor.pop() }
                 }
+        }
+        // A pick removes the layer under the pointer, so no hover exit arrives.
+        .onDisappear {
+            if pushedCrosshair { NSCursor.pop() }
+            pushedCrosshair = false
         }
         .accessibilityElement()
         .accessibilityLabel(Text("Click the image to save that color"))
@@ -89,7 +97,7 @@ struct PeekImageStage: View {
 
     private func pick(at location: CGPoint, in size: CGSize) {
         let item = item
-        Task {
+        Task { @MainActor in
             guard let color = await model.sampleColor(of: item, at: location, in: size) else {
                 return
             }

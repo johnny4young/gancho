@@ -8,7 +8,7 @@ extension AppModel {
     /// Saves a colour picked from an image as a colour clip, through the same
     /// ingestion as a copy, so Private Mode and every capture rule still apply.
     func saveColorClip(_ color: ColorValue) {
-        Task {
+        Task { @MainActor in
             guard await saveManualText(color.hex) else {
                 toasts.show(GanchoToast(message: "Couldn’t save the color.", style: .warning))
                 return
@@ -25,6 +25,7 @@ extension AppModel {
         -> ColorValue?
     {
         guard item.kind == .image, !ClipSafePresentation.requiresMasking(item),
+            !preferences.isPrivateModePaused,
             case .binary(let data, _)? = try? await store.content(for: item.id)
         else { return nil }
         return await Task.detached(priority: .userInitiated) {

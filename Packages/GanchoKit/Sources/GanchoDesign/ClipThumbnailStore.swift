@@ -122,7 +122,10 @@ public final class ClipThumbnailStore {
 
     /// The thumbnail's dominant colours, most common first, once it is loaded.
     public func cachedPalette(for item: ClipItem) -> [ColorValue] {
-        guard cached(for: item) != nil else { return [] }
+        // A masked image's colours are as revealing as its thumbnail.
+        guard !ClipSafePresentation.requiresMasking(item), cached(for: item) != nil else {
+            return []
+        }
         return palettes[item.id] ?? []
     }
 
