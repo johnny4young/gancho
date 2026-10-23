@@ -88,7 +88,7 @@ public struct TypeBadge: View {
     let kind: ClipContentKind
     let style: Style
 
-    static let washOpacity = 0.14
+    nonisolated static let washOpacity = 0.14
 
     public init(kind: ClipContentKind, style: Style = .plain) {
         self.kind = kind
