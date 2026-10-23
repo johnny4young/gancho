@@ -17,6 +17,21 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   and size under a title.
 - An empty panel offers to import from Maccy or a CSV and shows the three keys
   that make the whole loop, until your first paste.
+- The paste button names where it pastes ("Paste into Mail"). It says "Copy"
+  when Accessibility is off and the paste can only copy.
+- The footer chip names the capture state and its cause in its own colour:
+  "Capturing · Mail in front", "Paused · screen sharing", "Private mode · 58
+  min left", "Access denied".
+- Private Mode turns itself off after 15 min, 30 min, 1 h (the default) or
+  2 h, or stays on until you turn it off (Settings › Privacy). Its banner says
+  since when, how many copies it skipped without reading them, and when it
+  ends, with a Turn off button.
+- The search field has Exact, Fuzzy, Regex and Meaning modes. Typing
+  `app:`, `type:`, `board:`, `device:` or `before:` adds a filter: Tab
+  completes it, and its chip's × removes it. ⇧⌘S saves the field as a
+  filter.
+- When a search finds nothing, the panel shows how many clips the other modes
+  (and all boards) would find, previews the best one, and ↓ switches to it.
 
 ### Changed
 
@@ -38,6 +53,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The optional ambient colour now sits only behind the peek, at a fainter
   10 % (light) / 7 % (dark), and never appears for masked clips or in Private
   Mode.
+- Meaning is a search mode of its own: it lists only the clips related by
+  meaning, instead of adding them under the other results. The "By meaning"
+  button is gone.
+- Private Mode is indigo instead of amber. The list sits under "Before
+  private mode", and the peek says previews are hidden and pasting still
+  works.
 
 ### Fixed
 

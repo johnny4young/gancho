@@ -131,7 +131,10 @@ final class DesignV4SnapshotUITests: XCTestCase {
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
             "-seed-visual-library", "-seed-peek-link", "-force-free-tier",
-            "-start-capture-paused", "-suppress-paused-notice-for-ui-test",
+            // Capturing from an empty reader, with Figma named as the paste target.
+            "-force-capture-active", "-force-pasteboard-access-allowed",
+            "-disable-screen-share-auto-pause", "-isolate-ui-test-system-clipboard",
+            "-ui-test-paste-target", "Figma", "-ui-test-paste-sink", "pasted",
             "-opaque-panel-for-ui-test", "-place-panel-for-ui-test",
             "-suppress-storage-notice-for-ui-test", "-AppleLanguages", "(en)",
             "-appearance", appearance, "-panel-text-size", textSize,
@@ -160,6 +163,92 @@ final class DesignV4SnapshotUITests: XCTestCase {
                 ? "panel-ambient-image-\(appearance)"
                 : textSize == "standard"
                     ? "panel-link-peek-\(appearance)" : "panel-link-peek-\(textSize)-text")
+    }
+
+    // MARK: Panel behaviour — Private Mode, filter tokens, no results.
+
+    @MainActor func testPanelPrivateModeLight() throws {
+        try panelState(.privateMode, appearance: "light")
+    }
+
+    @MainActor func testPanelPrivateModeDark() throws {
+        try panelState(.privateMode, appearance: "dark")
+    }
+
+    @MainActor func testPanelSearchTokensLight() throws {
+        try panelState(.tokens, appearance: "light")
+    }
+
+    @MainActor func testPanelSearchTokensDark() throws {
+        try panelState(.tokens, appearance: "dark")
+    }
+
+    @MainActor func testPanelNoResultsLight() throws {
+        try panelState(.noResults, appearance: "light")
+    }
+
+    @MainActor func testPanelNoResultsDark() throws {
+        try panelState(.noResults, appearance: "dark")
+    }
+
+    private enum PanelState: String {
+        case privateMode = "private-mode"
+        case tokens = "search-tokens"
+        case noResults = "no-results"
+    }
+
+    /// Private Mode since 14:02 today with three skipped copies and no deadline,
+    /// so the banner and chip read the same on every run.
+    private static var privateModePreferences: String {
+        let start = Calendar.current.startOfDay(for: .now).addingTimeInterval(14 * 3600 + 120)
+        let json =
+            #"{"captureImages":true,"captureFileReferences":true,"captureRichText":true,"#
+            + #""isPrivateModePaused":true,"privateModeStartedAt":"#
+            + "\(start.timeIntervalSinceReferenceDate),"
+            + #""privateModeSkippedCopies":3}"#
+        return "<" + Data(json.utf8).map { String(format: "%02x", $0) }.joined() + ">"
+    }
+
+    @MainActor private func panelState(_ state: PanelState, appearance: String) throws {
+        let app = GanchoUITestApplication()
+        var arguments = [
+            "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
+            "-seed-source-apps", "-force-free-tier", "-opaque-panel-for-ui-test",
+            "-place-panel-for-ui-test", "-suppress-storage-notice-for-ui-test",
+            "-suppress-paused-notice-for-ui-test", "-AppleLanguages", "(en)",
+            "-appearance", appearance, "-ui-test-paste-target", "Mail", "-ui-test-paste-sink",
+            "pasted", "-ui-test-snapshot-dir", renders.path, "-ui-test-defaults-suite",
+            "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)"
+        ]
+        arguments +=
+            state == .privateMode
+            ? ["-capture-preferences", Self.privateModePreferences]
+            : ["-start-capture-paused"]
+        app.launchArguments = arguments
+        app.launch()
+        defer { app.terminate() }
+        let field = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "clip-row").firstMatch
+                .waitForExistence(timeout: 8))
+        switch state {
+        case .privateMode:
+            break
+        case .tokens:
+            // Chips for app and type, then a key prefix that opens the popover.
+            // Typed straight in: the field keeps only the "b" the chips leave.
+            try SynthesizedInput.requireForeground(app)
+            field.click()
+            field.typeText("app:xcode type:code b")
+        case .noResults:
+            // Fuzzy finds nothing for a pattern only a regex reads.
+            try typeTextReliably("sour.e", into: field, in: app)
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        try DesignSnapshot.save(
+            DesignSnapshot.renderWindow(titled: "Gancho", named: "panel", in: renders),
+            named: "panel-\(state.rawValue)-\(appearance)")
     }
 
     // MARK: The empty panel teaches the three keys.

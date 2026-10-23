@@ -41,11 +41,13 @@ toolchain used belong with the evaluation evidence, not in product claims.
 
 ## Explicit panel suggestions
 
-The macOS panel's **By meaning** action starts disabled. It adds a separate
-**Related by meaning** section after existing conventional results. Arrival never
-changes the selected UUID. Empty queries and regex do not request embeddings.
+The macOS panel's **Meaning** mode sits beside Exact, Fuzzy and Regex in the search
+field, shown while semantic search is on and Private Mode is off. A query in Meaning
+lists only the clips related by meaning; the other modes never request embeddings,
+and neither do empty queries. When a query finds nothing, the panel counts what
+Meaning would find only while its index can answer.
 Changes to query, filters, selection, privacy, indexing availability or panel
-visibility invalidate pending responses. Conventional search remains usable when
+visibility invalidate pending responses. The conventional modes remain usable when
 assets are unavailable or the scoped index is incomplete.
 
 Query embedding uses the existing local contextual model, off the UI actor, with
