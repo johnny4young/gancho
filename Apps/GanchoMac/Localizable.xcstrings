@@ -10958,6 +10958,36 @@
           }
         }
       }
+    },
+    "Save search as a filter": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar la búsqueda como filtro"
+          }
+        }
+      }
+    },
+    "Complete a filter (app:, type:, board:…)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completar un filtro (app:, type:, board:…)"
+          }
+        }
+      }
+    },
+    "Delete (in actions)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar (en acciones)"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

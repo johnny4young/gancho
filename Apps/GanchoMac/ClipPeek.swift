@@ -222,6 +222,11 @@ struct ClipPeek: View {
             }
             return .handled
         }
+        // ⌫ arrives as the system Delete command; the undo toast takes it back.
+        .onDeleteCommand {
+            guard !isInlineEditing else { return }
+            model.delete(item)
+        }
         .onKeyPress(.escape) {
             guard !isInlineEditing else { return .ignored }
             model.panel.hide()

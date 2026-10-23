@@ -88,4 +88,25 @@ final class PanelBehaviourUITests: XCTestCase {
         XCTAssertTrue(waitFor(chip, label: "Capturing"), chip.label)
         XCTAssertFalse(notice.exists)
     }
+
+    @MainActor
+    func testDeleteKeyInThePeekDeletesWithUndo() throws {
+        let app = launch(capturing: false, extra: ["-seed-peek-link"])
+        defer { app.terminate() }
+        let search = app.textFields["search-field"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        search.click()
+        search.typeText("Synthetic link")
+        let link = app.staticTexts["peek-link-url"].firstMatch
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        try SynthesizedInput.requireForeground(app)
+        app.typeKey(.rightArrow, modifierFlags: [])
+
+        app.typeKey(.delete, modifierFlags: [])
+        let undo = app.buttons["toast-undo"].firstMatch
+        XCTAssertTrue(undo.waitForExistence(timeout: 5), "⌫ in the actions deletes, with Undo")
+        XCTAssertTrue(link.waitForNonExistence(timeout: 5))
+        undo.click()
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
+    }
 }
