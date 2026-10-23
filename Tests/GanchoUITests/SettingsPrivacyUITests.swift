@@ -1,8 +1,8 @@
 import XCTest
 
-/// Privacy-facing Settings coverage and release-safe visual evidence. Screenshots
-/// stay scoped to Gancho's opaque Settings window so unrelated desktop content
-/// never enters a kept test attachment.
+/// Privacy-facing Settings coverage and release-safe visual evidence. The app
+/// renders its own Settings window, so unrelated desktop content never enters
+/// a kept test attachment.
 final class SettingsPrivacyUITests: XCTestCase {
     @MainActor
     func testSpotlightIndexingExplainsThePrivacyBoundaryAndCapturesEvidence() throws {

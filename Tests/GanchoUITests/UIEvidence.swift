@@ -16,10 +16,15 @@ extension XCTestCase {
                 arguments.dropFirst($0 + 1).first
             }, "launch with GanchoUITestApplication to keep rendered evidence")
         let directory = URL(fileURLWithPath: path, isDirectory: true)
+        let file = UUID().uuidString
+        // A directory the test passed itself may hold its own renders.
+        let existed = FileManager.default.fileExists(atPath: directory.path)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let png = try DesignSnapshot.requestRender(
-            of: window, named: UUID().uuidString, in: directory)
+        defer {
+            try? FileManager.default.removeItem(
+                at: existed ? directory.appendingPathComponent("\(file).png") : directory)
+        }
+        let png = try DesignSnapshot.requestRender(of: window, named: file, in: directory)
         let attachment = XCTAttachment(
             data: try Data(contentsOf: png), uniformTypeIdentifier: "public.png")
         attachment.name = name
