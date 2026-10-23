@@ -55,6 +55,12 @@ background seeding out of the first panel-open interaction. The helper still
 opens the real panel for the first time, and the driver still requires all
 three rows and the original paste, focus, timing, and no-repeat assertions.
 
+Before the suite, the workflow launches the signed app once and logs how long
+its fixtures took. A new VM's first launch of a freshly signed app pays a
+one-time system assessment that, on Intel runners, outlasted the 30 s wait and
+failed whichever test ran first; the warm-up quits every Gancho process, so the
+clean-host check still holds.
+
 ## Evidence and related checks
 
 Artifacts retain the full result bundle, test summary, recordings, build/test logs,
