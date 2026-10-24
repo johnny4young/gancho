@@ -47,7 +47,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   access denied, next copy ignored, or how many clips wait in the paste stack.
   ⌥-click pauses or resumes capture; ⌥⇧-click ignores the next copy.
 - While your screen is shared, the panel shows only each clip's kind and names
-  the app that is sharing; Show anyway reveals previews for that share.
+  the app that is sharing; Show anyway reveals previews for that share. The
+  paste-stack strip, ⌘Y and the combined-text sheets hide content too, in
+  Private Mode as well.
 
 ### Changed
 
