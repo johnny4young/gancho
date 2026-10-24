@@ -133,6 +133,40 @@ struct ContrastTokenTests {
         }
     }
 
+    @Test("The colour hero's ratios: #008080 on white and on the dark panel")
+    func colourHeroRatios() throws {
+        let teal = Color.Resolved(try #require(ColorValue.parse("#008080")))
+        let white = Color.Resolved(try #require(ColorValue.parse("#FFFFFF")))
+        let dark = Color.Resolved(try #require(ColorValue.parse("#1C1C1E")))
+        let black = Color.Resolved(try #require(ColorValue.parse("#000000")))
+        #expect(abs(Contrast.ratio(teal, white) - 4.77) < 0.01)
+        #expect(abs(Contrast.ratio(teal, dark) - 3.56) < 0.01)
+        #expect(abs(Contrast.ratio(black, white) - 21) < 0.001)
+        #expect(Contrast.label(Contrast.ratio(teal, white)) == "4.7 : 1")
+        #expect(Contrast.label(Contrast.ratio(teal, dark)) == "3.5 : 1")
+    }
+
+    @Test("Grades: AA from 4.5, AA Large from 3, below AA under that; labels never round up")
+    func grades() {
+        #expect(Contrast.grade(4.5) == .aa)
+        #expect(Contrast.grade(4.499) == .aaLarge)
+        #expect(Contrast.grade(3) == .aaLarge)
+        #expect(Contrast.grade(2.99) == .belowAA)
+        #expect(Contrast.label(4.49) == "4.4 : 1")
+        #expect(Contrast.label(2.999) == "2.9 : 1")
+    }
+
+    @Test("The swatch and the formats read 8-digit hex the same way")
+    func hexParity() throws {
+        let environment = environment(.light)
+        let swatch = try #require(Color(hexString: "#00808080")).resolve(in: environment)
+        let formats = Color.Resolved(try #require(ColorValue.parse("#00808080")))
+        #expect(abs(swatch.red - formats.red) < 0.001)
+        #expect(abs(swatch.green - formats.green) < 0.001)
+        #expect(abs(swatch.blue - formats.blue) < 0.001)
+        #expect(abs(swatch.opacity - formats.opacity) < 0.001)
+    }
+
     @Test("A colour that already passes is left untouched")
     func passingColourIsUnchanged() {
         let environment = environment(.light)

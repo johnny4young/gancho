@@ -850,6 +850,15 @@ struct PanelView: View {
         .fixedSize(horizontal: true, vertical: false)
     }
 
+    /// I only reaches the peek once it owns the keyboard.
+    private var offersEyedropper: Bool {
+        guard focus == .peek, let item = search.selectedItem, item.kind == .image else {
+            return false
+        }
+        let masked: Bool = ClipSafePresentation.requiresMasking(item)
+        return !masked && !model.preferences.isPrivateModePaused
+    }
+
     /// Sync state, capture state and the shortcut hints, under BOTH panes.
     private var statusFooter: some View {
         PanelStatusFooter(
@@ -861,6 +870,7 @@ struct PanelView: View {
                 frontApp: model.pasteTarget.appName),
             privateModeShortcut: privateModeShortcut,
             alternativeHint: bestAlternative?.alternative.footerHint,
+            offersEyedropper: offersEyedropper,
             showKeyboardShortcuts: { toggleKeyboardShortcuts() }
         )
         .onReceive(

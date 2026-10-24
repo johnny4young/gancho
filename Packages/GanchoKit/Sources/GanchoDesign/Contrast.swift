@@ -5,6 +5,21 @@ import SwiftUI
 public enum Contrast {
     /// Normal text needs 4.5:1 against its background (WCAG 1.4.3).
     public static let text = 4.5
+    /// Large text and non-text graphics need 3:1 (WCAG 1.4.3, 1.4.11).
+    public static let largeText = 3.0
+
+    public enum Grade: Sendable, Equatable {
+        case aa, aaLarge, belowAA
+    }
+
+    public static func grade(_ ratio: Double) -> Grade {
+        ratio >= text ? .aa : ratio >= largeText ? .aaLarge : .belowAA
+    }
+
+    /// One decimal, truncated, so a ratio never reads past a threshold it misses.
+    public static func label(_ ratio: Double) -> String {
+        String(format: "%.1f : 1", (ratio * 10).rounded(.down) / 10)
+    }
 
     public static func luminance(_ color: Color.Resolved) -> Double {
         let value =

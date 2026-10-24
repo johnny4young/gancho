@@ -124,8 +124,18 @@ final class DesignV4SnapshotUITests: XCTestCase {
         try panel(appearance: "dark", ambient: true)
     }
 
+    /// The colour hero: formats, contrast cards and the colour dock.
+    @MainActor func testPanelColorPeekLight() throws {
+        try panel(appearance: "light", color: true)
+    }
+
+    @MainActor func testPanelColorPeekDark() throws {
+        try panel(appearance: "dark", color: true)
+    }
+
     @MainActor private func panel(
-        appearance: String, textSize: String = "standard", ambient: Bool = false
+        appearance: String, textSize: String = "standard", ambient: Bool = false,
+        color: Bool = false
     ) throws {
         let app = GanchoUITestApplication()
         app.launchArguments = [
@@ -146,10 +156,13 @@ final class DesignV4SnapshotUITests: XCTestCase {
         defer { app.terminate() }
         let row = app.descendants(matching: .any).matching(identifier: "clip-row")
             .matching(
-                ambient
-                    ? NSPredicate(
-                        format: "label BEGINSWITH %@ AND NOT (label CONTAINS %@)", "image,", "•••")
-                    : NSPredicate(format: "label CONTAINS %@", "example.com")
+                color
+                    ? NSPredicate(format: "label BEGINSWITH %@", "color,")
+                    : ambient
+                        ? NSPredicate(
+                            format: "label BEGINSWITH %@ AND NOT (label CONTAINS %@)", "image,",
+                            "•••")
+                        : NSPredicate(format: "label CONTAINS %@", "example.com")
             ).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 8))
         row.click()
@@ -159,10 +172,12 @@ final class DesignV4SnapshotUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         try DesignSnapshot.save(
             DesignSnapshot.renderWindow(titled: "Gancho", named: "panel", in: renders),
-            named: ambient
-                ? "panel-ambient-image-\(appearance)"
-                : textSize == "standard"
-                    ? "panel-link-peek-\(appearance)" : "panel-link-peek-\(textSize)-text")
+            named: color
+                ? "panel-color-peek-\(appearance)"
+                : ambient
+                    ? "panel-ambient-image-\(appearance)"
+                    : textSize == "standard"
+                        ? "panel-link-peek-\(appearance)" : "panel-link-peek-\(textSize)-text")
     }
 
     // MARK: Panel behaviour — Private Mode, filter tokens, no results.

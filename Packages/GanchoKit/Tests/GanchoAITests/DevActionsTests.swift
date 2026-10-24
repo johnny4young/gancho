@@ -64,6 +64,14 @@ struct DevActionsTests {
         #expect(output.contains("hsl: hsl("))
     }
 
+    @Test("Convert color adds the Swift line and reads 8-digit hex as #RRGGBBAA")
+    func colorSwiftAndAlpha() throws {
+        let teal = try DevActions.run(.convertColor, on: "#008080")
+        #expect(teal.contains("swift: Color(red: 0, green: 0.502, blue: 0.502)"))
+        let half = try DevActions.run(.convertColor, on: "#00808080")
+        #expect(half.contains("rgb: rgba(0, 128, 128, 0.502)"), "not the grey the old parser read")
+    }
+
     @Test("Hex→RGB→HSL specific values stay exact")
     func colorExactness() throws {
         let output = try DevActions.run(.convertColor, on: "#FF0000")

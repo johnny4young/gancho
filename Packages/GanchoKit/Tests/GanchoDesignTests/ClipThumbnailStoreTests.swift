@@ -1,8 +1,10 @@
 import Foundation
 import GanchoKit
+import ImageIO
 import SwiftUI
 import Synchronization
 import Testing
+import UniformTypeIdentifiers
 
 @testable import GanchoDesign
 
@@ -228,6 +230,31 @@ struct ClipThumbnailStoreTests {
         let sensitive = ClipItem(kind: .image, isSensitive: true)
         await store.ensureLoaded(sensitive)
         #expect(store.cached(for: sensitive.id) != nil)
+    }
+
+    @Test("A sensitive image decoded on macOS still hands out no palette")
+    func sensitivePaletteStaysHidden() async {
+        // The shared fixture is half transparent, which yields no palette.
+        let context = CGContext(
+            data: nil, width: 4, height: 4, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(CGColor(srgbRed: 0, green: 0.5, blue: 0.5, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+        let opaque = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(
+            opaque, UTType.png.identifier as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, context.makeImage()!, nil)
+        CGImageDestinationFinalize(destination)
+        let store = ClipThumbnailStore(
+            maxCached: 4, maxPixel: 480, skipsSensitiveClips: false, decodePriority: nil,
+            imageData: { _ in opaque as Data })
+        let plain = ClipItem(kind: .image)
+        let sensitive = ClipItem(kind: .image, isSensitive: true)
+        await store.ensureLoaded(plain)
+        await store.ensureLoaded(sensitive)
+        #expect(store.cachedPalette(for: plain).count == 1)
+        #expect(store.cachedPalette(for: sensitive).isEmpty)
     }
 
     @Test("ensureLoaded is idempotent — a cached clip is never re-read")

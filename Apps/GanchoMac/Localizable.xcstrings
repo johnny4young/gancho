@@ -10988,6 +10988,186 @@
           }
         }
       }
+    },
+    "Image view": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista de la imagen"
+          }
+        }
+      }
+    },
+    "Regions": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regiones"
+          }
+        }
+      }
+    },
+    "Image only": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo imagen"
+          }
+        }
+      }
+    },
+    "Pick color · I": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tomar color · I"
+          }
+        }
+      }
+    },
+    "Click the image to save that color": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz clic en la imagen para guardar ese color"
+          }
+        }
+      }
+    },
+    "Dominant ·": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dominantes ·"
+          }
+        }
+      }
+    },
+    "Save %@ as a color clip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar %@ como clip de color"
+          }
+        }
+      }
+    },
+    "Saved %@ as a color clip": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ guardado como clip de color"
+          }
+        }
+      }
+    },
+    "Couldn’t save the color.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar el color."
+          }
+        }
+      }
+    },
+    "Copied %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ copiado"
+          }
+        }
+      }
+    },
+    "Copy %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar %@"
+          }
+        }
+      }
+    },
+    "on white": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sobre blanco"
+          }
+        }
+      }
+    },
+    "on %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sobre %@"
+          }
+        }
+      }
+    },
+    "AA": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AA"
+          }
+        }
+      }
+    },
+    "AA Large": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AA grande"
+          }
+        }
+      }
+    },
+    "below AA": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bajo AA"
+          }
+        }
+      }
+    },
+    "Convert": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Convertir"
+          }
+        }
+      }
+    },
+    "eyedropper": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cuentagotas"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

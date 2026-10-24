@@ -32,6 +32,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   filter.
 - When a search finds nothing, the panel shows how many clips the other modes
   (and all boards) would find, previews the best one, and ↓ switches to it.
+- A color clip's peek shows the color with its HEX, RGB, HSL and SwiftUI
+  values, each with a copy button, and how it reads as text on white and on a
+  dark surface (contrast ratio and AA grade). Convert (⇧⏎) sits in its dock.
+- An image's peek lists up to three dominant colors; clicking one saves it as
+  a color clip. Pick color (I) turns the pointer into an eyedropper that saves
+  the exact pixel you click. A Regions / Image only switch hides the text
+  regions.
 
 ### Changed
 
@@ -78,6 +85,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   count.
 - Type, status, detected-secret and snippet-field pills keep their text at
   4.5:1 contrast on their own tinted background.
+- An 8-digit hex color (`#RRGGBBAA`) converts with the same channels the
+  swatch draws; Convert color read the first two digits as alpha.
+- An `hsl()` color whose hue is `nan` or `inf` no longer crashes Convert
+  color.
+- Convert color reads `rgb()` channels written as percentages
+  (`rgb(100%, 50%, 0%)`) or decimals, and alphas written as percentages,
+  instead of misreading or rejecting them.
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.10.2 DMG.
   Physical-device acceptance remains pending; the published app, tag and
