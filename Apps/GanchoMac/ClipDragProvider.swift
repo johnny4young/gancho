@@ -386,7 +386,7 @@ private struct ClipDragPreview: View {
 
     private var line: String {
         if masked || ClipSafePresentation.requiresMasking(item) {
-            return Bundle.main.localizedString(forKey: item.kind.rawValue, value: nil, table: nil)
+            return item.kind.localizedName
         }
         return item.title.isEmpty ? ClipSafePresentation.displayText(for: item) : item.title
     }

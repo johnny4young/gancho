@@ -32,6 +32,18 @@ struct BoardDropTests {
             BoardDrop.decide(item: secret, isMember: false, isPendingDeletion: false) == .ignore)
     }
 
+    @Test("An assign adds, and so can undo, only the clips not already on the board")
+    func newlyFiled() {
+        let board = UUID()
+        let other = ClipItem(kind: .text, preview: "other", contentHash: "o")
+        let third = ClipItem(kind: .text, preview: "third", contentHash: "t")
+        let memberships: [UUID: Set<UUID>] = [clip.id: [board], other.id: [UUID()]]
+        let added = BoardDrop.newlyFiled(
+            [clip, other, third], memberships: memberships, board: board)
+        #expect(added.map(\.id) == [other.id, third.id])
+        #expect(BoardDrop.newlyFiled([clip], memberships: memberships, board: board).isEmpty)
+    }
+
     @Test("The drag carries the id only, and nothing else parses as one")
     func payloadRoundTrip() {
         let id = UUID()

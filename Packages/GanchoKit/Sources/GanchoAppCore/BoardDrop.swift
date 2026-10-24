@@ -21,6 +21,14 @@ public enum BoardDrop {
         return isMember ? .alreadyMember : .add
     }
 
+    /// The clips an assign actually adds. Undo takes back only these, never a
+    /// membership a clip had before.
+    public static func newlyFiled(
+        _ items: [ClipItem], memberships: [UUID: Set<UUID>], board: UUID
+    ) -> [ClipItem] {
+        items.filter { !(memberships[$0.id]?.contains(board) ?? false) }
+    }
+
     public static func payload(for id: UUID) -> Data {
         Data(id.uuidString.utf8)
     }

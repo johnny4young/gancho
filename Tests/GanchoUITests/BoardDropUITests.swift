@@ -154,6 +154,40 @@ final class BoardDropUITests: XCTestCase {
 
         drag(card, onto: board)
         assertToast("Added to Seed board 1", in: app)
+        // The row's id reaches both of its texts: the name and the count.
+        let count = app.staticTexts.matching(identifier: board.identifier)
+            .matching(NSPredicate(format: "label == '1' OR value == '1'")).firstMatch
+        XCTAssertTrue(count.waitForExistence(timeout: 5), "the sidebar counts the filed clip")
+    }
+
+    /// Filing a clip into a board it is already on writes nothing, so there is
+    /// no Undo that could take out the membership it had before.
+    @MainActor
+    func testAssigningAClipAlreadyOnTheBoardKeepsItThere() throws {
+        let app = launch()
+        defer { app.terminate() }
+        let row = codeRow(app)
+        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        let chip = railChip("Seed board 2", in: app)
+        XCTAssertTrue(chip.waitForExistence(timeout: 10))
+        try SynthesizedInput.requireForeground(app)
+
+        drag(row, onto: chip)
+        assertToast("Added to Seed board 2", in: app)
+
+        row.rightClick()
+        let menu = app.menuItems["Add to board"].firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 3))
+        menu.hover()
+        let target = app.menuItems["Seed board 2"].firstMatch
+        XCTAssertTrue(target.waitForExistence(timeout: 3))
+        target.click()
+        assertToast("Already in Seed board 2", in: app)
+        XCTAssertFalse(app.buttons["toast-undo"].firstMatch.exists)
+        app.typeKey("z", modifierFlags: .command)
+
+        chip.click()
+        XCTAssertTrue(codeRow(app).waitForExistence(timeout: 5), "the clip is still on the board")
     }
 
     /// A row drag carries a clip; the panel stays put and moves from its top strip.

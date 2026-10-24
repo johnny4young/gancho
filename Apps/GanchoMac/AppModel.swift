@@ -1847,10 +1847,16 @@ final class AppModel {
     /// takes them back out, instead of making the user hunt through the menu.
     func assign(_ items: [ClipItem], toBoard board: Pinboard) {
         Task { [weak self] in
-            guard let self, await setBoardMembership(items, board: board, member: true) else {
+            guard let self else { return }
+            var memberships: [UUID: Set<UUID>] = [:]
+            for item in items { memberships[item.id] = await boardMembership(for: item) }
+            let added = BoardDrop.newlyFiled(items, memberships: memberships, board: board.id)
+            guard !added.isEmpty else {
+                toasts.show(GanchoToast(message: "Already in \(board.displayName)"))
                 return
             }
-            showAddedToast(items, board: board)
+            guard await setBoardMembership(added, board: board, member: true) else { return }
+            showAddedToast(added, board: board)
         }
     }
 
@@ -1909,7 +1915,7 @@ final class AppModel {
             name: name, filing: item, store: fullStore, engine: syncController.engine,
             isPro: tier == .pro,
             onFreeLimit: { self.paywallWindow.show(trigger: .freeLimitReached, model: self) },
-            onAssigned: { self.toasts.show(GanchoToast(message: "Added to \(name)")) })
+            onAssigned: {})
         if outcome == .failed {
             recordBoardFailure("Couldn’t create the board.")
         } else if item != nil, case .created(_, filedClip: false) = outcome {
@@ -1920,6 +1926,10 @@ final class AppModel {
         await refreshBoards()
         if case .created(let boardID, filedClip: true) = outcome {
             lastAssignedBoardID = boardID
+            // Named as stored (trimmed), with the same Undo as any other assign.
+            if let item, let board = boards.first(where: { $0.id == boardID }) {
+                showAddedToast([item], board: board)
+            }
         }
         if item != nil { await refreshRecents() }
         if case .created = outcome { notifyStoreChanged(for: .boards) }
