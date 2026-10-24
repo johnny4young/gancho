@@ -51,7 +51,14 @@ struct ToastAction {
     /// specific action (e.g. the delete Undo). Defaults to the shared id, so
     /// every existing toast keeps its previous identifier unchanged.
     var accessibilityIdentifier: String = "toast-action"
+    /// An Undo also runs on ⌘Z in the panel and the Library while it shows.
+    var isUndo = false
     let handler: @MainActor () -> Void
+
+    static func undo(_ handler: @escaping @MainActor () -> Void) -> ToastAction {
+        ToastAction(
+            title: "Undo", accessibilityIdentifier: "toast-undo", isUndo: true, handler: handler)
+    }
 }
 
 private struct ToastView: View {
@@ -67,9 +74,17 @@ private struct ToastView: View {
                 .font(.body.weight(.medium))
                 .fixedSize(horizontal: false, vertical: true)
             if let action = toast.action {
-                Button(action.title) {
+                Button {
                     action.handler()
                     onDismiss()
+                } label: {
+                    HStack(spacing: GanchoTokens.Spacing.xxs) {
+                        Text(action.title)
+                        if action.isUndo {
+                            Text(verbatim: "⌘Z").foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
+                        }
+                    }
                 }
                 .ganchoTextButton()
                 .accessibilityIdentifier(action.accessibilityIdentifier)
@@ -88,11 +103,26 @@ private struct ToastView: View {
     }
 }
 
+/// ⌘Z runs the visible toast's Undo. Disabled otherwise, so text fields keep
+/// their own undo whenever no toast offers one.
+struct ToastUndoShortcut: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Button("") { model.toasts.performUndo() }
+            .keyboardShortcut("z", modifiers: .command)
+            .disabled(model.toasts.visibleUndo == nil)
+    }
+}
+
 @MainActor
+@Observable
 final class ToastPresenter {
-    private var panel: NSPanel?
-    private var dismissTask: Task<Void, Never>?
-    private let defaults: UserDefaults
+    /// The Undo of the toast on screen, which ⌘Z runs; nil once it goes away.
+    private(set) var visibleUndo: ToastAction?
+    @ObservationIgnored private var panel: NSPanel?
+    @ObservationIgnored private var dismissTask: Task<Void, Never>?
+    @ObservationIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -116,6 +146,7 @@ final class ToastPresenter {
         host.layout()
         let size = host.fittingSize
 
+        visibleUndo = toast.action?.isUndo == true ? toast.action : nil
         let panel = ensurePanel()
         panel.setContentSize(size)
         panel.contentView = host
@@ -143,7 +174,15 @@ final class ToastPresenter {
 
     func dismiss() {
         dismissTask?.cancel()
+        visibleUndo = nil
         panel?.orderOut(nil)
+    }
+
+    /// Runs the visible toast's Undo, if there is one.
+    func performUndo() {
+        guard let undo = visibleUndo else { return }
+        undo.handler()
+        dismiss()
     }
 
     private func ensurePanel() -> NSPanel {

@@ -93,7 +93,7 @@ public struct BoardsController {
     ///   - onFreeLimit: the platform's gate UI, run in the gate's original
     ///     position (macOS paywall; iOS `proGateTick`/note).
     ///   - onAssigned: run immediately after a successful `assign`, in the toast's
-    ///     original position (macOS "Added to board"; iOS passes an empty hook).
+    ///     original position (macOS "Added to <board>"; iOS passes an empty hook).
     /// - Returns: the outcome, so the caller drives its own refresh.
     public func createBoard(
         name: String,

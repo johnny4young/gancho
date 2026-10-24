@@ -56,6 +56,7 @@ struct LibraryView: View {
                 .frame(minWidth: 460, maxWidth: .infinity)
         }
         .frame(minWidth: 800, minHeight: 560)
+        .background { ToastUndoShortcut().opacity(0).accessibilityHidden(true) }
         .accessibilityIdentifier("library")
         .task {
             let changes = model.storeChanges.subscribe()

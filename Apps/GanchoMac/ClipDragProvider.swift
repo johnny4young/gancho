@@ -1,5 +1,6 @@
 import AppKit
 import GanchoAppCore
+import GanchoDesign
 import GanchoKit
 import SwiftUI
 import UniformTypeIdentifiers
@@ -10,6 +11,11 @@ import UniformTypeIdentifiers
         static let uiTestMultiFileDragStarted = Self("uiTestMultiFileDragStarted")
     }
 #endif
+
+extension UTType {
+    /// A clip dragged onto a board inside Gancho: its id, never its content.
+    static let ganchoClipReference = UTType(exportedAs: "com.johnny4young.gancho.clip-reference")
+}
 
 /// The materialized file payload for the narrow AppKit path. SwiftUI keeps
 /// ownership of row state and selection; AppKit receives only concrete URLs
@@ -37,6 +43,14 @@ extension AppModel {
         let usage = OneShot()
         for representation in representations {
             register(representation, of: item, on: provider, usage: usage)
+        }
+        // Boards read this; other apps never see it.
+        let reference = BoardDrop.payload(for: item.id)
+        provider.registerDataRepresentation(
+            forTypeIdentifier: UTType.ganchoClipReference.identifier, visibility: .ownProcess
+        ) { completion in
+            completion(reference, nil)
+            return nil
         }
         return provider
     }
@@ -212,6 +226,8 @@ struct ClipDragSource: ViewModifier {
             .onDrag {
                 model.panel.noteDragOutStarted()
                 return model.dragProvider(for: item)
+            } preview: {
+                ClipDragPreview(item: item, masked: model.previewsHidden)
             }
             .overlay {
                 if item.kind == .fileReference {
@@ -344,5 +360,34 @@ extension View {
             ClipDragSource(
                 item: item, selectedItems: selectedItems,
                 select: select, doubleClick: doubleClick))
+    }
+}
+
+/// The lifted card under the pointer: the clip's tile and one line, tilted 3°.
+private struct ClipDragPreview: View {
+    let item: ClipItem
+    let masked: Bool
+
+    var body: some View {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            ClipTile(item: item, size: 18, previewsHidden: masked)
+            Text(verbatim: line).font(.caption.weight(.bold)).lineLimit(1)
+        }
+        .padding(.horizontal, GanchoTokens.Spacing.xs)
+        .frame(maxWidth: 200, minHeight: 30)
+        .background(.background, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline)
+        )
+        .rotationEffect(.degrees(3))
+        .padding(6)
+    }
+
+    private var line: String {
+        if masked || ClipSafePresentation.requiresMasking(item) {
+            return Bundle.main.localizedString(forKey: item.kind.rawValue, value: nil, table: nil)
+        }
+        return item.title.isEmpty ? ClipSafePresentation.displayText(for: item) : item.title
     }
 }

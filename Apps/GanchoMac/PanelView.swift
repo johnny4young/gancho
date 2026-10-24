@@ -182,6 +182,7 @@ struct PanelView: View {
                 if let item = search.selectedItem { model.copyImageText(item, surface: .peek) }
             }
             .keyboardShortcut("c", modifiers: [.command, .shift])
+            ToastUndoShortcut()
         }
         // A field being edited owns ⌘V and friends; these would act on the list behind it.
         .disabled(
@@ -620,6 +621,7 @@ struct PanelView: View {
                     showsMeaning: model.intelligence.semanticSearch
                         && !model.preferences.isPrivateModePaused)
             }
+            .background { WindowDragArea() }
             .focused($focus, equals: .search)
             .onKeyPress(.tab, phases: .down) { press in
                 // ⇧Tab keeps moving focus backwards.
@@ -830,6 +832,7 @@ struct PanelView: View {
         }
         .padding(.horizontal, GanchoTokens.Spacing.sm)
         .padding(.vertical, 6)
+        .background { WindowDragArea() }
     }
 
     private var toolbarFilters: some View {
@@ -1178,6 +1181,7 @@ struct PanelView: View {
                     BoardIdentityMark(board: board, size: 11)
                 }
             }
+            .boardDropTarget(board, ring: Capsule(style: .circular))
         }
         .buttonStyle(.plain)
         .help(title)

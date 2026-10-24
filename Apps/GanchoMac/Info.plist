@@ -39,5 +39,18 @@
 	<string>https://johnny4young.github.io/gancho/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>Y5DOypMB7sZ04Ffw2gkLr9BlZRHKGWgWu0bB9jEsqmU=</string>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Gancho clip reference</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.johnny4young.gancho.clip-reference</string>
+		</dict>
+	</array>
 </dict>
 </plist>

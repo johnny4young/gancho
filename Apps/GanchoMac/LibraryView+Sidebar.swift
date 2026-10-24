@@ -21,6 +21,10 @@ extension LibraryView {
                             systemImage: board.sfSymbol, count: boardCounts[board.id] ?? 0,
                             board: board
                         )
+                        .boardDropTarget(
+                            board, ring: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        )
+                        .accessibilityIdentifier("library-board-\(board.id.uuidString)")
                         .contextMenu {
                             if !board.isSystem {
                                 Button("Customize board…") {
