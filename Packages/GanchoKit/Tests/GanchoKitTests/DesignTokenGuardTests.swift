@@ -3,7 +3,7 @@ import Testing
 
 /// App views take colour, elevation and motion from `GanchoDesign`, so the
 /// contrast rule, the dark-mode elevation and Reduce Motion hold in one place.
-@Suite("Design tokens — no literal curves, shadows or green text in the apps")
+@Suite("Design tokens — no literal curves, shadows, green text or accent bars in the apps")
 struct DesignTokenGuardTests {
     static let curves = "snappy|easeIn|easeOut|easeInOut|linear|spring|bouncy|smooth"
 
@@ -48,6 +48,26 @@ struct DesignTokenGuardTests {
             of: #"\.background\(\s*GanchoTokens\.Palette\.\w+(\(for: [^)]*\))?\.opacity\("#
                 + #"[^)]*\),\s*in: Capsule\(\)"#)
         #expect(offenders.isEmpty, "use ganchoTintedPill: \(offenders)")
+    }
+
+    /// Selection, status and kind never show as a thin leading bar: use a wash,
+    /// a full border, weight or an icon.
+    @Test func noLeadingAccentBars() throws {
+        let bar = #"\.frame\(width:\s*[2-6](\.\d+)?\)"#
+        let design = LocalizationTests.repoRoot
+            .appendingPathComponent("Packages/GanchoKit/Sources/GanchoDesign")
+        let swift = try Self.matches(of: bar) + Self.matches(of: bar, in: design)
+        #expect(swift.isEmpty, "no leading accent bars: \(swift)")
+
+        let css = try NSRegularExpression(
+            pattern: #"border-(left|inline-start)(-width)?\s*:|box-shadow:\s*inset\s+\d"#
+                + #"|\bborder-[ls]-\d"#)
+        for page in ["site/index.html", "site/styles.css"] {
+            let url = LocalizationTests.repoRoot.appendingPathComponent(page)
+            let text = try String(contentsOf: url, encoding: .utf8)
+            let hits = css.numberOfMatches(in: text, range: NSRange(text.startIndex..., in: text))
+            #expect(hits == 0, "no leading accent bars in \(page)")
+        }
     }
 
     private static func matches(

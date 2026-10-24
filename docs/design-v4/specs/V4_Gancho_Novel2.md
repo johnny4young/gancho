@@ -17,7 +17,7 @@
 | Chip `.cp` | 22 h, padding 0 8, radius 11, `#E4E4E6`, `#3A3A3F`, 11 pt 600, gap 5. Selected `.cp.on`: `#34C759` fill, `#0B2A14` text |
 | Key cap `.kk` | min 18 × 18, padding 0 4, radius 5, white, ring 1 `#D6D6DA`, 11 pt 600 `#3A3A3F` |
 | Button `.btn` | 24 h, padding 0 10, radius 7, white, ring 1 `#D6D6DA`, 12 pt 600 `#1D1D1F`, gap 6. Primary `.btn.g`: `#34C759` fill, `#0B2A14` text, no ring. Destructive text `#B3141B` |
-| Selected row `.r.sel` | inset 6 left/right, 48 h, radius 10, `#E3F4E6`, 3 pt leading bar `#34C759` (top/bottom inset 8, radius 2) |
+| Selected row `.r.sel` | inset 6 left/right, 48 h, radius 10, `#E3F4E6`, 3 pt leading bar `#34C759` (top/bottom inset 8, radius 2) — not built: leading accent bars are banned; the selection is the wash inside a full 1 pt accent outline |
 | Glass sheet | radius 14, `rgba(255,255,255,.92)`, ring 1 `rgba(0,0,0,.10)`, shadow `0 14 34 rgba(0,0,0,.22)` |
 | Kind tints | link tile `#DDEFF9`/icon `#1F8FC0`; text `#E6E6E8`/`#6E6E73`; code `#E5E4FA`/`#5856D6`; secret icon `#D70015` |
 | Fonts | SF Pro Text; mono = `ui-monospace, SF Mono` |

@@ -75,7 +75,7 @@ Magnifier; input placeholder **`Search`** (a11y label stays `Search your clipboa
 ### 2.4 Peek
 1. **Provenance header — pin 2 (GC-01)** (gap 6, wraps, min 24 h): kind pill `url`; chip app icon (10 × 10, radius 3, sample gradient `#4FC3F7→#1565C0`) + `Safari`; chip clock 10 pt + `7 s ago`; chip board dot (8 × 8 `#2E70D1`) + `Work`; spacer; green chip (bg `rgba(52,199,89,.14)`, text `#1F7A3A`, cloud-check 11 pt) `Synced · Mac + iPhone`. Chips: 20 h, padding 0 7, capsule, 11 px/600, `#3A3A3F` on `rgba(29,29,31,.07)`.
 2. **Title row** (gap 8): `Synthetic link` 15 px/800 (−.01em); `Edit title` wand `#1F7A3A` 12 pt; caption `title written on-device` 10.5 px `#6E6E73`.
-3. **Hero**: same card plus a 4 pt leading stripe in the kind tint `#32ADE6` (full height). Host `example.com`; URL as §1.2; chip row (wrap, gap 4, margin-top 10): `decoded · /a/b?q=a&b`, `https`, `port 8443`, `#section-2`, and right-aligned `Edit` (wand 10 pt, `#1F7A3A`). The `Content` label is gone. The insight strip is gone.
+3. **Hero**: same card plus a 4 pt leading stripe in the kind tint `#32ADE6` (full height) *(not built: leading accent bars are banned; the kind shows through the card's tinted wash and the header chip)*. Host `example.com`; URL as §1.2; chip row (wrap, gap 4, margin-top 10): `decoded · /a/b?q=a&b`, `https`, `port 8443`, `#section-2`, and right-aligned `Edit` (wand 10 pt, `#1F7A3A`). The `Content` label is gone. The insight strip is gone.
 4. **Transform — pin 4 (GC-11, catalog board = Novel2)**: one button (white, 28 h): wand 12 pt, `Transform`, keycap `⌘T` (16 h, 9.5 px), ⌄. Beside it 11 px `#5B5B61`: `recipes · text · code · smart paste · translate — one list, type to filter`. `Smart paste` button and `More actions` chip are gone.
 5. **Board suggestion** (padding 6 10, radius 10, bg `rgba(52,199,89,.1)`, 11 px): sparkles `#1F7A3A` 12 pt, `Add to Brand?` (600), spacer, `Add` (700 `#1F7A3A`), `Dismiss` ✕ (11 pt `#6E6E73`). Exists today (`board-suggestion`); drawn at 11 pt (GC-V5-6).
 6. **Dock** — pins 3 & 4: `Paste into Figma` `⏎` (primary, flex 2; GC-V4-2), `Plain` `⌥⏎`, `Pin` `⌘P`, `Board` `⌘B`, `Stack` `⌥⌘⏎` (layers glyph; GC-10).
@@ -188,7 +188,7 @@ Tag `PASS 2026-10-17`, title `Checked against screenshots 04–09`. Two entries:
 | v4 row 5 masked tail + `9:41` expiry | GC-09 (catalog board Novel); pin 7 |
 | v4 peek provenance header, `Synced · Mac + iPhone`, insight strip removed | GC-01; pin 2 |
 | v4 `title written on-device` caption | GC-01 (Archive: "v4 peek header says written on-device") |
-| v4 hero 4 pt kind stripe, URL part chips, `Content` label removed | no pin, no catalog ID — unassigned (Archive: link chips "v4 hero keeps decoded · https · port") |
+| v4 hero 4 pt kind stripe (removed: leading accent bars are banned), URL part chips, `Content` label removed | no pin, no catalog ID — unassigned (Archive: link chips "v4 hero keeps decoded · https · port") |
 | v4 single Transform ⌘T + hint line; Smart paste / More actions removed | GC-11 (Novel2); pin 4 |
 | v4 `Add to Brand?` suggestion | kept (exists); size via GC-V5-6 |
 | v4 dock `Paste into Figma` | GC-V4-2; pin 3 |

@@ -400,7 +400,7 @@ struct ClipPeek: View {
 
 extension ClipPeek {
     /// The kind-aware hero card: the image with its Live-Text regions, a link's
-    /// host and original URL (parsed locally, never fetched), a colour band,
+    /// host and original URL (parsed locally, never fetched), the colour hero,
     /// or the (syntax-tinted) text. The card takes a wash of the kind's tint.
     private var hero: some View {
         let tint = GanchoTokens.Palette.kindTint(for: item.kind)
@@ -419,16 +419,13 @@ extension ClipPeek {
         .padding(GanchoTokens.Spacing.sm)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .background {
-            // A 4 pt stripe in the kind's tint marks the kind before reading it.
-            ZStack(alignment: .leading) {
+            ZStack {
                 shape.fill(.quaternary.opacity(0.35))
                 shape.fill(
                     RadialGradient(
                         colors: [tint.opacity(0.2), .clear], center: .topLeading,
                         startRadius: 0, endRadius: 360))
-                tint.frame(width: 4)
             }
-            .clipShape(shape)
         }
         .overlay(
             shape.strokeBorder(.separator.opacity(0.6), lineWidth: GanchoTokens.Stroke.hairline)

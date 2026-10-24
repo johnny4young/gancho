@@ -33,7 +33,7 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
    - Q19: the sync chip shows upload state ("Synced" / "Waiting to sync", hidden with sync off); the "title written on-device" caption is dropped; expiry becomes an amber chip in the header.
    - Q21: the scope chip shows the board's total.
    - Q10: image size is stored at capture (v27, lazy backfill, not synced); masked images stay masked; untitled rows read "Image · W × H · FORMAT", titled rows "FORMAT · W × H" under the title (default).
-   - Q22: the hero takes the 4 pt kind stripe and a "decoded" chip only when it differs from the URL.
+   - Q22: the hero takes a "decoded" chip only when it differs from the URL (its 4 pt kind stripe was removed on 2026-10-23: no left accent bars).
    - Q23 (default): the pins win; the "By meaning" row goes with GC-V4-1.
    - Q35: 7 % / 10 % is the wash's visible peak; the test is inverted.
    - Q26: "Shown once…" is an annotation and is not shipped.
@@ -48,7 +48,8 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
    - Q28: the eyedropper samples the exact pixel of the original image, not the screen, and saves it as a colour clip; a dominant swatch click does the same; 1–3 swatches; Regions / Image only is a segmented control that defaults to Regions.
    - Q29: the dock is Paste into <App> · Plain · Convert ⇧⏎ · Pin · Board (GC-V4-2 wins over "Paste #008080"); contrast uses the real ratios, truncated to one decimal, graded AA / AA Large / below AA, with "Aa" in the colour on white and on #1C1C1E.
    - US spelling "color" in UI copy; the Swift format uses three decimals with trailing zeros dropped, and `opacity:` only when the colour has alpha.
-9. Cross-app rules from the owner's threads:
+9. Owner rule, 2026-10-23: no left accent bars anywhere (apps, website, mockups). The selected row is the accent wash inside a full 1 pt accent outline; the peek hero drops its 4 pt kind stripe and keeps the tinted wash; `DesignTokenGuardTests.noLeadingAccentBars` guards Swift and the site. This overrides the boards' leading bars and Q22's stripe.
+10. Cross-app rules from the owner's threads:
    - Only propose what beats the current UI; code wins over v2 boards and site screenshots.
    - Each piece of data appears once per screen.
    - Canvas annotations are not UI.
@@ -379,7 +380,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 - **Q19 — RESOLVED 2026-10-22: upload-state chip, no caption, expiry chip in the header.** GC-01. What does "Synced · Mac + iPhone" mean per clip? There is no per-clip device list, only `needsUpload`. Also: store a "title written on-device" flag, or drop that caption? And where does the expiry label go?
 - **Q20 — RESOLVED 2026-10-23: Paste into <App> / Paste / Copy.** GC-V4-2. What does the dock label say with no target app, or without Accessibility (copy only)?
 - **Q21 — RESOLVED 2026-10-22: the board's total.** GC-V4-3. Should the count be the scope total or the filtered result count?
-- **Q22 — RESOLVED 2026-10-22 for the hero: stripe + decoded chip only (footer hints stay with GC-V4-4).** Unassigned panel changes. The 4 pt kind stripe, the URL part chips and the new footer hints have no ID. Implement them under GC-01/GC-V4-4, or skip them?
+- **Q22 — RESOLVED 2026-10-22 for the hero: stripe + decoded chip only (footer hints stay with GC-V4-4); the stripe was removed 2026-10-23 under the no-left-accent-bar rule.** Unassigned panel changes. The 4 pt kind stripe, the URL part chips and the new footer hints have no ID. Implement them under GC-01/GC-V4-4, or skip them?
 - **Q23 — RESOLVED 2026-10-22 (default): the pins win.** Panel pins vs "kept" strip. The pins remove the insight strip and "By meaning", but the "kept" strip keeps them. Do the pins win?
 - **Q24 — RESOLVED 2026-10-23: dropped; most results wins.** GC-08. What does "Older than 30 days" count? The panel has no date filter, and free archiving is 365 days. Is "best" the highest count or a fixed order?
 - **Q25 — RESOLVED 2026-10-23: 15/30/60/120 min or until off, default 1 h; "none read" is a fixed promise.** GC-07. What are the auto-off options and the default? Is "0 read" a real counter or a fixed promise?

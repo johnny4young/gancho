@@ -63,6 +63,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Meaning is a search mode of its own: it lists only the clips related by
   meaning, instead of adding them under the other results. The "By meaning"
   button is gone.
+- The selected row shows as a tinted, outlined card instead of a green bar
+  on its left edge, and the preview card no longer has a colored stripe on
+  its left.
 - Private Mode is indigo instead of amber. The list sits under "Before
   private mode", and the peek says previews are hidden and pasting still
   works.
