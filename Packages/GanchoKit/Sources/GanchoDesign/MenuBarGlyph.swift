@@ -131,7 +131,9 @@
         }
 
         /// Paints the hook on `button` and puts `badge` (or nothing) on the
-        /// view above it, keeping the hook a template image.
+        /// view above it, keeping the hook a template image. The badge is
+        /// pinned to the button's centre, so it follows the variable-length
+        /// item as it resizes for the wider badged image.
         @MainActor
         public static func apply(badge: MenuBarBadge?, to button: NSButton) {
             button.image = hookImage(badged: badge != nil)
@@ -139,26 +141,26 @@
             button.title = ""
             let badgeView =
                 button.subviews.lazy.compactMap { $0 as? MenuBarBadgeView }.first
-                ?? {
-                    let view = MenuBarBadgeView()
-                    button.addSubview(view)
-                    return view
-                }()
-            guard let badge else {
-                badgeView.isHidden = true
-                return
-            }
-            badgeView.image = badgeImage(badge)
-            badgeView.isHidden = false
-            let imageRect =
-                (button.cell as? NSButtonCell)?.imageRect(forBounds: button.bounds)
-                ?? button.bounds
-            let x = imageRect.minX + badgeRect.minX
-            let y =
-                button.isFlipped
-                ? imageRect.maxY - badgeRect.maxY
-                : imageRect.minY + badgeRect.minY
-            badgeView.frame = NSRect(x: x, y: y, width: badgeSide, height: badgeSide)
+                ?? attachBadgeView(to: button)
+            badgeView.isHidden = badge == nil
+            badgeView.image = badge.map(badgeImage)
+        }
+
+        @MainActor
+        private static func attachBadgeView(to button: NSButton) -> MenuBarBadgeView {
+            let view = MenuBarBadgeView()
+            view.translatesAutoresizingMaskIntoConstraints = false
+            button.addSubview(view)
+            NSLayoutConstraint.activate([
+                view.widthAnchor.constraint(equalToConstant: badgeSide),
+                view.heightAnchor.constraint(equalToConstant: badgeSide),
+                view.centerXAnchor.constraint(
+                    equalTo: button.centerXAnchor, constant: badgeCenter.x - badgedWidth / 2),
+                // Layout runs top-down; the image's y runs up from its bottom.
+                view.centerYAnchor.constraint(
+                    equalTo: button.centerYAnchor, constant: hookSide / 2 - badgeCenter.y)
+            ])
+            return view
         }
     }
 

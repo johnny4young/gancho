@@ -1,6 +1,10 @@
 import AppKit
 import Foundation
 
+#if !STANDALONE_MENU_BAR
+    import GanchoKit
+#endif
+
 /// Shared command metadata for Gancho's menu-bar surfaces.
 ///
 /// Command titles, shortcuts, symbols, and accessibility identifiers live in
@@ -181,6 +185,10 @@ enum GanchoMenuBarSignal: String, CaseIterable {
     case menuDidOpen
     case menuDidClose
 
+    /// How long the app has to answer `showMenu` before the helper opens its
+    /// own menu; the app drops requests older than this.
+    static let menuAnswerTimeout: TimeInterval = 0.5
+
     var distributedNotificationName: Notification.Name {
         Notification.Name("com.johnny4young.gancho.menu-bar-signal.\(rawValue)")
     }
@@ -192,20 +200,18 @@ enum GanchoMenuBarSignal: String, CaseIterable {
     }
 }
 
-/// What a click on the status item does: ⌥ pauses or resumes capture, ⌥⇧
-/// ignores the next copy, anything else opens the menu.
-enum MenuBarClick: Equatable {
-    case openMenu
-    case command(GanchoMenuBarCommand)
+extension MenuBarClick {
+    init(event: NSEvent?) {
+        let flags = event?.modifierFlags.intersection(.deviceIndependentFlagsMask) ?? []
+        self.init(option: flags.contains(.option), shift: flags.contains(.shift))
+    }
 
-    init(modifiers: NSEvent.ModifierFlags) {
-        let flags = modifiers.intersection(.deviceIndependentFlagsMask)
-        if flags.contains(.option), flags.contains(.shift) {
-            self = .command(.ignoreNextCopy)
-        } else if flags.contains(.option) {
-            self = .command(.toggleCapture)
-        } else {
-            self = .openMenu
+    /// The command a modifier click runs; nil opens the menu.
+    var command: GanchoMenuBarCommand? {
+        switch self {
+        case .openMenu: nil
+        case .toggleCapture: .toggleCapture
+        case .ignoreNextCopy: .ignoreNextCopy
         }
     }
 }

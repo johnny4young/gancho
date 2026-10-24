@@ -89,11 +89,11 @@ final class StatusItemController: NSObject {
 
     @objc private func statusItemClicked() {
         guard let model, let statusItem, let button = statusItem.button else { return }
-        switch MenuBarClick(modifiers: NSApp.currentEvent?.modifierFlags ?? []) {
-        case .command(let command):
+        let click = MenuBarClick(event: NSApp.currentEvent)
+        if let command = click.command {
             command.perform(on: model)
             updateStatusPresentation()
-        case .openMenu:
+        } else {
             guard let menu else { return }
             menu.onOpen = { [weak self] in self?.updateStatusPresentation() }
             menu.onClose = { [weak self] in self?.updateStatusPresentation() }
@@ -158,19 +158,16 @@ final class StatusItemController: NSObject {
     #endif
 }
 
-/// The status item's spoken capture state. Shared by the in-process fallback
-/// and the App Group publisher that drives the helper.
-struct StatusItemPresentation {
-    let accessibilityDescription: String
-
-    init(status: MonitorStatus) {
-        accessibilityDescription =
-            switch status {
-            case .running: String(localized: "Gancho: capturing")
-            case .pausedByUser: String(localized: "Gancho: private mode")
-            case .pausedByScreenShare: String(localized: "Gancho: paused while sharing")
-            case .stopped, .pausedByScreenLock: String(localized: "Gancho: paused")
-            case .deniedByPrivacySettings: String(localized: "Gancho: pasteboard access denied")
-            }
+extension MonitorStatus {
+    /// The status item's spoken capture state, for both the in-process item
+    /// and the helper.
+    var menuBarLabel: String {
+        switch self {
+        case .running: String(localized: "Gancho: capturing")
+        case .pausedByUser: String(localized: "Gancho: private mode")
+        case .pausedByScreenShare: String(localized: "Gancho: paused while sharing")
+        case .stopped, .pausedByScreenLock: String(localized: "Gancho: paused")
+        case .deniedByPrivacySettings: String(localized: "Gancho: pasteboard access denied")
+        }
     }
 }

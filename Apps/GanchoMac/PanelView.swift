@@ -166,7 +166,8 @@ struct PanelView: View {
             }
             .keyboardShortcut("v", modifiers: [.command, .option])
             Button("") {
-                if let item = search.selectedItem {
+                // The large preview shows everything, so not while previews are hidden.
+                if let item = search.selectedItem, !model.previewsHidden {
                     model.panel.showLargePreview(item, model: model)
                 }
             }
@@ -357,6 +358,9 @@ struct PanelView: View {
                 cancelPendingPaste()
             }
             .onChange(of: search.meaningEnabled) { _, _ in Task { await search.refresh() } }
+            .onChange(of: model.previewsHidden) { _, hidden in
+                if hidden { model.panel.closeLargePreview() }
+            }
             .onChange(of: model.preferences.isPrivateModePaused) { _, paused in
                 search.meaningAvailabilityChanged(!paused && model.intelligence.semanticSearch)
                 search.cancelMeaningSearch()
@@ -1500,7 +1504,8 @@ struct PanelView: View {
             suppressExpectedEphemeralNotice: suppressExpectedEphemeralNotice,
             suppressExpectedPausedNotice: suppressExpectedPausedNotice,
             privateModeEnabled: model.preferences.isPrivateModePaused,
-            runtimeStatus: model.monitorStatus.panelCaptureRuntimeStatus)
+            runtimeStatus: model.monitorStatus.panelCaptureRuntimeStatus,
+            screenShareDetected: model.sharingAppName != nil)
     }
 
     private func handleCaptureAction(_ action: PanelCaptureAction) {

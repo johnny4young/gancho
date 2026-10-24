@@ -95,8 +95,8 @@ struct SelectedContextReview: View {
         .onChange(of: parts, initial: true) { _, current in
             prepared = try? SelectedContextFormatter.format(current)
         }
-        .onChange(of: model.preferences.isPrivateModePaused) { _, paused in
-            if paused { cancel() }
+        .onChange(of: model.previewsHidden) { _, hidden in
+            if hidden { cancel() }
         }
         .onReceive(
             NotificationCenter.default.publisher(for: NSWindow.didChangeOcclusionStateNotification)
@@ -109,13 +109,13 @@ struct SelectedContextReview: View {
     private func load() async {
         let request = generation
         defer { loading = false }
-        guard !model.preferences.isPrivateModePaused, let store = model.textReuseReader else {
+        guard !model.previewsHidden, let store = model.textReuseReader else {
             failed = true
             return
         }
         do {
             let loaded = try await CombinedTextService().load(ids: ids, from: store)
-            guard !Task.isCancelled, generation == request, !model.preferences.isPrivateModePaused
+            guard !Task.isCancelled, generation == request, !model.previewsHidden
             else { return }
             parts = loaded
         } catch { if !Task.isCancelled, generation == request { failed = true } }

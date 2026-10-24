@@ -57,7 +57,8 @@ public struct PanelCapturePresentation: Sendable, Equatable {
         suppressExpectedEphemeralNotice: Bool = false,
         suppressExpectedPausedNotice: Bool = false,
         privateModeEnabled: Bool,
-        runtimeStatus: PanelCaptureRuntimeStatus
+        runtimeStatus: PanelCaptureRuntimeStatus,
+        screenShareDetected: Bool = false
     ) -> Self {
         let notice: PanelCaptureNotice? =
             if storageIsEphemeral, !suppressExpectedEphemeralNotice {
@@ -66,7 +67,8 @@ public struct PanelCapturePresentation: Sendable, Equatable {
                 .denied
             } else if privateModeEnabled {
                 .privateMode
-            } else if runtimeStatus == .pausedByScreenShare {
+            } else if runtimeStatus == .pausedByScreenShare || screenShareDetected {
+                // A share also hides previews when capture was already paused.
                 .screenShare
             } else if runtimeStatus == .stopped, !suppressExpectedPausedNotice {
                 .paused

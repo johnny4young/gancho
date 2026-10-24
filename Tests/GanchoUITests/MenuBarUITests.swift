@@ -169,11 +169,34 @@ final class MenuBarUITests: XCTestCase {
             XCTAssertTrue(waitForBadge("paused", on: item), "sharing pauses capture")
         }
 
+        // The large preview would show everything, so ⌘Y does nothing yet.
+        app.activate()
+        _ = app.wait(for: .runningForeground, timeout: 3)
+        try SynthesizedInput.requireForeground(app)
+        app.typeKey("y", modifierFlags: .command)
+        XCTAssertFalse(
+            app.sheets["large-preview-window"].firstMatch.waitForExistence(timeout: 2),
+            "no large preview while previews are hidden")
+
         show.click()
         let revealed = rows.matching(
             NSPredicate(format: "label BEGINSWITH %@", "code, let greeting")
         ).firstMatch
         XCTAssertTrue(revealed.waitForExistence(timeout: 5), "Show anyway reveals the rows")
         XCTAssertFalse(show.exists)
+    }
+
+    /// A share that starts while capture is paused by hand hides previews too.
+    @MainActor
+    func testScreenShareDuringAManualPauseStillHidesPreviews() throws {
+        let app = launch(["-start-capture-paused", "-simulate-screen-share", "Zoom"])
+        defer { app.terminate() }
+        XCTAssertTrue(
+            app.buttons["screen-share-show-anyway"].firstMatch.waitForExistence(timeout: 10),
+            "the share notice wins over the paused one")
+        let code = app.descendants(matching: .any).matching(identifier: "clip-row")
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "code,")).firstMatch
+        XCTAssertTrue(code.waitForExistence(timeout: 5))
+        XCTAssertTrue(code.label.contains("•••"), "masked while sharing: \(code.label)")
     }
 }

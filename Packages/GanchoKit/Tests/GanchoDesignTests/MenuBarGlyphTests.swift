@@ -89,5 +89,25 @@
             let ring = pixel(badge, at: NSPoint(x: 0.4, y: 6))
             #expect(ring.red > 240 && ring.green > 240 && ring.blue > 240, "white ring \(ring)")
         }
+
+        @Test("The badge follows the status button as it resizes, and hides with no state")
+        func badgeFollowsTheButton() throws {
+            let offset = MenuBarGlyph.badgeCenter.x - MenuBarGlyph.badgedWidth / 2
+            let button = NSButton(frame: NSRect(x: 0, y: 0, width: 30, height: 22))
+            MenuBarGlyph.apply(badge: .paused, to: button)
+            button.layoutSubtreeIfNeeded()
+            let badge = try #require(button.subviews.compactMap { $0 as? MenuBarBadgeView }.first)
+            #expect(abs(badge.frame.midX - (15 + offset)) < 0.01)
+            // Below the hook's centre, as the badged image draws it.
+            let below = MenuBarGlyph.hookSide / 2 - MenuBarGlyph.badgeCenter.y
+            let expectedY = button.isFlipped ? 11 + below : 11 - below
+            #expect(abs(badge.frame.midY - expectedY) < 0.01, "\(badge.frame)")
+            button.setFrameSize(NSSize(width: 40, height: 22))
+            button.layoutSubtreeIfNeeded()
+            #expect(abs(badge.frame.midX - (20 + offset)) < 0.01, "moved with the wider button")
+            MenuBarGlyph.apply(badge: nil, to: button)
+            #expect(badge.isHidden)
+            #expect(button.subviews.count { $0 is MenuBarBadgeView } == 1, "one badge view, reused")
+        }
     }
 #endif

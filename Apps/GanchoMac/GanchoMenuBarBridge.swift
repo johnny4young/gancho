@@ -23,6 +23,7 @@ enum GanchoMenuBarBridge {
         static let nonce = "menu-bar.nonce"
         static let panelShortcut = "menu-bar.panel-shortcut"
         static let buttonFrame = "menu-bar.button-frame"
+        static let menuRequestedAt = "menu-bar.menu-requested-at"
         /// Earlier builds wrote a masked "last copied" preview here.
         static let retired = [
             "menu-bar.status.icon", "menu-bar.last-copied.preview", "menu-bar.last-copied.label",
@@ -33,9 +34,11 @@ enum GanchoMenuBarBridge {
     private static var defaults: UserDefaults? { UserDefaults(suiteName: appGroupSuite) }
 
     /// Removes values earlier builds left in the plist, including the old
-    /// clipboard preview.
+    /// clipboard preview, and any menu request a previous launch left behind.
     static func removeRetiredValues() {
-        for key in Key.retired { defaults?.removeObject(forKey: key) }
+        for key in Key.retired + [Key.buttonFrame, Key.menuRequestedAt] {
+            defaults?.removeObject(forKey: key)
+        }
     }
 
     // MARK: Status — the app writes, the helper paints.
@@ -94,16 +97,23 @@ enum GanchoMenuBarBridge {
         defaults?.string(forKey: Key.nonce)
     }
 
-    // MARK: Status button frame — the helper writes it before `showMenu`, so the
-    // app can open its menu under the icon.
+    // MARK: Menu request — before `showMenu` the helper writes its icon's frame
+    // and the time, so the app opens under the icon and skips a stale request.
 
-    static func writeButtonFrame(_ frame: NSRect) {
+    static func writeMenuRequest(buttonFrame frame: NSRect, at date: Date = Date()) {
         defaults?.set(NSStringFromRect(frame), forKey: Key.buttonFrame)
+        defaults?.set(date.timeIntervalSince1970, forKey: Key.menuRequestedAt)
     }
 
-    static func readButtonFrame() -> NSRect? {
-        defaults?.string(forKey: Key.buttonFrame).map(NSRectFromString).flatMap {
-            $0.isEmpty ? nil : $0
-        }
+    /// Reads the request and clears it, so a stale one never gates the next.
+    static func takeMenuRequest() -> (buttonFrame: NSRect?, requestedAt: Date?) {
+        let frame = defaults?.string(forKey: Key.buttonFrame).map(NSRectFromString)
+        let time = defaults?.object(forKey: Key.menuRequestedAt) as? Double
+        defaults?.removeObject(forKey: Key.buttonFrame)
+        defaults?.removeObject(forKey: Key.menuRequestedAt)
+        return (
+            frame.flatMap { $0.isEmpty ? nil : $0 },
+            time.map(Date.init(timeIntervalSince1970:))
+        )
     }
 }

@@ -56,3 +56,15 @@ public enum MenuBarBadge: Equatable, Sendable {
         }
     }
 }
+
+/// What a click on the status item does: ⌥ pauses or resumes capture, ⌥⇧
+/// ignores the next copy, anything else opens the menu.
+public enum MenuBarClick: Equatable, Sendable {
+    case openMenu
+    case toggleCapture
+    case ignoreNextCopy
+
+    public init(option: Bool, shift: Bool) {
+        self = option ? (shift ? .ignoreNextCopy : .toggleCapture) : .openMenu
+    }
+}

@@ -39,6 +39,14 @@ struct MenuBarBadgeTests {
         #expect(MenuBarBadge.stack(12).glyph == "9+")
     }
 
+    @Test("⌥ pauses or resumes, ⌥⇧ ignores the next copy, a plain click opens the menu")
+    func clicks() {
+        #expect(MenuBarClick(option: false, shift: false) == .openMenu)
+        #expect(MenuBarClick(option: false, shift: true) == .openMenu)
+        #expect(MenuBarClick(option: true, shift: false) == .toggleCapture)
+        #expect(MenuBarClick(option: true, shift: true) == .ignoreNextCopy)
+    }
+
     @Test("Every badge survives the helper bridge; anything else reads as no badge")
     func bridgeRoundTrip() {
         for badge in [MenuBarBadge.denied, .paused, .privateMode, .ignoreNext, .stack(3)] {

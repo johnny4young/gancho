@@ -11,8 +11,6 @@ import AppKit
 @MainActor
 private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let mainAppBundleID = "com.johnny4young.gancho"
-    /// How long the app has to open its menu before the helper shows its own.
-    private static let menuAnswerTimeout: Duration = .milliseconds(500)
 
     private var statusItem: NSStatusItem?
     private let menu = NSMenu()
@@ -48,13 +46,12 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
     }
 
     @objc private func statusItemClicked() {
-        switch MenuBarClick(modifiers: NSApp.currentEvent?.modifierFlags ?? []) {
-        case .command(let command):
-            guard let token = GanchoMenuBarBridge.readNonce(), !token.isEmpty else { return }
-            command.postDistributed(token: token)
-        case .openMenu:
+        guard let command = MenuBarClick(event: NSApp.currentEvent).command else {
             requestAppMenu()
+            return
         }
+        guard let token = GanchoMenuBarBridge.readNonce(), !token.isEmpty else { return }
+        command.postDistributed(token: token)
     }
 
     /// Hands the click to the app, which draws the menu with the recent clips.
@@ -66,12 +63,12 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
             showOwnMenu()
             return
         }
-        GanchoMenuBarBridge.writeButtonFrame(window.convertToScreen(button.frame))
+        GanchoMenuBarBridge.writeMenuRequest(buttonFrame: window.convertToScreen(button.frame))
         button.highlight(true)
         GanchoMenuBarSignal.showMenu.post(token: token)
         pendingMenuFallback?.cancel()
         pendingMenuFallback = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: Self.menuAnswerTimeout)
+            try? await Task.sleep(for: .seconds(GanchoMenuBarSignal.menuAnswerTimeout))
             guard !Task.isCancelled else { return }
             self?.showOwnMenu()
         }

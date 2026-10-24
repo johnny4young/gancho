@@ -203,14 +203,30 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
         guard let token = notification.object as? String, token == GanchoRuntime.commandNonce,
             let model = GanchoRuntime.model
         else { return }
+        let request = GanchoMenuBarBridge.takeMenuRequest()
+        // Too late: the helper has already opened its own menu.
+        if let requestedAt = request.requestedAt,
+            Date().timeIntervalSince(requestedAt) > GanchoMenuBarSignal.menuAnswerTimeout
+        {
+            return
+        }
         let menu = GanchoRuntime.menuBarMenu(for: model)
         menu.onOpen = { GanchoMenuBarSignal.menuDidOpen.post(token: token) }
         menu.onClose = { GanchoMenuBarSignal.menuDidClose.post(token: token) }
-        // Without the icon's frame, the pointer that just clicked it is close.
+        // An icon frame on a screen anchors the menu; otherwise the pointer
+        // that just clicked the icon is close.
         let anchor =
-            GanchoMenuBarBridge.readButtonFrame().map { NSPoint(x: $0.minX, y: $0.minY - 2) }
+            request.buttonFrame.flatMap(Self.onScreen).map { NSPoint(x: $0.minX, y: $0.minY - 2) }
             ?? NSEvent.mouseLocation
         menu.popUp(atScreenPoint: anchor)
+    }
+
+    private static func onScreen(_ frame: NSRect) -> NSRect? {
+        let finite = [frame.minX, frame.minY, frame.width, frame.height].allSatisfy(\.isFinite)
+        guard finite, NSScreen.screens.contains(where: { $0.frame.intersects(frame) }) else {
+            return nil
+        }
+        return frame
     }
 
     @objc private func receiveMenuBarCommand(_ notification: Notification) {
