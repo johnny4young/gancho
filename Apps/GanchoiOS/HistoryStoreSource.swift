@@ -6,8 +6,8 @@ import GanchoKit
 /// Backs `HistoryListViewModel` with the iOS app's store handles. A dedicated
 /// adapter (rather than making `IOSAppModel` the source) keeps the view model
 /// free of a retain cycle back to the app model, and wraps the throwing store
-/// facets into the non-throwing shape the list model expects — a failed read
-/// degrades to an empty list, exactly as `IOSAppModel` did inline.
+/// facets into the list model. Search preserves terminal outcomes; legacy
+/// browse methods keep their existing empty-list fallback.
 @MainActor final class HistoryStoreSource: HistoryListSource {
     private let store: any ClipboardStore
     private let full: (any FullClipStore)?
@@ -34,8 +34,14 @@ import GanchoKit
     }
 
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
-        guard let full else { return [] }
-        return (try? await full.search(query, limit: limit)) ?? []
+        switch await searchOutcome(query, limit: limit) {
+        case .success(let items): return items
+        case .failure: return []
+        }
+    }
+
+    func searchOutcome(_ query: ClipSearchQuery, limit: Int) async -> ClipListSearchOutcome {
+        await .read(from: full, query: query, limit: limit)
     }
 
     func recentSourceApps(limit: Int) async -> [ClipSourceApp] {

@@ -103,6 +103,21 @@ jobs:
           # rather than the following Wednesday.
           ./scripts/report-apps-coverage.sh --self-test
 
+      - name: Search adapter regressions without app services
+        id: search_outcomes
+        run: python3 scripts/test-search-outcomes.py --output "$RUNNER_TEMP/search-outcomes"
+
+      - name: Search adapter diagnostics (on failure)
+        if: failure() && steps.search_outcomes.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: search-outcomes-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/search-outcomes/logs
+            ${{ runner.temp }}/search-outcomes/commands.json
+            ${{ runner.temp }}/search-outcomes/fixture.json
+          retention-days: 7
+
   build-apps:
     name: Build macOS + iOS apps
     # The macOS floor is 15.4, but the source uses SDK-26 APIs and iOS stays at
