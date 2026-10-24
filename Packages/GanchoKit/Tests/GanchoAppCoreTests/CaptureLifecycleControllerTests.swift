@@ -10,6 +10,7 @@
         var preferences: CapturePreferences
         var status: MonitorStatus = .stopped
         var pausedForScreenShare = false
+        var isIgnoringNextCopy = false
         private(set) var startCount = 0
         private(set) var stopCount = 0
         private(set) var ignoreCount = 0
@@ -30,6 +31,7 @@
 
         func ignoreNextCopy() {
             ignoreCount += 1
+            isIgnoringNextCopy = true
         }
     }
 
@@ -37,7 +39,7 @@
     private final class CaptureLifecycleRecorder {
         var savedPreferences: [CapturePreferences] = []
         var savedAutoPauseValues: [Bool] = []
-        var screenShareIsActive = false
+        var sharingApp: String?
         var privateModeEngagedCount = 0
         var now = Date(timeIntervalSince1970: 1_000_000)
         var privateModeDuration: TimeInterval? = 3_600
@@ -55,7 +57,7 @@
                 monitor: monitor,
                 preferences: monitor.preferences,
                 autoPauseOnScreenShare: autoPauseOnScreenShare,
-                screenShareIsActive: { recorder.screenShareIsActive },
+                screenShareApp: { recorder.sharingApp },
                 onPreferencesChanged: { recorder.savedPreferences.append($0) },
                 onPrivateModeEngaged: { recorder.privateModeEngagedCount += 1 },
                 onAutoPauseChanged: { recorder.savedAutoPauseValues.append($0) },
@@ -279,16 +281,23 @@
         func screenSharePause() {
             let monitor = CaptureMonitorSpy()
             let recorder = CaptureLifecycleRecorder()
-            recorder.screenShareIsActive = true
+            recorder.sharingApp = "Zoom"
             let controller = makeController(monitor: monitor, recorder: recorder)
 
             controller.refreshScreenSharePause()
             #expect(monitor.pausedForScreenShare)
+            #expect(controller.sharingAppName == "Zoom")
 
             controller.autoPauseOnScreenShare = false
             #expect(recorder.savedAutoPauseValues == [false])
             controller.refreshScreenSharePause()
             #expect(!monitor.pausedForScreenShare)
+            #expect(controller.sharingAppName == nil, "no pause, no sharing app to name")
+
+            controller.autoPauseOnScreenShare = true
+            controller.refreshScreenSharePause()
+            controller.refreshScreenSharePause()
+            #expect(controller.screenShareSession == 2, "a new share, not a repeated tick")
         }
 
         @Test("Ignore-next-copy delegates without reading content")
@@ -299,6 +308,10 @@
             controller.ignoreNextCopy()
 
             #expect(monitor.ignoreCount == 1)
+            #expect(controller.ignoresNextCopy, "the menu-bar badge shows the armed skip")
+            monitor.isIgnoringNextCopy = false
+            controller.refreshStatus()
+            #expect(!controller.ignoresNextCopy, "a consumed skip clears on the next turn")
         }
     }
 #endif

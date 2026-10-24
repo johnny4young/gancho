@@ -37,6 +37,8 @@ public enum PanelCaptureAction: Sendable, Equatable {
     case resumePrivateMode
     case resumeCapture
     case openPermissionSettings
+    /// Shows previews for the screen share in progress.
+    case showPreviewsWhileSharing
 }
 
 /// Pure product policy for the panel's capture banner and footer indicator.

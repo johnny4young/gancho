@@ -105,6 +105,14 @@ final class AppModel {
     let monitor: MacPasteboardMonitor
     private let captureLifecycle: CaptureLifecycleController
     var monitorStatus: MonitorStatus { captureLifecycle.status }
+    var ignoresNextCopy: Bool { captureLifecycle.ignoresNextCopy }
+    /// The app sharing the screen while capture is paused for it.
+    var sharingAppName: String? { captureLifecycle.sharingAppName }
+    var screenShareSession: Int { captureLifecycle.screenShareSession }
+    /// The share whose previews the user chose to show anyway.
+    var revealedScreenShareSession: Int?
+    /// Visible clips for the menu-bar header; the count query is async.
+    var menuBarClipCount: Int?
     let pasteBack = AppModel.makePasteBackService()
     let privacyEvents = InMemoryPrivacyEventRecorder()
     /// Content-free log of recent operational issues (storage that wouldn't
@@ -478,7 +486,7 @@ final class AppModel {
             monitor: resolvedMonitor,
             preferences: loadedPreferences,
             autoPauseOnScreenShare: loadedAutoPauseOnScreenShare,
-            screenShareIsActive: { screenShareDetector.isScreenSharePresumed() },
+            screenShareApp: { Self.sharingAppForLaunch(detector: screenShareDetector) },
             onPreferencesChanged: { preferences in
                 preferences.save(to: appDefaults)
             },
@@ -523,7 +531,7 @@ final class AppModel {
                     localized: "Stored searches couldn’t be erased. Try turning it off again."))
         }
         reuseController.setRecentItemsObserver { [weak self] _ in
-            self?.publishLastCopied()
+            Task { await self?.refreshMenuBarClipCount() }
         }
         captureLifecycle.activate()
         #if DEBUG
@@ -863,19 +871,6 @@ final class AppModel {
 
     func refreshRecents() async {
         await reuseController.refreshRecents()
-    }
-
-    /// Publish the most recent clip's preview to the menu-bar helper's recent
-    /// row. Private mode clears it; protected clips (flagged or an intrinsic
-    /// secret kind) send only a mask — full content never crosses to the helper.
-    private func publishLastCopied() {
-        guard !preferences.isPrivateModePaused, let top = recentItems.first else {
-            GanchoMenuBarBridge.writeLastCopied(preview: nil, label: "", at: Date())
-            return
-        }
-        GanchoMenuBarBridge.writeLastCopied(
-            preview: ClipSafePresentation.requiresMasking(top) ? "•••" : top.preview,
-            label: String(localized: "Last copied"), at: top.createdAt)
     }
 
     // MARK: - Actions

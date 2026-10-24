@@ -1977,16 +1977,6 @@
         }
       }
     },
-    "Last copied": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Último copiado"
-          }
-        }
-      }
-    },
     "Fields": {
       "localizations": {
         "es": {
@@ -5421,26 +5411,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Arreglar"
-          }
-        }
-      }
-    },
-    "Paused while screen sharing": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En pausa mientras compartes pantalla"
-          }
-        }
-      }
-    },
-    "Capture resumes when you stop sharing.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La captura se reanuda cuando dejas de compartir."
           }
         }
       }
@@ -11165,6 +11135,146 @@
           "stringUnit": {
             "state": "translated",
             "value": "cuentagotas"
+          }
+        }
+      }
+    },
+    "%@ in front": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ al frente"
+          }
+        }
+      }
+    },
+    "Show anyway": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar de todos modos"
+          }
+        }
+      }
+    },
+    "%@ · masked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · oculto"
+          }
+        }
+      }
+    },
+    "Recent · click pastes · ⌥ pastes plain": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recientes · clic pega · ⌥ pega sin formato"
+          }
+        }
+      }
+    },
+    "Paste stack · %lld waiting": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pila de pegado · %lld en espera"
+          }
+        }
+      }
+    },
+    "next: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "siguiente: %@"
+          }
+        }
+      }
+    },
+    "Screen share detected · previews hidden, capture paused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pantalla compartida · vistas previas ocultas, captura en pausa"
+          }
+        }
+      }
+    },
+    "Screen share detected · capture paused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pantalla compartida · captura en pausa"
+          }
+        }
+      }
+    },
+    "%@ is sharing. Rows show kinds only.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ está compartiendo. Las filas solo muestran el tipo."
+          }
+        }
+      }
+    },
+    "%@ is sharing. Previews are visible.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ está compartiendo. Las vistas previas están visibles."
+          }
+        }
+      }
+    },
+    "Rows show kinds only until sharing ends.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las filas solo muestran el tipo hasta que termine la pantalla compartida."
+          }
+        }
+      }
+    },
+    "Previews are visible until sharing ends.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las vistas previas están visibles hasta que termine la pantalla compartida."
+          }
+        }
+      }
+    },
+    "%@, next copy ignored": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, se ignorará la próxima copia"
+          }
+        }
+      }
+    },
+    "%@, %lld waiting in the paste stack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %lld en espera en la pila de pegado"
           }
         }
       }

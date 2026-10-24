@@ -309,7 +309,7 @@ struct PanelView: View {
                 } else if let best = bestAlternative {
                     Divider()
                     PanelAlternativeStage(
-                        result: best, previewsHidden: model.preferences.isPrivateModePaused
+                        result: best, previewsHidden: model.previewsHidden
                     )
                     .frame(minWidth: 320, idealWidth: 400, maxWidth: .infinity)
                 }
@@ -488,7 +488,7 @@ struct PanelView: View {
             let selected = search.selectedItem,
             PanelAmbientTint.washes(
                 masked: ClipSafePresentation.requiresMasking(selected),
-                privateMode: model.preferences.isPrivateModePaused)
+                privateMode: model.previewsHidden)
         else { return nil }
         // Past the mask veto, an image may lend its own colour.
         if selected.kind == .image, let accent = model.thumbnails.cachedAccent(for: selected) {
@@ -764,7 +764,9 @@ struct PanelView: View {
                 if let notice = capturePresentation.notice {
                     PanelCaptureNoticeView(
                         notice: notice, preferences: model.preferences,
-                        privateModeShortcut: privateModeShortcut, perform: handleCaptureAction)
+                        privateModeShortcut: privateModeShortcut,
+                        sharingApp: model.sharingAppName, previewsHidden: model.previewsHidden,
+                        perform: handleCaptureAction)
                 }
 
                 if let snippetMatch = search.snippetMatch {
@@ -856,7 +858,7 @@ struct PanelView: View {
             return false
         }
         let masked: Bool = ClipSafePresentation.requiresMasking(item)
-        return !masked && !model.preferences.isPrivateModePaused
+        return !masked && !model.previewsHidden
     }
 
     /// Sync state, capture state and the shortcut hints, under BOTH panes.
@@ -1506,6 +1508,7 @@ struct PanelView: View {
         case .resumePrivateMode: model.togglePrivateMode()
         case .resumeCapture: model.togglePause()
         case .openPermissionSettings: model.permissionWindow.show(model: model)
+        case .showPreviewsWhileSharing: model.showPreviewsWhileSharing()
         }
     }
 
@@ -1534,7 +1537,7 @@ struct PanelView: View {
             // quick-paste badge for the first nine rows.
             ClipCard(
                 item: item, isSelected: search.isSelected(item.id),
-                previewsHidden: model.preferences.isPrivateModePaused,
+                previewsHidden: model.previewsHidden,
                 shortcutNumber: shortcutNumber,
                 thumbnail: model.thumbnails.cached(for: item),
                 // Only the anchor claims the gliding highlight: two rows sharing one
@@ -1544,7 +1547,7 @@ struct PanelView: View {
         case .gallery:
             PanelGalleryCard(
                 item: item, isSelected: search.isSelected(item.id),
-                previewsHidden: model.preferences.isPrivateModePaused,
+                previewsHidden: model.previewsHidden,
                 shortcutNumber: shortcutNumber, thumbnails: model.thumbnails)
         }
     }

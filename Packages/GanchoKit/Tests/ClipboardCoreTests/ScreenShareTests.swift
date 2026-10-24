@@ -20,6 +20,18 @@
             #expect(!idle.isScreenSharePresumed(), "an OPEN conferencing app is not a share")
         }
 
+        @Test("The detector names the app that is sharing")
+        func sharingAppName() {
+            #expect(
+                ScreenShareDetector(runningProcessNames: { ["CptHost"] }).sharingAppName() == "Zoom"
+            )
+            #expect(
+                ScreenShareDetector(runningProcessNames: { ["ScreenSharingAgent"] })
+                    .sharingAppName() == "Screen Sharing")
+            #expect(
+                ScreenShareDetector(runningProcessNames: { ["zoom.us"] }).sharingAppName() == nil)
+        }
+
         @Test("Share pause stops capture and never backfills on resume")
         func sharePauseNoBackfill() async {
             let pasteboard = FakePasteboard()

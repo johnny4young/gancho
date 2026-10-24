@@ -23,6 +23,19 @@ extension AppModel {
         return NSPasteboardReader()
     }
 
+    /// `-simulate-screen-share <App>` stands in for a share, so UI tests reach
+    /// the share state without a conferencing app. Debug only.
+    static func sharingAppForLaunch(detector: ScreenShareDetector) -> String? {
+        #if DEBUG
+            if let flag = CommandLine.arguments.firstIndex(of: "-simulate-screen-share"),
+                CommandLine.arguments.indices.contains(flag + 1)
+            {
+                return CommandLine.arguments[flag + 1]
+            }
+        #endif
+        return detector.sharingAppName()
+    }
+
     /// Runs the denylist fixture synchronously, starts every other requested
     /// `-seed-*` fixture, and returns the tasks the `-open-panel-on-launch` flow
     /// awaits before showing the panel. A normal launch returns an empty array.
@@ -247,9 +260,18 @@ extension AppModel {
                     preview: "let greeting = \"Hello\"", contentHash: "library-code")
                 _ = try? await fullStore.insert(code, content: .text(code.preview))
                 await refreshRecents()
+                seedPasteStackIfRequested([code, color])
             }
         #else
             return nil
+        #endif
+    }
+
+    /// `-seed-paste-stack`: clips waiting, for the menu's stack row.
+    private func seedPasteStackIfRequested(_ clips: [ClipItem]) {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-paste-stack") else { return }
+            pushToStack(clips)
         #endif
     }
 

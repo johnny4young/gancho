@@ -11,6 +11,7 @@
         var preferences: CapturePreferences { get set }
         var status: MonitorStatus { get }
         var pausedForScreenShare: Bool { get set }
+        var isIgnoringNextCopy: Bool { get }
 
         func start()
         func stop()
@@ -31,6 +32,12 @@
     @MainActor
     public final class CaptureLifecycleController {
         public private(set) var status: MonitorStatus
+        /// The one-shot skip is armed and no copy has consumed it yet.
+        public private(set) var ignoresNextCopy = false
+        /// The app sharing the screen while capture is paused for it.
+        public private(set) var sharingAppName: String?
+        /// Counts shares, so a choice made during one never carries to the next.
+        public private(set) var screenShareSession = 0
 
         public var preferences: CapturePreferences {
             didSet {
@@ -59,7 +66,7 @@
         }
 
         @ObservationIgnored private let monitor: any CaptureMonitoring
-        @ObservationIgnored private let screenShareIsActive: @MainActor () -> Bool
+        @ObservationIgnored private let screenShareApp: @MainActor () -> String?
         @ObservationIgnored private let onPreferencesChanged:
             @MainActor (CapturePreferences) -> Void
         /// Fired only as Private Mode goes off → on, for work that tears down
@@ -78,7 +85,7 @@
             monitor: any CaptureMonitoring,
             preferences: CapturePreferences,
             autoPauseOnScreenShare: Bool,
-            screenShareIsActive: @escaping @MainActor () -> Bool,
+            screenShareApp: @escaping @MainActor () -> String?,
             onPreferencesChanged: @escaping @MainActor (CapturePreferences) -> Void = { _ in },
             onPrivateModeEngaged: @escaping @MainActor () -> Void = {},
             onAutoPauseChanged: @escaping @MainActor (Bool) -> Void = { _ in },
@@ -88,7 +95,7 @@
             self.monitor = monitor
             self.preferences = preferences
             self.autoPauseOnScreenShare = autoPauseOnScreenShare
-            self.screenShareIsActive = screenShareIsActive
+            self.screenShareApp = screenShareApp
             self.onPreferencesChanged = onPreferencesChanged
             self.onPrivateModeEngaged = onPrivateModeEngaged
             self.onAutoPauseChanged = onAutoPauseChanged
@@ -149,6 +156,7 @@
 
         public func ignoreNextCopy() {
             monitor.ignoreNextCopy()
+            ignoresNextCopy = monitor.isIgnoringNextCopy
         }
 
         /// Counts one copy made while Private Mode is on. The monitor reports
@@ -197,14 +205,18 @@
             expirePrivateModeIfDue()
             let current = monitor.status
             if status != current { status = current }
+            let ignoring = monitor.isIgnoringNextCopy
+            if ignoresNextCopy != ignoring { ignoresNextCopy = ignoring }
         }
 
         /// Applies the screen-share decision without touching pasteboard content.
         /// The monitor's next polling turn maps this flag to its public status.
         func refreshScreenSharePause() {
-            let shouldPause = autoPauseOnScreenShare && screenShareIsActive()
-            if monitor.pausedForScreenShare != shouldPause {
-                monitor.pausedForScreenShare = shouldPause
+            let app = autoPauseOnScreenShare ? screenShareApp() : nil
+            if sharingAppName == nil, app != nil { screenShareSession += 1 }
+            if sharingAppName != app { sharingAppName = app }
+            if monitor.pausedForScreenShare != (app != nil) {
+                monitor.pausedForScreenShare = app != nil
             }
         }
 

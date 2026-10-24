@@ -148,6 +148,10 @@ struct PanelCaptureNoticeView: View {
     /// Private Mode's start, deadline and skipped count.
     let preferences: CapturePreferences
     let privateModeShortcut: String?
+    /// The app sharing the screen, named in the share notice.
+    var sharingApp: String?
+    /// Whether the share notice still hides previews (no "Show anyway" yet).
+    var previewsHidden = true
     let perform: (PanelCaptureAction) -> Void
 
     var body: some View {
@@ -167,6 +171,11 @@ struct PanelCaptureNoticeView: View {
             Spacer(minLength: 0)
             if notice == .privateMode {
                 turnOffButton
+            } else if notice == .screenShare, previewsHidden {
+                Button("Show anyway") { perform(.showPreviewsWhileSharing) }
+                    .ganchoTextButton()
+                    .panelFont(.caption, .medium)
+                    .accessibilityIdentifier("screen-share-show-anyway")
             } else if let action = notice.action {
                 Button(actionTitle(action)) { perform(action) }
                     .ganchoTextButton()
@@ -212,7 +221,12 @@ struct PanelCaptureNoticeView: View {
                 Text("Private Mode is on")
             }
         case .denied: Text("Clipboard access is off")
-        case .screenShare: Text("Paused while screen sharing")
+        case .screenShare:
+            if previewsHidden {
+                Text("Screen share detected · previews hidden, capture paused")
+            } else {
+                Text("Screen share detected · capture paused")
+            }
         case .paused: Text("Capture is paused")
         }
     }
@@ -227,8 +241,17 @@ struct PanelCaptureNoticeView: View {
                     localized: "\(preferences.privateModeSkippedCopies) copies skipped, none read")
                     + " · " + privateModeEnd)
         case .denied: Text("Gancho can't see what you copy.")
-        case .screenShare: Text("Capture resumes when you stop sharing.")
+        case .screenShare: shareDetail
         case .paused: Text("Resume capture to save new copies.")
+        }
+    }
+
+    private var shareDetail: Text {
+        switch (sharingApp, previewsHidden) {
+        case (let app?, true): Text("\(app) is sharing. Rows show kinds only.")
+        case (let app?, false): Text("\(app) is sharing. Previews are visible.")
+        case (nil, true): Text("Rows show kinds only until sharing ends.")
+        case (nil, false): Text("Previews are visible until sharing ends.")
         }
     }
 
@@ -271,6 +294,7 @@ struct PanelCaptureNoticeView: View {
         case .resumePrivateMode: "Turn off"
         case .resumeCapture: "Resume"
         case .openPermissionSettings: "Fix"
+        case .showPreviewsWhileSharing: "Show anyway"
         }
     }
 }

@@ -53,12 +53,8 @@ enum GanchoMenuBarCommand: String, CaseIterable {
             options: [.deliverImmediately])
     }
 
-    /// Commands the helper can safely show without reading clipboard state.
-    ///
-    /// Recent clips stay only in the main app process so clipboard previews are
-    /// never copied into the helper. State-dependent commands use neutral
-    /// titles in the helper and stateful titles/checkmarks in the in-process
-    /// fallback.
+    /// The helper's own menu, shown only when the app doesn't answer a click:
+    /// commands, no clips. State-dependent commands keep neutral titles there.
     static let helperMenuSections: [[GanchoMenuBarCommand]] = [
         [.openPanel, .library, .copyScreenText],
         [.toggleCapture, .togglePrivateMode, .ignoreNextCopy],
@@ -177,83 +173,39 @@ enum GanchoMenuBarCommand: String, CaseIterable {
     }
 }
 
-/// The menu-bar status item's icon. Carried content-free across the App Group
-/// bridge as its `rawValue` (a state identifier — never clipboard data); the
-/// helper process and the in-process fallback both render it. `.active` is
-/// gancho's hook mark; the exception states use SF Symbols so a problem reads
-/// at a glance.
-enum MenuBarStatusIcon: String {
-    case active
-    case paused
-    case stopped
-    case denied
+/// Content-free signals around the status-item menu. The helper asks the app
+/// to show its menu; the app says when that menu opens and closes so the
+/// helper can hold the button's highlight. Each carries only the nonce.
+enum GanchoMenuBarSignal: String, CaseIterable {
+    case showMenu
+    case menuDidOpen
+    case menuDidClose
 
-    /// A template image sized for the menu bar. macOS tints template images
-    /// automatically (white on dark bars, dark on light), so the mark is never
-    /// baked with a color — matching the design's menu-bar template guidance.
-    func templateImage() -> NSImage {
-        switch self {
-        case .active: Self.hookImage
-        case .paused: Self.symbol("pause.circle")
-        case .stopped: Self.symbol("stop.circle")
-        case .denied: Self.symbol("exclamationmark.triangle.fill")
-        }
+    var distributedNotificationName: Notification.Name {
+        Notification.Name("com.johnny4young.gancho.menu-bar-signal.\(rawValue)")
     }
 
-    /// A small filled status dot for the menu header — green when capturing,
-    /// gray when paused, red when access is denied. Intentionally colored (not a
-    /// template): a glanceable state cue beside the localized status text.
-    func statusDot() -> NSImage {
-        let color: NSColor
-        switch self {
-        case .active: color = .systemGreen
-        case .paused, .stopped: color = .systemGray
-        case .denied: color = .systemRed
-        }
-        let side: CGFloat = 10
-        return NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
-            color.setFill()
-            NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
-            return true
+    func post(token: String) {
+        DistributedNotificationCenter.default().postNotificationName(
+            distributedNotificationName, object: token, userInfo: nil,
+            options: [.deliverImmediately])
+    }
+}
+
+/// What a click on the status item does: ⌥ pauses or resumes capture, ⌥⇧
+/// ignores the next copy, anything else opens the menu.
+enum MenuBarClick: Equatable {
+    case openMenu
+    case command(GanchoMenuBarCommand)
+
+    init(modifiers: NSEvent.ModifierFlags) {
+        let flags = modifiers.intersection(.deviceIndependentFlagsMask)
+        if flags.contains(.option), flags.contains(.shift) {
+            self = .command(.ignoreNextCopy)
+        } else if flags.contains(.option) {
+            self = .command(.toggleCapture)
+        } else {
+            self = .openMenu
         }
     }
-
-    private static func symbol(_ name: String) -> NSImage {
-        let image = NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
-        image.isTemplate = true
-        return image
-    }
-
-    /// gancho's hook, drawn from the design's SVG path (`assets/gancho-mark.svg`,
-    /// viewBox 0 0 96 96) converted to AppKit's y-up space, with the menu-bar
-    /// variant's bolder strokes (13 / 9) so it holds at ~18 pt. Verified against
-    /// the design SVG by rendering both to PNG.
-    private static let hookImage: NSImage = {
-        let side: CGFloat = 18
-        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in
-            let transform = NSAffineTransform()
-            transform.scale(by: side / 96)
-            transform.concat()
-            NSColor.black.set()
-
-            let hook = NSBezierPath()
-            hook.lineWidth = 13
-            hook.lineCapStyle = .round
-            hook.lineJoinStyle = .round
-            hook.move(to: NSPoint(x: 50, y: 64))  // SVG (50,32) — top of the stem
-            hook.line(to: NSPoint(x: 50, y: 39))  // SVG (50,57) — bottom of the stem
-            hook.appendArc(
-                withCenter: NSPoint(x: 42.5, y: 26.01), radius: 15,
-                startAngle: 60, endAngle: 120, clockwise: true)  // the bottom curl
-            hook.line(to: NSPoint(x: 31.5, y: 48.5))  // SVG (31.5,47.5) — the barb
-            hook.stroke()
-
-            let eye = NSBezierPath(ovalIn: NSRect(x: 42, y: 64, width: 16, height: 16))
-            eye.lineWidth = 9
-            eye.stroke()
-            return true
-        }
-        image.isTemplate = true
-        return image
-    }()
 }
