@@ -39,6 +39,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   a color clip. Pick color (I) turns the pointer into an eyedropper that saves
   the exact pixel you click. A Regions / Image only switch hides the text
   regions.
+- The menu-bar menu is a mini-panel: the capture state with the clip count
+  and the app in front, your five latest clips with their tiles (⌘1–⌘5 paste
+  them, ⌥ pastes plain), the paste stack with what comes next, and the
+  commands.
+- The menu-bar hook carries a badge for the state: paused, Private Mode,
+  access denied, next copy ignored, or how many clips wait in the paste stack.
+  ⌥-click pauses or resumes capture; ⌥⇧-click ignores the next copy.
+- While your screen is shared, the panel shows only each clip's kind and names
+  the app that is sharing; Show anyway reveals previews for that share.
 
 ### Changed
 
@@ -63,6 +72,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Meaning is a search mode of its own: it lists only the clips related by
   meaning, instead of adding them under the other results. The "By meaning"
   button is gone.
+- The menu-bar icon keeps the hook in every state instead of swapping to a
+  pause or warning symbol.
 - The selected row shows as a tinted, outlined card instead of a green bar
   on its left edge, and the preview card no longer has a colored stripe on
   its left.
@@ -92,6 +103,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   swatch draws; Convert color read the first two digits as alpha.
 - An `hsl()` color whose hue is `nan` or `inf` no longer crashes Convert
   color.
+- The menu-bar helper no longer keeps a preview of your last copy in a
+  preferences file outside the encrypted store; the old value is removed at
+  launch.
 - Convert color reads `rgb()` channels written as percentages
   (`rgb(100%, 50%, 0%)`) or decimals, and alphas written as percentages,
   instead of misreading or rejecting them.

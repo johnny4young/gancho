@@ -49,7 +49,11 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
    - Q29: the dock is Paste into <App> · Plain · Convert ⇧⏎ · Pin · Board (GC-V4-2 wins over "Paste #008080"); contrast uses the real ratios, truncated to one decimal, graded AA / AA Large / below AA, with "Aa" in the colour on white and on #1C1C1E.
    - US spelling "color" in UI copy; the Swift format uses three decimals with trailing zeros dropped, and `opacity:` only when the colour has alpha.
 9. Owner rule, 2026-10-23: no left accent bars anywhere (apps, website, mockups). The selected row is the accent wash inside a full 1 pt accent outline; the peek hero drops its 4 pt kind stripe and keeps the tinted wash; `DesignTokenGuardTests.noLeadingAccentBars` guards Swift and the site. This overrides the boards' leading bars and Q22's stripe.
-10. Cross-app rules from the owner's threads:
+10. Answers given on 2026-10-24 to the Phase 6 questions (all the recommended option):
+   - Q33: the helper forwards a click and the main app opens its own menu under the icon (real tiles, ⌘1–5, ⌥ plain, stack row); the last-copied preview leaves the bridge, which is a plain plist outside the encrypted store; if the app doesn't answer in 0.5 s the helper opens its own command menu.
+   - Q34: badges by precedence denied > paused (manual, share, lock) > private > ignore-next > stack; paused amber like the footer chip, private indigo, denied red, ignore-next grey with "−", stack count in ink; no syncing badge; dark glyph on amber and grey, white on the rest; the hook stays a template image with the badge on a layer above it.
+   - The stack badge shows the count; "3/5" comes with the GC-10 cursor (Phase 15).
+11. Cross-app rules from the owner's threads:
    - Only propose what beats the current UI; code wins over v2 boards and site screenshots.
    - Each piece of data appears once per screen.
    - Canvas annotations are not UI.
@@ -66,7 +70,7 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
 Live sources match the expected numbers exactly. Maybe: GC-V4-22, with owner note "no entiendo la utilidad de esto, pero siento que no es necesario". Skip: GC-V4-20.
 
 By type: UI 29 · bug 6 · feature 31 · system 7.  
-By status: blocked 40 · done 31 · not implemented 1 · pending decision 1.
+By status: blocked 38 · done 33 · not implemented 1 · pending decision 1.
 
 ## Plan table
 
@@ -102,8 +106,8 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 | GC-16 | feature | pick | — | Peek | 'Dominant ·' chip with 3 swatches; 'Pick colour · I' eyedropper saves a colour clip; Regions / Image only toggle | ClipThumbnailStore.swift:29-37,:99,:110,:217-258; ClipPeek.swift:189-227,:458-479; AppModel+ManualOCR.swift:192 | Only an average colour exists; palette, eyedropper, I key new | GC-V4-14, GC-01, GC-23 | Unit: palette + point→pixel mapping; UI: I + click → colour row | 5 | done — d3e4bbe, 9ac2ba8, 2c818c1 (Q28: the eyedropper samples the original image's pixel, a swatch click saves a colour clip, 1–3 swatches, Regions / Image only defaults to Regions); ImageColorsTests + PeekColorUITests + snapshots panel-ambient-image |
 | GC-04 | UI | pick | — | MenuBarDark | Dark appearance contrast rules: surfaces #1C1C1E/#2C2C2E/#3A3A3C, 10 % white hairlines, 16 % selected wash + 3 pt bar, dark ink on #30D158, no shadows in dark | GanchoColors.swift:21; Components.swift:8-28,:323-338; PanelView.swift:543; PanelShortcutsOverlay.swift:63; PanelController.swift:405 | Bar, greens, materials exist; surface tokens, ink, 16 % wash, shadow gating new | GC-V5-2, SY-V4-3, SY-V4-7 | Unit: tokens + WCAG; dark snapshots | 2 | done — cc193f5, 4efbece (Q35: hex surfaces only in the opaque branch); ContrastTokenTests + dark snapshots; the 7 % / 10 % ambient wash stays with GC-23 |
 | GC-23 | UI | pick | — | MenuBarDark | Ambient wash only behind the peek; 7 % dark / 10 % light; 220 ms; none for secrets / private mode | PanelDisplayPreferences.swift:61-87; PanelView.swift:288-292,:430-468; PanelAmbientTintTests.swift:36-39 | Toggle, a11y veto, fade exist; peek-only placement, opacities, secret veto new; existing test asserts the opposite opacity order | — | Unit: veto + opacities (update test); snapshot list untinted | 3 | done — bc4c9f6, 1f70b67 (Q35: 7 % / 10 % is the visible peak); PanelAmbientTintTests + snapshots panel-ambient-image light/dark |
-| GC-24 | feature | pick | — | MenuBarDark | Status item menu as a mini-panel: header 'state · N clips · App in front', 5 recents with tiles, ⌘1–5, ⌥ pastes plain, masked secrets, paste-stack row | StatusItemController.swift:147-205; GanchoMenuBarHelper/main.swift:46-81; GanchoMenuBarCommand.swift:62-67; AppModel.swift:69,:899,:1303 | Recents exist only in in-process fallback; production helper is content-free | GC-10, GC-V4-2, GC-V4-3, GC-07, GC-V5-1, GC-25 | Unit: pure menu builder; UI with -use-in-process-status-item | 6 | blocked: Q33 |
-| GC-25 | feature | pick | — | Novel, MenuBarDark, Panel | Hook keeps its shape + one state badge; ⌥-click pause, ⌥⇧-click ignore next; screen share hides previews with a banner naming the app + Show anyway | GanchoMenuBarCommand.swift:187-260; StatusItemController.swift:68,:247-269; GanchoMenuBarHelper/main.swift:32; ScreenShareDetector.swift; MacPasteboardMonitor.swift:92; PanelView.swift:439 | State source + template exist; badges, modifier clicks, sharing app name, preview hiding new | GC-V5-1, GC-24, GC-10, GC-07 | Unit: state→badge; image render test; UI with DEBUG share flag | 6 | blocked: Q34 |
+| GC-24 | feature | pick | — | MenuBarDark | Status item menu as a mini-panel: header 'state · N clips · App in front', 5 recents with tiles, ⌘1–5, ⌥ pastes plain, masked secrets, paste-stack row | StatusItemController.swift:147-205; GanchoMenuBarHelper/main.swift:46-81; GanchoMenuBarCommand.swift:62-67; AppModel.swift:69,:899,:1303 | Recents exist only in in-process fallback; production helper is content-free | GC-10, GC-V4-2, GC-V4-3, GC-07, GC-V5-1, GC-25 | Unit: pure menu builder; UI with -use-in-process-status-item | 6 | done — bc420e4 (Q33: the helper forwards the click and the app opens its own menu under the icon; the bridge carries no clip any more); MenuBarMenuPlanTests + MenuBarUITests (menu rows, helper request with another app in front, forged nonce) |
+| GC-25 | feature | pick | — | Novel, MenuBarDark, Panel | Hook keeps its shape + one state badge; ⌥-click pause, ⌥⇧-click ignore next; screen share hides previews with a banner naming the app + Show anyway | GanchoMenuBarCommand.swift:187-260; StatusItemController.swift:68,:247-269; GanchoMenuBarHelper/main.swift:32; ScreenShareDetector.swift; MacPasteboardMonitor.swift:92; PanelView.swift:439 | State source + template exist; badges, modifier clicks, sharing app name, preview hiding new | GC-V5-1, GC-24, GC-10, GC-07 | Unit: state→badge; image render test; UI with DEBUG share flag | 6 | done — bc420e4 (Q34: paused amber incl. sharing, private indigo, denied red, ignore-next grey, stack count; no syncing badge; dark glyph on amber and grey; count, not 3/5); MenuBarBadgeTests + MenuBarGlyphTests + MenuBarUITests (⌥ / ⌥⇧ clicks, screen share) + snapshots menu-bar-glyphs, panel-screen-share |
 | GC-V5-1 | UI | pick | — | MenuBarDark | Menu shows the real panel shortcut (fix of B-GC-01) | see B-GC-01 | see B-GC-01 | — | see B-GC-01 | 1 | done — a3750fa |
 | GC-V4-5 | feature | pick | — | Library | Toolbar search (⌘F), Grid/List toggle, visible New board button | LibraryWindowController.swift:18-26; LibraryView.swift:50; LibraryClipListModel.swift; AppModel+Library.swift:19; ClipSearch.swift | Search engine + New-board flow exist; toolbar, query in list model, List layout new | GC-V4-13, GC-V4-6 | Unit: LibraryClipListModel query; UI: VisualLibraryUITests search; snapshot | 8 | blocked: Q37 |
 | GC-V4-6 | feature | pick | — | Library | Cards with kind tile, host headline, board + sync chips, masked secret with expiry, meta line, hover Copy/Pin/Board, date groups | LibraryClipCard.swift; LibraryView+Browsing.swift:59-179; Components.swift; DateBucket.swift | Tile, monogram, countdown, date buckets exist; card layout, membership read, sync chip new | GC-V4-13, GC-V5-3, GC-V4-23, GC-09 | Unit: grouping/formatters; UI hover actions; privacy: masked card; snapshot | 8 | blocked: Q12, Q13, Q37 |
@@ -256,7 +260,7 @@ Run on 2026-10-21 against the text of all 17 Gancho v4 boards plus V4_System_Com
   - Secret lifetime can only be shortened today, but the boards add "Keep 10 more min".
   - OCR holds back every line when any secret is found, not just the secret line.
   - No default shortcut exists for Private mode or for paste-from-stack.
-  - The production menu-bar helper is content-free, which affects the GC-24 mini-panel.
+  - The production menu-bar helper is content-free, which affects the GC-24 mini-panel. *(Resolved in Phase 6: the app draws the menu; the helper keeps no clip.)*
   - There is no ⌫ or ⌘. key binding in the panel, although Archive marks them shipped.
   - The keyboard extension has no snippet keywords.
   - iOS has no embedding backfill for clips synced from the Mac.
@@ -401,11 +405,11 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
   - Recipes are documented as copy-only. May they paste?
 - **Q31 GC-12 saved prompts.** Saving a prompt as a recipe breaks the deterministic recipe contract. Add a new step kind, or a separate list of saved prompts?
 - **Q32 OCR behaviour.** OCR runs only on ⇧⌘C and auto-copies; the boards show it read on peek open with "Clipboard unchanged". Also, the per-line hold-back is new. Which behaviour?
-- **Q33 GC-24 menu in production.** The helper process owns the menu and is content-free. Which approach?
+- **Q33 — RESOLVED 2026-10-24: the app opens its own menu at the helper's icon.** GC-24. The helper process owns the menu and is content-free. Which approach?
   - The main app shows its own menu at the helper's button.
   - Widen the bridge (this breaks its one-preview rule).
   - Show the mini-panel in the in-app fallback only.
-- **Q34 GC-25 badges.**
+- **Q34 — RESOLVED 2026-10-24: one merged set without syncing; dark glyph on amber; a count.** GC-25.
   - Novel and MenuBarDark draw different badge sets. Which one?
   - Template images can't carry colour, and white on amber or blue fails contrast.
   - Should the stack show "3/5" or a count?
@@ -511,6 +515,9 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 
 - **Resolved in Phase 5:** 8-digit hex parser mismatch, `DevActions.swift:551`. One parser, `ColorValue`, now feeds the swatch, the colour hero and Convert color; `#RRGGBBAA` is CSS order everywhere.
 - **Found in Phase 5, resolved there:** a non-finite `hsl()` hue (`nan`, `inf`) would trap converting to `Int`, and the eyedropper decoded the full image. The parser rejects non-finite hues and the eyedropper samples a decode capped at 8,192 px per side.
+- **Found in Phase 6, resolved there:** the menu-bar bridge stored the last-copied preview (masked only for sensitive clips) in a plain preferences plist, outside the SQLCipher store. The preview is gone and launch removes the old value.
+- **Found in Phase 6, kept on purpose:** the badge sits beside the hook's curl, so a badged status item is a few points wider; a masked recent row reads "<kind> · masked" because the secret's type is not stored on the clip; a menu opened for the helper isn't in the app's accessibility tree, so its rows are tested through the in-process menu, which is the same `MenuBarMenu`.
+- **Found in Phase 6, not caused by it:** `PanelUITests.testMenuBarStatusItemOpensSettingsWindow` fails on this Mac on `main` too (control run); the ambient-image snapshots drifted in colour on `main` as well, so their baselines were re-recorded.
 - **Found in Phase 5, kept on purpose:** the Dominant chip sits under the image, not in the OCR text header, so it shows for images with no text. The spec's `peek-color-hero` id is not exposed: the colour hero is the peek hero's only child, and SwiftUI folds it into `peek-hero`; tests find its rows there.
 - "Expires soon" label is missing from the string catalogs (LocalizationTests coverage of package sources) → Phase 1 or 11.
 - **Resolved in Phase 2:** `GanchoTokens`, `Components` and `GanchoColors` cited design files that do not exist (`docs/design/tokens/colors.css`, a snippet-editor kit, DESIGN-SYSTEM.md); the comments now point at "Design tokens" in docs/ARCHITECTURE.md or name no file.
