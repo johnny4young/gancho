@@ -335,8 +335,9 @@ Database internals are split by stable responsibility rather than hidden behind 
 7. **The menu-bar helper sees no clips.** The helper process that owns the
    status item reads only content-free state from a plain App Group plist
    (status label and badge, command titles, nonce, panel shortcut, icon
-   frame). A click asks the main app to open its own menu, so recent clips and
-   their previews never leave the encrypted store's process.
+   frame). A pointer click asks the main app to open its own menu, so recent
+   clips and their previews never leave the encrypted store's process; an
+   accessibility or keyboard press opens the helper's own command menu.
 
 ## Storage and search
 
