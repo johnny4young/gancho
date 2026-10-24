@@ -2,6 +2,7 @@ import AppKit
 import ClipboardCore
 import Foundation
 import GanchoAppCore
+import GanchoDesign
 import GanchoKit
 
 /// Deterministic UI-test fixtures, kept out of the production composition-root
@@ -131,9 +132,15 @@ extension AppModel {
             let fullStore
         else { return nil }
         return Task {
+            let palette = BoardIdentityColor.allCases
             for i in 1...PinLimits.freeMaxPinboards {
-                _ = try? await fullStore.createPinboard(
-                    name: "Seed board \(i)", sfSymbol: "square.stack")
+                guard
+                    let board = try? await fullStore.createPinboard(
+                        name: "Seed board \(i)", sfSymbol: "square.stack")
+                else { continue }
+                // Automatic colors come from the random id; snapshots need fixed ones.
+                try? await fullStore.updateBoardIdentity(
+                    id: board.id, colorHex: palette[(i - 1) % palette.count].rawValue, emoji: nil)
             }
             await refreshBoards()
         }
