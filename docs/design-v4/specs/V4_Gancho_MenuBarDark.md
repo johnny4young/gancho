@@ -90,7 +90,7 @@ All row data is sample data.
 
 **Selected row (GC-04):**
 - Background: `rgba(48,209,88,.16)` in dark, `rgba(52,199,89,.14)` in light.
-- Leading bar: 3 pt wide, inset 8 pt top and bottom, radius 2, `#34C759`.
+- Leading bar: 3 pt wide, inset 8 pt top and bottom, radius 2, `#34C759`. *(Not built: leading accent bars are banned; the selection is the wash inside a full 1 pt accent outline.)*
 - The CSS uses `#34C759` for the bar in both appearances. The rule text says only "3 px bar".
 - No glow.
 

@@ -43,7 +43,7 @@ Chip: 22 pt high, padding 0 7, radius pill, `rgba(29,29,31,.07)`, `#5B5B61`, 11 
 
 ### 1.3 Section header and rows
 - Section header: padding 6 10 2, 10 pt / 700, tracking .06 em, uppercase, `#5B5B61`; left label, right count.
-- Rows: gap 3, padding 2 6. Row 50 pt high, padding 0 8, gap 10, radius 10. Selected row: fill `rgba(52,199,89,.14)` + 3 pt leading bar `#34C759` (inset 8 pt top/bottom, radius 2).
+- Rows: gap 3, padding 2 6. Row 50 pt high, padding 0 8, gap 10, radius 10. Selected row: fill `rgba(52,199,89,.14)` + 3 pt leading bar `#34C759` (inset 8 pt top/bottom, radius 2). *(Not built: leading accent bars are banned; the selection is the wash inside a full 1 pt accent outline.)*
 - Tile 36 × 36, radius 8. Title 13 pt / 600; preview 12 pt `#5B5B61` (mono for code/colour); source line 10.5 pt `#6E6E73`; quick key `⌘N` badge 16 pt high, radius 5, `rgba(29,29,31,.08)`, 10 pt / 600 mono.
 - Expiry badge (`.bch` amber): 20 pt high, `rgba(255,159,10,.18)` / `#7A4B00`, timer icon 9 pt.
 - Pin marker: filled pin 10 pt `#6E6E73`.
