@@ -5,8 +5,9 @@ import AppKit
 /// A separate, minimal process owns the visible `NSStatusItem` so the main app's
 /// scene lifecycle can't keep the icon hidden. It reads only content-free bridge
 /// state (status label and badge, localized titles, the command nonce) and
-/// never touches the clipboard or the history. A click asks the main app to
-/// open its own menu under the icon; ⌥ and ⌥⇧ clicks become commands. Every
+/// never touches the clipboard or the history. A pointer click asks the main
+/// app to open its own menu under the icon; ⌥ and ⌥⇧ clicks become commands; an
+/// accessibility or keyboard press opens the helper's own command menu. Every
 /// request is a nonce-stamped distributed notification.
 @MainActor
 private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -46,12 +47,28 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
     }
 
     @objc private func statusItemClicked() {
-        guard let command = MenuBarClick(event: NSApp.currentEvent).command else {
+        // VoiceOver and keyboard presses open the helper's own menu: a menu the
+        // app opens from another process isn't reliably in the accessibility tree.
+        guard let event = pointerClick() else {
+            showOwnMenu()
+            return
+        }
+        guard let command = MenuBarClick(event: event).command else {
             requestAppMenu()
             return
         }
         guard let token = GanchoMenuBarBridge.readNonce(), !token.isEmpty else { return }
         command.postDistributed(token: token)
+    }
+
+    /// The mouse-up that triggered this action, if it was one on this button
+    /// just now; `currentEvent` can be an old event during an accessibility press.
+    private func pointerClick() -> NSEvent? {
+        guard let event = NSApp.currentEvent, [.leftMouseUp, .rightMouseUp].contains(event.type),
+            event.window === statusItem?.button?.window,
+            ProcessInfo.processInfo.systemUptime - event.timestamp < 1
+        else { return nil }
+        return event
     }
 
     /// Hands the click to the app, which draws the menu with the recent clips.
