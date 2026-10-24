@@ -146,6 +146,7 @@ extension LibraryView {
                 previewsHidden: model.previewsHidden)
         }
         .buttonStyle(.plain)
+        .clipDragSource(clip)
         .contextMenu { clipMenu(clip) }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("library-clip")

@@ -219,8 +219,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
     /// One line, cut short; a masked clip shows only its kind.
     private static func title(for clip: ClipItem, masked: Bool) -> String {
         guard !masked else {
-            let kind = Bundle.main.localizedString(
-                forKey: clip.kind.rawValue, value: nil, table: nil)
+            let kind = clip.kind.localizedName
             return String(localized: "\(kind) · masked")
         }
         let line = ClipSafePresentation.displayText(for: clip)
@@ -290,5 +289,12 @@ extension GanchoMenuBarCommand {
 extension NSFont {
     fileprivate var bold: NSFont {
         NSFontManager.shared.convert(self, toHaveTrait: .boldFontMask)
+    }
+}
+
+extension ClipContentKind {
+    /// The kind's name as the app's catalog spells it: what a masked clip shows.
+    var localizedName: String {
+        Bundle.main.localizedString(forKey: rawValue, value: nil, table: nil)
     }
 }

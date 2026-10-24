@@ -3716,16 +3716,6 @@
         }
       }
     },
-    "Added to board": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Añadido a un tablero"
-          }
-        }
-      }
-    },
     "Added to paste stack": {
       "localizations": {
         "es": {
@@ -11275,6 +11265,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@, %lld en espera en la pila de pegado"
+          }
+        }
+      }
+    },
+    "Added to %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadido a %@"
+          }
+        }
+      }
+    },
+    "Already in %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya está en %@"
           }
         }
       }

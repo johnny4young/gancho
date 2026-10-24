@@ -50,6 +50,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   the app that is sharing; Show anyway reveals previews for that share. The
   paste-stack strip, ⌘Y and the combined-text sheets hide content too, in
   Private Mode as well.
+- Drag a clip onto a board — a chip on the panel's board rail or a board in
+  the Library sidebar — to file it. The board lifts and rings while the clip
+  hovers, and a clip already there says so.
 
 ### Changed
 
@@ -74,6 +77,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Meaning is a search mode of its own: it lists only the clips related by
   meaning, instead of adding them under the other results. The "By meaning"
   button is gone.
+- Adding clips to a board names the board in the confirmation ("Added to
+  Work") and offers Undo; while such a toast shows, ⌘Z in the panel or the
+  Library undoes it, as it does for Deleted.
+- The panel moves from its top strip (the search bar and toolbar background)
+  instead of from anywhere, so dragging a row drags the clip.
 - The menu-bar icon keeps the hook in every state instead of swapping to a
   pause or warning symbol.
 - The selected row shows as a tinted, outlined card instead of a green bar
@@ -105,6 +113,7 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   swatch draws; Convert color read the first two digits as alpha.
 - An `hsl()` color whose hue is `nan` or `inf` no longer crashes Convert
   color.
+- Dragging a row in the panel no longer drags the whole panel along with it.
 - The menu-bar helper no longer keeps a preview of your last copy in a
   preferences file outside the encrypted store; the old value is removed at
   launch.

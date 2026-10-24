@@ -217,7 +217,9 @@ final class RefactorFlowUITests: XCTestCase {
             app.textFields["search-field"].firstMatch.waitForExistence(timeout: 8),
             "the panel must open on launch")
 
-        let board = app.buttons["Seed board 1"].firstMatch
+        // The chip's label carries its clip count ("Seed board 1 · 0").
+        let board = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Seed board 1"))
+            .firstMatch
         guard board.waitForExistence(timeout: 8) else {
             throw XCTSkip("seeded board chip is not reachable on this runner")
         }
@@ -229,13 +231,13 @@ final class RefactorFlowUITests: XCTestCase {
         }
         try openAppearanceEditor(for: board, in: app)
 
-        let blue = app.buttons["board-color-2E70D1"].firstMatch
-        guard blue.waitForExistence(timeout: 3), blue.isHittable else {
+        let teal = app.buttons["board-color-17999E"].firstMatch
+        guard teal.waitForExistence(timeout: 3), teal.isHittable else {
             throw XCTSkip("board color controls are not reachable on this runner")
         }
-        blue.click()
+        teal.click()
         XCTAssertEqual(
-            blue.value as? String, "Selected",
+            teal.value as? String, "Selected",
             "choosing a palette option must update the editor draft")
 
         let save = app.buttons["board-appearance-save"].firstMatch
@@ -251,7 +253,7 @@ final class RefactorFlowUITests: XCTestCase {
 
         try openAppearanceEditor(for: board, in: app)
         XCTAssertEqual(
-            app.buttons["board-color-2E70D1"].firstMatch.value as? String,
+            app.buttons["board-color-17999E"].firstMatch.value as? String,
             "Selected",
             "reopening after model refresh must retain the persisted palette token")
     }
