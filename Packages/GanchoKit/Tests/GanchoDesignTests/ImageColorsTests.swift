@@ -102,4 +102,24 @@ struct ImageColorsTests {
         #expect(close(left, blue))
         #expect(close(right, orange))
     }
+
+    @Test("The last row and column of a capped decode still sample")
+    func cappedDecodeEdges() throws {
+        // ImageIO rounds a capped decode's size, so a mapped edge pixel can
+        // land one past it.
+        let unit = orange.unit
+        for height in 1...12 {
+            let context = CGContext(
+                data: nil, width: 63, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.setFillColor(
+                CGColor(srgbRed: unit.red, green: unit.green, blue: unit.blue, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: 63, height: height))
+            let data = png(context.makeImage()!)
+            let corner = CGPoint(x: 62, y: height - 1)
+            let color = ImageColors.color(atPixel: corner, in: data, maximumSide: 32)
+            #expect(color.map { close($0, orange) } == true, "63 × \(height)")
+        }
+    }
 }

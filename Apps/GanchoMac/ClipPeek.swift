@@ -461,9 +461,9 @@ extension ClipPeek {
         } else if isTextEditable {
             ClipTextEditor(
                 text: $presentedText, kind: item.kind,
-                // The link and colour heroes already show the text; the editor
-                // keeps only its Edit affordance until editing starts.
-                readViewHidden: linkParts != nil || colorValue != nil,
+                // The link hero already shows the URL; the editor keeps only
+                // its Edit affordance until editing starts.
+                readViewHidden: linkParts != nil,
                 onEditingChanged: { editing in
                     isEditingText = editing
                     focus.wrappedValue = editing ? nil : .peek
@@ -780,7 +780,7 @@ extension ClipPeek {
 
     /// A colour clip's Convert, a dock action with ⇧⏎; its formats open in the result box.
     private var convertAction: PeekAction? {
-        guard item.kind == .color, !hidesPreview else { return nil }
+        guard colorValue != nil, !hidesPreview else { return nil }
         return PeekAction(
             id: "preview-convert", title: "Convert", symbol: "arrow.triangle.2.circlepath",
             shortcut: "⇧⏎"
@@ -799,9 +799,9 @@ extension ClipPeek {
     /// The per-kind Dev Actions, never for a masked or hidden preview.
     private var devActions: [PeekAction] {
         guard !hidesPreview else { return [] }
-        // A colour clip's Convert lives in the dock, not behind More actions.
+        // A colour the hero can read has Convert in the dock, not behind More actions.
         let actions = DevActions.actions(for: item.kind).filter {
-            item.kind != .color || $0.id != .convertColor
+            convertAction == nil || $0.id != .convertColor
         }
         return actions.map { action in
             PeekAction(

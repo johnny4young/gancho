@@ -47,6 +47,17 @@ struct ColorValueTests {
         #expect(ColorValue.parse("hsla(-inf, 0%, 0%, 1)") == nil)
     }
 
+    @Test("rgb() percentages scale to 0–255, alpha may be a percentage, channels may be decimal")
+    func cssPercentagesAndDecimals() {
+        #expect(ColorValue.parse("rgb(100%, 50%, 0%)") == ColorValue(red: 255, green: 128, blue: 0))
+        #expect(ColorValue.parse("rgba(0, 128, 128, 50%)")?.alpha == 128)
+        #expect(ColorValue.parse("hsla(180, 100%, 25%, 100%)")?.alpha == 255)
+        #expect(ColorValue.parse("rgb(12.4, 0, 254.6)") == ColorValue(red: 12, green: 0, blue: 255))
+        #expect(ColorValue.parse("rgb(101%, 0%, 0%)") == nil)
+        #expect(ColorValue.parse("rgba(0, 0, 0, 150%)") == nil)
+        #expect(ColorValue.parse("rgb(nan, 0, 0)") == nil)
+    }
+
     @Test("Whole channels drop their decimals in the Swift line")
     func swiftTrimsZeros() {
         #expect(

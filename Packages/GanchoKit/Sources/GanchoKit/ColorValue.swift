@@ -25,22 +25,20 @@ public struct ColorValue: Sendable, Equatable {
         guard let open = trimmed.firstIndex(of: "("), trimmed.hasSuffix(")") else { return nil }
         let function = String(trimmed[..<open])
         let body = trimmed[trimmed.index(after: open)..<trimmed.index(before: trimmed.endIndex)]
-        let parts = body.split(separator: ",").map {
-            $0.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "%", with: "")
-        }
+        let parts = body.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
         guard parts.count == 3 || parts.count == 4 else { return nil }
-        let alpha = parts.count == 4 ? Double(parts[3]).flatMap(Self.alphaByte) : nil
+        let alpha = parts.count == 4 ? Self.fraction(parts[3]).flatMap(Self.alphaByte) : nil
         guard parts.count == 3 || alpha != nil else { return nil }
         switch function {
         case "rgb", "rgba":
-            let channels = parts.prefix(3).compactMap { Int($0) }
-            guard channels.count == 3, channels.allSatisfy((0...255).contains) else { return nil }
+            let channels = parts.prefix(3).compactMap(Self.channel)
+            guard channels.count == 3 else { return nil }
             return ColorValue(red: channels[0], green: channels[1], blue: channels[2], alpha: alpha)
         case "hsl", "hsla":
             // `Double` reads "nan" and "inf"; a non-finite hue would trap in `Int(_:)`.
-            guard let hue = Double(parts[0]), hue.isFinite, let saturation = Double(parts[1]),
-                let lightness = Double(parts[2]), (0...100).contains(saturation),
-                (0...100).contains(lightness)
+            guard let hue = Double(parts[0]), hue.isFinite,
+                let saturation = Self.percent(parts[1]), let lightness = Self.percent(parts[2]),
+                (0...100).contains(saturation), (0...100).contains(lightness)
             else { return nil }
             let (red, green, blue) = hslToRGB(
                 hue: hue, saturation: saturation / 100, lightness: lightness / 100)
@@ -100,6 +98,28 @@ public struct ColorValue: Sendable, Equatable {
         return ColorValue(
             red: Int((value >> (16 + shift)) & 0xFF), green: Int((value >> (8 + shift)) & 0xFF),
             blue: Int((value >> shift) & 0xFF), alpha: hex.count == 8 ? Int(value & 0xFF) : nil)
+    }
+
+    /// `128` or `50%` (of 255), as CSS reads an rgb() channel.
+    private static func channel(_ text: String) -> Int? {
+        if let percent = percentage(text) {
+            return (0...100).contains(percent) ? Int((percent * 255 / 100).rounded()) : nil
+        }
+        guard let value = Double(text), (0...255).contains(value) else { return nil }
+        return Int(value.rounded())
+    }
+
+    /// `0.5` or `50%`.
+    private static func fraction(_ text: String) -> Double? {
+        percentage(text).map { $0 / 100 } ?? Double(text)
+    }
+
+    private static func percent(_ text: String) -> Double? {
+        percentage(text) ?? Double(text)
+    }
+
+    private static func percentage(_ text: String) -> Double? {
+        text.hasSuffix("%") ? Double(text.dropLast()) : nil
     }
 
     private static func alphaByte(_ fraction: Double) -> Int? {

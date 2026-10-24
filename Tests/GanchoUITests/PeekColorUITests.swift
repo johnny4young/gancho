@@ -103,6 +103,13 @@ final class PeekColorUITests: XCTestCase {
         app.typeKey("i", modifierFlags: [])
         let eyedropper = app.descendants(matching: .any)["peek-eyedropper"].firstMatch
         XCTAssertTrue(eyedropper.waitForExistence(timeout: 5), "I takes up the eyedropper")
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(eyedropper.waitForNonExistence(timeout: 5), "esc puts it down first")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["history-panel"].firstMatch.exists,
+            "the first esc leaves the panel open")
+        app.typeKey("i", modifierFlags: [])
+        XCTAssertTrue(eyedropper.waitForExistence(timeout: 5))
         // The seed's orange circle sits at the centre of the image.
         eyedropper.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
 

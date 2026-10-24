@@ -89,6 +89,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   swatch draws; Convert color read the first two digits as alpha.
 - An `hsl()` color whose hue is `nan` or `inf` no longer crashes Convert
   color.
+- Convert color reads `rgb()` channels written as percentages
+  (`rgb(100%, 50%, 0%)`) or decimals, and alphas written as percentages,
+  instead of misreading or rejecting them.
 - Align post-release documentation, the bilingual website, the Sparkle feed
   mirror and Homebrew cask metadata with the published v0.10.2 DMG.
   Physical-device acceptance remains pending; the published app, tag and
