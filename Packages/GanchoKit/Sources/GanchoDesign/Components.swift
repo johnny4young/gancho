@@ -373,24 +373,25 @@ public struct ClipCard: View {
             ? nil : GanchoMotion.quick(reduceMotion: reduceMotion)
     }
 
-    /// Accent wash plus the design's accent bar on the leading edge. With a
-    /// namespace the pair is ONE view shared by every row, so a selection change
+    /// Accent wash inside a full accent outline, never a leading bar. With a
+    /// namespace it is ONE view shared by every row, so a selection change
     /// moves it rather than swapping it.
     @ViewBuilder private var selectionBackground: some View {
         if isSelected {
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
-                    .fill(
-                        GanchoTokens.Palette.accent.opacity(
-                            GanchoTokens.Palette.selectionWashOpacity(colorScheme)))
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(GanchoTokens.Palette.accent)
-                    .frame(width: 3)
-                    .padding(.vertical, GanchoTokens.Spacing.xs)
-            }
-            .modifier(
-                SharedSelectionGeometry(
-                    namespace: selectionNamespace, rowID: isSelectionAnchor ? nil : item.id))
+            let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+            shape
+                .fill(
+                    GanchoTokens.Palette.accent.opacity(
+                        GanchoTokens.Palette.selectionWashOpacity(colorScheme))
+                )
+                .overlay(
+                    shape.strokeBorder(
+                        GanchoTokens.Palette.accent.opacity(0.55),
+                        lineWidth: GanchoTokens.Stroke.hairline)
+                )
+                .modifier(
+                    SharedSelectionGeometry(
+                        namespace: selectionNamespace, rowID: isSelectionAnchor ? nil : item.id))
         }
     }
 
