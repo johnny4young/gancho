@@ -53,7 +53,13 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
    - Q33: the helper forwards a click and the main app opens its own menu under the icon (real tiles, ⌘1–5, ⌥ plain, stack row); the last-copied preview leaves the bridge, which is a plain plist outside the encrypted store; if the app doesn't answer in 0.5 s the helper opens its own command menu.
    - Q34: badges by precedence denied > paused (manual, share, lock) > private > ignore-next > stack; paused amber like the footer chip, private indigo, denied red, ignore-next grey with "−", stack count in ink; no syncing badge; dark glyph on amber and grey, white on the rest; the hook stays a template image with the badge on a layer above it.
    - The stack badge shows the count; "3/5" comes with the GC-10 cursor (Phase 15).
-11. Cross-app rules from the owner's threads:
+11. Answers given on 2026-10-24 to the Phase 7 questions (all the recommended option):
+   - Q36 / Q-23a, b: in-app drags only (panel rows and Library cards); no refusal shake, since a protected clip can't be dragged and board membership has no Free cap; a clip already on the board says "Already in <board>" and writes nothing.
+   - Q-23c: the row or chip pulses and the Library count ticks; the system drag image is not animated into the row.
+   - Q-23d: rail chips keep no counts; the toast and the chip pulse confirm.
+   - Q-23e: every assign toast names the board ("Added to <board>") with Undo; ⌘Z in the panel and the Library runs a visible toast's Undo (delete included), and the toast shows "Undo ⌘Z".
+   - Found while building it, owner-approved: the panel no longer moves from any background; it moves from its top strip (search bar and toolbar background, title bar), so a row drag carries the clip.
+12. Cross-app rules from the owner's threads:
    - Only propose what beats the current UI; code wins over v2 boards and site screenshots.
    - Each piece of data appears once per screen.
    - Canvas annotations are not UI.
@@ -70,7 +76,7 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
 Live sources match the expected numbers exactly. Maybe: GC-V4-22, with owner note "no entiendo la utilidad de esto, pero siento que no es necesario". Skip: GC-V4-20.
 
 By type: UI 29 · bug 6 · feature 31 · system 7.  
-By status: blocked 38 · done 33 · not implemented 1 · pending decision 1.
+By status: blocked 37 · done 34 · not implemented 1 · pending decision 1.
 
 ## Plan table
 
@@ -140,7 +146,7 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 | GC-V4-19 | UI | pick | — | iPhoneSurfaces | Keyboard marks the inserted row until the text field changes | KeyboardModel.swift:154-178; KeyboardView.swift:168-287 | Rows + insert exist; inserted state new | GC-V6-8 | Unit: model; device test | 13 | blocked: Q57 |
 | GC-V4-20 | UI | skip | — | Archive (from Motion) | Panel arrives from the hook under 100 ms | — | Not implemented; current entrance stays | — | — | — | not implemented (SKIP) |
 | GC-V4-22 | UI | maybe | no entiendo la utilidad de esto, pero siento que no es necesario | Motion | Paste press → check → hide → ⌘V (adds ~340 ms per paste) | PeekActionButton.swift:65-67; PanelController.swift:175-178; PasteBackWorkflow.swift:39,:90-96 | Order hide→⌘V exists | GC-V4-24 | — | — | pending decision (MAYBE, not implemented) |
-| GC-V4-23 | feature | pick | — | Motion | Drop a clip on a board (panel rail chip, Library sidebar): ring + 1.04 scale, + badge, count tick, toast 'Added to <board>' + Undo ⌘Z | PanelView.swift:1009; LibraryView+Sidebar.swift:17-24,:103-124; ClipDragProvider.swift; ClipDragPayload.swift:29-49; AppModel.swift:1818-1836,:1970-1990; ToastPresenter.swift | Drag-out, membership write, Undo toast exist; in-app drag type, drop targets, ⌘Z new | GC-V4-24 | Unit: drop eligibility; UI: drag row onto board-<uuid> → gancho-toast/toast-undo | 7 | blocked: Q36 |
+| GC-V4-23 | feature | pick | — | Motion | Drop a clip on a board (panel rail chip, Library sidebar): ring + 1.04 scale, + badge, count tick, toast 'Added to <board>' + Undo ⌘Z | PanelView.swift:1009; LibraryView+Sidebar.swift:17-24,:103-124; ClipDragProvider.swift; ClipDragPayload.swift:29-49; AppModel.swift:1818-1836,:1970-1990; ToastPresenter.swift | Drag-out, membership write, Undo toast exist; in-app drag type, drop targets, ⌘Z new | GC-V4-24 | Unit: drop eligibility; UI: drag row onto board-<uuid> → gancho-toast/toast-undo | 7 | done — b3ffecc, 597b999 (Q36: in-app drags only, no refusals; already a member says so; row pulse instead of an AppKit shrink; every assign toast names the board with Undo and ⌘Z); BoardDropTests + BoardDropUITests (rail, Library, ⌘Z, field undo, panel stays put) + snapshots panel-board-drop-target |
 | GC-V4-24 | system | pick | — | Motion | Motion tokens settle/arrive/swap + leave (140 ms ease-in) + press (.96, 80 ms); one Reduce Motion substitution policy; literal durations moved onto tokens | GanchoMotion.swift:5-36; GanchoMotionTests.swift; PanelView.swift:291,:309; PanelResultsView.swift:170; ClipPeek.swift:168; DenylistSettingsSection.swift:178; PeekImageText.swift:38,:41,:281,:395,:499; ClipDetailView.swift:67 (iOS); LibraryView+Sidebar.swift:118; PasteStackStrip.swift:26 | quick/smooth/replace + nil gate exist; leave, press, policy new | — | Unit per token × Reduce Motion; source-scan guard against literal durations | 2 | done — 4efbece, 85c3dac (Q6: 100 ms fade; leave/press are tokens); GanchoMotionTests + DesignTokenGuardTests motion gate |
 | GC-V6-1 | feature | pick | — | Novel | Up next: one predicted clip above the list for the front app; ⌘↩; off by default | PasteBackWorkflow.swift:79; AppModel.swift:1033; GanchoDatabaseMigrator.swift; ReuseController.swift:114; IntelligencePreferences.swift; PanelView.swift:586 | Front app + use counts exist; per-paste table (migration), ranker, slot new | GC-V6-8, GC-25 | Unit: ranker + migration; UI seeded pastes; perf: panel open unchanged | 17 | blocked: Q58 |
 | GC-V6-2 | feature | pick | — | Novel | Double-copy merge (second ⌘C within ~600 ms appends), splittable in the peek | MacPasteboardMonitor.swift; AdaptivePollingPolicy.swift:29; ClipRecordMapper.swift; ClipPeek.swift | No merge code; clip.parts column (migration + sync mapping) new | GC-25, GC-V6-3 | Unit: merge/split, fake pasteboard; sync round-trip; UI Split | 18 | blocked: Q59 |
@@ -417,7 +423,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
   - Do the fixed dark hex surfaces replace Liquid Glass in dark, or apply only to the opaque branch?
   - Is the 7 % wash the layer opacity or the peak?
   - Light at 10 % above dark at 7 % reverses an existing test. Change the test?
-- **Q36 GC-V4-23 drop refusals.**
+- **Q36 — RESOLVED 2026-10-24: no refusals; in-app drags only; already-member toast.** GC-V4-23.
   - The "secret" and "Free limit" refusals have no basis in code. Drop them?
   - The panel chips show no counts, so the count tick only works in the Library.
 
@@ -517,6 +523,9 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 - **Found in Phase 5, resolved there:** a non-finite `hsl()` hue (`nan`, `inf`) would trap converting to `Int`, and the eyedropper decoded the full image. The parser rejects non-finite hues and the eyedropper samples a decode capped at 8,192 px per side.
 - **Found in Phase 6, resolved there:** the menu-bar bridge stored the last-copied preview (masked only for sensitive clips) in a plain preferences plist, outside the SQLCipher store. The preview is gone and launch removes the old value.
 - **Found in Phase 6 review, resolved there:** a share that started during a manual pause left previews visible (the rule keyed off the monitor's status); the paste-stack strip, ⌘Y and the combined-text / AI-context sheets ignored hidden previews (the strip also ignored secret masking, before this phase).
+- **Found in Phase 7, resolved there:** the panel was movable by its whole background, so dragging a row moved the panel with the pointer: a drop could never reach a board chip, and drag-out likely suffered too. The panel now moves from its top strip; a UI test asserts a row drag leaves it in place.
+- **Found in Phase 7, resolved there:** UI-test sample boards took their automatic colour from a random id, so any snapshot showing them changed colour between runs; the seed now pins palette colours. The drop ring also sat outside the 1.04 scale and on a continuous capsule, which left the chip's fill peeking past it.
+- **Found in Phase 7, testing note:** with the old movable panel a synthesized row drag moved the window and always dropped at its own start point, which first looked like drop targets inside the rail's scroll view not working; once the panel stopped moving, drops on each chip work directly.
 - **Found in Phase 6 CI, resolved there:** a menu the app pops up for the helper isn't reliably in the accessibility tree (seen as 1 in 2 runs even when anchored to a view), so VoiceOver and keyboard presses on the icon open the helper's own native command menu; pointer clicks open the app's mini-panel.
 - **Found in Phase 6, kept on purpose:** the badge sits beside the hook's curl, so a badged status item is a few points wider; a masked recent row reads "<kind> · masked" because the secret's type is not stored on the clip; a menu opened for the helper isn't in the app's accessibility tree, so its rows are tested through the in-process menu, which is the same `MenuBarMenu`.
 - **Found in Phase 6, not caused by it:** `PanelUITests.testMenuBarStatusItemOpensSettingsWindow` fails on this Mac on `main` too (control run); the ambient-image snapshots drifted in colour on `main` as well, so their baselines were re-recorded.

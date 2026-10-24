@@ -1158,7 +1158,7 @@ final class AppModel {
                     action: ToastAction(
                         title: "Add", accessibilityIdentifier: "reuse-suggestion-action"
                     ) { [weak self] in
-                        self?.assignWithUndo(item, toBoard: board)
+                        self?.assign(item, toBoard: board)
                     }),
                 duration: .seconds(8))
             return
@@ -1404,8 +1404,7 @@ final class AppModel {
         toasts.show(
             GanchoToast(
                 message: "Deleted",
-                action: ToastAction(title: "Undo", accessibilityIdentifier: "toast-undo") {
-                    [weak self] in
+                action: .undo { [weak self] in
                     self?.reuseController.undoDeletion(transaction)
                 }))
     }
@@ -1844,33 +1843,39 @@ final class AppModel {
         assign([item], toBoard: board)
     }
 
+    /// Files the clips and names the board in a toast whose Undo (or ⌘Z)
+    /// takes them back out, instead of making the user hunt through the menu.
     func assign(_ items: [ClipItem], toBoard board: Pinboard) {
-        Task {
-            guard await setBoardMembership(items, board: board, member: true) else { return }
-            toasts.show(GanchoToast(message: "Added to board"))
+        Task { [weak self] in
+            guard let self else { return }
+            var memberships: [UUID: Set<UUID>] = [:]
+            for item in items { memberships[item.id] = await boardMembership(for: item) }
+            let added = BoardDrop.newlyFiled(items, memberships: memberships, board: board.id)
+            guard !added.isEmpty else {
+                toasts.show(GanchoToast(message: "Already in \(board.displayName)"))
+                return
+            }
+            guard await setBoardMembership(added, board: board, member: true) else { return }
+            showAddedToast(added, board: board)
         }
     }
 
-    /// Assign + a one-tap Undo (the board-suggestion accept path). The action is
-    /// reversible, so offer the reversal in the toast instead of making the user
-    /// hunt through the board menu to take it back.
-    func assignWithUndo(_ item: ClipItem, toBoard board: Pinboard) {
-        Task { [weak self] in
-            guard let self, await setBoardMembership(item, board: board, member: true) else {
-                return
-            }
-            toasts.show(
-                GanchoToast(
-                    message: "Added to board",
-                    action: ToastAction(title: "Undo") { [weak self] in
-                        self?.unassign(item, fromBoard: board)
-                    }))
-        }
+    func showAddedToast(_ items: [ClipItem], board: Pinboard) {
+        toasts.show(
+            GanchoToast(
+                message: "Added to \(board.displayName)",
+                action: .undo { [weak self] in
+                    self?.unassign(items, fromBoard: board)
+                }))
     }
 
     func unassign(_ item: ClipItem, fromBoard board: Pinboard) {
+        unassign([item], fromBoard: board)
+    }
+
+    func unassign(_ items: [ClipItem], fromBoard board: Pinboard) {
         Task {
-            _ = await setBoardMembership(item, board: board, member: false)
+            _ = await setBoardMembership(items, board: board, member: false)
         }
     }
 
@@ -1910,7 +1915,7 @@ final class AppModel {
             name: name, filing: item, store: fullStore, engine: syncController.engine,
             isPro: tier == .pro,
             onFreeLimit: { self.paywallWindow.show(trigger: .freeLimitReached, model: self) },
-            onAssigned: { self.toasts.show(GanchoToast(message: "Added to board")) })
+            onAssigned: {})
         if outcome == .failed {
             recordBoardFailure("Couldn’t create the board.")
         } else if item != nil, case .created(_, filedClip: false) = outcome {
@@ -1921,6 +1926,10 @@ final class AppModel {
         await refreshBoards()
         if case .created(let boardID, filedClip: true) = outcome {
             lastAssignedBoardID = boardID
+            // Named as stored (trimmed), with the same Undo as any other assign.
+            if let item, let board = boards.first(where: { $0.id == boardID }) {
+                showAddedToast([item], board: board)
+            }
         }
         if item != nil { await refreshRecents() }
         if case .created = outcome { notifyStoreChanged(for: .boards) }

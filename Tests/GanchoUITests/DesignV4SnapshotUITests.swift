@@ -206,6 +206,15 @@ final class DesignV4SnapshotUITests: XCTestCase {
         try panelState(.noResults, appearance: "dark")
     }
 
+    /// A clip dragged over a board chip: the ring and lift on the target.
+    @MainActor func testPanelBoardDropTargetLight() throws {
+        try panelState(.boardDropTarget, appearance: "light")
+    }
+
+    @MainActor func testPanelBoardDropTargetDark() throws {
+        try panelState(.boardDropTarget, appearance: "dark")
+    }
+
     /// A share names the app, masks the rows and offers Show anyway.
     @MainActor func testPanelScreenShareLight() throws {
         try panelState(.screenShare, appearance: "light")
@@ -220,6 +229,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
         case tokens = "search-tokens"
         case noResults = "no-results"
         case screenShare = "screen-share"
+        case boardDropTarget = "board-drop-target"
     }
 
     /// Private Mode since 14:02 today with three skipped copies and no deadline,
@@ -249,6 +259,10 @@ final class DesignV4SnapshotUITests: XCTestCase {
         case .privateMode: arguments += ["-capture-preferences", Self.privateModePreferences]
         case .screenShare:
             arguments += ["-simulate-screen-share", "Zoom", "-isolate-ui-test-system-clipboard"]
+        case .boardDropTarget:
+            arguments += [
+                "-start-capture-paused", "-seed-sample-boards", "-ui-test-target-first-board"
+            ]
         case .tokens, .noResults: arguments.append("-start-capture-paused")
         }
         app.launchArguments = arguments
@@ -262,6 +276,16 @@ final class DesignV4SnapshotUITests: XCTestCase {
         switch state {
         case .privateMode:
             break
+        case .boardDropTarget:
+            let chip = app.descendants(matching: .any).matching(
+                NSPredicate(
+                    format: "identifier BEGINSWITH 'board-' AND label BEGINSWITH %@",
+                    "Seed board 1")
+            ).firstMatch
+            XCTAssertTrue(chip.waitForExistence(timeout: 10))
+            // The pointer sits where a drag would, not on whichever row it was left over.
+            try SynthesizedInput.requireForeground(app)
+            chip.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
         case .screenShare:
             // Detection runs on a three-second tick.
             XCTAssertTrue(

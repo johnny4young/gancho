@@ -109,4 +109,6 @@ public enum BoardColors {
 extension Pinboard {
     /// The system board's localized name, or the user's name verbatim.
     public var displayTitle: Text { isSystem ? Text("Favorites") : Text(verbatim: name) }
+    /// The same name as plain text, for toasts.
+    public var displayName: String { isSystem ? String(localized: "Favorites") : name }
 }

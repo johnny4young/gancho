@@ -175,6 +175,13 @@ targets:
           - CFBundleURLName: com.johnny4young.gancho
             CFBundleURLSchemes:
               - gancho
+        # A clip dragged onto a board inside the app; it carries the clip id only
+        # and is registered for this process alone.
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.johnny4young.gancho.clip-reference
+            UTTypeDescription: Gancho clip reference
+            UTTypeConformsTo:
+              - public.data
         # Menu-bar-only app: no Dock icon. The background history lifetime is
         # coupled to its status-item affordance in GanchoMenuBarLifecycleGuard.
         LSUIElement: true

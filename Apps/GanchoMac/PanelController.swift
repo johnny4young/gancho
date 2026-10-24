@@ -361,7 +361,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         #endif
         created.titleVisibility = .hidden
         created.titlebarAppearsTransparent = true
-        created.isMovableByWindowBackground = true
+        // Moved from its top strip (`WindowDragArea`), never from a row: a row
+        // drag carries a clip, not the panel.
+        created.isMovableByWindowBackground = false
         // Nonactivating panels must survive app deactivation: the user's
         // editor/browser remains the focused app while Gancho floats above it.
         created.hidesOnDeactivate = false
