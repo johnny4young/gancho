@@ -456,7 +456,10 @@ struct PanelView: View {
             // Load the peek for the selected clip, keyed on its id and debounced:
             // arrowing fast cancels the in-flight load, so only the clip you land on
             // is read and rendered — keeps navigation responsive.
-            .task(id: search.selectedItem.map(ClipContentVersion.init)) {
+            .task(
+                id: PanelPreviewRequestKey(
+                    item: search.selectedItem, storeRevision: storeRevision)
+            ) {
                 try? await Task.sleep(for: .milliseconds(60))
                 guard !Task.isCancelled else { return }
                 let store = model.store
@@ -1133,6 +1136,7 @@ struct PanelView: View {
                 for await batch in StoreChangeCoalescer().batches(of: changes)
                 where batch != [.captured] {
                     storeRevision &+= 1
+                    await search.refreshAfterStoreChange(preview: preview)
                 }
             }
             .onChange(of: railFocus) { _, focused in

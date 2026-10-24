@@ -157,6 +157,17 @@ public struct PanelDateGroup: Identifiable, Sendable {
         core = ClipListCore(source: source, configuration: .macOSPanel)
     }
 
+    /// Requeries the active scope after a store mutation, independently of the
+    /// shell's bounded recent page. Invalidate reads and the loaded preview
+    /// before awaiting I/O so an older request cannot restore removed content.
+    /// Normal refresh reconciliation preserves surviving selection and paging.
+    public func refreshAfterStoreChange(preview: PanelPreviewModel) async {
+        invalidateRequests()
+        preview.invalidate()
+        await refreshSourceApps()
+        await refresh()
+    }
+
     static let prefetchThreshold = 20
 
     /// The rows actually shown: `results` narrowed by the active filter pill,
