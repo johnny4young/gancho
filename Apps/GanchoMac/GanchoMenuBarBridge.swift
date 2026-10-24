@@ -1,49 +1,65 @@
 import Foundation
 
-/// Privacy-bounded side channel between the main app and the paint-only
+#if !STANDALONE_MENU_BAR
+    import GanchoKit
+#endif
+
+/// Content-free side channel between the main app and the paint-only
 /// menu-bar helper, shared by both targets.
 ///
-/// Backed by an App Group suite, so it resolves to the shared group container
-/// under the App Store sandbox and to a shared preferences domain otherwise —
-/// either way reachable by both processes without bespoke IPC. It carries ONLY
-/// non-clipboard data: the current status presentation (a content-free icon
-/// identifier + a localized accessibility label), the localized menu titles,
-/// the per-launch command nonce, the recorded panel shortcut, and a single
-/// "last copied" preview for the menu's recent row. That preview is the ONLY clip-derived value that crosses:
-/// it is already masked for sensitive clips, and private mode omits it entirely.
-/// Full clip content and the history never leave the main app process.
+/// Backed by an App Group suite: the shared group container under the App
+/// Store sandbox, a shared preferences domain otherwise. Either way it is a
+/// plain plist outside the encrypted store, so it carries NO clip-derived
+/// value: the status label and badge, the localized command titles, the
+/// per-launch nonce, the recorded panel shortcut, and the status button's
+/// screen frame. The menu with recent clips is drawn by the main app itself.
 enum GanchoMenuBarBridge {
     static let appGroupSuite = "group.com.johnny4young.gancho"
 
     private enum Key {
-        static let statusIcon = "menu-bar.status.icon"
         static let statusLabel = "menu-bar.status.label"
+        static let statusBadge = "menu-bar.status.badge"
         static let titles = "menu-bar.titles"
         static let nonce = "menu-bar.nonce"
-        static let lastCopiedPreview = "menu-bar.last-copied.preview"
-        static let lastCopiedLabel = "menu-bar.last-copied.label"
-        static let lastCopiedAt = "menu-bar.last-copied.at"
         static let panelShortcut = "menu-bar.panel-shortcut"
+        static let buttonFrame = "menu-bar.button-frame"
+        static let menuRequestedAt = "menu-bar.menu-requested-at"
+        /// Earlier builds wrote a masked "last copied" preview here.
+        static let retired = [
+            "menu-bar.status.icon", "menu-bar.last-copied.preview", "menu-bar.last-copied.label",
+            "menu-bar.last-copied.at"
+        ]
     }
 
     private static var defaults: UserDefaults? { UserDefaults(suiteName: appGroupSuite) }
 
-    // MARK: Status presentation — the app writes, the helper paints.
-
-    static func writeStatus(icon: MenuBarStatusIcon, label: String) {
-        guard let defaults else { return }
-        defaults.set(icon.rawValue, forKey: Key.statusIcon)
-        defaults.set(label, forKey: Key.statusLabel)
+    /// Removes values earlier builds left in the plist, including the old
+    /// clipboard preview, and any menu request a previous launch left behind.
+    static func removeRetiredValues() {
+        for key in Key.retired + [Key.buttonFrame, Key.menuRequestedAt] {
+            defaults?.removeObject(forKey: key)
+        }
     }
 
-    static func readStatus() -> (icon: MenuBarStatusIcon, label: String) {
-        let icon =
-            defaults?.string(forKey: Key.statusIcon)
-            .flatMap(MenuBarStatusIcon.init(rawValue:)) ?? .active
+    // MARK: Status — the app writes, the helper paints.
+
+    static func writeStatus(label: String, badge: MenuBarBadge?) {
+        guard let defaults else { return }
+        defaults.set(label, forKey: Key.statusLabel)
+        if let badge {
+            defaults.set(badge.bridgeValue, forKey: Key.statusBadge)
+        } else {
+            defaults.removeObject(forKey: Key.statusBadge)
+        }
+    }
+
+    static func readStatus() -> (label: String, badge: MenuBarBadge?) {
         let label =
             defaults?.string(forKey: Key.statusLabel)
             ?? GanchoMenuBarCommand.statusAccessibilityLabel
-        return (icon, label)
+        let badge = defaults?.string(forKey: Key.statusBadge).flatMap(
+            MenuBarBadge.init(bridgeValue:))
+        return (label, badge)
     }
 
     // MARK: Localized menu titles — `[command.rawValue: localized title]`.
@@ -81,33 +97,23 @@ enum GanchoMenuBarBridge {
         defaults?.string(forKey: Key.nonce)
     }
 
-    // MARK: Last-copied preview — the single masked clip-derived value (see the
-    // type doc). The app writes it after each capture, masked for sensitive
-    // clips, and writes `nil` in private mode to clear it; the helper shows it
-    // in the menu's recent row.
+    // MARK: Menu request — before `showMenu` the helper writes its icon's frame
+    // and the time, so the app opens under the icon and skips a stale request.
 
-    /// - Parameter label: the localized "Last copied" caption word (the helper
-    ///   has no string catalog, so the app resolves it and the helper appends a
-    ///   locale-formatted relative time).
-    static func writeLastCopied(preview: String?, label: String, at date: Date) {
-        guard let defaults else { return }
-        if let preview {
-            defaults.set(preview, forKey: Key.lastCopiedPreview)
-            defaults.set(label, forKey: Key.lastCopiedLabel)
-            defaults.set(date.timeIntervalSince1970, forKey: Key.lastCopiedAt)
-        } else {
-            defaults.removeObject(forKey: Key.lastCopiedPreview)
-            defaults.removeObject(forKey: Key.lastCopiedLabel)
-            defaults.removeObject(forKey: Key.lastCopiedAt)
-        }
+    static func writeMenuRequest(buttonFrame frame: NSRect, at date: Date = Date()) {
+        defaults?.set(NSStringFromRect(frame), forKey: Key.buttonFrame)
+        defaults?.set(date.timeIntervalSince1970, forKey: Key.menuRequestedAt)
     }
 
-    static func readLastCopied() -> (preview: String, label: String, at: Date)? {
-        guard let defaults, let preview = defaults.string(forKey: Key.lastCopiedPreview)
-        else { return nil }
-        let label = defaults.string(forKey: Key.lastCopiedLabel) ?? "Last copied"
+    /// Reads the request and clears it, so a stale one never gates the next.
+    static func takeMenuRequest() -> (buttonFrame: NSRect?, requestedAt: Date?) {
+        let frame = defaults?.string(forKey: Key.buttonFrame).map(NSRectFromString)
+        let time = defaults?.object(forKey: Key.menuRequestedAt) as? Double
+        defaults?.removeObject(forKey: Key.buttonFrame)
+        defaults?.removeObject(forKey: Key.menuRequestedAt)
         return (
-            preview, label, Date(timeIntervalSince1970: defaults.double(forKey: Key.lastCopiedAt))
+            frame.flatMap { $0.isEmpty ? nil : $0 },
+            time.map(Date.init(timeIntervalSince1970:))
         )
     }
 }

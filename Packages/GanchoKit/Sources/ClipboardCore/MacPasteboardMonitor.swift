@@ -122,6 +122,9 @@
             ignoreNextChange = true
         }
 
+        /// True from `ignoreNextCopy()` until the next change is discarded.
+        public var isIgnoringNextCopy: Bool { ignoreNextChange }
+
         public func start() {
             guard pollTask == nil else { return }
             // Privacy-spike decision: under Deny, reads return nil silently —

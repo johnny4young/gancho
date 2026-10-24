@@ -267,11 +267,13 @@
             monitor.onIgnore = { ignores.append($0) }
 
             monitor.ignoreNextCopy()
+            #expect(monitor.isIgnoringNextCopy)
             pasteboard.write(.text("skip me"), types: ["public.utf8-plain-text"])
             monitor.pollOnce()
             await monitor.drainPendingRead()
             #expect(captures.isEmpty)
             #expect(pasteboard.readCalls == 0)
+            #expect(!monitor.isIgnoringNextCopy, "the skip is spent on that one change")
 
             pasteboard.write(.text("capture me"), types: ["public.utf8-plain-text"])
             monitor.pollOnce()

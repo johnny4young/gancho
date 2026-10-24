@@ -143,7 +143,7 @@ extension LibraryView {
         } label: {
             LibraryClipCard(
                 clip: clip, thumbnails: model.libraryThumbnails,
-                previewsHidden: model.preferences.isPrivateModePaused)
+                previewsHidden: model.previewsHidden)
         }
         .buttonStyle(.plain)
         .contextMenu { clipMenu(clip) }

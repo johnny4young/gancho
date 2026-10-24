@@ -3,11 +3,12 @@ import AppKit
 /// Paint-only menu-bar helper.
 ///
 /// A separate, minimal process owns the visible `NSStatusItem` so the main app's
-/// scene lifecycle can't keep the icon hidden. It reads privacy-bounded bridge
-/// state: status, localized menu titles, the command nonce, and at most one
-/// masked recent preview (omitted in private mode). It performs no clipboard
-/// capture or history access; every menu click is forwarded to the main app as
-/// a nonce-stamped distributed notification.
+/// scene lifecycle can't keep the icon hidden. It reads only content-free bridge
+/// state (status label and badge, localized titles, the command nonce) and
+/// never touches the clipboard or the history. A pointer click asks the main
+/// app to open its own menu under the icon; ⌥ and ⌥⇧ clicks become commands; an
+/// accessibility or keyboard press opens the helper's own command menu. Every
+/// request is a nonce-stamped distributed notification.
 @MainActor
 private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let mainAppBundleID = "com.johnny4young.gancho"
@@ -15,6 +16,7 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
     private var statusItem: NSStatusItem?
     private let menu = NSMenu()
     private var watchdog: Timer?
+    private var pendingMenuFallback: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -29,18 +31,93 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
         // of the menu bar; the main app's reciprocal watchdog then closes the
         // in-memory history process too.
         item.behavior = .terminationOnRemoval
-        item.menu = menu
+        item.button?.target = self
+        item.button?.action = #selector(statusItemClicked)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         item.isVisible = true
         statusItem = item
 
+        observeMenuSignals()
         applyStatusPresentation()
-        rebuildMenu()
         startWatchdog()
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         rebuildMenu()
-        applyStatusPresentation()
+    }
+
+    @objc private func statusItemClicked() {
+        // VoiceOver and keyboard presses open the helper's own menu: a menu the
+        // app opens from another process isn't reliably in the accessibility tree.
+        guard let event = pointerClick() else {
+            showOwnMenu()
+            return
+        }
+        guard let command = MenuBarClick(event: event).command else {
+            requestAppMenu()
+            return
+        }
+        guard let token = GanchoMenuBarBridge.readNonce(), !token.isEmpty else { return }
+        command.postDistributed(token: token)
+    }
+
+    /// The mouse-up that triggered this action, if it was one on this button
+    /// just now; `currentEvent` can be an old event during an accessibility press.
+    private func pointerClick() -> NSEvent? {
+        guard let event = NSApp.currentEvent, [.leftMouseUp, .rightMouseUp].contains(event.type),
+            event.window === statusItem?.button?.window,
+            ProcessInfo.processInfo.systemUptime - event.timestamp < 1
+        else { return nil }
+        return event
+    }
+
+    /// Hands the click to the app, which draws the menu with the recent clips.
+    /// If it doesn't answer in time (busy or gone), the helper's own command
+    /// menu opens instead, so a click is never lost.
+    private func requestAppMenu() {
+        guard let button = statusItem?.button, let window = button.window else { return }
+        guard let token = GanchoMenuBarBridge.readNonce(), !token.isEmpty else {
+            showOwnMenu()
+            return
+        }
+        GanchoMenuBarBridge.writeMenuRequest(buttonFrame: window.convertToScreen(button.frame))
+        button.highlight(true)
+        GanchoMenuBarSignal.showMenu.post(token: token)
+        pendingMenuFallback?.cancel()
+        pendingMenuFallback = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(GanchoMenuBarSignal.menuAnswerTimeout))
+            guard !Task.isCancelled else { return }
+            self?.showOwnMenu()
+        }
+    }
+
+    private func showOwnMenu() {
+        guard let statusItem, let button = statusItem.button else { return }
+        button.highlight(false)
+        statusItem.menu = menu
+        button.performClick(nil)
+        statusItem.menu = nil
+    }
+
+    private func observeMenuSignals() {
+        let center = DistributedNotificationCenter.default()
+        for signal in [GanchoMenuBarSignal.menuDidOpen, .menuDidClose] {
+            center.addObserver(
+                self, selector: #selector(receiveMenuSignal(_:)),
+                name: signal.distributedNotificationName, object: nil,
+                suspensionBehavior: .deliverImmediately)
+        }
+    }
+
+    @objc private func receiveMenuSignal(_ notification: Notification) {
+        guard let token = notification.object as? String,
+            token == GanchoMenuBarBridge.readNonce()
+        else { return }
+        pendingMenuFallback?.cancel()
+        pendingMenuFallback = nil
+        let opened =
+            notification.name == GanchoMenuBarSignal.menuDidOpen.distributedNotificationName
+        statusItem?.button?.highlight(opened)
     }
 
     private func rebuildMenu() {
@@ -48,20 +125,14 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
         let titles = GanchoMenuBarBridge.readTitles()
         let status = GanchoMenuBarBridge.readStatus()
 
-        // A glanceable state header (content-free: the status label + a colored
-        // dot, both already localized/derived by the app — no clipboard data).
         let header = NSMenuItem(title: status.label, action: nil, keyEquivalent: "")
         header.isEnabled = false
-        header.image = status.icon.statusDot()
+        header.image = MenuBarGlyph.stateDot(for: status.badge)
         menu.addItem(header)
 
-        // The most recent clip (masked by the app; absent in private mode and
-        // when no app-group bridge is present). Clicking it opens the panel.
-        if let recent = GanchoMenuBarBridge.readLastCopied() {
-            menu.addItem(lastCopiedItem(recent))
-        }
-
-        for section in GanchoMenuBarCommand.helperMenuSections {
+        var sections = GanchoMenuBarCommand.helperMenuSections
+        if status.badge == .denied { sections.insert([.fixClipboardAccess], at: 0) }
+        for section in sections {
             menu.addItem(.separator())
             for command in section {
                 let item = NSMenuItem(
@@ -83,45 +154,10 @@ private final class MenuBarHelperDelegate: NSObject, NSApplicationDelegate, NSMe
         }
     }
 
-    /// A two-line recent row: the masked preview over a "<label> · <when>"
-    /// caption with a link glyph. Opens the panel on click.
-    private func lastCopiedItem(_ recent: (preview: String, label: String, at: Date)) -> NSMenuItem
-    {
-        let item = NSMenuItem(
-            title: "", action: #selector(performCommand(_:)), keyEquivalent: "")
-        item.target = self
-        item.representedObject = GanchoMenuBarCommand.openPanel.rawValue
-        item.image = NSImage(systemSymbolName: "link", accessibilityDescription: nil)
-
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        let when = formatter.localizedString(for: recent.at, relativeTo: Date())
-
-        let title = NSMutableAttributedString(
-            string: recent.preview + "\n",
-            attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.labelColor])
-        title.append(
-            NSAttributedString(
-                string: "\(recent.label) · \(when)",
-                attributes: [
-                    .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
-                    .foregroundColor: NSColor.secondaryLabelColor
-                ]))
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineBreakMode = .byTruncatingTail
-        title.addAttribute(
-            .paragraphStyle, value: paragraph, range: NSRange(location: 0, length: title.length))
-        item.attributedTitle = title
-        item.setAccessibilityLabel("\(recent.label): \(recent.preview)")
-        return item
-    }
-
     private func applyStatusPresentation() {
         guard let button = statusItem?.button else { return }
         let status = GanchoMenuBarBridge.readStatus()
-        button.image = status.icon.templateImage()
-        button.imagePosition = .imageOnly
-        button.title = ""
+        MenuBarGlyph.apply(badge: status.badge, to: button)
         button.toolTip = status.label
         button.setAccessibilityLabel(status.label)
     }

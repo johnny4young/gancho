@@ -89,7 +89,7 @@ struct ClipPeek: View {
     }
 
     private var hidesPreview: Bool {
-        model.preferences.isPrivateModePaused || ClipSafePresentation.requiresMasking(item)
+        model.previewsHidden || ClipSafePresentation.requiresMasking(item)
     }
 
     /// Masked clips show the canonical mask even if malformed legacy/sync

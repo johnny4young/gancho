@@ -84,8 +84,8 @@ struct CombinedTextReview: View {
             }
         }.padding(20).frame(width: 540, height: 470)
             .task { await load() }
-            .onChange(of: model.preferences.isPrivateModePaused) { _, paused in
-                if paused { dismiss() }
+            .onChange(of: model.previewsHidden) { _, hidden in
+                if hidden { dismiss() }
             }
             .onDisappear {
                 // Lifecycle fallback for every other way the sheet can go away
@@ -108,13 +108,13 @@ struct CombinedTextReview: View {
 
     private func load() async {
         defer { loading = false }
-        guard !model.preferences.isPrivateModePaused, let store = model.fullStore else {
+        guard !model.previewsHidden, let store = model.fullStore else {
             failed = true
             return
         }
         do {
             let loaded = try await service.load(ids: ids, from: store)
-            guard !Task.isCancelled, !model.preferences.isPrivateModePaused else { return }
+            guard !Task.isCancelled, !model.previewsHidden else { return }
             parts = loaded
         } catch {
             if !Task.isCancelled { failed = true }

@@ -216,6 +216,9 @@ targets:
         # makes taskgated reject the launchd spawn as unprovisioned.
         CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
         ENTITLEMENTS_REQUIRED: NO
+        # The helper compiles the shared glyph and badge files instead of
+        # linking GanchoKit; this keeps their `import GanchoKit` out.
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) STANDALONE_MENU_BAR"
     # No entitlements in the baked build: the bridge uses a shared preferences
     # domain in Debug / Developer ID. Add the App Group entitlement to the helper
     # at App Store archive time (mirrors the app, see the Gancho target note).
@@ -227,6 +230,8 @@ targets:
       - path: Apps/GanchoMac/GanchoMenuBarCommand.swift
       - path: Apps/GanchoMac/GanchoMenuBarBridge.swift
       - path: Apps/GanchoMac/MenuBarKeyEquivalent.swift
+      - path: Packages/GanchoKit/Sources/GanchoKit/MenuBarBadge.swift
+      - path: Packages/GanchoKit/Sources/GanchoDesign/MenuBarGlyph.swift
 
   GanchoiOS:
     type: application
@@ -331,10 +336,14 @@ targets:
         # can bootstrap. Generate the bundle plist so Xcode can sign the
         # runner for `make test-ui`; the app build targets stay unsigned.
         GENERATE_INFOPLIST_FILE: YES
+        # Renders the menu-bar glyphs from the shared files below.
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) STANDALONE_MENU_BAR"
     sources:
       - path: Tests/GanchoUITests
       # A pure value type, unit-tested here without launching the app.
       - path: Apps/GanchoMac/MenuBarKeyEquivalent.swift
+      - path: Packages/GanchoKit/Sources/GanchoKit/MenuBarBadge.swift
+      - path: Packages/GanchoKit/Sources/GanchoDesign/MenuBarGlyph.swift
     dependencies:
       - target: Gancho
 
