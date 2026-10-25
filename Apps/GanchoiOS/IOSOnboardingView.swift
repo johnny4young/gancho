@@ -17,6 +17,8 @@ struct IOSOnboardingView: View {
     let onSaved: (ClipItem) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var showsSensedPage = false
+    /// Get started and a paste that lands later must not both finish the welcome.
+    @State private var finished = false
 
     var body: some View {
         NavigationStack {
@@ -33,6 +35,7 @@ struct IOSOnboardingView: View {
                     IOSOnboardingSensedPage(
                         onBack: { showsSensedPage = false }, onDone: finish,
                         onSaved: { clip in
+                            guard !finished else { return }
                             onSaved(clip)
                             finish()
                         })
@@ -43,6 +46,8 @@ struct IOSOnboardingView: View {
     }
 
     private func finish() {
+        guard !finished else { return }
+        finished = true
         // Persist the flag AND dismiss the sheet directly: the isPresented
         // binding is derived from `hasSeenWelcome`, but dismissing explicitly
         // guarantees the sheet closes even if the binding does not re-drive it.

@@ -881,11 +881,7 @@ struct PanelView: View {
     private var statusFooter: some View {
         PanelStatusFooter(
             syncStatus: model.syncStatus,
-            chip: PanelCaptureChip.resolve(
-                privateModeEnabled: model.preferences.isPrivateModePaused,
-                privateModeEndsAt: model.preferences.privateModeEndsAt,
-                runtimeStatus: model.monitorStatus.panelCaptureRuntimeStatus,
-                frontApp: model.pasteTarget.appName),
+            chip: model.captureChip(frontApp: model.pasteTarget.appName),
             privateModeShortcut: privateModeShortcut,
             alternativeHint: bestAlternative?.alternative.footerHint,
             offersEyedropper: offersEyedropper,

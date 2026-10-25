@@ -91,6 +91,11 @@ private struct OnboardingShortcutRow: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("onboarding-shortcut-\(id)")
         .onAppear { shortcut = KeyboardShortcuts.getShortcut(for: name) }
+        // A change made in Settings or the menu while the welcome is open.
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) {
+            _ in
+            shortcut = KeyboardShortcuts.getShortcut(for: name)
+        }
     }
 
     @ViewBuilder private var keycaps: some View {

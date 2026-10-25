@@ -16,7 +16,7 @@ struct OnboardingView: View {
     @State var showMigrationImporter = false
     @State var panelShortcut = KeyboardShortcuts.getShortcut(for: .togglePanel)
 
-    private let accessibilityCheck = Timer.publish(every: 1, on: .main, in: .common)
+    let accessibilityCheck = Timer.publish(every: 1, on: .main, in: .common)
         .autoconnect()
 
     var body: some View {
@@ -43,9 +43,6 @@ struct OnboardingView: View {
         .ignoresSafeArea()
         .sheet(isPresented: $showMigrationImporter) {
             MigrationImportView()
-        }
-        .onReceive(accessibilityCheck) { _ in
-            accessibilityGranted = Self.isAccessibilityTrusted()
         }
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) {
             _ in
@@ -139,7 +136,7 @@ struct OnboardingView: View {
         return .promise
     }
 
-    private static func isAccessibilityTrusted() -> Bool {
+    static func isAccessibilityTrusted() -> Bool {
         #if DEBUG
             // Pins the permission step's state, whatever this Mac has granted.
             if let index = CommandLine.arguments.firstIndex(of: "-ui-test-accessibility-trusted"),
@@ -180,10 +177,18 @@ final class WelcomeWindowController {
     private var window: NSWindow?
 
     func show(model: AppModel) {
-        if window == nil {
-            let hosting = NSHostingController(
-                rootView: OnboardingView().environment(model).ganchoTinted())
-            hosting.sizingOptions = []
+        if let window, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate()
+            return
+        }
+        // A fresh view each time it opens, so a reopened welcome starts at the promise.
+        let hosting = NSHostingController(
+            rootView: OnboardingView().environment(model).ganchoTinted())
+        hosting.sizingOptions = []
+        if let window {
+            window.contentViewController = hosting
+        } else {
             let created = NSWindow(contentViewController: hosting)
             // Kept for the window menu and accessibility; the steps carry their own titles.
             created.title = String(localized: "Welcome to Gancho")
@@ -191,10 +196,10 @@ final class WelcomeWindowController {
             created.titleVisibility = .hidden
             created.titlebarAppearsTransparent = true
             created.isReleasedWhenClosed = false
-            created.setContentSize(NSSize(width: 520, height: 420))
-            created.center()
             window = created
         }
+        window?.setContentSize(NSSize(width: 520, height: 420))
+        window?.center()
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }

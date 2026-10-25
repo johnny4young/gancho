@@ -138,7 +138,7 @@ struct GanchoiOSApp: App {
                     }),
                 onDismiss: {
                     // Opened only once the welcome is gone: one sheet at a time.
-                    model.deepLinkClip = onboardingLanding
+                    if let onboardingLanding { model.deepLinkClip = onboardingLanding }
                     onboardingLanding = nil
                 },
                 content: {
@@ -148,7 +148,10 @@ struct GanchoiOSApp: App {
                             hasSeenWelcome = true
                             forcesWelcome = false
                         },
-                        onSaved: { onboardingLanding = $0 }
+                        onSaved: { clip in
+                            // A save that lands after a swipe-down has no dismissal left to open it.
+                            if !hasSeenWelcome || forcesWelcome { onboardingLanding = clip }
+                        }
                     )
                     .environment(model)
                     .ganchoTinted()

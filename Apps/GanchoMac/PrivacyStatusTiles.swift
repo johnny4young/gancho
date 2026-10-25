@@ -22,13 +22,7 @@ struct PrivacyStatusTiles: View {
         }
     }
 
-    private var chip: PanelCaptureChip {
-        PanelCaptureChip.resolve(
-            privateModeEnabled: model.preferences.isPrivateModePaused,
-            privateModeEndsAt: model.preferences.privateModeEndsAt,
-            runtimeStatus: model.monitorStatus.panelCaptureRuntimeStatus,
-            frontApp: nil)
-    }
+    private var chip: PanelCaptureChip { model.captureChip(frontApp: nil) }
 
     private var captureTile: some View {
         let size = overview.bytesOnDisk.formatted(.byteCount(style: .file))

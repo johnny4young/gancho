@@ -86,6 +86,11 @@ extension OnboardingView {
             }
             permissionStatus
         }
+        // Polled only here: the other steps never read it.
+        .onAppear { accessibilityGranted = Self.isAccessibilityTrusted() }
+        .onReceive(accessibilityCheck) { _ in
+            accessibilityGranted = Self.isAccessibilityTrusted()
+        }
     }
 
     private func comparison(title: LocalizedStringKey, detail: LocalizedStringKey) -> some View {
@@ -171,11 +176,7 @@ extension OnboardingView {
     }
 
     @ViewBuilder private var firstCopyStatus: some View {
-        let chip = PanelCaptureChip.resolve(
-            privateModeEnabled: model.preferences.isPrivateModePaused,
-            privateModeEndsAt: model.preferences.privateModeEndsAt,
-            runtimeStatus: model.monitorStatus.panelCaptureRuntimeStatus,
-            frontApp: nil)
+        let chip = model.captureChip(frontApp: nil)
         let isCapturing = if case .capturing = chip { true } else { false }
         Group {
             if !isCapturing {
