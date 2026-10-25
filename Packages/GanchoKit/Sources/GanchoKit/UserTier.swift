@@ -58,7 +58,11 @@ public enum FreeTierLimits {
         guard !isPro else { return .comfortable }
         let boardsLeft = PinLimits.freeMaxPinboards - boardsUsed
         let snippetsLeft = SnippetLimits.freeMaxSnippets - snippetsUsed
-        let left = min(boardsLeft, snippetsLeft)
+        return pressure(slotsLeft: min(boardsLeft, snippetsLeft))
+    }
+
+    /// The same thresholds for any ceiling: the wall at zero, a warning at one.
+    public static func pressure(slotsLeft left: Int) -> Pressure {
         if left <= 0 { return .reached }
         if left == 1 { return .almostFull }
         return .comfortable
