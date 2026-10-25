@@ -10,8 +10,10 @@ struct RetentionTimelineTests {
     func defaults() {
         let policy = RetentionPolicy(global: .month, sensitiveLifetime: 600)
         let markers = RetentionTimeline.markers(for: policy)
-        #expect(markers.map(\.lifetime) == [600, RetentionPolicy.Window.month.lifetime, nil])
-        #expect(markers.map(\.groups) == [[.secrets], [.everything], [.keptForever]])
+        let lifetimes: [TimeInterval?] = [600, RetentionPolicy.Window.month.lifetime, nil]
+        let groups: [[RetentionTimeline.Group]] = [[.secrets], [.everything], [.keptForever]]
+        #expect(markers.map(\.lifetime) == lifetimes)
+        #expect(markers.map(\.groups) == groups)
     }
 
     @Test("Each picker moves its own marker; Use global folds into everything else")
@@ -20,9 +22,10 @@ struct RetentionTimelineTests {
         policy.perKind[.image] = .week
         policy.perKind[.text] = .year
         let markers = RetentionTimeline.markers(for: policy)
-        #expect(
-            markers.map(\.groups) == [[.secrets], [.images], [.everything], [.text], [.keptForever]]
-        )
+        let ordered: [[RetentionTimeline.Group]] = [
+            [.secrets], [.images], [.everything], [.text], [.keptForever]
+        ]
+        #expect(markers.map(\.groups) == ordered)
         policy.perKind[.image] = nil
         #expect(!RetentionTimeline.markers(for: policy).flatMap(\.groups).contains(.images))
     }
@@ -34,7 +37,8 @@ struct RetentionTimelineTests {
         let markers = RetentionTimeline.markers(for: policy)
         #expect(markers.count == 2)
         #expect(markers.last?.lifetime == nil)
-        #expect(markers.last?.groups == [.images, .everything, .keptForever])
+        let forever: [RetentionTimeline.Group] = [.images, .everything, .keptForever]
+        #expect(markers.last?.groups == forever)
     }
 
     @Test("Markers spread evenly by order")

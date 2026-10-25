@@ -74,40 +74,39 @@ struct PrivacyStatusTiles: View {
     }
 
     private var syncTile: some View {
-        let (value, detail, ink): (Text, Text, AnyShapeStyle) =
-            switch model.syncStatus {
-            case .idle:
-                (Text("Sync off"), Text("iCloud private database · Pro"), AnyShapeStyle(.secondary))
-            case .syncing:
-                (Text("Syncing"), Text("iCloud private database"), AnyShapeStyle(.primary))
-            case .upToDate(let date?):
-                (
-                    Text("Synced"), Text("\(Text(date, style: .relative)) ago"),
-                    AnyShapeStyle(GanchoTokens.Palette.accentInk)
-                )
-            case .upToDate(nil):
-                (
-                    Text("Synced"), Text("iCloud private database"),
-                    AnyShapeStyle(GanchoTokens.Palette.accentInk)
-                )
-            case .pending(let count):
-                (
-                    Text("\(count) waiting to sync"), Text("iCloud private database"),
-                    AnyShapeStyle(.primary)
-                )
-            case .paused(let cause):
-                (
-                    Text("Sync paused"), Text(SyncStatusView.causeText(cause)),
-                    AnyShapeStyle(GanchoTokens.Palette.warningInk)
-                )
-            case .failed(let cause):
-                (
-                    Text("Sync failed"), Text(SyncStatusView.causeText(cause)),
-                    AnyShapeStyle(GanchoTokens.Palette.danger)
-                )
-            }
-        return tile(
-            id: "privacy-status-sync", symbol: "icloud", ink: ink, value: value, detail: detail)
+        tile(
+            id: "privacy-status-sync", symbol: "icloud", ink: syncInk, value: syncValue,
+            detail: syncDetail)
+    }
+
+    private var syncValue: Text {
+        switch model.syncStatus {
+        case .idle: Text("Sync off")
+        case .syncing: Text("Syncing")
+        case .upToDate: Text("Synced")
+        case .pending(let count): Text("\(count) waiting to sync")
+        case .paused: Text("Sync paused")
+        case .failed: Text("Sync failed")
+        }
+    }
+
+    private var syncDetail: Text {
+        switch model.syncStatus {
+        case .idle: Text("iCloud private database · Pro")
+        case .upToDate(let date?): Text("\(Text(date, style: .relative)) ago")
+        case .paused(let cause), .failed(let cause): Text(SyncStatusView.causeText(cause))
+        case .syncing, .upToDate, .pending: Text("iCloud private database")
+        }
+    }
+
+    private var syncInk: AnyShapeStyle {
+        switch model.syncStatus {
+        case .idle: AnyShapeStyle(.secondary)
+        case .syncing, .pending: AnyShapeStyle(.primary)
+        case .upToDate: AnyShapeStyle(GanchoTokens.Palette.accentInk)
+        case .paused: AnyShapeStyle(GanchoTokens.Palette.warningInk)
+        case .failed: AnyShapeStyle(GanchoTokens.Palette.danger)
+        }
     }
 
     private func tile(
