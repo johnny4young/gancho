@@ -105,12 +105,17 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     private func invalidateRequests() {
-        cancelPendingPaste()
-        displayedSnapshotIsValid = false
-        searchFailure = nil
         let relatedIDs = meaning.relatedIDs
         meaning.invalidate()
         if !relatedIDs.isEmpty { results.removeAll { relatedIDs.contains($0.id) } }
+        invalidatePendingReads()
+    }
+
+    /// Keeps Meaning's related set so the next refresh can restore a selected related row.
+    private func invalidatePendingReads() {
+        cancelPendingPaste()
+        displayedSnapshotIsValid = false
+        searchFailure = nil
         refreshID = UUID()
         pageID = nil
         isLoadingMore = false
@@ -158,6 +163,15 @@ public struct PanelDateGroup: Identifiable, Sendable {
     public init(source: any PanelSearchSource) {
         self.source = source
         core = ClipListCore(source: source, configuration: .macOSPanel)
+    }
+
+    /// Requeries the active scope after a store mutation, independently of the
+    /// shell's bounded recent page. Pending reads are invalidated before any
+    /// await so an older request cannot restore a removed row.
+    public func refreshAfterStoreChange() async {
+        invalidatePendingReads()
+        await refreshSourceApps()
+        await refresh()
     }
 
     static let prefetchThreshold = 20

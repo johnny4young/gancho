@@ -77,6 +77,7 @@ struct PanelView: View {
     @State private var railFocus: RailFocus?
     @State private var scopeCounts = PanelScopeCounts()
     @State private var storeRevision = 0
+    @State private var storeRefreshDeferred = false
     @State private var panelOpenCount = 0
     /// The `device:` token's choices, read when the panel opens.
     @State private var deviceNames: [String] = []
@@ -247,13 +248,18 @@ struct PanelView: View {
                 // focused, whatever rail or row the previous session ended on.
                 // The interval closes on the next turn, after this frame commits.
                 DispatchQueue.main.async { model.panel.notePanelDidAppear() }
+                let refreshesStore = storeRefreshDeferred
+                storeRefreshDeferred = false
+                if refreshesStore { Task { await search.refreshAfterStoreChange() } }
                 // An unsaved inline edit survives a trip to another app.
                 guard !peekIsEditingInline else { return }
                 railFocus = nil
                 focus = .search
                 search.followNewestClip()
                 // Only a meaning search needs restarting; recents refresh on their own.
-                if search.meaningEnabled, !search.query.isEmpty { Task { await search.refresh() } }
+                if !refreshesStore, search.meaningEnabled, !search.query.isEmpty {
+                    Task { await search.refresh() }
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .ganchoPanelDidHide)) {
                 notification in
@@ -1145,6 +1151,12 @@ struct PanelView: View {
                 for await batch in StoreChangeCoalescer().batches(of: changes)
                 where batch != [.captured] {
                     storeRevision &+= 1
+                    // A hidden panel catches up when it next opens.
+                    guard model.panel.isVisible else {
+                        storeRefreshDeferred = true
+                        continue
+                    }
+                    await search.refreshAfterStoreChange()
                 }
             }
             .onChange(of: railFocus) { _, focused in
