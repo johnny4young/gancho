@@ -24,8 +24,11 @@ final class IOSAppModel {
     /// — the iOS analog of macOS's `PanelSearchModel`. This model owns one and
     /// forwards `captures`/`sections`/`query`/… to it, so the views and their
     /// bindings are unchanged.
-    @ObservationIgnored lazy var history = HistoryListViewModel(
-        source: HistoryStoreSource(store: store, full: full))
+    @ObservationIgnored lazy var history: HistoryListViewModel = {
+        let history = HistoryListViewModel(source: HistoryStoreSource(store: store, full: full))
+        history.meaningSource = self
+        return history
+    }()
     /// Raw loaded clips — see `HistoryListViewModel.captures`.
     var captures: [ClipItem] {
         get { history.captures }
@@ -48,6 +51,17 @@ final class IOSAppModel {
     var saveNote: CaptureStatusNote?
 
     @ObservationIgnored private var saveNoteTask: Task<Void, Never>?
+    /// The clip the Paste button just saved, which the card offers to open
+    /// for a few seconds.
+    var recentPasteSave: RecentPasteSave?
+    /// How many clips the active scope holds (All clips or the selected board),
+    /// for its chip on the rail. Refreshed with every list load.
+    var activeScopeCount: Int?
+    @ObservationIgnored private var countedScope: UUID??
+    @ObservationIgnored private var scopeCountRequest = 0
+    /// This device's name, so rows from another device can say where they came from.
+    @ObservationIgnored lazy var currentDeviceName = PlatformDeviceProvenance.currentDeviceName()
+    @ObservationIgnored private var recentPasteSaveTask: Task<Void, Never>?
     /// One non-modal curation action produced at the exact third successful use.
     /// Metadata only; exact-threshold dismissal needs no persisted state.
     var reuseSuggestion: ReuseSuggestion?
@@ -655,7 +669,30 @@ final class IOSAppModel {
         }
         await history.search()
         Signpost.queryToResults.end(interval)
+        await refreshActiveScopeCount()
     }
+
+    private func refreshActiveScopeCount() async {
+        // Typing doesn't change a scope's total: count when the scope changes,
+        // or on a load with no query (which every store change triggers).
+        guard query.isEmpty || countedScope != .some(selectedBoardID) else { return }
+        scopeCountRequest += 1
+        let request = scopeCountRequest
+        let board = selectedBoardID.flatMap { id in boards.first { $0.id == id } }
+        let count: Int
+        if let board { count = await clipCount(in: board) } else { count = await clipCount() }
+        // Only the newest count lands, and only for the scope still shown.
+        guard request == scopeCountRequest, board?.id == selectedBoardID else { return }
+        activeScopeCount = count
+        countedScope = .some(selectedBoardID)
+    }
+
+    func headerCount(for group: ClipSectionGroup) -> HeaderCount? {
+        history.headerCount(for: group)
+    }
+    var listCount: HeaderCount? { history.listCount }
+    /// Clips related by meaning to the typed query — see `HistoryListViewModel.related`.
+    var relatedClips: [ClipItem] { history.related }
 
     func refreshSourceApps() async { await history.refreshSourceApps() }
 
@@ -948,7 +985,7 @@ final class IOSAppModel {
     /// Narrow concrete handle kept ONLY to construct in-module engines
     /// (`GanchoArchive`, `RetentionEngine`, `TierEnforcement`) and to reach the
     /// sync-internal tombstone list — none of which belong in a client facet.
-    private let grdbForEngines: GRDBClipboardStore?
+    let grdbForEngines: GRDBClipboardStore?
 
     /// True when the durable store failed to open and the app fell back to
     /// memory — captures won't survive relaunch, so the list warns the user.
@@ -1033,6 +1070,11 @@ final class IOSAppModel {
     /// Metadata-only refresh — safe on every activation, never alerts.
     func refreshHints() async {
         hints = await source.hints()
+        #if DEBUG
+            if let pinned = Self.uiTestPinnedHints(changeCount: hints.changeCount) {
+                hints = pinned
+            }
+        #endif
         await search()
     }
 
@@ -1043,6 +1085,32 @@ final class IOSAppModel {
 
     /// Resolved once: launch arguments cannot change after launch.
     private static let saveNoteLifetime = saveNoteLifetime()
+    private static let recentPasteSaveWindow = recentPasteSaveWindow()
+
+    private func offerOpen(_ clip: ClipItem, changeCount: Int) {
+        recentPasteSaveTask?.cancel()
+        let window = Self.recentPasteSaveWindow
+        recentPasteSave = RecentPasteSave(
+            clipID: clip.id, changeCount: changeCount, savedAt: .now, window: window)
+        recentPasteSaveTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(window))
+            guard !Task.isCancelled else { return }
+            recentPasteSave = nil
+            recentPasteSaveTask = nil
+        }
+    }
+
+    /// The card's Open: the saved clip's detail, by the deep-link path.
+    func openRecentPasteSave() {
+        guard let save = recentPasteSave else { return }
+        Task {
+            if let listed = captures.first(where: { $0.id == save.clipID }) {
+                deepLinkClip = listed
+            } else if let stored = try? await full?.item(id: save.clipID) {
+                deepLinkClip = stored
+            }
+        }
+    }
 
     private func flashNote(_ text: String, kind: CaptureStatusNote.Kind) {
         saveNoteTask?.cancel()
@@ -1175,6 +1243,7 @@ final class IOSAppModel {
         // The capture card's "Saved" state follows a durable write, never the tap.
         if let savedChangeCount {
             lastCapturedChangeCount = savedChangeCount
+            if let first = saved.first { offerOpen(first.item, changeCount: savedChangeCount) }
             await refreshHints()
         }
         if reads.contains(.refused) {

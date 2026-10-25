@@ -36,6 +36,33 @@ struct SemanticSearchTests {
         #expect(library.map(\.preview) == ["deploy api"])
     }
 
+    @Test("Clips without a vector come newest first, eligible only, below the cursor")
+    func unembedded() async throws {
+        let store = try makeStore()
+        let older = ClipItem(preview: "older", contentHash: "u1")
+        let newer = ClipItem(preview: "newer", contentHash: "u2")
+        let embedded = ClipItem(preview: "embedded", contentHash: "u3")
+        let sensitive = ClipItem(preview: "secret", contentHash: "u4", isSensitive: true)
+        let image = ClipItem(kind: .image, preview: "image", contentHash: "u5")
+        let expired = ClipItem(
+            preview: "expired", contentHash: "u6", expiresAt: Date().addingTimeInterval(-60))
+        for item in [older, embedded, sensitive, image, expired, newer] {
+            try await store.insert(item, content: .text(item.preview))
+        }
+        let rich = ClipItem(kind: .richText, preview: "rich", contentHash: "u7")
+        try await store.insert(
+            rich, content: .binary(data: Data("{\\rtf1 rich}".utf8), typeIdentifier: "public.rtf"))
+        try await store.saveEmbedding(clipID: embedded.id, vector: [1, 0, 0])
+
+        let all = try await store.unembeddedClips(limit: 10, beforeRowID: nil)
+        #expect(all.map(\.id) == [newer.id, older.id])
+        let page = try await store.unembeddedClips(limit: 1, beforeRowID: nil)
+        #expect(page.map(\.id) == [newer.id])
+        let next = try await store.unembeddedClips(limit: 1, beforeRowID: page.last?.rowID)
+        #expect(next.map(\.id) == [older.id])
+        #expect(try await store.unembeddedClips(limit: 0, beforeRowID: nil).isEmpty)
+    }
+
     @Test("Cosine ranking orders every match; zero vectors never score")
     func ranking() async throws {
         let store = try makeStore()

@@ -37,6 +37,35 @@ private actor FakeRefreshStore: EmbeddingRefreshSource, ContentBoundEmbeddingSto
     }
 }
 
+/// Clips with no vector, in rowid order like the real store; a save removes one.
+private actor FakeBackfillStore: EmbeddingBackfillSource, ContentBoundEmbeddingStoring {
+    private var missing: [UnembeddedClip]
+    private let texts: [UUID: String]
+    private(set) var saved: Set<UUID> = []
+
+    init(missing: [UnembeddedClip], texts: [UUID: String]) {
+        self.missing = missing
+        self.texts = texts
+    }
+
+    func unembeddedClips(limit: Int, beforeRowID: Int64?) async throws -> [UnembeddedClip] {
+        Array(missing.filter { $0.rowID < (beforeRowID ?? .max) }.prefix(limit))
+    }
+    func staleEmbeddingClipIDs(limit: Int) async throws -> [UUID] { [] }
+    func content(for id: UUID) async throws -> ClipContent? { texts[id].map(ClipContent.text) }
+    func saveEmbedding(clipID: UUID, vector: [Float]) async throws {
+        saved.insert(clipID)
+        missing.removeAll { $0.id == clipID }
+    }
+    func saveEmbeddingIfCurrent(
+        clipID: UUID, vector: [Float], expectedText: String
+    ) async throws -> Bool {
+        guard texts[clipID] == expectedText else { return false }
+        try await saveEmbedding(clipID: clipID, vector: vector)
+        return true
+    }
+}
+
 /// Deterministic embedder — no model assets, no Accelerate.
 private struct FixedEmbedder: TextEmbedding {
     let dimension = 3
@@ -51,6 +80,30 @@ private struct FailingEmbedder: TextEmbedding {
 @Suite("Embedding refresh — background re-embed pass")
 struct EmbeddingRefreshServiceTests {
     private func ids(_ n: Int) -> [UUID] { (0..<n).map { _ in UUID() } }
+
+    @Test("Backfill embeds every clip without a vector and passes over one it can't read")
+    func backfill() async throws {
+        let clips = (0..<40).map { UnembeddedClip(id: UUID(), rowID: Int64(1_000 - $0)) }
+        var texts = Dictionary(uniqueKeysWithValues: clips.map { ($0.id, "text \($0.rowID)") })
+        // No readable text: a pass that stopped here would never reach the rest.
+        texts[clips[0].id] = nil
+        let store = FakeBackfillStore(missing: clips, texts: texts)
+        let service = EmbeddingRefreshService(
+            makeEmbedder: { FixedEmbedder() }, isEnvironmentSuitable: { true })
+        #expect(await service.backfill(store: store) == clips.count - 1)
+        #expect(await store.saved == Set(clips.dropFirst().map(\.id)))
+        #expect(await service.backfill(store: store) == 0, "nothing left but the unreadable one")
+    }
+
+    @Test("Backfill stops when the environment turns hostile")
+    func backfillRespectsEnvironment() async throws {
+        let clips = (0..<5).map { UnembeddedClip(id: UUID(), rowID: Int64(10 - $0)) }
+        let store = FakeBackfillStore(
+            missing: clips, texts: Dictionary(uniqueKeysWithValues: clips.map { ($0.id, "t") }))
+        let service = EmbeddingRefreshService(
+            makeEmbedder: { FixedEmbedder() }, isEnvironmentSuitable: { false })
+        #expect(await service.backfill(store: store) == 0)
+    }
 
     @Test("Refreshes every stale clip across batch boundaries")
     func refreshesAllBatches() async throws {

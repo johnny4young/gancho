@@ -18,6 +18,13 @@ public protocol EmbeddingRefreshSource: Sendable {
 
 extension GRDBClipboardStore: EmbeddingRefreshSource {}
 
+/// The store surface the backfill needs: clips that were never embedded.
+public protocol EmbeddingBackfillSource: EmbeddingRefreshSource {
+    func unembeddedClips(limit: Int, beforeRowID: Int64?) async throws -> [UnembeddedClip]
+}
+
+extension GRDBClipboardStore: EmbeddingBackfillSource {}
+
 /// Re-embeds clips whose stored vector predates
 /// `EmbeddingModelInfo.currentVersion`, so a model upgrade converges the whole
 /// history without blocking capture or the first panel open. The shells run it
@@ -97,5 +104,36 @@ public struct EmbeddingRefreshService: Sendable {
             guard progressed else { break }
         }
         return refreshed
+    }
+
+    /// Embeds clips that have no vector yet (the iPhone's synced history),
+    /// newest first, under the same gates as `run`. A clip that can't be
+    /// embedded is passed over, never retried in a loop; the next launch
+    /// starts from the newest again and finds only what is still missing.
+    @discardableResult
+    public func backfill(store: any EmbeddingBackfillSource) async -> Int {
+        guard let embeddingStore = store as? any ContentBoundEmbeddingStoring,
+            let embedder = makeEmbedder()
+        else { return 0 }
+        var embedded = 0
+        var cursor: Int64?
+        while !Task.isCancelled, isEnvironmentSuitable() {
+            guard
+                let batch = try? await store.unembeddedClips(
+                    limit: Self.batchSize, beforeRowID: cursor),
+                let last = batch.last
+            else { break }
+            for clip in batch {
+                if Task.isCancelled || !isEnvironmentSuitable() { return embedded }
+                guard case .text(let text)? = try? await store.content(for: clip.id),
+                    let vector = try? embedder.vector(for: String(text.prefix(Self.inputLimit))),
+                    (try? await embeddingStore.saveEmbeddingIfCurrent(
+                        clipID: clip.id, vector: vector, expectedText: text)) == true
+                else { continue }
+                embedded += 1
+            }
+            cursor = last.rowID
+        }
+        return embedded
     }
 }

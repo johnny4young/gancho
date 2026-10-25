@@ -115,9 +115,21 @@ struct GanchoiOSApp: App {
             // rows, so the next launch resumes where this one stopped.
             .task(priority: .utility) {
                 guard model.intelligence.semanticSearch,
-                    let source = model.full as? any EmbeddingRefreshSource
+                    let source = model.full as? any EmbeddingBackfillSource
                 else { return }
                 await EmbeddingRefreshService().run(store: source)
+            }
+            // Clips synced from another device arrive without a vector; embedding
+            // is Pro, as it is at capture. Restarts (and so stops) whenever the
+            // tier or the toggle changes.
+            .task(
+                id: BackfillGate(tier: model.tier, on: model.intelligence.semanticSearch),
+                priority: .utility
+            ) {
+                guard model.tier == .pro, model.intelligence.semanticSearch,
+                    let source = model.full as? any EmbeddingBackfillSource
+                else { return }
+                await EmbeddingRefreshService().backfill(store: source)
             }
             // Widget deep links (`gancho://clip/<id>`) open the right clip.
             .onOpenURL { model.handleDeepLink($0) }
@@ -225,4 +237,10 @@ final class GanchoiOSAppDelegate: NSObject, UIApplicationDelegate {
                         "Couldn’t subscribe to iCloud change notifications; inbound sync may lag."))
         }
     }
+}
+
+/// What the background embedding backfill depends on.
+private struct BackfillGate: Hashable {
+    let tier: UserTier
+    let on: Bool
 }
