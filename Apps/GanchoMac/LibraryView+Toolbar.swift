@@ -91,7 +91,7 @@ extension LibraryView {
     var scopeHeader: some View {
         HStack(spacing: 10) {
             scopeTitle.panelFont(.title3, .heavy).lineLimit(1)
-            if let total = clipList.total {
+            if let total = visibleTotal {
                 Text("\(total) clips").foregroundStyle(.secondary)
                     .accessibilityIdentifier("library-scope-count")
             }
@@ -109,6 +109,13 @@ extension LibraryView {
         }
         .padding(.horizontal, GanchoTokens.Spacing.md)
         .padding(.vertical, GanchoTokens.Spacing.sm)
+    }
+
+    /// The scope's total less the clips hidden while their delete awaits Undo.
+    private var visibleTotal: Int? {
+        clipList.total.map { total in
+            total - clipList.items.count { model.pendingDeletionIDs.contains($0.id) }
+        }
     }
 
     /// The panel's kind set: the active chip names itself, the rest are glyphs.

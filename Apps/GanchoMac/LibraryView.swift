@@ -87,7 +87,7 @@ struct LibraryView: View {
             guard (try? await Task.sleep(for: .milliseconds(200))) != nil else { return }
             await loadScope()
         }
-        .task(id: clipList.items.map(\.id)) {
+        .task(id: clipList.items) {
             let next = await model.libraryMembership(for: clipList.items)
             guard !Task.isCancelled else { return }
             membership = next
@@ -124,11 +124,9 @@ struct LibraryView: View {
             refreshDeferred = false
             Task { await refreshAll() }
         }
-        .onChange(of: model.savedFilters.rules) { _, rules in
-            if case .savedFilter = selection {
-                Task { await loadScope(preservingWindow: true) }
-            }
-            Task { filterCounts = await model.savedFilterCounts(rules) }
+        .onChange(of: model.savedFilters.rules) { _, _ in
+            // One generation recounts the filters and reloads a filter scope.
+            Task { await refreshAll() }
         }
         .onDisappear {
             metadataGeneration = UUID()

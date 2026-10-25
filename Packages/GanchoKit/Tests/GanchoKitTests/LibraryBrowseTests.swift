@@ -127,7 +127,10 @@ struct LibraryBrowseTests {
         let swift = clip("swift release notes", minutesAgo: 1)
         let linkA = clip("https://swift.org", kind: .url, minutesAgo: 2)
         let linkB = clip("https://example.com", kind: .url, minutesAgo: 3)
-        try await insert([swift, linkA, linkB], into: store)
+        let phone = ClipItem(
+            createdAt: .now.addingTimeInterval(-600), preview: "from the phone",
+            contentHash: "phone", sourceDeviceName: "iPhone")
+        try await insert([swift, linkA, linkB, phone], into: store)
         try await store.assign(clipID: linkA.id, toBoard: work.id)
 
         let rules: [SmartCollectionRule] = [
@@ -135,7 +138,9 @@ struct LibraryBrowseTests {
             SmartCollectionRule(name: "swift", textContains: "swift"),
             SmartCollectionRule(name: "work", boardID: work.id),
             SmartCollectionRule(name: "regex", textContains: "^https", searchMode: .regex),
-            SmartCollectionRule(name: "everything")
+            SmartCollectionRule(name: "everything"),
+            SmartCollectionRule(name: "device", deviceName: "iPhone"),
+            SmartCollectionRule(name: "before", createdBefore: .now.addingTimeInterval(-300))
         ]
         for rule in rules {
             let listed = try await store.items(matching: rule, limit: 100)

@@ -265,7 +265,8 @@ extension LibraryView {
 
     /// Copy is offered only where it can work: not on a protected or expired clip.
     private func canCopy(_ clip: ClipItem) -> Bool {
-        !ClipSafePresentation.requiresMasking(clip) && (clip.expiresAt.map { $0 > .now } ?? true)
+        !model.preferences.isPrivateModePaused && !ClipSafePresentation.requiresMasking(clip)
+            && (clip.expiresAt.map { $0 > .now } ?? true)
     }
 
     @ViewBuilder private func clipMenu(_ clip: ClipItem) -> some View {
@@ -293,6 +294,7 @@ extension LibraryView {
         Button("Copy", systemImage: "doc.on.doc") { copy(clip) }
             .accessibilityIdentifier("library-copy-action")
         Button("Delete", role: .destructive) { model.delete(clip) }
+            .accessibilityIdentifier("library-delete-action")
     }
 
     // MARK: - Data

@@ -118,6 +118,61 @@ final class LibraryBrowseUITests: XCTestCase {
         XCTAssertFalse(secret.label.contains("synthetic-secret"), "the card shows the mask only")
     }
 
+    /// A deleted card leaves the header count at once, while its Undo is pending.
+    @MainActor
+    func testDeletingACardDropsTheCount() throws {
+        let (app, library) = try openLibrary()
+        defer { app.terminate() }
+        let count = library.staticTexts["library-scope-count"].firstMatch
+        XCTAssertEqual(count.value as? String, "6 clips")
+        let ocean = cards(library).matching(NSPredicate(format: "label BEGINSWITH %@", "Ocean"))
+            .firstMatch
+        ocean.rightClick()
+        app.menuItems["library-delete-action"].firstMatch.click()
+        waitForCards(5, in: library)
+        let dropped = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "5 clips"), object: count)
+        XCTAssertEqual(XCTWaiter.wait(for: [dropped], timeout: 3), .completed)
+    }
+
+    /// Filing a card from its hover menu adds the board chip to that card.
+    @MainActor
+    func testHoverBoardMenuAddsTheChip() throws {
+        let (app, library) = try openLibrary()
+        defer { app.terminate() }
+        let ocean = cards(library).matching(NSPredicate(format: "label BEGINSWITH %@", "Ocean"))
+            .firstMatch
+        XCTAssertFalse(ocean.label.contains("Work"))
+        ocean.hover()
+        let board = library.descendants(matching: .any)["library-card-board"].firstMatch
+        XCTAssertTrue(board.waitForExistence(timeout: 3))
+        board.click()
+        app.menuItems["Work"].firstMatch.click()
+        let filed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "Work"), object: ocean)
+        XCTAssertEqual(XCTWaiter.wait(for: [filed], timeout: 5), .completed)
+    }
+
+    /// Private Mode refuses every copy, so hover offers none.
+    @MainActor
+    func testPrivateModeOffersNoHoverCopy() throws {
+        let (app, library) = try openLibrary(extra: [
+            "-capture-preferences", Self.privateModePreferences
+        ])
+        defer { app.terminate() }
+        cards(library).firstMatch.hover()
+        XCTAssertTrue(library.buttons["library-card-pin"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(library.buttons["library-card-copy"].firstMatch.exists)
+    }
+
+    private static var privateModePreferences: String {
+        let json =
+            #"{"captureImages":true,"captureFileReferences":true,"captureRichText":true,"#
+            + #""isPrivateModePaused":true,"privateModeStartedAt":"#
+            + "\(Date.now.timeIntervalSinceReferenceDate)}"
+        return "<" + Data(json.utf8).map { String(format: "%02x", $0) }.joined() + ">"
+    }
+
     @MainActor
     func testListLayoutIsRememberedAcrossLaunches() throws {
         var (app, library) = try openLibrary()
