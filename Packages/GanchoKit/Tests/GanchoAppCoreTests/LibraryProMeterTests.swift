@@ -35,12 +35,13 @@ struct LibraryProMeterTests {
                 .pressure == .reached)
     }
 
-    @Test(
-        "Age reads now, minutes, hours, days, then the date",
-        arguments: [
-            (30.0, CompactAge.now), (7 * 60, .minutes(7)), (3 * 3600, .hours(3)),
-            (86_400, .days(1)), (29 * 86_400, .days(29))
-        ])
+    /// Typed up front: an inferred array of mixed tuple literals times out older compilers.
+    static let ages: [(Double, CompactAge)] = [
+        (30, .now), (7 * 60, .minutes(7)), (3 * 3600, .hours(3)), (86_400, .days(1)),
+        (29 * 86_400, .days(29))
+    ]
+
+    @Test("Age reads now, minutes, hours, days, then the date", arguments: ages)
     func age(seconds: Double, expected: CompactAge) {
         let now = Date(timeIntervalSince1970: 1_000_000_000)
         #expect(CompactAge(since: now.addingTimeInterval(-seconds), now: now) == expected)
