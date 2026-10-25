@@ -163,12 +163,10 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     /// Requeries the active scope after a store mutation, independently of the
-    /// shell's bounded recent page. Invalidate reads and the loaded preview
-    /// before awaiting I/O so an older request cannot restore removed content.
-    /// Normal refresh reconciliation preserves surviving selection and paging.
-    public func refreshAfterStoreChange(preview: PanelPreviewModel) async {
+    /// shell's bounded recent page. Pending reads are invalidated before any
+    /// await so an older request cannot restore a removed row.
+    public func refreshAfterStoreChange() async {
         invalidatePendingReads()
-        preview.invalidate()
         await refreshSourceApps()
         await refresh()
     }

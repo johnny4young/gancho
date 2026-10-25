@@ -101,7 +101,11 @@ struct PanelStoreRefreshTests {
         await reuse.refreshRecents()
         let recentChanged = before != reuse.recentItems
         #expect(recentChanged == insideRecentPage)
-        await search.refreshAfterStoreChange(preview: preview)
+        await search.refreshAfterStoreChange()
+        // The shell reloads the peek whenever the selected version changes.
+        await preview.load(
+            search.selectedItem, loadMetadata: { try await store.item(id: $0) },
+            loadContent: { try await store.content(for: $0) })
         #expect(try await store.count() == 50)
         #expect(try await store.content(for: selected.id) == nil)
         #expect(search.filtered.isEmpty)

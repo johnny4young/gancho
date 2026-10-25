@@ -49,7 +49,7 @@ struct PanelStoreChangeSelectionTests {
         model.select(0)
         #expect(model.selectedItem?.id == first.id)
         source.related = [second, first]
-        await model.refreshAfterStoreChange(preview: PanelPreviewModel())
+        await model.refreshAfterStoreChange()
         await waitForMeaning(model)
         #expect(model.meaning.status == .ready)
         #expect(model.selectedItem?.id == first.id)
@@ -65,7 +65,7 @@ struct PanelStoreChangeSelectionTests {
         model.select(3)
         let selected = try #require(model.selectedItem)
         source.recent.remove(at: 1)
-        await model.refreshAfterStoreChange(preview: PanelPreviewModel())
+        await model.refreshAfterStoreChange()
         #expect(model.filtered.count == 4)
         #expect(model.selectedItem?.id == selected.id)
         #expect(model.selectedIndex == 2)

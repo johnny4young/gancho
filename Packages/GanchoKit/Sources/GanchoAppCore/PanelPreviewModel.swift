@@ -12,22 +12,6 @@ public struct PanelPreviewPresentation: Sendable, Equatable {
     public let isTextEditable: Bool
 }
 
-/// A selected revision and the store event that requires rereading it. A
-/// mutation elsewhere can leave the selected revision unchanged, so the view
-/// must still reload a preview invalidated by that event.
-public struct PanelPreviewRequestKey: Equatable, Sendable {
-    /// Persisted selection identity; contains no loaded preview text.
-    public let version: ClipContentVersion?
-    /// Changes when a relevant mutation requires a fresh preview read.
-    public let storeRevision: Int
-
-    /// Binds the view's selected item to the latest handled store event.
-    public init(item: ClipItem?, storeRevision: Int) {
-        version = item.map(ClipContentVersion.init)
-        self.storeRevision = storeRevision
-    }
-}
-
 /// Owns selected-clip preview loading for the macOS panel.
 ///
 /// `ClipPreviewLoader` remains the shared content privacy boundary. This model
@@ -42,15 +26,6 @@ public struct PanelPreviewRequestKey: Equatable, Sendable {
     @ObservationIgnored private var loadGeneration: UInt64 = 0
 
     public init() {}
-
-    /// Forgets loaded text and invalidates an in-flight read synchronously.
-    /// The shell reloads through a fresh ``PanelPreviewRequestKey`` afterwards.
-    public func invalidate() {
-        loadGeneration &+= 1
-        selectedVersion = nil
-        text = ""
-        isTextEditable = false
-    }
 
     /// Resolves a presentation for the view's current selection.
     ///
