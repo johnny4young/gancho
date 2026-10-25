@@ -103,11 +103,16 @@ public struct PanelDateGroup: Identifiable, Sendable {
     }
 
     private func invalidateRequests() {
-        cancelPendingPaste()
-        displayedSnapshotIsValid = false
         let relatedIDs = meaning.relatedIDs
         meaning.invalidate()
         if !relatedIDs.isEmpty { results.removeAll { relatedIDs.contains($0.id) } }
+        invalidatePendingReads()
+    }
+
+    /// Keeps Meaning's related set so the next refresh can restore a selected related row.
+    private func invalidatePendingReads() {
+        cancelPendingPaste()
+        displayedSnapshotIsValid = false
         refreshID = UUID()
         pageID = nil
         isLoadingMore = false
@@ -162,7 +167,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     /// before awaiting I/O so an older request cannot restore removed content.
     /// Normal refresh reconciliation preserves surviving selection and paging.
     public func refreshAfterStoreChange(preview: PanelPreviewModel) async {
-        invalidateRequests()
+        invalidatePendingReads()
         preview.invalidate()
         await refreshSourceApps()
         await refresh()

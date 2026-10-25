@@ -107,7 +107,7 @@ struct PanelStoreRefreshTests {
         #expect(search.filtered.isEmpty)
         #expect(search.selectedItem == nil)
         #expect(search.selection.selectedIDs.isEmpty)
-        #expect(preview.presentation(for: selected).text != PanelStoreFixture.body)
+        #expect(preview.presentation(for: selected).text == selected.preview)
         #expect(!preview.presentation(for: selected).isTextEditable)
         #expect(source.failedReads == 0)
     }
