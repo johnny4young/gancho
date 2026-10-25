@@ -12,6 +12,15 @@ extension AppModel {
         return sharingAppName != nil && revealedScreenShareSession != screenShareSession
     }
 
+    /// The capture state every surface names; `frontApp` only when it shows the app.
+    func captureChip(frontApp: String?) -> PanelCaptureChip {
+        PanelCaptureChip.resolve(
+            privateModeEnabled: preferences.isPrivateModePaused,
+            privateModeEndsAt: preferences.privateModeEndsAt,
+            runtimeStatus: monitorStatus.panelCaptureRuntimeStatus,
+            frontApp: frontApp)
+    }
+
     /// "Show anyway" for the share in progress; the next share hides again.
     func showPreviewsWhileSharing() {
         revealedScreenShareSession = screenShareSession

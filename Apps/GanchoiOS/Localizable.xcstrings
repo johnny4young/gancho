@@ -4331,6 +4331,236 @@
           }
         }
       }
+    },
+    "Next": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siguiente"
+          }
+        }
+      }
+    },
+    "Back": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atrás"
+          }
+        }
+      }
+    },
+    "2 of 2": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 de 2"
+          }
+        }
+      }
+    },
+    "This is the row you will see at the top of your history. Gancho only sees the **type** of what is on the clipboard — never the content — until you tap Paste.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta es la fila que verás arriba de tu historial. Gancho solo ve el **tipo** de lo que hay en el portapapeles — nunca el contenido — hasta que tocas Pegar."
+          }
+        }
+      }
+    },
+    "iOS shows no “pasted from” banner because the Paste button is the system’s own control: your tap is the permission.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS no muestra el aviso de “pegado desde” porque el botón Pegar es un control del propio sistema: tu toque es el permiso."
+          }
+        }
+      }
+    },
+    "Optional, set up later in Settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opcional, configúralo después en Ajustes"
+          }
+        }
+      }
+    },
+    "Gancho keyboard": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teclado de Gancho"
+          }
+        }
+      }
+    },
+    "Insert any clip while typing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inserta cualquier clip mientras escribes"
+          }
+        }
+      }
+    },
+    "Home Screen widget": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Widget de la pantalla de inicio"
+          }
+        }
+      }
+    },
+    "Recent clips + Save": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clips recientes + Guardar"
+          }
+        }
+      }
+    },
+    "Share sheet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoja de compartir"
+          }
+        }
+      }
+    },
+    "Already on — send anything to Gancho": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya está activa — envía lo que quieras a Gancho"
+          }
+        }
+      }
+    },
+    "On": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activa"
+          }
+        }
+      }
+    },
+    "How": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cómo"
+          }
+        }
+      }
+    },
+    "Try Paste now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prueba Pegar ahora"
+          }
+        }
+      }
+    },
+    "Open Settings › General › Keyboard › Keyboards.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre Ajustes › General › Teclado › Teclados."
+          }
+        }
+      }
+    },
+    "Tap Add New Keyboard… and choose Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca Agregar teclado… y elige Gancho."
+          }
+        }
+      }
+    },
+    "Tap Gancho and turn on Allow Full Access, so the keyboard can read your saved clips.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca Gancho y activa Permitir acceso total, para que el teclado pueda leer tus clips guardados."
+          }
+        }
+      }
+    },
+    "In any text field, hold 🌐 and pick Gancho.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En cualquier campo de texto, mantén presionado 🌐 y elige Gancho."
+          }
+        }
+      }
+    },
+    "Touch and hold an empty spot on your Home Screen until the apps jiggle.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantén presionado un espacio vacío de tu pantalla de inicio hasta que las apps se muevan."
+          }
+        }
+      }
+    },
+    "Tap Edit, then Add Widget.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca Editar y luego Agregar widget."
+          }
+        }
+      }
+    },
+    "Search for Gancho and choose Recent Clips.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Busca Gancho y elige Clips recientes."
+          }
+        }
+      }
+    },
+    "Tap a clip in the widget to open it, or Save to keep what you copied.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca un clip del widget para abrirlo, o Guardar para conservar lo que copiaste."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

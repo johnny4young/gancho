@@ -73,8 +73,18 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Privacy Center opens with "Verify, don’t trust": encryption with a Verify
   button that checks the database on this Mac, iCloud sync, the last content
   read, local AI agent access and the network boundary.
+- On iPhone and iPad the welcome has a second page, "Sensed, not read": the row
+  you will see at the top of your history, why iOS shows no paste banner, how
+  to add the keyboard and the widget, and a Paste button to try it. A paste
+  there closes the welcome and opens the clip it saved.
 
 ### Changed
+
+- The Mac welcome has four steps: the privacy promise (where clips live, when
+  secrets expire, what is never read), the Accessibility permission with what
+  works with and without it, the panel, paste-stack and Private Mode shortcuts
+  as you recorded them (each changeable in place), and a live first copy that
+  ends in the real panel. Page dots show where you are.
 
 - The welcome window, the Recent clips widget and the Wrapped card show the
   Gancho mark instead of a generic paperclip symbol.

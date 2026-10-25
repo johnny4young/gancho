@@ -1147,9 +1147,19 @@ final class IOSAppModel {
         Task { await handleIntentionalReads(source.capture(providers: providers)) }
     }
 
+    /// The same save, awaited: the first row it landed on, nil when nothing was saved.
+    func ingestAwaitingRow(providers: [NSItemProvider]) async -> ClipItem? {
+        await handleIntentionalReads(source.capture(providers: providers)).first?.item
+    }
+
     /// Persists every captured item, then shows one note for the whole paste so
     /// a later item never overwrites an earlier item's result.
-    private func handleIntentionalReads(_ reads: [IntentionalCaptureRead.Result]) async {
+    @discardableResult
+    private func handleIntentionalReads(
+        _ reads: [IntentionalCaptureRead.Result]
+    ) async
+        -> [ClipIngestionCoordinator.Outcome]
+    {
         var saved: [ClipIngestionCoordinator.Outcome] = []
         var failedWrites = 0
         var savedChangeCount: Int?
@@ -1184,6 +1194,7 @@ final class IOSAppModel {
         } else {
             flashNote(String(localized: "The clipboard is empty."), kind: .failure)
         }
+        return saved
     }
 
     /// Stores one seeded capture and confirms it.
