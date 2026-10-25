@@ -1,7 +1,7 @@
 import AppKit
 import ClipboardCore
+import GanchoDesign
 import GanchoKit
-import KeyboardShortcuts
 import Observation
 
 /// Owns Gancho's in-process AppKit status-item fallback.
@@ -14,11 +14,9 @@ import Observation
 /// status-item owner while still exposing it to Accessibility. The fallback
 /// intentionally has no autosave name: persisted menu-bar customization state
 /// is exactly what can keep a repaired agent registered in Accessibility while
-/// not painting. Command metadata is shared with the helper through
-/// `GanchoMenuBarCommand`, a centralized command surface that keeps private
-/// clipboard previews out of the helper process.
+/// not painting. Both paths open the same `MenuBarMenu`, drawn by this app.
 @MainActor
-final class StatusItemController: NSObject, NSMenuDelegate {
+final class StatusItemController: NSObject {
     private static let autosaveName = "GanchoPrimaryStatusItem"
     private static var visibilityAutosaveNames: [String] {
         [
@@ -33,8 +31,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private weak var model: AppModel?
     private var statusItem: NSStatusItem?
-    private let menu = NSMenu()
-    private var pausedPanelShortcut = false
+    private var menu: MenuBarMenu?
 
     /// Whether the in-process fallback item is currently painting.
     var isAttached: Bool { statusItem != nil }
@@ -55,10 +52,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         self.statusItem = nil
     }
 
-    func attach(model: AppModel) {
+    func attach(model: AppModel, menu: MenuBarMenu) {
         guard statusItem == nil else { return }
 
         self.model = model
+        self.menu = menu
 
         repairHiddenStatusItemVisibilityDefaults()
 
@@ -67,11 +65,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         // AppKit's native fail-closed contract: Command-dragging the last
         // manipulation affordance out of the menu bar terminates Gancho.
         item.behavior = .terminationOnRemoval
-        item.menu = menu
+        item.button?.target = self
+        item.button?.action = #selector(statusItemClicked)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         statusItem = item
-
-        menu.autoenablesItems = false
-        menu.delegate = self
 
         updateStatusPresentation()
         // AppKit can apply its automatically chosen visibility autosave state
@@ -90,33 +87,28 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         defaults.synchronize()
     }
 
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        rebuildMenu()
-        updateStatusPresentation()
-    }
-
-    /// Open panel carries the global panel shortcut; while the menu tracks, a
-    /// hotkey press would be buffered and toggle the panel again on close.
-    func menuWillOpen(_ menu: NSMenu) {
-        if KeyboardShortcuts.isEnabled(for: .togglePanel) {
-            KeyboardShortcuts.disable(.togglePanel)
-            pausedPanelShortcut = true
+    @objc private func statusItemClicked() {
+        guard let model, let statusItem, let button = statusItem.button else { return }
+        let click = MenuBarClick(event: NSApp.currentEvent)
+        if let command = click.command {
+            command.perform(on: model)
+            updateStatusPresentation()
+        } else {
+            guard let menu else { return }
+            menu.onOpen = { [weak self] in self?.updateStatusPresentation() }
+            menu.onClose = { [weak self] in self?.updateStatusPresentation() }
+            // Attached only for this click, so a plain click still reaches here.
+            statusItem.menu = menu.menu
+            button.performClick(nil)
+            statusItem.menu = nil
         }
-        updateStatusPresentation()
-    }
-
-    func menuDidClose(_ menu: NSMenu) {
-        if pausedPanelShortcut {
-            KeyboardShortcuts.enable(.togglePanel)
-            pausedPanelShortcut = false
-        }
-        updateStatusPresentation()
     }
 
     private func observeStatus() {
         guard let model else { return }
         withObservationTracking {
-            _ = model.monitorStatus
+            _ = model.menuBarBadge
+            _ = model.menuBarAccessibilityLabel
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 self?.updateStatusPresentation()
@@ -128,14 +120,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func updateStatusPresentation() {
         guard let statusItem, let button = statusItem.button, let model else { return }
 
-        let presentation = StatusItemPresentation(status: model.monitorStatus)
-        button.image = presentation.icon.templateImage()
-        button.imagePosition = .imageOnly
-        button.title = ""
-        button.toolTip = presentation.accessibilityDescription
-        button.setAccessibilityLabel(presentation.accessibilityDescription)
-
+        MenuBarGlyph.apply(badge: model.menuBarBadge, to: button)
+        button.toolTip = model.menuBarAccessibilityLabel
+        button.setAccessibilityLabel(model.menuBarAccessibilityLabel)
         #if DEBUG
+            if let badge = model.menuBarBadge {
+                button.setAccessibilityValue("badge:\(badge.bridgeValue)")
+            } else {
+                button.setAccessibilityValue("badge:none")
+            }
             if CommandLine.arguments.contains("-diagnose-global-shortcut-for-ui-test") {
                 button.setAccessibilityValue(
                     GlobalShortcutDiagnostics.panelRegistrationAccessibilityValue)
@@ -163,138 +156,18 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             }
         }
     #endif
-
-    private func rebuildMenu() {
-        menu.removeAllItems()
-        guard let model else { return }
-
-        // Glanceable state header (matches the design's menu top).
-        let presentation = StatusItemPresentation(status: model.monitorStatus)
-        let header = NSMenuItem(
-            title: presentation.accessibilityDescription, action: nil, keyEquivalent: "")
-        header.isEnabled = false
-        header.image = presentation.icon.statusDot()
-        menu.addItem(header)
-        menu.addItem(.separator())
-
-        if model.recentItems.isEmpty {
-            let item = NSMenuItem(
-                title: String(localized: "Copy something — it will appear here."),
-                action: nil,
-                keyEquivalent: "")
-            item.isEnabled = false
-            menu.addItem(item)
-        } else {
-            for clip in model.recentItems.prefix(5) {
-                let item = NSMenuItem(
-                    title: ClipSafePresentation.displayText(
-                        for: clip, privateMode: model.preferences.isPrivateModePaused),
-                    action: #selector(pasteRecentItem(_:)),
-                    keyEquivalent: "")
-                item.target = self
-                item.representedObject = clip
-                item.image = NSImage(
-                    systemSymbolName: clip.kind.symbolName, accessibilityDescription: nil)
-                menu.addItem(item)
-            }
-        }
-
-        menu.addItem(.separator())
-        addCommand(.library)
-        addCommand(.openPanel)
-        addCommand(.copyScreenText, isEnabled: model.canCopyScreenText)
-        addCommand(
-            .toggleCapture,
-            title: GanchoMenuBarCommand.toggleCapture.title(
-                captureIsRunning: model.monitorStatus == .running))
-        addCommand(
-            .togglePrivateMode,
-            state: model.preferences.isPrivateModePaused ? .on : .off)
-        addCommand(.ignoreNextCopy)
-
-        menu.addItem(.separator())
-        addCommand(.settings)
-        addCommand(.welcome)
-        addCommand(.privacyCenter)
-        addCommand(.wrapped)
-        if model.monitorStatus == .deniedByPrivacySettings {
-            addCommand(.fixClipboardAccess)
-        }
-        menu.addItem(.separator())
-        addCommand(.quit)
-    }
-
-    private func addCommand(
-        _ command: GanchoMenuBarCommand,
-        title: String? = nil,
-        state: NSControl.StateValue = .off,
-        isEnabled: Bool = true
-    ) {
-        let item = NSMenuItem(
-            title: title ?? command.title,
-            action: #selector(performCommand(_:)),
-            keyEquivalent: command.keyEquivalent)
-        item.target = self
-        item.keyEquivalentModifierMask = command.modifiers
-        if command == .openPanel {
-            item.setShortcut(for: .togglePanel)
-            #if DEBUG
-                if CommandLine.arguments.contains("-diagnose-menu-shortcut-for-ui-test") {
-                    item.setAccessibilityValue(
-                        "menu-shortcut:\(item.keyEquivalent):\(item.keyEquivalentModifierMask.rawValue)"
-                    )
-                }
-            #endif
-        }
-        item.representedObject = command.rawValue
-        item.state = state
-        // The menu sets `autoenablesItems = false`, so an item that cannot act
-        // stays clickable unless it is disabled here.
-        item.isEnabled = isEnabled
-        item.setAccessibilityIdentifier(command.accessibilityIdentifier)
-        item.setAccessibilityLabel(command.accessibilityLabel)
-        menu.addItem(item)
-    }
-
-    @objc private func pasteRecentItem(_ sender: NSMenuItem) {
-        guard let clip = sender.representedObject as? ClipItem else { return }
-        model?.paste(clip)
-    }
-
-    @objc private func performCommand(_ sender: NSMenuItem) {
-        guard
-            let rawValue = sender.representedObject as? String,
-            let command = GanchoMenuBarCommand(rawValue: rawValue),
-            let model
-        else { return }
-        command.perform(on: model)
-        updateStatusPresentation()
-    }
 }
 
-/// Maps the monitor status to a menu-bar glyph + accessibility label. Shared by
-/// the in-process fallback and the App Group publisher that drives the helper.
-struct StatusItemPresentation {
-    let icon: MenuBarStatusIcon
-    let accessibilityDescription: String
-
-    init(status: MonitorStatus) {
-        switch status {
-        case .running:
-            icon = .active
-            accessibilityDescription = String(localized: "Gancho: capturing")
-        case .pausedByUser:
-            icon = .paused
-            accessibilityDescription = String(localized: "Gancho: private mode")
-        case .pausedByScreenShare:
-            icon = .paused
-            accessibilityDescription = String(localized: "Gancho: paused while sharing")
-        case .stopped, .pausedByScreenLock:
-            icon = .stopped
-            accessibilityDescription = String(localized: "Gancho: paused")
-        case .deniedByPrivacySettings:
-            icon = .denied
-            accessibilityDescription = String(localized: "Gancho: pasteboard access denied")
+extension MonitorStatus {
+    /// The status item's spoken capture state, for both the in-process item
+    /// and the helper.
+    var menuBarLabel: String {
+        switch self {
+        case .running: String(localized: "Gancho: capturing")
+        case .pausedByUser: String(localized: "Gancho: private mode")
+        case .pausedByScreenShare: String(localized: "Gancho: paused while sharing")
+        case .stopped, .pausedByScreenLock: String(localized: "Gancho: paused")
+        case .deniedByPrivacySettings: String(localized: "Gancho: pasteboard access denied")
         }
     }
 }

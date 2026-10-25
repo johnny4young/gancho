@@ -16,6 +16,16 @@ public enum ClipSafePresentation {
         isSensitive || kind.prefersMaskedPreview
     }
 
+    /// The stored masked preview ("●●●● 4Q2v") of a protected clip, or the
+    /// plain mask when the stored text is not mask-shaped (a legacy or synced
+    /// row that never went through capture masking).
+    public static func maskedTail(for item: ClipItem) -> String {
+        let parts = item.preview.split(separator: " ", omittingEmptySubsequences: false)
+        let bullets = parts.first.map { !$0.isEmpty && $0.allSatisfy { $0 == "●" } } ?? false
+        let tailOK = parts.count == 1 || (parts.count == 2 && (1...4).contains(parts[1].count))
+        return bullets && tailOK ? item.preview : masked
+    }
+
     public static func displayText(for item: ClipItem) -> String {
         displayText(for: item, privateMode: false)
     }

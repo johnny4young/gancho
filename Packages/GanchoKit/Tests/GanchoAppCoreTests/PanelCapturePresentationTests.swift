@@ -84,6 +84,18 @@ struct PanelCapturePresentationTests {
         #expect(!presentation.isCapturing)
     }
 
+    @Test("A share detected while capture is paused by hand still gets the share notice")
+    func shareDuringManualPause() {
+        let presentation = PanelCapturePresentation.resolve(
+            storageIsEphemeral: false, privateModeEnabled: false, runtimeStatus: .stopped,
+            screenShareDetected: true)
+        #expect(presentation.notice == .screenShare)
+        let privateFirst = PanelCapturePresentation.resolve(
+            storageIsEphemeral: false, privateModeEnabled: true, runtimeStatus: .stopped,
+            screenShareDetected: true)
+        #expect(privateFirst.notice == .privateMode)
+    }
+
     @Test(
         "User and screen-lock pauses do not invent a panel notice",
         arguments: [

@@ -2,6 +2,7 @@ import AppKit
 import ClipboardCore
 import Foundation
 import GanchoAppCore
+import GanchoDesign
 import GanchoKit
 
 /// Deterministic UI-test fixtures, kept out of the production composition-root
@@ -21,6 +22,19 @@ extension AppModel {
             }
         #endif
         return NSPasteboardReader()
+    }
+
+    /// `-simulate-screen-share <App>` stands in for a share, so UI tests reach
+    /// the share state without a conferencing app. Debug only.
+    static func sharingAppForLaunch(detector: ScreenShareDetector) -> String? {
+        #if DEBUG
+            if let flag = CommandLine.arguments.firstIndex(of: "-simulate-screen-share"),
+                CommandLine.arguments.indices.contains(flag + 1)
+            {
+                return CommandLine.arguments[flag + 1]
+            }
+        #endif
+        return detector.sharingAppName()
     }
 
     /// Runs the denylist fixture synchronously, starts every other requested
@@ -118,9 +132,15 @@ extension AppModel {
             let fullStore
         else { return nil }
         return Task {
+            let palette = BoardIdentityColor.allCases
             for i in 1...PinLimits.freeMaxPinboards {
-                _ = try? await fullStore.createPinboard(
-                    name: "Seed board \(i)", sfSymbol: "square.stack")
+                guard
+                    let board = try? await fullStore.createPinboard(
+                        name: "Seed board \(i)", sfSymbol: "square.stack")
+                else { continue }
+                // Automatic colors come from the random id; snapshots need fixed ones.
+                try? await fullStore.updateBoardIdentity(
+                    id: board.id, colorHex: palette[(i - 1) % palette.count].rawValue, emoji: nil)
             }
             await refreshBoards()
         }
@@ -246,10 +266,47 @@ extension AppModel {
                     createdAt: now, kind: .code, title: "Example",
                     preview: "let greeting = \"Hello\"", contentHash: "library-code")
                 _ = try? await fullStore.insert(code, content: .text(code.preview))
+                await seedLibraryExtras(pinning: code, store: fullStore, now: now)
                 await refreshRecents()
+                seedPasteStackIfRequested([code, color])
             }
         #else
             return nil
+        #endif
+    }
+
+    /// `-seed-visual-library-extras`: a link on a board, a masked secret and a
+    /// pin, so one Library render shows every card part. No expiry, so no
+    /// countdown ticks between runs.
+    private func seedLibraryExtras(
+        pinning pinned: ClipItem, store: any FullClipStore, now: Date
+    ) async {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-visual-library-extras") else { return }
+            let link = ClipItem(
+                createdAt: now.addingTimeInterval(-2), kind: .url, title: "gancho repo",
+                preview: "https://github.com/johnny4young/gancho",
+                contentHash: "library-link", sourceAppBundleID: "com.apple.Safari")
+            _ = try? await store.insert(link, content: .text(link.preview))
+            let secret = ClipItem(
+                createdAt: now.addingTimeInterval(-5), kind: .secret, preview: "●●●● 4Q2v",
+                contentHash: "library-secret", sourceAppBundleID: "com.apple.Terminal",
+                isSensitive: true)
+            _ = try? await store.insert(secret, content: .text("synthetic-secret-4Q2v"))
+            if let work = try? await store.createPinboard(name: "Work", sfSymbol: "square.stack") {
+                try? await store.updateBoardIdentity(
+                    id: work.id, colorHex: BoardIdentityColor.blue.rawValue, emoji: nil)
+                try? await store.assign(clipID: link.id, toBoard: work.id)
+            }
+            try? await store.setPinned(id: pinned.id, true)
+        #endif
+    }
+
+    /// `-seed-paste-stack`: clips waiting, for the menu's stack row.
+    private func seedPasteStackIfRequested(_ clips: [ClipItem]) {
+        #if DEBUG
+            guard CommandLine.arguments.contains("-seed-paste-stack") else { return }
+            pushToStack(clips)
         #endif
     }
 

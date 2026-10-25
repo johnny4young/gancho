@@ -21,6 +21,10 @@ extension LibraryView {
                             systemImage: board.sfSymbol, count: boardCounts[board.id] ?? 0,
                             board: board
                         )
+                        .boardDropTarget(
+                            board, ring: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        )
+                        .accessibilityIdentifier("library-board-\(board.id.uuidString)")
                         .contextMenu {
                             if !board.isSystem {
                                 Button("Customize board…") {
@@ -47,9 +51,9 @@ extension LibraryView {
                     }
                 }
 
-                Section("Saved filters") {
+                Section {
                     ForEach(model.savedFilters.rules) { rule in
-                        Text(verbatim: rule.name).tag(LibrarySelection.savedFilter(rule.id))
+                        savedFilterRow(rule).tag(LibrarySelection.savedFilter(rule.id))
                             .accessibilityIdentifier("saved-filter-row")
                             .contextMenu {
                                 Button("Edit filter…") { filterDraft = rule }
@@ -75,6 +79,13 @@ extension LibraryView {
                             .font(.caption)
                             .accessibilityIdentifier("saved-filters-import-warning")
                     }
+                } header: {
+                    sectionHeader(
+                        Text("Saved filters"), identifier: "saved-filter-new",
+                        addLabel: "New filter"
+                    ) {
+                        filterDraft = SmartCollectionRule(name: "")
+                    }
                 }
 
                 Section {
@@ -95,6 +106,7 @@ extension LibraryView {
                     }
                 }
             }
+            .focused($sidebarFocused)
             proFooter
         }
         .frame(minWidth: 232)
@@ -142,10 +154,29 @@ extension LibraryView {
             }
             Spacer(minLength: 0)
             if let keyword = snippet.keyword, !keyword.isEmpty {
-                Image(systemName: "return")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .help(Text(verbatim: keyword))
+                Text(verbatim: keyword)
+                    .font(.caption2.weight(.semibold).monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 4)
+                    .frame(height: 16)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
+                    .accessibilityIdentifier("snippet-keyword")
+            }
+        }
+    }
+
+    /// A saved filter with its glyph and how many clips it holds right now.
+    private func savedFilterRow(_ rule: SmartCollectionRule) -> some View {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .frame(width: 18)
+                .foregroundStyle(.secondary)
+            Text(verbatim: rule.name).lineLimit(1)
+            Spacer(minLength: 0)
+            if let count = filterCounts[rule.id] {
+                Text(verbatim: "\(count)")
+                    .font(.caption).monospacedDigit().foregroundStyle(.secondary)
             }
         }
     }
@@ -181,45 +212,75 @@ extension LibraryView {
         return Text(verbatim: "\(snippets.count)/\(SnippetLimits.freeMaxSnippets)")
     }
 
-    /// The footer line escalates as the free user fills up: neutral → soft
-    /// "almost full" → "limit reached", so the upsell forewarns instead of
-    /// ambushing at the wall.
-    private var proFooterSubtitle: LocalizedStringKey {
-        switch FreeTierLimits.pressure(
-            boardsUsed: userBoardCount, snippetsUsed: snippets.count, isPro: model.tier == .pro)
-        {
-        case .comfortable: "Unlimited boards & snippets"
-        case .almostFull: "Almost full — Pro unlocks unlimited"
-        case .reached: "Free limit reached — go unlimited"
-        }
+    private var proMeter: LibraryProMeter {
+        LibraryProMeter(boards: userBoardCount, pins: pinnedCount, snippets: snippets.count)
     }
 
-    /// The upsell that doubles as a status (the design's footer card). Hidden
-    /// for Pro; opens the contextual paywall on Free.
+    /// The Pro card on Free: every ceiling's count, a bar filled to the fullest
+    /// one, and a tail that warns as it fills. Opens the paywall.
     @ViewBuilder private var proFooter: some View {
         if model.tier != .pro {
+            let meter = proMeter
             Button {
                 model.paywallWindow.show(trigger: .freeLimitReached, model: model)
             } label: {
-                HStack(spacing: GanchoTokens.Spacing.xs) {
-                    Image(systemName: "star.fill")
-                        .foregroundStyle(GanchoTokens.Palette.accentInk)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(verbatim: "gancho Pro").font(.caption.weight(.semibold))
-                        Text(proFooterSubtitle)
-                            .font(.caption2).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: GanchoTokens.Spacing.xs) {
+                        Image(systemName: "star.fill")
+                            .foregroundStyle(GanchoTokens.Palette.accentInk)
+                        Text(verbatim: "gancho Pro").font(.caption.weight(.bold))
                     }
-                    Spacer(minLength: 0)
+                    GeometryReader { proxy in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(.quaternary)
+                            Capsule().fill(meterColor(meter.pressure))
+                                .frame(width: proxy.size.width * meter.fraction)
+                        }
+                    }
+                    .frame(height: 5)
+                    .accessibilityHidden(true)
+                    Text(meterCaption(meter))
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(GanchoTokens.Spacing.sm)
+                .padding(.horizontal, GanchoTokens.Spacing.sm)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     GanchoTokens.Palette.accent.opacity(0.12),
                     in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous))
             }
             .buttonStyle(.plain)
             .padding(GanchoTokens.Spacing.xs)
+            .accessibilityElement(children: .combine)
+            .accessibilityValue(Text(verbatim: "\(Int((meter.fraction * 100).rounded()))%"))
             .accessibilityIdentifier("library-pro")
         }
+    }
+
+    private func meterColor(_ pressure: FreeTierLimits.Pressure) -> Color {
+        switch pressure {
+        case .comfortable: GanchoTokens.Palette.accent
+        case .almostFull: GanchoTokens.Palette.warning
+        case .reached: GanchoTokens.Palette.danger
+        }
+    }
+
+    private func meterCaption(_ meter: LibraryProMeter) -> String {
+        let counts = meter.ceilings.map { ceiling in
+            switch ceiling.kind {
+            case .boards: String(localized: "\(ceiling.used) of \(ceiling.limit) boards")
+            case .pins: String(localized: "\(ceiling.used) of \(ceiling.limit) pins")
+            case .snippets: String(localized: "\(ceiling.used) of \(ceiling.limit) snippets")
+            }
+        }
+        let tail: String
+        switch meter.pressure {
+        case .comfortable: tail = String(localized: "Pro removes every limit")
+        case .almostFull: tail = String(localized: "Almost full")
+        case .reached: tail = String(localized: "Limit reached")
+        }
+        return (counts + [tail]).joined(separator: " · ")
     }
 
 }

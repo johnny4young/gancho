@@ -28,7 +28,8 @@ struct PanelGalleryCard: View {
                     isSelected ? AnyShapeStyle(GanchoTokens.Palette.accent) : AnyShapeStyle(.clear),
                     lineWidth: 2)
             )
-            .overlay(alignment: .topTrailing) {
+            // Bottom corner: the card's header ends with its pin glyph.
+            .overlay(alignment: .bottomTrailing) {
                 if let shortcutNumber {
                     ClipShortcutBadge(number: shortcutNumber)
                         .padding(GanchoTokens.Spacing.xs)

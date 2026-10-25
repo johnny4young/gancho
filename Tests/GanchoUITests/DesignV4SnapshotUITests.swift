@@ -6,7 +6,7 @@ import XCTest
 /// moving part is the UI under test. Windows are rendered by the app itself
 /// (`-ui-test-snapshot-dir`), so a capture never contains another app's window.
 final class DesignV4SnapshotUITests: XCTestCase {
-    private var renders: URL!
+    var renders: URL!
 
     override func setUpWithError() throws {
         try DesignSnapshot.skipUnlessEnabled()
@@ -206,10 +206,30 @@ final class DesignV4SnapshotUITests: XCTestCase {
         try panelState(.noResults, appearance: "dark")
     }
 
+    /// A clip dragged over a board chip: the ring and lift on the target.
+    @MainActor func testPanelBoardDropTargetLight() throws {
+        try panelState(.boardDropTarget, appearance: "light")
+    }
+
+    @MainActor func testPanelBoardDropTargetDark() throws {
+        try panelState(.boardDropTarget, appearance: "dark")
+    }
+
+    /// A share names the app, masks the rows and offers Show anyway.
+    @MainActor func testPanelScreenShareLight() throws {
+        try panelState(.screenShare, appearance: "light")
+    }
+
+    @MainActor func testPanelScreenShareDark() throws {
+        try panelState(.screenShare, appearance: "dark")
+    }
+
     private enum PanelState: String {
         case privateMode = "private-mode"
         case tokens = "search-tokens"
         case noResults = "no-results"
+        case screenShare = "screen-share"
+        case boardDropTarget = "board-drop-target"
     }
 
     /// Private Mode since 14:02 today with three skipped copies and no deadline,
@@ -235,10 +255,16 @@ final class DesignV4SnapshotUITests: XCTestCase {
             "pasted", "-ui-test-snapshot-dir", renders.path, "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)"
         ]
-        arguments +=
-            state == .privateMode
-            ? ["-capture-preferences", Self.privateModePreferences]
-            : ["-start-capture-paused"]
+        switch state {
+        case .privateMode: arguments += ["-capture-preferences", Self.privateModePreferences]
+        case .screenShare:
+            arguments += ["-simulate-screen-share", "Zoom", "-isolate-ui-test-system-clipboard"]
+        case .boardDropTarget:
+            arguments += [
+                "-start-capture-paused", "-seed-sample-boards", "-ui-test-target-first-board"
+            ]
+        case .tokens, .noResults: arguments.append("-start-capture-paused")
+        }
         app.launchArguments = arguments
         app.launch()
         defer { app.terminate() }
@@ -250,6 +276,20 @@ final class DesignV4SnapshotUITests: XCTestCase {
         switch state {
         case .privateMode:
             break
+        case .boardDropTarget:
+            let chip = app.descendants(matching: .any).matching(
+                NSPredicate(
+                    format: "identifier BEGINSWITH 'board-' AND label BEGINSWITH %@",
+                    "Seed board 1")
+            ).firstMatch
+            XCTAssertTrue(chip.waitForExistence(timeout: 10))
+            // The pointer sits where a drag would, not on whichever row it was left over.
+            try SynthesizedInput.requireForeground(app)
+            chip.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
+        case .screenShare:
+            // Detection runs on a three-second tick.
+            XCTAssertTrue(
+                app.buttons["screen-share-show-anyway"].firstMatch.waitForExistence(timeout: 10))
         case .tokens:
             // Chips for app and type, then a key prefix that opens the popover.
             // Typed straight in: the field keeps only the "be" the chips leave.
@@ -376,7 +416,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
     }
 
     /// Keyboard UI mode 2 is full keyboard access, so focus rings are drawn.
-    private func stableArguments(
+    func stableArguments(
         _ appearance: String, keyboardUIMode: String = "2"
     )
         -> [String]
@@ -388,5 +428,67 @@ final class DesignV4SnapshotUITests: XCTestCase {
             "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)",
             "-ui-test-snapshot-dir", renders.path
         ]
+    }
+
+    // MARK: The menu-bar hook and its badges, on a light and a dark bar.
+
+    @MainActor func testMenuBarGlyphs() throws {
+        let states: [(String, MenuBarBadge?)] = [
+            ("Capturing", nil), ("Paused", .paused), ("Private", .privateMode),
+            ("Denied", .denied), ("Ignore next", .ignoreNext), ("Stack", .stack(2))
+        ]
+        let cell = NSSize(width: 92, height: 56)
+        let size = NSSize(width: cell.width * CGFloat(states.count), height: cell.height * 2)
+        let bars: [(NSColor, NSColor)] = [
+            (NSColor(white: 0.95, alpha: 1), .black), (NSColor(white: 0.12, alpha: 1), .white)
+        ]
+        let strip = NSImage(size: size, flipped: false) { _ in
+            for (row, (background, ink)) in bars.enumerated() {
+                let y = size.height - cell.height * CGFloat(row + 1)
+                background.setFill()
+                NSRect(x: 0, y: y, width: size.width, height: cell.height).fill()
+                for (column, (name, badge)) in states.enumerated() {
+                    let origin = NSPoint(x: cell.width * CGFloat(column), y: y)
+                    let hook = MenuBarGlyph.hookImage(badged: badge != nil)
+                    let hookOrigin = NSPoint(
+                        x: origin.x + (cell.width - hook.size.width) / 2, y: origin.y + 24)
+                    Self.tinted(hook, ink).draw(
+                        at: hookOrigin, from: .zero, operation: .sourceOver, fraction: 1)
+                    if let badge {
+                        MenuBarGlyph.badgeImage(badge).draw(
+                            at: NSPoint(
+                                x: hookOrigin.x + MenuBarGlyph.badgeRect.minX,
+                                y: hookOrigin.y + MenuBarGlyph.badgeRect.minY),
+                            from: .zero, operation: .sourceOver, fraction: 1)
+                    }
+                    let label = NSAttributedString(
+                        string: name,
+                        attributes: [
+                            .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
+                            .foregroundColor: ink
+                        ])
+                    label.draw(
+                        at: NSPoint(
+                            x: origin.x + (cell.width - label.size().width) / 2, y: origin.y + 6))
+                }
+            }
+            return true
+        }
+        let scaled = NSImage(size: NSSize(width: size.width * 3, height: size.height * 3))
+        scaled.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .high
+        strip.draw(in: NSRect(origin: .zero, size: scaled.size))
+        scaled.unlockFocus()
+        try DesignSnapshot.save(scaled, named: "menu-bar-glyphs")
+    }
+
+    /// A template image filled with the colour the menu bar would tint it.
+    private static func tinted(_ template: NSImage, _ color: NSColor) -> NSImage {
+        NSImage(size: template.size, flipped: false) { rect in
+            template.draw(in: rect)
+            color.setFill()
+            rect.fill(using: .sourceAtop)
+            return true
+        }
     }
 }

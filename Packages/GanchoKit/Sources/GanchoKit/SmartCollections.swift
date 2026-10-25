@@ -109,7 +109,7 @@ extension GRDBClipboardStore {
         }
         if (rule.textContains ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             rule.searchMode != .regex, rule.kinds == nil, rule.sourceAppBundleID == nil,
-            rule.boardID == nil, !rule.pinnedOnly
+            rule.boardID == nil, !rule.pinnedOnly, rule.deviceName == nil, rule.createdBefore == nil
         {
             return try await recentForBrowse(offset: 0, limit: limit)
         }

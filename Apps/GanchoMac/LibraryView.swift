@@ -46,16 +46,60 @@ struct LibraryView: View {
     @State var boardPendingDeletion: Pinboard?
     @State var boardAppearanceTarget: Pinboard?
 
+    // Browse controls: search, kind chip, sort and layout.
+    @State var searchText = ""
+    @State var kindFilter: ClipKindFilter = .all
+    @State var oldestFirst = false
+    @State var layout: LibraryLayout = .grid
+    @FocusState var searchFocused: Bool
+    /// The sidebar holds focus when the window opens, so its selection reads as active.
+    @FocusState var sidebarFocused: Bool
+    /// Boards of the clips on screen, read once per page.
+    @State var membership: [UUID: Set<UUID>] = [:]
+    @State var filterCounts: [UUID: Int] = [:]
+
     enum EditorField { case title, keyword }
 
-    var body: some View {
-        HSplitView {
-            sidebar
-                .frame(minWidth: 232, idealWidth: 252, maxWidth: 320)
-            detail
-                .frame(minWidth: 460, maxWidth: .infinity)
+    /// The panes plus the browse controls' observers, split from `body` so it type-checks.
+    private var browser: some View {
+        VStack(spacing: 0) {
+            toolbar
+            Divider()
+            HSplitView {
+                sidebar
+                    .frame(minWidth: 232, idealWidth: 252, maxWidth: 320)
+                detail
+                    .frame(minWidth: 460, maxWidth: .infinity)
+            }
         }
         .frame(minWidth: 800, minHeight: 560)
+        .onAppear { layout = model.libraryLayout }
+        .task {
+            // AppKit hands the window's first responder to the search field; take it back.
+            try? await Task.sleep(for: .milliseconds(50))
+            sidebarFocused = true
+        }
+        .onChange(of: layout) { _, next in model.libraryLayout = next }
+        .onChange(of: kindFilter) { _, _ in Task { await loadScope() } }
+        .onChange(of: oldestFirst) { _, _ in Task { await loadScope() } }
+        .task(id: searchText) {
+            // Typing settles before the store is asked.
+            guard (try? await Task.sleep(for: .milliseconds(200))) != nil else { return }
+            await loadScope()
+        }
+        .task(id: clipList.items) {
+            let next = await model.libraryMembership(for: clipList.items)
+            guard !Task.isCancelled else { return }
+            membership = next
+        }
+    }
+
+    var body: some View {
+        Group {
+            browser
+        }
+        .background { ToastUndoShortcut().opacity(0).accessibilityHidden(true) }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("library")
         .task {
             let changes = model.storeChanges.subscribe()
@@ -81,7 +125,8 @@ struct LibraryView: View {
             Task { await refreshAll() }
         }
         .onChange(of: model.savedFilters.rules) { _, _ in
-            if case .savedFilter = selection { Task { await loadScope(preservingWindow: true) } }
+            // One generation recounts the filters and reloads a filter scope.
+            Task { await refreshAll() }
         }
         .onDisappear {
             metadataGeneration = UUID()

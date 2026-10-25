@@ -89,7 +89,7 @@ struct ClipPeek: View {
     }
 
     private var hidesPreview: Bool {
-        model.preferences.isPrivateModePaused || ClipSafePresentation.requiresMasking(item)
+        model.previewsHidden || ClipSafePresentation.requiresMasking(item)
     }
 
     /// Masked clips show the canonical mask even if malformed legacy/sync
@@ -320,7 +320,7 @@ struct ClipPeek: View {
             Text("Add to \(board.name)?").panelFont(.subheadline, .medium).lineLimit(1)
             Spacer(minLength: 0)
             Button("Add") {
-                model.assignWithUndo(item, toBoard: board)
+                model.assign(item, toBoard: board)
                 suggestedBoard = nil
             }
             .ganchoTextButton()

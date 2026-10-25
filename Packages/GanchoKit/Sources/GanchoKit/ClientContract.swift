@@ -445,6 +445,7 @@ public typealias FullClipStore = ClipReading & ClipSearching & ClipMutating & Cl
     & SnippetStoring
     & StoreStatsProviding & PrivateActivityReceiptStoring & ExportProviding & StoreMaintaining
     & SnippetDraftStoring & TextRecipeStoring & UploadStateProviding & ScopeCountProviding
+    & LibraryBrowsing
 
 // MARK: - Production conformances
 
