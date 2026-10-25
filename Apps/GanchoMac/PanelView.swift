@@ -1445,7 +1445,7 @@ struct PanelView: View {
     }
 
     private var currentAlternatives: [PanelAlternativeResult] {
-        search.searchFailure == nil && alternativesKeyFound == alternativesKey ? alternatives : []
+        alternativesKeyFound == alternativesKey ? alternatives : []
     }
 
     private var bestAlternative: PanelAlternativeResult? {

@@ -113,7 +113,6 @@ public typealias HistoryListSource = ClipListSource
     public func search() async {
         invalidateRequests()
         let generation = searchGeneration
-        isSearching = true
         defer { if generation == searchGeneration { isSearching = false } }
         // iOS pushes the kind filter into SQL; macOS narrows on the client
         // because its filter also feeds de-duplication and selection. That is
