@@ -1,5 +1,6 @@
 import AppKit
 import ClipboardCore
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import SwiftUI
@@ -21,76 +22,86 @@ struct PrivacySettingsTab: View {
     /// Outcome of the last support-bundle save. Content-free by construction:
     /// it says whether a file was written, never what went into it.
     @State private var supportNote: String?
+    @State private var overview = PrivacyOverview()
 
     var body: some View {
         @Bindable var model = model
         Form {
-            Toggle("Private mode (pause capture)", isOn: $model.preferences.isPrivateModePaused)
-            Picker("Turn Private mode off after", selection: $model.privateModeAutoOff) {
-                ForEach(PrivateModeAutoOff.allCases) { option in
-                    Text(option.title).tag(option)
+            Section {
+                PrivacyStatusTiles(overview: overview)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+
+            Section("Capture control") {
+                Toggle(isOn: $model.preferences.isPrivateModePaused) {
+                    Text("Private mode (pause capture)")
+                    Text("Nothing is saved while on. Pasting keeps working.")
+                }
+                ShortcutRecorder("Private mode shortcut:", name: .togglePrivateMode)
+                Picker(selection: $model.privateModeAutoOff) {
+                    ForEach(PrivateModeAutoOff.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                } label: {
+                    Text("Turn Private mode off after")
+                    Text("So a pause never silently becomes a week.")
+                }
+                .accessibilityIdentifier("private-mode-auto-off-picker")
+                Toggle(isOn: $model.autoPauseOnScreenShare) {
+                    Text("Pause automatically while sharing the screen")
+                    Text("Zoom, Teams and Screen Sharing are detected.")
+                }
+                footnote("Secrets and card numbers stay masked; revealing one takes a click.")
+            }
+
+            Section("Searches and Spotlight") {
+                Toggle(isOn: $model.rememberSearches) {
+                    Text("Remember searches")
+                    Text(
+                        "Recall recent panel searches with ⌘↑. Stored only on this Mac; turning this off erases them."
+                    )
+                }
+                Toggle("Show snippets and pins in Spotlight", isOn: $model.spotlightIndexing)
+                    .accessibilityIdentifier("spotlight-indexing-toggle")
+                footnote(
+                    // swiftlint:disable:next line_length
+                    "Only snippets and pinned clips reach the system index — never raw history, secrets or expiring clips. Turning this off removes them at once."
+                )
+                .accessibilityIdentifier("spotlight-indexing-privacy-note")
+            }
+
+            Section("Diagnostics") {
+                Toggle(
+                    isOn: Binding(
+                        get: { model.telemetryConsent == .enabled },
+                        set: { model.setTelemetryConsent($0 ? .enabled : .disabled) })
+                ) {
+                    Text("Share anonymous usage diagnostics")
+                    Text(
+                        "Counts and broad buckets only — never clipboard content, titles, searches or source-app names."
+                    )
+                }
+                .accessibilityIdentifier("telemetry-consent-toggle")
+                HStack {
+                    Button("Save support bundle…") { saveSupportBundle() }
+                    footnote("Versions, settings and counters — never clipboard content.")
+                }
+                if let supportNote {
+                    Text(verbatim: supportNote)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("support-bundle-note")
                 }
             }
-            .accessibilityIdentifier("private-mode-auto-off-picker")
-            ShortcutRecorder("Private mode shortcut:", name: .togglePrivateMode)
-            Toggle(
-                "Pause automatically while sharing the screen",
-                isOn: $model.autoPauseOnScreenShare)
-            Text(
-                "Secrets and card numbers are always masked in previews; revealing them takes an explicit click."
-            )
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            Toggle("Remember searches", isOn: $model.rememberSearches)
-            Text(
-                "Recall recent panel searches with ⌘↑. Stored only on this Mac; turning this off erases them."
-            )
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            Toggle("Show snippets and pins in Spotlight", isOn: $model.spotlightIndexing)
-                .accessibilityIdentifier("spotlight-indexing-toggle")
-            Text(
-                """
-                Only snippets and pinned clips reach the system index — never your raw \
-                history, secrets, or expiring clips. Turning this off removes them from \
-                Spotlight immediately.
-                """
-            )
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .accessibilityIdentifier("spotlight-indexing-privacy-note")
-            Button("Open Privacy Center") {
-                model.privacyCenterWindow.show(model: model)
-            }
-            Button("Save support bundle…") { saveSupportBundle() }
-            if let supportNote {
-                Text(verbatim: supportNote)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("support-bundle-note")
-            }
-            Text(
-                "The support bundle contains versions, settings, and counters — never clipboard content."
-            )
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-
-            Toggle(
-                "Share anonymous usage diagnostics",
-                isOn: Binding(
-                    get: { model.telemetryConsent == .enabled },
-                    set: { model.setTelemetryConsent($0 ? .enabled : .disabled) })
-            )
-            .accessibilityIdentifier("telemetry-consent-toggle")
-            Text(
-                // swiftlint:disable:next line_length
-                "Optional anonymous counts and broad performance buckets only — never clipboard content, titles, searches, or source-app names. Off until you allow it; changes apply immediately."
-            )
-            .font(.footnote)
-            .foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)
+        .task { overview = await model.privacyOverview() }
+    }
+
+    private func footnote(_ text: LocalizedStringKey) -> some View {
+        Text(text).font(.footnote).foregroundStyle(.secondary)
     }
 }
 

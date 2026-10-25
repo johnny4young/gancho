@@ -572,16 +572,6 @@
         }
       }
     },
-    "Recent technical issues only — content-free, nothing about your clips.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Solo problemas técnicos recientes: sin contenido, nada sobre tus clips."
-          }
-        }
-      }
-    },
     "Storage": {
       "localizations": {
         "es": {
@@ -2497,16 +2487,6 @@
         }
       }
     },
-    "Agent calls this week": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Llamadas de agentes esta semana"
-          }
-        }
-      }
-    },
     "Content bodies exposed": {
       "localizations": {
         "es": {
@@ -2517,42 +2497,12 @@
         }
       }
     },
-    "Denied by scope or veto": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Denegadas por alcance o veto"
-          }
-        }
-      }
-    },
-    "Local AI agent access (MCP)": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acceso de agentes locales (MCP)"
-          }
-        }
-      }
-    },
     "On": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Activado"
-          }
-        }
-      }
-    },
-    "Status": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estado"
           }
         }
       }
@@ -3063,16 +3013,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Todo aquí corre en este Mac. Ningún texto de clip se envía a un servidor — gancho no tiene."
-          }
-        }
-      }
-    },
-    "On-device titles, semantic retrieval, screenshot OCR, and secret detection — each a toggle, all local.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Títulos, recuperación semántica, OCR de capturas y detección de secretos en el dispositivo — cada uno un toggle, todo local."
           }
         }
       }
@@ -3684,17 +3624,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pegar sin formato"
-          }
-        }
-      }
-    },
-    "Pasteboard access": {
-      "extractionState": "stale",
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acceso al portapapeles"
           }
         }
       }
@@ -4555,16 +4484,6 @@
         }
       }
     },
-    "Secrets and card numbers are always masked in previews; revealing them takes an explicit click.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los secretos y números de tarjeta siempre van enmascarados en las vistas previas; revelarlos requiere un clic explícito."
-          }
-        }
-      }
-    },
     "Secrets masked": {
       "extractionState": "stale",
       "localizations": {
@@ -4766,16 +4685,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Texto"
-          }
-        }
-      }
-    },
-    "The support bundle contains versions, settings, and counters — never clipboard content.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El paquete de soporte contiene versiones, configuración y contadores — nunca contenido del portapapeles."
           }
         }
       }
@@ -5567,26 +5476,6 @@
         }
       }
     },
-    "A per-type limit overrides the global window; leave a type on Use global to follow it. Pinned clips and boards never expire.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un límite por tipo anula la ventana global; deja un tipo en Usar global para seguirla. Los clips fijados y los tableros nunca expiran."
-          }
-        }
-      }
-    },
-    "Detected secrets — passwords, keys, cards — always follow this limit, even when your history keeps everything longer. It's a safety guard you can shorten but not extend.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los secretos detectados — contraseñas, llaves, tarjetas — siempre siguen este límite, incluso cuando tu historial guarda todo por más tiempo. Es una protección de seguridad que puedes acortar pero no extender."
-          }
-        }
-      }
-    },
     "Runs on your Mac — nothing leaves the device.": {
       "localizations": {
         "es": {
@@ -6057,16 +5946,6 @@
         }
       }
     },
-    "Optional diagnostics": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diagnósticos opcionales"
-          }
-        }
-      }
-    },
     "Anonymous feature counts and broad performance buckets are off until you allow them. Clipboard content, titles, searches, and source-app names are never sent.": {
       "localizations": {
         "es": {
@@ -6083,16 +5962,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Los diagnósticos opcionales solo contienen conteos anónimos y rangos generales."
-          }
-        }
-      }
-    },
-    "Optional anonymous counts and broad performance buckets only — never clipboard content, titles, searches, or source-app names. Off until you allow it; changes apply immediately.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Solo conteos anónimos opcionales y rangos generales de rendimiento; nunca contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen. Desactivados hasta que los autorices; los cambios se aplican de inmediato."
           }
         }
       }
@@ -6483,16 +6352,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostrar snippets y pins en Spotlight"
-          }
-        }
-      }
-    },
-    "Only snippets and pinned clips reach the system index — never your raw history, secrets, or expiring clips. Turning this off removes them from Spotlight immediately.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Solo los snippets y los clips fijados llegan al índice del sistema — nunca tu historial completo, secretos ni clips que expiran. Al desactivarlo, se eliminan de Spotlight de inmediato."
           }
         }
       }
@@ -7493,16 +7352,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elementos sensibles autoexpirados"
-          }
-        }
-      }
-    },
-    "Clear activity receipt": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Borrar recibo de actividad"
           }
         }
       }
@@ -11707,6 +11556,806 @@
           "stringUnit": {
             "state": "translated",
             "value": "Llegaste al límite"
+          }
+        }
+      }
+    },
+    "%lld clips · %@ on this Mac": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clip · %@ on this Mac"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clips · %@ on this Mac"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clip · %@ en esta Mac"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clips · %@ en esta Mac"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld clips · not saved": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clip · not saved"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clips · not saved"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clip · sin guardar"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clips · sin guardar"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld skipped this week": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld omitidas esta semana"
+          }
+        }
+      }
+    },
+    "%lld waiting to sync": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld por sincronizar"
+          }
+        }
+      }
+    },
+    "A per-type limit overrides the global window. Pinned clips and boards never expire.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un límite por tipo reemplaza la ventana global. Los clips fijados y los tableros nunca caducan."
+          }
+        }
+      }
+    },
+    "A temporary store, cleared on quit": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un almacén temporal que se borra al salir"
+          }
+        }
+      }
+    },
+    "Agent access": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso de agentes"
+          }
+        }
+      }
+    },
+    "Built-in rule · concealed and transient copies": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regla integrada · copias ocultas y transitorias"
+          }
+        }
+      }
+    },
+    "Capture control": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control de captura"
+          }
+        }
+      }
+    },
+    "Copied in the last": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiados en los últimos"
+          }
+        }
+      }
+    },
+    "Couldn’t open the database with its key.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir la base de datos con su llave."
+          }
+        }
+      }
+    },
+    "Counts and broad buckets only — never clipboard content, titles, searches or source-app names.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo conteos y rangos amplios — nunca contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen."
+          }
+        }
+      }
+    },
+    "Developer": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desarrollador"
+          }
+        }
+      }
+    },
+    "Diagnostics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnósticos"
+          }
+        }
+      }
+    },
+    "Encrypted at rest": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cifrado en reposo"
+          }
+        }
+      }
+    },
+    "Forget %lld clips": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Forget %lld clip"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Forget %lld clips"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Olvidar %lld clip"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Olvidar %lld clips"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Forget recent clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvidar clips recientes"
+          }
+        }
+      }
+    },
+    "History is encrypted on this Mac": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El historial está cifrado en esta Mac"
+          }
+        }
+      }
+    },
+    "Local AI agents (MCP)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agentes de IA locales (MCP)"
+          }
+        }
+      }
+    },
+    "MCP Access…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso MCP…"
+          }
+        }
+      }
+    },
+    "No issues recorded. Technical issues only — content-free, nothing about your clips.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay problemas registrados. Solo problemas técnicos — sin contenido, nada sobre tus clips."
+          }
+        }
+      }
+    },
+    "No sync activity yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todavía no hay actividad de sincronización."
+          }
+        }
+      }
+    },
+    "Not encrypted": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin cifrar"
+          }
+        }
+      }
+    },
+    "Not saved to disk": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se guarda en disco"
+          }
+        }
+      }
+    },
+    "Nothing is saved while on. Pasting keeps working.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se guarda nada mientras está activo. Pegar sigue funcionando."
+          }
+        }
+      }
+    },
+    "Off · your private iCloud database, with Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apagado · tu base privada de iCloud, con Pro"
+          }
+        }
+      }
+    },
+    "Open the Privacy Center to verify": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre el Centro de privacidad para verificar"
+          }
+        }
+      }
+    },
+    "Optional diagnostics · Recent issues": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnósticos opcionales · Problemas recientes"
+          }
+        }
+      }
+    },
+    "Pins, boards and snippets stay. Undo brings the clips back for a few seconds.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los fijados, tableros y snippets se quedan. Deshacer recupera los clips durante unos segundos."
+          }
+        }
+      }
+    },
+    "SQLCipher database, sealed image and file blobs. The key lives in your login Keychain.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Base de datos SQLCipher, imágenes y archivos sellados. La llave vive en tu llavero de inicio de sesión."
+          }
+        }
+      }
+    },
+    "SQLCipher · key in your Keychain": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SQLCipher · llave en tu llavero"
+          }
+        }
+      }
+    },
+    "Searches and Spotlight": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Búsquedas y Spotlight"
+          }
+        }
+      }
+    },
+    "So a pause never silently becomes a week.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para que una pausa nunca se convierta en una semana sin darte cuenta."
+          }
+        }
+      }
+    },
+    "Sync activity": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actividad de sincronización"
+          }
+        }
+      }
+    },
+    "Sync failed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La sincronización falló"
+          }
+        }
+      }
+    },
+    "Sync off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronización apagada"
+          }
+        }
+      }
+    },
+    "Sync paused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronización en pausa"
+          }
+        }
+      }
+    },
+    "Syncing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronizando"
+          }
+        }
+      }
+    },
+    "The database file isn’t encrypted.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo de la base de datos no está cifrado."
+          }
+        }
+      }
+    },
+    "Verified · SQLCipher %@ · unreadable without its key": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verificado · SQLCipher %@ · ilegible sin su llave"
+          }
+        }
+      }
+    },
+    "Verify": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verificar"
+          }
+        }
+      }
+    },
+    "Verify, don’t trust": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica, no confíes"
+          }
+        }
+      }
+    },
+    "Zoom, Teams and Screen Sharing are detected.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se detectan Zoom, Teams y Compartir pantalla."
+          }
+        }
+      }
+    },
+    "iCloud private database · Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Base privada de iCloud · Pro"
+          }
+        }
+      }
+    },
+    "iCloud private database": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Base privada de iCloud"
+          }
+        }
+      }
+    },
+    "protected copies · never stored": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "copias protegidas · nunca guardadas"
+          }
+        }
+      }
+    },
+    "secrets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "secretos"
+          }
+        }
+      }
+    },
+    "images": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "imágenes"
+          }
+        }
+      }
+    },
+    "everything else": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "todo lo demás"
+          }
+        }
+      }
+    },
+    "pins, boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fijados, tableros"
+          }
+        }
+      }
+    },
+    "never": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nunca"
+          }
+        }
+      }
+    },
+    "%lld y": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld y"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld y"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld año"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld años"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld mo": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mo"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mo"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mes"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld meses"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Secrets and card numbers stay masked; revealing one takes a click.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los secretos y números de tarjeta siguen ocultos; revelar uno requiere un clic."
+          }
+        }
+      }
+    },
+    "Only snippets and pinned clips reach the system index — never raw history, secrets or expiring clips. Turning this off removes them at once.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo los snippets y los clips fijados llegan al índice del sistema — nunca el historial, secretos ni clips que caducan. Al apagarlo se quitan de inmediato."
+          }
+        }
+      }
+    },
+    "Versions, settings and counters — never clipboard content.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versiones, ajustes y contadores — nunca contenido del portapapeles."
+          }
+        }
+      }
+    },
+    "Password managers and some apps mark a copy as concealed, transient or auto-generated. Gancho senses the mark and stops there: the content is never read, stored, indexed or synced. This cannot be turned off.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los gestores de contraseñas y algunas apps marcan una copia como oculta, transitoria o autogenerada. Gancho detecta la marca y se detiene ahí: el contenido nunca se lee, guarda, indexa ni sincroniza. Esto no se puede desactivar."
+          }
+        }
+      }
+    },
+    "Change a picker below and its marker moves. Older clips are deleted on this Mac and, when sync is on, on your other devices.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambia un selector abajo y su marcador se mueve. Los clips más antiguos se borran en esta Mac y, con la sincronización activa, en tus otros dispositivos."
+          }
+        }
+      }
+    },
+    "On-device titles, semantic retrieval, screenshot OCR and secret detection — each a toggle, all local.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Títulos en el dispositivo, búsqueda semántica, OCR de capturas y detección de secretos — cada uno con su interruptor, todo local."
+          }
+        }
+      }
+    },
+    "Nothing to forget": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada que olvidar"
+          }
+        }
+      }
+    },
+    "On · %lld calls this week · %lld denied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activo · %1$lld llamadas esta semana · %2$lld rechazadas"
+          }
+        }
+      }
+    },
+    "Off · %lld calls this week · %lld denied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apagado · %1$lld llamadas esta semana · %2$lld rechazadas"
+          }
+        }
+      }
+    },
+    "Checking encryption…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprobando el cifrado…"
+          }
+        }
+      }
+    },
+    "No content analytics · receipt · agents": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin analítica de contenido · recibo · agentes"
+          }
+        }
+      }
+    },
+    "There’s no database file on this Mac to check.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay un archivo de base de datos en esta Mac para comprobar."
           }
         }
       }
