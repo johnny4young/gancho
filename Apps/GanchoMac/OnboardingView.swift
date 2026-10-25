@@ -1,175 +1,176 @@
 import AppKit
 import Combine
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import KeyboardShortcuts
 import SwiftUI
 
-/// Three-screen welcome: privacy promise up
-/// top, teach the core loop, configure the hotkey. Shown once
-/// (`hasSeenWelcome`), skippable, reopenable from the menu.
+/// Four-step welcome: the privacy promise, the one permission, the global
+/// shortcuts, then a live first copy that ends inside the real panel. Shown
+/// once (`has-seen-welcome`), skippable, reopenable from the menu.
 struct OnboardingView: View {
-    @Environment(AppModel.self) private var model
-    @State private var step = 0
-    @State private var accessibilityGranted = AXIsProcessTrusted()
-    @State private var showMigrationImporter = false
+    @Environment(AppModel.self) var model
+    @State var step = Self.initialStep
+    @State var accessibilityGranted = Self.isAccessibilityTrusted()
+    @State var showMigrationImporter = false
+    @State var panelShortcut = KeyboardShortcuts.getShortcut(for: .togglePanel)
 
     private let accessibilityCheck = Timer.publish(every: 1, on: .main, in: .common)
         .autoconnect()
 
     var body: some View {
-        VStack(spacing: GanchoTokens.Spacing.lg) {
-            switch step {
-            case 0: valueStep
-            case 1: permissionStep
-            default: shortcutStep
-            }
-
-            HStack {
-                Button("Skip") { finish(completed: false, openPanel: false) }
-                    .accessibilityIdentifier("onboarding-skip")
-                Spacer()
-                if step > 0 {
-                    Button("Back") { step -= 1 }
-                        .accessibilityIdentifier("onboarding-back")
+        VStack(alignment: .leading, spacing: 10) {
+            Group {
+                switch step {
+                case .promise: promiseStep
+                case .permission: permissionStep
+                case .shortcuts: OnboardingShortcutsStep()
+                case .firstCopy: firstCopyStep
                 }
-                Button(step < 2 ? "Continue" : "Open Gancho panel") {
-                    if step < 2 {
-                        step += 1
-                    } else {
-                        finish(completed: true, openPanel: true)
-                    }
-                }
-                .keyboardShortcut(.defaultAction)
-                .ganchoButtonStyle(.primary)
-                .accessibilityIdentifier("onboarding-continue")
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer(minLength: 0)
+            footer
         }
-        .padding(GanchoTokens.Spacing.xl)
-        .frame(width: 520, height: 420)
+        .padding(.top, 36)
+        .padding(.horizontal, 26)
+        .padding(.bottom, 20)
+        // The window fixes the height; the steps draw under its transparent title bar.
+        .frame(width: 520)
+        .frame(maxHeight: .infinity)
+        .overlay(alignment: .topTrailing) { pageDots.padding(.top, 14).padding(.trailing, 16) }
+        .ignoresSafeArea()
         .sheet(isPresented: $showMigrationImporter) {
             MigrationImportView()
         }
-    }
-
-    /// Screen 1 — value, demonstrated LIVE: the monitor is already running,
-    /// so "copy something" genuinely makes it appear right here.
-    private var valueStep: some View {
-        VStack(spacing: GanchoTokens.Spacing.md) {
-            Image("GanchoMark")
-                .resizable()
-                .frame(width: 44, height: 44)
-                .accessibilityHidden(true)
-            Text("Everything you copy, safe and searchable")
-                .font(.title2.bold())
-            Text("Try it now: copy any text — it appears below instantly.")
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: GanchoTokens.Spacing.xxs) {
-                ForEach(model.recentItems.prefix(3)) { item in
-                    ClipCard(item: item)
-                }
-                if model.recentItems.isEmpty {
-                    Text("Copy something — it will appear here.")
-                        .foregroundStyle(.tertiary)
-                        .padding(GanchoTokens.Spacing.md)
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 140, alignment: .top)
-            .ganchoSurface()
-            Text("Your clips never leave this Mac unless YOU turn on iCloud sync.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            HStack(spacing: GanchoTokens.Spacing.sm) {
-                Label(
-                    "Your first clips get smart AI titles, free and on-device.",
-                    systemImage: "sparkles"
-                )
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
-                Spacer(minLength: 0)
-                Button("Import clipboard history…", systemImage: "arrow.down.doc") {
-                    showMigrationImporter = true
-                }
-                .accessibilityIdentifier("onboarding-open-migration-importer")
-            }
-            .font(.footnote)
-        }
-    }
-
-    /// Screen 2 — Accessibility, honestly explained, with the deep link and
-    /// a live status check (no restart needed once granted).
-    private var permissionStep: some View {
-        VStack(spacing: GanchoTokens.Spacing.md) {
-            Image(systemName: accessibilityGranted ? "checkmark.seal.fill" : "hand.raised")
-                .font(.system(size: 44))
-                .foregroundStyle(
-                    ReadableInk(
-                        base: accessibilityGranted
-                            ? GanchoTokens.Palette.success : GanchoTokens.Palette.warning))
-            Text("One permission for instant pasting")
-                .font(.title2.bold())
-            Text(
-                // swiftlint:disable:next line_length
-                "To paste a clip directly into the app you're using, macOS requires the Accessibility permission. Gancho uses it ONLY to send the paste keystroke — never to read your screen."
-            )
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-
-            if accessibilityGranted {
-                Label("Permission granted", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(GanchoTokens.Palette.brandText)
-            } else {
-                ActionButton(
-                    "Open System Settings", systemImage: "gear",
-                    identifier: "open-accessibility-settings"
-                ) {
-                    NSWorkspace.shared.open(
-                        URL(
-                            string:
-                                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-                        )!)
-                }
-                Text("Without it, Gancho still works: clips are copied and you paste with ⌘V.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-        }
         .onReceive(accessibilityCheck) { _ in
-            accessibilityGranted = AXIsProcessTrusted()
+            accessibilityGranted = Self.isAccessibilityTrusted()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) {
+            _ in
+            panelShortcut = KeyboardShortcuts.getShortcut(for: .togglePanel)
         }
     }
 
-    /// Screen 3 — the global shortcut + guided first paste.
-    private var shortcutStep: some View {
-        VStack(spacing: GanchoTokens.Spacing.md) {
-            Image(systemName: "keyboard")
-                .font(.system(size: 44))
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
-            Text("Your clipboard, one shortcut away")
-                .font(.title2.bold())
-            ShortcutRecorder("Panel shortcut:", name: .togglePanel)
-            Text(
-                // swiftlint:disable:next line_length
-                "Press the shortcut, pick a clip with ↑↓, hit Enter — it pastes right where you were typing. That's the whole loop."
-            )
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
+    private var footer: some View {
+        HStack(spacing: GanchoTokens.Spacing.xs) {
+            if step.leadingAction == .advance {
+                Button("Skip for now") { perform(.advance) }
+                    .accessibilityIdentifier("onboarding-skip-for-now")
+            } else {
+                Button("Skip") { perform(.close) }
+                    .accessibilityIdentifier("onboarding-skip")
+            }
+            Spacer()
+            if let previous = step.previous {
+                Button("Back") { step = previous }
+                    .accessibilityIdentifier("onboarding-back")
+            }
+            let action = step.primaryAction(accessibilityGranted: accessibilityGranted)
+            Button {
+                perform(action)
+            } label: {
+                primaryLabel(action)
+            }
+            .keyboardShortcut(.defaultAction)
+            .ganchoButtonStyle(.primary)
+            .accessibilityIdentifier(
+                action == .openAccessibilitySettings
+                    ? "open-accessibility-settings" : "onboarding-continue")
+        }
+    }
 
-            Label(
-                "The real panel opens next so you can search and reuse a clip now.",
-                systemImage: "arrow.right.circle"
-            )
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+    private func primaryLabel(_ action: OnboardingAction) -> Text {
+        switch action {
+        case .openAccessibilitySettings: Text("Open System Settings")
+        case .openPanel:
+            if let panelShortcut {
+                Text("Open Gancho panel \(panelShortcut.description)")
+            } else {
+                Text("Open Gancho panel")
+            }
+        case .advance, .close: Text("Continue")
+        }
+    }
 
-            Text("If direct paste is unavailable, Gancho copies the clip so you can press ⌘V.")
-                .font(.footnote)
+    private func perform(_ action: OnboardingAction) {
+        switch action {
+        case .advance:
+            if let next = step.next { step = next }
+        case .close:
+            model.finishOnboarding(completed: false, openPanel: false)
+        case .openAccessibilitySettings:
+            NSWorkspace.shared.open(
+                URL(
+                    string:
+                        "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+                )!)
+        case .openPanel:
+            model.finishOnboarding(completed: true, openPanel: true)
+        }
+    }
+
+    private var pageDots: some View {
+        let count = OnboardingStep.allCases.count
+        return HStack(spacing: 4) {
+            ForEach(OnboardingStep.allCases, id: \.self) { dot in
+                Circle()
+                    .fill(dot == step ? AnyShapeStyle(.primary) : AnyShapeStyle(.quaternary))
+                    .frame(width: 6, height: 6)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Step \(step.rawValue + 1) of \(count)"))
+        .accessibilityIdentifier("onboarding-page-dots")
+    }
+
+    private static var initialStep: OnboardingStep {
+        #if DEBUG
+            // Snapshots open each step directly.
+            if let index = CommandLine.arguments.firstIndex(of: "-ui-test-onboarding-step"),
+                CommandLine.arguments.indices.contains(index + 1),
+                let raw = Int(CommandLine.arguments[index + 1]),
+                let step = OnboardingStep(rawValue: raw)
+            {
+                return step
+            }
+        #endif
+        return .promise
+    }
+
+    private static func isAccessibilityTrusted() -> Bool {
+        #if DEBUG
+            // Pins the permission step's state, whatever this Mac has granted.
+            if let index = CommandLine.arguments.firstIndex(of: "-ui-test-accessibility-trusted"),
+                CommandLine.arguments.indices.contains(index + 1)
+            {
+                return CommandLine.arguments[index + 1] == "YES"
+            }
+        #endif
+        return AXIsProcessTrusted()
+    }
+}
+
+/// The heading every step shares: an icon, a title and a short body.
+struct OnboardingStepHeader<Icon: View>: View {
+    let title: LocalizedStringKey
+    let message: Text
+    @ViewBuilder let icon: Icon
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+            icon.accessibilityHidden(true)
+            Text(title)
+                .font(.system(size: 19, weight: .heavy))
+                .tracking(-0.19)
+                .accessibilityAddTraits(.isHeader)
+            message
+                .font(.system(size: 12.5))
                 .foregroundStyle(.secondary)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    private func finish(completed: Bool, openPanel: Bool) {
-        model.finishOnboarding(completed: completed, openPanel: openPanel)
     }
 }
 
@@ -182,11 +183,16 @@ final class WelcomeWindowController {
         if window == nil {
             let hosting = NSHostingController(
                 rootView: OnboardingView().environment(model).ganchoTinted())
+            hosting.sizingOptions = []
             let created = NSWindow(contentViewController: hosting)
+            // Kept for the window menu and accessibility; the steps carry their own titles.
             created.title = String(localized: "Welcome to Gancho")
-            created.styleMask = [.titled, .closable]
+            created.styleMask = [.titled, .closable, .fullSizeContentView]
+            created.titleVisibility = .hidden
+            created.titlebarAppearsTransparent = true
             created.isReleasedWhenClosed = false
-            created.sizeToFitContentAndCenter()
+            created.setContentSize(NSSize(width: 520, height: 420))
+            created.center()
             window = created
         }
         window?.makeKeyAndOrderFront(nil)
