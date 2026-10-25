@@ -20,14 +20,19 @@ public enum ClipKindFilter: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    public func matches(_ kind: ClipContentKind) -> Bool {
+    /// The kinds this pill keeps (nil for All), so a store can filter in SQL.
+    public var kinds: Set<ClipContentKind>? {
         switch self {
-        case .all: true
-        case .links: kind == .url
-        case .code: kind == .code || kind == .json || kind == .uuid
-        case .colors: kind == .color
-        case .images: kind == .image
-        case .secrets: kind == .secret || kind == .jwt || kind == .creditCard
+        case .all: nil
+        case .links: [.url]
+        case .code: [.code, .json, .uuid]
+        case .colors: [.color]
+        case .images: [.image]
+        case .secrets: [.secret, .jwt, .creditCard]
         }
+    }
+
+    public func matches(_ kind: ClipContentKind) -> Bool {
+        kinds?.contains(kind) ?? true
     }
 }

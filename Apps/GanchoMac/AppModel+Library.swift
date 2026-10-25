@@ -1,3 +1,4 @@
+import Foundation
 import GanchoAppCore
 import GanchoKit
 
@@ -17,15 +18,66 @@ extension AppModel {
     }
 
     func fetchLibraryClips(
-        scope: LibraryClipScope, offset: Int, limit: Int
+        _ request: LibraryListRequest, offset: Int, limit: Int
     ) async throws -> [ClipItem] {
-        switch scope {
-        case .allClips, .pinned:
-            return try await store.items(offset: offset, limit: limit)
-        case .board(let id):
-            return try await fullStore?.items(inBoard: id, offset: offset, limit: limit) ?? []
-        case .savedFilter(let rule):
-            return try await fullStore?.items(matching: rule, limit: limit) ?? []
+        if case .savedFilter(let rule) = request.scope {
+            guard let fullStore else { return [] }
+            return try await fullStore.items(matching: rule, limit: limit)
         }
+        let kinds = request.kind.kinds
+        if !request.searchText.isEmpty {
+            var query = ClipSearchQuery(text: request.searchText, kinds: kinds)
+            switch request.scope {
+            case .pinned: query.pinnedOnly = true
+            case .board(let id): query.boardID = id
+            case .allClips, .savedFilter: break
+            }
+            if let fullStore { return try await fullStore.search(query, limit: limit) }
+            return try await store.items(offset: 0, limit: limit).filter {
+                LibraryOrdering.matches($0, text: request.searchText)
+            }
+        }
+        guard let fullStore, let browse = Self.browseQuery(request) else {
+            // The in-memory fallback has no boards; it narrows its recent page instead.
+            return try await store.items(offset: offset, limit: limit).filter {
+                request.kind.matches($0.kind) && (request.scope != .pinned || $0.isPinned)
+            }
+        }
+        return try await fullStore.libraryItems(browse, offset: offset, limit: limit)
+    }
+
+    func countLibraryClips(_ request: LibraryListRequest) async throws -> Int {
+        guard let fullStore, let browse = Self.browseQuery(request) else {
+            throw CancellationError()
+        }
+        return try await fullStore.libraryCount(browse)
+    }
+
+    /// Board membership for the cards on screen, in one read.
+    func libraryMembership(for clips: [ClipItem]) async -> [UUID: Set<UUID>] {
+        guard let fullStore else { return [:] }
+        return (try? await fullStore.boardIDs(forClips: clips.map(\.id))) ?? [:]
+    }
+
+    /// How many clips each saved filter holds; a filter that can't be read is left out.
+    func savedFilterCounts(_ rules: [SmartCollectionRule]) async -> [UUID: Int] {
+        guard let fullStore else { return [:] }
+        var counts: [UUID: Int] = [:]
+        for rule in rules {
+            if let count = try? await fullStore.count(matching: rule) { counts[rule.id] = count }
+        }
+        return counts
+    }
+
+    private static func browseQuery(_ request: LibraryListRequest) -> LibraryBrowseQuery? {
+        let scope: LibraryBrowseQuery.Scope
+        switch request.scope {
+        case .allClips: scope = .all
+        case .pinned: scope = .pinned
+        case .board(let id): scope = .board(id)
+        case .savedFilter: return nil
+        }
+        return LibraryBrowseQuery(
+            scope: scope, kinds: request.kind.kinds, oldestFirst: request.oldestFirst)
     }
 }
