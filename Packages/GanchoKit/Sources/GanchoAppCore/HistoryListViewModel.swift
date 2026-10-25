@@ -25,28 +25,36 @@ public typealias HistoryListSource = ClipListSource
     /// Date-grouped sections (Pinned + Today/Yesterday/…) for the recent view.
     public var sections: [ClipSectionGroup] = []
     public var query = "" {
-        didSet { if query != oldValue { invalidateRequests() } }
+        didSet { if query != oldValue { requestChanged() } }
     }
     public var kindFilter: ClipContentKind? {
         didSet {
-            if kindFilter != oldValue { invalidateRequests() }
+            if kindFilter != oldValue { requestChanged() }
             rebuildSections()
         }
     }
     /// nil = "All clips"; otherwise the selected board.
     public var selectedBoardID: UUID? {
-        didSet { if selectedBoardID != oldValue { invalidateRequests() } }
+        didSet { if selectedBoardID != oldValue { requestChanged() } }
     }
     /// nil = all apps; otherwise the source bundle identifier intersected with
     /// text, type, and board filters.
     public var selectedSourceAppBundleID: String? {
-        didSet { if selectedSourceAppBundleID != oldValue { invalidateRequests() } }
+        didSet { if selectedSourceAppBundleID != oldValue { requestChanged() } }
     }
     public var sourceApps: [ClipSourceApp] = []
     /// Clips related by meaning to the typed query, listed after the results
     /// and never repeating one of them.
     public let meaning = MeaningSearchState()
-    public private(set) var related: [ClipItem] = []
+    private var relatedResults: [ClipItem] = []
+    /// What the list shows as related: kept while a refresh of the same search
+    /// re-runs it, dropped when the search failed or is unavailable.
+    public var related: [ClipItem] {
+        switch meaning.status {
+        case .unavailable, .queryTooLong: []
+        default: relatedResults
+        }
+    }
     /// The shell's on-device retrieval; nil leaves related results off.
     public weak var meaningSource: (any MeaningSearchSource)?
 
@@ -108,9 +116,14 @@ public typealias HistoryListSource = ClipListSource
 
     /// Both searches and pages belong to one request generation. An old page
     /// cannot append to a same-sized refresh or clear a newer page's spinner.
-    private func invalidateRequests() {
+    /// A new query or filter: the old related clips belong to another search.
+    private func requestChanged() {
         meaning.invalidate()
-        related = []
+        relatedResults = []
+        invalidateRequests()
+    }
+
+    private func invalidateRequests() {
         searchFailure = nil
         isSearching = true
         searchGeneration += 1
@@ -151,11 +164,11 @@ public typealias HistoryListSource = ClipListSource
             sourceAppBundleID: selectedSourceAppBundleID, boardID: selectedBoardID)
         meaning.start(query: requested, source: meaningSource) { [weak self] items in
             guard let self, generation == searchGeneration else { return [] }
-            related =
+            relatedResults =
                 HybridSearchResult(
                     conventional: captures, related: items, semanticState: .ready
                 ).related
-            return related
+            return relatedResults
         }
     }
 
@@ -193,19 +206,30 @@ public typealias HistoryListSource = ClipListSource
     /// A header's count, only when the loaded rows can vouch for it: the last
     /// loaded group may still grow with the next page.
     public func headerCount(for group: ClipSectionGroup) -> HeaderCount? {
-        guard reachedEnd || group.section != sections.last?.section else { return nil }
+        let complete = reachedEnd && !reachedSearchCeiling
+        guard complete || group.section != sections.last?.section else { return nil }
         return HeaderCount(value: group.clips.count, isAtLeast: false)
     }
 
     /// The flat list's count. A ranked search stops at its ceiling, so a full
     /// one reads as "at least"; a list still paging shows none.
     public var listCount: HeaderCount? {
-        let count = visibleClips.count
+        guard reachedEnd else { return nil }
+        return HeaderCount(value: visibleClips.count, isAtLeast: reachedSearchCeiling)
+    }
+
+    /// A text, type or app search returns at most a ceiling of rows and then
+    /// reports its end, though more may match.
+    private var reachedSearchCeiling: Bool {
+        let ceiling: Int
         if !query.isEmpty {
-            let ceiling = ClipListConfiguration.iOSHistory.searchLimitWithQuery
-            return HeaderCount(value: count, isAtLeast: count >= ceiling)
+            ceiling = ClipListConfiguration.iOSHistory.searchLimitWithQuery
+        } else if kindFilter != nil || selectedSourceAppBundleID != nil {
+            ceiling = ClipListCore.searchLimitWithoutQuery
+        } else {
+            return false
         }
-        return reachedEnd ? HeaderCount(value: count, isAtLeast: false) : nil
+        return captures.count >= ceiling
     }
 
     /// Rebuild the cached date sections — after a load, or when the kind filter

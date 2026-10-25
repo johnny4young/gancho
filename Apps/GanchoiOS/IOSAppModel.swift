@@ -57,6 +57,8 @@ final class IOSAppModel {
     /// How many clips the active scope holds (All clips or the selected board),
     /// for its chip on the rail. Refreshed with every list load.
     var activeScopeCount: Int?
+    @ObservationIgnored private var countedScope: UUID??
+    @ObservationIgnored private var scopeCountRequest = 0
     /// This device's name, so rows from another device can say where they came from.
     @ObservationIgnored lazy var currentDeviceName = PlatformDeviceProvenance.currentDeviceName()
     @ObservationIgnored private var recentPasteSaveTask: Task<Void, Never>?
@@ -671,12 +673,18 @@ final class IOSAppModel {
     }
 
     private func refreshActiveScopeCount() async {
+        // Typing doesn't change a scope's total: count when the scope changes,
+        // or on a load with no query (which every store change triggers).
+        guard query.isEmpty || countedScope != .some(selectedBoardID) else { return }
+        scopeCountRequest += 1
+        let request = scopeCountRequest
         let board = selectedBoardID.flatMap { id in boards.first { $0.id == id } }
         let count: Int
         if let board { count = await clipCount(in: board) } else { count = await clipCount() }
-        // A board picked while counting gets its own count from its own load.
-        guard board?.id == selectedBoardID else { return }
+        // Only the newest count lands, and only for the scope still shown.
+        guard request == scopeCountRequest, board?.id == selectedBoardID else { return }
         activeScopeCount = count
+        countedScope = .some(selectedBoardID)
     }
 
     func headerCount(for group: ClipSectionGroup) -> HeaderCount? {
@@ -1062,6 +1070,11 @@ final class IOSAppModel {
     /// Metadata-only refresh — safe on every activation, never alerts.
     func refreshHints() async {
         hints = await source.hints()
+        #if DEBUG
+            if let pinned = Self.uiTestPinnedHints(changeCount: hints.changeCount) {
+                hints = pinned
+            }
+        #endif
         await search()
     }
 

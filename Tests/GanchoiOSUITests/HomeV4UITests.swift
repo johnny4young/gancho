@@ -24,6 +24,20 @@ final class HomeV4UITests: XCTestCase {
     }
 
     @MainActor
+    func testClipboardCardNamesTheSensedKind() throws {
+        let app = try launch(["-ui-test-pasteboard-hints", "link"])
+        defer { app.terminate() }
+        let card = app.descendants(matching: .any)["pasteboard-status-card"].firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10), "something on the clipboard is a card")
+        XCTAssertEqual(
+            app.staticTexts["pasteboard-status-title"].firstMatch.label, "Link on your clipboard")
+        XCTAssertTrue(app.buttons["pasteboard-info"].firstMatch.exists, "the ⓘ stays")
+        XCTAssertFalse(
+            app.buttons["pasteboard-saved-open"].firstMatch.exists, "nothing saved, nothing to open"
+        )
+    }
+
+    @MainActor
     func testActiveFiltersShowAsChipsAndClear() throws {
         let app = try launch(["-seed-source-apps"])
         defer { app.terminate() }

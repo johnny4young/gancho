@@ -114,6 +114,20 @@ extension IOSAppModel {
         return .seconds(2)
     }
 
+    #if DEBUG
+        /// `-ui-test-pasteboard-hints link`: the card as if a link were on the
+        /// clipboard, without writing to the simulator's (synced) clipboard.
+        static func uiTestPinnedHints(
+            changeCount: Int, arguments: [String] = ProcessInfo.processInfo.arguments
+        ) -> IntentionalPasteboardSource.ContentHints? {
+            guard let index = arguments.firstIndex(of: "-ui-test-pasteboard-hints"),
+                arguments.indices.contains(index + 1), arguments[index + 1] == "link"
+            else { return nil }
+            return IntentionalPasteboardSource.ContentHints(
+                hasContent: true, probableWebURL: true, changeCount: changeCount)
+        }
+    #endif
+
     /// The card's Open window; `-ui-test-saved-open-window` lengthens it for
     /// a hosted runner that samples the screen seconds apart.
     static func recentPasteSaveWindow(

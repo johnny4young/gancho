@@ -68,8 +68,8 @@ extension GRDBClipboardStore {
     /// Clips that have no vector at all — synced from another device, or saved
     /// before semantic search was on — newest first, one bounded batch below
     /// `beforeRowID`, so a clip that can't be embedded never blocks the rest.
-    /// Same eligibility as the refresh pass: visible, not sensitive, not a
-    /// kind the guarded write always rejects.
+    /// Same eligibility as the guarded write (`saveEmbeddingIfCurrent`), so a
+    /// clip it would always reject, like rich text kept as a blob, is never read.
     public func unembeddedClips(
         limit: Int, beforeRowID: Int64?
     ) async throws
@@ -81,6 +81,7 @@ extension GRDBClipboardStore {
         return try await writer.read { db in
             var arguments: [any DatabaseValueConvertible] = excludedKinds
             arguments.append(Date.now)
+            arguments.append("public.file-url")
             arguments.append(beforeRowID ?? Int64.max)
             arguments.append(limit)
             return try Row.fetchAll(
@@ -90,6 +91,9 @@ extension GRDBClipboardStore {
                     LEFT JOIN clip_embedding e ON e.clipID = clip.id
                     WHERE e.clipID IS NULL AND clip.isArchived = 0 AND clip.isSensitive = 0
                       AND clip.kind NOT IN (\(placeholders)) AND \(Self.unexpiredPredicate)
+                      AND clip.contentText IS NOT NULL AND clip.contentText != ''
+                      AND clip.contentBlobHash IS NULL
+                      AND (clip.contentTypeIdentifier IS NULL OR clip.contentTypeIdentifier != ?)
                       AND clip.rowid < ?
                     ORDER BY clip.rowid DESC
                     LIMIT ?

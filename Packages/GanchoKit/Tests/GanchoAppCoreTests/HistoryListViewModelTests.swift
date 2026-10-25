@@ -153,6 +153,15 @@ struct HistoryListViewModelTests {
         source.searchResults = items(3)
         await model.search()
         #expect(model.listCount == HeaderCount(value: 3, isAtLeast: false))
+
+        // An app filter with no text is a search too, with its own ceiling.
+        model.query = ""
+        model.selectedSourceAppBundleID = "com.apple.mobilesafari"
+        source.searchResults = items(ClipListCore.searchLimitWithoutQuery + 1)
+        await model.search()
+        #expect(
+            model.listCount
+                == HeaderCount(value: ClipListCore.searchLimitWithoutQuery, isAtLeast: true))
     }
 
     @Test("A typed search lists related clips after the results, without repeating one")
@@ -174,6 +183,11 @@ struct HistoryListViewModelTests {
         }
         #expect(model.related.map(\.id) == [extra.id], "a result never repeats as related")
         #expect(meaning.lastQuery?.kinds == [.text], "the filters scope related clips too")
+
+        await model.search()
+        #expect(
+            model.related.map(\.id) == [extra.id],
+            "a refresh of the same search keeps its related clips while it re-runs")
 
         model.query = "other"
         #expect(model.related.isEmpty, "a new query drops the old related clips at once")

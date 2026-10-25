@@ -49,6 +49,9 @@ struct SemanticSearchTests {
         for item in [older, embedded, sensitive, image, expired, newer] {
             try await store.insert(item, content: .text(item.preview))
         }
+        let rich = ClipItem(kind: .richText, preview: "rich", contentHash: "u7")
+        try await store.insert(
+            rich, content: .binary(data: Data("{\\rtf1 rich}".utf8), typeIdentifier: "public.rtf"))
         try await store.saveEmbedding(clipID: embedded.id, vector: [1, 0, 0])
 
         let all = try await store.unembeddedClips(limit: 10, beforeRowID: nil)
