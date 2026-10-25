@@ -239,7 +239,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         return renderer.nsImage
     }
 
-    private static func stateTitle(_ chip: PanelCaptureChip) -> String {
+    static func stateTitle(_ chip: PanelCaptureChip) -> String {
         switch chip {
         case .capturing: String(localized: "Capturing")
         case .privateMode(let end?):

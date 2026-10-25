@@ -22,11 +22,10 @@ final class SettingsPrivacyUITests: XCTestCase {
         let privacyNote = app.staticTexts["spotlight-indexing-privacy-note"].firstMatch
         XCTAssertTrue(privacyNote.waitForExistence(timeout: 3))
 
-        let privacySettings = try XCTUnwrap(
-            settings.scrollViews.allElementsBoundByIndex.first {
-                $0.frame.height > 200 && $0.frame.contains(spotlightToggle.frame)
-            },
-            "the vertical Privacy form must be exposed as a scroll view")
+        let privacySettings = settings.scrollViews
+            .containing(.any, identifier: "spotlight-indexing-toggle").firstMatch
+        XCTAssertTrue(
+            privacySettings.exists, "the vertical Privacy form must be exposed as a scroll view")
         privacySettings.scroll(byDeltaX: 0, deltaY: -140)
 
         try keepRender(of: "Settings", in: app, named: "settings-spotlight-indexing")
@@ -52,5 +51,43 @@ final class SettingsPrivacyUITests: XCTestCase {
         XCTAssertTrue(never.waitForExistence(timeout: 3))
         never.click()
         XCTAssertEqual(picker.value as? String, "Until I turn it off")
+    }
+
+    /// Four answers before any toggle, and the Privacy Center one click away on every pane.
+    @MainActor
+    func testStatusTilesAndThePrivacyCenterCard() throws {
+        let app = try launchSettingsWindow(extraArguments: [
+            "-use-temp-durable-store", "-start-capture-paused",
+            "-ui-test-defaults-suite",
+            "com.johnny4young.gancho.uitests.settings-tiles.\(UUID().uuidString)"
+        ])
+        defer { app.terminate() }
+        let settings = app.windows["Settings"].firstMatch
+        let privacyTab = settings.buttons["settings-tab-privacy"].firstMatch
+        XCTAssertTrue(privacyTab.waitForExistence(timeout: 3))
+        privacyTab.click()
+        for id in [
+            "privacy-status-capturing", "privacy-status-encrypted", "privacy-status-skipped",
+            "privacy-status-sync"
+        ] {
+            XCTAssertTrue(
+                settings.descendants(matching: .any)[id].firstMatch.waitForExistence(timeout: 5), id
+            )
+        }
+        let encrypted = settings.descendants(matching: .any)["privacy-status-encrypted"].firstMatch
+        let verified = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "label CONTAINS %@ OR value CONTAINS %@", "Encrypted at rest",
+                "Encrypted at rest"),
+            object: encrypted)
+        XCTAssertEqual(XCTWaiter.wait(for: [verified], timeout: 5), .completed)
+
+        settings.buttons["settings-tab-retention"].firstMatch.click()
+        let card = settings.buttons["settings-privacy-center-card"].firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 3))
+        card.click()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["privacy-center"].firstMatch
+                .waitForExistence(timeout: 5))
     }
 }

@@ -426,7 +426,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
             "-AppleKeyboardUIMode", keyboardUIMode,
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)",
-            "-ui-test-snapshot-dir", renders.path
+            "-ui-test-snapshot-dir", renders.path, "-ui-test-privacy-overview", "128:2100000:12"
         ]
     }
 

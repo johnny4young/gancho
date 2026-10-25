@@ -8,7 +8,7 @@ import SwiftUI
 /// read, and the telemetry boundary. Every number is computed on this Mac;
 /// optional diagnostics never carry clipboard content.
 struct PrivacyCenterView: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppModel.self) var model
     @State private var receipt = PrivateActivityReceipt.empty()
     @State private var masked = 0
     @State private var synced = 0
@@ -17,17 +17,17 @@ struct PrivacyCenterView: View {
     @State private var unrecoverableSynced = 0
     @State private var confirmsUnrecoverableRemoval = false
     @State private var mcpAccesses: [MCPAccessEvent] = []
-    @State private var mcpCalls = 0
+    @State var mcpCalls = 0
     @State private var mcpResultsReturned = 0
-    @State private var mcpDenied = 0
+    @State var mcpDenied = 0
+    /// The last Verify run; nil until the button is pressed.
+    @State var verification: StoreEncryptionReport?
+    @State var verifying = false
 
     private var weekAgo: Date { Date(timeIntervalSinceNow: -7 * 86_400) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
-            Label("Privacy Center", systemImage: "lock.shield")
-                .font(.title2.bold())
-
             heroClaim
 
             if model.storageIsEphemeral {
@@ -55,6 +55,8 @@ struct PrivacyCenterView: View {
             }
 
             Form {
+                verifySection
+
                 Section {
                     LabeledContent("Items reused", value: "\(receipt.reusedItems)")
                         .accessibilityIdentifier("private-receipt-reused-count")
@@ -77,7 +79,7 @@ struct PrivacyCenterView: View {
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    Button("Clear activity receipt", role: .destructive) {
+                    Button("Clear receipt", role: .destructive) {
                         confirmsReceiptClear = true
                     }
                     .accessibilityIdentifier("clear-private-receipt-button")
@@ -117,25 +119,60 @@ struct PrivacyCenterView: View {
                     }
                 }
 
-                Section("On this Mac now") {
-                    LabeledContent("Secrets masked", value: "\(masked)")
-                    LabeledContent("Items synchronized", value: "\(synced)")
-                }
-
-                Section("iCloud sync") {
-                    SyncStatusView(status: model.syncStatus, showsSuggestion: true)
-                    Button("Force sync") { model.forceSync() }
-                        .accessibilityIdentifier("force-sync")
-                    ForEach(
-                        Array(model.privacyEvents.recentSyncEvents(limit: 8).enumerated()),
-                        id: \.offset
-                    ) { _, event in
-                        LabeledContent {
-                            Text(event.occurredAt, style: .time)
-                        } label: {
-                            Label(syncEventTitle(event), systemImage: syncEventSymbol(event.kind))
+                Section("Optional diagnostics · Recent issues") {
+                    Toggle(
+                        "Share anonymous usage diagnostics",
+                        isOn: Binding(
+                            get: { model.telemetryConsent == .enabled },
+                            set: { model.setTelemetryConsent($0 ? .enabled : .disabled) })
+                    )
+                    .accessibilityIdentifier("privacy-telemetry-consent-toggle")
+                    let issues = Array(model.diagnostics.entries.reversed())
+                    if issues.isEmpty {
+                        Text(
+                            "No issues recorded. Technical issues only — content-free, nothing about your clips."
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(issues) { entry in
+                            LabeledContent {
+                                Text(entry.at, style: .time)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(verbatim: entry.message)
+                                    Text(verbatim: entry.category)
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                            }
                         }
+                        Button("Copy for support") {
+                            let dump =
+                                issues
+                                .map { "\($0.at): [\($0.category)] \($0.message)" }
+                                .joined(separator: "\n")
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(dump, forType: .string)
+                        }
+                        .accessibilityIdentifier("copy-diagnostics")
                     }
+                    LabeledContent(
+                        "Successful reuses this session",
+                        value: "\(model.telemetry.counts()["successful_reuse", default: 0])"
+                    )
+                    .accessibilityIdentifier("privacy-successful-reuse-count")
+                    Text(
+                        // swiftlint:disable:next line_length
+                        "Anonymous feature counts and broad performance buckets are off until you allow them. Clipboard content, titles, searches, and source-app names are never sent."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    Text(
+                        // swiftlint:disable:next line_length
+                        "Session counts reset when Gancho quits. Turning diagnostics off also deletes the local activation receipt and terminates the analytics transport."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 }
 
                 if unrecoverable + unrecoverableSynced > 0 {
@@ -178,23 +215,29 @@ struct PrivacyCenterView: View {
                     }
                 }
 
-                Section("Local AI agent access (MCP)") {
-                    LabeledContent("Status") {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(
-                                    model.mcpConfig.isEnabled
-                                        ? GanchoTokens.Palette.success : Color.secondary
-                                )
-                                .frame(width: 7, height: 7)
-                            Text(model.mcpConfig.isEnabled ? "On" : "Off")
+                Section("On this Mac now") {
+                    LabeledContent("Secrets masked", value: "\(masked)")
+                    LabeledContent("Items synchronized", value: "\(synced)")
+                }
+
+                Section("Sync activity") {
+                    let events = model.privacyEvents.recentSyncEvents(limit: 8)
+                    if events.isEmpty {
+                        Text("No sync activity yet.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(Array(events.enumerated()), id: \.offset) { _, event in
+                        LabeledContent {
+                            Text(event.occurredAt, style: .time)
+                        } label: {
+                            Label(syncEventTitle(event), systemImage: syncEventSymbol(event.kind))
                         }
                     }
-                    LabeledContent("Agent calls this week", value: "\(mcpCalls)")
+                }
+
+                Section("Agent access") {
                     LabeledContent("Agent results returned", value: "\(mcpResultsReturned)")
-                    LabeledContent("Denied by scope or veto", value: "\(mcpDenied)")
-                    Button("Open MCP Access…") { model.mcpAccessWindow.show(model: model) }
-                        .accessibilityIdentifier("open-mcp-access")
                     if mcpAccesses.isEmpty {
                         Text("No agent access yet.")
                             .font(.footnote)
@@ -227,92 +270,14 @@ struct PrivacyCenterView: View {
                     }
                 }
 
-                Section("Pasteboard access") {
-                    LabeledContent("Last content read") {
-                        if let date = model.monitor.lastContentReadAt {
-                            Text(date, style: .relative)
-                        } else {
-                            Text("Never")
-                        }
-                    }
-                    #if DEBUG
-                        // Internal usage counter — useful while developing, but it
-                        // reads as debug instrumentation in a user-facing privacy
-                        // dashboard, so keep it out of release builds.
+                #if DEBUG
+                    Section("Developer") {
+                        // Internal usage counter, kept out of release builds.
                         LabeledContent(
                             "Developer actions run",
                             value: "\(UserDefaults.standard.integer(forKey: "dev-actions-run"))")
-                    #endif
-                }
-
-                Section("Recent issues") {
-                    let issues = Array(model.diagnostics.entries.reversed())
-                    if issues.isEmpty {
-                        Text("No issues recorded.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(issues) { entry in
-                            LabeledContent {
-                                Text(entry.at, style: .time)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(verbatim: entry.message)
-                                    Text(verbatim: entry.category)
-                                        .font(.caption2).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        Button("Copy for support") {
-                            let dump =
-                                issues
-                                .map { "\($0.at): [\($0.category)] \($0.message)" }
-                                .joined(separator: "\n")
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(dump, forType: .string)
-                        }
-                        .accessibilityIdentifier("copy-diagnostics")
                     }
-                    Text("Recent technical issues only — content-free, nothing about your clips.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Optional diagnostics") {
-                    Toggle(
-                        "Share anonymous usage diagnostics",
-                        isOn: Binding(
-                            get: { model.telemetryConsent == .enabled },
-                            set: { model.setTelemetryConsent($0 ? .enabled : .disabled) })
-                    )
-                    .accessibilityIdentifier("privacy-telemetry-consent-toggle")
-                    LabeledContent(
-                        "Successful reuses this session",
-                        value: "\(model.telemetry.counts()["successful_reuse", default: 0])"
-                    )
-                    .accessibilityIdentifier("privacy-successful-reuse-count")
-                    Text(
-                        // swiftlint:disable:next line_length
-                        "Anonymous feature counts and broad performance buckets are off until you allow them. Clipboard content, titles, searches, and source-app names are never sent."
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    Text(
-                        // swiftlint:disable:next line_length
-                        "Session counts reset when Gancho quits. Turning diagnostics off also deletes the local activation receipt and terminates the analytics transport."
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                }
-
-                Section("Network") {
-                    Text(
-                        // swiftlint:disable:next line_length
-                        "Gancho never sends clipboard content to analytics. Optional iCloud sync uses your private iCloud account; verify the boundary with Little Snitch or any network monitor."
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                }
+                #endif
             }
             .formStyle(.grouped)
         }

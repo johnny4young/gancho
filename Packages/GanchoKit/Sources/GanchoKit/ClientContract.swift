@@ -360,6 +360,9 @@ public protocol PrivateActivityReceiptStoring: Sendable {
 
     /// Erases receipt rows only, leaving clips and configuration untouched.
     func clearPrivateActivityReceipt() async throws
+
+    /// Protected copies skipped over the last `days` days, today included.
+    func protectedSkips(lastDays days: Int, now: Date) async throws -> Int
 }
 
 // MARK: - Export
@@ -445,7 +448,7 @@ public typealias FullClipStore = ClipReading & ClipSearching & ClipMutating & Cl
     & SnippetStoring
     & StoreStatsProviding & PrivateActivityReceiptStoring & ExportProviding & StoreMaintaining
     & SnippetDraftStoring & TextRecipeStoring & UploadStateProviding & ScopeCountProviding
-    & LibraryBrowsing
+    & LibraryBrowsing & StoreHealthProviding
 
 // MARK: - Production conformances
 

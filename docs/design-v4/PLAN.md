@@ -66,7 +66,13 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
    - Q37: the panel's kind set (All, Links, Code, Colors, Images, Secrets); search matches clips only (snippets are clips), placeholder "Search clips"; the List layout is the panel's row; the Grid / List choice persists; no Select button; a protected card offers no Copy.
    - Q38: the meter counts three ceilings (boards 3, pins 15, snippets 20), fills to the fullest, and its caption ends "Pro removes every limit", "Almost full" or "Limit reached" with the bar in accent, amber or red.
    - Phase 7 follow-up: with an Undo toast showing, typing that can be undone wins ⌘Z; the toast keeps its button.
-13. Cross-app rules from the owner's threads:
+13. Answers given on 2026-10-25 to the Phase 9 questions (all the recommended option):
+   - Q39: the read-only timeline over the existing pickers ships, plus "Forget recent clips" (5 / 15 / 60 min, the count shown first, undoable); no policy migration and no Novel2 dial. Markers are ordered by lifetime and spaced evenly; a type on Use global folds into "everything else", a Forever global joins "never", and equal lifetimes share a marker.
+   - Q41: tile 3 counts protected copies skipped in the last 7 days; the screen-share footnote names what the detector detects ("Zoom, Teams and Screen Sharing are detected.").
+   - Q17: no "also concealed" chip; the concealed-types rule is a static card with no switch, and the denylist stays as built.
+   - Q40: Verify runs on this Mac (SQLCipher version, a file that is not plaintext SQLite, a keyed read) and shows the result in the row; the sections the board does not draw stay below the drawn ones; Network is a Verify row; the last read shows its time only.
+   - The Settings footnotes the board drops (masked secrets, Spotlight removal) stay, shortened; the receipt keeps "Protected copies are included in skipped captures."
+14. Cross-app rules from the owner's threads:
    - Only propose what beats the current UI; code wins over v2 boards and site screenshots.
    - Each piece of data appears once per screen.
    - Canvas annotations are not UI.
@@ -83,7 +89,7 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
 Live sources match the expected numbers exactly. Maybe: GC-V4-22, with owner note "no entiendo la utilidad de esto, pero siento que no es necesario". Skip: GC-V4-20.
 
 By type: UI 29 · bug 6 · feature 31 · system 7.  
-By status: blocked 33 · done 38 · not implemented 1 · pending decision 1.
+By status: blocked 29 · done 42 · not implemented 1 · pending decision 1.
 
 ## Plan table
 
@@ -125,10 +131,10 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 | GC-V4-5 | feature | pick | — | Library | Toolbar search (⌘F), Grid/List toggle, visible New board button | LibraryWindowController.swift:18-26; LibraryView.swift:50; LibraryClipListModel.swift; AppModel+Library.swift:19; ClipSearch.swift | Search engine + New-board flow exist; toolbar, query in list model, List layout new | GC-V4-13, GC-V4-6 | Unit: LibraryClipListModel query; UI: VisualLibraryUITests search; snapshot | 8 | done — de38569, 8710ba1 (Q37: clips-only search with the scope and chip; Grid / List persists; New board in the toolbar); LibraryClipListModelTests + LibraryBrowseUITests + snapshot library |
 | GC-V4-6 | feature | pick | — | Library | Cards with kind tile, host headline, board + sync chips, masked secret with expiry, meta line, hover Copy/Pin/Board, date groups | LibraryClipCard.swift; LibraryView+Browsing.swift:59-179; Components.swift; DateBucket.swift | Tile, monogram, countdown, date buckets exist; card layout, membership read, sync chip new | GC-V4-13, GC-V5-3, GC-V4-23, GC-09 | Unit: grouping/formatters; UI hover actions; privacy: masked card; snapshot | 8 | done — de38569, 8710ba1 (Q13/Q12: stored mask, kind title, no sync claim; Pinned group first; board chips; no Copy on protected cards); LibraryBrowseTests, MaskedTailTests, LibraryProMeterTests + LibraryBrowseUITests + snapshot library |
 | GC-V4-7 | UI | pick | — | Library | Sidebar: saved-filter glyph + count, snippet keyword keycap, two-limit Pro meter from code constants | LibraryView+Sidebar.swift:50-219; BoardIdentityEditor.swift:7-37; UserTier.swift; Pinboards.swift:50-51; SnippetLibrary.swift:7 | Marks, badges, pressure() exist; filter count query, keycap, meter new | GC-28 | Unit: meter fraction from constants; UI sidebar; snapshot | 8 | done — de38569, 8710ba1 (Q38: three ceilings, escalating tail); LibraryProMeterTests + LibraryBrowseUITests + snapshot library |
-| GC-17 | UI | pick | — | Settings | Privacy settings with four status tiles first, grouped sections, Privacy Center card at sidebar bottom | PrivacySettingsTab.swift:14-73; SettingsView.swift:99-116 | Controls + counts exist; tiles, card, size on disk, weekly skip query new | GC-07, GC-V5-2 | UI: SettingsPrivacyUITests new ids; snapshot | 9 | blocked: Q41 |
-| GC-19 | UI | pick | — | Settings | Concealed-types rule as a static card (no toggle); Intelligence becomes a row | CaptureSettingsTab.swift:18-29; DenylistSettingsSection.swift:45-69; SensitivePasteboardTypes.swift:8-12 | Rule constants exist; card + strings new; 'also concealed' chip has no data source | GC-V5-2 | UI: DenylistUITests; snapshot | 9 | blocked: Q17 |
-| GC-20 | feature | pick | — | Novel2, Settings | Stepped retention control with secret cap + 'Forget recent clips' (5/15/60 min, count first, undoable) | RetentionPolicy.swift:6-46; RetentionSettingsTab.swift; RetentionEngine.swift:25-65; DeletionCoordinator.swift:131 | Windows 24h…never + batch delete with undo exist; 30m/1h/8h, delete-by-time, preview count new | GC-17, GC-21, GC-09, GC-07 | Unit: policy decode (migration of stored windows), purge; UI | 9 | blocked: Q39 |
-| GC-21 | UI | pick | — | Settings, iPhoneFlows | Privacy Center opens with a 'Verify' group (Mac + iPhone) | PrivacyCenterView.swift:26-320; IOSPrivacyCenterView.swift:26-260; SyncEngine.swift:6-13 | Force sync, dates, last-read, MCP counts exist; Verify action, encryption-state flag new | GC-V5-2, GC-V4-12 | UI: PrivateActivityReceiptUITests + PrivacyCenterUITests order; snapshot | 9 | blocked: Q40 |
+| GC-17 | UI | pick | — | Settings | Privacy settings with four status tiles first, grouped sections, Privacy Center card at sidebar bottom | PrivacySettingsTab.swift:14-73; SettingsView.swift:99-116 | Controls + counts exist; tiles, card, size on disk, weekly skip query new | GC-07, GC-V5-2 | UI: SettingsPrivacyUITests new ids; snapshot | 9 | done — 32638ebf, c7579727 (Q41: protected skips over 7 days; truthful screen-share copy; footnotes kept, shortened); StoreHealthTests + SettingsPrivacyUITests + snapshot settings-privacy |
+| GC-19 | UI | pick | — | Settings | Concealed-types rule as a static card (no toggle); Intelligence becomes a row | CaptureSettingsTab.swift:18-29; DenylistSettingsSection.swift:45-69; SensitivePasteboardTypes.swift:8-12 | Rule constants exist; card + strings new; 'also concealed' chip has no data source | GC-V5-2 | UI: DenylistUITests; snapshot | 9 | done — 32638ebf, c7579727 (Q17: no chip; the rule is a static card); DenylistUITests + snapshot settings-capture |
+| GC-20 | feature | pick | — | Novel2, Settings | Stepped retention control with secret cap + 'Forget recent clips' (5/15/60 min, count first, undoable) | RetentionPolicy.swift:6-46; RetentionSettingsTab.swift; RetentionEngine.swift:25-65; DeletionCoordinator.swift:131 | Windows 24h…never + batch delete with undo exist; 30m/1h/8h, delete-by-time, preview count new | GC-17, GC-21, GC-09, GC-07 | Unit: policy decode (migration of stored windows), purge; UI | 9 | done — 32638ebf, c7579727 (Q39: timeline over the pickers + Forget recent clips, undoable); RetentionTimelineTests + StoreHealthTests + RetentionSettingsUITests + snapshot settings-retention |
+| GC-21 | UI | pick | — | Settings, iPhoneFlows | Privacy Center opens with a 'Verify' group (Mac + iPhone) | PrivacyCenterView.swift:26-320; IOSPrivacyCenterView.swift:26-260; SyncEngine.swift:6-13 | Force sync, dates, last-read, MCP counts exist; Verify action, encryption-state flag new | GC-V5-2, GC-V4-12 | UI: PrivateActivityReceiptUITests + PrivacyCenterUITests order; snapshot | 9 | done (Mac) — 32638ebf, c7579727 (Q40: Verify runs on this Mac; undrawn sections stay below; last read shows its time); StoreHealthTests + PrivacyCenterVerifyUITests + snapshot privacy-center |
 | GC-V5-2 | system | pick | — | Settings | Accent text and Privacy hero pass AA (fixes B-GC-02, B-GC-03) | see B-GC-02/03 | see B-GC-02/03 | SY-V4-3 | see B-GC-02/03 | 2 | done — see B-GC-02/03 |
 | GC-V5-4 | UI | pick | — | Settings | Settings sidebar ring follows the selection (fix of B-GC-05) | see B-GC-05 | see B-GC-05 | — | see B-GC-05 | 1 | done — a2c887b |
 | GC-V5-5 | UI | pick | — | Settings | Intelligence pipeline fits its window (fix of B-GC-06) | see B-GC-06 | see B-GC-06 | — | see B-GC-06 | 1 | done — 9c2a429 |
@@ -379,7 +385,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 - **Q14 Reveal gesture.** "Hold ⌥" (catalog, Novel) or "Reveal for 10 s" (PanelStates, Panel)? Note that ⌥↩ is Plain paste.
 - **Q15 Keep 10 more min.** It contradicts the shipped rule that a secret's lifetime can be shortened, never extended. Allow it?
 - **Q16 Secrets in widgets and the keyboard.** Widgets: omit secrets or keep masking them? Keyboard: GC-V6-8 draws a masked secret, but the keyboard excludes secrets by design.
-- **Q17 "Also concealed" chip.** Showing it per app needs per-app protected-copy data, which is aggregate-only by design today.
+- **Q17 — RESOLVED 2026-10-25: no chip; the rule is a card.** "Also concealed" chip. Showing it per app needs per-app protected-copy data, which is aggregate-only by design today.
 
 ### Shortcuts
 
@@ -446,12 +452,12 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
   - "⌘C copies" assumes a focus model the Library doesn't have.
   - Copy on a masked card does nothing today.
 - **Q38 — RESOLVED 2026-10-24: three ceilings, escalating tail.** Pro meter. Should the caption escalate as limits approach? It ignores the pins limit (15).
-- **Q39 ★ GC-20 retention design.** Settings draws a timeline over the pickers; Novel2 draws a dial plus "Forget recent clips" (the catalog title matches Novel2). Which one ships?
-- **Q40 GC-21 Verify.**
+- **Q39 — RESOLVED 2026-10-25: timeline over the pickers + Forget recent clips.** GC-20 retention design. Settings draws a timeline over the pickers; Novel2 draws a dial plus "Forget recent clips" (the catalog title matches Novel2). Which one ships?
+- **Q40 — RESOLVED 2026-10-25: a local check in the row; undrawn sections stay below.** GC-21 Verify.
   - What does "Verify" check?
   - Drop the six existing Privacy Center sections the board doesn't draw?
   - The catalog's Verify contents differ from the iPhone board's. Which one?
-- **Q41 GC-17 tiles.** The screen-share footnote names apps the detector doesn't detect. Does tile 3 count protected skips only, or all skips?
+- **Q41 — RESOLVED 2026-10-25: protected skips over 7 days; truthful screen-share copy.** GC-17 tiles. The screen-share footnote names apps the detector doesn't detect. Does tile 3 count protected skips only, or all skips?
 - **Q42 — RESOLVED 2026-10-21: dark ink as drawn.** Privacy hero. Dark ink as drawn, or a darker gradient as the PASS note says?
 - **Q43 GC-35 onboarding.**
   - Does "Skip for now" go to the next step or close onboarding?
@@ -535,6 +541,8 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 - **Found in Phase 8, resolved there:** the Library header counted the loaded window (`clips.count`, at most 100), not the scope; it now reads the store's total. Board scopes paged by membership time while every other scope used capture time, so date groups could not hold; every scope now pages pinned first, then by capture time.
 - **Found in Phase 8, kept on purpose:** the panel's ⌘G gallery reuses the Library card, so it gains the new card too; the List layout's rows mask a protected clip completely (the panel's own rule), while a grid card shows its stored mask.
 - **Found in Phase 8, not caused by it:** the ambient-image panel snapshots no longer matched their baselines; `main` renders the same bytes as the branch, so their baselines were re-recorded. Library search also matches the text inside protected clips (a hit shows only the mask), as the panel's search already does.
+- **Found in Phase 9, resolved there:** the screen-share footnote named Meet, FaceTime and QuickTime, which the detector does not detect; the Privacy settings now name only Zoom, Teams and Screen Sharing.
+- **Found in Phase 9, testing note:** the panel and Library snapshots depend on the displays attached (their windows fit the visible frame); with only the built-in display they render shorter than the baselines recorded with an external display, on `main` as well. Settings and Privacy Center snapshots have fixed sizes and are unaffected.
 - **Found in Phase 8, testing note:** a container's accessibility identifier replaces the identifiers of the AppKit-backed controls inside it (the Library root renamed its search field `library`); the root now contains its children instead.
 - **Found in Phase 7, testing note:** with the old movable panel a synthesized row drag moved the window and always dropped at its own start point, which first looked like drop targets inside the rail's scroll view not working; once the panel stopped moving, drops on each chip work directly.
 - **Found in Phase 6 CI, resolved there:** a menu the app pops up for the helper isn't reliably in the accessibility tree (seen as 1 in 2 runs even when anchored to a view), so VoiceOver and keyboard presses on the icon open the helper's own native command menu; pointer clicks open the app's mini-panel.
