@@ -100,7 +100,9 @@ public struct ClipSearchQuery: Sendable, Equatable {
     }
 }
 
-public enum ClipSearchError: Error, Equatable {
+public enum ClipSearchError: Error, Sendable, Equatable {
     /// The regex mode received an invalid pattern.
     case invalidRegularExpression
+    /// A read failed without exposing storage diagnostics or clipboard data.
+    case readFailed
 }

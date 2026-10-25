@@ -19,6 +19,9 @@ struct PanelResultsView<RowContent: View>: View {
     let isGroupedView: Bool
     let groups: [PanelDateGroup]
     let items: [ClipItem]
+    var searchFailure: ClipSearchError?
+    var isSearching = false
+    var retrySearch: () -> Void = {}
     var searchMode: PanelSearchMode = .fuzzy
     /// The other modes and scopes, counted, when nothing matches.
     var alternatives: [PanelAlternativeResult] = []
@@ -44,7 +47,12 @@ struct PanelResultsView<RowContent: View>: View {
     let row: (ClipItem) -> RowContent
 
     var body: some View {
-        if items.isEmpty {
+        if isSearching && items.isEmpty {
+            ProgressView("Searching…")
+                .accessibilityIdentifier("search-progress-indicator")
+        } else if let searchFailure {
+            SearchFailureNotice(failure: searchFailure, retry: retrySearch)
+        } else if items.isEmpty {
             PanelResultsEmptyState(
                 query: query,
                 hasActiveFilter: hasActiveFilter,

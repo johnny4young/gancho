@@ -333,7 +333,12 @@ struct CaptureView: View {
     /// no-background-capture explanation). Before the split, "Nothing captured
     /// yet" showed up mid-search even when there were clips.
     @ViewBuilder private var emptyState: some View {
-        if !model.query.isEmpty {
+        if model.isSearching {
+            ProgressView("Searching…")
+                .accessibilityIdentifier("search-progress-indicator")
+        } else if let failure = model.searchFailure {
+            SearchFailureNotice(failure: failure) { Task { await model.search() } }
+        } else if !model.query.isEmpty {
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
                 Text("No clips match “\(model.query)”.")
                     .foregroundStyle(.secondary)

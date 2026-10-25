@@ -42,16 +42,18 @@ extension PanelSearchModel {
     public func probeAlternatives(
         meaningAvailable: Bool, limit: Int = 100
     ) async -> [PanelAlternativeResult] {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        guard searchFailure == nil, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return [] }
         var candidates: [PanelSearchAlternative] = PanelSearchMode.allCases
             .filter { $0 != searchMode && ($0 != .meaning || meaningAvailable) }
             .map(PanelSearchAlternative.mode)
         if selectedBoardID != nil { candidates.append(.allBoards) }
         var results: [PanelAlternativeResult] = []
         for alternative in candidates {
-            let items = await items(for: alternative, limit: limit)
-                .filter { !source.isDeletionPending($0.id) }
-            guard !Task.isCancelled else { return [] }
+            let found = await items(for: alternative, limit: limit)
+            guard !Task.isCancelled, searchFailure == nil else { return [] }
+            guard let found else { continue }
+            let items = found.filter { !source.isDeletionPending($0.id) }
             results.append(
                 PanelAlternativeResult(
                     alternative: alternative, total: items.count, preview: Array(items.prefix(3))))
@@ -67,7 +69,7 @@ extension PanelSearchModel {
         }
     }
 
-    private func items(for alternative: PanelSearchAlternative, limit: Int) async -> [ClipItem] {
+    private func items(for alternative: PanelSearchAlternative, limit: Int) async -> [ClipItem]? {
         var rule = savedRule(named: "")
         let mode: PanelSearchMode
         switch alternative {
@@ -78,10 +80,13 @@ extension PanelSearchModel {
         }
         guard mode == .meaning else {
             rule.searchMode = mode.conventional
-            return await source.search(rule.query, limit: limit)
+            switch await source.searchOutcome(rule.query, limit: limit) {
+            case .success(let items): return items
+            case .failure, .cancelled: return nil
+            }
         }
         rule.searchMode = .fuzzy
         let meaning = source as? any MeaningSearchSource
-        return (try? await meaning?.relatedItems(for: rule.query).items) ?? []
+        return try? await meaning?.relatedItems(for: rule.query).items
     }
 }

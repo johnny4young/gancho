@@ -14,6 +14,8 @@ public typealias HistoryListSource = ClipListSource
 /// owns one and forwards `captures`/`sections`/`query`/… to it, so the views are
 /// unchanged. The iOS analog of macOS's `PanelSearchModel`.
 @MainActor @Observable public final class HistoryListViewModel {
+    public private(set) var searchFailure: ClipSearchError?
+    public private(set) var isSearching = false
     /// Raw loaded clips (recent page(s), a board, or search results). The kind
     /// filter is applied on top via `visibleClips` so it never disturbs the
     /// pagination offset.
@@ -101,6 +103,8 @@ public typealias HistoryListSource = ClipListSource
     /// Both searches and pages belong to one request generation. An old page
     /// cannot append to a same-sized refresh or clear a newer page's spinner.
     private func invalidateRequests() {
+        searchFailure = nil
+        isSearching = true
         searchGeneration += 1
         pageRequest = nil
         isLoadingMore = false
@@ -109,6 +113,7 @@ public typealias HistoryListSource = ClipListSource
     public func search() async {
         invalidateRequests()
         let generation = searchGeneration
+        defer { if generation == searchGeneration { isSearching = false } }
         // iOS pushes the kind filter into SQL; macOS narrows on the client
         // because its filter also feeds de-duplication and selection. That is
         // the only difference between the two loads, and it is expressed here
@@ -118,6 +123,13 @@ public typealias HistoryListSource = ClipListSource
             sourceAppBundleID: selectedSourceAppBundleID,
             kinds: kindFilter.map { [$0] })
         guard generation == searchGeneration, !Task.isCancelled else { return }
+        if let failure = page.searchFailure {
+            searchFailure = failure
+            captures = []
+            reachedEnd = true
+            rebuildSections()
+            return
+        }
         captures = page.items
         reachedEnd = page.reachedEnd
         rebuildSections()

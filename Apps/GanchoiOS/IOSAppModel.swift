@@ -645,6 +645,8 @@ final class IOSAppModel {
 
     /// `captures` narrowed by the kind filter — see `HistoryListViewModel`.
     var visibleClips: [ClipItem] { history.visibleClips }
+    var searchFailure: ClipSearchError? { history.searchFailure }
+    var isSearching: Bool { history.isSearching }
 
     func search() async {
         let interval = Signpost.queryToResults.begin()
