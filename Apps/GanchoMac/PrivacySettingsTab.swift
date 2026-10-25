@@ -97,7 +97,13 @@ struct PrivacySettingsTab: View {
         }
         .formStyle(.grouped)
         .padding(GanchoTokens.Spacing.md)
-        .task { overview = await model.privacyOverview() }
+        .task {
+            overview = await model.privacyOverview()
+            let changes = model.storeChanges.subscribe()
+            for await _ in StoreChangeCoalescer().batches(of: changes) {
+                overview = await model.privacyOverview()
+            }
+        }
     }
 
     private func footnote(_ text: LocalizedStringKey) -> some View {

@@ -6,7 +6,7 @@ import SwiftUI
 struct RetentionSettingsTab: View {
     @Environment(AppModel.self) private var model
     @State private var forgetWindow: ForgetRecentWindow = .fifteenMinutes
-    @State private var forgettable = 0
+    @State private var forgettable: [ClipItem] = []
     @State private var forgetRevision = 0
 
     var body: some View {
@@ -62,17 +62,15 @@ struct RetentionSettingsTab: View {
                 }
                 .accessibilityIdentifier("forget-recent-window")
                 HStack {
-                    Text(forgettable == 0 ? "Nothing to forget" : "\(forgettable) clips")
+                    Text(forgettable.isEmpty ? "Nothing to forget" : "\(forgettable.count) clips")
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("forget-recent-count")
                     Spacer()
-                    Button("Forget \(forgettable) clips", role: .destructive) {
-                        Task {
-                            _ = await model.forgetRecent(forgetWindow)
-                            forgetRevision += 1
-                        }
+                    Button("Forget \(forgettable.count) clips", role: .destructive) {
+                        model.forget(forgettable)
+                        forgetRevision += 1
                     }
-                    .disabled(forgettable == 0)
+                    .disabled(forgettable.isEmpty)
                     .accessibilityIdentifier("forget-recent-button")
                 }
                 Text(
@@ -89,7 +87,19 @@ struct RetentionSettingsTab: View {
                 window: forgetWindow, revision: forgetRevision,
                 pending: model.pendingDeletionIDs.count)
         ) {
-            forgettable = await model.forgettableClips(forgetWindow).count
+            forgettable = await model.forgettableClips(forgetWindow)
+        }
+        .task {
+            // New copies join the window.
+            for await _ in StoreChangeCoalescer().batches(of: model.storeChanges.subscribe()) {
+                forgetRevision += 1
+            }
+        }
+        .task {
+            // Old copies age out of it.
+            while (try? await Task.sleep(for: .seconds(30))) != nil {
+                forgetRevision += 1
+            }
         }
     }
 
@@ -138,13 +148,16 @@ private struct RetentionTimelineCard: View {
                     Capsule().fill(.quaternary).frame(height: 3).offset(y: 6)
                     ForEach(Array(markers.enumerated()), id: \.offset) { index, marker in
                         let fraction = RetentionTimeline.position(of: index, in: markers.count)
+                        let labelWidth = Self.labelWidth(
+                            count: markers.count, track: proxy.size.width)
                         markerView(marker, alignment: alignment(fraction))
-                            .frame(width: 160, alignment: alignment(fraction))
-                            .offset(x: offset(fraction, width: proxy.size.width))
+                            .frame(width: labelWidth, alignment: alignment(fraction))
+                            .offset(
+                                x: offset(fraction, width: proxy.size.width, label: labelWidth))
                     }
                 }
             }
-            .frame(height: 36)
+            .frame(height: 48)
             Text(
                 // swiftlint:disable:next line_length
                 "Change a picker below and its marker moves. Older clips are deleted on this Mac and, when sync is on, on your other devices."
@@ -169,9 +182,16 @@ private struct RetentionTimelineCard: View {
     }
 
     /// The marker's frame starts where its label must sit for the dot to land on `fraction`.
-    private func offset(_ fraction: Double, width: CGFloat) -> CGFloat {
+    private func offset(_ fraction: Double, width: CGFloat, label: CGFloat) -> CGFloat {
         let x = width * fraction
-        return fraction == 0 ? 0 : fraction == 1 ? x - 160 : x - 80
+        return fraction == 0 ? 0 : fraction == 1 ? x - label : x - label / 2
+    }
+
+    /// Wide enough for one line with few markers; narrower, wrapping, as they crowd.
+    /// An end label leans inward, so its neighbour must fit one and a half labels.
+    static func labelWidth(count: Int, track: CGFloat) -> CGFloat {
+        guard count > 1 else { return 160 }
+        return min(160, max((track / CGFloat(count - 1) - 8) / 1.5, 48))
     }
 
     private func markerView(_ marker: RetentionTimeline.Marker, alignment: Alignment) -> some View {
@@ -184,8 +204,11 @@ private struct RetentionTimelineCard: View {
             Text(label(marker))
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(ink(marker))
-                .lineLimit(1)
-                .fixedSize()
+                .lineLimit(2)
+                .multilineTextAlignment(
+                    alignment == .leading ? .leading : alignment == .trailing ? .trailing : .center
+                )
+                .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("retention-marker")

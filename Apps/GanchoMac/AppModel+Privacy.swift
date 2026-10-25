@@ -58,10 +58,9 @@ extension AppModel {
         return clips.filter { !pendingDeletionIDs.contains($0.id) }
     }
 
-    /// Removes the window's clips through the same undoable delete as the panel.
-    func forgetRecent(_ window: ForgetRecentWindow) async -> Int {
-        let clips = await forgettableClips(window)
-        delete(clips)
-        return clips.count
+    /// Removes exactly the clips the user was shown, through the panel's
+    /// undoable delete; a copy that landed after the count stays.
+    func forget(_ clips: [ClipItem]) {
+        delete(clips.filter { !pendingDeletionIDs.contains($0.id) })
     }
 }

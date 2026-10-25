@@ -37,6 +37,20 @@ final class RetentionSettingsUITests: XCTestCase {
         images.click()
         app.menuItems["7 days"].firstMatch.click()
         XCTAssertTrue(marker("7 d · images", in: app).waitForExistence(timeout: 3))
+
+        // Five markers still read: no label sits on another.
+        let text = app.popUpButtons["retention-text-picker"].firstMatch
+        text.click()
+        app.menuItems["90 days"].firstMatch.click()
+        XCTAssertTrue(marker("text", in: app).waitForExistence(timeout: 3))
+        let frames = app.descendants(matching: .any).matching(identifier: "retention-marker")
+            .allElementsBoundByIndex.map(\.frame)
+        XCTAssertEqual(frames.count, 5)
+        for (index, frame) in frames.enumerated() {
+            for other in frames.dropFirst(index + 1) {
+                XCTAssertFalse(frame.insetBy(dx: 1, dy: 1).intersects(other), "\(frame) \(other)")
+            }
+        }
     }
 
     @MainActor
