@@ -3,9 +3,9 @@ import Foundation
 import GanchoAppCore
 import GanchoKit
 
-/// `AppModel` as the history panel's search data source. Each method wraps the
-/// throwing store facets into the non-throwing shape `PanelSearchModel` expects
-/// — a failed read degrades to an empty list, exactly as the panel did inline.
+/// `AppModel` as the history panel's search data source. Search preserves
+/// terminal errors for the panel. Legacy browse methods keep
+/// their existing empty-list fallback.
 /// `snippet(matchingKeyword:)` is already an `AppModel` method and satisfies the
 /// requirement directly.
 extension AppModel: PanelSearchSource {
@@ -26,11 +26,19 @@ extension AppModel: PanelSearchSource {
     }
 
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
-        guard let fullStore else { return [] }
+        switch await searchOutcome(query, limit: limit) {
+        case .success(let items): return items
+        case .failure, .cancelled: return []
+        }
+    }
+
+    func searchOutcome(_ query: ClipSearchQuery, limit: Int) async -> ClipListSearchOutcome {
+        guard !Task.isCancelled else { return .cancelled }
+        guard let fullStore else { return .success([]) }
         if !query.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             recordActivationMilestone(.firstSearch)
         }
-        return (try? await fullStore.search(query, limit: limit)) ?? []
+        return await .read(from: fullStore, query: query, limit: limit)
     }
 
     func recentSourceApps(limit: Int) async -> [ClipSourceApp] {

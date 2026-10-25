@@ -66,9 +66,16 @@ struct IPadSplitView: View {
                 // Gate on the storage warning so the empty-state doesn't cover
                 // the "History isn't being saved" row when the store is ephemeral.
                 if model.visibleClips.isEmpty && !model.storageIsEphemeral {
-                    ContentUnavailableView(
-                        "No clips here", systemImage: "tray",
-                        description: Text("Copy or share something to Gancho to see it here."))
+                    if model.isSearching {
+                        ProgressView("Searching…")
+                            .accessibilityIdentifier("search-progress-indicator")
+                    } else if let failure = model.searchFailure {
+                        SearchFailureNotice(failure: failure) { Task { await model.search() } }
+                    } else {
+                        ContentUnavailableView(
+                            "No clips here", systemImage: "tray",
+                            description: Text("Copy or share something to Gancho to see it here."))
+                    }
                 }
             }
             // A search/filter replaces the list; drop a selection that's no

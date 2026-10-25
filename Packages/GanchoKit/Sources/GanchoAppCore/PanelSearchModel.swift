@@ -39,6 +39,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
 /// rails, sheets, ask).
 @MainActor @Observable public final class PanelSearchModel {
     public let meaning = MeaningSearchState()
+    public private(set) var searchFailure: ClipSearchError?
     public var meaningEnabled = false {
         didSet { if oldValue != meaningEnabled { invalidateRequests() } }
     }
@@ -71,6 +72,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     private var refreshID = UUID()
     private var pageID: UUID?
     private var isRefreshing = false
+    public var isSearching: Bool { isRefreshing || (searchFailure == nil && !hasCurrentResults) }
     private var loadMoreDeferred = false
     private var displayedContext: Context?
     /// Retain context for selection and paging, but require a complete rows-and-snippet refresh.
@@ -105,6 +107,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
     private func invalidateRequests() {
         cancelPendingPaste()
         displayedSnapshotIsValid = false
+        searchFailure = nil
         let relatedIDs = meaning.relatedIDs
         meaning.invalidate()
         if !relatedIDs.isEmpty { results.removeAll { relatedIDs.contains($0.id) } }
@@ -279,6 +282,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
         while !hasCurrentResults {
             guard pasteRequestID == request, !Task.isCancelled else { return nil }
             await refresh()
+            if searchFailure != nil { return nil }
         }
         guard pasteRequestID == request, !Task.isCancelled else { return nil }
         if includingSnippet, let snippetMatch {
@@ -394,8 +398,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
         } else if kindFilter != .all || pinnedOnly || mode != .fuzzy || hasTokenOnlyFilter {
             let rule = savedRule(named: "")
             if source.isDurable {
-                let items = await source.search(rule.query, limit: query.isEmpty ? 500 : 100)
-                page = ClipListPage(items: FrecencyRanker.reranked(items), reachedEnd: true)
+                page = await core.searchPage(rule.query, limit: query.isEmpty ? 500 : 100)
             } else {
                 // `search` is durable-only (it answers [] on the in-memory
                 // fallback), so a type or pin filter must narrow the scan
@@ -406,6 +409,11 @@ public struct PanelDateGroup: Identifiable, Sendable {
             page = await browsePage(request: request, requestedContext: requestedContext)
         }
         guard refreshID == request, context == requestedContext, !Task.isCancelled else { return }
+        if let failure = page.searchFailure {
+            failSearch(failure, for: requestedContext)
+            return
+        }
+        searchFailure = nil
         // A query that exactly matches a snippet's keyword offers a one-keystroke
         // insert (filling {fields} first if it's a template).
         let snippet =
@@ -434,6 +442,18 @@ public struct PanelDateGroup: Identifiable, Sendable {
             loadMoreDeferred = false
             await loadMore()
         }
+    }
+
+    private func failSearch(_ failure: ClipSearchError, for requestedContext: Context) {
+        searchFailure = failure
+        displayedSnapshotIsValid = false
+        displayedContext = requestedContext
+        loadMoreDeferred = false
+        meaning.invalidate()
+        results = []
+        snippetMatch = nil
+        reachedEnd = true
+        rebuildGroups()
     }
 
     private func startMeaning(

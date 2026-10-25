@@ -796,6 +796,9 @@ struct PanelView: View {
                     isGroupedView: search.isGroupedView,
                     groups: search.groups,
                     items: search.filtered,
+                    searchFailure: search.searchFailure,
+                    isSearching: search.isSearching,
+                    retrySearch: { Task { await search.refresh() } },
                     searchMode: search.searchMode,
                     alternatives: currentAlternatives,
                     scopeName: selectedBoardName,
@@ -1462,14 +1465,17 @@ struct PanelView: View {
             kind: search.kindFilter, app: search.selectedSourceAppBundleID,
             device: search.deviceName, before: search.createdBefore,
             isEmpty: search.filtered.isEmpty,
-            meaningIsLoading: search.meaning.status == .loading)
+            meaningIsLoading: search.meaning.status == .loading,
+            searchFailure: search.searchFailure,
+            isSearching: search.isSearching)
     }
 
     /// Debounced like a keystroke: only a query that stays empty is probed.
     private func probeAlternatives() async {
         let key = alternativesKey
         alternatives = []
-        guard search.filtered.isEmpty, !search.query.isEmpty,
+        guard !search.isSearching, search.searchFailure == nil, search.filtered.isEmpty,
+            !search.query.isEmpty,
             search.meaning.status != .loading
         else { return }
         try? await Task.sleep(for: .milliseconds(150))

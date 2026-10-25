@@ -24,6 +24,7 @@ import GanchoKit
     func boardItems(_ boardID: UUID, offset: Int, limit: Int) async -> [ClipItem]
     /// Ranked full-text search (durable stores only; [] otherwise).
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem]
+    func searchOutcome(_ query: ClipSearchQuery, limit: Int) async -> ClipListSearchOutcome
     /// Content-free source-app options for the filter menu.
     func recentSourceApps(limit: Int) async -> [ClipSourceApp]
 }
@@ -66,10 +67,12 @@ public struct ClipListPage: Sendable, Equatable {
     /// No further page exists — either the store returned a short page, or this
     /// view does not paginate at all (a ranked search is a bounded top-N).
     public var reachedEnd: Bool
+    public var searchFailure: ClipSearchError?
 
-    public init(items: [ClipItem], reachedEnd: Bool) {
+    public init(items: [ClipItem], reachedEnd: Bool, searchFailure: ClipSearchError? = nil) {
         self.items = items
         self.reachedEnd = reachedEnd
+        self.searchFailure = searchFailure
     }
 }
 
@@ -152,15 +155,13 @@ public enum ClipListShape {
         }
 
         if source.isDurable {
-            let hits = await source.search(
+            return await searchPage(
                 ClipSearchQuery(
                     text: query, kinds: kinds, sourceAppBundleID: sourceAppBundleID,
                     boardID: boardID),
                 limit: query.isEmpty
                     ? Self.searchLimitWithoutQuery
                     : configuration.searchLimitWithQuery)
-            // Ranked top results, not a scroll-through.
-            return ClipListPage(items: ranked(hits), reachedEnd: true)
         }
 
         // No durable store: no FTS and no board queries, so scan a bounded slice
@@ -172,6 +173,17 @@ public enum ClipListShape {
                 && (!filtersByKind || kinds?.contains($0.kind) == true)
         }
         return ClipListPage(items: ranked(filtered), reachedEnd: true)
+    }
+
+    /// Ranked top results, with failures preserved independently of an empty success.
+    /// A cancelled read yields an empty page; callers drop a cancelled task's result.
+    public func searchPage(_ query: ClipSearchQuery, limit: Int) async -> ClipListPage {
+        switch await source.searchOutcome(query, limit: limit) {
+        case .success(let items): return ClipListPage(items: ranked(items), reachedEnd: true)
+        case .failure(let failure):
+            return ClipListPage(items: [], reachedEnd: true, searchFailure: failure)
+        case .cancelled: return ClipListPage(items: [], reachedEnd: true)
+        }
     }
 
     /// The predicates FTS would evaluate (kind, pin, search mode), without a

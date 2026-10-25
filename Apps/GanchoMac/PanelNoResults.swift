@@ -14,6 +14,8 @@ struct PanelAlternativesKey: Equatable {
     let before: Date?
     let isEmpty: Bool
     let meaningIsLoading: Bool
+    var searchFailure: ClipSearchError?
+    var isSearching = false
 }
 
 extension PanelSearchAlternative {
