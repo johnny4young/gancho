@@ -12,9 +12,11 @@ import WidgetKit
 /// local receipt from the on-device store, and an honest note on how capture
 /// works on iOS. Every number is computed locally.
 struct IOSPrivacyCenterView: View {
-    @Environment(IOSAppModel.self) private var model
+    @Environment(IOSAppModel.self) var model
     @State private var receipt = PrivateActivityReceipt.empty()
-    @State private var masked = 0
+    @State var masked = 0
+    @State var verification: StoreEncryptionReport?
+    @State var verifying = false
     @State private var synced = 0
     @State private var confirmsReceiptClear = false
     @State private var unrecoverable = 0
@@ -42,6 +44,8 @@ struct IOSPrivacyCenterView: View {
                 .padding(.vertical, GanchoTokens.Spacing.xs)
                 .listRowBackground(Rectangle().fill(GanchoTokens.Palette.success.gradient))
             }
+
+            verifySection
 
             Section {
                 LabeledContent("Items reused", value: "\(receipt.reusedItems)")
@@ -106,7 +110,6 @@ struct IOSPrivacyCenterView: View {
             }
 
             Section("On this iPhone now") {
-                LabeledContent("Secrets masked", value: "\(masked)")
                 LabeledContent("Items synchronized", value: "\(synced)")
             }
 

@@ -115,7 +115,7 @@ struct MoveToBoardSheet: View {
 /// to it; a board can be created, customized, renamed, or deleted here.
 /// Reordering and per-board sharing remain deliberately deferred.
 struct BoardsHomeView: View {
-    @Environment(IOSAppModel.self) private var model
+    @Environment(IOSAppModel.self) var model
     @Environment(\.dismiss) private var dismiss
     @State private var totalCount = 0
     @State private var counts: [UUID: Int] = [:]
@@ -125,6 +125,8 @@ struct BoardsHomeView: View {
     @State private var renameField = ""
     @State private var appearanceTarget: Pinboard?
     @State private var boardPendingDeletion: Pinboard?
+    @State var awaitingSync: Set<UUID> = []
+    @State var snippets: [ClipItem] = []
 
     private var systemBoards: [Pinboard] { model.boards.filter(\.isSystem) }
     private var userBoards: [Pinboard] { model.boards.filter { !$0.isSystem } }
@@ -143,7 +145,7 @@ struct BoardsHomeView: View {
                     .tint(.primary)
                     ForEach(systemBoards) { boardRow($0) }
                 }
-                Section("Boards") {
+                Section {
                     ForEach(userBoards) { boardRow($0) }
                     Button {
                         newBoardName = ""
@@ -152,7 +154,12 @@ struct BoardsHomeView: View {
                         Label("New board", systemImage: "plus")
                     }
                     .accessibilityIdentifier("boards-home-new")
+                } header: {
+                    boardsHeader
+                } footer: {
+                    boardsFooter
                 }
+                if !snippets.isEmpty { snippetsSection }
             }
             .navigationTitle("Boards")
             .navigationBarTitleDisplayMode(.inline)
@@ -212,7 +219,8 @@ struct BoardsHomeView: View {
             boardLabel(
                 board.displayTitle,
                 icon: BoardDot(board: board, size: 14), tint: .primary,
-                count: counts[board.id] ?? 0)
+                count: counts[board.id] ?? 0,
+                subtitle: board.isSystem ? nil : syncSubtitle(board))
         }
         .tint(.primary)
         .accessibilityIdentifier("boards-home-\(board.id.uuidString)")
@@ -268,11 +276,14 @@ struct BoardsHomeView: View {
     }
 
     private func boardLabel(
-        _ title: Text, icon: some View, tint: Color, count: Int
+        _ title: Text, icon: some View, tint: Color, count: Int, subtitle: Text? = nil
     ) -> some View {
         HStack(spacing: GanchoTokens.Spacing.sm) {
             icon.frame(width: 22)
-            title.foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 2) {
+                title.foregroundStyle(tint)
+                if let subtitle { subtitle.font(.footnote).foregroundStyle(.secondary) }
+            }
             Spacer(minLength: GanchoTokens.Spacing.sm)
             Text("\(count)").foregroundStyle(.secondary).monospacedDigit()
         }
@@ -290,6 +301,8 @@ struct BoardsHomeView: View {
 
     private func reload() async {
         await model.refreshBoards()
+        awaitingSync = await model.boardsAwaitingSync()
+        snippets = await model.snippetList()
         totalCount = await model.clipCount()
         var fresh: [UUID: Int] = [:]
         for board in model.boards { fresh[board.id] = await model.clipCount(in: board) }

@@ -176,7 +176,7 @@ enum IOSOnboardingGuide: String, Identifiable {
 }
 
 /// Step-by-step set-up for an extension, without leaving the app.
-private struct IOSOnboardingGuideSheet: View {
+struct IOSOnboardingGuideSheet: View {
     let guide: IOSOnboardingGuide
     @Environment(\.dismiss) private var dismiss
 
