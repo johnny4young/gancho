@@ -12508,6 +12508,16 @@
           }
         }
       }
+    },
+    "Expires soon": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caduca pronto"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

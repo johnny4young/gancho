@@ -128,11 +128,14 @@ struct IPadSplitView: View {
     }
 
     private func clipRow(_ item: ClipItem) -> some View {
-        ClipCard(item: item, thumbnail: model.thumbnails.cached(for: item))
-            .tag(item.id)
-            .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
-            .onAppear { Task { await model.loadMoreIfNeeded(item) } }
-            .clipRowActions(item, model: model) { activeSheet = .move(item) }
+        ClipCard(
+            item: item, thumbnail: model.thumbnails.cached(for: item), showsStoredMask: true,
+            currentDeviceName: model.currentDeviceName
+        )
+        .tag(item.id)
+        .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
+        .onAppear { Task { await model.loadMoreIfNeeded(item) } }
+        .clipRowActions(item, model: model) { activeSheet = .move(item) }
     }
 
     /// Invisible buttons whose only job is to carry `.keyboardShortcut`s for a
