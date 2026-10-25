@@ -13,8 +13,13 @@ struct LibraryClipListModelTests {
         var error: (any Error)?
         var requests: [(offset: Int, limit: Int)] = []
 
-        func fetch(_ scope: LibraryClipScope, offset: Int, limit: Int) async throws -> [ClipItem] {
+        var lastRequest: LibraryListRequest?
+
+        func fetch(
+            _ request: LibraryListRequest, offset: Int, limit: Int
+        ) async throws -> [ClipItem] {
             requests.append((offset, limit))
+            lastRequest = request
             let snapshot = rows
             if let gate {
                 self.gate = nil
@@ -175,5 +180,73 @@ struct LibraryClipListModelTests {
         let calls = source.requests.count
         await model.loadMore()
         #expect(source.requests.count == calls)
+    }
+
+    @Test("A search loads once, keeps the chip's kinds and orders by capture time")
+    func searchLoadsOnceInOrder() async {
+        let source = Source()
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let older = ClipItem(createdAt: base, kind: .url, preview: "older link")
+        let newer = ClipItem(
+            createdAt: base.addingTimeInterval(60), kind: .url, preview: "new link")
+        let pinned = ClipItem(createdAt: base.addingTimeInterval(-60), kind: .url, isPinned: true)
+        let code = ClipItem(createdAt: base.addingTimeInterval(120), kind: .code, preview: "code")
+        source.rows = [older, code, pinned, newer]
+        let model = LibraryClipListModel(fetch: source.fetch)
+        await model.reload(LibraryListRequest(scope: .allClips, text: " link ", kind: .links))
+        #expect(model.items.map(\.id) == [pinned.id, newer.id, older.id])
+        #expect(model.total == 3)
+        #expect(model.reachedEnd)
+        #expect(source.lastRequest?.searchText == "link")
+        await model.reload(
+            LibraryListRequest(scope: .allClips, text: "link", kind: .links, oldestFirst: true))
+        #expect(model.items.map(\.id) == [pinned.id, older.id, newer.id])
+        let calls = source.requests.count
+        await model.loadMore()
+        #expect(source.requests.count == calls, "a search never pages")
+    }
+
+    @Test("A saved filter narrows by the search words in its title and preview")
+    func savedFilterSearch() async {
+        let source = Source()
+        source.rows = [
+            ClipItem(title: "Release notes", preview: "Café menu"),
+            ClipItem(preview: "Unrelated")
+        ]
+        let model = LibraryClipListModel(fetch: source.fetch)
+        let rule = SmartCollectionRule(name: "Synthetic")
+        await model.reload(LibraryListRequest(scope: .savedFilter(rule), text: "cafe release"))
+        #expect(model.items.map(\.title) == ["Release notes"])
+        #expect(model.total == 1)
+    }
+
+    @Test("A paged scope reports the store's total, not the loaded window")
+    func pagedTotal() async {
+        let source = Source()
+        var counted: LibraryListRequest?
+        let model = LibraryClipListModel(fetch: source.fetch) { request in
+            counted = request
+            return 250
+        }
+        let request = LibraryListRequest(scope: .allClips, kind: .code, oldestFirst: true)
+        await model.reload(request)
+        #expect(model.items.count == LibraryPager.pageSize)
+        #expect(model.total == 250)
+        #expect(counted == request)
+        #expect(source.lastRequest == request)
+        await model.reload(.pinned)
+        #expect(model.request.kind == .code, "a scope change keeps the chip and sort")
+        #expect(model.request.oldestFirst)
+    }
+
+    @Test("Each kind chip keeps exactly the kinds it names")
+    func kindChips() {
+        for filter in ClipKindFilter.allCases {
+            for kind in ClipContentKind.allCases {
+                #expect(filter.matches(kind) == (filter.kinds?.contains(kind) ?? true))
+            }
+        }
+        #expect(ClipKindFilter.all.kinds == nil)
+        #expect(ClipKindFilter.secrets.kinds == [.secret, .jwt, .creditCard])
     }
 }

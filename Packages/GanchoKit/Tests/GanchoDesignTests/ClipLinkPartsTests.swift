@@ -26,6 +26,16 @@ struct ClipLinkPartsTests {
         #expect(ClipLinkParts(text: "https://example.com")?.decoded == nil)
     }
 
+    @Test("The path follows the host once, decoded; a bare host has none")
+    func path() {
+        #expect(
+            ClipLinkParts(text: "https://github.com/johnny4young/gancho")?.path
+                == "/johnny4young/gancho")
+        #expect(ClipLinkParts(text: "https://example.com:8443/a%2Fb?q=a%26b")?.path == "/a/b?q=a&b")
+        #expect(ClipLinkParts(text: "https://example.com/")?.path == nil)
+        #expect(ClipLinkParts(text: "https://example.com")?.path == nil)
+    }
+
     @Test("Host prefixes are case insensitive")
     func host() {
         #expect(ClipLinkParts(text: "https://WWW.example.com")?.host == "example.com")

@@ -1977,16 +1977,6 @@
         }
       }
     },
-    "Last copied": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Último copiado"
-          }
-        }
-      }
-    },
     "Fields": {
       "localizations": {
         "es": {
@@ -2143,16 +2133,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aquí no hay nada todavía"
-          }
-        }
-      }
-    },
-    "Unlimited boards & snippets": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tableros y snippets ilimitados"
           }
         }
       }
@@ -3726,16 +3706,6 @@
         }
       }
     },
-    "Added to board": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Añadido a un tablero"
-          }
-        }
-      }
-    },
     "Added to paste stack": {
       "localizations": {
         "es": {
@@ -5235,26 +5205,6 @@
         }
       }
     },
-    "Almost full — Pro unlocks unlimited": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Casi lleno — Pro lo hace ilimitado"
-          }
-        }
-      }
-    },
-    "Free limit reached — go unlimited": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Llegaste al límite gratis — pásate a ilimitado"
-          }
-        }
-      }
-    },
     "Keyboard shortcuts": {
       "localizations": {
         "es": {
@@ -5421,26 +5371,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Arreglar"
-          }
-        }
-      }
-    },
-    "Paused while screen sharing": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En pausa mientras compartes pantalla"
-          }
-        }
-      }
-    },
-    "Capture resumes when you stop sharing.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La captura se reanuda cuando dejas de compartir."
           }
         }
       }
@@ -11165,6 +11095,516 @@
           "stringUnit": {
             "state": "translated",
             "value": "cuentagotas"
+          }
+        }
+      }
+    },
+    "%@ in front": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ al frente"
+          }
+        }
+      }
+    },
+    "Show anyway": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar de todos modos"
+          }
+        }
+      }
+    },
+    "%@ · masked": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · oculto"
+          }
+        }
+      }
+    },
+    "Recent · click pastes · ⌥ pastes plain": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recientes · clic pega · ⌥ pega sin formato"
+          }
+        }
+      }
+    },
+    "Paste stack · %lld waiting": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pila de pegado · %lld en espera"
+          }
+        }
+      }
+    },
+    "next: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "siguiente: %@"
+          }
+        }
+      }
+    },
+    "Screen share detected · previews hidden, capture paused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pantalla compartida · vistas previas ocultas, captura en pausa"
+          }
+        }
+      }
+    },
+    "Screen share detected · capture paused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pantalla compartida · captura en pausa"
+          }
+        }
+      }
+    },
+    "%@ is sharing. Rows show kinds only.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ está compartiendo. Las filas solo muestran el tipo."
+          }
+        }
+      }
+    },
+    "%@ is sharing. Previews are visible.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ está compartiendo. Las vistas previas están visibles."
+          }
+        }
+      }
+    },
+    "Rows show kinds only until sharing ends.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las filas solo muestran el tipo hasta que termine la pantalla compartida."
+          }
+        }
+      }
+    },
+    "Previews are visible until sharing ends.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las vistas previas están visibles hasta que termine la pantalla compartida."
+          }
+        }
+      }
+    },
+    "%@, next copy ignored": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, se ignorará la próxima copia"
+          }
+        }
+      }
+    },
+    "%@, %lld waiting in the paste stack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %lld en espera en la pila de pegado"
+          }
+        }
+      }
+    },
+    "Added to %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadido a %@"
+          }
+        }
+      }
+    },
+    "Already in %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya está en %@"
+          }
+        }
+      }
+    },
+    "%lld min": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        }
+      }
+    },
+    "%lld h": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld h"
+          }
+        }
+      }
+    },
+    "%lld d": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld d"
+          }
+        }
+      }
+    },
+    "now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ahora"
+          }
+        }
+      }
+    },
+    "Address": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dirección"
+          }
+        }
+      }
+    },
+    "Card number": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarjeta"
+          }
+        }
+      }
+    },
+    "Date": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fecha"
+          }
+        }
+      }
+    },
+    "Email": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correo"
+          }
+        }
+      }
+    },
+    "File": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivo"
+          }
+        }
+      }
+    },
+    "Grid": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuadrícula"
+          }
+        }
+      }
+    },
+    "Image": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagen"
+          }
+        }
+      }
+    },
+    "JSON": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JSON"
+          }
+        }
+      }
+    },
+    "JWT": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JWT"
+          }
+        }
+      }
+    },
+    "Kind": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipo"
+          }
+        }
+      }
+    },
+    "Link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enlace"
+          }
+        }
+      }
+    },
+    "List": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lista"
+          }
+        }
+      }
+    },
+    "Newest": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más recientes"
+          }
+        }
+      }
+    },
+    "Oldest": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más antiguos"
+          }
+        }
+      }
+    },
+    "Phone number": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teléfono"
+          }
+        }
+      }
+    },
+    "Rich text": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto enriquecido"
+          }
+        }
+      }
+    },
+    "Search clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar clips"
+          }
+        }
+      }
+    },
+    "Search the Library": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar en la Biblioteca"
+          }
+        }
+      }
+    },
+    "Secret": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secreto"
+          }
+        }
+      }
+    },
+    "Sort": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordenar"
+          }
+        }
+      }
+    },
+    "Tracking number": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guía de envío"
+          }
+        }
+      }
+    },
+    "UUID": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UUID"
+          }
+        }
+      }
+    },
+    "View": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista"
+          }
+        }
+      }
+    },
+    "expires in %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "caduca en %@"
+          }
+        }
+      }
+    },
+    "New filter": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo filtro"
+          }
+        }
+      }
+    },
+    "%lld of %lld boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld de %2$lld tableros"
+          }
+        }
+      }
+    },
+    "%lld of %lld pins": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld de %2$lld fijados"
+          }
+        }
+      }
+    },
+    "%lld of %lld snippets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld de %2$lld snippets"
+          }
+        }
+      }
+    },
+    "Pro removes every limit": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro quita todos los límites"
+          }
+        }
+      }
+    },
+    "Almost full": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Casi lleno"
+          }
+        }
+      }
+    },
+    "Limit reached": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llegaste al límite"
           }
         }
       }

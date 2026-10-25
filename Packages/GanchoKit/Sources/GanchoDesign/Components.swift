@@ -125,6 +125,9 @@ public struct ClipLinkParts: Equatable, Sendable {
     /// The path and query with percent escapes decoded, or nil when decoding
     /// changes nothing (the URL line already says it).
     public let decoded: String?
+    /// What follows the host (path and query, decoded when that reads better);
+    /// nil for a bare host, so a card never repeats the host it already shows.
+    public let path: String?
 
     public init?(text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -142,6 +145,8 @@ public struct ClipLinkParts: Equatable, Sendable {
             + (components?.percentEncodedQuery.map { "?\($0)" } ?? "")
         let readable = raw.removingPercentEncoding
         decoded = readable == raw ? nil : readable
+        let shown = readable ?? raw
+        path = shown.isEmpty || shown == "/" ? nil : shown
     }
 }
 
@@ -395,46 +400,9 @@ public struct ClipCard: View {
         }
     }
 
-    /// Kind-tinted rounded tile (the design's row icon). Links, colours and
-    /// images carry their identity in full colour (a host monogram, the real
-    /// swatch, the thumbnail); everything else keeps the glyph on a tint wash.
-    @ViewBuilder private var leadingTile: some View {
-        let tint = GanchoTokens.Palette.kindTint(for: item.kind)
-        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.card, style: .continuous)
-        Group {
-            if item.kind == .image, !previewsHidden, let thumbnail {
-                thumbnail
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: tileSize, height: tileSize)
-                    .clipShape(shape)
-                    .overlay(
-                        shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-            } else if item.kind == .color, !previewsHidden,
-                let color = Color(hexString: item.preview)
-            {
-                shape.fill(color)
-                    .overlay(
-                        shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
-            } else if item.kind == .url, !previewsHidden,
-                let monogram = Self.linkMonogram(for: item.preview)
-            {
-                shape.fill(tint.gradient)
-                    .overlay {
-                        Text(verbatim: monogram)
-                            .panelFont(size: 16, .bold, design: .rounded)
-                            .foregroundStyle(ContrastingForeground(on: tint))
-                    }
-            } else {
-                shape.fill(tint.opacity(0.16))
-                    .overlay {
-                        Image(systemName: item.kind.symbolName)
-                            .panelFont(size: 14, .semibold)
-                            .foregroundStyle(tint)
-                    }
-            }
-        }
-        .frame(width: tileSize, height: tileSize)
+    private var leadingTile: some View {
+        ClipTile(
+            item: item, size: tileSize, previewsHidden: previewsHidden, thumbnail: thumbnail)
     }
 
     /// "Safari · 12 minutes ago", hidden in private mode. Minute-granular: it sits
@@ -502,6 +470,63 @@ extension Text {
             ? "•••"
             : item.imageInfo?.rowDetail(titled: false) ?? ByteSize.humanizedPreview(item.preview)
         return Text("\(Text(LocalizedStringKey(item.kind.rawValue))), \(preview)")
+    }
+}
+
+/// Kind-tinted rounded tile (the design's row icon). Links, colours and images
+/// carry their identity in full colour (a host monogram, the real swatch, the
+/// thumbnail); everything else keeps the glyph on a tint wash. Rows and the
+/// menu-bar menu share it.
+public struct ClipTile: View {
+    let item: ClipItem
+    let size: CGFloat
+    let previewsHidden: Bool
+    let thumbnail: Image?
+
+    public init(item: ClipItem, size: CGFloat, previewsHidden: Bool, thumbnail: Image? = nil) {
+        self.item = item
+        self.size = size
+        self.previewsHidden = previewsHidden || ClipSafePresentation.requiresMasking(item)
+        self.thumbnail = thumbnail
+    }
+
+    public var body: some View {
+        let tint = GanchoTokens.Palette.kindTint(for: item.kind)
+        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.card, style: .continuous)
+        Group {
+            if item.kind == .image, !previewsHidden, let thumbnail {
+                thumbnail
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(shape)
+                    .overlay(
+                        shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
+            } else if item.kind == .color, !previewsHidden,
+                let color = Color(hexString: item.preview)
+            {
+                shape.fill(color)
+                    .overlay(
+                        shape.strokeBorder(.separator, lineWidth: GanchoTokens.Stroke.hairline))
+            } else if item.kind == .url, !previewsHidden,
+                let monogram = ClipCard.linkMonogram(for: item.preview)
+            {
+                shape.fill(tint.gradient)
+                    .overlay {
+                        Text(verbatim: monogram)
+                            .font(.system(size: size * 16 / 36, weight: .bold, design: .rounded))
+                            .foregroundStyle(ContrastingForeground(on: tint))
+                    }
+            } else {
+                shape.fill(tint.opacity(0.16))
+                    .overlay {
+                        Image(systemName: item.kind.symbolName)
+                            .font(.system(size: size * 14 / 36, weight: .semibold))
+                            .foregroundStyle(tint)
+                    }
+            }
+        }
+        .frame(width: size, height: size)
     }
 }
 

@@ -105,6 +105,14 @@ final class AppModel {
     let monitor: MacPasteboardMonitor
     private let captureLifecycle: CaptureLifecycleController
     var monitorStatus: MonitorStatus { captureLifecycle.status }
+    var ignoresNextCopy: Bool { captureLifecycle.ignoresNextCopy }
+    /// The app sharing the screen while capture is paused for it.
+    var sharingAppName: String? { captureLifecycle.sharingAppName }
+    var screenShareSession: Int { captureLifecycle.screenShareSession }
+    /// The share whose previews the user chose to show anyway.
+    var revealedScreenShareSession: Int?
+    /// Visible clips for the menu-bar header; the count query is async.
+    var menuBarClipCount: Int?
     let pasteBack = AppModel.makePasteBackService()
     let privacyEvents = InMemoryPrivacyEventRecorder()
     /// Content-free log of recent operational issues (storage that wouldn't
@@ -136,11 +144,15 @@ final class AppModel {
     let paywallWindow = PaywallWindowController()
     let permissionWindow = PasteboardPermissionWindowController()
     let libraryWindow = LibraryWindowController()
-    @ObservationIgnored lazy var libraryClips = LibraryClipListModel {
-        [weak self] scope, offset, limit in
-        guard let self else { throw CancellationError() }
-        return try await fetchLibraryClips(scope: scope, offset: offset, limit: limit)
-    }
+    @ObservationIgnored lazy var libraryClips = LibraryClipListModel(
+        fetch: { [weak self] request, offset, limit in
+            guard let self else { throw CancellationError() }
+            return try await fetchLibraryClips(request, offset: offset, limit: limit)
+        },
+        count: { [weak self] request in
+            guard let self else { throw CancellationError() }
+            return try await countLibraryClips(request)
+        })
     let savedFilters: SavedFiltersController
     let settingsWindow = SettingsWindowController()
     let mcpAccessWindow = MCPAccessWindowController()
@@ -478,7 +490,7 @@ final class AppModel {
             monitor: resolvedMonitor,
             preferences: loadedPreferences,
             autoPauseOnScreenShare: loadedAutoPauseOnScreenShare,
-            screenShareIsActive: { screenShareDetector.isScreenSharePresumed() },
+            screenShareApp: { Self.sharingAppForLaunch(detector: screenShareDetector) },
             onPreferencesChanged: { preferences in
                 preferences.save(to: appDefaults)
             },
@@ -523,7 +535,7 @@ final class AppModel {
                     localized: "Stored searches couldn’t be erased. Try turning it off again."))
         }
         reuseController.setRecentItemsObserver { [weak self] _ in
-            self?.publishLastCopied()
+            Task { await self?.refreshMenuBarClipCount() }
         }
         captureLifecycle.activate()
         #if DEBUG
@@ -865,19 +877,6 @@ final class AppModel {
         await reuseController.refreshRecents()
     }
 
-    /// Publish the most recent clip's preview to the menu-bar helper's recent
-    /// row. Private mode clears it; protected clips (flagged or an intrinsic
-    /// secret kind) send only a mask — full content never crosses to the helper.
-    private func publishLastCopied() {
-        guard !preferences.isPrivateModePaused, let top = recentItems.first else {
-            GanchoMenuBarBridge.writeLastCopied(preview: nil, label: "", at: Date())
-            return
-        }
-        GanchoMenuBarBridge.writeLastCopied(
-            preview: ClipSafePresentation.requiresMasking(top) ? "•••" : top.preview,
-            label: String(localized: "Last copied"), at: top.createdAt)
-    }
-
     // MARK: - Actions
 
     /// The real paste-back service or, in DEBUG UI tests only, one that writes
@@ -1163,7 +1162,7 @@ final class AppModel {
                     action: ToastAction(
                         title: "Add", accessibilityIdentifier: "reuse-suggestion-action"
                     ) { [weak self] in
-                        self?.assignWithUndo(item, toBoard: board)
+                        self?.assign(item, toBoard: board)
                     }),
                 duration: .seconds(8))
             return
@@ -1409,8 +1408,7 @@ final class AppModel {
         toasts.show(
             GanchoToast(
                 message: "Deleted",
-                action: ToastAction(title: "Undo", accessibilityIdentifier: "toast-undo") {
-                    [weak self] in
+                action: .undo { [weak self] in
                     self?.reuseController.undoDeletion(transaction)
                 }))
     }
@@ -1849,33 +1847,39 @@ final class AppModel {
         assign([item], toBoard: board)
     }
 
+    /// Files the clips and names the board in a toast whose Undo (or ⌘Z)
+    /// takes them back out, instead of making the user hunt through the menu.
     func assign(_ items: [ClipItem], toBoard board: Pinboard) {
-        Task {
-            guard await setBoardMembership(items, board: board, member: true) else { return }
-            toasts.show(GanchoToast(message: "Added to board"))
+        Task { [weak self] in
+            guard let self else { return }
+            var memberships: [UUID: Set<UUID>] = [:]
+            for item in items { memberships[item.id] = await boardMembership(for: item) }
+            let added = BoardDrop.newlyFiled(items, memberships: memberships, board: board.id)
+            guard !added.isEmpty else {
+                toasts.show(GanchoToast(message: "Already in \(board.displayName)"))
+                return
+            }
+            guard await setBoardMembership(added, board: board, member: true) else { return }
+            showAddedToast(added, board: board)
         }
     }
 
-    /// Assign + a one-tap Undo (the board-suggestion accept path). The action is
-    /// reversible, so offer the reversal in the toast instead of making the user
-    /// hunt through the board menu to take it back.
-    func assignWithUndo(_ item: ClipItem, toBoard board: Pinboard) {
-        Task { [weak self] in
-            guard let self, await setBoardMembership(item, board: board, member: true) else {
-                return
-            }
-            toasts.show(
-                GanchoToast(
-                    message: "Added to board",
-                    action: ToastAction(title: "Undo") { [weak self] in
-                        self?.unassign(item, fromBoard: board)
-                    }))
-        }
+    func showAddedToast(_ items: [ClipItem], board: Pinboard) {
+        toasts.show(
+            GanchoToast(
+                message: "Added to \(board.displayName)",
+                action: .undo { [weak self] in
+                    self?.unassign(items, fromBoard: board)
+                }))
     }
 
     func unassign(_ item: ClipItem, fromBoard board: Pinboard) {
+        unassign([item], fromBoard: board)
+    }
+
+    func unassign(_ items: [ClipItem], fromBoard board: Pinboard) {
         Task {
-            _ = await setBoardMembership(item, board: board, member: false)
+            _ = await setBoardMembership(items, board: board, member: false)
         }
     }
 
@@ -1915,7 +1919,7 @@ final class AppModel {
             name: name, filing: item, store: fullStore, engine: syncController.engine,
             isPro: tier == .pro,
             onFreeLimit: { self.paywallWindow.show(trigger: .freeLimitReached, model: self) },
-            onAssigned: { self.toasts.show(GanchoToast(message: "Added to board")) })
+            onAssigned: {})
         if outcome == .failed {
             recordBoardFailure("Couldn’t create the board.")
         } else if item != nil, case .created(_, filedClip: false) = outcome {
@@ -1926,6 +1930,10 @@ final class AppModel {
         await refreshBoards()
         if case .created(let boardID, filedClip: true) = outcome {
             lastAssignedBoardID = boardID
+            // Named as stored (trimmed), with the same Undo as any other assign.
+            if let item, let board = boards.first(where: { $0.id == boardID }) {
+                showAddedToast([item], board: board)
+            }
         }
         if item != nil { await refreshRecents() }
         if case .created = outcome { notifyStoreChanged(for: .boards) }
@@ -2055,6 +2063,15 @@ final class AppModel {
     var lastAssignedBoardID: UUID? {
         get { defaults.string(forKey: "last-assigned-board").flatMap(UUID.init) }
         set { defaults.set(newValue?.uuidString, forKey: "last-assigned-board") }
+    }
+
+    /// The Library's Grid / List choice, kept across launches.
+    var libraryLayout: LibraryLayout {
+        get {
+            defaults.string(forKey: LibraryLayout.defaultsKey).flatMap(LibraryLayout.init)
+                ?? .grid
+        }
+        set { defaults.set(newValue.rawValue, forKey: LibraryLayout.defaultsKey) }
     }
 
     /// ⇧⌘B: file the clip into the last board used, so curating many clips into

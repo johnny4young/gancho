@@ -123,7 +123,11 @@ struct PasteStackStrip: View {
         .frame(width: 320)
     }
 
+    /// Kinds only for secrets, in Private Mode and during an unrevealed share.
     private func displayText(_ item: ClipItem) -> String {
-        item.title.isEmpty ? item.preview : item.title
+        guard !model.previewsHidden, !ClipSafePresentation.requiresMasking(item) else {
+            return ClipSafePresentation.masked
+        }
+        return item.title.isEmpty ? item.preview : item.title
     }
 }

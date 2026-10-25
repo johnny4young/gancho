@@ -32,6 +32,10 @@ final class LibraryWindowController {
                     StoreBootstrap.request() != .production,
                     let frame = NSScreen.screens.first?.visibleFrame
                 {
+                    // Snapshots render at the size the design board is drawn at.
+                    if CommandLine.arguments.contains("-library-board-size-for-ui-test") {
+                        created.setContentSize(NSSize(width: 1200, height: 860))
+                    }
                     created.setFrameTopLeftPoint(
                         NSPoint(x: frame.minX + 40, y: frame.maxY - 40))
                 }

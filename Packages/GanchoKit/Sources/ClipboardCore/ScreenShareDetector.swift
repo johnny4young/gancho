@@ -16,12 +16,13 @@
     /// user always has manual private mode); it never false-positives on a
     /// conferencing app that is merely OPEN.
     public struct ScreenShareDetector: Sendable {
-        /// Helper executables that exist only during an active share.
-        static let shareHelperNames: Set<String> = [
-            "CptHost",  // Zoom screen-share host
-            "caphost",  // Zoom variant
-            "Microsoft Teams Helper (Renderer)",  // Teams share renderer
-            "ScreenSharingAgent"  // Apple Screen Sharing host agent
+        /// Helper executables that exist only during an active share, and the
+        /// app the user knows each one by.
+        static let shareHelpers: [String: String] = [
+            "CptHost": "Zoom",  // Zoom screen-share host
+            "caphost": "Zoom",  // Zoom variant
+            "Microsoft Teams Helper (Renderer)": "Microsoft Teams",
+            "ScreenSharingAgent": "Screen Sharing"  // Apple Screen Sharing host agent
         ]
 
         private let runningProcessNames: @Sendable () -> [String]
@@ -35,8 +36,12 @@
         }
 
         public func isScreenSharePresumed() -> Bool {
-            let names = Set(runningProcessNames())
-            return !names.isDisjoint(with: Self.shareHelperNames)
+            sharingAppName() != nil
+        }
+
+        /// The app presumed to be sharing the screen, or nil when none is.
+        public func sharingAppName() -> String? {
+            runningProcessNames().lazy.compactMap { Self.shareHelpers[$0] }.first
         }
     }
 #endif

@@ -39,6 +39,29 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   a color clip. Pick color (I) turns the pointer into an eyedropper that saves
   the exact pixel you click. A Regions / Image only switch hides the text
   regions.
+- The menu-bar menu is a mini-panel: the capture state with the clip count
+  and the app in front, your five latest clips with their tiles (⌘1–⌘5 paste
+  them, ⌥ pastes plain), the paste stack with what comes next, and the
+  commands.
+- The menu-bar hook carries a badge for the state: paused, Private Mode,
+  access denied, next copy ignored, or how many clips wait in the paste stack.
+  ⌥-click pauses or resumes capture; ⌥⇧-click ignores the next copy.
+- While your screen is shared, the panel shows only each clip's kind and names
+  the app that is sharing; Show anyway reveals previews for that share. The
+  paste-stack strip, ⌘Y and the combined-text sheets hide content too, in
+  Private Mode as well.
+- Drag a clip onto a board — a chip on the panel's board rail or a board in
+  the Library sidebar — to file it. The board lifts and rings while the clip
+  hovers, and a clip already there says so.
+- The Library has a toolbar: search your clips (⌘F) within the board or filter
+  you are on, switch between Grid and List (remembered), and add a New board.
+  The header gains the panel's kind chips and a Newest / Oldest sort.
+- Library cards say what a clip is and where it lives: a link's host and path,
+  a colour's swatch, an image's format and size, the boards it is on, and its
+  kind, app and age. Hovering shows Copy, Pin and Add to board. A secret shows
+  only its stored mask and its countdown, and offers no Copy.
+- Saved filters show how many clips they hold and can be added from the
+  sidebar; snippets show their keyword.
 
 ### Changed
 
@@ -63,6 +86,20 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Meaning is a search mode of its own: it lists only the clips related by
   meaning, instead of adding them under the other results. The "By meaning"
   button is gone.
+- Adding clips to a board names the board in the confirmation ("Added to
+  Work") and offers Undo; while such a toast shows, ⌘Z in the panel or the
+  Library undoes it, as it does for Deleted.
+- The panel moves from its top strip (the search bar and toolbar background)
+  instead of from anywhere, so dragging a row drags the clip.
+- Library clips are grouped Pinned first, then by the day they were copied,
+  each group with its count; the panel's ⌘G gallery uses the new card.
+- The Library's Pro card is a meter of every Free limit (boards, pins and
+  snippets) that turns amber when one is almost full and red when one is
+  reached.
+- With an Undo toast showing, ⌘Z in a text field you have typed in undoes your
+  typing; the toast keeps its Undo button.
+- The menu-bar icon keeps the hook in every state instead of swapping to a
+  pause or warning symbol.
 - The selected row shows as a tinted, outlined card instead of a green bar
   on its left edge, and the preview card no longer has a colored stripe on
   its left.
@@ -83,6 +120,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Smart paste row shows its icon again.
 - Panel scope counts update when you delete a clip, undo the delete, or add a
   clip to a board or remove it, instead of waiting for the panel to reopen.
+- The Library header counts every clip in the scope, not just the first 100
+  loaded.
 - A board's list, its chip count and its Library count agree: archived and
   expired clips no longer appear in the board while being left out of its
   count.
@@ -92,6 +131,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   swatch draws; Convert color read the first two digits as alpha.
 - An `hsl()` color whose hue is `nan` or `inf` no longer crashes Convert
   color.
+- Dragging a row in the panel no longer drags the whole panel along with it.
+- The menu-bar helper no longer keeps a preview of your last copy in a
+  preferences file outside the encrypted store; the old value is removed at
+  launch.
 - Convert color reads `rgb()` channels written as percentages
   (`rgb(100%, 50%, 0%)`) or decimals, and alphas written as percentages,
   instead of misreading or rejecting them.

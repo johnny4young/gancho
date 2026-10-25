@@ -47,6 +47,14 @@ private enum GanchoRuntime {
         return UUID().uuidString
     }()
     static let menuBarPublisher = GanchoMenuBarStatusPublisher()
+    /// The status-item menu, drawn here for the helper's icon and the fallback.
+    private static var sharedMenu: MenuBarMenu?
+    static func menuBarMenu(for model: AppModel) -> MenuBarMenu {
+        if let sharedMenu { return sharedMenu }
+        let menu = MenuBarMenu(model: model)
+        sharedMenu = menu
+        return menu
+    }
     static let menuBarLifecycleGuard = GanchoMenuBarLifecycleGuard()
 
     static var usesInProcessStatusItem: Bool {
@@ -183,6 +191,42 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
                 object: nil,
                 suspensionBehavior: .deliverImmediately)
         }
+        center.addObserver(
+            self, selector: #selector(receiveShowMenu(_:)),
+            name: GanchoMenuBarSignal.showMenu.distributedNotificationName, object: nil,
+            suspensionBehavior: .deliverImmediately)
+    }
+
+    /// The helper's icon was clicked: open this app's menu under it, and tell
+    /// the helper when it opens and closes so it holds the highlight.
+    @objc private func receiveShowMenu(_ notification: Notification) {
+        guard let token = notification.object as? String, token == GanchoRuntime.commandNonce,
+            let model = GanchoRuntime.model
+        else { return }
+        let request = GanchoMenuBarBridge.takeMenuRequest()
+        // Too late: the helper has already opened its own menu.
+        if let requestedAt = request.requestedAt,
+            Date().timeIntervalSince(requestedAt) > GanchoMenuBarSignal.menuAnswerTimeout
+        {
+            return
+        }
+        let menu = GanchoRuntime.menuBarMenu(for: model)
+        menu.onOpen = { GanchoMenuBarSignal.menuDidOpen.post(token: token) }
+        menu.onClose = { GanchoMenuBarSignal.menuDidClose.post(token: token) }
+        // An icon frame on a screen anchors the menu; otherwise the pointer
+        // that just clicked the icon is close.
+        let anchor =
+            request.buttonFrame.flatMap(Self.onScreen).map { NSPoint(x: $0.minX, y: $0.minY - 2) }
+            ?? NSEvent.mouseLocation
+        menu.popUp(atScreenPoint: anchor)
+    }
+
+    private static func onScreen(_ frame: NSRect) -> NSRect? {
+        let finite = [frame.minX, frame.minY, frame.width, frame.height].allSatisfy(\.isFinite)
+        guard finite, NSScreen.screens.contains(where: { $0.frame.intersects(frame) }) else {
+            return nil
+        }
+        return frame
     }
 
     @objc private func receiveMenuBarCommand(_ notification: Notification) {
@@ -257,7 +301,8 @@ final class GanchoAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func monitorInProcessStatusItem(model: AppModel) {
-        GanchoRuntime.statusItem.attach(model: model)
+        GanchoRuntime.statusItem.attach(
+            model: model, menu: GanchoRuntime.menuBarMenu(for: model))
         GanchoRuntime.menuBarLifecycleGuard.monitorInProcessStatusItem(GanchoRuntime.statusItem)
         #if DEBUG
             scheduleAffordanceRemovalForUITests {
@@ -370,11 +415,12 @@ private enum GanchoDeepLinks {
 final class GanchoMenuBarStatusPublisher {
     private weak var model: AppModel?
     private var timer: Timer?
-    private var lastStatus: MonitorStatus?
+    private var lastStatus: (label: String, badge: MenuBarBadge?)?
     private var lastPanelShortcut: MenuBarKeyEquivalent??
 
     func start(model: AppModel) {
         self.model = model
+        GanchoMenuBarBridge.removeRetiredValues()
         publishTitles()
         publishNow()
         timer?.invalidate()
@@ -404,11 +450,12 @@ final class GanchoMenuBarStatusPublisher {
 
     @objc func publishNow() {
         publishPanelShortcut()
-        guard let model, model.monitorStatus != lastStatus else { return }
-        lastStatus = model.monitorStatus
-        let presentation = StatusItemPresentation(status: model.monitorStatus)
-        GanchoMenuBarBridge.writeStatus(
-            icon: presentation.icon,
-            label: presentation.accessibilityDescription)
+        guard let model else { return }
+        let status = (label: model.menuBarAccessibilityLabel, badge: model.menuBarBadge)
+        if let lastStatus, lastStatus.label == status.label, lastStatus.badge == status.badge {
+            return
+        }
+        lastStatus = status
+        GanchoMenuBarBridge.writeStatus(label: status.label, badge: status.badge)
     }
 }
