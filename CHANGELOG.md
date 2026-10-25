@@ -53,6 +53,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Drag a clip onto a board — a chip on the panel's board rail or a board in
   the Library sidebar — to file it. The board lifts and rings while the clip
   hovers, and a clip already there says so.
+- The Library has a toolbar: search your clips (⌘F) within the board or filter
+  you are on, switch between Grid and List (remembered), and add a New board.
+  The header gains the panel's kind chips and a Newest / Oldest sort.
+- Library cards say what a clip is and where it lives: a link's host and path,
+  a colour's swatch, an image's format and size, the boards it is on, and its
+  kind, app and age. Hovering shows Copy, Pin and Add to board. A secret shows
+  only its stored mask and its countdown, and offers no Copy.
+- Saved filters show how many clips they hold and can be added from the
+  sidebar; snippets show their keyword.
 
 ### Changed
 
@@ -82,6 +91,13 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Library undoes it, as it does for Deleted.
 - The panel moves from its top strip (the search bar and toolbar background)
   instead of from anywhere, so dragging a row drags the clip.
+- Library clips are grouped Pinned first, then by the day they were copied,
+  each group with its count; the panel's ⌘G gallery uses the new card.
+- The Library's Pro card is a meter of every Free limit (boards, pins and
+  snippets) that turns amber when one is almost full and red when one is
+  reached.
+- With an Undo toast showing, ⌘Z in a text field you have typed in undoes your
+  typing; the toast keeps its Undo button.
 - The menu-bar icon keeps the hook in every state instead of swapping to a
   pause or warning symbol.
 - The selected row shows as a tinted, outlined card instead of a green bar
@@ -104,6 +120,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Smart paste row shows its icon again.
 - Panel scope counts update when you delete a clip, undo the delete, or add a
   clip to a board or remove it, instead of waiting for the panel to reopen.
+- The Library header counts every clip in the scope, not just the first 100
+  loaded.
 - A board's list, its chip count and its Library count agree: archived and
   expired clips no longer appear in the board while being left out of its
   count.

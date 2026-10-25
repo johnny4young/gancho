@@ -18,21 +18,12 @@ extension LibraryView {
         }
     }
 
-    /// A board's clips as a card grid, with the scope title, a live count, and
-    /// the sync state — the design's main pane.
+    /// A scope's clips grouped Pinned first, then by copy date, as cards or rows.
     private var boardDetail: some View {
         let clips = self.clips
         let lastID = clips.last?.id
         return VStack(spacing: 0) {
-            HStack(spacing: GanchoTokens.Spacing.xs) {
-                scopeTitle.font(.headline)
-                Text("\(clips.count) clips").foregroundStyle(.secondary)
-                    .accessibilityIdentifier("library-scope-count")
-                Spacer(minLength: 0)
-                SyncStatusView(status: model.syncStatus)
-            }
-            .padding(GanchoTokens.Spacing.md)
-
+            scopeHeader
             Divider()
             if metadataLoadFailed, !clips.isEmpty {
                 libraryReadFailure { Task { await refreshAll() } }
@@ -57,17 +48,10 @@ extension LibraryView {
                 emptyScope
             } else {
                 ScrollView {
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.adaptive(minimum: 208), spacing: GanchoTokens.Spacing.sm)
-                        ],
-                        spacing: GanchoTokens.Spacing.sm
-                    ) {
-                        ForEach(clips) { clip in
-                            clipCard(clip)
-                                .task {
-                                    if clip.id == lastID { await clipList.loadMore() }
-                                }
+                    LazyVStack(alignment: .leading, spacing: GanchoTokens.Spacing.sm) {
+                        ForEach(ClipSections.grouped(clips, now: .now)) { group in
+                            sectionHeader(group.section, count: group.clips.count)
+                            sectionBody(group.clips, lastID: lastID)
                         }
                     }
                     .padding(GanchoTokens.Spacing.md)
@@ -82,7 +66,57 @@ extension LibraryView {
         }
     }
 
-    private var scopeTitle: Text {
+    @ViewBuilder private func sectionBody(_ group: [ClipItem], lastID: UUID?) -> some View {
+        switch layout {
+        case .grid:
+            LazyVGrid(
+                columns: [
+                    GridItem(
+                        .adaptive(minimum: 260), spacing: GanchoTokens.Spacing.sm, alignment: .top)
+                ],
+                spacing: GanchoTokens.Spacing.sm
+            ) {
+                ForEach(group) { clip in
+                    clipCard(clip).task { if clip.id == lastID { await clipList.loadMore() } }
+                }
+            }
+        case .list:
+            LazyVStack(spacing: 2) {
+                ForEach(group) { clip in
+                    clipRow(clip).task { if clip.id == lastID { await clipList.loadMore() } }
+                }
+            }
+        }
+    }
+
+    private func sectionHeader(_ section: ClipSection, count: Int) -> some View {
+        HStack(spacing: 4) {
+            if section == .pinned { Image(systemName: "pin.fill").panelFont(size: 8) }
+            Text(sectionTitle(section))
+            Text(verbatim: "· \(count)").monospacedDigit()
+        }
+        .panelFont(.caption2, .bold)
+        .textCase(.uppercase)
+        .foregroundStyle(.secondary)
+        .padding(.top, GanchoTokens.Spacing.xs)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("library-section")
+    }
+
+    private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
+        switch section {
+        case .pinned: "Pinned"
+        case .date(.today): "Today"
+        case .date(.yesterday): "Yesterday"
+        case .date(.thisMonth): "This month"
+        case .date(.lastMonth): "Last month"
+        case .date(.thisYear): "This year"
+        case .date(.lastYear): "Last year"
+        case .date(.older): "Older"
+        }
+    }
+
+    var scopeTitle: Text {
         switch selection ?? .allClips {
         case .allClips: Text("All clips")
         case .pinned: Text("Pinned")
@@ -136,20 +170,103 @@ extension LibraryView {
         .accessibilityIdentifier("library-load-failed-note")
     }
 
-    /// Keep copy as the primary action and retain all management commands.
+    /// Copy stays the card's primary action; hover adds Copy, Pin and Board
+    /// so the menu is not the only path. A protected clip offers no Copy.
     private func clipCard(_ clip: ClipItem) -> some View {
+        LibraryCardHover { hovering in
+            ZStack(alignment: .topTrailing) {
+                Button {
+                    copy(clip)
+                } label: {
+                    LibraryClipCard(
+                        clip: clip, boards: cardBoards(clip), thumbnails: model.libraryThumbnails,
+                        previewsHidden: model.previewsHidden)
+                }
+                .buttonStyle(.plain)
+                .clipDragSource(clip)
+                .contextMenu { clipMenu(clip) }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("library-clip")
+                if hovering { hoverActions(clip).padding(8) }
+            }
+        }
+    }
+
+    /// The List layout: the panel's own row, with the same actions as a card.
+    private func clipRow(_ clip: ClipItem) -> some View {
         Button {
             copy(clip)
         } label: {
-            LibraryClipCard(
-                clip: clip, thumbnails: model.libraryThumbnails,
-                previewsHidden: model.previewsHidden)
+            ClipCard(
+                item: clip, previewsHidden: model.previewsHidden,
+                thumbnail: model.libraryThumbnails.cached(for: clip))
         }
         .buttonStyle(.plain)
         .clipDragSource(clip)
         .contextMenu { clipMenu(clip) }
-        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("library-clip")
+    }
+
+    private func hoverActions(_ clip: ClipItem) -> some View {
+        HStack(spacing: 3) {
+            if canCopy(clip) {
+                hoverButton("Copy", systemImage: "doc.on.doc", id: "library-card-copy") {
+                    copy(clip)
+                }
+            }
+            hoverButton(
+                clip.isPinned ? "Unpin" : "Pin", systemImage: clip.isPinned ? "pin.slash" : "pin",
+                id: "library-card-pin"
+            ) { model.togglePin(clip) }
+            Menu {
+                ForEach(boards) { board in
+                    Button {
+                        model.assign(clip, toBoard: board)
+                    } label: {
+                        board.displayTitle
+                    }
+                }
+            } label: {
+                Image(systemName: "square.stack").panelFont(.caption, .semibold)
+                    .frame(width: 24, height: 24)
+            }
+            .menuStyle(.button)
+            .menuIndicator(.hidden)
+            .buttonStyle(.plain)
+            .fixedSize()
+            .background(.bar, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .help(Text("Add to board"))
+            .accessibilityLabel(Text("Add to board"))
+            .accessibilityIdentifier("library-card-board")
+        }
+    }
+
+    private func hoverButton(
+        _ title: LocalizedStringKey, systemImage: String, id: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage).panelFont(.caption, .semibold)
+                .frame(width: 24, height: 24)
+                .background(.bar, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help(Text(title))
+        .accessibilityLabel(Text(title))
+        .accessibilityIdentifier(id)
+    }
+
+    /// The boards a card names, in sidebar order.
+    private func cardBoards(_ clip: ClipItem) -> [Pinboard] {
+        guard let ids = membership[clip.id] else { return [] }
+        return boards.filter { ids.contains($0.id) }
+    }
+
+    /// Copy is offered only where it can work: not on a protected or expired clip.
+    private func canCopy(_ clip: ClipItem) -> Bool {
+        !model.preferences.isPrivateModePaused && !ClipSafePresentation.requiresMasking(clip)
+            && (clip.expiresAt.map { $0 > .now } ?? true)
     }
 
     @ViewBuilder private func clipMenu(_ clip: ClipItem) -> some View {
@@ -177,6 +294,7 @@ extension LibraryView {
         Button("Copy", systemImage: "doc.on.doc") { copy(clip) }
             .accessibilityIdentifier("library-copy-action")
         Button("Delete", role: .destructive) { model.delete(clip) }
+            .accessibilityIdentifier("library-delete-action")
     }
 
     // MARK: - Data
@@ -201,12 +319,14 @@ extension LibraryView {
             let nextPinnedCount = try await model.fullStore?.pinnedCount() ?? 0
             var counts: [UUID: Int] = [:]
             for board in nextBoards { counts[board.id] = scope?.boards[board.id] ?? 0 }
+            let nextFilterCounts = await model.savedFilterCounts(model.savedFilters.rules)
             guard metadataGeneration == request, !Task.isCancelled else { return }
             boards = nextBoards
             snippets = nextSnippets
             allCount = nextAllCount
             pinnedCount = nextPinnedCount
             boardCounts = counts
+            filterCounts = nextFilterCounts
             metadataLoadFailed = false
             await loadScope(preservingWindow: true)
         } catch {
@@ -240,7 +360,10 @@ extension LibraryView {
             scope = .savedFilter(rule)
         case .snippet: return
         }
-        await clipList.reload(scope, preservingWindow: preservingWindow)
+        await clipList.reload(
+            LibraryListRequest(
+                scope: scope, text: searchText, kind: kindFilter, oldestFirst: oldestFirst),
+            preservingWindow: preservingWindow)
     }
 
     private func copy(_ clip: ClipItem) {

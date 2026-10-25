@@ -109,9 +109,18 @@ struct ToastUndoShortcut: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        Button("") { model.toasts.performUndo() }
-            .keyboardShortcut("z", modifiers: .command)
-            .disabled(model.toasts.visibleUndo == nil)
+        Button("") {
+            // Typing that can be undone wins; the toast keeps its own Undo button.
+            if let editor = NSApp.keyWindow?.firstResponder as? NSTextView,
+                let undo = editor.undoManager, undo.canUndo
+            {
+                undo.undo()
+            } else {
+                model.toasts.performUndo()
+            }
+        }
+        .keyboardShortcut("z", modifiers: .command)
+        .disabled(model.toasts.visibleUndo == nil)
     }
 }
 

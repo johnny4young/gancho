@@ -125,6 +125,9 @@ public struct ClipLinkParts: Equatable, Sendable {
     /// The path and query with percent escapes decoded, or nil when decoding
     /// changes nothing (the URL line already says it).
     public let decoded: String?
+    /// What follows the host (path and query, decoded when that reads better);
+    /// nil for a bare host, so a card never repeats the host it already shows.
+    public let path: String?
 
     public init?(text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -142,6 +145,8 @@ public struct ClipLinkParts: Equatable, Sendable {
             + (components?.percentEncodedQuery.map { "?\($0)" } ?? "")
         let readable = raw.removingPercentEncoding
         decoded = readable == raw ? nil : readable
+        let shown = readable ?? raw
+        path = shown.isEmpty || shown == "/" ? nil : shown
     }
 }
 

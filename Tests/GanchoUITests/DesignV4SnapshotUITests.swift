@@ -6,7 +6,7 @@ import XCTest
 /// moving part is the UI under test. Windows are rendered by the app itself
 /// (`-ui-test-snapshot-dir`), so a capture never contains another app's window.
 final class DesignV4SnapshotUITests: XCTestCase {
-    private var renders: URL!
+    var renders: URL!
 
     override func setUpWithError() throws {
         try DesignSnapshot.skipUnlessEnabled()
@@ -416,7 +416,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
     }
 
     /// Keyboard UI mode 2 is full keyboard access, so focus rings are drawn.
-    private func stableArguments(
+    func stableArguments(
         _ appearance: String, keyboardUIMode: String = "2"
     )
         -> [String]

@@ -144,11 +144,15 @@ final class AppModel {
     let paywallWindow = PaywallWindowController()
     let permissionWindow = PasteboardPermissionWindowController()
     let libraryWindow = LibraryWindowController()
-    @ObservationIgnored lazy var libraryClips = LibraryClipListModel {
-        [weak self] scope, offset, limit in
-        guard let self else { throw CancellationError() }
-        return try await fetchLibraryClips(scope: scope, offset: offset, limit: limit)
-    }
+    @ObservationIgnored lazy var libraryClips = LibraryClipListModel(
+        fetch: { [weak self] request, offset, limit in
+            guard let self else { throw CancellationError() }
+            return try await fetchLibraryClips(request, offset: offset, limit: limit)
+        },
+        count: { [weak self] request in
+            guard let self else { throw CancellationError() }
+            return try await countLibraryClips(request)
+        })
     let savedFilters: SavedFiltersController
     let settingsWindow = SettingsWindowController()
     let mcpAccessWindow = MCPAccessWindowController()
@@ -2059,6 +2063,15 @@ final class AppModel {
     var lastAssignedBoardID: UUID? {
         get { defaults.string(forKey: "last-assigned-board").flatMap(UUID.init) }
         set { defaults.set(newValue?.uuidString, forKey: "last-assigned-board") }
+    }
+
+    /// The Library's Grid / List choice, kept across launches.
+    var libraryLayout: LibraryLayout {
+        get {
+            defaults.string(forKey: LibraryLayout.defaultsKey).flatMap(LibraryLayout.init)
+                ?? .grid
+        }
+        set { defaults.set(newValue.rawValue, forKey: LibraryLayout.defaultsKey) }
     }
 
     /// ⇧⌘B: file the clip into the last board used, so curating many clips into
