@@ -62,6 +62,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   only its stored mask and its countdown, and offers no Copy.
 - Saved filters show how many clips they hold and can be added from the
   sidebar; snippets show their keyword.
+- Settings › Privacy opens with four tiles: whether Gancho is capturing (with
+  the clip count and size on this Mac), whether history is encrypted, how many
+  protected copies it skipped this week, and the sync state. A Privacy Center
+  card sits under every Settings pane.
+- Settings › Retention shows every lifetime on one timeline that moves with the
+  pickers, and "Forget recent clips" removes what you copied in the last 5, 15
+  or 60 minutes after showing how many; Undo brings them back. Pins, boards and
+  snippets stay.
+- The Privacy Center opens with "Verify, don’t trust": encryption with a Verify
+  button that checks the database on this Mac, iCloud sync, the last content
+  read, local AI agent access and the network boundary.
 
 ### Changed
 
@@ -96,6 +107,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Library's Pro card is a meter of every Free limit (boards, pins and
   snippets) that turns amber when one is almost full and red when one is
   reached.
+- Settings › Capture states the concealed and transient copy rule as a card
+  with nothing to turn off; Intelligence is a single row.
+- Privacy settings are grouped by question (Capture control, Searches and
+  Spotlight, Diagnostics) with shorter notes under each control.
 - With an Undo toast showing, ⌘Z in a text field you have typed in undoes your
   typing; the toast keeps its Undo button.
 - The menu-bar icon keeps the hook in every state instead of swapping to a
@@ -120,6 +135,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Smart paste row shows its icon again.
 - Panel scope counts update when you delete a clip, undo the delete, or add a
   clip to a board or remove it, instead of waiting for the panel to reopen.
+- The screen-share note in Privacy settings names the apps Gancho detects
+  (Zoom, Teams and Screen Sharing) instead of apps it does not.
 - The Library header counts every clip in the scope, not just the first 100
   loaded.
 - A board's list, its chip count and its Library count agree: archived and
