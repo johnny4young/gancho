@@ -77,8 +77,24 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   you will see at the top of your history, why iOS shows no paste banner, how
   to add the keyboard and the widget, and a Paste button to try it. A paste
   there closes the welcome and opens the clip it saved.
+- On iPhone, a search lists clips related by meaning under its results, found
+  on the device. With semantic search on, Pro also embeds clips synced from
+  your other devices in the background, so they can be found by meaning too.
+- On iPhone, an active type or app filter shows as a chip under the boards;
+  tap it to remove it, or Clear filters to remove both.
 
 ### Changed
+
+- The iPhone's clipboard row is a card: it names what is on the clipboard
+  (a link, search text, a number) without reading it, points at the Paste
+  button, and after a save offers to open the clip for a few seconds.
+- iPhone rows name the device a clip came from when it wasn't this one; the
+  active board chip and the section headers show how many clips they hold.
+- iPhone rows for passwords, keys and cards show the kind, the stored mask
+  (`●●●● 4Q2v`), where and when it was copied, and how long it has left.
+  Widgets and the lock screen still show only dots.
+- The iPhone's search answer says it was answered on the device and that its
+  sources copy on tap.
 
 - The Mac welcome has four steps: the privacy promise (where clips live, when
   secrets expire, what is never read), the Accessibility permission with what
