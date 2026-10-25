@@ -31,9 +31,10 @@ extension IOSSettingsView {
         let summary = IntelligenceSummary(model.intelligence)
         let on = list(summary.on)
         let off = list(summary.off)
+        // Named, not "All on": Intelligence has toggles this line doesn't cover.
         switch (summary.on.isEmpty, summary.off.isEmpty) {
-        case (false, true): return Text("All on")
-        case (true, false): return Text("All off")
+        case (false, true): return Text("\(on) on")
+        case (true, false): return Text("\(off) off")
         case (false, false): return Text("\(on) on · \(off) off")
         case (true, true): return Text(verbatim: "")
         }

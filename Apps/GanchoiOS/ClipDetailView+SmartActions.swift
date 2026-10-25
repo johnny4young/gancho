@@ -21,7 +21,8 @@ extension ClipDetailView {
         if !actions.isEmpty || canTransform || canSmartPaste {
             Section {
                 FlowLayout(spacing: 6) {
-                    if let linkParts {
+                    // The full URL, never the row's shortened preview.
+                    if let linkParts, hasLoadedFullText {
                         chip("Markdown link") {
                             actionResult = linkParts.markdownLink(title: item.title)
                         }

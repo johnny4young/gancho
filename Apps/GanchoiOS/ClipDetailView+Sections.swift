@@ -48,9 +48,24 @@ extension ClipDetailView {
         let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
         return Section {
             VStack(alignment: .leading, spacing: 4) {
-                Text(verbatim: parts.host)
-                    .font(.title2.weight(.heavy))
-                    .lineLimit(2)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(verbatim: parts.host)
+                        .font(.title2.weight(.heavy))
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
+                    // An editable link keeps its edit, behind the hero.
+                    if editableText != nil {
+                        Button {
+                            editingLink = true
+                        } label: {
+                            Image(systemName: "pencil")
+                        }
+                        .buttonStyle(.borderless)
+                        .ganchoTextButton()
+                        .accessibilityLabel(Text("Edit content"))
+                        .accessibilityIdentifier("detail-edit-link")
+                    }
+                }
                 Text(verbatim: ClipTextPreview.truncated(parts.text, limit: 2_000))
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
@@ -76,7 +91,7 @@ extension ClipDetailView {
             )
             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
             .listRowBackground(Color.clear)
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("detail-link-hero")
         }
     }

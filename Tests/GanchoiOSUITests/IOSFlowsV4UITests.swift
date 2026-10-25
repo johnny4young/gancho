@@ -33,6 +33,42 @@ final class IOSFlowsV4UITests: XCTestCase {
         for _ in 0..<3 where !result.exists { app.swipeUp() }
         XCTAssertTrue(
             result.waitForExistence(timeout: 5), "the Markdown link is titled by the clip")
+
+        // The hero keeps a link editable.
+        let edit = app.buttons["detail-edit-link"].firstMatch
+        for _ in 0..<3 where !edit.isHittable { app.swipeDown() }
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        edit.tap()
+        XCTAssertTrue(
+            app.textViews["detail-content-field"].firstMatch.waitForExistence(timeout: 5),
+            "editing a link opens its text")
+    }
+
+    @MainActor
+    func testSnippetIsOffForASecretAndSetForASnippet() throws {
+        let app = try launch(["-seed-home-v4"])
+        defer { app.terminate() }
+        let secret = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == 'clip-row' AND label BEGINSWITH[c] %@", "secret")
+        ).firstMatch
+        XCTAssertTrue(secret.waitForExistence(timeout: 10))
+        secret.tap()
+        let snippet = app.buttons["detail-save-snippet"].firstMatch
+        XCTAssertTrue(snippet.waitForExistence(timeout: 5))
+        XCTAssertFalse(snippet.isEnabled, "a secret can't become a snippet")
+        app.buttons["Done"].firstMatch.tap()
+
+        let notes = app.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "identifier == 'clip-row' AND label CONTAINS %@", "Ship the onboarding")
+        ).firstMatch
+        XCTAssertTrue(notes.waitForExistence(timeout: 5))
+        notes.tap()
+        XCTAssertTrue(snippet.waitForExistence(timeout: 5))
+        let saved = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Saved"), object: snippet)
+        XCTAssertEqual(XCTWaiter().wait(for: [saved], timeout: 5), .completed, "shown as set")
+        XCTAssertFalse(snippet.isEnabled)
     }
 
     @MainActor

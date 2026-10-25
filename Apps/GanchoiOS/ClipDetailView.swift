@@ -107,6 +107,8 @@ struct ClipDetailView: View {
     @State var suggestedBoard: Pinboard?
     /// Whether this clip is already a snippet, for the Snippet button's state.
     @State var isSnippet = false
+    /// A link shows as its hero until the user asks to edit its text.
+    @State var editingLink = false
 
     /// Text-like clips (not image / file / colour) — what snippets, Smart Paste
     /// and most dev actions apply to.
@@ -145,11 +147,15 @@ struct ClipDetailView: View {
                 await model.updateClipTitle(item, title: title)
             }
             .id(item.id)
-            if let linkParts {
+            if let linkParts, !editingLink {
                 linkHero(linkParts)
             } else if editableText != nil {
-                ClipTextEditor(text: editableTextBinding, kind: item.kind) { text in
-                    await model.updateClipText(item, text: text)
+                ClipTextEditor(
+                    text: editableTextBinding, kind: item.kind, startsEditing: editingLink
+                ) { text in
+                    let saved = await model.updateClipText(item, text: text)
+                    if saved { editingLink = false }
+                    return saved
                 }
                 .id(item.id)
             } else {

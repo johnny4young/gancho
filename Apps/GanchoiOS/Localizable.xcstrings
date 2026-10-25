@@ -5172,26 +5172,6 @@
         }
       }
     },
-    "All off": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todo desactivado"
-          }
-        }
-      }
-    },
-    "All on": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todo activado"
-          }
-        }
-      }
-    },
     "Free · %lld of %lld boards, %lld of %lld snippets": {
       "localizations": {
         "es": {
@@ -5308,6 +5288,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clips recientes + Guardar, desde la pantalla de inicio"
+          }
+        }
+      }
+    },
+    "%@ on": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ activado"
+          }
+        }
+      }
+    },
+    "%@ off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ desactivado"
           }
         }
       }

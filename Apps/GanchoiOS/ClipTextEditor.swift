@@ -16,13 +16,14 @@ struct ClipTextEditor: View {
     @State private var saveFailed = false
 
     init(
-        text: Binding<String>, kind: ClipContentKind,
+        text: Binding<String>, kind: ClipContentKind, startsEditing: Bool = false,
         onSave: @escaping @MainActor (String) async -> Bool
     ) {
         _text = text
         self.kind = kind
         self.onSave = onSave
         _draft = State(initialValue: text.wrappedValue)
+        _isEditing = State(initialValue: startsEditing)
     }
 
     var body: some View {

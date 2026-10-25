@@ -205,6 +205,10 @@ struct BoardsHomeView: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .task { await reload() }
+        // A sync pass while the sheet is open changes what each board says.
+        .onChange(of: model.syncStatus) { _, _ in
+            Task { awaitingSync = await model.boardsAwaitingSync() }
+        }
     }
 
     private var renamePresented: Binding<Bool> {
