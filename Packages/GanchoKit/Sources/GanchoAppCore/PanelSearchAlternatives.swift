@@ -82,7 +82,7 @@ extension PanelSearchModel {
             rule.searchMode = mode.conventional
             switch await source.searchOutcome(rule.query, limit: limit) {
             case .success(let items): return items
-            case .failure: return nil
+            case .failure, .cancelled: return nil
             }
         }
         rule.searchMode = .fuzzy

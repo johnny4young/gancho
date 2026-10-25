@@ -122,8 +122,8 @@ public typealias HistoryListSource = ClipListSource
             query: query, boardID: selectedBoardID,
             sourceAppBundleID: selectedSourceAppBundleID,
             kinds: kindFilter.map { [$0] })
-        guard generation == searchGeneration else { return }
-        if let failure = Task.isCancelled ? ClipSearchError.cancelled : page.searchFailure {
+        guard generation == searchGeneration, !Task.isCancelled else { return }
+        if let failure = page.searchFailure {
             searchFailure = failure
             captures = []
             reachedEnd = true

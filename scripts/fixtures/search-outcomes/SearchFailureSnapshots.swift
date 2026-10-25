@@ -22,8 +22,7 @@ private enum SnapshotFixtureError: Error {
         let output = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: false)
         let failures: [(String, ClipSearchError)] = [
-            ("invalid-pattern", .invalidRegularExpression), ("timeout", .timedOut),
-            ("cancelled", .cancelled), ("read-failure", .readFailed)
+            ("invalid-pattern", .invalidRegularExpression), ("read-failure", .readFailed)
         ]
         var controls: [[String: Any]] = []
         for language in ["en", "es"] {
@@ -80,7 +79,7 @@ private enum SnapshotFixtureError: Error {
         try JSONSerialization.data(withJSONObject: controls, options: [.prettyPrinted, .sortedKeys])
             .write(to: output.appendingPathComponent("controls.json"))
         print(
-            "Captured 32 owned component renders and local control checks; no visible/key window or iOS Simulator capture"
+            "Captured 16 owned component renders and local control checks; no visible/key window or iOS Simulator capture"
         )
     }
 

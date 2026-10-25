@@ -28,12 +28,12 @@ extension AppModel: PanelSearchSource {
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
         switch await searchOutcome(query, limit: limit) {
         case .success(let items): return items
-        case .failure: return []
+        case .failure, .cancelled: return []
         }
     }
 
     func searchOutcome(_ query: ClipSearchQuery, limit: Int) async -> ClipListSearchOutcome {
-        guard !Task.isCancelled else { return .failure(.cancelled) }
+        guard !Task.isCancelled else { return .cancelled }
         guard let fullStore else { return .success([]) }
         if !query.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             recordActivationMilestone(.firstSearch)

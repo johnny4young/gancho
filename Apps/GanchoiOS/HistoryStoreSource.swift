@@ -36,7 +36,7 @@ import GanchoKit
     func search(_ query: ClipSearchQuery, limit: Int) async -> [ClipItem] {
         switch await searchOutcome(query, limit: limit) {
         case .success(let items): return items
-        case .failure: return []
+        case .failure, .cancelled: return []
         }
     }
 

@@ -176,11 +176,13 @@ public enum ClipListShape {
     }
 
     /// Ranked top results, with failures preserved independently of an empty success.
+    /// A cancelled read yields an empty page; callers drop a cancelled task's result.
     public func searchPage(_ query: ClipSearchQuery, limit: Int) async -> ClipListPage {
         switch await source.searchOutcome(query, limit: limit) {
         case .success(let items): return ClipListPage(items: ranked(items), reachedEnd: true)
         case .failure(let failure):
             return ClipListPage(items: [], reachedEnd: true, searchFailure: failure)
+        case .cancelled: return ClipListPage(items: [], reachedEnd: true)
         }
     }
 

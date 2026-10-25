@@ -6,7 +6,7 @@ import Testing
 
 @MainActor @Suite("Actual Mac adapter outcome mapping")
 struct AppAdapterOutcomeTests {
-    @Test(arguments: [ClipSearchError.invalidRegularExpression, .timedOut, .cancelled, .readFailed])
+    @Test(arguments: [ClipSearchError.invalidRegularExpression, .readFailed])
     func theActualExtensionPreservesEveryTerminalFailure(_ failure: ClipSearchError) async {
         let store = InjectedPanelStore(failure: failure)
         let source = AppModel(fullStore: store)
@@ -27,10 +27,10 @@ struct AppAdapterOutcomeTests {
             return await source.searchOutcome(ClipSearchQuery(text: "synthetic"), limit: 17)
         }
         let outcome = await request.value
-        guard case .failure(let failure) = outcome else {
-            Issue.record("Cancelled app read became success")
+        guard case .cancelled = outcome else {
+            Issue.record("Cancelled app read was not reported as cancelled")
             return
         }
-        #expect(failure == .cancelled && source.milestones == 0)
+        #expect(source.milestones == 0)
     }
 }

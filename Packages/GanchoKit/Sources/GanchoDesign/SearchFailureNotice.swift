@@ -14,7 +14,7 @@ public struct SearchFailureNotice: View {
 
     public var body: some View {
         VStack(spacing: GanchoTokens.Spacing.sm) {
-            Image(systemName: symbol)
+            Image(systemName: "exclamationmark.circle")
                 .font(.title2)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
@@ -40,8 +40,6 @@ public struct SearchFailureNotice: View {
     private var title: LocalizedStringKey {
         switch failure {
         case .invalidRegularExpression: "Invalid regular expression"
-        case .timedOut: "Search timed out"
-        case .cancelled: "Search cancelled"
         case .readFailed: "Search couldn’t be completed"
         }
     }
@@ -49,17 +47,7 @@ public struct SearchFailureNotice: View {
     private var detail: LocalizedStringKey {
         switch failure {
         case .invalidRegularExpression: "Check the expression and try again."
-        case .timedOut: "Try a simpler search or narrow the filters."
-        case .cancelled: "Run the search again when you’re ready."
         case .readFailed: "Your history couldn’t be searched. Try again."
-        }
-    }
-
-    private var symbol: String {
-        switch failure {
-        case .invalidRegularExpression, .readFailed: "exclamationmark.circle"
-        case .timedOut: "clock"
-        case .cancelled: "pause.circle"
         }
     }
 }

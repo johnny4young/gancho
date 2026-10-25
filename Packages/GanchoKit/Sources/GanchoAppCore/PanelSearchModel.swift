@@ -408,8 +408,8 @@ public struct PanelDateGroup: Identifiable, Sendable {
         } else {
             page = await browsePage(request: request, requestedContext: requestedContext)
         }
-        guard refreshID == request, context == requestedContext else { return }
-        if let failure = Task.isCancelled ? ClipSearchError.cancelled : page.searchFailure {
+        guard refreshID == request, context == requestedContext, !Task.isCancelled else { return }
+        if let failure = page.searchFailure {
             failSearch(failure, for: requestedContext)
             return
         }
@@ -419,11 +419,7 @@ public struct PanelDateGroup: Identifiable, Sendable {
         let snippet =
             requestedContext.query.isEmpty
             ? nil : await source.snippet(matchingKeyword: requestedContext.query)
-        guard refreshID == request, context == requestedContext else { return }
-        if Task.isCancelled {
-            failSearch(.cancelled, for: requestedContext)
-            return
-        }
+        guard refreshID == request, context == requestedContext, !Task.isCancelled else { return }
         let resetSelection = displayedContext != requestedContext
         meaning.invalidate()
         selectionModel.resumeAutomaticSelection()

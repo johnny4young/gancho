@@ -34,7 +34,7 @@ private actor InjectedSearcher: ClipSearching {
 
 @MainActor @Suite("Throwing store search adapter")
 struct ClipListSearchReaderTests {
-    @Test(arguments: [ClipSearchError.invalidRegularExpression, .timedOut, .cancelled, .readFailed])
+    @Test(arguments: [ClipSearchError.invalidRegularExpression, .readFailed])
     func explicitFailuresSurviveTheStoreBoundary(_ failure: ClipSearchError) async {
         let store = InjectedSearcher(.failure(failure))
         let outcome = await ClipListSearchOutcome.read(
@@ -90,11 +90,10 @@ struct ClipListSearchReaderTests {
                 from: store, query: ClipSearchQuery(text: "synthetic"), limit: 17)
         }
         let outcome = await task.value
-        guard case .failure(let failure) = outcome else {
-            Issue.record("Cancelled request became success")
+        guard case .cancelled = outcome else {
+            Issue.record("Cancelled request was not reported as cancelled")
             return
         }
-        #expect(failure == .cancelled)
         #expect(await store.requests.isEmpty)
     }
 }

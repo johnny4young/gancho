@@ -5,6 +5,8 @@ import GanchoKit
 public enum ClipListSearchOutcome: Sendable {
     case success([ClipItem])
     case failure(ClipSearchError)
+    /// The caller's task was cancelled; nothing should be published.
+    case cancelled
 
     /// The shell supplies its store without constructing an app composition
     /// root. Both platforms share this content-free error classification.
@@ -17,15 +19,16 @@ public enum ClipListSearchOutcome: Sendable {
         }
     }
 
+    /// A `CancellationError` from a task that was not cancelled is a failed read.
     @MainActor public static func read(
         _ operation: () async throws -> [ClipItem]
     ) async -> Self {
-        guard !Task.isCancelled else { return .failure(.cancelled) }
+        guard !Task.isCancelled else { return .cancelled }
         do {
             let items = try await operation()
-            return Task.isCancelled ? .failure(.cancelled) : .success(items)
+            return Task.isCancelled ? .cancelled : .success(items)
         } catch {
-            if Task.isCancelled || error is CancellationError { return .failure(.cancelled) }
+            if Task.isCancelled { return .cancelled }
             return .failure((error as? ClipSearchError) ?? .readFailed)
         }
     }
@@ -36,6 +39,6 @@ extension ClipListSource {
     /// requirement so their throwing reads reach the typed boundary directly.
     public func searchOutcome(_ query: ClipSearchQuery, limit: Int) async -> ClipListSearchOutcome {
         let items = await search(query, limit: limit)
-        return Task.isCancelled ? .failure(.cancelled) : .success(items)
+        return Task.isCancelled ? .cancelled : .success(items)
     }
 }

@@ -18,40 +18,6 @@
         }
       }
     },
-    "Search timed out": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search timed out"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se agotó el tiempo de búsqueda"
-          }
-        }
-      }
-    },
-    "Search cancelled": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search cancelled"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Búsqueda cancelada"
-          }
-        }
-      }
-    },
     "Search couldn’t be completed": {
       "extractionState": "manual",
       "localizations": {
@@ -82,40 +48,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Revisa la expresión e inténtalo de nuevo."
-          }
-        }
-      }
-    },
-    "Try a simpler search or narrow the filters.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Try a simpler search or narrow the filters."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prueba una búsqueda más sencilla o limita los filtros."
-          }
-        }
-      }
-    },
-    "Run the search again when you’re ready.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Run the search again when you’re ready."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vuelve a realizar la búsqueda cuando quieras."
           }
         }
       }
