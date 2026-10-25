@@ -117,6 +117,31 @@ final class BoardDropUITests: XCTestCase {
         XCTAssertEqual(rows(app).count, 0, "the clip left the board again")
     }
 
+    /// With an Undo toast on screen, typing that can be undone still wins ⌘Z;
+    /// the toast keeps its own button.
+    @MainActor
+    func testCommandZUndoesTypingBeforeTheToast() throws {
+        let app = launch()
+        defer { app.terminate() }
+        let row = codeRow(app)
+        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        let chip = railChip("Seed board 1", in: app)
+        XCTAssertTrue(chip.waitForExistence(timeout: 10))
+        try SynthesizedInput.requireForeground(app)
+
+        drag(row, onto: chip)
+        assertToast("Added to Seed board 1", in: app)
+        let field = app.textFields["search-field"].firstMatch
+        try typeTextReliably("ocean", into: field, in: app)
+        app.typeKey("z", modifierFlags: .command)
+        let deadline = Date().addingTimeInterval(3)
+        while (field.value as? String ?? "") == "ocean", Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertNotEqual(field.value as? String, "ocean", "the field undid the typing")
+        XCTAssertTrue(app.buttons["toast-undo"].firstMatch.exists, "the toast's Undo stays")
+    }
+
     /// With no toast on screen, ⌘Z stays the search field's own undo.
     @MainActor
     func testCommandZWithoutAToastUndoesTyping() throws {
