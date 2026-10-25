@@ -453,8 +453,9 @@ final class IOSAppModel {
 
     /// Promote a clip to a reusable snippet — the peek's "Save as snippet".
     /// Honors the shared free-tier gate and only confirms a durable write.
-    func saveAsSnippet(_ item: ClipItem) async {
-        guard let full else { return }
+    @discardableResult
+    func saveAsSnippet(_ item: ClipItem) async -> Bool {
+        guard let full else { return false }
         switch await curationController.promoteToSnippet(item, tier: tier, store: full) {
         case .promoted:
             recordActivationMilestone(.firstSnippetCreated)
@@ -463,6 +464,7 @@ final class IOSAppModel {
             // Refresh first so the two-second confirmation remains visible
             // after the durable mutation has settled and the UI is idle.
             flashNote(String(localized: "Saved as snippet"), kind: .success)
+            return true
         case .freeLimitReached:
             proGateTick += 1
         case .clipUnavailable:
@@ -471,6 +473,36 @@ final class IOSAppModel {
             diagnostics.record(
                 String(localized: "Snippets"), String(localized: "Couldn’t save the snippet."))
         }
+        return false
+    }
+
+    /// The snippets, newest first, for the boards home.
+    func snippetList() async -> [ClipItem] {
+        guard let full else { return [] }
+        return (try? await full.snippets()) ?? []
+    }
+
+    /// The Privacy Center's Verify: re-reads the store on this iPhone, no network.
+    func verifyEncryption() async -> StoreEncryptionReport? {
+        await grdbForEngines?.encryptionReport()
+    }
+
+    /// Clips masked as secrets right now, for Settings' Privacy subtitle.
+    func maskedCount() async -> Int {
+        guard let full else { return 0 }
+        return (try? await full.sensitiveCount()) ?? 0
+    }
+
+    /// Boards whose last change hasn't reached iCloud yet.
+    func boardsAwaitingSync() async -> Set<UUID> {
+        guard let grdbForEngines else { return [] }
+        return Set(((try? await grdbForEngines.pendingBoardUploads()) ?? []).map(\.id))
+    }
+
+    /// Whether a clip is already a snippet, for the detail's Snippet button.
+    func isSnippet(_ item: ClipItem) async -> Bool {
+        guard let full, let snippets = try? await full.snippets() else { return false }
+        return snippets.contains { $0.id == item.id }
     }
 
     /// Persists a user-authored title and schedules sync only after the durable

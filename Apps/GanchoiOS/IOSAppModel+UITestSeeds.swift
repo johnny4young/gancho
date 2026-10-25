@@ -233,6 +233,11 @@ extension IOSAppModel {
                     )
                 ]
                 for (item, text) in rows { _ = try? await full.insert(item, content: .text(text)) }
+                // The pinned note doubles as a snippet with a keyword, for the boards home.
+                if let note = rows.first?.0 {
+                    try? await full.promoteToSnippet(id: note.id, title: "Standup notes")
+                    try? await full.setKeyword(id: note.id, keyword: ";standup")
+                }
                 await search()
             }
 

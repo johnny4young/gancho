@@ -128,6 +128,8 @@ public struct ClipLinkParts: Equatable, Sendable {
     /// What follows the host (path and query, decoded when that reads better);
     /// nil for a bare host, so a card never repeats the host it already shows.
     public let path: String?
+    /// "https", "mailto"… lowercased, for the link's insight chip.
+    public let scheme: String?
 
     public init?(text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -147,6 +149,23 @@ public struct ClipLinkParts: Equatable, Sendable {
         decoded = readable == raw ? nil : readable
         let shown = readable ?? raw
         path = shown.isEmpty || shown == "/" ? nil : shown
+        scheme = url.scheme?.lowercased()
+    }
+
+    /// `[title](url)`, titled by the clip or else by its host. Brackets in the
+    /// title and parentheses in the URL are escaped so the link stays one link.
+    public func markdownLink(title: String) -> String {
+        let label = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let escapedLabel = (label.isEmpty ? host : label)
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "[", with: "\\[")
+            .replacingOccurrences(of: "]", with: "\\]")
+        let escapedURL =
+            text
+            .replacingOccurrences(of: "(", with: "%28")
+            .replacingOccurrences(of: ")", with: "%29")
+            .replacingOccurrences(of: " ", with: "%20")
+        return "[\(escapedLabel)](\(escapedURL))"
     }
 }
 
