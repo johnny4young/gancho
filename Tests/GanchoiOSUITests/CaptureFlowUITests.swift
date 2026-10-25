@@ -191,7 +191,8 @@ final class CaptureFlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-skip-welcome-on-launch", "-force-ephemeral-store", "-AppleLanguages", "(en)",
-            "-ui-test-save-note-lifetime", "\(noteLifetime)"
+            "-ui-test-save-note-lifetime", "\(noteLifetime)",
+            "-ui-test-saved-open-window", "120"
         ]
         app.launch()
         defer { app.terminate() }
@@ -243,6 +244,22 @@ final class CaptureFlowUITests: XCTestCase {
         XCTAssertTrue(
             note.waitForNonExistence(timeout: Double(noteLifetime) + 15),
             "the note must dismiss after its lifetime")
+
+        assertOpenShowsTheSave(in: app)
+    }
+
+    /// The card offers the fresh save; Open shows that clip's detail.
+    @MainActor
+    private func assertOpenShowsTheSave(in app: XCUIApplication) {
+        let open = app.buttons["pasteboard-saved-open"].firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 5), "the card must offer to open the save")
+        open.tap()
+        let detail = app.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "identifier IN %@",
+                ["detail-title", "detail-edit-title", "detail-add-to-board"])
+        ).firstMatch
+        XCTAssertTrue(detail.waitForExistence(timeout: 10), "Open must show the saved clip")
     }
 
     /// Spanish at the largest accessibility text size once squeezed the sensed

@@ -1,17 +1,129 @@
+import GanchoAppCore
 import GanchoDesign
+import GanchoKit
 import SwiftUI
 
-/// The pasteboard status row on the capture screen. gancho senses the
-/// clipboard's TYPE via `detectPatterns` — no read, no "pasted from" banner —
-/// and says so in a chip that carries contrast; the explanation lives behind
-/// the info button. The one-tap "yes, save this" is the system paste control
-/// in the bottom bar, next to search, where the thumb already is. Privacy is
-/// the function, not an apology.
+/// The pasteboard status on the capture screen. gancho senses the clipboard's
+/// TYPE via `detectPatterns` — no read, no "pasted from" banner — and says so.
+/// With something on the clipboard it is a card that names the sensed kind and
+/// points at the system Paste control in the bottom bar, the one-tap "yes,
+/// save this"; after a save it offers to open the clip for a few seconds. An
+/// empty clipboard keeps the one-line row.
 struct PasteboardStatusRow: View {
     @Environment(IOSAppModel.self) private var model
     @State private var showsInfo = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var sensed: SensedClipboard {
+        SensedClipboard(
+            hasContent: model.hints.hasContent, probableWebURL: model.hints.probableWebURL,
+            probableWebSearch: model.hints.probableWebSearch, number: model.hints.number)
+    }
 
     var body: some View {
+        // The one-line row already reflows at the accessibility sizes, where a
+        // card would grow taller than the screen above the list.
+        if sensed == .empty || dynamicTypeSize.isAccessibilitySize { compactRow } else { card }
+    }
+
+    private var card: some View {
+        HStack(spacing: GanchoTokens.Spacing.sm) {
+            tile
+            VStack(alignment: .leading, spacing: 3) {
+                title.fixedSize(horizontal: false, vertical: true)
+                statusLine
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            trailing
+            infoButton
+        }
+        .padding(.vertical, 10)
+        .padding(.leading, GanchoTokens.Spacing.sm)
+        .background(
+            GanchoTokens.Palette.accentTint,
+            in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+                .strokeBorder(
+                    GanchoTokens.Palette.accent.opacity(0.25),
+                    lineWidth: GanchoTokens.Stroke.hairline)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("pasteboard-status-card")
+    }
+
+    private var tile: some View {
+        let tint = GanchoTokens.Palette.kindTint(for: sensed.tintKind)
+        return Image(systemName: sensed.symbolName)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(ReadableInk(base: tint))
+            .frame(width: 36, height: 36)
+            .background(
+                tint.opacity(0.16),
+                in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.card, style: .continuous)
+            )
+            .accessibilityHidden(true)
+    }
+
+    /// A note while one shows, "Saved" once this copy is captured, the privacy
+    /// claim before that. A note keeps its kind's symbol, tint and spoken value.
+    @ViewBuilder private var statusLine: some View {
+        if let note = model.saveNote {
+            Label(note.text, systemImage: note.kind.symbolName)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(ReadableInk(base: note.kind.tint))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(note.text))
+                .accessibilityValue(note.kind.accessibilityValue)
+                .accessibilityIdentifier("save-note")
+        } else if alreadyCaptured {
+            Label("Saved", systemImage: "checkmark.circle.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
+        } else {
+            // The glyph flows with the text, so a wrapped line never strands it.
+            Text(
+                "\(Image(systemName: "shield.lefthalf.filled")) \(Text("Sensed, not read — nothing is saved until you tap Paste"))"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Open while the fresh save can still be opened; before a save, a pointer
+    /// at the Paste control. The pointer is not a button: only the system
+    /// control saves without the paste banner.
+    @ViewBuilder private var trailing: some View {
+        if offersOpen {
+            openButton
+        } else if !alreadyCaptured {
+            VStack(spacing: 2) {
+                Image(systemName: "arrow.down").font(.callout.weight(.semibold))
+                Text("Paste").font(.caption2.weight(.bold))
+            }
+            .foregroundStyle(GanchoTokens.Palette.accentInk)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private var offersOpen: Bool {
+        model.recentPasteSave?.offersOpen(now: .now, currentChangeCount: model.hints.changeCount)
+            ?? false
+    }
+
+    private var openButton: some View {
+        Button("Open") { model.openRecentPasteSave() }
+            .font(.subheadline.weight(.semibold))
+            .ganchoTextButton()
+            .frame(minWidth: GanchoTokens.HitTarget.touch, minHeight: GanchoTokens.HitTarget.touch)
+            .accessibilityLabel(Text("Open the saved clip"))
+            .accessibilityIdentifier("pasteboard-saved-open")
+    }
+
+    private var compactRow: some View {
         // One line while the chip, the sensed type and the info button all
         // fit; otherwise the chip takes its own line and the type wraps beside
         // the button. A single squeezed line let Spanish, the accessibility
@@ -23,6 +135,7 @@ struct PasteboardStatusRow: View {
                 title
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                if offersOpen { openButton }
                 infoButton
             }
             VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xxs) {
@@ -33,6 +146,7 @@ struct PasteboardStatusRow: View {
                     title
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    if offersOpen { openButton }
                     infoButton
                 }
             }
@@ -65,7 +179,7 @@ struct PasteboardStatusRow: View {
 
     private var title: some View {
         Text(senseTitle)
-            .font(.subheadline.weight(.medium))
+            .font(sensed == .empty ? .subheadline.weight(.medium) : .subheadline.weight(.semibold))
             .accessibilityIdentifier("pasteboard-status-title")
     }
 

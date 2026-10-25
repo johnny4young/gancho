@@ -1,5 +1,6 @@
 import ClipboardCore
 import Foundation
+import GanchoAppCore
 import GanchoKit
 import UIKit
 
@@ -10,6 +11,7 @@ extension IOSAppModel {
     func seedDurableUITestFixturesIfRequested() -> Task<Void, Never>? {
         seedSampleBoardsIfRequested()
         seedSourceAppsIfRequested()
+        seedHomeIfRequested()
         seedReuseSuggestionIfRequested()
         seedClipEditingIfRequested()
         seedOutboundPrivacyIfRequested()
@@ -112,6 +114,22 @@ extension IOSAppModel {
         return .seconds(2)
     }
 
+    /// The card's Open window; `-ui-test-saved-open-window` lengthens it for
+    /// a hosted runner that samples the screen seconds apart.
+    static func recentPasteSaveWindow(
+        arguments: [String] = ProcessInfo.processInfo.arguments
+    ) -> TimeInterval {
+        #if DEBUG
+            if let index = arguments.firstIndex(of: "-ui-test-saved-open-window"),
+                arguments.indices.contains(index + 1),
+                let seconds = TimeInterval(arguments[index + 1]), seconds > 0
+            {
+                return seconds
+            }
+        #endif
+        return RecentPasteSave.openWindow
+    }
+
     private func seedSampleBoardsIfRequested() {
         guard ProcessInfo.processInfo.arguments.contains("-seed-sample-boards"),
             ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
@@ -154,6 +172,57 @@ extension IOSAppModel {
             await refreshSourceApps()
             await search()
         }
+    }
+
+    /// `-seed-home-v4`: the v4 Home rows — a clip from another device, a
+    /// protected clip with its stored mask and expiry, a link and a pin.
+    private func seedHomeIfRequested() {
+        #if DEBUG
+            guard ProcessInfo.processInfo.arguments.contains("-seed-home-v4"),
+                ProcessInfo.processInfo.arguments.contains("-use-temp-durable-store"),
+                let full
+            else { return }
+            Task {
+                let now = Date()
+                let rows: [(ClipItem, String)] = [
+                    (
+                        ClipItem(
+                            createdAt: now.addingTimeInterval(-3_600), title: "Standup notes",
+                            preview: "Ship the onboarding, then the iPhone home",
+                            contentHash: "ios-home-pinned", sourceAppBundleID: "com.apple.Notes",
+                            isPinned: true),
+                        "Ship the onboarding, then the iPhone home"
+                    ),
+                    (
+                        ClipItem(
+                            createdAt: now.addingTimeInterval(-420), kind: .url,
+                            title: "Synthetic link",
+                            preview: "https://www.example.com/a", contentHash: "ios-home-link",
+                            sourceAppBundleID: "com.apple.mobilesafari"),
+                        "https://www.example.com/a"
+                    ),
+                    (
+                        ClipItem(
+                            createdAt: now.addingTimeInterval(-120), kind: .secret,
+                            preview: "●●●● 4Q2v", contentHash: "ios-home-secret",
+                            sourceAppBundleID: "com.apple.Terminal", isSensitive: true,
+                            expiresAt: now.addingTimeInterval(9 * 60)),
+                        "synthetic-secret-value-4Q2v"
+                    ),
+                    (
+                        ClipItem(
+                            createdAt: now.addingTimeInterval(-60), kind: .code,
+                            title: "Example · Swift", preview: "let greeting = \"Hello\"",
+                            contentHash: "ios-home-device", sourceAppBundleID: "com.apple.dt.Xcode",
+                            sourceDeviceName: "Studio Mac"),
+                        "let greeting = \"Hello\""
+                    )
+                ]
+                for (item, text) in rows { _ = try? await full.insert(item, content: .text(text)) }
+                await search()
+            }
+
+        #endif
     }
 
     private func seedReuseSuggestionIfRequested() {

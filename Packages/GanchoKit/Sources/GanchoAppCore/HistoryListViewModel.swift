@@ -43,6 +43,12 @@ public typealias HistoryListSource = ClipListSource
         didSet { if selectedSourceAppBundleID != oldValue { invalidateRequests() } }
     }
     public var sourceApps: [ClipSourceApp] = []
+    /// Clips related by meaning to the typed query, listed after the results
+    /// and never repeating one of them.
+    public let meaning = MeaningSearchState()
+    public private(set) var related: [ClipItem] = []
+    /// The shell's on-device retrieval; nil leaves related results off.
+    public weak var meaningSource: (any MeaningSearchSource)?
 
     var reachedEnd = false
     var isLoadingMore = false
@@ -103,6 +109,8 @@ public typealias HistoryListSource = ClipListSource
     /// Both searches and pages belong to one request generation. An old page
     /// cannot append to a same-sized refresh or clear a newer page's spinner.
     private func invalidateRequests() {
+        meaning.invalidate()
+        related = []
         searchFailure = nil
         isSearching = true
         searchGeneration += 1
@@ -133,6 +141,22 @@ public typealias HistoryListSource = ClipListSource
         captures = page.items
         reachedEnd = page.reachedEnd
         rebuildSections()
+        startMeaning(generation: generation)
+    }
+
+    private func startMeaning(generation: Int) {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let requested = ClipSearchQuery(
+            text: query, kinds: kindFilter.map { [$0] },
+            sourceAppBundleID: selectedSourceAppBundleID, boardID: selectedBoardID)
+        meaning.start(query: requested, source: meaningSource) { [weak self] items in
+            guard let self, generation == searchGeneration else { return [] }
+            related =
+                HybridSearchResult(
+                    conventional: captures, related: items, semanticState: .ready
+                ).related
+            return related
+        }
     }
 
     /// Append the next page as the list nears its end (infinite scroll). No-ops
@@ -166,10 +190,40 @@ public typealias HistoryListSource = ClipListSource
         rebuildSections()
     }
 
+    /// A header's count, only when the loaded rows can vouch for it: the last
+    /// loaded group may still grow with the next page.
+    public func headerCount(for group: ClipSectionGroup) -> HeaderCount? {
+        guard reachedEnd || group.section != sections.last?.section else { return nil }
+        return HeaderCount(value: group.clips.count, isAtLeast: false)
+    }
+
+    /// The flat list's count. A ranked search stops at its ceiling, so a full
+    /// one reads as "at least"; a list still paging shows none.
+    public var listCount: HeaderCount? {
+        let count = visibleClips.count
+        if !query.isEmpty {
+            let ceiling = ClipListConfiguration.iOSHistory.searchLimitWithQuery
+            return HeaderCount(value: count, isAtLeast: count >= ceiling)
+        }
+        return reachedEnd ? HeaderCount(value: count, isAtLeast: false) : nil
+    }
+
     /// Rebuild the cached date sections — after a load, or when the kind filter
     /// changes (so the Calendar math never lands on the scroll path).
     public func rebuildSections() {
         rebuildVisible()
         sections = isGroupedView ? ClipSections.grouped(visibleClips, now: Date()) : []
+    }
+}
+
+/// What a section header can claim about how many rows it holds.
+public struct HeaderCount: Equatable, Sendable {
+    public let value: Int
+    /// The list stopped at a ceiling, so there may be more.
+    public let isAtLeast: Bool
+
+    public init(value: Int, isAtLeast: Bool) {
+        self.value = value
+        self.isAtLeast = isAtLeast
     }
 }
