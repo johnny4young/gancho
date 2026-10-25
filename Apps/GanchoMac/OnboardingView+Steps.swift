@@ -182,15 +182,8 @@ extension OnboardingView {
             if !isCapturing {
                 Label(MenuBarMenu.stateTitle(chip), systemImage: "pause.circle")
                     .foregroundStyle(GanchoTokens.Palette.warningInk)
-            } else if let latest = model.recentItems.first, !latest.title.isEmpty,
-                !model.previewsHidden, !ClipSafePresentation.requiresMasking(latest)
-            {
-                Label(
-                    "Capturing · the title “\(latest.title)” was written on-device",
-                    systemImage: "checkmark"
-                )
-                .foregroundStyle(GanchoTokens.Palette.accentInk)
             } else {
+                // No title claim: nothing records whether auto-titling or the user wrote it.
                 Label("Capturing", systemImage: "checkmark")
                     .foregroundStyle(GanchoTokens.Palette.accentInk)
             }

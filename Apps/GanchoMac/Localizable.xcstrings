@@ -12419,16 +12419,6 @@
         }
       }
     },
-    "Capturing · the title “%@” was written on-device": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Capturando · el título “%@” se escribió en el dispositivo"
-          }
-        }
-      }
-    },
     "Skip for now": {
       "localizations": {
         "es": {
