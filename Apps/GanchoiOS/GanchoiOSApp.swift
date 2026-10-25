@@ -33,6 +33,18 @@ struct GanchoiOSApp: App {
     /// One-time welcome: iOS's intent-based capture is novel, so first launch
     /// explains the save paths before dropping the user on an empty list.
     @AppStorage("ios-has-seen-welcome") private var hasSeenWelcome = false
+    /// UI-test hook: show the welcome once this launch, whatever the simulator's flag says.
+    @State private var forcesWelcome = Self.launchForcesWelcome
+    /// The clip a paste on the welcome saved, opened after the sheet closes.
+    @State private var onboardingLanding: ClipItem?
+
+    private static var launchForcesWelcome: Bool {
+        #if DEBUG
+            ProcessInfo.processInfo.arguments.contains("-open-welcome-on-launch")
+        #else
+            false
+        #endif
+    }
 
     /// UI-test hook: route straight to the Privacy Center on launch (no
     /// welcome, no navigation) so XCUITest can assert the diagnostics log.
@@ -114,14 +126,36 @@ struct GanchoiOSApp: App {
             .ganchoTinted()
             .sheet(
                 isPresented: Binding(
-                    get: { !hasSeenWelcome && !routeToPrivacyCenter && !skipWelcomeOnLaunch },
-                    set: { showing in if !showing { hasSeenWelcome = true } })
-            ) {
-                IOSOnboardingView {
-                    model.completeOnboarding()
-                    hasSeenWelcome = true
-                }
-            }
+                    get: {
+                        (!hasSeenWelcome || forcesWelcome) && !routeToPrivacyCenter
+                            && !skipWelcomeOnLaunch
+                    },
+                    set: { showing in
+                        if !showing {
+                            hasSeenWelcome = true
+                            forcesWelcome = false
+                        }
+                    }),
+                onDismiss: {
+                    // Opened only once the welcome is gone: one sheet at a time.
+                    if let onboardingLanding { model.deepLinkClip = onboardingLanding }
+                    onboardingLanding = nil
+                },
+                content: {
+                    IOSOnboardingView(
+                        onDone: {
+                            model.completeOnboarding()
+                            hasSeenWelcome = true
+                            forcesWelcome = false
+                        },
+                        onSaved: { clip in
+                            // A save that lands after a swipe-down has no dismissal left to open it.
+                            if !hasSeenWelcome || forcesWelcome { onboardingLanding = clip }
+                        }
+                    )
+                    .environment(model)
+                    .ganchoTinted()
+                })
         }
         .onChange(of: scenePhase) { _, phase in
             // Release the encrypted store's SQLite locks before iOS suspends the

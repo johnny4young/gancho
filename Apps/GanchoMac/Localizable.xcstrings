@@ -1539,16 +1539,6 @@
         }
       }
     },
-    "Everything you copy, safe and searchable": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todo lo que copias, seguro y buscable"
-          }
-        }
-      }
-    },
     "Export clipboard wrapped": {
       "extractionState": "stale",
       "localizations": {
@@ -3694,17 +3684,6 @@
         }
       }
     },
-    "Permission granted": {
-      "extractionState": "stale",
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permiso concedido"
-          }
-        }
-      }
-    },
     "phoneNumber": {
       "extractionState": "stale",
       "localizations": {
@@ -4126,16 +4105,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pulsa esc para limpiar la búsqueda"
-          }
-        }
-      }
-    },
-    "Press the shortcut, pick a clip with ↑↓, hit Enter — it pastes right where you were typing. That's the whole loop.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Presiona el atajo, elige un clip con ↑↓ y dale Enter — se pega justo donde estabas escribiendo. Ese es todo el ciclo."
           }
         }
       }
@@ -4710,16 +4679,6 @@
         }
       }
     },
-    "To paste a clip directly into the app you're using, macOS requires the Accessibility permission. Gancho uses it ONLY to send the paste keystroke — never to read your screen.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Para pegar un clip directamente en la app que estás usando, macOS exige el permiso de Accesibilidad. Gancho lo usa SOLO para enviar la tecla de pegado — nunca para leer tu pantalla."
-          }
-        }
-      }
-    },
     "Toggle private mode": {
       "extractionState": "stale",
       "localizations": {
@@ -4771,16 +4730,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sin espacios extremos"
-          }
-        }
-      }
-    },
-    "Try it now: copy any text — it appears below instantly.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pruébalo ya: copia cualquier texto — aparece abajo al instante."
           }
         }
       }
@@ -4925,16 +4874,6 @@
         }
       }
     },
-    "Without it, Gancho still works: clips are copied and you paste with ⌘V.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sin él, Gancho igual funciona: los clips se copian y pegas con ⌘V."
-          }
-        }
-      }
-    },
     "You said “ignore next”": {
       "extractionState": "stale",
       "localizations": {
@@ -4952,16 +4891,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tu portapapeles, a un atajo de distancia"
-          }
-        }
-      }
-    },
-    "Your clips never leave this Mac unless YOU turn on iCloud sync.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tus clips nunca salen de este Mac a menos que TÚ actives la sincronización con iCloud."
           }
         }
       }
@@ -5192,16 +5121,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Títulos IA inteligentes para probar"
-          }
-        }
-      }
-    },
-    "Your first clips get smart AI titles, free and on-device.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tus primeros clips reciben títulos IA inteligentes, gratis y en el dispositivo."
           }
         }
       }
@@ -7246,16 +7165,6 @@
         }
       }
     },
-    "If direct paste is unavailable, Gancho copies the clip so you can press ⌘V.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Si el pegado directo no está disponible, Gancho copia el clip para que puedas pulsar ⌘V."
-          }
-        }
-      }
-    },
     "Open Gancho panel": {
       "localizations": {
         "es": {
@@ -7282,16 +7191,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reutilizaciones exitosas en esta sesión"
-          }
-        }
-      }
-    },
-    "The real panel opens next so you can search and reuse a clip now.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A continuación se abre el panel real para que puedas buscar y reutilizar un clip ahora."
           }
         }
       }
@@ -12356,6 +12255,256 @@
           "stringUnit": {
             "state": "translated",
             "value": "No hay un archivo de base de datos en esta Mac para comprobar."
+          }
+        }
+      }
+    },
+    "Your clipboard, private by design": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu portapapeles, privado por diseño"
+          }
+        }
+      }
+    },
+    "Gancho keeps everything you copy — text, links, code, colors, images — so you can find it and paste it again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho guarda todo lo que copias — texto, enlaces, código, colores, imágenes — para que lo encuentres y lo vuelvas a pegar."
+          }
+        }
+      }
+    },
+    "**Stays on this Mac.** Encrypted on disk. Nothing leaves unless you turn on iCloud sync.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Se queda en esta Mac.** Cifrado en disco. Nada sale a menos que actives la sincronización con iCloud."
+          }
+        }
+      }
+    },
+    "**Secrets are masked and expire.** Keys, cards and passwords self-destruct after %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Los secretos se ocultan y caducan.** Claves, tarjetas y contraseñas se autodestruyen después de %@."
+          }
+        }
+      }
+    },
+    "**Password managers are never read.** Copies they mark as concealed are sensed, not stored.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Los gestores de contraseñas nunca se leen.** Lo que marcan como oculto se detecta, no se guarda."
+          }
+        }
+      }
+    },
+    "Gancho presses ⌘V for you in the app you came from. That needs Accessibility — the only permission it asks for, and never used to read your screen.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho presiona ⌘V por ti en la app de la que vienes. Eso requiere Accesibilidad — el único permiso que pide, y nunca se usa para leer tu pantalla."
+          }
+        }
+      }
+    },
+    "With it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Con él"
+          }
+        }
+      }
+    },
+    "Without it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin él"
+          }
+        }
+      }
+    },
+    "Pick a clip, press ⏎, it lands where your cursor was. Paste stack and snippets work in one key.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliges un clip, presionas ⏎ y aparece donde estaba tu cursor. La pila de pegado y los snippets funcionan con una tecla."
+          }
+        }
+      }
+    },
+    "Gancho copies the clip and you press ⌘V yourself. Everything else works the same.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho copia el clip y tú presionas ⌘V. Todo lo demás funciona igual."
+          }
+        }
+      }
+    },
+    "Granted · Gancho can paste for you": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Concedido · Gancho puede pegar por ti"
+          }
+        }
+      }
+    },
+    "Not granted yet · turns green when you come back": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no concedido · se pone verde cuando vuelvas"
+          }
+        }
+      }
+    },
+    "Try it now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pruébalo ahora"
+          }
+        }
+      }
+    },
+    "Copy any text in any app — it appears below instantly. Then click the hook in the menu bar to open the real panel and paste it back.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia cualquier texto en cualquier app — aparece abajo al instante. Luego haz clic en el gancho de la barra de menú para abrir el panel real y volver a pegarlo."
+          }
+        }
+      }
+    },
+    "Copy any text in any app — it appears below instantly. Then press your panel shortcut to open the real panel and paste it back.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia cualquier texto en cualquier app — aparece abajo al instante. Luego presiona tu atajo del panel para abrir el panel real y volver a pegarlo."
+          }
+        }
+      }
+    },
+    "Your next copy lands here": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo próximo que copies aparece aquí"
+          }
+        }
+      }
+    },
+    "Skip for now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omitir por ahora"
+          }
+        }
+      }
+    },
+    "Open Gancho panel %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir el panel de Gancho %@"
+          }
+        }
+      }
+    },
+    "Step %lld of %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paso %1$lld de %2$lld"
+          }
+        }
+      }
+    },
+    "Press the shortcut, pick a clip with ↑↓, hit Enter — it pastes right where you were typing. That’s the whole loop.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presiona el atajo, elige un clip con ↑↓ y dale Enter — se pega justo donde estabas escribiendo. Ese es todo el ciclo."
+          }
+        }
+      }
+    },
+    "Paste from stack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar desde la pila"
+          }
+        }
+      }
+    },
+    "Forgot it? Gancho also lives in your menu bar — click the hook anytime.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Lo olvidaste? Gancho también vive en tu barra de menú — haz clic en el gancho cuando quieras."
+          }
+        }
+      }
+    },
+    "Set…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Definir…"
+          }
+        }
+      }
+    },
+    "Change…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambiar…"
+          }
+        }
+      }
+    },
+    "Not set": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin definir"
           }
         }
       }

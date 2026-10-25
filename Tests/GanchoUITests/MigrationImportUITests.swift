@@ -13,7 +13,7 @@ final class MigrationImportUITests: XCTestCase {
             "-force-ephemeral-store",
             "-force-capture-active",
             "-disable-screen-share-auto-pause",
-            "-open-welcome-on-launch",
+            "-open-welcome-on-launch", "-ui-test-onboarding-step", "3",
             "-AppleLanguages", "(en)"
         ]
         app.launch()

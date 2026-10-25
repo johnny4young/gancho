@@ -8,69 +8,92 @@ import UIKit
 import UniformTypeIdentifiers
 import WidgetKit
 
-/// First-run welcome (shown once via `ios-has-seen-welcome`). One scroll
-/// screen: what Gancho is, then the three ways to save on iOS — because there
-/// is no background clipboard watching, the save paths are the whole model.
+/// First-run welcome (shown once via `ios-has-seen-welcome`). Page 1 is what
+/// Gancho is and the three ways to save; page 2 shows the sensed row the user
+/// is about to meet and lets them try the system Paste button right there.
 struct IOSOnboardingView: View {
     let onDone: () -> Void
+    /// A paste on page 2 saved this row; the sheet closes and the app opens it.
+    let onSaved: (ClipItem) -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var showsSensedPage = false
+    /// Get started and a paste that lands later must not both finish the welcome.
+    @State private var finished = false
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: GanchoTokens.Spacing.lg) {
-                    VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
-                        Image(systemName: "doc.on.clipboard.fill")
-                            .font(.system(size: 44))
-                            .foregroundStyle(GanchoTokens.Palette.accentInk)
-                        Text("Everything you copy, saved and searchable")
-                            .font(.title2.bold())
-                        Text(
-                            "Gancho keeps a private history of what you copy — all on this device."
-                        )
-                        .foregroundStyle(.secondary)
+            welcomePage
+                .navigationTitle("Welcome to Gancho")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Next") { showsSensedPage = true }
+                            .accessibilityIdentifier("onboarding-next")
                     }
+                }
+                .navigationDestination(isPresented: $showsSensedPage) {
+                    IOSOnboardingSensedPage(
+                        onBack: { showsSensedPage = false }, onDone: finish,
+                        onSaved: { clip in
+                            guard !finished else { return }
+                            onSaved(clip)
+                            finish()
+                        })
+                }
+        }
+        // Toolbar text in the readable green ink, not the 2.2:1 brand fill.
+        .ganchoInkTint()
+    }
 
-                    VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
-                        Text("Three ways to save")
-                            .font(.headline)
-                        onboardingRow(
-                            "hand.tap", "Tap to save",
-                            // swiftlint:disable:next line_length
-                            "iOS can't watch the clipboard in the background — no app can. Use the Paste button to save what you copied."
-                        )
-                        onboardingRow(
-                            "square.and.arrow.up", "Share from any app",
-                            "Send text, a link, or an image to Gancho from the share sheet.")
-                        onboardingRow(
-                            "bolt", "Shortcuts & Action Button",
-                            "Save your clipboard with a Shortcut — even from the Action Button.")
-                    }
+    private func finish() {
+        guard !finished else { return }
+        finished = true
+        // Persist the flag AND dismiss the sheet directly: the isPresented
+        // binding is derived from `hasSeenWelcome`, but dismissing explicitly
+        // guarantees the sheet closes even if the binding does not re-drive it.
+        onDone()
+        dismiss()
+    }
 
-                    Label(
-                        "Nothing leaves this device unless you turn on iCloud sync.",
-                        systemImage: "lock.shield"
+    private var welcomePage: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: GanchoTokens.Spacing.lg) {
+                VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+                    Image(systemName: "doc.on.clipboard.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(GanchoTokens.Palette.accentInk)
+                    Text("Everything you copy, saved and searchable")
+                        .font(.title2.bold())
+                    Text(
+                        "Gancho keeps a private history of what you copy — all on this device."
                     )
-                    .font(.footnote)
                     .foregroundStyle(.secondary)
                 }
-                .padding()
-            }
-            .navigationTitle("Welcome to Gancho")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Get started") {
-                        // Persist the flag AND dismiss the sheet directly: the
-                        // isPresented binding is derived from `hasSeenWelcome`, but
-                        // dismissing explicitly guarantees the sheet closes even if
-                        // the derived binding does not re-drive presentation.
-                        onDone()
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("onboarding-done")
+
+                VStack(alignment: .leading, spacing: GanchoTokens.Spacing.md) {
+                    Text("Three ways to save")
+                        .font(.headline)
+                    onboardingRow(
+                        "hand.tap", "Tap to save",
+                        // swiftlint:disable:next line_length
+                        "iOS can't watch the clipboard in the background — no app can. Use the Paste button to save what you copied."
+                    )
+                    onboardingRow(
+                        "square.and.arrow.up", "Share from any app",
+                        "Send text, a link, or an image to Gancho from the share sheet.")
+                    onboardingRow(
+                        "bolt", "Shortcuts & Action Button",
+                        "Save your clipboard with a Shortcut — even from the Action Button.")
                 }
+
+                Label(
+                    "Nothing leaves this device unless you turn on iCloud sync.",
+                    systemImage: "lock.shield"
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
+            .padding()
         }
     }
 
