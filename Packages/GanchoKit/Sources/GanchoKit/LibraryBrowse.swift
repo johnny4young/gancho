@@ -102,11 +102,12 @@ extension GRDBClipboardStore: LibraryBrowsing {
             return try await search(query, limit: Self.regexScanCeiling).count
         }
         let match = query.ftsMatchExpression()
-        let unconstrained =
-            match == nil && query.kinds == nil && query.sourceAppBundleID == nil
-            && query.boardID == nil && !query.pinnedOnly && query.createdBefore == nil
-            && query.deviceName == nil
-        if unconstrained { return try await count() }
+        // Split so the type checker stays within its time limit on older toolchains.
+        let narrowsByValue: Bool =
+            query.kinds != nil || query.sourceAppBundleID != nil || query.boardID != nil
+        let narrowsByOther: Bool =
+            query.pinnedOnly || query.createdBefore != nil || query.deviceName != nil
+        if match == nil, !narrowsByValue, !narrowsByOther { return try await count() }
         return try await writer.read { db in
             var sql = "SELECT COUNT(*) FROM clip"
             var arguments: [any DatabaseValueConvertible] = []
