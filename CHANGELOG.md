@@ -80,6 +80,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On iPhone, a search lists clips related by meaning under its results, found
   on the device. With semantic search on, Pro also embeds clips synced from
   your other devices in the background, so they can be found by meaning too.
+- The iPhone and iPad clip detail adds a Markdown link action for links, and
+  boards list your snippets by keyword.
+- The iPhone Privacy Center opens with "Verify, don’t trust": encryption with
+  a Verify button that checks the database on the device, the iCloud sync
+  state, and how many secrets are masked now.
 - On iPhone, an active type or app filter shows as a chip under the boards;
   tap it to remove it, or Clear filters to remove both.
 
@@ -95,6 +100,15 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Widgets and the lock screen still show only dots.
 - The iPhone's search answer says it was answered on the device and that its
   sources copy on tap.
+- The iPhone and iPad clip detail leads with where a clip came from, its title
+  (edited in place), a link as its own hero card, and one full-width Copy;
+  Share, Pin, Board and Snippet sit in one row, smart actions and boards as
+  chips.
+- The iPhone boards sheet shows how many of the Free boards are used, whether
+  each board is synced, waiting or on this iPhone only.
+- iPhone Settings show at a glance your Pro usage, which Intelligence features
+  are on, and what the Privacy Center counts, and list every way to capture on
+  iPhone, with steps for the keyboard and the widget.
 
 - The Mac welcome has four steps: the privacy promise (where clips live, when
   secrets expire, what is never read), the Accessibility permission with what
