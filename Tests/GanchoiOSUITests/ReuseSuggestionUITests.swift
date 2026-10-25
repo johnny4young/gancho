@@ -31,7 +31,12 @@ final class ReuseSuggestionUITests: XCTestCase {
         XCTAssertTrue(action.isHittable)
         action.tap()
 
-        XCTAssertTrue(app.staticTexts["Saved as snippet"].waitForExistence(timeout: 5))
+        // The note only follows a confirmed promotion; the launch keeps it on
+        // screen because the hosted runner can idle longer than its 2 s life.
+        let note = app.descendants(matching: .any).matching(identifier: "save-note").firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 5))
+        XCTAssertTrue(note.label.contains("Saved as snippet"), note.label)
+        XCTAssertEqual(note.value as? String, "Done")
     }
 
     @MainActor
@@ -69,6 +74,7 @@ final class ReuseSuggestionUITests: XCTestCase {
             app.launchArguments = [
                 "-skip-welcome-on-launch", "-use-temp-durable-store", "-seed-reuse-suggestion",
                 "-force-free-tier", "-telemetry-consent", "disabled",
+                "-ui-test-save-note-lifetime", "30",
                 "-AppleLanguages", "(en)"
             ]
             app.launch()
