@@ -46,6 +46,35 @@ public struct LibraryListRequest: Sendable, Equatable {
     }
 }
 
+extension LibraryListRequest {
+    /// The page the in-memory fallback shows. It has no query engine, so the
+    /// whole snapshot is narrowed before slicing; filtering a raw page would
+    /// hide older matches and report a false end. Boards and saved filters
+    /// live only in the durable store, so they read nothing.
+    public func fallbackPage(
+        offset: Int, limit: Int, now: Date = .now,
+        isolation: isolated (any Actor)? = #isolation,
+        snapshot: () async throws -> [ClipItem]
+    ) async rethrows -> [ClipItem] {
+        guard limit > 0 else { return [] }
+        switch scope {
+        case .board, .savedFilter: return []
+        case .allClips, .pinned: break
+        }
+        let text = searchText
+        let matches = try await snapshot().filter {
+            kind.matches($0.kind)
+                && (scope != .pinned || $0.isPinned)
+                && ($0.expiresAt.map { $0 > now } ?? true)
+                && (text.isEmpty || LibraryOrdering.matches($0, text: text))
+        }
+        // A one-shot search keeps its newest matches; the list model applies the sort.
+        return Array(
+            LibraryOrdering.sorted(matches, oldestFirst: isPaged && oldestFirst)
+                .dropFirst(max(0, offset)).prefix(limit))
+    }
+}
+
 public enum LibraryOrdering {
     /// Pinned first, then by capture time, in the request's direction; the
     /// id breaks ties so equal timestamps keep one order.

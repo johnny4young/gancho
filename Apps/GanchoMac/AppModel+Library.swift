@@ -20,8 +20,12 @@ extension AppModel {
     func fetchLibraryClips(
         _ request: LibraryListRequest, offset: Int, limit: Int
     ) async throws -> [ClipItem] {
+        guard let fullStore else {
+            return try await request.fallbackPage(offset: offset, limit: limit) {
+                try await store.items(offset: 0, limit: .max)
+            }
+        }
         if case .savedFilter(let rule) = request.scope {
-            guard let fullStore else { return [] }
             return try await fullStore.items(matching: rule, limit: limit)
         }
         let kinds = request.kind.kinds
@@ -32,17 +36,9 @@ extension AppModel {
             case .board(let id): query.boardID = id
             case .allClips, .savedFilter: break
             }
-            if let fullStore { return try await fullStore.search(query, limit: limit) }
-            return try await store.items(offset: 0, limit: limit).filter {
-                LibraryOrdering.matches($0, text: request.searchText)
-            }
+            return try await fullStore.search(query, limit: limit)
         }
-        guard let fullStore, let browse = Self.browseQuery(request) else {
-            // The in-memory fallback has no boards; it narrows its recent page instead.
-            return try await store.items(offset: offset, limit: limit).filter {
-                request.kind.matches($0.kind) && (request.scope != .pinned || $0.isPinned)
-            }
-        }
+        guard let browse = Self.browseQuery(request) else { return [] }
         return try await fullStore.libraryItems(browse, offset: offset, limit: limit)
     }
 
