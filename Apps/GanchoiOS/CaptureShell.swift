@@ -130,14 +130,16 @@ private struct CaptureSheetContent: View {
 }
 
 /// The capture toolbar for both layouts. The iPhone keeps search and the
-/// paste control in the bottom bar, within thumb reach; the iPad puts the
-/// paste control in the history column's bar and filters from its sidebar.
+/// paste control in the bottom bar, within thumb reach; the iPad docks the
+/// paste control under its sidebar and brings it here only while the
+/// sidebar is hidden.
 struct CaptureToolbar: ToolbarContent {
     enum Layout { case phone, pad }
 
     let layout: Layout
     let model: IOSAppModel
     @Binding var activeSheet: CaptureSheet?
+    var padShowsPaste = true
 
     var body: some ToolbarContent {
         if layout == .phone {
@@ -151,7 +153,7 @@ struct CaptureToolbar: ToolbarContent {
                     selectedSourceAppBundleID: Bindable(model).selectedSourceAppBundleID,
                     sourceApps: model.sourceApps)
             }
-        } else {
+        } else if padShowsPaste {
             ToolbarItem(placement: .topBarTrailing) { pasteControl }
                 .sharedBackgroundVisibility(.hidden)
         }
@@ -164,7 +166,7 @@ struct CaptureToolbar: ToolbarContent {
             .accessibilityLabel(Text("Boards"))
             .accessibilityIdentifier("boards-home-open")
         }
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItem(placement: layout == .phone ? .topBarLeading : .topBarTrailing) {
             Button {
                 activeSheet = .settings
             } label: {
@@ -175,14 +177,7 @@ struct CaptureToolbar: ToolbarContent {
     }
 
     private var pasteControl: some View {
-        // One accessibility element: the bar item otherwise exposes a wrapper
-        // labelled by the control's visible text, and this label never reaches it.
-        PasteControlView { providers in model.ingest(providers: providers) }
-            .frame(width: 112, height: 44)
-            .accessibilityElement(children: .ignore)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityIdentifier("paste-control")
-            .accessibilityLabel(Text("Paste into Gancho"))
+        PasteIntoGanchoButton().frame(width: 112, height: 44)
     }
 }
 
