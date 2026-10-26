@@ -11,6 +11,7 @@ import Testing
     var isDurable = true
     var recent: [ClipItem] = []
     var searchResults: [ClipItem] = []
+    var searchFailure: ClipSearchError?
     var board: [ClipItem] = []
     var sourceApps: [ClipSourceApp] = []
     var lastSearchQuery: ClipSearchQuery?
@@ -38,6 +39,10 @@ import Testing
         lastSearchQuery = query
         return isDurable ? Array(searchResults.prefix(limit)) : []
     }
+    func searchOutcome(_ query: ClipSearchQuery, limit: Int) async -> ClipListSearchOutcome {
+        if let searchFailure { return .failure(searchFailure) }
+        return .success(await search(query, limit: limit))
+    }
     func recentSourceApps(limit: Int) async -> [ClipSourceApp] {
         Array(sourceApps.prefix(limit))
     }
@@ -47,8 +52,12 @@ import Testing
 @MainActor private final class FakeMeaning: MeaningSearchSource {
     var items: [ClipItem] = []
     var lastQuery: ClipSearchQuery?
+    var gate: SearchGate?
+    var wasCancelled = false
     func relatedItems(for query: ClipSearchQuery) async throws -> MeaningSearchResponse {
         lastQuery = query
+        if let gate { await gate.hold() }
+        wasCancelled = Task.isCancelled
         return MeaningSearchResponse(
             items: items,
             coverage: SemanticIndexCoverage(eligible: items.count, indexed: items.count))
@@ -194,6 +203,59 @@ struct HistoryListViewModelTests {
         model.query = ""
         await model.search()
         #expect(model.meaning.status == .idle, "no query, no meaning search")
+    }
+
+    @Test("A failed refresh clears ready related clips and their status")
+    func failedRefreshClearsRelated() async {
+        let source = FakeSource()
+        source.searchResults = items(1)
+        let meaning = FakeMeaning()
+        meaning.items = items(2)
+        let model = HistoryListViewModel(source: source)
+        model.meaningSource = meaning
+        model.query = "synthetic"
+        await model.search()
+        let deadline = ContinuousClock.now + .seconds(5)
+        while model.meaning.status == .loading, ContinuousClock.now < deadline {
+            await Task.yield()
+        }
+        #expect(model.meaning.status == .ready)
+        #expect(model.related.count == 2)
+        source.searchFailure = .readFailed
+        await model.search()
+        #expect(model.searchFailure == .readFailed)
+        #expect(model.captures.isEmpty)
+        #expect(model.related.isEmpty)
+        #expect(model.meaning.relatedIDs.isEmpty)
+        #expect(model.meaning.status == .idle)
+    }
+
+    @Test("A failed conventional refresh cancels pending meaning work")
+    func failedRefreshCancelsPendingMeaning() async {
+        let source = FakeSource()
+        source.searchResults = items(1)
+        let meaning = FakeMeaning()
+        meaning.items = items(2)
+        let gate = SearchGate()
+        meaning.gate = gate
+        let model = HistoryListViewModel(source: source)
+        model.meaningSource = meaning
+        model.query = "synthetic"
+        await model.search()
+        #expect(await gate.waitUntilEntered())
+        let pending = model.meaning.task
+        source.searchFailure = .readFailed
+        await model.search()
+        #expect(pending?.isCancelled == true)
+        #expect(model.meaning.status == .idle)
+        #expect(model.related.isEmpty)
+        await gate.release()
+        await pending?.value
+        #expect(meaning.wasCancelled)
+        #expect(model.searchFailure == .readFailed)
+        #expect(model.related.isEmpty)
+        #expect(model.meaning.relatedIDs.isEmpty)
+        #expect(model.meaning.status == .idle)
     }
 
     @Test("Changing filters invalidates a suspended search before the next search starts")
