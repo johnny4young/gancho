@@ -115,7 +115,7 @@ struct CaptureView: View {
                     ForEach(group.clips) { clipRow($0) }
                 } header: {
                     SectionCountHeader(
-                        title: sectionTitle(group.section),
+                        title: group.section.title,
                         count: model.headerCount(for: group))
                 }
             }
@@ -238,25 +238,6 @@ struct CaptureView: View {
     }
 
     private var listTitle: LocalizedStringKey { model.query.isEmpty ? "History" : "Results" }
-
-    private func sectionTitle(_ section: ClipSection) -> LocalizedStringKey {
-        switch section {
-        case .pinned: "Pinned"
-        case .date(let bucket): bucketTitle(bucket)
-        }
-    }
-
-    private func bucketTitle(_ bucket: DateBucket) -> LocalizedStringKey {
-        switch bucket {
-        case .today: "Today"
-        case .yesterday: "Yesterday"
-        case .thisMonth: "This month"
-        case .lastMonth: "Last month"
-        case .thisYear: "This year"
-        case .lastYear: "Last year"
-        case .older: "Older"
-        }
-    }
 
     /// Boards axis (above the type filter), as a horizontal rail of chips: All
     /// clips · Favorites · user boards · New board. The active chip takes the
@@ -433,6 +414,7 @@ private struct ClipDetailDestination: View {
 /// `UIPasteControl` wrapper: the system button that pastes WITHOUT any
 /// banner or alert, because the OS itself mediates the user's tap.
 struct PasteControlView: UIViewRepresentable {
+    var cornerStyle: UIButton.Configuration.CornerStyle = .capsule
     let onPaste: ([NSItemProvider]) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -443,10 +425,10 @@ struct PasteControlView: UIViewRepresentable {
         // The design's green Paste button, drawn by the system: it grants
         // one-time access on tap, with no "pasted from" banner.
         let config = UIPasteControl.Configuration()
-        config.cornerStyle = .capsule
+        config.cornerStyle = cornerStyle
         config.displayMode = .iconAndLabel
         config.baseBackgroundColor = UIColor(GanchoTokens.Palette.accent)
-        config.baseForegroundColor = .black
+        config.baseForegroundColor = UIColor(GanchoTokens.Palette.brandInk)
         let control = UIPasteControl(configuration: config)
         control.target = context.coordinator.target
         // The identifier and label assistive tech sees come from the SwiftUI
@@ -496,6 +478,25 @@ struct PasteControlView: UIViewRepresentable {
 
 /// A list section's title with the count the list can vouch for ("Today 5",
 /// "Results 50+"); no number while more rows may still load into it.
+extension ClipSection {
+    /// The header both history layouts show over this section.
+    var title: LocalizedStringKey {
+        switch self {
+        case .pinned: "Pinned"
+        case .date(let bucket):
+            switch bucket {
+            case .today: "Today"
+            case .yesterday: "Yesterday"
+            case .thisMonth: "This month"
+            case .lastMonth: "Last month"
+            case .thisYear: "This year"
+            case .lastYear: "Last year"
+            case .older: "Older"
+            }
+        }
+    }
+}
+
 struct SectionCountHeader: View {
     let title: LocalizedStringKey
     let count: HeaderCount?

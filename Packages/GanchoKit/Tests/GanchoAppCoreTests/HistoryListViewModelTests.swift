@@ -312,6 +312,44 @@ struct HistoryListViewModelTests {
         #expect(model.visibleClips.count == 2)  // the filter applies on top
     }
 
+    @Test("A kind group narrows to every kind it holds, and in SQL too")
+    func kindGroupNarrowsToItsKinds() async {
+        let source = FakeSource()
+        source.recent = [
+            ClipItem(kind: .code, preview: "let x"),
+            ClipItem(kind: .json, preview: "{}"),
+            ClipItem(kind: .text, preview: "plain")
+        ]
+        source.searchResults = Array(source.recent.prefix(2))
+        let model = HistoryListViewModel(source: source)
+        await model.search()
+        model.kindGroup = .code
+        #expect(model.visibleClips.map(\.kind) == [.code, .json])
+        await model.search()
+        #expect(source.lastSearchQuery?.kinds == ClipKindFilter.code.kinds)
+    }
+
+    @Test("A kind and a kind group never narrow together")
+    func kindAndKindGroupClearEachOther() {
+        let model = HistoryListViewModel(source: FakeSource())
+        model.kindGroup = .secrets
+        model.kindFilter = .url
+        #expect(model.kindGroup == .all)
+        #expect(model.activeKinds == [.url])
+        model.kindGroup = .images
+        #expect(model.kindFilter == nil)
+        #expect(model.activeKinds == ClipKindFilter.images.kinds)
+    }
+
+    @Test("A group's count adds up the kinds it holds")
+    func kindGroupCountsItsKinds() {
+        let counts: [ClipContentKind: Int] = [.code: 2, .json: 1, .url: 4, .text: 9]
+        #expect(ClipKindFilter.code.count(in: counts) == 3)
+        #expect(ClipKindFilter.links.count(in: counts) == 4)
+        #expect(ClipKindFilter.secrets.count(in: counts) == 0)
+        #expect(ClipKindFilter.all.count(in: counts) == 16)
+    }
+
     @Test func sourceAppFilterComposesWithKindBoardAndEmptyText() async {
         let source = FakeSource()
         let boardID = UUID()

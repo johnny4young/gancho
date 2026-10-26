@@ -105,15 +105,20 @@ extension ClipDetailView {
                     Task { await model.copyToPasteboard(item) }
                     dismiss()
                 } label: {
-                    Label("Copy", systemImage: "doc.on.clipboard")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 50)
-                        .background(
-                            GanchoTokens.Palette.accent,
-                            in: RoundedRectangle(
-                                cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
-                        )
-                        .foregroundStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
+                    HStack(spacing: GanchoTokens.Spacing.xs) {
+                        Label("Copy", systemImage: "doc.on.clipboard")
+                        if showsCopyShortcut {
+                            KeyChip(keys: "⌘⏎", onFill: true).accessibilityHidden(true)
+                        }
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(
+                        GanchoTokens.Palette.accent,
+                        in: RoundedRectangle(
+                            cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+                    )
+                    .foregroundStyle(ContrastingForeground(on: GanchoTokens.Palette.accent))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("detail-copy")

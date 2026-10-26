@@ -6,6 +6,9 @@ public struct ScopeCountSnapshot: Sendable, Equatable {
     public var total: Int
     /// Keyed by board id; a board with no visible member is absent.
     public var boards: [UUID: Int]
+    /// Keyed by kind, read like a row's kind (unknown values count as text);
+    /// a kind with no visible clip is absent. Sums to `total`.
+    public var kinds: [ClipContentKind: Int] = [:]
 }
 
 /// Clip totals for the panel's scope chips, counted with the same visibility
@@ -44,7 +47,21 @@ extension GRDBClipboardStore: ScopeCountProviding {
                 guard let id = UUID(uuidString: row["boardID"]) else { continue }
                 boards[id] = row["total"]
             }
-            return ScopeCountSnapshot(total: total, boards: boards)
+            var kinds: [ClipContentKind: Int] = [:]
+            let kindRows = try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT clip.kind AS kind, COUNT(*) AS total
+                    FROM clip WHERE \(visible)
+                    GROUP BY clip.kind
+                    """,
+                arguments: arguments)
+            for row in kindRows {
+                let raw: String = row["kind"] ?? ""
+                let total: Int = row["total"]
+                kinds[ClipContentKind(rawValue: raw) ?? .text, default: 0] += total
+            }
+            return ScopeCountSnapshot(total: total, boards: boards, kinds: kinds)
         }
     }
 }

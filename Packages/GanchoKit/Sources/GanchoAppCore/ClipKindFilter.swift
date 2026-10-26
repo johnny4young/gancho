@@ -35,4 +35,9 @@ public enum ClipKindFilter: String, CaseIterable, Identifiable, Sendable {
     public func matches(_ kind: ClipContentKind) -> Bool {
         kinds?.contains(kind) ?? true
     }
+
+    /// How many clips this filter keeps, from per-kind counts.
+    public func count(in perKind: [ClipContentKind: Int]) -> Int {
+        perKind.reduce(0) { total, entry in matches(entry.key) ? total + entry.value : total }
+    }
 }
