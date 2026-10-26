@@ -84,4 +84,37 @@ struct LibraryFallbackPageTests {
         #expect(result.isEmpty)
         #expect(reads == 0)
     }
+
+    @Test("Expired clips stay hidden, like the durable list")
+    func hidesExpired() async {
+        var snapshot = rows(3)
+        snapshot[0].expiresAt = Self.start
+        snapshot[1].expiresAt = Self.start.addingTimeInterval(60)
+        let result = await LibraryListRequest(scope: .allClips).fallbackPage(
+            offset: 0, limit: 10, now: Self.start
+        ) { snapshot }
+        #expect(result.map(\.id) == [1, 2].map { snapshot[$0].id })
+    }
+
+    @Test("An oldest-first search still keeps its newest matches")
+    func searchWindowIgnoresSortDirection() async {
+        let snapshot = rows(5, preview: "Invoice")
+        let request = LibraryListRequest(scope: .allClips, text: "invoice", oldestFirst: true)
+        let result = await page(request, snapshot, limit: 2)
+        #expect(result.map(\.id) == [0, 1].map { snapshot[$0].id })
+    }
+
+    @MainActor private final class MainActorRows {
+        var rows: [ClipItem] = []
+    }
+
+    @MainActor @Test("A main-actor caller can read its own store")
+    func mainActorCaller() async {
+        let store = MainActorRows()
+        store.rows = rows(2)
+        let result = await LibraryListRequest(scope: .allClips).fallbackPage(
+            offset: 0, limit: 10
+        ) { store.rows }
+        #expect(result.count == 2)
+    }
 }

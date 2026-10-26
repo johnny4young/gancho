@@ -52,7 +52,9 @@ extension LibraryListRequest {
     /// hide older matches and report a false end. Boards and saved filters
     /// live only in the durable store, so they read nothing.
     public func fallbackPage(
-        offset: Int, limit: Int, snapshot: () async throws -> [ClipItem]
+        offset: Int, limit: Int, now: Date = .now,
+        isolation: isolated (any Actor)? = #isolation,
+        snapshot: () async throws -> [ClipItem]
     ) async rethrows -> [ClipItem] {
         guard limit > 0 else { return [] }
         switch scope {
@@ -63,10 +65,12 @@ extension LibraryListRequest {
         let matches = try await snapshot().filter {
             kind.matches($0.kind)
                 && (scope != .pinned || $0.isPinned)
+                && ($0.expiresAt.map { $0 > now } ?? true)
                 && (text.isEmpty || LibraryOrdering.matches($0, text: text))
         }
+        // A one-shot search keeps its newest matches; the list model applies the sort.
         return Array(
-            LibraryOrdering.sorted(matches, oldestFirst: oldestFirst)
+            LibraryOrdering.sorted(matches, oldestFirst: isPaged && oldestFirst)
                 .dropFirst(max(0, offset)).prefix(limit))
     }
 }
