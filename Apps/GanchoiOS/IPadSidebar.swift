@@ -74,7 +74,7 @@ struct IPadSidebar: View {
                     .frame(width: 18)
                 Text("New board…").font(.subheadline)
                 Spacer(minLength: 4)
-                if model.tier != .pro, let usage = boardUsage {
+                if let usage = model.freeBoardUsage {
                     Text("\(usage.used) of \(usage.limit) · Free")
                         .font(.caption)
                         .monospacedDigit()
@@ -85,12 +85,6 @@ struct IPadSidebar: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("sidebar-new-board")
-    }
-
-    private var boardUsage: LibraryProMeter.Ceiling? {
-        let userBoards = model.boards.filter { !$0.isSystem }.count
-        return LibraryProMeter(boards: userBoards, pins: 0, snippets: 0)
-            .ceilings.first { $0.kind == .boards }
     }
 
     @ViewBuilder private var typeRows: some View {

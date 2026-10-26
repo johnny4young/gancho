@@ -6,10 +6,13 @@ import SwiftUI
 /// Whether a hardware keyboard is attached, so the iPad shows its shortcuts
 /// only to someone who can press them.
 @MainActor @Observable final class HardwareKeyboard {
+    /// One for the app: its observers live as long as the process does.
+    static let shared = HardwareKeyboard()
+
     private(set) var isConnected: Bool
     @ObservationIgnored private var observers: [any NSObjectProtocol] = []
 
-    init() {
+    private init() {
         #if DEBUG
             let defaults = UserDefaults.standard
             if defaults.object(forKey: "ui-test-hardware-keyboard") != nil {
@@ -59,12 +62,16 @@ struct KeyboardLegend: View {
 /// A key combination drawn as a keycap.
 struct KeyChip: View {
     let keys: String
+    /// On a coloured fill the chip darkens it instead of washing it.
+    var onFill = false
 
     var body: some View {
         Text(verbatim: keys)
             .font(.caption2.weight(.bold))
             .padding(.horizontal, 5)
             .frame(minWidth: 18, minHeight: 18)
-            .background(.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 5))
+            .background(
+                onFill ? Color.black.opacity(0.14) : Color.primary.opacity(0.08),
+                in: RoundedRectangle(cornerRadius: 5))
     }
 }

@@ -64,6 +64,7 @@ final class IOSAppModel {
     var scopeCounts: ScopeCountSnapshot?
     @ObservationIgnored var tracksScopeCounts = false
     @ObservationIgnored private var scopeCountsRequest = 0
+    @ObservationIgnored private var scopeCountGate = ScopeCountRefreshGate()
     /// This device's name, so rows from another device can say where they came from.
     @ObservationIgnored lazy var currentDeviceName = PlatformDeviceProvenance.currentDeviceName()
     @ObservationIgnored private var recentPasteSaveTask: Task<Void, Never>?
@@ -449,6 +450,14 @@ final class IOSAppModel {
         Task { await search() }
     }
 
+    /// How many of the Free boards are in use; nil on Pro, which has no limit.
+    var freeBoardUsage: LibraryProMeter.Ceiling? {
+        guard tier != .pro else { return nil }
+        let userBoards = boards.filter { !$0.isSystem }.count
+        return LibraryProMeter(boards: userBoards, pins: 0, snippets: 0)
+            .ceilings.first { $0.kind == .boards }
+    }
+
     /// Total non-archived clips — the "All clips" count on the boards home.
     func clipCount() async -> Int {
         guard let full else { return 0 }
@@ -712,8 +721,8 @@ final class IOSAppModel {
         await history.search()
         Signpost.queryToResults.end(interval)
         await refreshActiveScopeCount()
-        // Typing changes no count; every store change reloads with no query.
-        if tracksScopeCounts, query.isEmpty { await refreshScopeCounts() }
+        let recount = scopeCountGate.shouldRecount(query: query)
+        if tracksScopeCounts, recount { await refreshScopeCounts() }
     }
 
     func refreshScopeCounts() async {

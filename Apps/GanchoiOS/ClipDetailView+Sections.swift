@@ -108,7 +108,7 @@ extension ClipDetailView {
                     HStack(spacing: GanchoTokens.Spacing.xs) {
                         Label("Copy", systemImage: "doc.on.clipboard")
                         if showsCopyShortcut {
-                            KeyChip(keys: "⌘⏎").accessibilityHidden(true)
+                            KeyChip(keys: "⌘⏎", onFill: true).accessibilityHidden(true)
                         }
                     }
                     .font(.headline)

@@ -72,6 +72,27 @@ final class IPadSplitUITests: XCTestCase {
     }
 
     @MainActor
+    func testNewBoardShowsTheFreeLimitOnlyOnFree() throws {
+        let free = try launch(extra: ["-force-free-tier"])
+        let row = free.buttons["sidebar-new-board"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            row.label.range(of: #"\d+ of \d+ · Free$"#, options: .regularExpression) != nil,
+            row.label)
+        free.terminate()
+
+        let pro = try launch(extra: ["-gancho-force-pro"])
+        defer { pro.terminate() }
+        let proRow = pro.buttons["sidebar-new-board"].firstMatch
+        XCTAssertTrue(proRow.waitForExistence(timeout: 5))
+        let unlimited = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "NOT label CONTAINS 'Free'"), object: proRow)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [unlimited], timeout: 5), .completed,
+            "Pro has no board limit: \(proRow.label)")
+    }
+
+    @MainActor
     func testNoLegendWithoutAKeyboard() throws {
         let app = try launch(keyboard: false)
         defer { app.terminate() }
@@ -88,16 +109,17 @@ final class IPadSplitUITests: XCTestCase {
     }
 
     @MainActor
-    private func launch(keyboard: Bool = false) throws -> XCUIApplication {
+    private func launch(keyboard: Bool = false, extra: [String] = []) throws -> XCUIApplication {
         guard UIDevice.current.userInterfaceIdiom == .pad else {
             throw XCTSkip("the split view is iPad only")
         }
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication()
-        app.launchArguments = [
-            "-skip-welcome-on-launch", "-use-temp-durable-store", "-seed-home-v4",
-            "-ui-test-hardware-keyboard", keyboard ? "YES" : "NO", "-AppleLanguages", "(en)"
-        ]
+        app.launchArguments =
+            [
+                "-skip-welcome-on-launch", "-use-temp-durable-store", "-seed-home-v4",
+                "-ui-test-hardware-keyboard", keyboard ? "YES" : "NO", "-AppleLanguages", "(en)"
+            ] + extra
         app.launch()
         guard
             app.descendants(matching: .any)["sidebar-board-row"].firstMatch

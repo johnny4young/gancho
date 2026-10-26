@@ -10,7 +10,7 @@ struct IPadSplitView: View {
     @State private var selectedID: UUID?
     @State private var activeSheet: CaptureSheet?
     @State private var sidebarVisible = false
-    @State private var keyboard = HardwareKeyboard()
+    private let keyboard = HardwareKeyboard.shared
     /// Bound to the history search field so ⌘F can focus it from a hardware
     /// keyboard (Magic Keyboard / Smart Keyboard Folio).
     @FocusState private var searchFocused: Bool
