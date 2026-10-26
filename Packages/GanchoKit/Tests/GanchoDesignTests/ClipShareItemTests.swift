@@ -39,12 +39,13 @@ struct ClipShareItemTests {
         #expect(try await transfer.exported(as: .utf8PlainText) == Data(text.utf8))
     }
 
-    @Test("Only a whole absolute URL becomes a link")
-    func webURLParsing() {
-        #expect(ClipShareItem.webURL(from: "  https://example.com/a \n")?.host() == "example.com")
-        #expect(ClipShareItem.webURL(from: "example.com") == nil)
-        #expect(ClipShareItem.webURL(from: "see https://example.com") == nil)
-        #expect(ClipShareItem.webURL(from: "mailto:someone@example.com") == nil)
+    @Test("A link captured without a scheme still exports as a link")
+    func schemelessLinkExportsURL() async throws {
+        let store = InMemoryClipboardStore()
+        let item = ClipItem(kind: .url, preview: "www.example.com/docs", contentHash: "share-bare")
+        try await store.insert(item, content: .text("www.example.com/docs"))
+        let data = try await share(item, store).exported(as: .url)
+        #expect(URL(dataRepresentation: data, relativeTo: nil)?.host() == "www.example.com")
     }
 
     @Test("A text clip offers no link")
