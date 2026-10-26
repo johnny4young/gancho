@@ -39,6 +39,16 @@ public struct ClipShareItem: Transferable {
             return png
         }
         .exportingCondition { $0.kind == .image }
+        // A link drops as the link itself (a Notes link, a Mail anchor), not
+        // as words; its plain text stays offered after it.
+        DataRepresentation(exportedContentType: .url) { item in
+            let payload = try await item.load()
+            guard case .text(let text) = payload.content, let url = webURL(from: text) else {
+                throw CocoaError(.fileReadUnknown)
+            }
+            return url.dataRepresentation
+        }
+        .exportingCondition { $0.kind == .url }
         DataRepresentation(exportedContentType: .utf8PlainText) { item in
             let payload = try await item.load()
             switch payload.content {
@@ -65,6 +75,15 @@ public struct ClipShareItem: Transferable {
             }
         }
         .exportingCondition { $0.kind != .image }
+    }
+
+    /// The clip's text as one absolute URL with a scheme, or nil.
+    static func webURL(from text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.contains(where: \.isWhitespace), let url = URL(string: trimmed),
+            url.scheme != nil, url.host() != nil
+        else { return nil }
+        return url
     }
 
     /// PNG passes through; other stored image formats are transcoded so the
