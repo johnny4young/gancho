@@ -81,6 +81,8 @@ struct ClipDetailView: View {
     let item: ClipItem
     /// Shows ⌘⏎ on Copy where a hardware keyboard can press it.
     var showsCopyShortcut = false
+    /// The hero lifts into another app; only the iPad has one beside Gancho.
+    var allowsDragOut = false
     @State var fullText = ""
     @State var hasLoadedFullText = false
     /// Non-nil only when the durable payload is plain text and policy permits
@@ -259,6 +261,7 @@ struct ClipDetailView: View {
                         RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
                     )
                     .contentShape(Rectangle())
+                    .clipDragSource(item, model: model, enabled: allowsDragOut)
                     .onTapGesture { showFullImage = true }
                     .accessibilityAddTraits(.isButton)
                     .accessibilityHint(Text("Open full screen to zoom"))
