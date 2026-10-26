@@ -18,6 +18,8 @@ import Testing
     /// When set, the next recent-page read snapshots `recent`, then waits on
     /// the gate before answering — a query that ran early and answers late.
     var holdNextRecentBrowse: SearchGate?
+    /// When set, the next search waits on the gate before answering.
+    var holdNextSearch: SearchGate?
 
     func recentBrowse(offset: Int, limit: Int) async -> [ClipItem] {
         let snapshot = recent
@@ -40,6 +42,10 @@ import Testing
         return isDurable ? Array(searchResults.prefix(limit)) : []
     }
     func searchOutcome(_ query: ClipSearchQuery, limit: Int) async -> ClipListSearchOutcome {
+        if let gate = holdNextSearch {
+            holdNextSearch = nil
+            await gate.hold()
+        }
         if let searchFailure { return .failure(searchFailure) }
         return .success(await search(query, limit: limit))
     }
@@ -53,11 +59,13 @@ import Testing
     var items: [ClipItem] = []
     var lastQuery: ClipSearchQuery?
     var gate: SearchGate?
-    var wasCancelled = false
+    var gatedCallWasCancelled = false
     func relatedItems(for query: ClipSearchQuery) async throws -> MeaningSearchResponse {
         lastQuery = query
-        if let gate { await gate.hold() }
-        wasCancelled = Task.isCancelled
+        if let gate {
+            await gate.hold()
+            gatedCallWasCancelled = Task.isCancelled
+        }
         return MeaningSearchResponse(
             items: items,
             coverage: SemanticIndexCoverage(eligible: items.count, indexed: items.count))
@@ -91,6 +99,13 @@ actor SearchGate {
 struct HistoryListViewModelTests {
     private func items(_ n: Int, kind: ClipContentKind = .text) -> [ClipItem] {
         (0..<n).map { ClipItem(kind: kind, preview: "item \($0)") }
+    }
+
+    private func waitForMeaning(_ model: HistoryListViewModel) async {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while model.meaning.status == .loading, ContinuousClock.now < deadline {
+            await Task.yield()
+        }
     }
 
     @Test(
@@ -186,10 +201,7 @@ struct HistoryListViewModelTests {
         model.kindFilter = .text
         model.query = "item"
         await model.search()
-        let deadline = ContinuousClock.now + .seconds(5)
-        while model.meaning.status == .loading, ContinuousClock.now < deadline {
-            await Task.yield()
-        }
+        await waitForMeaning(model)
         #expect(model.related.map(\.id) == [extra.id], "a result never repeats as related")
         #expect(meaning.lastQuery?.kinds == [.text], "the filters scope related clips too")
 
@@ -203,59 +215,6 @@ struct HistoryListViewModelTests {
         model.query = ""
         await model.search()
         #expect(model.meaning.status == .idle, "no query, no meaning search")
-    }
-
-    @Test("A failed refresh clears ready related clips and their status")
-    func failedRefreshClearsRelated() async {
-        let source = FakeSource()
-        source.searchResults = items(1)
-        let meaning = FakeMeaning()
-        meaning.items = items(2)
-        let model = HistoryListViewModel(source: source)
-        model.meaningSource = meaning
-        model.query = "synthetic"
-        await model.search()
-        let deadline = ContinuousClock.now + .seconds(5)
-        while model.meaning.status == .loading, ContinuousClock.now < deadline {
-            await Task.yield()
-        }
-        #expect(model.meaning.status == .ready)
-        #expect(model.related.count == 2)
-        source.searchFailure = .readFailed
-        await model.search()
-        #expect(model.searchFailure == .readFailed)
-        #expect(model.captures.isEmpty)
-        #expect(model.related.isEmpty)
-        #expect(model.meaning.relatedIDs.isEmpty)
-        #expect(model.meaning.status == .idle)
-    }
-
-    @Test("A failed conventional refresh cancels pending meaning work")
-    func failedRefreshCancelsPendingMeaning() async {
-        let source = FakeSource()
-        source.searchResults = items(1)
-        let meaning = FakeMeaning()
-        meaning.items = items(2)
-        let gate = SearchGate()
-        meaning.gate = gate
-        let model = HistoryListViewModel(source: source)
-        model.meaningSource = meaning
-        model.query = "synthetic"
-        await model.search()
-        #expect(await gate.waitUntilEntered())
-        let pending = model.meaning.task
-        source.searchFailure = .readFailed
-        await model.search()
-        #expect(pending?.isCancelled == true)
-        #expect(model.meaning.status == .idle)
-        #expect(model.related.isEmpty)
-        await gate.release()
-        await pending?.value
-        #expect(meaning.wasCancelled)
-        #expect(model.searchFailure == .readFailed)
-        #expect(model.related.isEmpty)
-        #expect(model.meaning.relatedIDs.isEmpty)
-        #expect(model.meaning.status == .idle)
     }
 
     @Test("Changing filters invalidates a suspended search before the next search starts")
@@ -544,5 +503,96 @@ struct HistoryListViewModelTests {
         model.query = "term"
         await model.search()  // no durable store → ranked search is unavailable
         #expect(model.captures.isEmpty)
+    }
+}
+
+// MARK: - Related clips across a failed or superseded refresh
+
+extension HistoryListViewModelTests {
+    @Test("A failed refresh clears ready related clips and their status")
+    func failedRefreshClearsRelated() async {
+        let source = FakeSource()
+        source.searchResults = items(1)
+        let meaning = FakeMeaning()
+        meaning.items = items(2)
+        let model = HistoryListViewModel(source: source)
+        model.meaningSource = meaning
+        model.query = "synthetic"
+        await model.search()
+        await waitForMeaning(model)
+        #expect(model.meaning.status == .ready)
+        #expect(model.related.count == 2)
+        source.searchFailure = .readFailed
+        await model.search()
+        #expect(model.searchFailure == .readFailed)
+        #expect(model.captures.isEmpty)
+        #expect(model.related.isEmpty)
+        #expect(model.meaning.relatedIDs.isEmpty)
+        #expect(model.meaning.status == .idle)
+
+        source.searchFailure = nil
+        await model.search()
+        await waitForMeaning(model)
+        #expect(model.searchFailure == nil)
+        #expect(model.meaning.status == .ready)
+        #expect(model.related.count == 2, "a successful retry brings related clips back")
+    }
+
+    @Test("A refresh stops the previous meaning lookup before its page arrives")
+    func refreshCancelsMeaningBeforeAwaiting() async {
+        let source = FakeSource()
+        source.searchResults = items(1)
+        let meaning = FakeMeaning()
+        meaning.items = items(2)
+        let meaningGate = SearchGate()
+        meaning.gate = meaningGate
+        let model = HistoryListViewModel(source: source)
+        model.meaningSource = meaning
+        model.query = "synthetic"
+        await model.search()
+        #expect(await meaningGate.waitUntilEntered())
+        let pending = model.meaning.task
+        let searchGate = SearchGate()
+        source.holdNextSearch = searchGate
+        let refresh = Task { await model.search() }
+        #expect(await searchGate.waitUntilEntered())
+        #expect(pending?.isCancelled == true)
+        meaning.gate = nil
+        await meaningGate.release()
+        await pending?.value
+        #expect(model.meaning.status == .idle, "a superseded lookup never reads as ready")
+        await searchGate.release()
+        await refresh.value
+        await waitForMeaning(model)
+        #expect(model.meaning.status == .ready)
+        #expect(model.related.count == 2)
+    }
+
+    @Test("A failed conventional refresh cancels pending meaning work")
+    func failedRefreshCancelsPendingMeaning() async {
+        let source = FakeSource()
+        source.searchResults = items(1)
+        let meaning = FakeMeaning()
+        meaning.items = items(2)
+        let gate = SearchGate()
+        meaning.gate = gate
+        let model = HistoryListViewModel(source: source)
+        model.meaningSource = meaning
+        model.query = "synthetic"
+        await model.search()
+        #expect(await gate.waitUntilEntered())
+        let pending = model.meaning.task
+        source.searchFailure = .readFailed
+        await model.search()
+        #expect(pending?.isCancelled == true)
+        #expect(model.meaning.status == .idle)
+        #expect(model.related.isEmpty)
+        await gate.release()
+        await pending?.value
+        #expect(meaning.gatedCallWasCancelled)
+        #expect(model.searchFailure == .readFailed)
+        #expect(model.related.isEmpty)
+        #expect(model.meaning.relatedIDs.isEmpty)
+        #expect(model.meaning.status == .idle)
     }
 }
