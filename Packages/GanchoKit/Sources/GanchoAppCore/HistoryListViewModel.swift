@@ -145,6 +145,8 @@ public typealias HistoryListSource = ClipListSource
             kinds: kindFilter.map { [$0] })
         guard generation == searchGeneration, !Task.isCancelled else { return }
         if let failure = page.searchFailure {
+            meaning.invalidate()
+            relatedResults = []
             searchFailure = failure
             captures = []
             reachedEnd = true
