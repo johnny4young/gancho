@@ -129,15 +129,20 @@ public typealias HistoryListSource = ClipListSource
     private var searchGeneration = 0
     private var pageRequest: UUID?
 
-    /// Both searches and pages belong to one request generation. An old page
-    /// cannot append to a same-sized refresh or clear a newer page's spinner.
     /// A new query or filter: the old related clips belong to another search.
     private func requestChanged() {
-        meaning.invalidate()
-        relatedResults = []
+        clearRelated()
         invalidateRequests()
     }
 
+    /// A changed or failed search has no related clips, and no lookup may restore them.
+    private func clearRelated() {
+        meaning.invalidate()
+        relatedResults = []
+    }
+
+    /// Both searches and pages belong to one request generation. An old page
+    /// cannot append to a same-sized refresh or clear a newer page's spinner.
     private func invalidateRequests() {
         searchFailure = nil
         isSearching = true
@@ -148,6 +153,8 @@ public typealias HistoryListSource = ClipListSource
 
     public func search() async {
         invalidateRequests()
+        // A lookup from the previous search would land on this one's wait as ready but empty.
+        meaning.cancelPending()
         let generation = searchGeneration
         defer { if generation == searchGeneration { isSearching = false } }
         // iOS pushes the kind filter into SQL; macOS narrows on the client
@@ -160,6 +167,7 @@ public typealias HistoryListSource = ClipListSource
             kinds: activeKinds)
         guard generation == searchGeneration, !Task.isCancelled else { return }
         if let failure = page.searchFailure {
+            clearRelated()
             searchFailure = failure
             captures = []
             reachedEnd = true
