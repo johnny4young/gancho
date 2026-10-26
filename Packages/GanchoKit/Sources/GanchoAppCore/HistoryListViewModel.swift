@@ -29,9 +29,23 @@ public typealias HistoryListSource = ClipListSource
     }
     public var kindFilter: ClipContentKind? {
         didSet {
+            if kindFilter != nil { kindGroup = .all }
             if kindFilter != oldValue { requestChanged() }
             rebuildSections()
         }
+    }
+    /// The iPad sidebar's type filter, a group of kinds. Picking one clears
+    /// `kindFilter` and the other way round, so only one narrows the list.
+    public var kindGroup: ClipKindFilter = .all {
+        didSet {
+            if kindGroup != .all { kindFilter = nil }
+            if kindGroup != oldValue { requestChanged() }
+            rebuildSections()
+        }
+    }
+    /// The kinds the list keeps, nil for every kind.
+    var activeKinds: Set<ClipContentKind>? {
+        kindFilter.map { [$0] } ?? kindGroup.kinds
     }
     /// nil = "All clips"; otherwise the selected board.
     public var selectedBoardID: UUID? {
@@ -96,7 +110,8 @@ public typealias HistoryListSource = ClipListSource
     private var loadMoreTriggerIDs: Set<UUID> = []
 
     private func rebuildVisible() {
-        visibleClips = kindFilter.map { kind in captures.filter { $0.kind == kind } } ?? captures
+        visibleClips =
+            activeKinds.map { kinds in captures.filter { kinds.contains($0.kind) } } ?? captures
         loadMoreTriggerIDs = Set(visibleClips.suffix(Self.loadMoreThreshold).map(\.id))
     }
 
@@ -142,7 +157,7 @@ public typealias HistoryListSource = ClipListSource
         let page = await core.firstPage(
             query: query, boardID: selectedBoardID,
             sourceAppBundleID: selectedSourceAppBundleID,
-            kinds: kindFilter.map { [$0] })
+            kinds: activeKinds)
         guard generation == searchGeneration, !Task.isCancelled else { return }
         if let failure = page.searchFailure {
             meaning.invalidate()
@@ -162,7 +177,7 @@ public typealias HistoryListSource = ClipListSource
     private func startMeaning(generation: Int) {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let requested = ClipSearchQuery(
-            text: query, kinds: kindFilter.map { [$0] },
+            text: query, kinds: activeKinds,
             sourceAppBundleID: selectedSourceAppBundleID, boardID: selectedBoardID)
         meaning.start(query: requested, source: meaningSource) { [weak self] items in
             guard let self, generation == searchGeneration else { return [] }
@@ -226,7 +241,7 @@ public typealias HistoryListSource = ClipListSource
         let ceiling: Int
         if !query.isEmpty {
             ceiling = ClipListConfiguration.iOSHistory.searchLimitWithQuery
-        } else if kindFilter != nil || selectedSourceAppBundleID != nil {
+        } else if activeKinds != nil || selectedSourceAppBundleID != nil {
             ceiling = ClipListCore.searchLimitWithoutQuery
         } else {
             return false

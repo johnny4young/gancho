@@ -59,6 +59,12 @@ final class IOSAppModel {
     var activeScopeCount: Int?
     @ObservationIgnored private var countedScope: UUID??
     @ObservationIgnored private var scopeCountRequest = 0
+    /// Visible clips overall, per board and per kind: the iPad sidebar's
+    /// counts. Read only once a sidebar asks for them.
+    var scopeCounts: ScopeCountSnapshot?
+    @ObservationIgnored var tracksScopeCounts = false
+    @ObservationIgnored private var scopeCountsRequest = 0
+    @ObservationIgnored private var scopeCountGate = ScopeCountRefreshGate()
     /// This device's name, so rows from another device can say where they came from.
     @ObservationIgnored lazy var currentDeviceName = PlatformDeviceProvenance.currentDeviceName()
     @ObservationIgnored private var recentPasteSaveTask: Task<Void, Never>?
@@ -74,6 +80,11 @@ final class IOSAppModel {
     var kindFilter: ClipContentKind? {
         get { history.kindFilter }
         set { history.kindFilter = newValue }
+    }
+    /// The iPad sidebar's type group — see `HistoryListViewModel.kindGroup`.
+    var kindGroup: ClipKindFilter {
+        get { history.kindGroup }
+        set { history.kindGroup = newValue }
     }
     /// nil = "All clips"; otherwise the selected board (a higher axis than the
     /// kind filter). Board identity and membership sync when iCloud is enabled.
@@ -439,6 +450,14 @@ final class IOSAppModel {
         Task { await search() }
     }
 
+    /// How many of the Free boards are in use; nil on Pro, which has no limit.
+    var freeBoardUsage: LibraryProMeter.Ceiling? {
+        guard tier != .pro else { return nil }
+        let userBoards = boards.filter { !$0.isSystem }.count
+        return LibraryProMeter(boards: userBoards, pins: 0, snippets: 0)
+            .ceilings.first { $0.kind == .boards }
+    }
+
     /// Total non-archived clips — the "All clips" count on the boards home.
     func clipCount() async -> Int {
         guard let full else { return 0 }
@@ -702,6 +721,18 @@ final class IOSAppModel {
         await history.search()
         Signpost.queryToResults.end(interval)
         await refreshActiveScopeCount()
+        let recount = scopeCountGate.shouldRecount(query: query)
+        if tracksScopeCounts, recount { await refreshScopeCounts() }
+    }
+
+    func refreshScopeCounts() async {
+        guard let full else { return }
+        scopeCountsRequest += 1
+        let request = scopeCountsRequest
+        guard let counts = try? await full.scopeCounts(excluding: []),
+            request == scopeCountsRequest
+        else { return }
+        scopeCounts = counts
     }
 
     private func refreshActiveScopeCount() async {

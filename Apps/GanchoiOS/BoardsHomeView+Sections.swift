@@ -9,19 +9,13 @@ extension BoardsHomeView {
         HStack {
             Text("Boards")
             Spacer()
-            if model.tier != .pro, let boards = boardUsage {
+            if let boards = model.freeBoardUsage {
                 Text("\(boards.used) of \(boards.limit) · Free")
                     .textCase(nil)
                     .monospacedDigit()
                     .accessibilityIdentifier("boards-home-limit")
             }
         }
-    }
-
-    private var boardUsage: LibraryProMeter.Ceiling? {
-        let userBoards = model.boards.filter { !$0.isSystem }.count
-        return LibraryProMeter(boards: userBoards, pins: 0, snippets: 0)
-            .ceilings.first { $0.kind == .boards }
     }
 
     var boardsFooter: some View {
