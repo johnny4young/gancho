@@ -726,10 +726,10 @@ final class IOSAppModel {
     }
 
     func refreshScopeCounts() async {
-        guard let counter = full as? any ScopeCountProviding else { return }
+        guard let full else { return }
         scopeCountsRequest += 1
         let request = scopeCountsRequest
-        guard let counts = try? await counter.scopeCounts(excluding: []),
+        guard let counts = try? await full.scopeCounts(excluding: []),
             request == scopeCountsRequest
         else { return }
         scopeCounts = counts
