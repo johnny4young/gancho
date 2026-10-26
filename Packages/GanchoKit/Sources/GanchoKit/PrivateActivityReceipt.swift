@@ -111,7 +111,7 @@ private enum PrivateActivityReceiptSchema {
         }
     }
 
-    private static var calendar: Calendar {
+    static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "en_US_POSIX")
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -240,6 +240,26 @@ extension GRDBClipboardStore {
                     aggregateTotals?["sensitiveExpired"]),
                 retainedSince: cutoff,
                 appStats: appStats)
+        }
+    }
+
+    /// Protected copies skipped over the last `days` UTC days, today included:
+    /// the Settings tile's "skipped this week". Reads the aggregate bucket only.
+    public func protectedSkips(lastDays days: Int, now: Date = .now) async throws -> Int {
+        guard days > 0,
+            let start = PrivateActivityReceiptSchema.calendar.date(
+                byAdding: .day, value: -(days - 1), to: now)
+        else { return 0 }
+        let startKey = PrivateActivityReceiptSchema.dayKey(for: start)
+        return try await writer.read { db in
+            let total = try Int64.fetchOne(
+                db,
+                sql: """
+                    SELECT COALESCE(SUM(protectedCaptures), 0) FROM clip_app_stats
+                    WHERE bundleID = ? AND day >= ?
+                    """,
+                arguments: [PrivateActivityReceiptSchema.aggregateBucket, startKey])
+            return Self.nonnegativeCounter(total)
         }
     }
 

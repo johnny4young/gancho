@@ -62,8 +62,75 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   only its stored mask and its countdown, and offers no Copy.
 - Saved filters show how many clips they hold and can be added from the
   sidebar; snippets show their keyword.
+- Settings › Privacy opens with four tiles: whether Gancho is capturing (with
+  the clip count and size on this Mac), whether history is encrypted, how many
+  protected copies it skipped this week, and the sync state. A Privacy Center
+  card sits under every Settings pane.
+- Settings › Retention shows every lifetime on one timeline that moves with the
+  pickers, and "Forget recent clips" removes what you copied in the last 5, 15
+  or 60 minutes after showing how many; Undo brings them back. Pins, boards and
+  snippets stay.
+- The Privacy Center opens with "Verify, don’t trust": encryption with a Verify
+  button that checks the database on this Mac, iCloud sync, the last content
+  read, local AI agent access and the network boundary.
+- On iPhone and iPad the welcome has a second page, "Sensed, not read": the row
+  you will see at the top of your history, why iOS shows no paste banner, how
+  to add the keyboard and the widget, and a Paste button to try it. A paste
+  there closes the welcome and opens the clip it saved.
+- On iPhone, a search lists clips related by meaning under its results, found
+  on the device. With semantic search on, Pro also embeds clips synced from
+  your other devices in the background, so they can be found by meaning too.
+- The iPhone and iPad clip detail adds a Markdown link action for links, and
+  boards list your snippets by keyword.
+- The iPhone Privacy Center opens with "Verify, don’t trust": encryption with
+  a Verify button that checks the database on the device, the iCloud sync
+  state, and how many secrets are masked now.
+- On iPhone, an active type or app filter shows as a chip under the boards;
+  tap it to remove it, or Clear filters to remove both.
+- The iPad sidebar says what each board, type and app holds: boards with
+  their colour and count and how many Free boards are used, the Mac's five
+  type groups (Links, Code, Colors, Images, Secrets) with theirs, and apps as
+  a letter tile. The active row in each section is highlighted, and "New
+  board…" sits under the boards.
+- On iPad the clipboard card sits under the sidebar with its own Paste
+  button, so the history starts with your clips; with the sidebar hidden,
+  Paste and the card move back to the history.
+- On iPad, drag a clip from the history or its detail into the app beside
+  Gancho: a link drops as a link, an image as a PNG, text as text. Passwords,
+  keys and cards never lift.
+- Sharing a link hands it over as a link (with its text after), so Messages
+  and Notes treat it as one.
+- The iPad history counts its date groups, shows its total under the title
+  and keeps search in its toolbar. With a hardware keyboard attached, a legend
+  lists ⌘F, ⌘⏎, ⌘1–9 and ↑↓, and Copy shows ⌘⏎.
 
 ### Changed
+
+- The iPhone's clipboard row is a card: it names what is on the clipboard
+  (a link, search text, a number) without reading it, points at the Paste
+  button, and after a save offers to open the clip for a few seconds.
+- iPhone rows name the device a clip came from when it wasn't this one; the
+  active board chip and the section headers show how many clips they hold.
+- iPhone rows for passwords, keys and cards show the kind, the stored mask
+  (`●●●● 4Q2v`), where and when it was copied, and how long it has left.
+  Widgets and the lock screen still show only dots.
+- The iPhone's search answer says it was answered on the device and that its
+  sources copy on tap.
+- The iPhone and iPad clip detail leads with where a clip came from, its title
+  (edited in place), a link as its own hero card, and one full-width Copy;
+  Share, Pin, Board and Snippet sit in one row, smart actions and boards as
+  chips.
+- The iPhone boards sheet shows how many of the Free boards are used, whether
+  each board is synced, waiting or on this iPhone only.
+- iPhone Settings show at a glance your Pro usage, which Intelligence features
+  are on, and what the Privacy Center counts, and list every way to capture on
+  iPhone, with steps for the keyboard and the widget.
+
+- The Mac welcome has four steps: the privacy promise (where clips live, when
+  secrets expire, what is never read), the Accessibility permission with what
+  works with and without it, the panel, paste-stack and Private Mode shortcuts
+  as you recorded them (each changeable in place), and a live first copy that
+  ends in the real panel. Page dots show where you are.
 
 - The welcome window, the Recent clips widget and the Wrapped card show the
   Gancho mark instead of a generic paperclip symbol.
@@ -96,6 +163,10 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Library's Pro card is a meter of every Free limit (boards, pins and
   snippets) that turns amber when one is almost full and red when one is
   reached.
+- Settings › Capture states the concealed and transient copy rule as a card
+  with nothing to turn off; Intelligence is a single row.
+- Privacy settings are grouped by question (Capture control, Searches and
+  Spotlight, Diagnostics) with shorter notes under each control.
 - With an Undo toast showing, ⌘Z in a text field you have typed in undoes your
   typing; the toast keeps its Undo button.
 - The menu-bar icon keeps the hook in every state instead of swapping to a
@@ -120,6 +191,8 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   Smart paste row shows its icon again.
 - Panel scope counts update when you delete a clip, undo the delete, or add a
   clip to a board or remove it, instead of waiting for the panel to reopen.
+- The screen-share note in Privacy settings names the apps Gancho detects
+  (Zoom, Teams and Screen Sharing) instead of apps it does not.
 - The Library header counts every clip in the scope, not just the first 100
   loaded.
 - A board's list, its chip count and its Library count agree: archived and

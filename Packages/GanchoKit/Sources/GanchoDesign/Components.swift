@@ -128,6 +128,8 @@ public struct ClipLinkParts: Equatable, Sendable {
     /// What follows the host (path and query, decoded when that reads better);
     /// nil for a bare host, so a card never repeats the host it already shows.
     public let path: String?
+    /// "https", "mailto"… lowercased, for the link's insight chip.
+    public let scheme: String?
 
     public init?(text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -147,6 +149,23 @@ public struct ClipLinkParts: Equatable, Sendable {
         decoded = readable == raw ? nil : readable
         let shown = readable ?? raw
         path = shown.isEmpty || shown == "/" ? nil : shown
+        scheme = url.scheme?.lowercased()
+    }
+
+    /// `[title](url)`, titled by the clip or else by its host. Brackets in the
+    /// title and parentheses in the URL are escaped so the link stays one link.
+    public func markdownLink(title: String) -> String {
+        let label = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let escapedLabel = (label.isEmpty ? host : label)
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "[", with: "\\[")
+            .replacingOccurrences(of: "]", with: "\\]")
+        let escapedURL =
+            text
+            .replacingOccurrences(of: "(", with: "%28")
+            .replacingOccurrences(of: ")", with: "%29")
+            .replacingOccurrences(of: " ", with: "%20")
+        return "[\(escapedLabel)](\(escapedURL))"
     }
 }
 
@@ -189,6 +208,11 @@ public struct ClipCard: View {
     /// namespace; only the anchor row claims the gliding highlight.
     let selectionNamespace: Namespace.ID?
     let isSelectionAnchor: Bool
+    /// iPhone rows: a protected clip names its kind and shows its stored mask,
+    /// source and expiry instead of three dots. Private Mode still hides all.
+    let showsStoredMask: Bool
+    /// A clip copied on another device names that device; nil leaves rows as they were.
+    let foreignDevice: String?
     // Dynamic Type grows the tile on iOS; the panel's own scale on the Mac.
     @ScaledMetric(relativeTo: .body) private var baseTileSize: CGFloat = 36
     @Environment(\.panelTypeScale) private var typeScale
@@ -201,7 +225,8 @@ public struct ClipCard: View {
     public init(
         item: ClipItem, isSelected: Bool = false, previewsHidden: Bool = false,
         shortcutNumber: Int? = nil, thumbnail: Image? = nil,
-        selectionNamespace: Namespace.ID? = nil, isSelectionAnchor: Bool = true
+        selectionNamespace: Namespace.ID? = nil, isSelectionAnchor: Bool = true,
+        showsStoredMask: Bool = false, currentDeviceName: String? = nil
     ) {
         self.item = item
         self.isSelected = isSelected
@@ -210,6 +235,27 @@ public struct ClipCard: View {
         self.thumbnail = thumbnail
         self.selectionNamespace = selectionNamespace
         self.isSelectionAnchor = isSelectionAnchor
+        self.showsStoredMask =
+            showsStoredMask && !previewsHidden && ClipSafePresentation.requiresMasking(item)
+        // Hidden previews hide where a clip came from too, in the label as well.
+        self.foreignDevice =
+            previewsHidden
+            ? nil : currentDeviceName.flatMap { Self.foreignDeviceName(of: item, current: $0) }
+    }
+
+    /// The device a clip came from, when that is not this one. Nil for a clip
+    /// with no recorded device, so older and local clips stay unlabelled.
+    nonisolated public static func foreignDeviceName(
+        of item: ClipItem, current: String
+    )
+        -> String?
+    {
+        guard
+            let device = item.sourceDeviceName?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !device.isEmpty,
+            device != current.trimmingCharacters(in: .whitespacesAndNewlines)
+        else { return nil }
+        return device
     }
 
     /// Whether a clip is close enough to expiry to earn the row countdown:
@@ -248,14 +294,19 @@ public struct ClipCard: View {
             leadingTile
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                if !item.title.isEmpty, !previewsHidden {
+                if showsStoredMask {
+                    Text(item.kind.cardName)
+                        .panelFont(.body, .semibold)
+                        .lineLimit(1)
+                } else if !item.title.isEmpty, !previewsHidden {
                     Text(item.title)
                         .panelFont(.body, .semibold)
                         .lineLimit(1)
                 }
                 previewText
-                    .lineLimit(item.title.isEmpty ? 2 : 1)
-                    .foregroundStyle(item.title.isEmpty ? .primary : .secondary)
+                    .lineLimit(item.title.isEmpty && !showsStoredMask ? 2 : 1)
+                    .foregroundStyle(
+                        item.title.isEmpty && !showsStoredMask ? .primary : .secondary)
             }
             Spacer(minLength: GanchoTokens.Spacing.xs)
             trailingMeta
@@ -294,7 +345,10 @@ public struct ClipCard: View {
     }
 
     @ViewBuilder private var previewText: some View {
-        if previewsHidden {
+        if showsStoredMask {
+            Text(verbatim: ClipSafePresentation.maskedTail(for: item))
+                .panelFont(.callout, design: .monospaced)
+        } else if previewsHidden {
             Text(verbatim: "•••").panelFont(.callout)
         } else if item.kind == .code {
             Text(highlightedPreview).panelFont(.callout, design: .monospaced)
@@ -328,6 +382,18 @@ public struct ClipCard: View {
     private var trailingMeta: some View {
         VStack(alignment: .trailing, spacing: 3) {
             sourceTimeLine
+            if let foreignDevice {
+                // Its own line: a full device name beside the app and age left
+                // all three truncated.
+                HStack(spacing: 3) {
+                    Image(systemName: "desktopcomputer")
+                    Text(verbatim: foreignDevice).lineLimit(1).truncationMode(.middle)
+                }
+                .panelFont(.caption2)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: 140, alignment: .trailing)
+                .accessibilityHidden(true)
+            }
             HStack(spacing: GanchoTokens.Spacing.xxs) {
                 if item.expiresAt != nil {
                     // A live "expires in mm:ss" on rows about to age out — sensitive
@@ -342,17 +408,12 @@ public struct ClipCard: View {
                         if let expiresAt = item.expiresAt,
                             Self.showsExpiryCountdown(expiresAt: expiresAt, now: context.date)
                         {
-                            HStack(spacing: 2) {
-                                Image(systemName: "timer")
-                                Text(expiresAt, style: .timer)
-                            }
-                            .panelFont(.caption2, digits: true)
-                            .foregroundStyle(GanchoTokens.Palette.warningInk)
-                            .accessibilityLabel(Text("Expires soon"))
+                            expiryBadge(expiresAt)
                         }
                     }
                 }
-                if item.tags.contains("universal-clipboard") {
+                // The device name already says where it came from.
+                if item.tags.contains("universal-clipboard"), foreignDevice == nil {
                     Image(systemName: "icloud.and.arrow.down")
                         .panelFont(.caption2)
                         .foregroundStyle(.secondary)
@@ -371,6 +432,23 @@ public struct ClipCard: View {
             }
         }
         .animation(GanchoMotion.quick(reduceMotion: reduceMotion), value: item.isPinned)
+    }
+
+    @ViewBuilder private func expiryBadge(_ expiresAt: Date) -> some View {
+        let badge = HStack(spacing: 2) {
+            Image(systemName: "timer")
+            Text(expiresAt, style: .timer)
+        }
+        .panelFont(.caption2, digits: true)
+        .accessibilityLabel(Text("Expires soon"))
+        if showsStoredMask {
+            badge
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
+                .ganchoTintedPill(GanchoTokens.Palette.warning, wash: 0.18)
+        } else {
+            badge.foregroundStyle(GanchoTokens.Palette.warningInk)
+        }
     }
 
     private var selectionAnimation: Animation? {
@@ -408,7 +486,7 @@ public struct ClipCard: View {
     /// "Safari · 12 minutes ago", hidden in private mode. Minute-granular: it sits
     /// beside the preview, and a per-second timer would resize it every tick.
     @ViewBuilder private var sourceTimeLine: some View {
-        if !previewsHidden {
+        if !previewsHidden || showsStoredMask {
             HStack(spacing: 3) {
                 if let bundleID = item.sourceAppBundleID, !bundleID.isEmpty {
                     Text(SourceApp.fallbackName(forBundleID: bundleID))
@@ -425,7 +503,8 @@ public struct ClipCard: View {
     /// VoiceOver: kind + preview (masked previews stay masked here too).
     /// Single interpolated `Text` — concatenating with `+` is deprecated in 26.
     private var accessibilityDescription: Text {
-        let base = Text.clipRowDescription(for: item, masked: previewsHidden)
+        let described = Text.clipRowDescription(for: item, masked: previewsHidden)
+        let base = foreignDevice.map { Text("\(described), from \($0)") } ?? described
         // The row is ONE combined accessibility element with an explicit label,
         // which supersedes the children's labels — so the countdown badge's own
         // label is never announced. Surface expiry here instead (state, not the

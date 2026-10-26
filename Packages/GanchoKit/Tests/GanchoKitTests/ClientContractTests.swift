@@ -42,9 +42,10 @@ struct ClientContractTests {
         let uploadState: any UploadStateProviding = store
         let scopeCounts: any ScopeCountProviding = store
         let libraryBrowsing: any LibraryBrowsing = store
+        let storeHealth: any StoreHealthProviding = store
         _ = (reading, searching, sourceApps, mutator, reuseSuggestions, enriching)
         _ = (boards, snippets, stats, privateReceipt, exporting, maintaining)
-        _ = (uploadState, scopeCounts, libraryBrowsing)
+        _ = (uploadState, scopeCounts, libraryBrowsing, storeHealth)
 
         // The composed third-party client contract binds too (the surface a
         // future non-Apple client programs against; the refactor plan migrates

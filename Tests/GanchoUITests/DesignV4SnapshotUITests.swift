@@ -67,34 +67,6 @@ final class DesignV4SnapshotUITests: XCTestCase {
             named: "intelligence-\(appearance)")
     }
 
-    // MARK: Onboarding — the brand mark heads the first step.
-
-    @MainActor func testOnboardingFirstStepLight() throws {
-        try onboardingFirstStep(appearance: "light")
-    }
-
-    @MainActor func testOnboardingFirstStepDark() throws {
-        try onboardingFirstStep(appearance: "dark")
-    }
-
-    @MainActor private func onboardingFirstStep(appearance: String) throws {
-        let app = GanchoUITestApplication()
-        app.launchArguments = [
-            "-regular-activation-for-ui-tests", "-use-in-process-status-item",
-            "-force-ephemeral-store", "-start-capture-paused",
-            "-ui-test-defaults-suite", "com.johnny4young.gancho.uitests.\(UUID().uuidString)",
-            "-telemetry-consent", "notAsked", "-AppleLanguages", "(en)",
-            "-appearance", appearance, "-ui-test-snapshot-dir", renders.path
-        ]
-        app.launch()
-        defer { app.terminate() }
-        XCTAssertTrue(app.buttons["onboarding-continue"].firstMatch.waitForExistence(timeout: 8))
-        try DesignSnapshot.save(
-            DesignSnapshot.renderWindow(
-                titled: "Welcome to Gancho", named: "onboarding", in: renders),
-            named: "onboarding-step1-\(appearance)")
-    }
-
     // MARK: Panel — dock states, chips, selection wash and the opaque surface.
 
     @MainActor func testPanelLinkPeekLight() throws {
@@ -426,7 +398,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
             "-AppleKeyboardUIMode", keyboardUIMode,
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.snapshots.\(UUID().uuidString)",
-            "-ui-test-snapshot-dir", renders.path
+            "-ui-test-snapshot-dir", renders.path, "-ui-test-privacy-overview", "128:2100000:12"
         ]
     }
 

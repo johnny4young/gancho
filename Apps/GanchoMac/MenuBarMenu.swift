@@ -89,11 +89,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
     /// "Capturing · 128 clips · Keynote in front", with the state's dot.
     private func header(_ model: AppModel) -> NSMenuItem {
-        let chip = PanelCaptureChip.resolve(
-            privateModeEnabled: model.preferences.isPrivateModePaused,
-            privateModeEndsAt: model.preferences.privateModeEndsAt,
-            runtimeStatus: model.monitorStatus.panelCaptureRuntimeStatus,
-            frontApp: model.pasteTarget.appName)
+        let chip = model.captureChip(frontApp: model.pasteTarget.appName)
         var parts = [Self.stateTitle(chip)]
         if let count = model.menuBarClipCount { parts.append(String(localized: "\(count) clips")) }
         if case .capturing(let app?) = chip { parts.append(String(localized: "\(app) in front")) }
@@ -239,7 +235,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         return renderer.nsImage
     }
 
-    private static func stateTitle(_ chip: PanelCaptureChip) -> String {
+    static func stateTitle(_ chip: PanelCaptureChip) -> String {
         switch chip {
         case .capturing: String(localized: "Capturing")
         case .privateMode(let end?):

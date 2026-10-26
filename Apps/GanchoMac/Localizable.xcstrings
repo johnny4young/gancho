@@ -572,16 +572,6 @@
         }
       }
     },
-    "Recent technical issues only — content-free, nothing about your clips.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Solo problemas técnicos recientes: sin contenido, nada sobre tus clips."
-          }
-        }
-      }
-    },
     "Storage": {
       "localizations": {
         "es": {
@@ -1549,16 +1539,6 @@
         }
       }
     },
-    "Everything you copy, safe and searchable": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todo lo que copias, seguro y buscable"
-          }
-        }
-      }
-    },
     "Export clipboard wrapped": {
       "extractionState": "stale",
       "localizations": {
@@ -2497,16 +2477,6 @@
         }
       }
     },
-    "Agent calls this week": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Llamadas de agentes esta semana"
-          }
-        }
-      }
-    },
     "Content bodies exposed": {
       "localizations": {
         "es": {
@@ -2517,42 +2487,12 @@
         }
       }
     },
-    "Denied by scope or veto": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Denegadas por alcance o veto"
-          }
-        }
-      }
-    },
-    "Local AI agent access (MCP)": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acceso de agentes locales (MCP)"
-          }
-        }
-      }
-    },
     "On": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Activado"
-          }
-        }
-      }
-    },
-    "Status": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estado"
           }
         }
       }
@@ -3063,16 +3003,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Todo aquí corre en este Mac. Ningún texto de clip se envía a un servidor — gancho no tiene."
-          }
-        }
-      }
-    },
-    "On-device titles, semantic retrieval, screenshot OCR, and secret detection — each a toggle, all local.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Títulos, recuperación semántica, OCR de capturas y detección de secretos en el dispositivo — cada uno un toggle, todo local."
           }
         }
       }
@@ -3688,17 +3618,6 @@
         }
       }
     },
-    "Pasteboard access": {
-      "extractionState": "stale",
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acceso al portapapeles"
-          }
-        }
-      }
-    },
     "pasted back": {
       "extractionState": "stale",
       "localizations": {
@@ -3761,17 +3680,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pausa o reanuda la captura del portapapeles (modo privado)."
-          }
-        }
-      }
-    },
-    "Permission granted": {
-      "extractionState": "stale",
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permiso concedido"
           }
         }
       }
@@ -4201,16 +4109,6 @@
         }
       }
     },
-    "Press the shortcut, pick a clip with ↑↓, hit Enter — it pastes right where you were typing. That's the whole loop.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Presiona el atajo, elige un clip con ↑↓ y dale Enter — se pega justo donde estabas escribiendo. Ese es todo el ciclo."
-          }
-        }
-      }
-    },
     "Pretty-print JSON": {
       "extractionState": "stale",
       "localizations": {
@@ -4555,16 +4453,6 @@
         }
       }
     },
-    "Secrets and card numbers are always masked in previews; revealing them takes an explicit click.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los secretos y números de tarjeta siempre van enmascarados en las vistas previas; revelarlos requiere un clic explícito."
-          }
-        }
-      }
-    },
     "Secrets masked": {
       "extractionState": "stale",
       "localizations": {
@@ -4770,16 +4658,6 @@
         }
       }
     },
-    "The support bundle contains versions, settings, and counters — never clipboard content.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El paquete de soporte contiene versiones, configuración y contadores — nunca contenido del portapapeles."
-          }
-        }
-      }
-    },
     "This shortcut is used by the system (%@).": {
       "localizations": {
         "es": {
@@ -4797,16 +4675,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esta semana, en este Mac"
-          }
-        }
-      }
-    },
-    "To paste a clip directly into the app you're using, macOS requires the Accessibility permission. Gancho uses it ONLY to send the paste keystroke — never to read your screen.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Para pegar un clip directamente en la app que estás usando, macOS exige el permiso de Accesibilidad. Gancho lo usa SOLO para enviar la tecla de pegado — nunca para leer tu pantalla."
           }
         }
       }
@@ -4862,16 +4730,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sin espacios extremos"
-          }
-        }
-      }
-    },
-    "Try it now: copy any text — it appears below instantly.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pruébalo ya: copia cualquier texto — aparece abajo al instante."
           }
         }
       }
@@ -5016,16 +4874,6 @@
         }
       }
     },
-    "Without it, Gancho still works: clips are copied and you paste with ⌘V.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sin él, Gancho igual funciona: los clips se copian y pegas con ⌘V."
-          }
-        }
-      }
-    },
     "You said “ignore next”": {
       "extractionState": "stale",
       "localizations": {
@@ -5043,16 +4891,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tu portapapeles, a un atajo de distancia"
-          }
-        }
-      }
-    },
-    "Your clips never leave this Mac unless YOU turn on iCloud sync.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tus clips nunca salen de este Mac a menos que TÚ actives la sincronización con iCloud."
           }
         }
       }
@@ -5283,16 +5121,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Títulos IA inteligentes para probar"
-          }
-        }
-      }
-    },
-    "Your first clips get smart AI titles, free and on-device.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tus primeros clips reciben títulos IA inteligentes, gratis y en el dispositivo."
           }
         }
       }
@@ -5563,26 +5391,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elementos sensibles"
-          }
-        }
-      }
-    },
-    "A per-type limit overrides the global window; leave a type on Use global to follow it. Pinned clips and boards never expire.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un límite por tipo anula la ventana global; deja un tipo en Usar global para seguirla. Los clips fijados y los tableros nunca expiran."
-          }
-        }
-      }
-    },
-    "Detected secrets — passwords, keys, cards — always follow this limit, even when your history keeps everything longer. It's a safety guard you can shorten but not extend.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los secretos detectados — contraseñas, llaves, tarjetas — siempre siguen este límite, incluso cuando tu historial guarda todo por más tiempo. Es una protección de seguridad que puedes acortar pero no extender."
           }
         }
       }
@@ -6057,16 +5865,6 @@
         }
       }
     },
-    "Optional diagnostics": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diagnósticos opcionales"
-          }
-        }
-      }
-    },
     "Anonymous feature counts and broad performance buckets are off until you allow them. Clipboard content, titles, searches, and source-app names are never sent.": {
       "localizations": {
         "es": {
@@ -6083,16 +5881,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Los diagnósticos opcionales solo contienen conteos anónimos y rangos generales."
-          }
-        }
-      }
-    },
-    "Optional anonymous counts and broad performance buckets only — never clipboard content, titles, searches, or source-app names. Off until you allow it; changes apply immediately.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Solo conteos anónimos opcionales y rangos generales de rendimiento; nunca contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen. Desactivados hasta que los autorices; los cambios se aplican de inmediato."
           }
         }
       }
@@ -6483,16 +6271,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostrar snippets y pins en Spotlight"
-          }
-        }
-      }
-    },
-    "Only snippets and pinned clips reach the system index — never your raw history, secrets, or expiring clips. Turning this off removes them from Spotlight immediately.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Solo los snippets y los clips fijados llegan al índice del sistema — nunca tu historial completo, secretos ni clips que expiran. Al desactivarlo, se eliminan de Spotlight de inmediato."
           }
         }
       }
@@ -7387,16 +7165,6 @@
         }
       }
     },
-    "If direct paste is unavailable, Gancho copies the clip so you can press ⌘V.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Si el pegado directo no está disponible, Gancho copia el clip para que puedas pulsar ⌘V."
-          }
-        }
-      }
-    },
     "Open Gancho panel": {
       "localizations": {
         "es": {
@@ -7423,16 +7191,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reutilizaciones exitosas en esta sesión"
-          }
-        }
-      }
-    },
-    "The real panel opens next so you can search and reuse a clip now.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A continuación se abre el panel real para que puedas buscar y reutilizar un clip ahora."
           }
         }
       }
@@ -7493,16 +7251,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elementos sensibles autoexpirados"
-          }
-        }
-      }
-    },
-    "Clear activity receipt": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Borrar recibo de actividad"
           }
         }
       }
@@ -11707,6 +11455,1066 @@
           "stringUnit": {
             "state": "translated",
             "value": "Llegaste al límite"
+          }
+        }
+      }
+    },
+    "%lld clips · %@ on this Mac": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clip · %@ on this Mac"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clips · %@ on this Mac"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clip · %@ en esta Mac"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clips · %@ en esta Mac"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld clips · not saved": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clip · not saved"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clips · not saved"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clip · sin guardar"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld clips · sin guardar"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld skipped this week": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld omitidas esta semana"
+          }
+        }
+      }
+    },
+    "%lld waiting to sync": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld por sincronizar"
+          }
+        }
+      }
+    },
+    "A per-type limit overrides the global window. Pinned clips and boards never expire.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un límite por tipo reemplaza la ventana global. Los clips fijados y los tableros nunca caducan."
+          }
+        }
+      }
+    },
+    "A temporary store, cleared on quit": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un almacén temporal que se borra al salir"
+          }
+        }
+      }
+    },
+    "Agent access": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso de agentes"
+          }
+        }
+      }
+    },
+    "Built-in rule · concealed and transient copies": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regla integrada · copias ocultas y transitorias"
+          }
+        }
+      }
+    },
+    "Capture control": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control de captura"
+          }
+        }
+      }
+    },
+    "Copied in the last": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiados en los últimos"
+          }
+        }
+      }
+    },
+    "Couldn’t open the database with its key.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir la base de datos con su llave."
+          }
+        }
+      }
+    },
+    "Counts and broad buckets only — never clipboard content, titles, searches or source-app names.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo conteos y rangos amplios — nunca contenido del portapapeles, títulos, búsquedas ni nombres de apps de origen."
+          }
+        }
+      }
+    },
+    "Developer": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desarrollador"
+          }
+        }
+      }
+    },
+    "Diagnostics": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnósticos"
+          }
+        }
+      }
+    },
+    "Encrypted at rest": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cifrado en reposo"
+          }
+        }
+      }
+    },
+    "Forget %lld clips": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Forget %lld clip"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Forget %lld clips"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Olvidar %lld clip"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Olvidar %lld clips"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Forget recent clips": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Olvidar clips recientes"
+          }
+        }
+      }
+    },
+    "History is encrypted on this Mac": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El historial está cifrado en esta Mac"
+          }
+        }
+      }
+    },
+    "Local AI agents (MCP)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agentes de IA locales (MCP)"
+          }
+        }
+      }
+    },
+    "MCP Access…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso MCP…"
+          }
+        }
+      }
+    },
+    "No issues recorded. Technical issues only — content-free, nothing about your clips.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay problemas registrados. Solo problemas técnicos — sin contenido, nada sobre tus clips."
+          }
+        }
+      }
+    },
+    "No sync activity yet.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todavía no hay actividad de sincronización."
+          }
+        }
+      }
+    },
+    "Not encrypted": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin cifrar"
+          }
+        }
+      }
+    },
+    "Not saved to disk": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se guarda en disco"
+          }
+        }
+      }
+    },
+    "Nothing is saved while on. Pasting keeps working.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se guarda nada mientras está activo. Pegar sigue funcionando."
+          }
+        }
+      }
+    },
+    "Off · your private iCloud database, with Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apagado · tu base privada de iCloud, con Pro"
+          }
+        }
+      }
+    },
+    "Open the Privacy Center to verify": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre el Centro de privacidad para verificar"
+          }
+        }
+      }
+    },
+    "Optional diagnostics · Recent issues": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnósticos opcionales · Problemas recientes"
+          }
+        }
+      }
+    },
+    "Pins, boards and snippets stay. Undo brings the clips back for a few seconds.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los fijados, tableros y snippets se quedan. Deshacer recupera los clips durante unos segundos."
+          }
+        }
+      }
+    },
+    "SQLCipher database, sealed image and file blobs. The key lives in your login Keychain.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Base de datos SQLCipher, imágenes y archivos sellados. La llave vive en tu llavero de inicio de sesión."
+          }
+        }
+      }
+    },
+    "SQLCipher · key in your Keychain": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SQLCipher · llave en tu llavero"
+          }
+        }
+      }
+    },
+    "Searches and Spotlight": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Búsquedas y Spotlight"
+          }
+        }
+      }
+    },
+    "So a pause never silently becomes a week.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para que una pausa nunca se convierta en una semana sin darte cuenta."
+          }
+        }
+      }
+    },
+    "Sync activity": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actividad de sincronización"
+          }
+        }
+      }
+    },
+    "Sync failed": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La sincronización falló"
+          }
+        }
+      }
+    },
+    "Sync off": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronización apagada"
+          }
+        }
+      }
+    },
+    "Sync paused": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronización en pausa"
+          }
+        }
+      }
+    },
+    "Syncing": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sincronizando"
+          }
+        }
+      }
+    },
+    "The database file isn’t encrypted.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo de la base de datos no está cifrado."
+          }
+        }
+      }
+    },
+    "Verified · SQLCipher %@ · unreadable without its key": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verificado · SQLCipher %@ · ilegible sin su llave"
+          }
+        }
+      }
+    },
+    "Verify": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verificar"
+          }
+        }
+      }
+    },
+    "Verify, don’t trust": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica, no confíes"
+          }
+        }
+      }
+    },
+    "Zoom, Teams and Screen Sharing are detected.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se detectan Zoom, Teams y Compartir pantalla."
+          }
+        }
+      }
+    },
+    "iCloud private database · Pro": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Base privada de iCloud · Pro"
+          }
+        }
+      }
+    },
+    "iCloud private database": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Base privada de iCloud"
+          }
+        }
+      }
+    },
+    "protected copies · never stored": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "copias protegidas · nunca guardadas"
+          }
+        }
+      }
+    },
+    "secrets": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "secretos"
+          }
+        }
+      }
+    },
+    "images": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "imágenes"
+          }
+        }
+      }
+    },
+    "everything else": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "todo lo demás"
+          }
+        }
+      }
+    },
+    "pins, boards": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fijados, tableros"
+          }
+        }
+      }
+    },
+    "never": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nunca"
+          }
+        }
+      }
+    },
+    "%lld y": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld y"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld y"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld año"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld años"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld mo": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mo"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mo"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mes"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld meses"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Secrets and card numbers stay masked; revealing one takes a click.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los secretos y números de tarjeta siguen ocultos; revelar uno requiere un clic."
+          }
+        }
+      }
+    },
+    "Only snippets and pinned clips reach the system index — never raw history, secrets or expiring clips. Turning this off removes them at once.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo los snippets y los clips fijados llegan al índice del sistema — nunca el historial, secretos ni clips que caducan. Al apagarlo se quitan de inmediato."
+          }
+        }
+      }
+    },
+    "Versions, settings and counters — never clipboard content.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versiones, ajustes y contadores — nunca contenido del portapapeles."
+          }
+        }
+      }
+    },
+    "Password managers and some apps mark a copy as concealed, transient or auto-generated. Gancho senses the mark and stops there: the content is never read, stored, indexed or synced. This cannot be turned off.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los gestores de contraseñas y algunas apps marcan una copia como oculta, transitoria o autogenerada. Gancho detecta la marca y se detiene ahí: el contenido nunca se lee, guarda, indexa ni sincroniza. Esto no se puede desactivar."
+          }
+        }
+      }
+    },
+    "Change a picker below and its marker moves. Older clips are deleted on this Mac and, when sync is on, on your other devices.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambia un selector abajo y su marcador se mueve. Los clips más antiguos se borran en esta Mac y, con la sincronización activa, en tus otros dispositivos."
+          }
+        }
+      }
+    },
+    "On-device titles, semantic retrieval, screenshot OCR and secret detection — each a toggle, all local.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Títulos en el dispositivo, búsqueda semántica, OCR de capturas y detección de secretos — cada uno con su interruptor, todo local."
+          }
+        }
+      }
+    },
+    "Nothing to forget": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada que olvidar"
+          }
+        }
+      }
+    },
+    "On · %lld calls this week · %lld denied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activo · %1$lld llamadas esta semana · %2$lld rechazadas"
+          }
+        }
+      }
+    },
+    "Off · %lld calls this week · %lld denied": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apagado · %1$lld llamadas esta semana · %2$lld rechazadas"
+          }
+        }
+      }
+    },
+    "Checking encryption…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprobando el cifrado…"
+          }
+        }
+      }
+    },
+    "No content analytics · receipt · agents": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin analítica de contenido · recibo · agentes"
+          }
+        }
+      }
+    },
+    "There’s no database file on this Mac to check.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay un archivo de base de datos en esta Mac para comprobar."
+          }
+        }
+      }
+    },
+    "Your clipboard, private by design": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu portapapeles, privado por diseño"
+          }
+        }
+      }
+    },
+    "Gancho keeps everything you copy — text, links, code, colors, images — so you can find it and paste it again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho guarda todo lo que copias — texto, enlaces, código, colores, imágenes — para que lo encuentres y lo vuelvas a pegar."
+          }
+        }
+      }
+    },
+    "**Stays on this Mac.** Encrypted on disk. Nothing leaves unless you turn on iCloud sync.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Se queda en esta Mac.** Cifrado en disco. Nada sale a menos que actives la sincronización con iCloud."
+          }
+        }
+      }
+    },
+    "**Secrets are masked and expire.** Keys, cards and passwords self-destruct after %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Los secretos se ocultan y caducan.** Claves, tarjetas y contraseñas se autodestruyen después de %@."
+          }
+        }
+      }
+    },
+    "**Password managers are never read.** Copies they mark as concealed are sensed, not stored.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Los gestores de contraseñas nunca se leen.** Lo que marcan como oculto se detecta, no se guarda."
+          }
+        }
+      }
+    },
+    "Gancho presses ⌘V for you in the app you came from. That needs Accessibility — the only permission it asks for, and never used to read your screen.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho presiona ⌘V por ti en la app de la que vienes. Eso requiere Accesibilidad — el único permiso que pide, y nunca se usa para leer tu pantalla."
+          }
+        }
+      }
+    },
+    "With it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Con él"
+          }
+        }
+      }
+    },
+    "Without it": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin él"
+          }
+        }
+      }
+    },
+    "Pick a clip, press ⏎, it lands where your cursor was. Paste stack and snippets work in one key.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliges un clip, presionas ⏎ y aparece donde estaba tu cursor. La pila de pegado y los snippets funcionan con una tecla."
+          }
+        }
+      }
+    },
+    "Gancho copies the clip and you press ⌘V yourself. Everything else works the same.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gancho copia el clip y tú presionas ⌘V. Todo lo demás funciona igual."
+          }
+        }
+      }
+    },
+    "Granted · Gancho can paste for you": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Concedido · Gancho puede pegar por ti"
+          }
+        }
+      }
+    },
+    "Not granted yet · turns green when you come back": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no concedido · se pone verde cuando vuelvas"
+          }
+        }
+      }
+    },
+    "Try it now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pruébalo ahora"
+          }
+        }
+      }
+    },
+    "Copy any text in any app — it appears below instantly. Then click the hook in the menu bar to open the real panel and paste it back.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia cualquier texto en cualquier app — aparece abajo al instante. Luego haz clic en el gancho de la barra de menú para abrir el panel real y volver a pegarlo."
+          }
+        }
+      }
+    },
+    "Copy any text in any app — it appears below instantly. Then press your panel shortcut to open the real panel and paste it back.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia cualquier texto en cualquier app — aparece abajo al instante. Luego presiona tu atajo del panel para abrir el panel real y volver a pegarlo."
+          }
+        }
+      }
+    },
+    "Your next copy lands here": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo próximo que copies aparece aquí"
+          }
+        }
+      }
+    },
+    "Skip for now": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omitir por ahora"
+          }
+        }
+      }
+    },
+    "Open Gancho panel %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir el panel de Gancho %@"
+          }
+        }
+      }
+    },
+    "Step %lld of %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paso %1$lld de %2$lld"
+          }
+        }
+      }
+    },
+    "Press the shortcut, pick a clip with ↑↓, hit Enter — it pastes right where you were typing. That’s the whole loop.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presiona el atajo, elige un clip con ↑↓ y dale Enter — se pega justo donde estabas escribiendo. Ese es todo el ciclo."
+          }
+        }
+      }
+    },
+    "Paste from stack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar desde la pila"
+          }
+        }
+      }
+    },
+    "Forgot it? Gancho also lives in your menu bar — click the hook anytime.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Lo olvidaste? Gancho también vive en tu barra de menú — haz clic en el gancho cuando quieras."
+          }
+        }
+      }
+    },
+    "Set…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Definir…"
+          }
+        }
+      }
+    },
+    "Change…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambiar…"
+          }
+        }
+      }
+    },
+    "Not set": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin definir"
+          }
+        }
+      }
+    },
+    "Expires soon": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caduca pronto"
           }
         }
       }

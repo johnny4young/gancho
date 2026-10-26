@@ -33,6 +33,18 @@ struct GanchoiOSApp: App {
     /// One-time welcome: iOS's intent-based capture is novel, so first launch
     /// explains the save paths before dropping the user on an empty list.
     @AppStorage("ios-has-seen-welcome") private var hasSeenWelcome = false
+    /// UI-test hook: show the welcome once this launch, whatever the simulator's flag says.
+    @State private var forcesWelcome = Self.launchForcesWelcome
+    /// The clip a paste on the welcome saved, opened after the sheet closes.
+    @State private var onboardingLanding: ClipItem?
+
+    private static var launchForcesWelcome: Bool {
+        #if DEBUG
+            ProcessInfo.processInfo.arguments.contains("-open-welcome-on-launch")
+        #else
+            false
+        #endif
+    }
 
     /// UI-test hook: route straight to the Privacy Center on launch (no
     /// welcome, no navigation) so XCUITest can assert the diagnostics log.
@@ -103,9 +115,21 @@ struct GanchoiOSApp: App {
             // rows, so the next launch resumes where this one stopped.
             .task(priority: .utility) {
                 guard model.intelligence.semanticSearch,
-                    let source = model.full as? any EmbeddingRefreshSource
+                    let source = model.full as? any EmbeddingBackfillSource
                 else { return }
                 await EmbeddingRefreshService().run(store: source)
+            }
+            // Clips synced from another device arrive without a vector; embedding
+            // is Pro, as it is at capture. Restarts (and so stops) whenever the
+            // tier or the toggle changes.
+            .task(
+                id: BackfillGate(tier: model.tier, on: model.intelligence.semanticSearch),
+                priority: .utility
+            ) {
+                guard model.tier == .pro, model.intelligence.semanticSearch,
+                    let source = model.full as? any EmbeddingBackfillSource
+                else { return }
+                await EmbeddingRefreshService().backfill(store: source)
             }
             // Widget deep links (`gancho://clip/<id>`) open the right clip.
             .onOpenURL { model.handleDeepLink($0) }
@@ -114,14 +138,36 @@ struct GanchoiOSApp: App {
             .ganchoTinted()
             .sheet(
                 isPresented: Binding(
-                    get: { !hasSeenWelcome && !routeToPrivacyCenter && !skipWelcomeOnLaunch },
-                    set: { showing in if !showing { hasSeenWelcome = true } })
-            ) {
-                IOSOnboardingView {
-                    model.completeOnboarding()
-                    hasSeenWelcome = true
-                }
-            }
+                    get: {
+                        (!hasSeenWelcome || forcesWelcome) && !routeToPrivacyCenter
+                            && !skipWelcomeOnLaunch
+                    },
+                    set: { showing in
+                        if !showing {
+                            hasSeenWelcome = true
+                            forcesWelcome = false
+                        }
+                    }),
+                onDismiss: {
+                    // Opened only once the welcome is gone: one sheet at a time.
+                    if let onboardingLanding { model.deepLinkClip = onboardingLanding }
+                    onboardingLanding = nil
+                },
+                content: {
+                    IOSOnboardingView(
+                        onDone: {
+                            model.completeOnboarding()
+                            hasSeenWelcome = true
+                            forcesWelcome = false
+                        },
+                        onSaved: { clip in
+                            // A save that lands after a swipe-down has no dismissal left to open it.
+                            if !hasSeenWelcome || forcesWelcome { onboardingLanding = clip }
+                        }
+                    )
+                    .environment(model)
+                    .ganchoTinted()
+                })
         }
         .onChange(of: scenePhase) { _, phase in
             // Release the encrypted store's SQLite locks before iOS suspends the
@@ -191,4 +237,10 @@ final class GanchoiOSAppDelegate: NSObject, UIApplicationDelegate {
                         "Couldn’t subscribe to iCloud change notifications; inbound sync may lag."))
         }
     }
+}
+
+/// What the background embedding backfill depends on.
+private struct BackfillGate: Hashable {
+    let tier: UserTier
+    let on: Bool
 }

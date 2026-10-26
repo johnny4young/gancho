@@ -167,6 +167,20 @@ final class DenylistUITests: XCTestCase {
     /// Capture tab. Isolated defaults (the denylist persists there), no durable
     /// store, and a paused monitor so nothing on the developer's clipboard is
     /// ingested; the throwaway suite is removed again when the test ends.
+    /// The concealed-types rule is stated once, as a card with nothing to toggle.
+    @MainActor
+    func testConcealedRuleIsACardWithoutASwitch() throws {
+        let app = try launchIntoCaptureSettings()
+        defer { app.terminate() }
+        let card = app.descendants(matching: .any)["capture-concealed-rule-card"].firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            "\(card.label) \(card.value as? String ?? "")".contains(
+                "org.nspasteboard.ConcealedType"))
+        XCTAssertEqual(card.switches.count, 0)
+        XCTAssertEqual(card.checkBoxes.count, 0)
+    }
+
     @MainActor
     private func launchIntoCaptureSettings(
         extraArguments: [String] = []

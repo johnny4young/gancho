@@ -16,6 +16,16 @@ struct ClipDragPayloadTests {
         #expect(!ClipDragPayload.isDraggable(ClipItem(kind: .secret, isSensitive: true)))
     }
 
+    @Test("An expired clip doesn't lift; one still in its lifetime does")
+    func expiredDoesNotLift() {
+        let now = Date()
+        let live = ClipItem(kind: .url, expiresAt: now.addingTimeInterval(60))
+        let expired = ClipItem(kind: .url, expiresAt: now.addingTimeInterval(-1))
+        #expect(ClipDragPayload.liftsNow(live, now: now))
+        #expect(!ClipDragPayload.liftsNow(expired, now: now))
+        #expect(!ClipDragPayload.liftsNow(ClipItem(kind: .secret), now: now))
+    }
+
     @Test("Intrinsic masked kinds stay excluded even without the sensitivity flag")
     func unflaggedKindsRespectIntrinsicPrivacy() {
         for kind in ClipContentKind.allCases {

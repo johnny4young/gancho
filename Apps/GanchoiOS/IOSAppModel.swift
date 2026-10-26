@@ -24,8 +24,11 @@ final class IOSAppModel {
     /// — the iOS analog of macOS's `PanelSearchModel`. This model owns one and
     /// forwards `captures`/`sections`/`query`/… to it, so the views and their
     /// bindings are unchanged.
-    @ObservationIgnored lazy var history = HistoryListViewModel(
-        source: HistoryStoreSource(store: store, full: full))
+    @ObservationIgnored lazy var history: HistoryListViewModel = {
+        let history = HistoryListViewModel(source: HistoryStoreSource(store: store, full: full))
+        history.meaningSource = self
+        return history
+    }()
     /// Raw loaded clips — see `HistoryListViewModel.captures`.
     var captures: [ClipItem] {
         get { history.captures }
@@ -48,6 +51,23 @@ final class IOSAppModel {
     var saveNote: CaptureStatusNote?
 
     @ObservationIgnored private var saveNoteTask: Task<Void, Never>?
+    /// The clip the Paste button just saved, which the card offers to open
+    /// for a few seconds.
+    var recentPasteSave: RecentPasteSave?
+    /// How many clips the active scope holds (All clips or the selected board),
+    /// for its chip on the rail. Refreshed with every list load.
+    var activeScopeCount: Int?
+    @ObservationIgnored private var countedScope: UUID??
+    @ObservationIgnored private var scopeCountRequest = 0
+    /// Visible clips overall, per board and per kind: the iPad sidebar's
+    /// counts. Read only once a sidebar asks for them.
+    var scopeCounts: ScopeCountSnapshot?
+    @ObservationIgnored var tracksScopeCounts = false
+    @ObservationIgnored private var scopeCountsRequest = 0
+    @ObservationIgnored private var scopeCountGate = ScopeCountRefreshGate()
+    /// This device's name, so rows from another device can say where they came from.
+    @ObservationIgnored lazy var currentDeviceName = PlatformDeviceProvenance.currentDeviceName()
+    @ObservationIgnored private var recentPasteSaveTask: Task<Void, Never>?
     /// One non-modal curation action produced at the exact third successful use.
     /// Metadata only; exact-threshold dismissal needs no persisted state.
     var reuseSuggestion: ReuseSuggestion?
@@ -60,6 +80,11 @@ final class IOSAppModel {
     var kindFilter: ClipContentKind? {
         get { history.kindFilter }
         set { history.kindFilter = newValue }
+    }
+    /// The iPad sidebar's type group — see `HistoryListViewModel.kindGroup`.
+    var kindGroup: ClipKindFilter {
+        get { history.kindGroup }
+        set { history.kindGroup = newValue }
     }
     /// nil = "All clips"; otherwise the selected board (a higher axis than the
     /// kind filter). Board identity and membership sync when iCloud is enabled.
@@ -425,6 +450,14 @@ final class IOSAppModel {
         Task { await search() }
     }
 
+    /// How many of the Free boards are in use; nil on Pro, which has no limit.
+    var freeBoardUsage: LibraryProMeter.Ceiling? {
+        guard tier != .pro else { return nil }
+        let userBoards = boards.filter { !$0.isSystem }.count
+        return LibraryProMeter(boards: userBoards, pins: 0, snippets: 0)
+            .ceilings.first { $0.kind == .boards }
+    }
+
     /// Total non-archived clips — the "All clips" count on the boards home.
     func clipCount() async -> Int {
         guard let full else { return 0 }
@@ -439,8 +472,9 @@ final class IOSAppModel {
 
     /// Promote a clip to a reusable snippet — the peek's "Save as snippet".
     /// Honors the shared free-tier gate and only confirms a durable write.
-    func saveAsSnippet(_ item: ClipItem) async {
-        guard let full else { return }
+    @discardableResult
+    func saveAsSnippet(_ item: ClipItem) async -> Bool {
+        guard let full else { return false }
         switch await curationController.promoteToSnippet(item, tier: tier, store: full) {
         case .promoted:
             recordActivationMilestone(.firstSnippetCreated)
@@ -449,6 +483,7 @@ final class IOSAppModel {
             // Refresh first so the two-second confirmation remains visible
             // after the durable mutation has settled and the UI is idle.
             flashNote(String(localized: "Saved as snippet"), kind: .success)
+            return true
         case .freeLimitReached:
             proGateTick += 1
         case .clipUnavailable:
@@ -457,6 +492,36 @@ final class IOSAppModel {
             diagnostics.record(
                 String(localized: "Snippets"), String(localized: "Couldn’t save the snippet."))
         }
+        return false
+    }
+
+    /// The snippets, newest first, for the boards home.
+    func snippetList() async -> [ClipItem] {
+        guard let full else { return [] }
+        return (try? await full.snippets()) ?? []
+    }
+
+    /// The Privacy Center's Verify: re-reads the store on this iPhone, no network.
+    func verifyEncryption() async -> StoreEncryptionReport? {
+        await grdbForEngines?.encryptionReport()
+    }
+
+    /// Clips masked as secrets right now, for Settings' Privacy subtitle.
+    func maskedCount() async -> Int {
+        guard let full else { return 0 }
+        return (try? await full.sensitiveCount()) ?? 0
+    }
+
+    /// Boards whose last change hasn't reached iCloud yet.
+    func boardsAwaitingSync() async -> Set<UUID> {
+        guard let grdbForEngines else { return [] }
+        return Set(((try? await grdbForEngines.pendingBoardUploads()) ?? []).map(\.id))
+    }
+
+    /// Whether a clip is already a snippet, for the detail's Snippet button.
+    func isSnippet(_ item: ClipItem) async -> Bool {
+        guard let full, let snippets = try? await full.snippets() else { return false }
+        return snippets.contains { $0.id == item.id }
     }
 
     /// Persists a user-authored title and schedules sync only after the durable
@@ -655,7 +720,42 @@ final class IOSAppModel {
         }
         await history.search()
         Signpost.queryToResults.end(interval)
+        await refreshActiveScopeCount()
+        let recount = scopeCountGate.shouldRecount(query: query)
+        if tracksScopeCounts, recount { await refreshScopeCounts() }
     }
+
+    func refreshScopeCounts() async {
+        guard let full else { return }
+        scopeCountsRequest += 1
+        let request = scopeCountsRequest
+        guard let counts = try? await full.scopeCounts(excluding: []),
+            request == scopeCountsRequest
+        else { return }
+        scopeCounts = counts
+    }
+
+    private func refreshActiveScopeCount() async {
+        // Typing doesn't change a scope's total: count when the scope changes,
+        // or on a load with no query (which every store change triggers).
+        guard query.isEmpty || countedScope != .some(selectedBoardID) else { return }
+        scopeCountRequest += 1
+        let request = scopeCountRequest
+        let board = selectedBoardID.flatMap { id in boards.first { $0.id == id } }
+        let count: Int
+        if let board { count = await clipCount(in: board) } else { count = await clipCount() }
+        // Only the newest count lands, and only for the scope still shown.
+        guard request == scopeCountRequest, board?.id == selectedBoardID else { return }
+        activeScopeCount = count
+        countedScope = .some(selectedBoardID)
+    }
+
+    func headerCount(for group: ClipSectionGroup) -> HeaderCount? {
+        history.headerCount(for: group)
+    }
+    var listCount: HeaderCount? { history.listCount }
+    /// Clips related by meaning to the typed query — see `HistoryListViewModel.related`.
+    var relatedClips: [ClipItem] { history.related }
 
     func refreshSourceApps() async { await history.refreshSourceApps() }
 
@@ -948,7 +1048,7 @@ final class IOSAppModel {
     /// Narrow concrete handle kept ONLY to construct in-module engines
     /// (`GanchoArchive`, `RetentionEngine`, `TierEnforcement`) and to reach the
     /// sync-internal tombstone list — none of which belong in a client facet.
-    private let grdbForEngines: GRDBClipboardStore?
+    let grdbForEngines: GRDBClipboardStore?
 
     /// True when the durable store failed to open and the app fell back to
     /// memory — captures won't survive relaunch, so the list warns the user.
@@ -1033,6 +1133,11 @@ final class IOSAppModel {
     /// Metadata-only refresh — safe on every activation, never alerts.
     func refreshHints() async {
         hints = await source.hints()
+        #if DEBUG
+            if let pinned = Self.uiTestPinnedHints(changeCount: hints.changeCount) {
+                hints = pinned
+            }
+        #endif
         await search()
     }
 
@@ -1043,6 +1148,32 @@ final class IOSAppModel {
 
     /// Resolved once: launch arguments cannot change after launch.
     private static let saveNoteLifetime = saveNoteLifetime()
+    private static let recentPasteSaveWindow = recentPasteSaveWindow()
+
+    private func offerOpen(_ clip: ClipItem, changeCount: Int) {
+        recentPasteSaveTask?.cancel()
+        let window = Self.recentPasteSaveWindow
+        recentPasteSave = RecentPasteSave(
+            clipID: clip.id, changeCount: changeCount, savedAt: .now, window: window)
+        recentPasteSaveTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(window))
+            guard !Task.isCancelled else { return }
+            recentPasteSave = nil
+            recentPasteSaveTask = nil
+        }
+    }
+
+    /// The card's Open: the saved clip's detail, by the deep-link path.
+    func openRecentPasteSave() {
+        guard let save = recentPasteSave else { return }
+        Task {
+            if let listed = captures.first(where: { $0.id == save.clipID }) {
+                deepLinkClip = listed
+            } else if let stored = try? await full?.item(id: save.clipID) {
+                deepLinkClip = stored
+            }
+        }
+    }
 
     private func flashNote(_ text: String, kind: CaptureStatusNote.Kind) {
         saveNoteTask?.cancel()
@@ -1147,9 +1278,19 @@ final class IOSAppModel {
         Task { await handleIntentionalReads(source.capture(providers: providers)) }
     }
 
+    /// The same save, awaited: the first row it landed on, nil when nothing was saved.
+    func ingestAwaitingRow(providers: [NSItemProvider]) async -> ClipItem? {
+        await handleIntentionalReads(source.capture(providers: providers)).first?.item
+    }
+
     /// Persists every captured item, then shows one note for the whole paste so
     /// a later item never overwrites an earlier item's result.
-    private func handleIntentionalReads(_ reads: [IntentionalCaptureRead.Result]) async {
+    @discardableResult
+    private func handleIntentionalReads(
+        _ reads: [IntentionalCaptureRead.Result]
+    ) async
+        -> [ClipIngestionCoordinator.Outcome]
+    {
         var saved: [ClipIngestionCoordinator.Outcome] = []
         var failedWrites = 0
         var savedChangeCount: Int?
@@ -1165,6 +1306,7 @@ final class IOSAppModel {
         // The capture card's "Saved" state follows a durable write, never the tap.
         if let savedChangeCount {
             lastCapturedChangeCount = savedChangeCount
+            if let first = saved.first { offerOpen(first.item, changeCount: savedChangeCount) }
             await refreshHints()
         }
         if reads.contains(.refused) {
@@ -1184,6 +1326,7 @@ final class IOSAppModel {
         } else {
             flashNote(String(localized: "The clipboard is empty."), kind: .failure)
         }
+        return saved
     }
 
     /// Stores one seeded capture and confirms it.

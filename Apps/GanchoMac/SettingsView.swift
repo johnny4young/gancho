@@ -99,6 +99,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
 }
 
 private struct SettingsSidebar: View {
+    @Environment(AppModel.self) private var model
     @Binding var selection: SettingsTab
     @FocusState private var focusedTab: SettingsTab?
 
@@ -108,6 +109,7 @@ private struct SettingsSidebar: View {
                 sidebarRow(tab)
             }
             Spacer(minLength: 0)
+            privacyCenterCard
         }
         // A click does not move AppKit keyboard focus onto a plain button, so
         // the first row kept its ring while another row was selected.
@@ -121,6 +123,34 @@ private struct SettingsSidebar: View {
         .frame(width: 210)
         .frame(maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    /// The Privacy Center sits under every pane, where its proofs are one click away.
+    private var privacyCenterCard: some View {
+        Button {
+            model.privacyCenterWindow.show(model: model)
+        } label: {
+            HStack(spacing: GanchoTokens.Spacing.xs) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.title3)
+                    .foregroundStyle(GanchoTokens.Palette.accentInk)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Privacy Center").font(.callout.weight(.semibold))
+                    Text("No content analytics · receipt · agents")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .background(
+                GanchoTokens.Palette.accent.opacity(0.12),
+                in: RoundedRectangle(cornerRadius: GanchoTokens.Radius.md, style: .continuous)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: GanchoTokens.Radius.md))
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, GanchoTokens.Spacing.sm)
+        .accessibilityIdentifier("settings-privacy-center-card")
     }
 
     /// Plain buttons rather than a selectable `List`: the rows stay buttons to

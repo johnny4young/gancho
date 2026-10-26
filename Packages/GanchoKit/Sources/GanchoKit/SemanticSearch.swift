@@ -65,6 +65,46 @@ extension GRDBClipboardStore {
         }
     }
 
+    /// Clips that have no vector at all — synced from another device, or saved
+    /// before semantic search was on — newest first, one bounded batch below
+    /// `beforeRowID`, so a clip that can't be embedded never blocks the rest.
+    /// Same eligibility as the guarded write (`saveEmbeddingIfCurrent`), so a
+    /// clip it would always reject, like rich text kept as a blob, is never read.
+    public func unembeddedClips(
+        limit: Int, beforeRowID: Int64?
+    ) async throws
+        -> [UnembeddedClip]
+    {
+        guard limit > 0 else { return [] }
+        let excludedKinds = Self.embeddingIneligibleKinds
+        let placeholders = excludedKinds.map { _ in "?" }.joined(separator: ", ")
+        return try await writer.read { db in
+            var arguments: [any DatabaseValueConvertible] = excludedKinds
+            arguments.append(Date.now)
+            arguments.append("public.file-url")
+            arguments.append(beforeRowID ?? Int64.max)
+            arguments.append(limit)
+            return try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT clip.rowid AS rowID, clip.id FROM clip
+                    LEFT JOIN clip_embedding e ON e.clipID = clip.id
+                    WHERE e.clipID IS NULL AND clip.isArchived = 0 AND clip.isSensitive = 0
+                      AND clip.kind NOT IN (\(placeholders)) AND \(Self.unexpiredPredicate)
+                      AND clip.contentText IS NOT NULL AND clip.contentText != ''
+                      AND clip.contentBlobHash IS NULL
+                      AND (clip.contentTypeIdentifier IS NULL OR clip.contentTypeIdentifier != ?)
+                      AND clip.rowid < ?
+                    ORDER BY clip.rowid DESC
+                    LIMIT ?
+                    """,
+                arguments: StatementArguments(arguments)
+            ).compactMap { row in
+                UUID(uuidString: row["id"]).map { UnembeddedClip(id: $0, rowID: row["rowID"]) }
+            }
+        }
+    }
+
     /// Cosine top-K over stored vectors, joined back to visible clips.
     /// `snippetsOnly` scopes the same engine to the Library.
     public func semanticSearch(
@@ -196,4 +236,15 @@ extension GRDBClipboardStore {
         return (sql, arguments)
     }
 
+}
+
+/// A clip with no vector, and where the backfill cursor stands after it.
+public struct UnembeddedClip: Sendable, Equatable {
+    public let id: UUID
+    public let rowID: Int64
+
+    public init(id: UUID, rowID: Int64) {
+        self.id = id
+        self.rowID = rowID
+    }
 }

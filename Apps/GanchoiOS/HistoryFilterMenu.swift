@@ -10,6 +10,8 @@ struct HistoryFilterMenu: View {
     @Binding var selectedSourceAppBundleID: String?
     let sourceApps: [ClipSourceApp]
 
+    private var isActive: Bool { kindFilter != nil || selectedSourceAppBundleID != nil }
+
     var body: some View {
         Menu {
             if !sourceApps.isEmpty {
@@ -35,8 +37,10 @@ struct HistoryFilterMenu: View {
             }
         } label: {
             Image(systemName: "line.3.horizontal.decrease.circle")
+                .symbolVariant(isActive ? .fill : .none)
         }
         .accessibilityLabel(Text("Filters"))
+        .accessibilityValue(isActive ? Text("Active") : Text(verbatim: ""))
         .accessibilityIdentifier("history-filter-menu")
     }
 

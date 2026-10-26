@@ -10,11 +10,14 @@ import WidgetKit
 
 struct IOSSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(IOSAppModel.self) private var model
+    @Environment(IOSAppModel.self) var model
     @State private var exportDocument: GanchoArchiveDocument?
     @State private var showExporter = false
     @State private var showImporter = false
     @State private var transferNote: String?
+    @State var snippetCount = 0
+    @State var maskedCount = 0
+    @State var guide: IOSOnboardingGuide?
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
 
     var body: some View {
@@ -24,19 +27,21 @@ struct IOSSettingsView: View {
                     NavigationLink {
                         ProInfoView()
                     } label: {
-                        Label("Gancho Pro", systemImage: "star")
+                        statusRow("Gancho Pro", systemImage: "star", subtitle: proSubtitle)
                     }
                     .accessibilityIdentifier("open-pro")
                     NavigationLink {
                         IOSIntelligenceView()
                     } label: {
-                        Label("Intelligence", systemImage: "sparkles")
+                        statusRow(
+                            "Intelligence", systemImage: "sparkles", subtitle: intelligenceSubtitle)
                     }
                     .accessibilityIdentifier("open-intelligence")
                     NavigationLink {
                         IOSPrivacyCenterView()
                     } label: {
-                        Label("Privacy Center", systemImage: "lock.shield")
+                        statusRow(
+                            "Privacy Center", systemImage: "lock.shield", subtitle: privacySubtitle)
                     }
                     .accessibilityIdentifier("open-privacy-center")
                 }
@@ -48,18 +53,7 @@ struct IOSSettingsView: View {
                     }
                     .accessibilityIdentifier("language-picker")
                 }
-                Section("Capture on iPhone") {
-                    Text(
-                        // swiftlint:disable:next line_length
-                        "Gancho never reads your pasteboard in the background. Capture happens only when you act: the save button, the share sheet, or a Shortcut."
-                    )
-                    .font(.footnote)
-                }
-                Section("Shortcuts") {
-                    Link(destination: URL(string: "https://gancho.app/shortcuts")!) {
-                        Label("Example Shortcuts gallery", systemImage: "square.stack.3d.up")
-                    }
-                }
+                capturePathsSection
                 Section("Your history") {
                     Toggle(
                         "Show snippets and pins in Spotlight",
@@ -118,6 +112,11 @@ struct IOSSettingsView: View {
                 #endif
             }
             .navigationTitle(Text("Settings"))
+            .sheet(item: $guide) { IOSOnboardingGuideSheet(guide: $0) }
+            .task {
+                snippetCount = await model.snippetList().count
+                maskedCount = await model.maskedCount()
+            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
