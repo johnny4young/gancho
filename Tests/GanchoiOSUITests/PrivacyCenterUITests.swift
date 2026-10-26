@@ -19,14 +19,16 @@ final class PrivacyCenterUITests: XCTestCase {
         let reused = app.descendants(matching: .any)[
             "ios-private-receipt-reused-count"
         ].firstMatch
+        // The Verify group sits above the receipt.
+        for _ in 0..<6 where !reused.exists { privacyCenter.swipeUp(velocity: .slow) }
         XCTAssertTrue(reused.waitForExistence(timeout: 5))
         XCTAssertEqual(integerValue(of: reused), 8)
         XCTAssertEqual(count(of: "ios-private-receipt-captured-count", in: app), 12)
         XCTAssertEqual(count(of: "ios-private-receipt-skipped-count", in: app), 2)
         XCTAssertEqual(count(of: "ios-private-receipt-protected-count", in: app), 2)
-        XCTAssertTrue(
-            app.descendants(matching: .any)["ios-private-receipt-app-0-row"].firstMatch
-                .waitForExistence(timeout: 3))
+        let firstApp = app.descendants(matching: .any)["ios-private-receipt-app-0-row"].firstMatch
+        for _ in 0..<4 where !firstApp.exists { privacyCenter.swipeUp(velocity: .slow) }
+        XCTAssertTrue(firstApp.waitForExistence(timeout: 3))
         let secondApp = app.descendants(matching: .any)[
             "ios-private-receipt-app-1-row"
         ].firstMatch
@@ -43,6 +45,8 @@ final class PrivacyCenterUITests: XCTestCase {
         // row can still sit beneath the translucent navigation bar after one
         // reverse swipe, where XCTest synthesizes a tap without firing it.
         for _ in 0..<3 { privacyCenter.swipeDown() }
+        // From the top, the Verify group above can push it below the fold.
+        if !clear.isHittable { privacyCenter.swipeUp() }
         XCTAssertTrue(clear.waitForExistence(timeout: 3))
         XCTAssertTrue(clear.isHittable)
         clear.tap()

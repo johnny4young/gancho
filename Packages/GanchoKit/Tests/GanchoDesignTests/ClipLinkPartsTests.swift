@@ -36,6 +36,21 @@ struct ClipLinkPartsTests {
         #expect(ClipLinkParts(text: "https://example.com")?.path == nil)
     }
 
+    @Test("The scheme reads lowercased for its chip")
+    func scheme() {
+        #expect(ClipLinkParts(text: "HTTPS://example.com/a")?.scheme == "https")
+        #expect(ClipLinkParts(text: "http://example.com")?.scheme == "http")
+    }
+
+    @Test("A Markdown link is titled by the clip, or by its host, and stays one link")
+    func markdown() throws {
+        let parts = try #require(ClipLinkParts(text: "https://example.com/a_(b)"))
+        #expect(parts.markdownLink(title: "  ") == "[example.com](https://example.com/a_%28b%29)")
+        #expect(
+            parts.markdownLink(title: "Docs [v2]")
+                == #"[Docs \[v2\]](https://example.com/a_%28b%29)"#)
+    }
+
     @Test("Host prefixes are case insensitive")
     func host() {
         #expect(ClipLinkParts(text: "https://WWW.example.com")?.host == "example.com")
