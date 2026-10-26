@@ -2,6 +2,7 @@ import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import SwiftUI
+import UIKit
 
 /// The pasteboard status on the capture screen. gancho senses the clipboard's
 /// TYPE via `detectPatterns` — no read, no "pasted from" banner — and says so.
@@ -10,6 +11,8 @@ import SwiftUI
 /// save this"; after a save it offers to open the clip for a few seconds. An
 /// empty clipboard keeps the one-line row.
 struct PasteboardStatusRow: View {
+    /// The iPad sidebar's card, which carries its own Paste control.
+    var docked = false
     @Environment(IOSAppModel.self) private var model
     @State private var showsInfo = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -23,7 +26,69 @@ struct PasteboardStatusRow: View {
     var body: some View {
         // The one-line row already reflows at the accessibility sizes, where a
         // card would grow taller than the screen above the list.
-        if sensed == .empty || dynamicTypeSize.isAccessibilitySize { compactRow } else { card }
+        if docked {
+            dockedCard
+        } else if sensed == .empty || dynamicTypeSize.isAccessibilitySize {
+            compactRow
+        } else {
+            card
+        }
+    }
+
+    /// Pinned under the sidebar in every board, so the history column spends
+    /// no row on it. At the accessibility sizes Paste takes its own line.
+    private var dockedCard: some View {
+        let layout =
+            dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: GanchoTokens.Spacing.xs))
+            : AnyLayout(HStackLayout(spacing: GanchoTokens.Spacing.xs))
+        let shape = RoundedRectangle(cornerRadius: GanchoTokens.Radius.lg, style: .continuous)
+        return VStack(alignment: .leading, spacing: GanchoTokens.Spacing.xs) {
+            layout {
+                HStack(spacing: GanchoTokens.Spacing.xs) {
+                    tile
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(senseTitle)
+                            .font(.caption.weight(.bold))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("pasteboard-status-title")
+                        dockedStatus
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                PasteIntoGanchoButton(cornerStyle: .medium)
+                    .frame(width: 80, height: 36)
+            }
+            if offersOpen { openButton }
+        }
+        .padding(10)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: shape)
+        .overlay(
+            shape.strokeBorder(.primary.opacity(0.06), lineWidth: GanchoTokens.Stroke.hairline)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("sidebar-pasteboard-card")
+    }
+
+    @ViewBuilder private var dockedStatus: some View {
+        if let note = model.saveNote {
+            Label(note.text, systemImage: note.kind.symbolName)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(ReadableInk(base: note.kind.tint))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(note.text))
+                .accessibilityValue(note.kind.accessibilityValue)
+                .accessibilityIdentifier("save-note")
+        } else if alreadyCaptured {
+            Label("Saved", systemImage: "checkmark.circle.fill")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(GanchoTokens.Palette.accentInk)
+        } else {
+            Text("Sensed, not read")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var card: some View {
@@ -259,6 +324,23 @@ struct PasteboardStatusRow: View {
         if model.hints.probableWebSearch { return "Search text on your clipboard" }
         if model.hints.number { return "Number on your clipboard" }
         return "Something on your clipboard"
+    }
+}
+
+/// The system Paste control as one labelled button, wherever it sits.
+struct PasteIntoGanchoButton: View {
+    var cornerStyle: UIButton.Configuration.CornerStyle = .capsule
+    @Environment(IOSAppModel.self) private var model
+
+    var body: some View {
+        // One accessibility element: a wrapper otherwise takes the control's
+        // visible text, and this label never reaches it.
+        PasteControlView(cornerStyle: cornerStyle) { providers in model.ingest(providers: providers)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("paste-control")
+        .accessibilityLabel(Text("Paste into Gancho"))
     }
 }
 

@@ -2,13 +2,15 @@ import GanchoDesign
 import GanchoKit
 import SwiftUI
 
-/// iPad layout: kind filters in the sidebar, history in the content column,
-/// per-clip detail on the right — the same model and shell the iPhone stack
-/// drives.
+/// iPad layout: boards, types and apps in the sidebar with the pasteboard
+/// docked under them, history in the content column, the clip's detail on
+/// the right. The same model and shell the iPhone stack drives.
 struct IPadSplitView: View {
     @Environment(IOSAppModel.self) private var model
     @State private var selectedID: UUID?
     @State private var activeSheet: CaptureSheet?
+    @State private var sidebarVisible = false
+    @State private var keyboard = HardwareKeyboard()
     /// Bound to the history search field so ⌘F can focus it from a hardware
     /// keyboard (Magic Keyboard / Smart Keyboard Folio).
     @FocusState private var searchFocused: Bool
@@ -16,51 +18,13 @@ struct IPadSplitView: View {
     var body: some View {
         @Bindable var model = model
         NavigationSplitView {
-            List(selection: $model.kindFilter) {
-                Section("Boards") {
-                    boardRow(
-                        label: Text("All clips"), symbol: "tray.full",
-                        isActive: model.selectedBoardID == nil
-                    ) {
-                        model.selectedBoardID = nil
-                    }
-                    ForEach(model.boards) { board in
-                        boardRow(
-                            label: board.displayTitle,
-                            symbol: board.sfSymbol, isActive: model.selectedBoardID == board.id
-                        ) {
-                            model.selectedBoardID = board.id
-                        }
-                    }
-                }
-                Section("Types") {
-                    Label("All types", systemImage: "tray.full")
-                        .tag(ClipContentKind?.none)
-                    ForEach(ClipContentKind.allCases, id: \.self) { kind in
-                        Label(LocalizedStringKey(kind.rawValue), systemImage: kind.symbolName)
-                            .tag(ClipContentKind?.some(kind))
-                    }
-                }
-                if !model.sourceApps.isEmpty {
-                    Section("Apps") {
-                        sourceAppRow(nil)
-                        ForEach(model.sourceApps) { sourceAppRow($0) }
-                    }
-                }
-            }
-            .navigationTitle("Gancho")
-            .onChange(of: model.kindFilter) { _, _ in Task { await model.search() } }
-            .onChange(of: model.selectedBoardID) { _, _ in Task { await model.search() } }
-            .onChange(of: model.selectedSourceAppBundleID) { _, _ in
-                Task { await model.search() }
-            }
+            IPadSidebar(isVisible: $sidebarVisible)
         } content: {
             List(selection: $selectedID) {
                 if model.storageIsEphemeral { StorageWarningSection() }
-                PasteboardSection()
-                Section {
-                    ForEach(model.visibleClips) { clipRow($0) }
-                }
+                // The docked card's status moves here with its Paste control.
+                if !sidebarVisible { PasteboardSection() }
+                historyRows
             }
             .overlay {
                 // Gate on the storage warning so the empty-state doesn't cover
@@ -86,32 +50,37 @@ struct IPadSplitView: View {
                     selectedID = nil
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                if keyboard.isConnected { KeyboardLegend() }
+            }
             .reuseSuggestionInset()
-            .searchable(text: $model.query, prompt: Text("Search your clipboard"))
+            .searchable(
+                text: $model.query, placement: .toolbar, prompt: Text("Search your clipboard")
+            )
             .searchFocused($searchFocused)
             .onChange(of: model.query) { _, _ in Task { await model.search() } }
             .navigationTitle(Text("History"))
+            .navigationSubtitle(historySubtitle)
             .toolbar {
-                CaptureToolbar(layout: .pad, model: model, activeSheet: $activeSheet)
+                CaptureToolbar(
+                    layout: .pad, model: model, activeSheet: $activeSheet,
+                    padShowsPaste: !sidebarVisible)
             }
             .refreshable { await model.forceSync() }
         } detail: {
             if let item = model.visibleClips.first(where: { $0.id == selectedID }) {
-                // ClipDetailView is shaped for the iPhone peek sheet (full-width
-                // action row, edge-to-edge text). On a wide iPad pane that runs
-                // the buttons and lines too long, so cap it to a readable column
-                // and centre it instead of stretching to the pane edge. The id
-                // gives every clip fresh detail state: a revealed secret or a
-                // draft must never carry over to the next selection.
-                ClipDetailView(item: item)
+                // The id gives every clip fresh detail state: a revealed secret
+                // or a draft must never carry over to the next selection.
+                ClipDetailView(item: item, showsCopyShortcut: keyboard.isConnected)
                     .id(item.id)
-                    .frame(maxWidth: 680)
-                    .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 Text("Select a clip")
                     .foregroundStyle(.secondary)
             }
         }
+        .onChange(of: model.kindGroup) { _, _ in Task { await model.search() } }
+        .onChange(of: model.selectedBoardID) { _, _ in Task { await model.search() } }
+        .onChange(of: model.selectedSourceAppBundleID) { _, _ in Task { await model.search() } }
         // Hardware-keyboard shortcuts for iPad: ⌘F focus search, ⌘⏎ copy the
         // selected clip, ⌘1–9 copy the Nth recent clip. ↑↓ row navigation comes
         // free from the List's selection binding.
@@ -125,6 +94,40 @@ struct IPadSplitView: View {
                 activeSheet = .peek(clip)
             }
         }
+    }
+
+    /// Pinned first, then the date sections, each with what it can vouch for;
+    /// a board or a search lists flat.
+    @ViewBuilder private var historyRows: some View {
+        if model.isGroupedView {
+            ForEach(model.sections) { group in
+                Section {
+                    ForEach(group.clips) { clipRow($0) }
+                } header: {
+                    SectionCountHeader(
+                        title: group.section.title, count: model.headerCount(for: group))
+                }
+            }
+        } else if !model.visibleClips.isEmpty {
+            Section {
+                ForEach(model.visibleClips) { clipRow($0) }
+            } header: {
+                SectionCountHeader(
+                    title: model.query.isEmpty ? "History" : "Results", count: model.listCount)
+            }
+        }
+    }
+
+    /// The scope's total while nothing narrows it; otherwise what the list
+    /// itself can vouch for.
+    private var historySubtitle: Text {
+        let narrowed =
+            !model.query.isEmpty || model.kindFilter != nil || model.kindGroup != .all
+            || model.selectedSourceAppBundleID != nil
+        if !narrowed, let total = model.activeScopeCount { return Text("\(total) clips") }
+        guard narrowed, let count = model.listCount else { return Text(verbatim: "") }
+        return count.isAtLeast
+            ? Text("At least \(count.value) clips") : Text("\(count.value) clips")
     }
 
     private func clipRow(_ item: ClipItem) -> some View {
@@ -171,57 +174,5 @@ struct IPadSplitView: View {
         guard clips.indices.contains(index) else { return }
         selectedID = clips[index].id
         Task { await model.copyToPasteboard(clips[index]) }
-    }
-
-    /// A board row in the sidebar: glyph + name, with a checkmark on the active
-    /// board. Favorites shows its localized label.
-    private func boardRow(
-        label: Text, symbol: String, isActive: Bool, action: @escaping () -> Void
-    )
-        -> some View
-    {
-        Button(action: action) {
-            HStack {
-                Label {
-                    label
-                } icon: {
-                    Image(systemName: symbol)
-                }
-                Spacer()
-                if isActive {
-                    Image(systemName: "checkmark").foregroundStyle(GanchoTokens.Palette.accentInk)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func sourceAppRow(_ sourceApp: ClipSourceApp?) -> some View {
-        let bundleID = sourceApp?.bundleID
-        let selected = model.selectedSourceAppBundleID == bundleID
-        return Button {
-            model.selectedSourceAppBundleID = bundleID
-        } label: {
-            HStack {
-                Label {
-                    if let bundleID {
-                        Text(verbatim: SourceApp.fallbackName(forBundleID: bundleID))
-                    } else {
-                        Text("All apps")
-                    }
-                } icon: {
-                    Image(systemName: bundleID == nil ? "square.grid.2x2" : "app.dashed")
-                }
-                Spacer()
-                if let sourceApp {
-                    Text(verbatim: "\(sourceApp.clipCount)").foregroundStyle(.secondary)
-                }
-                if selected {
-                    Image(systemName: "checkmark").foregroundStyle(GanchoTokens.Palette.accentInk)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(bundleID.map { "source-app-\($0)" } ?? "source-app-all")
     }
 }

@@ -79,6 +79,8 @@ struct ClipDetailView: View {
     @Environment(IOSAppModel.self) var model
     @Environment(\.dismiss) var dismiss
     let item: ClipItem
+    /// Shows ⌘⏎ on Copy where a hardware keyboard can press it.
+    var showsCopyShortcut = false
     @State var fullText = ""
     @State var hasLoadedFullText = false
     /// Non-nil only when the durable payload is plain text and policy permits

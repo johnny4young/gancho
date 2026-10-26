@@ -59,6 +59,11 @@ final class IOSAppModel {
     var activeScopeCount: Int?
     @ObservationIgnored private var countedScope: UUID??
     @ObservationIgnored private var scopeCountRequest = 0
+    /// Visible clips overall, per board and per kind: the iPad sidebar's
+    /// counts. Read only once a sidebar asks for them.
+    var scopeCounts: ScopeCountSnapshot?
+    @ObservationIgnored var tracksScopeCounts = false
+    @ObservationIgnored private var scopeCountsRequest = 0
     /// This device's name, so rows from another device can say where they came from.
     @ObservationIgnored lazy var currentDeviceName = PlatformDeviceProvenance.currentDeviceName()
     @ObservationIgnored private var recentPasteSaveTask: Task<Void, Never>?
@@ -74,6 +79,11 @@ final class IOSAppModel {
     var kindFilter: ClipContentKind? {
         get { history.kindFilter }
         set { history.kindFilter = newValue }
+    }
+    /// The iPad sidebar's type group — see `HistoryListViewModel.kindGroup`.
+    var kindGroup: ClipKindFilter {
+        get { history.kindGroup }
+        set { history.kindGroup = newValue }
     }
     /// nil = "All clips"; otherwise the selected board (a higher axis than the
     /// kind filter). Board identity and membership sync when iCloud is enabled.
@@ -702,6 +712,18 @@ final class IOSAppModel {
         await history.search()
         Signpost.queryToResults.end(interval)
         await refreshActiveScopeCount()
+        // Typing changes no count; every store change reloads with no query.
+        if tracksScopeCounts, query.isEmpty { await refreshScopeCounts() }
+    }
+
+    func refreshScopeCounts() async {
+        guard let counter = full as? any ScopeCountProviding else { return }
+        scopeCountsRequest += 1
+        let request = scopeCountsRequest
+        guard let counts = try? await counter.scopeCounts(excluding: []),
+            request == scopeCountsRequest
+        else { return }
+        scopeCounts = counts
     }
 
     private func refreshActiveScopeCount() async {
