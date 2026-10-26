@@ -87,6 +87,17 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   state, and how many secrets are masked now.
 - On iPhone, an active type or app filter shows as a chip under the boards;
   tap it to remove it, or Clear filters to remove both.
+- The iPad sidebar says what each board, type and app holds: boards with
+  their colour and count and how many Free boards are used, the Mac's five
+  type groups (Links, Code, Colors, Images, Secrets) with theirs, and apps as
+  a letter tile. The active row in each section is highlighted, and "New
+  board…" sits under the boards.
+- On iPad the clipboard card sits under the sidebar with its own Paste
+  button, so the history starts with your clips; with the sidebar hidden,
+  Paste and the card move back to the history.
+- The iPad history counts its date groups, shows its total under the title
+  and keeps search in its toolbar. With a hardware keyboard attached, a legend
+  lists ⌘F, ⌘⏎, ⌘1–9 and ↑↓, and Copy shows ⌘⏎.
 
 ### Changed
 
