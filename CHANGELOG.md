@@ -95,6 +95,11 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On iPad the clipboard card sits under the sidebar with its own Paste
   button, so the history starts with your clips; with the sidebar hidden,
   Paste and the card move back to the history.
+- On iPad, drag a clip from the history or its detail into the app beside
+  Gancho: a link drops as a link, an image as a PNG, text as text. Passwords,
+  keys and cards never lift.
+- Sharing a link hands it over as a link (with its text after), so Messages
+  and Notes treat it as one.
 - The iPad history counts its date groups, shows its total under the title
   and keeps search in its toolbar. With a hardware keyboard attached, a legend
   lists ⌘F, ⌘⏎, ⌘1–9 and ↑↓, and Copy shows ⌘⏎.
