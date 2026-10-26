@@ -89,6 +89,7 @@ extension ClipDetailView {
             .overlay(
                 shape.strokeBorder(tint.opacity(0.35), lineWidth: GanchoTokens.Stroke.hairline)
             )
+            .clipDragSource(item, model: model, enabled: allowsDragOut)
             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
             .listRowBackground(Color.clear)
             .accessibilityElement(children: .contain)

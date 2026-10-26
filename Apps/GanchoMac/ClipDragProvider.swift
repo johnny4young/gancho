@@ -114,7 +114,7 @@ extension AppModel {
             return ClipDragPayload.plainText(for: content).map { Data($0.utf8) }
         case .url:
             guard let text = ClipDragPayload.plainText(for: content),
-                let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines))
+                let url = LinkURL.resolve(text)
             else { return nil }
             return url.dataRepresentation
         case .fileURL:
@@ -197,7 +197,7 @@ struct ClipDragSource: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if ClipDragPayload.isDraggable(item) {
+        if ClipDragPayload.liftsNow(item) {
             dragSource(content)
                 .task(id: fileDragItems.map(\.id)) {
                     multiFilePayload = nil

@@ -71,8 +71,10 @@ struct IPadSplitView: View {
             if let item = model.visibleClips.first(where: { $0.id == selectedID }) {
                 // The id gives every clip fresh detail state: a revealed secret
                 // or a draft must never carry over to the next selection.
-                ClipDetailView(item: item, showsCopyShortcut: keyboard.isConnected)
-                    .id(item.id)
+                ClipDetailView(
+                    item: item, showsCopyShortcut: keyboard.isConnected, allowsDragOut: true
+                )
+                .id(item.id)
             } else {
                 Text("Select a clip")
                     .foregroundStyle(.secondary)
@@ -136,6 +138,7 @@ struct IPadSplitView: View {
             currentDeviceName: model.currentDeviceName
         )
         .tag(item.id)
+        .clipDragSource(item, model: model)
         .task(id: ClipContentVersion(item)) { await model.thumbnails.ensureLoaded(item) }
         .onAppear { Task { await model.loadMoreIfNeeded(item) } }
         .clipRowActions(item, model: model) { activeSheet = .move(item) }

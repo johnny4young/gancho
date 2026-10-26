@@ -26,6 +26,34 @@ struct ClipShareItemTests {
         #expect(try await transfer.exported(as: .utf8PlainText) == Data(text.utf8))
     }
 
+    @Test("A link exports the link itself first, then its text")
+    func linkExportsURL() async throws {
+        let store = InMemoryClipboardStore()
+        let text = "https://www.example.com:8443/a%2Fb?q=a%26b#section-2"
+        let item = ClipItem(kind: .url, preview: text, contentHash: "share-link")
+        try await store.insert(item, content: .text(text))
+        let transfer = share(item, store)
+        #expect(transfer.exportedContentTypes() == [.url, .utf8PlainText])
+        let data = try await transfer.exported(as: .url)
+        #expect(URL(dataRepresentation: data, relativeTo: nil)?.absoluteString == text)
+        #expect(try await transfer.exported(as: .utf8PlainText) == Data(text.utf8))
+    }
+
+    @Test("A link captured without a scheme still exports as a link")
+    func schemelessLinkExportsURL() async throws {
+        let store = InMemoryClipboardStore()
+        let item = ClipItem(kind: .url, preview: "www.example.com/docs", contentHash: "share-bare")
+        try await store.insert(item, content: .text("www.example.com/docs"))
+        let data = try await share(item, store).exported(as: .url)
+        #expect(URL(dataRepresentation: data, relativeTo: nil)?.host() == "www.example.com")
+    }
+
+    @Test("A text clip offers no link")
+    func textOffersNoURL() {
+        let item = ClipItem(preview: "https://example.com", contentHash: "share-not-link")
+        #expect(!share(item, InMemoryClipboardStore()).exportedContentTypes().contains(.url))
+    }
+
     @Test("Safe rich-text captures export their full plain text")
     func richTextBinary() async throws {
         let store = InMemoryClipboardStore()

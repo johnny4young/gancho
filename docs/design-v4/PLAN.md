@@ -88,7 +88,7 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
    - Delivery: two PRs. 12a is the sidebar and the history column (GC-33); 12b is drag-out (GC-34).
    - Q51 (GC-33): an app row shows a letter tile (the initial of its name on a colour its name always picks), never a bundled icon. Types are the Mac's five groups (Links, Code, Colors, Images, Secrets) plus All types, each with its tint and count; no "Text" group. Each section washes its active row in the accent at 16 % with a semibold name (All clips, All types, All apps included); "All apps" stays; no checkmarks. Paste lives in the docked card while the sidebar shows and returns to the history toolbar, with the status row, while it is hidden; never two at once. `Select` (multi-select) is out of scope and recorded as its own item.
    - Without asking (house rules and earlier answers): headers count like the iPhone's (Q46), Pinned stays first, `BoardIdentityMark` stays a circle, the docked card keeps every status state, the keyboard legend and Copy's ⌘⏎ show only with a hardware keyboard attached, and the detail drops its 680 pt cap.
-   - Q52 (GC-34): the detail's hero and the history rows both drag, with the Mac's rule (nothing masked lifts); the dashed hint is a tip shown until the first drag or its ×, never on a clip that can't drag.
+   - Q52 (GC-34): the detail's hero (a link's card, an image) and the history rows both drag, with the Mac's rule (nothing masked lifts). The dashed hint first answered as a dismissible tip was dropped on 2026-10-26 under the owner's "no filler copy" rule: no helper text, the drag is the system's long-press lift.
 17. Cross-app rules from the owner's threads:
    - Only propose what beats the current UI; code wins over v2 boards and site screenshots.
    - Each piece of data appears once per screen.
@@ -106,7 +106,7 @@ Board specifications live in [`specs/`](specs/), one file per board. Each spec h
 Live sources match the expected numbers exactly. Maybe: GC-V4-22, with owner note "no entiendo la utilidad de esto, pero siento que no es necesario". Skip: GC-V4-20.
 
 By type: UI 29 · bug 6 · feature 31 · system 7.  
-By status: blocked 17 · done 53 · not implemented 1 · pending 1 · pending decision 1.
+By status: blocked 17 · done 54 · not implemented 1 · pending decision 1.
 
 ## Plan table
 
@@ -164,7 +164,7 @@ Type: UI / feature / bug / system. Pick is the Design Picks state. Phase refers 
 | GC-28 | UI | pick | — | iPhoneFlows | Boards with identity, counts, 'n of 3 · Free' from constants, Snippets group | BoardsHomeView.swift:146-155,:222-243,:270-297; Pinboards.swift:9-60; SnippetLibrary.swift:7,:44 | Colour, counts, swipe exist; limit header, sync state, Snippets list new | GC-33, GC-V4-7, GC-V4-12 | Unit: formatter from constant; UI -seed-sample-boards; snapshot | 11 | done — c58a868 (Q50: Synced / Waiting to sync / On this iPhone; Snippets group by keyword); BoardSyncStateTests + IOSFlowsV4UITests + captures |
 | GC-V4-12 | UI | pick | — | iPhoneFlows | Settings with status subtitles and five capture-path rows | IOSSettingsView.swift:23-98; IOSAppModel.swift:98,:109; IntelligencePreferences.swift | Subtitle data exists; formatter + capture rows new | GC-28, GC-21, GC-36 | Unit: formatter; UI navigation; snapshot | 11 | done — c58a868 (Q50: static capture rows with How steps; Pro on Pro reads every limit removed); IntelligenceSummaryTests + IOSFlowsV4UITests + captures |
 | GC-33 | UI | pick | — | iPad | Sidebar identity + counts, docked pasteboard card with its own Paste, toolbar search/Boards/Settings/count, counted date headers, keyboard legend | IPadSplitView.swift:18-214; CaptureShell.swift:154-174,:301; PasteboardStatusRow.swift; CaptureView.swift:446-460; BoardsHomeView.swift:291 | Split view, filters, shortcuts, counts exist; per-kind counts, docked card, headers, legend new | GC-28, GC-26, GC-V4-8, GC-V4-9, GC-27, SY-V4-3 | Unit: per-kind count; UI iPad sim; snapshot | 12 | done — 8d92338, f139c32, c9164cf, 04d1cd1 (Q51: letter tiles, the Mac's five type groups, a wash per section, Paste docked or in the toolbar, Select out); ScopeCountsTests + HistoryListViewModelTests + SourceAppTileTests + IPadSplitUITests + captures |
-| GC-34 | feature | pick | — | iPad | Drag a clip into another app (detail hero card as drag source; masked clips advertise nothing) | ClipDragPayload.swift; ClipShareItem.swift; IOSAppModel.swift:668; IPadSplitView.swift:99-102 | Drag rules + Transferable exist; iOS drag source + URL rep new | GC-27, GC-33 | Unit: representations (masked → none); UI ids; manual Split View with Notes | 12 | pending — 12b (Q52: hero and rows drag; the hint is a dismissible tip) |
+| GC-34 | feature | pick | — | iPad | Drag a clip into another app (detail hero card as drag source; masked clips advertise nothing) | ClipDragPayload.swift; ClipShareItem.swift; IOSAppModel.swift:668; IPadSplitView.swift:99-102 | Drag rules + Transferable exist; iOS drag source + URL rep new | GC-27, GC-33 | Unit: representations (masked → none); UI ids; manual Split View with Notes | 12 | done — e9a9224, 01bf098, 5d6371b (Q52: hero and rows drag on iPad; no hint under the no-filler-copy rule); ClipShareItemTests + ClipDragPayloadTests + IPadSplitUITests |
 | GC-35 | UI | pick | — | Onboarding | Mac first run in four steps: privacy promise → Accessibility (with/without cards) → shortcuts → live first copy ending in the real panel; page dots | OnboardingView.swift:13-166; GlobalShortcuts.swift:10-17; ShortcutRecorder.swift; AppModel.swift:689,:1039-1044 | Window, live polling, live clips, importer, panel hand-off exist; privacy step, cards, dots, rows, status line new | GC-V7-1, GC-V5-2, GC-V5-1 | UI: update ActivationFunnelUITests + MigrationImportUITests; snapshots 520×420 per step | 10 | done — 1434f10, b41c455 (Q43: Skip for now advances; inline recorder; no versioned flag; the shortcut only on the button; Q18: unset shortcuts say Not set); OnboardingFlowTests + ActivationFunnelUITests + OnboardingUITests + MigrationImportUITests + snapshots onboarding-step1…4 light/dark |
 | GC-36 | UI | pick | — | Onboarding | iPhone first run: page 2 explains 'Sensed, not read' with example row, keyboard/widget/share rows | IOSOnboardingView.swift; GanchoiOSApp.swift:35,:115-124; PasteboardStatusRow.swift; CaptureView.swift:447 | Page 1, copy, paste control exist; paging + page 2 new | GC-V5-2 | UI: iOS paging + flag; snapshot 390×844 | 10 | done — f9e0153 (Q44: Next on page 1; a label above the system Paste control; a paste opens the saved clip; iPad included); IOSOnboardingUITests + page 2 captures light/dark |
 | GC-V4-13 | feature | pick | — | Library | Kind chips + Newest/Oldest sort in the scope header with a total count | ClipKindFilter.swift:7-32; LibraryView+Browsing.swift:27-33; GRDBClipboardStore.swift:441 | ClipKindFilter + chip UI exist; kind filter in query, ascending sort, total count new | GC-V4-5 | Store tests for order + count; UI chip test; snapshot | 8 | done — de38569, 8710ba1 (Q37: the panel's kind set; Newest / Oldest; the header reads the store total); LibraryBrowseTests + LibraryBrowseUITests + snapshot library |
@@ -286,7 +286,7 @@ Run on 2026-10-21 against the text of all 17 Gancho v4 boards plus V4_System_Com
 
 ## Feasibility summary
 
-- **Ready now (no question blocks them):** GC-34.
+- **Ready now (no question blocks them):** .
 - **Everything else** is blocked on at least one owner question (below). The specs say exactly which part exists and which is new.
 - **Claims on the boards or in the catalog that the code contradicts.** Recorded so nobody builds on them:
   - B-GC-04 is a masked sensitive image, not an untitled one.
@@ -501,7 +501,7 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
   - 6 drawn types vs 17 kinds.
   - Where does Paste go in compact layouts?
   - Is `Select` in scope?
-- **Q52 GC-34 — RESOLVED 2026-10-25: hero and rows drag; the hint is a dismissible tip.** Do rows drag too? Is the drag hint permanent or a one-time tip?
+- **Q52 GC-34 — RESOLVED 2026-10-25/26: hero and rows drag; no hint (no filler copy).** Do rows drag too? Is the drag hint permanent or a one-time tip?
 - **Q53 GC-V4-15 share sheet.**
   - Where does the title come from inside the extension?
   - How does the extension read the board list?
@@ -567,6 +567,10 @@ These need the owner. The ones marked **★** block Phase 1 or 2.
 - **Found in Phase 12, deferred (owner, 2026-10-25):** multi-select on iPad (the board's `Select`) has no design or code; it is its own item, not part of GC-33.
 - **Found in Phase 12, not caused by it:** the iPad history marks its selected row with the system's full accent fill and white text, where the board draws a 14 % wash; the row's grey source line reads poorly on it. The List's native selection (which gives ↑↓ for free) is kept; restyling it is for the row-layout pass above.
 - **Found in Phase 12, testing note:** the iPad simulator drops the first synthesized key event after launch (the same on `main`), so the ⌘F test sends the shortcut once more when focus has not arrived. iOS exposes keyboard focus to UI tests only through key-value coding.
+- **Found in Phase 12, resolved there:** a link shared or dragged left Gancho as plain text only; it now goes as `public.url` first (a Notes link, a Mail anchor), its text after.
+- **Found in Phase 12, kept on purpose:** on a link's card, a long press on the URL line selects text (part of a URL can still be copied); the rest of the card lifts the link. The drag test grabs the card by its host.
+- **Found in Phase 12, not changed (privacy review note):** a link that carries credentials or a token in its query lifts and shares like any link, as its plain text already did; flagging such URLs belongs at capture time, not in drag.
+- **Found in Phase 12, testing note:** XCUITest cannot drop into another app, so the drag test drops on Gancho's own search field (a system text field accepts text drops). A secret delivers nothing there; whether it lifts at all is covered by the drag rule's unit tests, since safe delivery also refuses it.
 - **Found in Phase 12, resolved there:** a source app copied on the Mac and on the iPad (Safari's two bundle ids) is two rows; its letter tile takes its colour from the name, so both rows match.
 - **Found in Phase 10, testing note:** recorded global shortcuts live in the standard defaults, outside the per-test defaults suite, so a capture showed this Mac's ⌥⌘V. The onboarding snapshots pin them through the argument domain (`-KeyboardShortcuts_toggle-panel`).
 - **Found in Phase 10, not caused by it:** the Mac `-open-welcome-on-launch` launch flag is read outside `#if DEBUG`, unlike the other UI-test hooks (it only opens the welcome window). The iOS flag added in this phase is DEBUG-only.

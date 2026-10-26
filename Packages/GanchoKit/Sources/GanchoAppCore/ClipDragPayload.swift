@@ -48,6 +48,12 @@ public enum ClipDragPayload {
         !representations(for: item).isEmpty
     }
 
+    /// A lazy drag source also checks expiry before lifting: an expired clip
+    /// would lift and then drop nothing.
+    public static func liftsNow(_ item: ClipItem, now: Date = .now) -> Bool {
+        isDraggable(item) && ClipSafeDelivery.isEligible(item, now: now)
+    }
+
     /// The file-reference clips represented by a drag that begins on `item`.
     /// A selected visible-order batch travels together only when every member
     /// is a non-sensitive file reference; mixed selections keep the historical

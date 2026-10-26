@@ -93,6 +93,49 @@ final class IPadSplitUITests: XCTestCase {
     }
 
     @MainActor
+    func testRowsAndTheHeroDragTheirLinkAndASecretDeliversNothing() throws {
+        let app = try launch()
+        defer { app.terminate() }
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let link = row(containing: "example.com", in: app)
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        let dropped = {
+            XCTWaiter().wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "value CONTAINS %@", "example.com"),
+                        object: field)
+                ], timeout: 5)
+        }
+        link.press(forDuration: 1.0, thenDragTo: field)
+        XCTAssertEqual(
+            dropped(), .completed, "the link lands where it is dropped: \(field.value ?? "nil")")
+        field.buttons["Clear text"].firstMatch.tap()
+
+        link.tap()
+        let hero = app.descendants(matching: .any)["detail-link-hero"].firstMatch
+        XCTAssertTrue(hero.waitForExistence(timeout: 5))
+        // The host, not the URL line: a long press on selectable text selects.
+        hero.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.2))
+            .press(
+                forDuration: 1.0,
+                thenDragTo: field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        XCTAssertEqual(dropped(), .completed, "the detail's hero drags its link too")
+        field.buttons["Clear text"].firstMatch.tap()
+
+        let secret = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == 'clip-row' AND label BEGINSWITH[c] %@", "secret")
+        ).firstMatch
+        XCTAssertTrue(secret.waitForExistence(timeout: 5))
+        secret.press(forDuration: 1.0, thenDragTo: field)
+        sleep(2)
+        let text = (field.value as? String) ?? ""
+        XCTAssertTrue(
+            text.isEmpty || text == field.placeholderValue, "a secret delivers nothing: \(text)")
+    }
+
+    @MainActor
     func testNoLegendWithoutAKeyboard() throws {
         let app = try launch(keyboard: false)
         defer { app.terminate() }
@@ -100,6 +143,13 @@ final class IPadSplitUITests: XCTestCase {
             app.descendants(matching: .any)["sidebar-pasteboard-card"].firstMatch
                 .waitForExistence(timeout: 5))
         XCTAssertFalse(app.descendants(matching: .any)["history-keyboard-legend"].firstMatch.exists)
+    }
+
+    @MainActor
+    private func row(containing text: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == 'clip-row' AND label CONTAINS %@", text)
+        ).firstMatch
     }
 
     /// iOS exposes keyboard focus to UI tests only through key-value coding.
