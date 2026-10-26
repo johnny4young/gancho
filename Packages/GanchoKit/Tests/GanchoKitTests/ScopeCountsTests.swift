@@ -47,6 +47,32 @@ struct ScopeCountsTests {
         #expect(boardCount == listed.count)
     }
 
+    @Test("Kinds are counted with the same visibility and sum to the total")
+    func kindsSumToTheVisibleTotal() async throws {
+        let store = try makeStore()
+        let link = ClipItem(kind: .url, preview: "https://example.com", contentHash: "u")
+        let code = ClipItem(kind: .code, preview: "let x = 1", contentHash: "c")
+        let json = ClipItem(kind: .json, preview: "{}", contentHash: "j")
+        let archived = ClipItem(kind: .url, preview: "https://archived.example", contentHash: "a")
+        let expired = ClipItem(
+            kind: .secret, preview: "expired", contentHash: "e", isSensitive: true,
+            expiresAt: .now.addingTimeInterval(-60))
+        for item in [link, code, json, archived, expired] {
+            try await store.insert(item, content: .text(item.preview))
+        }
+        try await store.writer.write { db in
+            try db.execute(
+                sql: "UPDATE clip SET isArchived = 1 WHERE id = ?",
+                arguments: [archived.id.uuidString])
+        }
+
+        let counts = try await store.scopeCounts(excluding: [])
+        #expect(counts.kinds == [.url: 1, .code: 1, .json: 1])
+        #expect(counts.kinds.values.reduce(0, +) == counts.total)
+        let hiding = try await store.scopeCounts(excluding: [code.id])
+        #expect(hiding.kinds[.code] == nil, "an excluded clip leaves its kind too")
+    }
+
     @Test("Excluded clips leave both the total and their boards")
     func excludesPendingDeletes() async throws {
         let store = try makeStore()
