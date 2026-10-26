@@ -43,6 +43,18 @@ import Testing
     }
 }
 
+/// Answers related-by-meaning with a fixed set, fully indexed.
+@MainActor private final class FakeMeaning: MeaningSearchSource {
+    var items: [ClipItem] = []
+    var lastQuery: ClipSearchQuery?
+    func relatedItems(for query: ClipSearchQuery) async throws -> MeaningSearchResponse {
+        lastQuery = query
+        return MeaningSearchResponse(
+            items: items,
+            coverage: SemanticIndexCoverage(eligible: items.count, indexed: items.count))
+    }
+}
+
 /// Parks one read until the test releases it, and reports when it is parked.
 actor SearchGate {
     private var waiter: CheckedContinuation<Void, Never>?
@@ -100,6 +112,88 @@ struct HistoryListViewModelTests {
         await newPage.value
         #expect(model.captures.map(\.id) == freshIDs)
         #expect(!model.isLoadingMore)
+    }
+
+    @Test("Headers count only what the loaded rows can vouch for")
+    func headerCounts() async {
+        let source = FakeSource()
+        let now = Date()
+        let pinned = ClipItem(createdAt: now, preview: "pinned", contentHash: "p", isPinned: true)
+        let today = (0..<3).map {
+            ClipItem(createdAt: now, preview: "t\($0)", contentHash: "t\($0)")
+        }
+        let old = (0..<(ClipListCore.pageSize + 5)).map {
+            ClipItem(
+                createdAt: now.addingTimeInterval(-400 * 86_400), preview: "o\($0)",
+                contentHash: "o\($0)")
+        }
+        source.recent = [pinned] + today + old
+        let model = HistoryListViewModel(source: source)
+        await model.search()
+        let counts = model.sections.map { model.headerCount(for: $0)?.value }
+        #expect(counts.first == 1, "Pinned is complete")
+        #expect(counts.dropFirst().first == 3, "Today is complete")
+        #expect(counts.last == .some(nil), "the last loaded group may still grow")
+        #expect(model.listCount == nil)
+
+        await model.loadMoreIfNeeded(model.captures[model.captures.count - 1])
+        #expect(
+            model.headerCount(for: model.sections[model.sections.count - 1])?.value == old.count)
+    }
+
+    @Test("A search at its ceiling counts as at least that many")
+    func searchCount() async {
+        let source = FakeSource()
+        let ceiling = ClipListConfiguration.iOSHistory.searchLimitWithQuery
+        source.searchResults = items(ceiling + 10)
+        let model = HistoryListViewModel(source: source)
+        model.query = "item"
+        await model.search()
+        #expect(model.listCount == HeaderCount(value: ceiling, isAtLeast: true))
+        source.searchResults = items(3)
+        await model.search()
+        #expect(model.listCount == HeaderCount(value: 3, isAtLeast: false))
+
+        // An app filter with no text is a search too, with its own ceiling.
+        model.query = ""
+        model.selectedSourceAppBundleID = "com.apple.mobilesafari"
+        source.searchResults = items(ClipListCore.searchLimitWithoutQuery + 1)
+        await model.search()
+        #expect(
+            model.listCount
+                == HeaderCount(value: ClipListCore.searchLimitWithoutQuery, isAtLeast: true))
+    }
+
+    @Test("A typed search lists related clips after the results, without repeating one")
+    func relatedByMeaning() async {
+        let source = FakeSource()
+        let hits = items(2)
+        source.searchResults = hits
+        let meaning = FakeMeaning()
+        let extra = ClipItem(preview: "related", contentHash: "related")
+        meaning.items = [hits[0], extra]
+        let model = HistoryListViewModel(source: source)
+        model.meaningSource = meaning
+        model.kindFilter = .text
+        model.query = "item"
+        await model.search()
+        let deadline = ContinuousClock.now + .seconds(5)
+        while model.meaning.status == .loading, ContinuousClock.now < deadline {
+            await Task.yield()
+        }
+        #expect(model.related.map(\.id) == [extra.id], "a result never repeats as related")
+        #expect(meaning.lastQuery?.kinds == [.text], "the filters scope related clips too")
+
+        await model.search()
+        #expect(
+            model.related.map(\.id) == [extra.id],
+            "a refresh of the same search keeps its related clips while it re-runs")
+
+        model.query = "other"
+        #expect(model.related.isEmpty, "a new query drops the old related clips at once")
+        model.query = ""
+        await model.search()
+        #expect(model.meaning.status == .idle, "no query, no meaning search")
     }
 
     @Test("Changing filters invalidates a suspended search before the next search starts")
@@ -216,6 +310,44 @@ struct HistoryListViewModelTests {
         model.kindFilter = .url
         #expect(model.captures.count == 3)  // the loaded page is untouched
         #expect(model.visibleClips.count == 2)  // the filter applies on top
+    }
+
+    @Test("A kind group narrows to every kind it holds, and in SQL too")
+    func kindGroupNarrowsToItsKinds() async {
+        let source = FakeSource()
+        source.recent = [
+            ClipItem(kind: .code, preview: "let x"),
+            ClipItem(kind: .json, preview: "{}"),
+            ClipItem(kind: .text, preview: "plain")
+        ]
+        source.searchResults = Array(source.recent.prefix(2))
+        let model = HistoryListViewModel(source: source)
+        await model.search()
+        model.kindGroup = .code
+        #expect(model.visibleClips.map(\.kind) == [.code, .json])
+        await model.search()
+        #expect(source.lastSearchQuery?.kinds == ClipKindFilter.code.kinds)
+    }
+
+    @Test("A kind and a kind group never narrow together")
+    func kindAndKindGroupClearEachOther() {
+        let model = HistoryListViewModel(source: FakeSource())
+        model.kindGroup = .secrets
+        model.kindFilter = .url
+        #expect(model.kindGroup == .all)
+        #expect(model.activeKinds == [.url])
+        model.kindGroup = .images
+        #expect(model.kindFilter == nil)
+        #expect(model.activeKinds == ClipKindFilter.images.kinds)
+    }
+
+    @Test("A group's count adds up the kinds it holds")
+    func kindGroupCountsItsKinds() {
+        let counts: [ClipContentKind: Int] = [.code: 2, .json: 1, .url: 4, .text: 9]
+        #expect(ClipKindFilter.code.count(in: counts) == 3)
+        #expect(ClipKindFilter.links.count(in: counts) == 4)
+        #expect(ClipKindFilter.secrets.count(in: counts) == 0)
+        #expect(ClipKindFilter.all.count(in: counts) == 16)
     }
 
     @Test func sourceAppFilterComposesWithKindBoardAndEmptyText() async {

@@ -77,8 +77,54 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   you will see at the top of your history, why iOS shows no paste banner, how
   to add the keyboard and the widget, and a Paste button to try it. A paste
   there closes the welcome and opens the clip it saved.
+- On iPhone, a search lists clips related by meaning under its results, found
+  on the device. With semantic search on, Pro also embeds clips synced from
+  your other devices in the background, so they can be found by meaning too.
+- The iPhone and iPad clip detail adds a Markdown link action for links, and
+  boards list your snippets by keyword.
+- The iPhone Privacy Center opens with "Verify, don’t trust": encryption with
+  a Verify button that checks the database on the device, the iCloud sync
+  state, and how many secrets are masked now.
+- On iPhone, an active type or app filter shows as a chip under the boards;
+  tap it to remove it, or Clear filters to remove both.
+- The iPad sidebar says what each board, type and app holds: boards with
+  their colour and count and how many Free boards are used, the Mac's five
+  type groups (Links, Code, Colors, Images, Secrets) with theirs, and apps as
+  a letter tile. The active row in each section is highlighted, and "New
+  board…" sits under the boards.
+- On iPad the clipboard card sits under the sidebar with its own Paste
+  button, so the history starts with your clips; with the sidebar hidden,
+  Paste and the card move back to the history.
+- On iPad, drag a clip from the history or its detail into the app beside
+  Gancho: a link drops as a link, an image as a PNG, text as text. Passwords,
+  keys and cards never lift.
+- Sharing a link hands it over as a link (with its text after), so Messages
+  and Notes treat it as one.
+- The iPad history counts its date groups, shows its total under the title
+  and keeps search in its toolbar. With a hardware keyboard attached, a legend
+  lists ⌘F, ⌘⏎, ⌘1–9 and ↑↓, and Copy shows ⌘⏎.
 
 ### Changed
+
+- The iPhone's clipboard row is a card: it names what is on the clipboard
+  (a link, search text, a number) without reading it, points at the Paste
+  button, and after a save offers to open the clip for a few seconds.
+- iPhone rows name the device a clip came from when it wasn't this one; the
+  active board chip and the section headers show how many clips they hold.
+- iPhone rows for passwords, keys and cards show the kind, the stored mask
+  (`●●●● 4Q2v`), where and when it was copied, and how long it has left.
+  Widgets and the lock screen still show only dots.
+- The iPhone's search answer says it was answered on the device and that its
+  sources copy on tap.
+- The iPhone and iPad clip detail leads with where a clip came from, its title
+  (edited in place), a link as its own hero card, and one full-width Copy;
+  Share, Pin, Board and Snippet sit in one row, smart actions and boards as
+  chips.
+- The iPhone boards sheet shows how many of the Free boards are used, whether
+  each board is synced, waiting or on this iPhone only.
+- iPhone Settings show at a glance your Pro usage, which Intelligence features
+  are on, and what the Privacy Center counts, and list every way to capture on
+  iPhone, with steps for the keyboard and the widget.
 
 - The Mac welcome has four steps: the privacy promise (where clips live, when
   secrets expire, what is never read), the Accessibility permission with what
