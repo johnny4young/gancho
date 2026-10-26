@@ -314,13 +314,13 @@ extension LibraryView {
             let nextBoards = try await model.fullStore?.pinboards() ?? []
             let nextSnippets = try await model.fullStore?.snippets() ?? []
             let scope = try await model.fullStore?.scopeCounts(excluding: [])
-            var nextAllCount = scope?.total ?? 0
-            var nextPinnedCount = try await model.fullStore?.pinnedCount() ?? 0
-            if scope == nil {
-                let metadata = try await model.store.items(offset: 0, limit: Int.max)
-                nextAllCount = metadata.count
-                nextPinnedCount = metadata.filter(\.isPinned).count
+            let nextAllCount: Int
+            if let scope {
+                nextAllCount = scope.total
+            } else {
+                nextAllCount = try await model.store.count()
             }
+            let nextPinnedCount = try await model.store.pinnedCount()
             var counts: [UUID: Int] = [:]
             for board in nextBoards { counts[board.id] = scope?.boards[board.id] ?? 0 }
             let nextFilterCounts = await model.savedFilterCounts(model.savedFilters.rules)

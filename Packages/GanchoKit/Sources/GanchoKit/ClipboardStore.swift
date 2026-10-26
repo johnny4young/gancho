@@ -60,6 +60,9 @@ public protocol ClipboardStore: ClipIngesting {
 
     func count() async throws -> Int
 
+    /// How many clips are pinned, from whichever store the app booted with.
+    func pinnedCount() async throws -> Int
+
     /// Current metadata for one clip, or nil once it is gone. Every store has
     /// this — the durable one as a keyed read, the in-memory fallback as a
     /// scan — so a safety re-check before a copy never depends on which
@@ -169,6 +172,10 @@ public actor InMemoryClipboardStore: ClipboardStore, ClipImporting {
         storage.count
     }
 
+    public func pinnedCount() async throws -> Int {
+        storage.count(where: \.isPinned)
+    }
+
     public func item(id: UUID) async throws -> ClipItem? {
         storage.first { $0.id == id }
     }
@@ -210,6 +217,19 @@ extension ClipboardStore {
             let page = try await items(offset: offset, limit: 200)
             if let match = page.first(where: { $0.id == id }) { return match }
             if page.count < 200 { return nil }
+            offset += page.count
+        }
+    }
+
+    /// Default: walk the paged list, like `item(id:)`.
+    public func pinnedCount() async throws -> Int {
+        var offset = 0
+        var pinned = 0
+        while true {
+            try Task.checkCancellation()
+            let page = try await items(offset: offset, limit: 200)
+            pinned += page.count(where: \.isPinned)
+            if page.count < 200 { return pinned }
             offset += page.count
         }
     }
