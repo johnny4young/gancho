@@ -133,9 +133,13 @@ public typealias HistoryListSource = ClipListSource
     /// cannot append to a same-sized refresh or clear a newer page's spinner.
     /// A new query or filter: the old related clips belong to another search.
     private func requestChanged() {
+        clearRelated()
+        invalidateRequests()
+    }
+
+    private func clearRelated() {
         meaning.invalidate()
         relatedResults = []
-        invalidateRequests()
     }
 
     private func invalidateRequests() {
@@ -160,8 +164,7 @@ public typealias HistoryListSource = ClipListSource
             kinds: activeKinds)
         guard generation == searchGeneration, !Task.isCancelled else { return }
         if let failure = page.searchFailure {
-            meaning.invalidate()
-            relatedResults = []
+            clearRelated()
             searchFailure = failure
             captures = []
             reachedEnd = true
