@@ -70,7 +70,7 @@ colour, and a gallery layout behind ⌘G.
 - [Product goal](#product-goal)
 - [Platform plan](#platform-plan)
 - [Current capabilities](#current-capabilities)
-- [Setup (< 10 min)](#setup--10-min)
+- [Build and run from source](#build-and-run-from-source)
 - [Layout](#layout)
 - [Privacy invariants](#privacy-invariants)
 - [More docs](#more-docs)
@@ -244,18 +244,33 @@ stay in reusable modules.
 - CI covers build/test/lint, an enforced production-source coverage floor,
   serialized StoreKit purchase/restore automation, and scale performance.
 
-## Setup (< 10 min)
+## Build and run from source
 
 Prerequisites: macOS 15.4+ to run, Xcode 26+ to build, and
 [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+Install SwiftLint (`brew install swiftlint`) for the lint check below.
 
 ```bash
 git clone https://github.com/johnny4young/gancho.git
 cd gancho
-make hooks   # install the pre-commit lint hook once per clone
 make test    # package unit tests (Swift Testing)
+make lint    # check formatting and SwiftLint
 make open    # generate Gancho.xcodeproj and open Xcode
 ```
+
+In Xcode, select the **Gancho** scheme and run it for **My Mac**. The app
+lives in the menu bar. A normal launch uses your local clipboard history;
+use the existing UI test fixtures for synthetic capture and screenshot work.
+
+The Makefile selects full Xcode when Command Line Tools are active and Xcode
+is installed at its standard path. For another Xcode installation, set
+`DEVELOPER_DIR` to its `Contents/Developer` directory in the shell. Initial
+builds fetch the pinned dependencies; keep the checked-in lockfiles unchanged.
+See [dependency maintenance](docs/DEPENDENCIES.md) before intentionally updating them.
+
+`make hooks` is optional: it installs this clone's versioned pre-commit and
+pre-push hooks (lint before commits; lint and tests before pushes).
+The explicit `make lint` check above works without installing a hook.
 
 | Target | What it does |
 | --- | --- |
@@ -272,7 +287,7 @@ make open    # generate Gancho.xcodeproj and open Xcode
 | `make qa-release` | QA the newest release ZIP, or `ARTIFACT=/path/to/Gancho.app` |
 | `make site-check` | Verify the static website and its product-truth contract under `site/` |
 | `make format` / `make lint` | Format / verify Swift sources |
-| `make hooks` | Install the versioned pre-commit lint hook |
+| `make hooks` | Opt in to the versioned pre-commit and pre-push checks |
 | `make clean` | Remove generated project and build artifacts |
 | `make open` | Generate and open the Xcode project |
 
