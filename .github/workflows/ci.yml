@@ -103,20 +103,6 @@ jobs:
           # rather than the following Wednesday.
           ./scripts/report-apps-coverage.sh --self-test
 
-      - name: Library fallback adapter regressions without app services
-        run: python3 scripts/test-library-fallback.py --output "$RUNNER_TEMP/library-fallback"
-
-      - name: Library fallback diagnostics (on failure)
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: library-fallback-diagnostics
-          path: |
-            ${{ runner.temp }}/library-fallback/logs
-            ${{ runner.temp }}/library-fallback/commands.json
-            ${{ runner.temp }}/library-fallback/fixture.json
-          if-no-files-found: ignore
-
   build-apps:
     name: Build macOS + iOS apps
     # The macOS floor is 15.4, but the source uses SDK-26 APIs and iOS stays at

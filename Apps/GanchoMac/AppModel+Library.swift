@@ -21,7 +21,9 @@ extension AppModel {
         _ request: LibraryListRequest, offset: Int, limit: Int
     ) async throws -> [ClipItem] {
         guard let fullStore else {
-            return try await fallbackLibraryClips(request, offset: offset, limit: limit)
+            return try await request.fallbackPage(offset: offset, limit: limit) {
+                try await store.items(offset: 0, limit: .max)
+            }
         }
         if case .savedFilter(let rule) = request.scope {
             return try await fullStore.items(matching: rule, limit: limit)
@@ -38,28 +40,6 @@ extension AppModel {
         }
         guard let browse = Self.browseQuery(request) else { return [] }
         return try await fullStore.libraryItems(browse, offset: offset, limit: limit)
-    }
-
-    private func fallbackLibraryClips(
-        _ request: LibraryListRequest, offset: Int, limit: Int
-    ) async throws -> [ClipItem] {
-        guard limit > 0 else { return [] }
-        // The fallback owns no board memberships or persisted filters.
-        switch request.scope {
-        case .board, .savedFilter: return []
-        case .allClips, .pinned: break
-        }
-        // A filtered raw page can look like EOF while older matches remain.
-        // Read one RAM metadata snapshot, then apply the request before slicing.
-        let snapshot = try await store.items(offset: 0, limit: Int.max)
-        let matches = snapshot.filter {
-            request.kind.matches($0.kind)
-                && (request.scope != .pinned || $0.isPinned)
-                && (request.searchText.isEmpty
-                    || LibraryOrdering.matches($0, text: request.searchText))
-        }
-        let ordered = LibraryOrdering.sorted(matches, oldestFirst: request.oldestFirst)
-        return Array(ordered.dropFirst(max(0, offset)).prefix(limit))
     }
 
     func countLibraryClips(_ request: LibraryListRequest) async throws -> Int {
