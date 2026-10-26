@@ -62,6 +62,32 @@ struct ClipboardStoreDurabilityTests {
         #expect(try await erased.item(id: wanted.id)?.id == wanted.id)
         #expect(try await erased.item(id: UUID()) == nil)
     }
+
+    @Test("Every store counts its pins through the existential")
+    func pinnedCounts() async throws {
+        let rows = (0..<450).map {
+            ClipItem(preview: "row \($0)", contentHash: "row-\($0)", isPinned: $0.isMultiple(of: 7))
+        }
+        let paged: any ClipboardStore = PagedOnlyStore(rows: rows)
+        #expect(try await paged.pinnedCount() == 65, "the default walks past the first page")
+
+        let memory: any ClipboardStore = InMemoryClipboardStore()
+        for row in rows.prefix(30) {
+            try await memory.insert(row, content: nil)
+        }
+        #expect(try await memory.pinnedCount() == 5)
+
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let grdb = try GRDBClipboardStore(directory: dir)
+        let pinned = try await grdb.insert(
+            ClipItem(preview: "pinned", contentHash: "pinned"), content: .text("pinned"))
+        try await grdb.setPinned(id: pinned.id, true)
+        let durable: any ClipboardStore = grdb
+        #expect(try await durable.pinnedCount() == 1)
+    }
 }
 
 /// A conformer that only knows how to page — the shape of the test doubles

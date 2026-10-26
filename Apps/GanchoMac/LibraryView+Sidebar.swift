@@ -213,7 +213,10 @@ extension LibraryView {
     }
 
     private var proMeter: LibraryProMeter {
-        LibraryProMeter(boards: userBoardCount, pins: pinnedCount, snippets: snippets.count)
+        // Pins in the in-memory fallback can't be managed or kept, so they don't meter.
+        LibraryProMeter(
+            boards: userBoardCount, pins: model.fullStore == nil ? 0 : pinnedCount,
+            snippets: snippets.count)
     }
 
     /// The Pro card on Free: every ceiling's count, a bar filled to the fullest
