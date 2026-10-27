@@ -1,17 +1,6 @@
 name: Shortcut native acceptance
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/keyboard-shortcuts.yml
-      - project.yml
-      - Makefile
-      - Dependencies/Package.resolved
-      - Apps/GanchoMac/ShortcutRecorder.swift
-      - Tests/KeyboardShortcutsAcceptance/**
-      - scripts/test-keyboard-shortcuts-menu.sh
-      - scripts/import-hosted-signing-certificate.sh
   pull_request:
     paths:
       - .github/workflows/keyboard-shortcuts.yml
