@@ -218,17 +218,16 @@ jobs:
           ./scripts/run-storekit-tests-ci.sh --self-test
           ./scripts/run-storekit-tests-ci.sh
 
-      # Signed ad hoc like the StoreKit host above, so this one build serves
-      # both the warning gate and the UI regressions. The StoreKit build leaves
-      # explicit modules this scheme reports as out of date (missing
-      # GRDBSQLCipher); only that cache is cleared, not the compiled sources.
+      # One build serves both the warning gate and the UI regressions. It gets
+      # its own DerivedData: after the StoreKit build, the shared one reports
+      # the SQLCipher module as out of date (missing GRDBSQLCipher).
       - name: Build macOS app and UI tests
         run: |
-          rm -rf "$HOME"/Library/Developer/Xcode/DerivedData/Gancho-*/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
           mkdir -p build
           set -o pipefail
           xcodebuild $XCODE_PACKAGE_FLAGS \
             build-for-testing -project Gancho.xcodeproj -scheme Gancho \
+            -derivedDataPath build/mac-ui \
             -destination 'platform=macOS,arch=arm64' \
             -resultBundlePath build/mac.xcresult \
             CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
@@ -245,6 +244,7 @@ jobs:
           set -o pipefail
           xcodebuild $XCODE_PACKAGE_FLAGS \
             test-without-building -project Gancho.xcodeproj -scheme Gancho \
+            -derivedDataPath build/mac-ui \
             -destination 'platform=macOS,arch=arm64' \
             -parallel-testing-enabled NO \
             -only-testing:GanchoUITests/AppQualityUITests \
