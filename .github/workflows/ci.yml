@@ -188,8 +188,7 @@ jobs:
       # Route the StoreKit step's `make test-storekit` into the same cloned
       # package directory as the builds below, so the whole job resolves
       # the dependency graph once. The Makefile declares this with `?=`, so the
-      # environment wins. Every build here shares one index setting: a change
-      # between steps leaves the precompiled SQLCipher module out of date.
+      # environment wins.
       XCODE_PACKAGE_FLAGS: >-
         -disableAutomaticPackageResolution
         -clonedSourcePackagesDirPath build/xcode-packages
@@ -220,9 +219,12 @@ jobs:
           ./scripts/run-storekit-tests-ci.sh
 
       # Signed ad hoc like the StoreKit host above, so this one build serves
-      # both the warning gate and the UI regressions.
+      # both the warning gate and the UI regressions. The StoreKit build leaves
+      # explicit modules this scheme reports as out of date (missing
+      # GRDBSQLCipher); only that cache is cleared, not the compiled sources.
       - name: Build macOS app and UI tests
         run: |
+          rm -rf "$HOME"/Library/Developer/Xcode/DerivedData/Gancho-*/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
           mkdir -p build
           set -o pipefail
           xcodebuild $XCODE_PACKAGE_FLAGS \
