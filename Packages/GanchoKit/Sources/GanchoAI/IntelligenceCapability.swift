@@ -1,4 +1,5 @@
 import Foundation
+import FoundationModels
 
 /// One shared interpretation of whether the Foundation Models tier can run
 /// here. Presentation consumes this value instead of re-implementing the
@@ -23,6 +24,11 @@ public enum IntelligenceCapability: Equatable, Sendable {
         arguments: [String] = ProcessInfo.processInfo.arguments
     ) -> IntelligenceCapability {
         if arguments.contains(simulateModelUnavailableArgument) { return .modelUnavailable }
-        return SmartPasteService.isAvailable ? .available : .modelUnavailable
+        return isModelReady ? .available : .modelUnavailable
+    }
+
+    /// The single model readiness check every model-backed service gates on.
+    static var isModelReady: Bool {
+        SystemLanguageModel.default.availability == .available
     }
 }

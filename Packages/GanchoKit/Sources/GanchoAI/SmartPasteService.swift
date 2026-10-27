@@ -58,7 +58,7 @@ public struct SmartPasteService: Sendable {
     /// translations. Deterministic PII redaction does not require this to be
     /// true.
     public static var isAvailable: Bool {
-        SystemLanguageModel.default.availability == .available
+        IntelligenceCapability.isModelReady
     }
 
     /// Input is clamped so prompt + completion fit the system model's shared

@@ -16,8 +16,11 @@ v0.10.2 and are not offered later updates.
   `sparkle:minimumSystemVersion` and `sparkle:hardwareRequirements` into the
   new item. `scripts/generate-appcast.sh` fails the release if either is
   missing, so an older Mac is never offered an update it cannot open.
-- The Homebrew cask declares `depends_on macos: :tahoe` and
-  `depends_on arch: :arm64`.
+- The Homebrew cask describes the published DMG. Once the published release
+  notes state a macOS 26 floor, `ReleaseMetadataTests` and
+  `scripts/check-product-truth.sh` require `depends_on macos: :tahoe` and
+  `depends_on arch: :arm64`, so the first release at this floor cannot ship the
+  old requirements.
 
 ## Apple Intelligence
 

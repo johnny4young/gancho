@@ -31,10 +31,15 @@ fi
 # generate_appcast signs every archive in the folder it scans, so stage only the
 # DMG (dist/ also holds the App Store ZIP, which is not a Sparkle update).
 work="$(mktemp -d -t gancho-appcast)"
-trap 'rm -rf "$work"' EXIT
+feed_dir="$(mktemp -d -t gancho-appcast-feed)"
+trap 'rm -rf "$work" "$feed_dir"' EXIT
 cp "$DMG" "$work/"
 
+# Generate into a copy of the feed (generate_appcast keeps its existing items)
+# and replace site/appcast.xml only after the new item passes the checks below.
 mkdir -p "$SITE_DIR"
+feed="$feed_dir/appcast.xml"
+[ ! -f "$SITE_DIR/appcast.xml" ] || cp "$SITE_DIR/appcast.xml" "$feed"
 printf '==> Generating EdDSA-signed appcast for %s\n' "$(basename "$DMG")"
 # CI signs with the EdDSA private key from a secret, fed on stdin via
 # `--ed-key-file -` so it never touches disk or the log. Locally the key is read
@@ -44,19 +49,19 @@ if [ -n "${SPARKLE_EDDSA_PRIVATE_KEY:-}" ]; then
 		--ed-key-file - \
 		--download-url-prefix "$RELEASE_BASE" \
 		--link "$PROJECT_LINK" \
-		-o "$SITE_DIR/appcast.xml" \
+		-o "$feed" \
 		"$work"
 else
 	Vendor/bin/generate_appcast \
 		--download-url-prefix "$RELEASE_BASE" \
 		--link "$PROJECT_LINK" \
-		-o "$SITE_DIR/appcast.xml" \
+		-o "$feed" \
 		"$work"
 fi
 
 # Sparkle infers both requirements from the bundle; without them an Intel or
 # pre-26 Mac would be offered an update it cannot open.
-python3 - "$SITE_DIR/appcast.xml" "$VERSION" <<'PY'
+python3 - "$feed" "$VERSION" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 ns = {'sparkle': 'http://www.andymatuschak.org/xml-namespaces/sparkle'}
@@ -72,6 +77,7 @@ if not minimum.startswith('26'):
 if hardware.strip() != 'arm64':
     sys.exit(f'error: sparkle:hardwareRequirements is {hardware!r}, expected arm64')
 PY
+cp "$feed" "$SITE_DIR/appcast.xml"
 
 printf '✓ %s/appcast.xml\n' "$SITE_DIR"
 printf '  enclosure base: %s\n' "$RELEASE_BASE"

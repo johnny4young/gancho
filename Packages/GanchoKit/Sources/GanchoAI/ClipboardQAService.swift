@@ -11,7 +11,7 @@ import FoundationModels
 /// the answer isn't there — no hallucinated facts about the user's data.
 public struct ClipboardQAService: Sendable {
     public static var isAvailable: Bool {
-        SystemLanguageModel.default.availability == .available
+        IntelligenceCapability.isModelReady
     }
 
     private let maxSourceCharacters: Int

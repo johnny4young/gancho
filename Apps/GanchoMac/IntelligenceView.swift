@@ -132,7 +132,6 @@ struct IntelligenceView: View {
         .frame(width: 520, height: 600)
     }
 
-    /// The capture pipeline — how a clip is understood, stage by stage.
     /// Why the model-backed rows may do less here. Deterministic tiers run
     /// either way, which is exactly what the copy promises.
     @ViewBuilder

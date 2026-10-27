@@ -13,13 +13,6 @@ struct IntelligenceCapabilityTests {
                 == .modelUnavailable)
     }
 
-    @Test("Without the argument, the answer follows the on-device model")
-    func genuineAnswerFollowsModel() {
-        let expected: IntelligenceCapability =
-            SmartPasteService.isAvailable ? .available : .modelUnavailable
-        #expect(IntelligenceCapability.current(arguments: []) == expected)
-    }
-
     @Test("Only the available case may use the model")
     func onlyAvailableUsesModel() {
         #expect(IntelligenceCapability.available.canUseModel)

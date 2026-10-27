@@ -34,7 +34,7 @@ private struct AnnotationDraft {
 public struct FoundationModelAnnotator: ClipAnnotating {
     /// Cheap availability gate callers can use to pick a tier up front.
     public static var isAvailable: Bool {
-        SystemLanguageModel.default.availability == .available
+        IntelligenceCapability.isModelReady
     }
 
     private let maxPromptCharacters: Int
@@ -72,12 +72,11 @@ public struct TieredClipAnnotator: ClipAnnotating {
     private let primary: any ClipAnnotating
     private let fallback: any ClipAnnotating
 
-    /// `primary: nil` means the on-device model.
     public init(
-        primary: (any ClipAnnotating)? = nil,
+        primary: any ClipAnnotating = FoundationModelAnnotator(),
         fallback: any ClipAnnotating = HeuristicAnnotator()
     ) {
-        self.primary = primary ?? FoundationModelAnnotator()
+        self.primary = primary
         self.fallback = fallback
     }
 
