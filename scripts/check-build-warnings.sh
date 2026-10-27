@@ -23,18 +23,12 @@ is_allowed_warning() {
 		*"xcodebuild: WARNING: Using the first of multiple matching destinations:")
 			return 0
 			;;
-		# Xcode 26.6 schedules metadata extraction for Swift extensions and hosted
-		# test bundles. These targets intentionally declare no App Intents, so the
-		# extractor reports this toolchain diagnostic after a successful build.
-		*"warning: Metadata extraction skipped. No AppIntents.framework dependency found.")
-			[[ "$metadata_target" == "GanchoShare" ||
-				"$metadata_target" == "GanchoStoreKitHost" ||
-				"$metadata_target" == "GanchoStoreKitTests" ]]
-			return
-			;;
-		# Xcode 27 rewords the same extractor diagnostic and also schedules it for
-		# the package library and hosted UI test bundles, none of which declare intents.
-		*"warning: Metadata extraction skipped, no AppIntents.framework dependency found")
+		# Xcode schedules metadata extraction for Swift extensions, the package
+		# library and hosted test bundles (Xcode 27 rewords it). None of these
+		# targets declare App Intents, so the extractor reports this toolchain
+		# diagnostic after a successful build.
+		*"warning: Metadata extraction skipped. No AppIntents.framework dependency found." | \
+			*"warning: Metadata extraction skipped, no AppIntents.framework dependency found")
 			[[ "$metadata_target" == "GanchoShare" ||
 				"$metadata_target" == "GanchoStoreKitHost" ||
 				"$metadata_target" == "GanchoStoreKitTests" ||
@@ -96,6 +90,8 @@ ExtractAppIntentsMetadata (in target 'GanchoStoreKitTests' from project 'Gancho'
 2026-07-11 appintentsmetadataprocessor[1:1] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
 ExtractAppIntentsMetadata (in target 'GanchoUITests' from project 'Gancho')
 2026-10-02 appintentsmetadataprocessor[1:1] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+ExtractAppIntentsMetadata (in target 'GanchoSyncE2ETests' from project 'Gancho')
+2026-10-27 appintentsmetadataprocessor[1:1] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
 warning: 'GanchoKit' is missing a dependency on 'GRDB' because dependency scan of Swift module 'GanchoKit' discovered a dependency on 'GRDB'
 EOF
 	check_log "$warning_fixture_dir/allowed.log" || {
