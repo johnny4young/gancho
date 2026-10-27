@@ -17,7 +17,7 @@ final class ShortcutMenuUITests: XCTestCase {
             XCTFail("The fixture window did not appear")
             return
         }
-        let initial = try readSnapshot(snapshotPath)
+        let initial = try await waitForSnapshot(at: snapshotPath) { $0["version"] != nil }
         guard
             initial["version"] as? String == environment["SHORTCUT_MENU_VERSION"],
             initial["revision"] as? String == environment["SHORTCUT_MENU_REVISION"],
@@ -41,7 +41,10 @@ final class ShortcutMenuUITests: XCTestCase {
             XCTFail("The fixture menu did not appear")
             return
         }
-        guard try readSnapshot(snapshotPath)["menuTracking"] as? Bool == true else {
+        let tracking = try await waitForSnapshot(at: snapshotPath) {
+            $0["menuTracking"] as? Bool == true
+        }
+        guard tracking["menuTracking"] as? Bool == true else {
             XCTFail("The fixture is not tracking its popup menu")
             return
         }
@@ -49,7 +52,9 @@ final class ShortcutMenuUITests: XCTestCase {
         // XCUITest synthesizes global input; abort if the fixture loses focus.
         try requireForeground(app, bundleIdentifier: bundleIdentifier)
         app.typeKey("v", modifierFlags: [.command, .control, .option, .shift])
-        let during = try readSnapshot(snapshotPath)
+        let during = try await waitForSnapshot(at: snapshotPath) {
+            $0["keyDownCount"] as? Int == 1 && $0["keyUpCount"] as? Int == 1
+        }
         try attach(during, name: "menu-after-one-native-key-pair")
         XCTAssertEqual(during["keyDownCount"] as? Int, 1)
         XCTAssertEqual(during["keyUpCount"] as? Int, 1)
@@ -58,8 +63,14 @@ final class ShortcutMenuUITests: XCTestCase {
 
         try requireForeground(app, bundleIdentifier: bundleIdentifier)
         app.typeKey(.escape, modifierFlags: [])
-        try await observeNoDelayedReplay(at: snapshotPath)
-        let closed = try readSnapshot(snapshotPath)
+        try await verifyMenuClosedWithoutReplay(at: snapshotPath)
+    }
+
+    @MainActor
+    private func verifyMenuClosedWithoutReplay(at path: String) async throws {
+        _ = try await waitForSnapshot(at: path) { $0["menuTracking"] as? Bool == false }
+        try await observeNoDelayedReplay(at: path)
+        let closed = try readSnapshot(path)
         try attach(closed, name: "menu-closed-without-replayed-shortcut")
         XCTAssertEqual(closed["menuTracking"] as? Bool, false)
         XCTAssertEqual(closed["keyDownCount"] as? Int, 1)
@@ -149,6 +160,21 @@ final class ShortcutMenuUITests: XCTestCase {
             }
             try await Task.sleep(for: .milliseconds(50))
         }
+    }
+
+    /// The fixture writes its snapshot asynchronously, so wait for the expected
+    /// state (or a deadline) before asserting on it.
+    @MainActor
+    private func waitForSnapshot(
+        at path: String, seconds: Double = 3, until isReady: ([String: Any]) -> Bool
+    ) async throws -> [String: Any] {
+        let deadline = Date().addingTimeInterval(seconds)
+        var snapshot = (try? readSnapshot(path)) ?? [:]
+        while !isReady(snapshot), Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+            snapshot = (try? readSnapshot(path)) ?? snapshot
+        }
+        return snapshot
     }
 
     private func readSnapshot(_ path: String) throws -> [String: Any] {
