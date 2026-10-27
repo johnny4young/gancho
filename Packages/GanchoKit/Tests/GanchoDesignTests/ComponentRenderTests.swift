@@ -34,6 +34,16 @@
             #expect((image?.width ?? 0) > 0)
         }
 
+        @Test("ClipCard grows with the panel text size")
+        func clipCardFollowsTextSize() throws {
+            let heights = try PanelTextSize.allCases.map { size in
+                let card = ClipCard(item: Self.sampleItem)
+                    .environment(\.panelTypeScale, size.scale)
+                return try #require(render(card, dark: false)).height
+            }
+            #expect(zip(heights, heights.dropFirst()).allSatisfy { $0 < $1 }, "\(heights)")
+        }
+
         @Test("Masked previews never expose content in the rendered tree")
         func maskedCard() {
             let secret = ClipItem(

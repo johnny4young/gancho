@@ -38,12 +38,12 @@ that complements the automated checks.
   suggestion reserves space above the history toolbar instead of covering it.
 
 The required `Build macOS + iOS apps` job in `ci.yml` runs the interface
-regressions with zero failures or skips, including English/light and
-Spanish/dark Settings,
-large panel text, gallery/list previews, live Library curation, draft-preserving
-navigation, and a twenty-field template with reachable actions. The iOS reuse
-gate requires both reuse interactions to pass without skips and checks that
-its suggestion does not intersect the Paste control.
+regressions with zero failures or skips, including Settings navigation, the
+board picker, live Library curation, draft-preserving navigation, and a
+twenty-field template with reachable actions at large text. The iOS reuse gate
+checks that its suggestion does not intersect the Paste control. Spanish/dark
+Settings, panel captures and the remaining interactions run in the weekly UI
+workflow.
 
 ## Validation limits
 
