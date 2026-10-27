@@ -85,7 +85,6 @@ public struct TranslationEngines: Sendable {
             return Locale.Language(identifier: language.rawValue)
         },
         pairStatus: { source, target in
-            guard #available(macOS 26.0, iOS 26.0, *) else { return .undetermined }
             switch await LanguageAvailability().status(from: source, to: target) {
             case .installed: return .installed
             case .supported: return .downloadable
@@ -94,14 +93,11 @@ public struct TranslationEngines: Sendable {
             }
         },
         native: { text, source, target in
-            guard #available(macOS 26.0, iOS 26.0, *) else {
-                throw AnnotationError.backendUnavailable
-            }
-            return try await TranslationSession(installedSource: source, target: target)
+            try await TranslationSession(installedSource: source, target: target)
                 .translate(text).targetText
         },
         languageModel: { text, englishName in
-            guard #available(macOS 26.0, iOS 26.0, *), SmartPasteService.isAvailable else {
+            guard SmartPasteService.isAvailable else {
                 throw AnnotationError.backendUnavailable
             }
             let session = LanguageModelSession(

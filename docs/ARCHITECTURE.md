@@ -618,9 +618,9 @@ assertion or disable screenshots to turn a failed capture into a pass.
 
 ## Decisions
 
-1. **Minimum macOS 15.4 / iOS 26.** The Foundation Models tier and Liquid
-   Glass are macOS-26-gated (`IntelligenceCapability`, availability guards);
-   SDK-27 APIs are adopted only behind `#available`; beta SDKs are not
+1. **Minimum macOS 26 on Apple Silicon / iOS 26.** The Foundation Models tier
+   and Liquid Glass need no availability guards; `IntelligenceCapability`
+   reports only whether Apple Intelligence is ready. SDK-27 APIs are adopted only behind `#available`; beta SDKs are not
    installed on work machines.
 2. **XcodeGen project.** `Gancho.xcodeproj` is generated; edit `project.yml` and
    run `make project`.

@@ -11,7 +11,6 @@ public enum AnnotationError: Error, Equatable {
 
 /// The structured output contract for the on-device model. `@Generable`
 /// guarantees the response parses into this shape — no JSON scraping.
-@available(macOS 26.0, iOS 26.0, *)
 @Generable
 private struct AnnotationDraft {
     @Guide(description: "Short, specific title for the snippet. At most six words. No quotes.")
@@ -32,7 +31,6 @@ private struct AnnotationDraft {
 /// Input is clamped to `maxPromptCharacters` (≈400–700 tokens for typical
 /// clips) and each clip gets a FRESH session: reusing one session would let
 /// the transcript accumulate until the window overflows mid-batch.
-@available(macOS 26.0, iOS 26.0, *)
 public struct FoundationModelAnnotator: ClipAnnotating {
     /// Cheap availability gate callers can use to pick a tier up front.
     public static var isAvailable: Bool {
@@ -74,22 +72,13 @@ public struct TieredClipAnnotator: ClipAnnotating {
     private let primary: any ClipAnnotating
     private let fallback: any ClipAnnotating
 
-    /// `primary: nil` means "the best annotator this OS offers": the
-    /// on-device model where the Foundation Models tier exists (macOS/iOS
-    /// 26+), otherwise the deterministic heuristics directly.
+    /// `primary: nil` means the on-device model.
     public init(
         primary: (any ClipAnnotating)? = nil,
         fallback: any ClipAnnotating = HeuristicAnnotator()
     ) {
-        self.primary = primary ?? Self.defaultPrimary(fallback: fallback)
+        self.primary = primary ?? FoundationModelAnnotator()
         self.fallback = fallback
-    }
-
-    private static func defaultPrimary(fallback: any ClipAnnotating) -> any ClipAnnotating {
-        if #available(macOS 26.0, iOS 26.0, *) {
-            return FoundationModelAnnotator()
-        }
-        return fallback
     }
 
     public func annotate(_ text: String) async throws -> ClipAnnotation {

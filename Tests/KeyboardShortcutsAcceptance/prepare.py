@@ -60,7 +60,7 @@ def prepare(repo, output, checkout):
         "packages": {"KeyboardShortcuts": {"path": str(dependency)}},
         "targets": {
             "ShortcutMenuFixture": {
-                "type": "application", "platform": "macOS", "deploymentTarget": "15.4",
+                "type": "application", "platform": "macOS", "deploymentTarget": "26.0",
                 "sources": [
                     {"path": str(sources / "FixtureApp.swift")},
                     {"path": str(repo / "Apps/GanchoMac/GlobalShortcuts.swift")},
@@ -73,7 +73,7 @@ def prepare(repo, output, checkout):
                 "dependencies": [{"package": "KeyboardShortcuts"}],
             },
             "ShortcutMenuUITests": {
-                "type": "bundle.ui-testing", "platform": "macOS", "deploymentTarget": "15.4",
+                "type": "bundle.ui-testing", "platform": "macOS", "deploymentTarget": "26.0",
                 "sources": [{"path": str(sources / "ShortcutMenuUITests.swift")}],
                 "settings": {"base": {
                     "PRODUCT_BUNDLE_IDENTIFIER": identifier + ".runner",
@@ -84,7 +84,7 @@ def prepare(repo, output, checkout):
                 "dependencies": [{"target": "ShortcutMenuFixture"}],
             },
             "ShortcutRecorderFixture": {
-                "type": "application", "platform": "macOS", "deploymentTarget": "15.4",
+                "type": "application", "platform": "macOS", "deploymentTarget": "26.0",
                 "sources": [
                     {"path": str(sources / "RecorderFixtureApp.swift")},
                     {"path": str(repo / "Apps/GanchoMac/GlobalShortcuts.swift")},
@@ -98,7 +98,7 @@ def prepare(repo, output, checkout):
                 "dependencies": [{"package": "KeyboardShortcuts"}],
             },
             "ShortcutRecorderUITests": {
-                "type": "bundle.ui-testing", "platform": "macOS", "deploymentTarget": "15.4",
+                "type": "bundle.ui-testing", "platform": "macOS", "deploymentTarget": "26.0",
                 "sources": [{"path": str(sources / "ShortcutRecorderUITests.swift")}],
                 "settings": {"base": {
                     "PRODUCT_BUNDLE_IDENTIFIER": recorder_identifier + ".runner",

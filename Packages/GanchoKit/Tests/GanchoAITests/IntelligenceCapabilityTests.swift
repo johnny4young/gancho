@@ -5,37 +5,24 @@ import Testing
 
 @Suite("Intelligence capability")
 struct IntelligenceCapabilityTests {
-    @Test("The simulate-Sequoia argument forces the pre-26 answer on macOS")
+    @Test("The simulate argument forces the unavailable answer")
     func simulateArgumentWins() {
-        #if os(macOS)
-            #expect(
-                IntelligenceCapability.current(
-                    arguments: [IntelligenceCapability.simulateSequoiaArgument])
-                    == .requiresMacOS26)
-        #else
-            #expect(
-                IntelligenceCapability.current(
-                    arguments: [IntelligenceCapability.simulateSequoiaArgument])
-                    != .requiresMacOS26)
-        #endif
+        #expect(
+            IntelligenceCapability.current(
+                arguments: [IntelligenceCapability.simulateModelUnavailableArgument])
+                == .modelUnavailable)
     }
 
-    /// The genuine answer tracks the running OS, so this expectation is split
-    /// by availability rather than hard-coding the host the suite runs on.
-    @Test("Without the argument, requiresMacOS26 mirrors the running OS")
-    func genuineAnswerMirrorsOS() {
-        let capability = IntelligenceCapability.current(arguments: [])
-        if #available(macOS 26.0, iOS 26.0, *) {
-            #expect(capability != .requiresMacOS26)
-        } else {
-            #expect(capability == .requiresMacOS26)
-        }
+    @Test("Without the argument, the answer follows the on-device model")
+    func genuineAnswerFollowsModel() {
+        let expected: IntelligenceCapability =
+            SmartPasteService.isAvailable ? .available : .modelUnavailable
+        #expect(IntelligenceCapability.current(arguments: []) == expected)
     }
 
     @Test("Only the available case may use the model")
     func onlyAvailableUsesModel() {
         #expect(IntelligenceCapability.available.canUseModel)
-        #expect(!IntelligenceCapability.requiresMacOS26.canUseModel)
         #expect(!IntelligenceCapability.modelUnavailable.canUseModel)
     }
 }

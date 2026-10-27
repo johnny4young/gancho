@@ -54,6 +54,25 @@ else
 		"$work"
 fi
 
+# Sparkle infers both requirements from the bundle; without them an Intel or
+# pre-26 Mac would be offered an update it cannot open.
+python3 - "$SITE_DIR/appcast.xml" "$VERSION" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+ns = {'sparkle': 'http://www.andymatuschak.org/xml-namespaces/sparkle'}
+feed, version = sys.argv[1], sys.argv[2]
+items = [i for i in ET.parse(feed).iter('item')
+         if i.findtext('sparkle:shortVersionString', namespaces=ns) == version]
+if not items:
+    sys.exit(f'error: no appcast item for {version}')
+minimum = items[0].findtext('sparkle:minimumSystemVersion', namespaces=ns) or ''
+hardware = items[0].findtext('sparkle:hardwareRequirements', namespaces=ns) or ''
+if not minimum.startswith('26'):
+    sys.exit(f'error: sparkle:minimumSystemVersion is {minimum!r}, expected 26.x')
+if hardware.strip() != 'arm64':
+    sys.exit(f'error: sparkle:hardwareRequirements is {hardware!r}, expected arm64')
+PY
+
 printf '✓ %s/appcast.xml\n' "$SITE_DIR"
 printf '  enclosure base: %s\n' "$RELEASE_BASE"
 printf '  Upload %s to release %s, then commit %s/appcast.xml.\n' \

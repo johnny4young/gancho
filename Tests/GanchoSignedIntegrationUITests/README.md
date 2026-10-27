@@ -73,7 +73,6 @@ Settings, and migration regressions on each of macOS 15/Xcode 26.3 and
 macOS 26/Xcode 26.6. Both workflows run on PRs and relevant `main` updates.
 KeyboardShortcuts remains pinned to the unmodified 3.0.1 release.
 
-The panel's surface, search lifecycle, and sheets are separate SwiftUI expressions
-so the stable macOS 15 compiler can type-check them. Disk image packaging and
+Disk image packaging and
 read-only inspection prefer the supported `diskutil image` commands when available,
 with `hdiutil` compatibility on older systems; inspection volumes use `diskutil eject`.

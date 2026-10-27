@@ -203,7 +203,7 @@ the application schema.
   native validation found the consumed-event regression described above.
 - **Sparkle 2.9.6 → 2.10.0.**
   [The release](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.0)
-  raises its macOS floor to 12, below Gancho's 15.4, and fixes update progress,
+  raises its macOS floor to 12, below Gancho's floor, and fixes update progress,
   delta handling, and signed-feed diagnostics. The tarball checksum is the
   official release asset's SHA-256. The fetch cache now records both version
   and checksum; an old unmarked framework can no longer silently survive a
