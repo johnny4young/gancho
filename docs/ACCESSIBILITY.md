@@ -40,10 +40,10 @@ that complements the automated checks.
 The required `Build macOS + iOS apps` job in `ci.yml` runs the interface
 regressions with zero failures or skips, including Settings navigation, the
 board picker, live Library curation, draft-preserving navigation, and a
-twenty-field template with reachable actions at large text. The iOS reuse gate
-checks that its suggestion does not intersect the Paste control. Spanish/dark
-Settings, panel captures and the remaining interactions run in the weekly UI
-workflow.
+twenty-field template with reachable actions at large text. The iOS reuse check
+runs after each merge to `main` and on the weekly schedule, and checks that its
+suggestion does not intersect the Paste control. Spanish/dark Settings, panel
+captures and the remaining interactions run in the weekly UI workflow.
 
 ## Validation limits
 

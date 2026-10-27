@@ -15,15 +15,17 @@ on:
 permissions:
   contents: read
 
+# A newer push supersedes a pull request's run, but every merge to main keeps
+# its own post-merge iOS validation.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Ubuntu decides whether the macOS app jobs run, so a docs-only PR and the
-  # push after a merge (its tree was already tested as an up-to-date PR) do not
+  # Ubuntu decides whether the macOS app jobs run, so docs-only changes do not
   # queue behind the account's few concurrent macOS runners. A skipped required
-  # job counts as passing.
+  # job counts as passing. Pull requests build the apps and run the macOS UI
+  # regressions; the slow iOS simulator job runs after the merge to main.
   changes:
     name: Detect app changes
     runs-on: ubuntu-latest
@@ -39,14 +41,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
           PR: ${{ github.event.pull_request.number }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
         run: |
           case "$EVENT" in
-            push) echo "app=false" >> "$GITHUB_OUTPUT"; exit 0 ;;
-            pull_request) ;;
+            pull_request) endpoint="pulls/$PR/files" query='.[].filename' ;;
+            push) endpoint="compare/$BEFORE...$AFTER" query='.files[].filename' ;;
             *) echo "app=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
           esac
           # Fail open: an API error runs everything.
-          if ! files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename'); then
+          if ! files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/$endpoint" --jq "$query"); then
             echo "app=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -177,7 +181,8 @@ jobs:
   build-apps:
     name: Build macOS + iOS apps
     needs: changes
-    if: needs.changes.outputs.app == 'true'
+    # main's tree was already built and tested as an up-to-date pull request.
+    if: github.event_name != 'push' && needs.changes.outputs.app == 'true'
     # SDK-26 APIs and Swift 6.2 need the Xcode 26 runner image. Pin it explicitly.
     runs-on: macos-26
     timeout-minutes: 60
@@ -302,10 +307,13 @@ jobs:
             build/macos-ui-evidence
           retention-days: 14
 
+  # About 14 minutes of simulator boot, a cold build and a warm-up for one
+  # check, while the iOS app is not distributed yet: it runs after the merge
+  # and on the schedule instead of gating pull requests.
   ios-ui:
     name: iOS suggestion accessibility and toolbar
     needs: changes
-    if: needs.changes.outputs.app == 'true'
+    if: github.event_name != 'pull_request' && needs.changes.outputs.app == 'true'
     runs-on: macos-26
     timeout-minutes: 30
     env:
