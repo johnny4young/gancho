@@ -9,6 +9,9 @@ final class MenuFixtureState {
     var keyUpCount = 0
     var trace: [[String: Any]] = []
     let snapshotURL: URL
+    // Disk writes stay off the main thread: a busy main thread between the
+    // synthetic key-down and key-up lets the menu dequeue the key-up itself.
+    private let writer = DispatchQueue(label: "shortcut-menu-fixture.snapshot")
 
     init() {
         let arguments = CommandLine.arguments
@@ -76,12 +79,20 @@ final class MenuFixtureState {
             "menuTracking": menuTracking,
             "keyDownCount": keyDownCount, "keyUpCount": keyUpCount, "trace": trace
         ]
+        let data: Data
         do {
-            let data = try JSONSerialization.data(
+            data = try JSONSerialization.data(
                 withJSONObject: state, options: [.sortedKeys, .prettyPrinted])
-            try data.write(to: snapshotURL, options: .atomic)
         } catch {
-            fatalError("Could not save synthetic fixture event metadata: \(error)")
+            fatalError("Could not encode synthetic fixture event metadata: \(error)")
+        }
+        let url = snapshotURL
+        writer.async {
+            do {
+                try data.write(to: url, options: .atomic)
+            } catch {
+                fatalError("Could not save synthetic fixture event metadata: \(error)")
+            }
         }
     }
 }
