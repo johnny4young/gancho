@@ -381,12 +381,10 @@ private enum GanchoDeepLinks {
     static func open(_ url: URL) {
         guard url.scheme == "gancho" else { return }
 
-        if let command = GanchoMenuBarCommand(deepLink: url) {
-            // Honor a menu-bar command only when it carries this launch's nonce,
-            // so a forged gancho://menu-bar/... open from another app is ignored.
+        if GanchoMenuBarCommand(deepLink: url) != nil {
             guard let model,
-                let token = GanchoMenuBarCommand.token(in: url),
-                token == GanchoRuntime.commandNonce
+                let command = GanchoMenuBarCommand.authorized(
+                    url, nonce: GanchoRuntime.commandNonce)
             else { return }
             command.perform(on: model)
             GanchoRuntime.menuBarPublisher.publishNow()

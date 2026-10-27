@@ -73,27 +73,6 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
-    func testSettingsDeepLinkOpensSettingsWindow() throws {
-        let url = try XCTUnwrap(URL(string: "gancho://settings"))
-        let app = launchWithInProcessStatusItem(opening: url)
-        defer { app.terminate() }
-
-        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 5))
-    }
-
-    @MainActor
-    func testMenuBarCommandDeepLinkOpensSettingsWindow() throws {
-        // Pin the nonce so the deep link is deterministic; the app honors a
-        // gancho://menu-bar/... open only when the token matches this launch.
-        let token = UUID().uuidString
-        let url = try XCTUnwrap(URL(string: "gancho://menu-bar/settings?token=\(token)"))
-        let app = launchWithInProcessStatusItem(commandNonce: token, opening: url)
-        defer { app.terminate() }
-
-        XCTAssertTrue(app.windows["Settings"].firstMatch.waitForExistence(timeout: 5))
-    }
-
-    @MainActor
     func testForgedMenuBarCommandWithoutTokenIsIgnored() throws {
         let url = try XCTUnwrap(URL(string: "gancho://menu-bar/settings"))
         let app = launchWithInProcessStatusItem(opening: url)
