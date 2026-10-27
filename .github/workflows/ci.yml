@@ -254,10 +254,10 @@ jobs:
             -only-testing:GanchoUITests/LibrarySnippetDraftUITests/testFailedNavigationSaveKeepsEditedSnippet \
             -only-testing:GanchoUITests/ActivationFunnelUITests \
             -only-testing:GanchoUITests/SettingsPrivacyUITests/testStatusTilesAndThePrivacyCenterCard \
+            -only-testing:GanchoUITests/SettingsPrivacyUITests/testPrivateModeAutoOffDefaultsToOneHour \
             -only-testing:GanchoUITests/MigrationImportUITests/testOnboardingOffersGuidedMigration \
             -only-testing:GanchoUITests/MigrationImportUITests/testApprovedImportShowsFinalSummary \
             -only-testing:GanchoUITests/PanelUITests/testPanelShortcutRestoresAndRegistersOnLaunch \
-            -only-testing:GanchoUITests/MenuBarDeepLinkTests \
             -only-testing:GanchoUITests/MenuBarKeyEquivalentTests \
             -skip-testing:GanchoUITests/AppQualityUITests/testSettingsNavigationSpanishDark \
             -test-timeouts-enabled YES \
@@ -266,7 +266,7 @@ jobs:
             -resultBundlePath build/macos-ui.xcresult \
             2>&1 | tee build/macos-ui.log
 
-      - name: Require 21 passing macOS UI tests without skips
+      - name: Require 19 passing macOS UI tests without skips
         if: always()
         run: |
           ./scripts/collect-ui-test-evidence.sh \
@@ -276,7 +276,7 @@ jobs:
           from pathlib import Path
           summary = json.loads(Path('build/macos-ui-evidence/summary.json').read_text())
           assert summary['result'] == 'Passed', summary
-          assert summary['totalTestCount'] == summary['passedTests'] == 21, summary
+          assert summary['totalTestCount'] == summary['passedTests'] == 19, summary
           assert summary['failedTests'] == summary['skippedTests'] == summary['expectedFailures'] == 0, summary
           PY
 

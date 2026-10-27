@@ -151,31 +151,6 @@ enum GanchoMenuBarCommand: String, CaseIterable {
         }
     }
 
-    init?(deepLink url: URL) {
-        guard url.scheme == "gancho", url.host?.lowercased() == "menu-bar" else {
-            return nil
-        }
-        guard let rawValue = url.pathComponents.dropFirst().first else { return nil }
-        self.init(rawValue: rawValue)
-    }
-
-    /// The command a deep link asks for, only when it carries `nonce`, so a
-    /// forged gancho://menu-bar/... open from another app is ignored.
-    static func authorized(_ url: URL, nonce: String) -> GanchoMenuBarCommand? {
-        guard let command = GanchoMenuBarCommand(deepLink: url), token(in: url) == nonce else {
-            return nil
-        }
-        return command
-    }
-
-    /// The nonce stamped onto a command deep link, if present.
-    static func token(in url: URL) -> String? {
-        URLComponents(url: url, resolvingAgainstBaseURL: false)?
-            .queryItems?
-            .first { $0.name == "token" }?
-            .value
-    }
-
     func title(captureIsRunning: Bool?) -> String {
         guard self == .toggleCapture, let captureIsRunning else {
             return title

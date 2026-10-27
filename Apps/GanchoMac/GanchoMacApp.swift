@@ -36,8 +36,7 @@ struct GanchoMacApp: App {
 private enum GanchoRuntime {
     static var model: AppModel?
     static let statusItem = StatusItemController()
-    /// Per-launch nonce used to validate helper notifications and
-    /// `gancho://menu-bar/...` opens. A UI test can pin it via
+    /// Per-launch nonce used to validate helper notifications. A UI test can pin it via
     /// `-command-nonce <value>` without reading cross-process state.
     static let commandNonce: String = {
         let arguments = CommandLine.arguments
@@ -380,16 +379,6 @@ private enum GanchoDeepLinks {
 
     static func open(_ url: URL) {
         guard url.scheme == "gancho" else { return }
-
-        if GanchoMenuBarCommand(deepLink: url) != nil {
-            guard let model,
-                let command = GanchoMenuBarCommand.authorized(
-                    url, nonce: GanchoRuntime.commandNonce)
-            else { return }
-            command.perform(on: model)
-            GanchoRuntime.menuBarPublisher.publishNow()
-            return
-        }
 
         switch url.host?.lowercased() {
         case "settings":

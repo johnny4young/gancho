@@ -347,9 +347,8 @@ targets:
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) STANDALONE_MENU_BAR"
     sources:
       - path: Tests/GanchoUITests
-      # Pure values, unit-tested here without launching the app.
+      # A pure value type, unit-tested here without launching the app.
       - path: Apps/GanchoMac/MenuBarKeyEquivalent.swift
-      - path: Apps/GanchoMac/GanchoMenuBarCommand.swift
       - path: Packages/GanchoKit/Sources/GanchoKit/MenuBarBadge.swift
       - path: Packages/GanchoKit/Sources/GanchoDesign/MenuBarGlyph.swift
     dependencies:

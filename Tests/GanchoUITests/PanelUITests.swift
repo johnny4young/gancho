@@ -73,17 +73,6 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
-    func testForgedMenuBarCommandWithoutTokenIsIgnored() throws {
-        let url = try XCTUnwrap(URL(string: "gancho://menu-bar/settings"))
-        let app = launchWithInProcessStatusItem(opening: url)
-        defer { app.terminate() }
-
-        // A forged gancho://menu-bar/... open from another process carries no
-        // nonce, so the app must ignore it — the Settings window never appears.
-        XCTAssertFalse(app.windows["Settings"].firstMatch.waitForExistence(timeout: 3))
-    }
-
-    @MainActor
     func testMenuBarStatusItemResolvesToARealFrame() throws {
         let app = launchWithInProcessStatusItem()
         defer { app.terminate() }
@@ -173,18 +162,12 @@ final class PanelUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchWithInProcessStatusItem(
-        commandNonce: String? = nil,
-        opening deepLink: URL? = nil
-    ) -> XCUIApplication {
+    private func launchWithInProcessStatusItem() -> XCUIApplication {
         let app = GanchoUITestApplication()
         // Regular activation is a UI-test-only host requirement. On macOS 26 a
         // hidden accessory status item correctly triggers Gancho's production
         // terminationOnRemoval contract before XCUITest can attach.
         app.launchArguments = ["-open-panel-on-launch", "-use-in-process-status-item"]
-        app.launchArguments += commandNonce.map { ["-command-nonce", $0] } ?? []
-        app.launchArguments +=
-            deepLink.map { ["-open-deep-link-on-launch", $0.absoluteString] } ?? []
         app.launch()
         waitForAppToStart(app)
         _ = app.wait(for: .runningForeground, timeout: 5)
