@@ -1,17 +1,15 @@
 import XCTest
 
-/// The supported Sequoia floor, exercised deterministically on any host OS:
-/// `-simulate-sequoia-capabilities` forces the pre-26 capability answer, and
-/// the Intelligence window must explain that model-backed features require
-/// macOS 26 — a fact about this OS, not a generic "Apple Intelligence is off".
+/// `-simulate-model-unavailable` forces the unavailable answer on any host, and
+/// the Intelligence window must say that Apple Intelligence is the reason.
 final class IntelligenceCapabilityUITests: XCTestCase {
     @MainActor
-    func testSimulatedSequoiaExplainsTheMacOS26Requirement() throws {
+    func testUnavailableModelExplainsAppleIntelligence() throws {
         let app = try launchSettingsWindow(extraArguments: [
             "-use-temp-durable-store", "-start-capture-paused",
             "-ui-test-defaults-suite",
             "com.johnny4young.gancho.uitests.intelligence-capability",
-            "-simulate-sequoia-capabilities"
+            "-simulate-model-unavailable"
         ])
         defer { app.terminate() }
 
@@ -33,8 +31,8 @@ final class IntelligenceCapabilityUITests: XCTestCase {
         // accessibility roles may expose the same content through `label`.
         let noticeText = "\(notice.label) \(notice.value as? String ?? "")"
         XCTAssertTrue(
-            noticeText.contains("macOS 26"),
-            "the Sequoia notice must name the real requirement, got: \(noticeText)")
+            noticeText.contains("Apple Intelligence"),
+            "the notice must name Apple Intelligence, got: \(noticeText)")
     }
 
     @MainActor

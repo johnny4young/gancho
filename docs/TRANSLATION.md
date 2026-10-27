@@ -5,7 +5,7 @@ Smart Paste translation has two independent capabilities:
 - An installed source/target pair uses Apple's Translation framework on macOS 26 or iOS 26. It does not require Apple Intelligence.
 - The existing generative fallback is available only when Apple Intelligence is usable. Downloadable, unsupported or unidentified pairs cannot start this fallback without that capability.
 
-The native session's minimum version has not changed. Gancho still runs on macOS 15.4; this implementation does not promise native translation on that version. No language downloads are initiated automatically.
+No language downloads are initiated automatically.
 
 With Smart Paste enabled, the menu checks each destination for the current text. Unavailable destinations are disabled. Returning to the app or changing the text refreshes availability; execution checks again, since language assets can change after the menu opens.
 

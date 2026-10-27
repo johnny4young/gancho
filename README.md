@@ -39,7 +39,7 @@ and signed Sparkle feed are published; Homebrew distributes the same
 artifact and bundled CLI. iOS/iPadOS targets require iOS 26, but App Store and
 TestFlight distribution remain in preparation.
 
-**Validation boundary:** the signed two-Mac matrix, real Sequoia, VoiceOver and
+**Validation boundary:** the signed two-Mac matrix, VoiceOver and
 screen-capture permission/display acceptance remain pending after publication.
 Use disposable data and backups for those checks; green CI and artifact QA do
 not certify them. See the [release notes](docs/releases/v0.10.2.md),
@@ -246,7 +246,7 @@ stay in reusable modules.
 
 ## Build and run from source
 
-Prerequisites: macOS 15.4+ to run, Xcode 26+ to build, and
+Prerequisites: an Apple Silicon Mac with macOS 26+ to run, Xcode 26+ to build, and
 [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 Install SwiftLint (`brew install swiftlint`) for the lint check below.
 

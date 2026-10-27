@@ -22,7 +22,7 @@ jobs:
   bench:
     name: Scale budgets (100k clips)
     # Needs the Xcode 26 runner (SDK-26 APIs, iOS 26, and Swift 6.2);
-    # the macOS source floor remains 15.4, and macos-latest still lags.
+    # macos-latest still lags.
     runs-on: macos-26
     # Seeding 100k rows plus the budget suites runs about five minutes; this
     # only catches a hang.

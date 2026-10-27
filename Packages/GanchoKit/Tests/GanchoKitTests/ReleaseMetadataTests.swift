@@ -98,47 +98,21 @@ struct ReleaseMetadataTests {
         }
     }
 
-    /// The deployment-floor probe must exist, be executable, and keep its two
-    /// safety guarantees: it restores the manifest no matter how it exits, and
-    /// it probes each target separately (a whole-package build would stop at
-    /// the first blocker and hide the rest). The documented reality — the
-    /// source floor is macOS 15.4 with the FoundationModels tier and Liquid
-    /// Glass gated behind macOS 26 — is captured in docs/DEPLOYMENT-FLOOR.md
-    /// so a regression in that claim is reviewable.
-    @Test func deploymentFloorInventoryExistsAndIsSafe() throws {
-        let script = try Self.text("scripts", "check-deployment-floor.sh")
-        // Restore-on-exit is the load-bearing guarantee — a left-over lowered
-        // floor would silently change what every later build checks.
-        #expect(script.contains("trap restore EXIT"))
-        #expect(script.contains("trap 'exit 130' INT TERM"))
-        #expect(script.contains("swift build --target"))
-        #expect(script.contains("rewrite_manifest_floor"))
-        #expect(script.contains("probe_failures"))
-
-        let scriptURL = Self.repositoryRoot
-            .appendingPathComponent("scripts/check-deployment-floor.sh")
-        let isExecutable = FileManager.default.isExecutableFile(atPath: scriptURL.path)
-        #expect(isExecutable, "the floor inventory must be executable")
-
-        let process = Process()
-        process.executableURL = scriptURL
-        process.arguments = ["--self-test"]
-        process.currentDirectoryURL = Self.repositoryRoot
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        try process.run()
-        process.waitUntilExit()
-        let output =
-            String(
-                bytes: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        #expect(process.terminationStatus == 0, Comment(rawValue: output))
-
+    /// The floor is Apple Silicon on macOS 26: the build settings, the package
+    /// manifest, the appcast guard and the floor document must all say so.
+    @Test func deploymentFloorIsAppleSiliconOnMacOS26() throws {
+        let project = try Self.text("project.yml")
+        #expect(project.contains("macOS: \"26.0\""))
+        #expect(project.contains("ARCHS[sdk=macosx*]: arm64"))
+        #expect(!project.contains("\"15.4\""))
+        let package = try Self.text("Packages", "GanchoKit", "Package.swift")
+        #expect(package.contains(".macOS(.v26)"))
+        let appcast = try Self.text("scripts", "generate-appcast.sh")
+        #expect(appcast.contains("sparkle:hardwareRequirements"))
+        #expect(appcast.contains("sparkle:minimumSystemVersion"))
         let doc = try Self.text("docs", "DEPLOYMENT-FLOOR.md")
-        #expect(doc.contains("macOS 15.4 / iOS 26"))
+        #expect(doc.contains("`macOS 26 / iOS 26`"))
         #expect(doc.contains("The deployment target itself is the gate"))
-        #expect(doc.contains("FoundationModels"))
-        #expect(doc.contains("glassEffect"))
     }
 
     @Test func releaseWorkflowBuildsTheProfileBackedSignedDMG() throws {
@@ -231,8 +205,15 @@ struct ReleaseMetadataTests {
         let cask = try Self.text("packaging", "Casks", "gancho.rb")
         #expect(cask.contains("version \"\(version)\""))
         #expect(cask.contains("sha256 \"\(checksum)\""))
-        #expect(cask.contains("depends_on macos: :sequoia"))
-        #expect(cask.contains("Gancho requires macOS \(floor) or later."))
+        // The cask describes the published DMG: from the first macOS 26 release
+        // on, Homebrew must refuse Intel and pre-Tahoe Macs.
+        if floor.hasPrefix("15.") {
+            #expect(cask.contains("depends_on macos: :sequoia"))
+            #expect(cask.contains("Gancho requires macOS \(floor) or later."))
+        } else {
+            #expect(cask.contains("depends_on macos: :tahoe"))
+            #expect(cask.contains("depends_on arch: :arm64"))
+        }
         let feed = try Self.text("site", "appcast.xml")
         #expect(
             feed.contains("<sparkle:shortVersionString>\(version)</sparkle:shortVersionString>"))
@@ -250,7 +231,7 @@ struct ReleaseMetadataTests {
             in: project,
             pattern: #"(?m)^\s*MARKETING_VERSION:\s*"?([0-9]+\.[0-9]+\.[0-9]+)"?\s*$"#)
 
-        #expect(project.contains("macOS: \"15.4\""))
+        #expect(project.contains("macOS: \"26.0\""))
         #expect(project.contains("iOS: \"26.0\""))
         let publishedVersion = try Self.firstCapture(
             in: readme, pattern: #"\*\*Status: public v([0-9]+\.[0-9]+\.[0-9]+);"#)

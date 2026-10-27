@@ -11,8 +11,7 @@ import FoundationModels
 /// the answer isn't there — no hallucinated facts about the user's data.
 public struct ClipboardQAService: Sendable {
     public static var isAvailable: Bool {
-        guard #available(macOS 26.0, iOS 26.0, *) else { return false }
-        return SystemLanguageModel.default.availability == .available
+        IntelligenceCapability.isModelReady
     }
 
     private let maxSourceCharacters: Int
@@ -43,7 +42,7 @@ public struct ClipboardQAService: Sendable {
     /// an otherwise ordinary clip can never be disclosed, no matter what the
     /// question asks — the model never sees it.
     public func answer(question: String, sources: [String]) async throws -> String {
-        guard #available(macOS 26.0, iOS 26.0, *), Self.isAvailable else {
+        guard Self.isAvailable else {
             throw AnnotationError.backendUnavailable
         }
         let clipped = sources.prefix(maxSources).map {

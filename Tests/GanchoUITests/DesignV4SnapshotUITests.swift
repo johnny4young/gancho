@@ -54,7 +54,7 @@ final class DesignV4SnapshotUITests: XCTestCase {
 
     @MainActor private func intelligence(appearance: String) throws {
         let app = try launchSettingsWindow(
-            extraArguments: stableArguments(appearance) + ["-simulate-sequoia-capabilities"])
+            extraArguments: stableArguments(appearance) + ["-simulate-model-unavailable"])
         defer { app.terminate() }
         app.buttons["settings-tab-capture"].firstMatch.click()
         let open = app.buttons["open-intelligence"].firstMatch

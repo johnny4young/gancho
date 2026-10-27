@@ -1,7 +1,7 @@
 # Copy text from the screen
 
 macOS feature since v0.8.3, available on the Free tier. Automatic searchable-image
-indexing remains a separate Pro feature. This action requires macOS 15.4 or later.
+indexing remains a separate Pro feature. This action requires macOS 26 or later.
 
 ## Select and copy
 

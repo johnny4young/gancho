@@ -178,6 +178,12 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
   private mode", and the peek says previews are hidden and pasting still
   works.
 
+### Removed
+
+- Support for Intel Macs and macOS 15. Gancho now needs an Apple Silicon Mac
+  with macOS 26 or later. Macs that can't run it stay on 0.10.2 and aren't
+  offered the update.
+
 ### Fixed
 
 - Warning text and status icons (expiry countdowns, denied requests, sync and
