@@ -56,12 +56,9 @@ public enum SmartPasteAction: String, CaseIterable, Sendable, Identifiable {
 public struct SmartPasteService: Sendable {
     /// Cheap availability gate the UI uses for model-backed rewrites and
     /// translations. Deterministic PII redaction does not require this to be
-    /// true. Below macOS/iOS 26 the Foundation Models tier does not exist, so
-    /// this is `false` there — the same degradation the UI already shows when
-    /// Apple Intelligence is switched off.
+    /// true.
     public static var isAvailable: Bool {
-        guard #available(macOS 26.0, iOS 26.0, *) else { return false }
-        return SystemLanguageModel.default.availability == .available
+        IntelligenceCapability.isModelReady
     }
 
     /// Input is clamped so prompt + completion fit the system model's shared
@@ -180,7 +177,7 @@ public struct SmartPasteService: Sendable {
         // Redaction is deterministic and on-device: it must preserve the text
         // exactly except for PII, and must not depend on the model running.
         if action == .redactPII { return PIIRedactor.redact(text) }
-        guard #available(macOS 26.0, iOS 26.0, *), Self.isAvailable else {
+        guard Self.isAvailable else {
             throw AnnotationError.backendUnavailable
         }
         // Structural secret redaction BEFORE the model sees the text — a

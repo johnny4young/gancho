@@ -72,7 +72,6 @@ onboarding, Settings, and migration regressions. Both run on pull requests;
 `main` does not rerun them, because a pull request must be up to date to merge.
 KeyboardShortcuts remains pinned to the unmodified 3.0.1 release.
 
-The panel's surface, search lifecycle, and sheets are separate SwiftUI expressions
-so the stable macOS 15 compiler can type-check them. Disk image packaging and
+Disk image packaging and
 read-only inspection prefer the supported `diskutil image` commands when available,
 with `hdiutil` compatibility on older systems; inspection volumes use `diskutil eject`.

@@ -107,8 +107,8 @@ uses the dependency's native conflict handling. The compiled Gancho conflict
 checker is called for successful synthetic chords; its full reserved-system
 shortcut table is not exercised by this fixture. The gate does not host the actual
 Settings or onboarding views, execute Gancho's paste/capture actions, start its
-composition root, or prove helper/APNs/StoreKit/Sparkle startup. Minimum macOS
-15.4 and physical/function-key routes need their own runtime evidence.
+composition root, or prove helper/APNs/StoreKit/Sparkle startup. Physical and
+function-key routes need their own runtime evidence.
 
 Before the shared integration, the signed macOS 26.6.2 run on exact 3.0.1 passed four recorder cases. The
 unchanged-binding case remained in recording mode with zero changes/actions

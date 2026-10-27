@@ -34,7 +34,7 @@ forbid_regex() {
 	fi
 }
 
-require_literal project.yml 'macOS: "15.4"'
+require_literal project.yml 'macOS: "26.0"'
 require_literal project.yml 'iOS: "26.0"'
 # Publication is independent of MARKETING_VERSION. The README names the verified
 # public tag; its retained release notes define that download's supported floor.
@@ -59,8 +59,15 @@ published_sha="$(sed -nE 's/^SHA-256: `([a-f0-9]{64})`.*/\1/p' "$published_notes
 [[ -n "$published_sha" ]] || fail "published release notes must state the DMG checksum"
 require_literal packaging/Casks/gancho.rb "version \"${published_version}\""
 require_literal packaging/Casks/gancho.rb "sha256 \"${published_sha}\""
-require_literal packaging/Casks/gancho.rb 'depends_on macos: :sequoia'
-require_literal packaging/Casks/gancho.rb "Gancho requires macOS ${published_floor} or later."
+# The cask describes the published DMG; from the first macOS 26 release on it
+# must refuse Intel and pre-Tahoe Macs.
+if [[ "$published_floor" == 15.* ]]; then
+	require_literal packaging/Casks/gancho.rb 'depends_on macos: :sequoia'
+	require_literal packaging/Casks/gancho.rb "Gancho requires macOS ${published_floor} or later."
+else
+	require_literal packaging/Casks/gancho.rb 'depends_on macos: :tahoe'
+	require_literal packaging/Casks/gancho.rb 'depends_on arch: :arm64'
+fi
 
 require_literal README.md 'eight library products + a CLI'
 require_literal README.md 'disabled until explicit consent'

@@ -101,7 +101,7 @@ if args.snapshots:
     snapshot_target = ',\n        .executableTarget(name: "SearchFailureSnapshots", dependencies: ["GanchoDesign", "GanchoKit"])'
 (root / "Package.swift").write_text('''// swift-tools-version: 6.2
 import PackageDescription
-let package = Package(name: "SearchOutcomeRegression", platforms: [.macOS("15.4")], dependencies: [
+let package = Package(name: "SearchOutcomeRegression", platforms: [.macOS("26.0")], dependencies: [
 ''' + dependencies + '''
     ], targets: [
         .target(name: "GanchoKit", dependencies: [.product(name: "GRDB", package: "GRDB.swift")], swiftSettings: [.define("SQLITE_HAS_CODEC")]),

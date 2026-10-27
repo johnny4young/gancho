@@ -6,7 +6,7 @@ import PackageDescription
 // Testing, which swift-snapshot-testing imports. Run through `make test-snapshots`.
 let package = Package(
     name: "DesignSnapshots",
-    platforms: [.macOS("15.4")],
+    platforms: [.macOS("26.0")],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", exact: "1.19.7")
     ],

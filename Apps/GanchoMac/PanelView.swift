@@ -197,7 +197,7 @@ struct PanelView: View {
 
     var body: some View {
         // Keep lifecycle, surface, search updates, and sheets in separate expressions
-        // so the panel also type-checks with the stable macOS 15 toolchain.
+        // so the panel type-checks in reasonable time.
         panelContent
             .environment(\.panelTypeScale, PanelTextSize.resolved(panelTextSizeRaw).scale)
             // A capture must not swap the peek, an inline edit or the board picker's
