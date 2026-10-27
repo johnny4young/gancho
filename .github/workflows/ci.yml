@@ -1,4 +1,5 @@
-# CI: lint + package tests + app builds.
+# CI: lint + package tests on every event; app builds and UI regressions on
+# pull requests that touch the app, all in one wave of macOS runners.
 # Weekly run catches macOS runner-image drift before it bites a release.
 name: CI
 
@@ -19,6 +20,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Ubuntu decides whether the macOS app jobs run, so a docs-only PR and the
+  # push after a merge (its tree was already tested as an up-to-date PR) do not
+  # queue behind the account's few concurrent macOS runners. A skipped required
+  # job counts as passing.
+  changes:
+    name: Detect app changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      app: ${{ steps.diff.outputs.app }}
+    steps:
+      - id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          case "$EVENT" in
+            push) echo "app=false" >> "$GITHUB_OUTPUT"; exit 0 ;;
+            pull_request) ;;
+            *) echo "app=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+          esac
+          # Fail open: an API error runs everything.
+          if ! files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename'); then
+            echo "app=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          app=false
+          while IFS= read -r file; do
+            case "$file" in
+              *.md | docs/* | site/* | LICENSE) ;;
+              *) app=true ;;
+            esac
+          done <<< "$files"
+          echo "$files"
+          echo "app=$app" | tee -a "$GITHUB_OUTPUT"
+
   test:
     name: Lint, package tests & coverage
     # The source uses macOS/iOS 26 APIs and keeps iOS at 26, while Swift 6.2
@@ -103,16 +144,49 @@ jobs:
           # rather than the following Wednesday.
           ./scripts/report-apps-coverage.sh --self-test
 
+      # Pull requests can restore only caches saved on main, and main no longer
+      # runs the app jobs, so save the resolved app packages here on a miss.
+      - name: Look up resolved app packages
+        id: app-packages
+        if: github.event_name == 'push'
+        uses: actions/cache/restore@v6
+        with:
+          path: build/xcode-packages
+          key: xcode-spm-${{ runner.os }}-${{ hashFiles('Dependencies/Package.resolved') }}
+          lookup-only: true
+
+      - name: Resolve app packages for pull requests
+        if: github.event_name == 'push' && steps.app-packages.outputs.cache-hit != 'true'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: |
+          brew install xcodegen
+          make project
+          xcodebuild -resolvePackageDependencies -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages \
+            -project Gancho.xcodeproj -scheme Gancho
+
+      - name: Save resolved app packages
+        if: github.event_name == 'push' && steps.app-packages.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: build/xcode-packages
+          key: xcode-spm-${{ runner.os }}-${{ hashFiles('Dependencies/Package.resolved') }}
+
   build-apps:
     name: Build macOS + iOS apps
-    # The macOS floor is 15.4, but the source uses SDK-26 APIs and iOS stays at
-    # 26, so this still needs an Xcode 26 runner image. Pin it explicitly.
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    # SDK-26 APIs and Swift 6.2 need the Xcode 26 runner image. Pin it explicitly.
     runs-on: macos-26
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
       # Route the StoreKit step's `make test-storekit` into the same cloned
-      # package directory as the two builds below, so the whole job resolves
+      # package directory as the builds below, so the whole job resolves
       # the dependency graph once. The Makefile declares this with `?=`, so the
       # environment wins.
       XCODE_PACKAGE_FLAGS: >-
@@ -121,10 +195,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # This job never runs `swift build/test`, so `Packages/GanchoKit/.build`
-      # is not the directory to cache: xcodebuild resolves the app-wide graph
-      # into its cloned-source-packages directory instead. Keyed on the app
-      # lock, which is what pins that graph. The bulk of it is the GRDB fork's
+      # xcodebuild resolves the app-wide graph into its cloned-source-packages
+      # directory, keyed on the app lock. The bulk of it is the GRDB fork's
       # history, which is otherwise re-cloned on every run.
       - name: Cache resolved Swift packages
         uses: actions/cache@v6
@@ -132,54 +204,209 @@ jobs:
           path: build/xcode-packages
           key: xcode-spm-${{ runner.os }}-${{ hashFiles('Dependencies/Package.resolved') }}
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
-          HOMEBREW_NO_INSTALL_CLEANUP: "1"
-
-      # Fetch the embedded Sparkle.framework (git-ignored Vendor/) so the macOS
-      # link step resolves `-framework Sparkle`. Mirrors `make project`.
-      - name: Fetch Sparkle framework
-        run: ./scripts/fetch-sparkle.sh
-
       - name: Generate project
-        run: xcodegen generate
+        run: |
+          brew install xcodegen
+          make project
+
+      - name: Verify evidence collector
+        run: ./scripts/collect-ui-test-evidence.sh --self-test
 
       - name: StoreKit purchase and entitlement tests
         run: |
           ./scripts/run-storekit-tests-ci.sh --self-test
           ./scripts/run-storekit-tests-ci.sh
 
-      - name: Build macOS app
+      # Signed ad hoc like the StoreKit host above, so this one build serves
+      # both the warning gate and the UI regressions.
+      - name: Build macOS app and UI tests
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild $XCODE_PACKAGE_FLAGS \
+            build-for-testing -project Gancho.xcodeproj -scheme Gancho \
+            -destination 'platform=macOS,arch=arm64' \
+            -resultBundlePath build/mac.xcresult \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= \
+            ENABLE_HARDENED_RUNTIME=NO \
+            2>&1 | tee build/mac-build.log
+          ./scripts/check-build-warnings.sh build/mac-build.log
+
+      - name: Run macOS UI regressions
+        env:
+          TEST_RUNNER_GANCHO_UI_ADHOC_SIGNING: "1"
+        run: |
+          set -o pipefail
+          xcodebuild $XCODE_PACKAGE_FLAGS \
+            test-without-building -project Gancho.xcodeproj -scheme Gancho \
+            -destination 'platform=macOS,arch=arm64' \
+            -parallel-testing-enabled NO \
+            -only-testing:GanchoUITests/AppQualityUITests \
+            -only-testing:GanchoUITests/ProductScreensUITests \
+            -only-testing:GanchoUITests/VisualLibraryUITests \
+            -only-testing:GanchoUITests/PanelDisplayPreferencesUITests \
+            -only-testing:GanchoUITests/LibrarySnippetDraftUITests/testTypedBodySurvivesRefreshAndSavesOnSelectionChange \
+            -only-testing:GanchoUITests/LibrarySnippetDraftUITests/testFailedNavigationSaveKeepsEditedSnippet \
+            -only-testing:GanchoUITests/ActivationFunnelUITests \
+            -only-testing:GanchoUITests/SettingsPrivacyUITests \
+            -only-testing:GanchoUITests/MigrationImportUITests \
+            -only-testing:GanchoUITests/PanelUITests/testPanelShortcutRestoresAndRegistersOnLaunch \
+            -only-testing:GanchoUITests/PanelUITests/testSettingsDeepLinkOpensSettingsWindow \
+            -only-testing:GanchoUITests/PanelUITests/testMenuBarCommandDeepLinkOpensSettingsWindow \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 \
+            -resultBundlePath build/macos-ui.xcresult \
+            2>&1 | tee build/macos-ui.log
+
+      - name: Require 26 passing macOS UI tests without skips
+        if: always()
+        run: |
+          ./scripts/collect-ui-test-evidence.sh \
+            build/macos-ui.xcresult "macOS UI regressions" build/macos-ui-evidence
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(Path('build/macos-ui-evidence/summary.json').read_text())
+          assert summary['result'] == 'Passed', summary
+          assert summary['totalTestCount'] == summary['passedTests'] == 26, summary
+          assert summary['failedTests'] == summary['skippedTests'] == summary['expectedFailures'] == 0, summary
+          PY
+
+      - name: Build iOS app
+        run: |
+          set -o pipefail
+          xcodebuild $XCODE_PACKAGE_FLAGS \
+            -project Gancho.xcodeproj -scheme GanchoiOS -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            -resultBundlePath build/ios.xcresult \
+            COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO build \
+            2>&1 | tee build/ios-build.log
+          ./scripts/check-build-warnings.sh build/ios-build.log
+
+      - name: Preserve macOS evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-apps-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/*.log
+            build/*.xcresult
+            build/macos-ui-evidence
+          retention-days: 14
+
+  ios-ui:
+    name: iOS suggestion accessibility and toolbar
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache resolved packages
+        uses: actions/cache@v6
+        with:
+          path: build/xcode-packages
+          key: xcode-spm-${{ runner.os }}-${{ hashFiles('Dependencies/Package.resolved') }}
+
+      # Booting takes about two minutes; it overlaps the build instead.
+      - name: Start an available iPhone simulator
+        run: |
+          ./scripts/warm-ios-simulator.sh --self-test
+          runtime=$(xcrun simctl list runtimes available -j \
+            | jq -r '[.runtimes[] | select(.platform == "iOS")] | sort_by(.version) | last | .identifier')
+          simulator=$(xcrun simctl list devices available -j \
+            | jq -r --arg runtime "$runtime" \
+              '.devices[$runtime] | map(select(.name | startswith("iPhone"))) | first | .udid')
+          if [[ -z "$runtime" || "$runtime" == "null" || \
+                -z "$simulator" || "$simulator" == "null" ]]; then
+            echo "::error::No available iOS iPhone simulator was found"
+            exit 1
+          fi
+          echo "IOS_SIMULATOR_UDID=$simulator" >> "$GITHUB_ENV"
+          xcrun simctl boot "$simulator" 2>/dev/null || true
+
+      - name: Generate project
+        run: |
+          brew install xcodegen
+          make project
+          ./scripts/collect-ui-test-evidence.sh --self-test
+
+      - name: Build the app and UI test runner
         run: |
           mkdir -p build
           set -o pipefail
           xcodebuild -disableAutomaticPackageResolution \
             -clonedSourcePackagesDirPath build/xcode-packages \
-            -project Gancho.xcodeproj -scheme Gancho -configuration Debug \
-            -resultBundlePath build/mac.xcresult CODE_SIGNING_ALLOWED=NO build \
-            2>&1 | tee build/mac-build.log
-          ./scripts/check-build-warnings.sh build/mac-build.log
+            build-for-testing -project Gancho.xcodeproj -scheme GanchoiOS \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
+            COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build/ios-reuse-build.log
 
-      - name: Build iOS app
+      - name: Wait for the simulator to finish booting
+        run: xcrun simctl bootstatus "$IOS_SIMULATOR_UDID" -b
+
+      - name: Warm the simulator with an unmeasured UI launch
+        timeout-minutes: 8
+        continue-on-error: true
+        run: |
+          ./scripts/warm-ios-simulator.sh warm "$IOS_SIMULATOR_UDID" build \
+            -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath build/xcode-packages
+
+      - name: Stop anything the warm-up left running
+        run: ./scripts/warm-ios-simulator.sh stop "$IOS_SIMULATOR_UDID"
+
+      - name: Run both reuse interactions
         run: |
           set -o pipefail
           xcodebuild -disableAutomaticPackageResolution \
             -clonedSourcePackagesDirPath build/xcode-packages \
-            -project Gancho.xcodeproj -scheme GanchoiOS -configuration Debug \
-            -destination 'generic/platform=iOS' \
-            -resultBundlePath build/ios.xcresult CODE_SIGNING_ALLOWED=NO build \
-            2>&1 | tee build/ios-build.log
-          ./scripts/check-build-warnings.sh build/ios-build.log
+            test-without-building -project Gancho.xcodeproj -scheme GanchoiOS \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_UDID" \
+            -only-testing:GanchoiOSUITests/ReuseSuggestionUITests \
+            -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 \
+            -resultBundlePath build/ios-reuse.xcresult \
+            2>&1 | tee build/ios-reuse.log
 
-      - name: Upload result bundles (on failure)
-        if: failure()
+      - name: Require two passing cases without skips
+        if: always()
+        run: |
+          ./scripts/collect-ui-test-evidence.sh \
+            build/ios-reuse.xcresult "iOS suggestion accessibility and toolbar" build/ios-reuse-evidence
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(Path('build/ios-reuse-evidence/summary.json').read_text())
+          assert summary['result'] == 'Passed', summary
+          assert summary['totalTestCount'] == summary['passedTests'] == 2, summary
+          assert summary['failedTests'] == summary['skippedTests'] == summary['expectedFailures'] == 0, summary
+          PY
+
+      - name: Preserve iOS evidence
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: xcresults-${{ github.run_id }}
-          path: build/*.xcresult
-          retention-days: 7
+          name: ios-ui-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/ios-reuse-build.log
+            build/ios-warm-up-*.log
+            build/ios-warm-up-*.xcresult
+            build/ios-reuse.log
+            build/ios-reuse.xcresult
+            build/ios-reuse-evidence
+          retention-days: 14
 
   # Forward-compat canary: build against the NEXT Xcode/SDK when the runner
   # image carries a beta. Never blocking, never on PRs (weekly + manual only)
