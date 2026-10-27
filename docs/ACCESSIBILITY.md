@@ -37,8 +37,9 @@ that complements the automated checks.
   commands are inactive while a dialog owns the keyboard. The iOS curation
   suggestion reserves space above the history toolbar instead of covering it.
 
-The `app-quality.yml` hosted gate requires fifteen interface regressions with
-zero failures or skips, including English/light and Spanish/dark Settings,
+The required `Build macOS + iOS apps` job in `ci.yml` runs the interface
+regressions with zero failures or skips, including English/light and
+Spanish/dark Settings,
 large panel text, gallery/list previews, live Library curation, draft-preserving
 navigation, and a twenty-field template with reachable actions. The iOS reuse
 gate requires both reuse interactions to pass without skips and checks that

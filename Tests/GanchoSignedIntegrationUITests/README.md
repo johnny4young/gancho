@@ -6,16 +6,15 @@ through `.github/workflows/signed-handoff.yml` on disposable GitHub-hosted
 machines. The test driver, permission preparation, and signing script reject
 ordinary local execution.
 
-The workflow runs both native architectures by default: `arm64` on `macos-26`
-and `x86_64` on `macos-26-intel`, using Xcode 26.6. A manual dispatch can select
-one architecture for diagnosis. Each architecture keeps its own artifacts.
+The workflow runs on `arm64` (`macos-26`, Xcode 26.6), the only architecture
+Gancho supports.
 Signing uses the existing repository certificate in a temporary hosted keychain.
 Signed jobs run for this repository's branches; fork PRs retain the independent
 ordinary build and startup checks without access to the signing certificate.
 
 ## Required cases
 
-Each architecture must report exactly four passing cases, with zero failures,
+The run must report exactly four passing cases, with zero failures,
 skips, or expected failures:
 
 - Double-click a real history row and receive exactly one paste in the other app.
@@ -68,9 +67,9 @@ and signature/driver metadata for 14 days. Certificate files, keychains, and app
 binaries are not uploaded. Temporary signing material is removed on success or
 failure. These are integration checks, not notarization or release publication.
 
-The separate `stability-smoke.yml` workflow requires eleven startup, onboarding,
-Settings, and migration regressions on each of macOS 15/Xcode 26.3 and
-macOS 26/Xcode 26.6. Both workflows run on PRs and relevant `main` updates.
+The required `Build macOS + iOS apps` job in `ci.yml` also runs the startup,
+onboarding, Settings, and migration regressions. Both run on pull requests;
+`main` does not rerun them, because a pull request must be up to date to merge.
 KeyboardShortcuts remains pinned to the unmodified 3.0.1 release.
 
 Disk image packaging and
