@@ -15,10 +15,10 @@ on:
 permissions:
   contents: read
 
-# A newer push supersedes a pull request's run, but every merge to main keeps
-# its own post-merge iOS validation.
+# A newer push supersedes a pull request's run. Push runs need unique groups:
+# even with cancellation disabled, a shared group replaces its pending run.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'push' && github.run_id || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

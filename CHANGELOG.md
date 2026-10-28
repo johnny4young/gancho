@@ -186,6 +186,9 @@ and release versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Each push to main keeps its CI run, so a later docs-only merge cannot replace
+  a pending code merge's post-merge iOS validation. PR updates still cancel
+  superseded runs for the same PR.
 - Warning text and status icons (expiry countdowns, denied requests, sync and
   capture status) are readable on light surfaces instead of pale amber or
   green.
