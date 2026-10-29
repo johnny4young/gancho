@@ -15,11 +15,11 @@ on:
 permissions:
   contents: read
 
-# A newer push supersedes a pull request's run, but every merge to main keeps
-# its own post-merge iOS validation.
+# A newer push supersedes a pull request's run. Every other run gets its own
+# group: a shared group drops its pending run even without cancel-in-progress.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   # Ubuntu decides whether the macOS app jobs run, so docs-only changes do not
