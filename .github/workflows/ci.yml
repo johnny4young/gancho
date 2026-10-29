@@ -253,6 +253,7 @@ jobs:
             -destination 'platform=macOS,arch=arm64' \
             -parallel-testing-enabled NO \
             -only-testing:GanchoUITests/AppQualityUITests \
+            -only-testing:GanchoUITests/BoardNameUITests \
             -only-testing:GanchoUITests/VisualLibraryUITests \
             -only-testing:GanchoUITests/PanelDisplayPreferencesUITests/testPanelSizeAndTextSizePersistAcrossRelaunch \
             -only-testing:GanchoUITests/LibrarySnippetDraftUITests/testTypedBodySurvivesRefreshAndSavesOnSelectionChange \
