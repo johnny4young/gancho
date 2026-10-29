@@ -91,6 +91,31 @@ final class IOSFlowsV4UITests: XCTestCase {
     }
 
     @MainActor
+    func testNewBoardNeedsANameBeforeCreate() throws {
+        let app = try launch([])
+        defer { app.terminate() }
+        app.buttons["boards-home-open"].firstMatch.tap()
+        let newBoard = app.buttons["boards-home-new"].firstMatch
+        for _ in 0..<3 where !newBoard.isHittable { app.swipeUp() }
+        XCTAssertTrue(newBoard.waitForExistence(timeout: 5))
+        newBoard.tap()
+        let field = app.alerts.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let create = app.alerts.buttons["Create"].firstMatch
+        XCTAssertFalse(create.isEnabled, "an empty name can't be created")
+        field.tap()
+        field.typeText("   ")
+        XCTAssertFalse(create.isEnabled, "spaces aren't a name")
+        field.typeText("Trips ")
+        XCTAssertTrue(create.isEnabled)
+        create.tap()
+        let board = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'boards-home-' AND label CONTAINS 'Trips'")
+        ).firstMatch
+        XCTAssertTrue(board.waitForExistence(timeout: 5), "the trimmed name is created")
+    }
+
+    @MainActor
     func testSettingsShowStatusAndCapturePaths() throws {
         let app = try launch(["-force-free-tier"])
         defer { app.terminate() }
