@@ -71,12 +71,19 @@ final class BoardNameUITests: XCTestCase {
         _ app: XCUIApplication, language: String, rename: Bool = false
     ) throws {
         let field = prompt(app)
+        XCTAssertTrue(
+            SynthesizedInput.waitForKeyboardFocus(field, timeout: 2),
+            "the native name prompt must initially focus its text field")
         try typeTextReliably("", into: field, in: app)
         let confirm = confirmation(app, language: language, rename: rename)
         XCTAssertTrue(confirm.exists)
         try keepRender(of: "@sheet", in: app, named: "\(language) blank board name")
         XCTAssertFalse(
             confirm.isEnabled, "a blank name must disable confirmation before submission")
+        let guidance =
+            language == "en"
+            ? "Enter a name for this board." : "Escribe un nombre para este tablero."
+        XCTAssertTrue(app.dialogs.staticTexts[guidance].firstMatch.exists)
         app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(field.exists, "Return on an empty draft must preserve the prompt")
         try typeTextReliably("   ", into: field, in: app)
@@ -86,6 +93,8 @@ final class BoardNameUITests: XCTestCase {
         app.typeKey(.tab, modifierFlags: [])
         XCTAssertTrue(field.exists, "Tab navigation must preserve the draft")
         XCTAssertFalse(confirm.isEnabled)
+        XCTAssertFalse(
+            SynthesizedInput.hasKeyboardFocus(confirm), "Tab must skip disabled confirmation")
     }
 
     @MainActor
@@ -102,7 +111,7 @@ final class BoardNameUITests: XCTestCase {
 
         newBoard.click()
         let name = "Café 日本語"
-        try typeTextReliably(name, into: prompt(app), in: app)
+        try typeTextReliably("  " + name + "  ", into: prompt(app), in: app)
         XCTAssertTrue(confirmation(app, language: language).isEnabled)
         app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(app.dialogs.firstMatch.waitForNonexistence(timeout: 5))

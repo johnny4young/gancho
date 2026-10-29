@@ -60,6 +60,10 @@ struct PanelSheetPresentations: ViewModifier {
                 TextField("Board name", text: $boardNameField)
                 Button("Cancel", role: .cancel) {}
                 Button(boardSheetConfirm) { commitBoardSheet() }
+                    .disabled(
+                        boardNameField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } message: {
+                Text("Enter a name for this board.")
             }
             .confirmationDialog(
                 "Delete this board?",
