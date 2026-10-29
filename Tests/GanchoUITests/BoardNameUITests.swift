@@ -83,7 +83,7 @@ final class BoardNameUITests: XCTestCase {
         let guidance =
             language == "en"
             ? "Enter a name for this board." : "Escribe un nombre para este tablero."
-        XCTAssertTrue(app.dialogs.staticTexts[guidance].firstMatch.exists)
+        XCTAssertTrue(app.sheets.staticTexts[guidance].firstMatch.exists)
         app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(field.exists, "Return on an empty draft must preserve the prompt")
         try typeTextReliably("   ", into: field, in: app)
