@@ -157,6 +157,7 @@ struct LibraryView: View {
             TextField("Board name", text: $boardNameField)
             Button("Cancel", role: .cancel) {}
             Button(boardSheetConfirm) { commitLibraryBoardSheet() }
+                .disabled(BoardsController.boardName(boardNameField) == nil)
         }
         .confirmationDialog(
             "Delete this board?",

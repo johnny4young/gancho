@@ -597,6 +597,14 @@ struct BoardNameRuleTests {
         Pinboard(name: "Work", isSystem: system)
     }
 
+    @Test("A prompt's name is trimmed, and blank once trimmed means none")
+    func boardNameTrimsAndRefusesBlank() {
+        for blank in ["", "   ", "\n", " \t "] {
+            #expect(BoardsController.boardName(blank) == nil, "\(blank.debugDescription)")
+        }
+        #expect(BoardsController.boardName("  Café 日本語\n") == "Café 日本語")
+    }
+
     @Test("A blank name creates nothing and is not an error")
     func blankNameCreatesNothing() async {
         for blank in ["", "   ", "\n", " \t "] {
