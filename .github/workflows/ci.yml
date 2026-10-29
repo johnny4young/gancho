@@ -253,6 +253,8 @@ jobs:
             -destination 'platform=macOS,arch=arm64' \
             -parallel-testing-enabled NO \
             -only-testing:GanchoUITests/AppQualityUITests \
+            -only-testing:GanchoUITests/BoardNameUITests/testLibraryBoardNamesEnglish \
+            -only-testing:GanchoUITests/BoardNameUITests/testPanelBoardNamesEnglish \
             -only-testing:GanchoUITests/VisualLibraryUITests \
             -only-testing:GanchoUITests/PanelDisplayPreferencesUITests/testPanelSizeAndTextSizePersistAcrossRelaunch \
             -only-testing:GanchoUITests/LibrarySnippetDraftUITests/testTypedBodySurvivesRefreshAndSavesOnSelectionChange \
@@ -271,7 +273,7 @@ jobs:
             -resultBundlePath build/macos-ui.xcresult \
             2>&1 | tee build/macos-ui.log
 
-      - name: Require 19 passing macOS UI tests without skips
+      - name: Require 21 passing macOS UI tests without skips
         if: always()
         run: |
           ./scripts/collect-ui-test-evidence.sh \
@@ -281,7 +283,7 @@ jobs:
           from pathlib import Path
           summary = json.loads(Path('build/macos-ui-evidence/summary.json').read_text())
           assert summary['result'] == 'Passed', summary
-          assert summary['totalTestCount'] == summary['passedTests'] == 19, summary
+          assert summary['totalTestCount'] == summary['passedTests'] == 21, summary
           assert summary['failedTests'] == summary['skippedTests'] == summary['expectedFailures'] == 0, summary
           PY
 

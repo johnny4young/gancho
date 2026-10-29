@@ -428,8 +428,7 @@ extension LibraryView {
     }
 
     func commitLibraryBoardSheet() {
-        let name = boardNameField.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return }
+        guard let name = BoardsController.boardName(boardNameField) else { return }
         let sheet = boardSheet
         boardSheet = nil
         switch sheet {
