@@ -42,14 +42,14 @@ final class BoardNameUITests: XCTestCase {
         let window =
             library
             ? app.windows[language == "en" ? "Library" : "Biblioteca"].firstMatch
-            : app.windows["history-panel"].firstMatch
+            : app.descendants(matching: .any)["history-panel"].firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 5))
         return (app, window)
     }
 
     @MainActor
     private func prompt(_ app: XCUIApplication) -> XCUIElement {
-        let field = app.dialogs.textFields.firstMatch
+        let field = app.sheets.textFields.firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5), "the native name prompt must open")
         return field
     }
@@ -63,7 +63,7 @@ final class BoardNameUITests: XCTestCase {
         let title =
             rename
             ? (language == "en" ? "Rename" : "Renombrar") : (language == "en" ? "Create" : "Crear")
-        return app.dialogs.buttons[title].firstMatch
+        return app.sheets.buttons[title].firstMatch
     }
 
     @MainActor
@@ -98,14 +98,14 @@ final class BoardNameUITests: XCTestCase {
         newBoard.click()
         try rejectEmptyDrafts(app, language: language)
         app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(app.dialogs.firstMatch.waitForNonexistence(timeout: 3))
+        XCTAssertTrue(app.sheets.firstMatch.waitForNonexistence(timeout: 3))
 
         newBoard.click()
         let name = "Café 日本語"
         try typeTextReliably(name, into: prompt(app), in: app)
         XCTAssertTrue(confirmation(app, language: language).isEnabled)
         app.typeKey(.return, modifierFlags: [])
-        XCTAssertTrue(app.dialogs.firstMatch.waitForNonexistence(timeout: 5))
+        XCTAssertTrue(app.sheets.firstMatch.waitForNonexistence(timeout: 5))
         let board = board(named: name, in: window, library: library)
         XCTAssertTrue(board.waitForExistence(timeout: 5), "the Unicode board must be created")
         XCTAssertEqual(
@@ -119,7 +119,7 @@ final class BoardNameUITests: XCTestCase {
         app.menuItems[language == "en" ? "Rename board…" : "Renombrar tablero…"].firstMatch.click()
         try rejectEmptyDrafts(app, language: language, rename: true)
         try typeTextReliably("Cancelled", into: prompt(app), in: app)
-        app.dialogs.buttons[language == "en" ? "Cancel" : "Cancelar"].firstMatch.click()
+        app.sheets.buttons[language == "en" ? "Cancel" : "Cancelar"].firstMatch.click()
         XCTAssertTrue(board.exists, "cancelling rename must retain the original board")
 
         board.rightClick()
@@ -128,7 +128,7 @@ final class BoardNameUITests: XCTestCase {
         try typeTextReliably(renamed, into: prompt(app), in: app)
         XCTAssertTrue(confirmation(app, language: language, rename: true).isEnabled)
         app.typeKey(.return, modifierFlags: [])
-        XCTAssertTrue(app.dialogs.firstMatch.waitForNonexistence(timeout: 5))
+        XCTAssertTrue(app.sheets.firstMatch.waitForNonexistence(timeout: 5))
         XCTAssertTrue(
             self.board(named: renamed, in: window, library: library).waitForExistence(timeout: 5))
         XCTAssertFalse(board.exists)
@@ -168,7 +168,7 @@ final class BoardNameUITests: XCTestCase {
         try rejectEmptyDrafts(app, language: language)
         try typeTextReliably("Clip café", into: prompt(app), in: app)
         app.typeKey(.return, modifierFlags: [])
-        XCTAssertTrue(app.dialogs.firstMatch.waitForNonexistence(timeout: 5))
+        XCTAssertTrue(app.sheets.firstMatch.waitForNonexistence(timeout: 5))
         let board = board(named: "Clip café", in: panel, library: false)
         XCTAssertTrue(board.waitForExistence(timeout: 5))
         XCTAssertEqual(boardCount(in: panel, library: false), initialBoards + 1)
