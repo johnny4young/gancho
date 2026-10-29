@@ -29,7 +29,7 @@ final class BoardNameUITests: XCTestCase {
         let nonce = UUID().uuidString
         app.launchArguments = [
             "-open-panel-on-launch", "-use-in-process-status-item", "-use-temp-durable-store",
-            "-seed-sample-clips", "-start-capture-paused", "-place-panel-for-ui-test",
+            "-seed-clip-editing", "-start-capture-paused", "-place-panel-for-ui-test",
             "-place-library-for-ui-test", "-suppress-storage-notice-for-ui-test",
             "-command-nonce", nonce, "-AppleLanguages", "(\(language))"
         ]
