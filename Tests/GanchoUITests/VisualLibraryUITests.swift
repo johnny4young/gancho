@@ -26,8 +26,10 @@ final class VisualLibraryUITests: XCTestCase {
         XCTAssertTrue(library.waitForExistence(timeout: 5))
         XCTAssertTrue(app.dialogs["history-panel"].waitForNonExistence(timeout: 5))
         let cards = library.buttons.matching(identifier: "library-clip")
-        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(cards.count, 4)
+        // The first card can appear before the rest, so wait for the full set.
+        let allCards = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "count == 4"), object: cards)
+        XCTAssertEqual(XCTWaiter.wait(for: [allCards], timeout: 5), .completed)
         XCTAssertEqual(
             cards.matching(NSPredicate(format: "label CONTAINS %@", "Hidden fixture title")).count,
             0)
@@ -76,8 +78,10 @@ final class VisualLibraryUITests: XCTestCase {
         let library = app.windows["Library"].firstMatch
         XCTAssertTrue(library.waitForExistence(timeout: 5))
         let cards = library.buttons.matching(identifier: "library-clip")
-        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(cards.count, 3)
+        // The first card can appear before the rest, so wait for the full set.
+        let allCards = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "count == 3"), object: cards)
+        XCTAssertEqual(XCTWaiter.wait(for: [allCards], timeout: 5), .completed)
         let card = cards.matching(NSPredicate(format: "label CONTAINS %@", "seed beta"))
             .firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 5))
