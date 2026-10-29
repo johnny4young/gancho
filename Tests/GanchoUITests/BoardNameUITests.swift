@@ -111,7 +111,7 @@ final class BoardNameUITests: XCTestCase {
 
         newBoard.click()
         let name = "Café 日本語"
-        try typeTextReliably("  " + name + "  ", into: prompt(app), in: app)
+        try typeTextReliably(" " + name + " ", into: prompt(app), in: app)
         XCTAssertTrue(confirmation(app, language: language).isEnabled)
         app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(app.sheets.firstMatch.waitForNonexistence(timeout: 5))
@@ -181,6 +181,11 @@ final class BoardNameUITests: XCTestCase {
         let board = board(named: "Clip café", in: panel, library: false)
         XCTAssertTrue(board.waitForExistence(timeout: 5))
         XCTAssertEqual(boardCount(in: panel, library: false), initialBoards + 1)
+        let filedCount = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label ENDSWITH %@", " · 1"), object: board)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [filedCount], timeout: 5), .completed,
+            "the new board's durable count must confirm the original clip was filed")
         XCTAssertEqual(rows.count, before, "creating from a clip must preserve history")
         board.click()
         let count = XCTNSPredicateExpectation(
