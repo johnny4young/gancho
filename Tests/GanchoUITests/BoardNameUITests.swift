@@ -103,6 +103,7 @@ final class BoardNameUITests: XCTestCase {
         defer { app.terminate() }
         let newBoard = window.buttons[library ? "library-new-board" : "board-new"].firstMatch
         XCTAssertTrue(newBoard.waitForExistence(timeout: 5))
+        let renderTarget = library ? (language == "en" ? "Library" : "Biblioteca") : "history-panel"
         let initialBoards = boardCount(in: window, library: library)
         newBoard.click()
         try rejectEmptyDrafts(app, language: language)
@@ -121,7 +122,7 @@ final class BoardNameUITests: XCTestCase {
             boardCount(in: window, library: library), initialBoards + 1,
             "invalid submissions must not create boards")
         try keepRender(
-            of: library ? window.label : "history-panel", in: app,
+            of: renderTarget, in: app,
             named: "\(language) Unicode board created once")
 
         board.rightClick()
@@ -142,6 +143,7 @@ final class BoardNameUITests: XCTestCase {
             self.board(named: renamed, in: window, library: library).waitForExistence(timeout: 5))
         XCTAssertFalse(board.exists)
         XCTAssertEqual(boardCount(in: window, library: library), initialBoards + 1)
+        try keepRender(of: renderTarget, in: app, named: "\(language) board renamed once")
     }
 
     @MainActor
@@ -153,10 +155,12 @@ final class BoardNameUITests: XCTestCase {
     @MainActor
     private func boardCount(in window: XCUIElement, library: Bool) -> Int {
         let prefix = library ? "library-board-" : "board-"
+        // Favorites is a builtin row loaded asynchronously, not a user board.
+        let favorites = prefix + "FA000000-0000-4000-A000-000000000001"
         return window.descendants(matching: .any).matching(
             NSPredicate(
-                format: "identifier BEGINSWITH %@ AND identifier MATCHES %@", prefix,
-                prefix + "[0-9A-Fa-f-]{36}")
+                format: "identifier BEGINSWITH %@ AND identifier MATCHES %@ AND identifier != %@",
+                prefix, prefix + "[0-9A-Fa-f-]{36}", favorites)
         ).count
     }
 
