@@ -1,3 +1,4 @@
+import GanchoAppCore
 import GanchoDesign
 import GanchoKit
 import SwiftUI
@@ -60,10 +61,7 @@ struct PanelSheetPresentations: ViewModifier {
                 TextField("Board name", text: $boardNameField)
                 Button("Cancel", role: .cancel) {}
                 Button(boardSheetConfirm) { commitBoardSheet() }
-                    .disabled(
-                        boardNameField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            } message: {
-                Text("Enter a name for this board.")
+                    .disabled(BoardsController.boardName(boardNameField) == nil)
             }
             .confirmationDialog(
                 "Delete this board?",

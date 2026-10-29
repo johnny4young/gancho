@@ -80,10 +80,6 @@ final class BoardNameUITests: XCTestCase {
         try keepRender(of: "@sheet", in: app, named: "\(language) blank board name")
         XCTAssertFalse(
             confirm.isEnabled, "a blank name must disable confirmation before submission")
-        let guidance =
-            language == "en"
-            ? "Enter a name for this board." : "Escribe un nombre para este tablero."
-        XCTAssertTrue(app.sheets.staticTexts[guidance].firstMatch.exists)
         app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(field.exists, "Return on an empty draft must preserve the prompt")
         try typeTextReliably("   ", into: field, in: app)

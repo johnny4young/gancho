@@ -157,9 +157,7 @@ struct LibraryView: View {
             TextField("Board name", text: $boardNameField)
             Button("Cancel", role: .cancel) {}
             Button(boardSheetConfirm) { commitLibraryBoardSheet() }
-                .disabled(boardNameField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        } message: {
-            Text("Enter a name for this board.")
+                .disabled(BoardsController.boardName(boardNameField) == nil)
         }
         .confirmationDialog(
             "Delete this board?",

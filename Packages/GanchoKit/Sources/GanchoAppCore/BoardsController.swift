@@ -41,6 +41,13 @@ import GanchoKit
 public struct BoardsController {
     public init() {}
 
+    /// The name a create or rename stores: `typed` trimmed, or nil when that
+    /// leaves nothing. Prompts use it to disable confirmation.
+    public nonisolated static func boardName(_ typed: String) -> String? {
+        let name = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
+    }
+
     /// The four ways `createBoard` can end, so the caller reproduces its
     /// platform's exact post-create refresh without the controller touching the
     /// shell's `boards`/`refreshRecents`/`search`:
@@ -106,8 +113,7 @@ public struct BoardsController {
         onAssigned: () -> Void
     ) async -> BoardCreateOutcome {
         // swiftlint:enable function_parameter_count
-        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return .noName }
+        guard let name = Self.boardName(name) else { return .noName }
         // The built-in Favorites board never counts against the free limit.
         // A read failure must not look like an empty store and bypass the gate.
         let count: Int
@@ -147,8 +153,7 @@ public struct BoardsController {
         engine: any SyncEngine
     ) async -> MutationOutcome {
         guard !board.isSystem else { return .noChange }
-        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return .noChange }
+        guard let name = Self.boardName(name) else { return .noChange }
         do {
             try await store.renameBoard(id: board.id, name: name)
         } catch {

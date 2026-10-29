@@ -1235,8 +1235,7 @@ struct PanelView: View {
     }
 
     private func commitBoardSheet() {
-        let name = boardNameField.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return }
+        guard let name = BoardsController.boardName(boardNameField) else { return }
         switch boardSheet {
         case .new:
             Task { await model.createBoard(named: name) }

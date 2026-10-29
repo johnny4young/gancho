@@ -8821,22 +8821,6 @@
         }
       }
     },
-    "Enter a name for this board." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter a name for this board."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Escribe un nombre para este tablero."
-          }
-        }
-      }
-    },
     "Enter a search; regex uses conventional results only.": {
       "localizations": {
         "en": {
